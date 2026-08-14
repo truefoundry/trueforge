@@ -7,10 +7,11 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateSkillRequestSchema,
+  GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
-  ListConfiguredSkillsResponseSchema,
-  PutSkillResponseSchema,
-  SkillManifestSchema,
+  ListSkillsResponseSchema,
+  PutSkillRequestSchema,
 } from '../schemas/skill';
 
 const SKILLS_TAG = 'Skills';
@@ -41,12 +42,12 @@ export const listConfiguredSkillsRoute = createRoute({
   path: '/',
   tags: [SKILLS_TAG],
   summary: 'List configured skills',
-  description: 'All configured skills with full manifests (settings / admin projection).',
+  description: 'All configured skills with nested manifests (settings / admin projection).',
   'x-fern-sdk-group-name': ['settings', 'skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
-      content: { 'application/json': { schema: ListConfiguredSkillsResponseSchema } },
+      content: { 'application/json': { schema: ListSkillsResponseSchema } },
       description: 'All configured skills.',
     },
     401: {
@@ -70,13 +71,13 @@ export const createSkillRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: SkillManifestSchema } },
+      content: { 'application/json': { schema: CreateSkillRequestSchema } },
       required: true,
     },
   },
   responses: {
-    200: {
-      content: { 'application/json': { schema: PutSkillResponseSchema } },
+    201: {
+      content: { 'application/json': { schema: GetSkillResponseSchema } },
       description: 'The created skill.',
     },
     400: {
@@ -100,13 +101,13 @@ export const putSkillRoute = createRoute({
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
-      content: { 'application/json': { schema: SkillManifestSchema } },
+      content: { 'application/json': { schema: PutSkillRequestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutSkillResponseSchema } },
+      content: { 'application/json': { schema: GetSkillResponseSchema } },
       description: 'The saved skill.',
     },
     400: {

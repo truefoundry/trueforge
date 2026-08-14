@@ -51,6 +51,18 @@ const putBodyWithHeaderAuthWire = {
   },
 };
 
+function wrapManifest(manifest: unknown) {
+  return { manifest };
+}
+
+function configured(manifest: { name: string } & Record<string, unknown>, status: string) {
+  return {
+    name: manifest.name,
+    manifest,
+    auth_status: { status },
+  };
+}
+
 function putInit(body: unknown): RequestInit {
   return {
     method: 'PUT',
@@ -151,16 +163,16 @@ describe('mcp-servers routers', () => {
   });
 
   it('PUT upserts a server and returns not_required auth_status for no-auth servers', async () => {
-    const response = await settingsRouter.request('/', putInit(putBody));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(putBody)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBody, auth_status: { status: 'not_required' } },
+      data: configured(putBody, 'not_required'),
     });
 
     const list = await settingsRouter.request('/');
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({
-      data: [{ ...putBody, auth_status: { status: 'not_required' } }],
+      data: [configured(putBody, 'not_required')],
     });
   });
 
@@ -171,13 +183,13 @@ describe('mcp-servers routers', () => {
       url: 'https://mcp.example.com/create-only',
       description: 'Create-only MCP server.',
     };
-    const created = await settingsRouter.request('/', postInit(createBody));
-    expect(created.status).toBe(200);
+    const created = await settingsRouter.request('/', postInit(wrapManifest(createBody)));
+    expect(created.status).toBe(201);
     expect(await created.json()).toEqual({
-      data: { ...createBody, auth_status: { status: 'not_required' } },
+      data: configured(createBody, 'not_required'),
     });
 
-    const clash = await settingsRouter.request('/', postInit(createBody));
+    const clash = await settingsRouter.request('/', postInit(wrapManifest(createBody)));
     expect(clash.status).toBe(409);
     expect(await clash.json()).toEqual({
       error: { message: 'MCP server name already exists: create-only-mcp' },
@@ -188,7 +200,7 @@ describe('mcp-servers routers', () => {
     const response = await settingsRouter.request(`/${putBody.name}`);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBody, auth_status: { status: 'not_required' } },
+      data: configured(putBody, 'not_required'),
     });
 
     const missing = await settingsRouter.request('/missing');
@@ -199,7 +211,7 @@ describe('mcp-servers routers', () => {
   });
 
   it('PUT with DCR fails registration without writing a server row', async () => {
-    const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(putBodyWithDcr)));
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({
       error: {
@@ -217,7 +229,7 @@ describe('mcp-servers routers', () => {
       description: 'Create DCR fail MCP server.',
       auth: { type: 'dcr' as const },
     };
-    const response = await settingsRouter.request('/', postInit(createDcr));
+    const response = await settingsRouter.request('/', postInit(wrapManifest(createDcr)));
     expect(response.status).toBe(422);
     expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: createDcr.name })).toBeUndefined();
   });
@@ -285,10 +297,10 @@ describe('mcp-servers routers', () => {
     });
 
     // A re-upsert preserves the id, so the PUT response must reflect the carried-over token.
-    const response = await settingsRouter.request('/', putInit(putBodyWithDcr));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(putBodyWithDcr)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBodyWithDcr, auth_status: { status: 'authenticated' } },
+      data: configured(putBodyWithDcr, 'authenticated'),
     });
 
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
@@ -353,19 +365,17 @@ describe('mcp-servers routers', () => {
     try {
       const response = await settingsRouter.request(
         '/',
-        putInit({
-          ...putBodyWithDcr,
-          url: newUrl,
-        }),
+        putInit(
+          wrapManifest({
+            ...putBodyWithDcr,
+            url: newUrl,
+          }),
+        ),
       );
       expect(response.status).toBe(200);
       // List/GET auth_status is presence-based; tokens are not cleared on re-DCR.
       expect(await response.json()).toEqual({
-        data: {
-          ...putBodyWithDcr,
-          url: newUrl,
-          auth_status: { status: 'authenticated' },
-        },
+        data: configured({ ...putBodyWithDcr, url: newUrl }, 'authenticated'),
       });
       expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toMatchObject({
         accessToken: 'stale-for-old-url',
@@ -400,10 +410,10 @@ describe('mcp-servers routers', () => {
   });
 
   it('PUT with header auth stores plaintext and returns redacted headers', async () => {
-    const response = await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBodyWithHeaderAuthWire, auth_status: { status: 'authenticated' } },
+      data: configured(putBodyWithHeaderAuthWire, 'authenticated'),
     });
 
     const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
@@ -419,13 +429,13 @@ describe('mcp-servers routers', () => {
         headers: { Authorization: HEADER_TOKEN_REDACTED },
       },
     };
-    const response = await settingsRouter.request('/', putInit(redactedOnly));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(redactedOnly)));
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: { message: 'Header secret is required' } });
   });
 
   it('PUT with a redacted header value keeps the stored secret', async () => {
-    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+    await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
 
     const keep = {
       ...putBodyWithHeaderAuth,
@@ -435,17 +445,19 @@ describe('mcp-servers routers', () => {
         headers: { Authorization: HEADER_TOKEN_REDACTED },
       },
     };
-    const response = await settingsRouter.request('/', putInit(keep));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(keep)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: {
-        ...keep,
-        auth: {
-          type: 'header',
-          headers: { Authorization: HEADER_TOKEN_REDACTED },
+      data: configured(
+        {
+          ...keep,
+          auth: {
+            type: 'header',
+            headers: { Authorization: HEADER_TOKEN_REDACTED },
+          },
         },
-        auth_status: { status: 'authenticated' },
-      },
+        'authenticated',
+      ),
     });
 
     const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
@@ -457,7 +469,7 @@ describe('mcp-servers routers', () => {
   });
 
   it('PUT with a different redacted header value still keeps the stored secret', async () => {
-    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+    await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
 
     // Any value containing ***REDACTED*** is treated as keep, not only the exact GET mask.
     const keep = {
@@ -468,17 +480,19 @@ describe('mcp-servers routers', () => {
         headers: { Authorization: 'oth-***REDACTED***-xxx' },
       },
     };
-    const response = await settingsRouter.request('/', putInit(keep));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(keep)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: {
-        ...keep,
-        auth: {
-          type: 'header',
-          headers: { Authorization: HEADER_TOKEN_REDACTED },
+      data: configured(
+        {
+          ...keep,
+          auth: {
+            type: 'header',
+            headers: { Authorization: HEADER_TOKEN_REDACTED },
+          },
         },
-        auth_status: { status: 'authenticated' },
-      },
+        'authenticated',
+      ),
     });
 
     const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
@@ -490,7 +504,7 @@ describe('mcp-servers routers', () => {
   });
 
   it('PUT with a real header value rotates the stored secret', async () => {
-    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+    await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
 
     const rotatedToken = 'Bearer rotated-token';
     const rotatedTokenRedacted = 'Bea-***REDACTED***-ken';
@@ -501,17 +515,19 @@ describe('mcp-servers routers', () => {
         headers: { Authorization: rotatedToken },
       },
     };
-    const response = await settingsRouter.request('/', putInit(rotated));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(rotated)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: {
-        ...rotated,
-        auth: {
-          type: 'header',
-          headers: { Authorization: rotatedTokenRedacted },
+      data: configured(
+        {
+          ...rotated,
+          auth: {
+            type: 'header',
+            headers: { Authorization: rotatedTokenRedacted },
+          },
         },
-        auth_status: { status: 'authenticated' },
-      },
+        'authenticated',
+      ),
     });
 
     const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
@@ -592,19 +608,21 @@ describe('mcp-servers routers', () => {
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
     const { url: _, ...withoutUrl } = putBody;
-    const missingUrl = await settingsRouter.request('/', putInit(withoutUrl));
+    const missingUrl = await settingsRouter.request('/', putInit(wrapManifest(withoutUrl)));
     expect(missingUrl.status).toBe(400);
 
-    const badName = await settingsRouter.request('/', putInit({ ...putBody, name: 'Not A Name' }));
+    const badName = await settingsRouter.request('/', putInit(wrapManifest({ ...putBody, name: 'Not A Name' })));
     expect(badName.status).toBe(400);
 
     const emptyHeaders = await settingsRouter.request(
       '/',
-      putInit({
-        ...putBodyWithHeaderAuth,
-        name: 'bad-empty-headers',
-        auth: { type: 'header', headers: {} },
-      }),
+      putInit(
+        wrapManifest({
+          ...putBodyWithHeaderAuth,
+          name: 'bad-empty-headers',
+          auth: { type: 'header', headers: {} },
+        }),
+      ),
     );
     expect(emptyHeaders.status).toBe(400);
   });
@@ -660,13 +678,15 @@ describe('mcp-servers routers', () => {
     try {
       const put = await settingsRouter.request(
         '/',
-        putInit({
-          type: 'remote',
-          name: 'failing-oauth-mcp',
-          url: mcpUrl,
-          description: 'Failing OAuth MCP server.',
-          auth: { type: 'dcr' },
-        }),
+        putInit(
+          wrapManifest({
+            type: 'remote',
+            name: 'failing-oauth-mcp',
+            url: mcpUrl,
+            description: 'Failing OAuth MCP server.',
+            auth: { type: 'dcr' },
+          }),
+        ),
       );
       // Registration fails before any DB write — no server exists to authorize.
       expect(put.status).toBe(422);
@@ -725,13 +745,15 @@ describe('mcp-servers routers', () => {
     try {
       const put = await settingsRouter.request(
         '/',
-        putInit({
-          type: 'remote',
-          name: 'oauth-mcp',
-          url: mcpUrl,
-          description: 'OAuth MCP server.',
-          auth: { type: 'dcr' },
-        }),
+        putInit(
+          wrapManifest({
+            type: 'remote',
+            name: 'oauth-mcp',
+            url: mcpUrl,
+            description: 'OAuth MCP server.',
+            auth: { type: 'dcr' },
+          }),
+        ),
       );
       expect(put.status).toBe(200);
 
@@ -782,7 +804,7 @@ describe('mcp-servers routers', () => {
     const response = await mcpServersRouter.request(`/${putBodyWithDcr.name}/authorize`, { method: 'DELETE' });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: { ...putBodyWithDcr, auth_status: { status: 'auth_required' } },
+      data: configured(putBodyWithDcr, 'auth_required'),
     });
     expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
     expect(await mcpServerStore.getClient({ id: record.id })).toEqual({
@@ -802,15 +824,15 @@ describe('mcp-servers routers', () => {
     const noAuth = await mcpServersRouter.request('/deepwiki/authorize', { method: 'DELETE' });
     expect(noAuth.status).toBe(200);
     expect(await noAuth.json()).toEqual({
-      data: { ...putBody, auth_status: { status: 'not_required' } },
+      data: configured(putBody, 'not_required'),
     });
 
     // Ensure header-auth fixture is present with a known secret (later tests may have rotated it).
-    await settingsRouter.request('/', putInit(putBodyWithHeaderAuth));
+    await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
     const headerAuth = await mcpServersRouter.request('/private-mcp/authorize', { method: 'DELETE' });
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({
-      data: { ...putBodyWithHeaderAuthWire, auth_status: { status: 'authenticated' } },
+      data: configured(putBodyWithHeaderAuthWire, 'authenticated'),
     });
 
     const missing = await mcpServersRouter.request('/missing/authorize', { method: 'DELETE' });

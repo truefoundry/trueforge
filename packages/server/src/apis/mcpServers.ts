@@ -19,7 +19,14 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import { getMcpConnection } from '../runtime/sessionResources';
-import type { ConfiguredMcpServer, McpAuthStatus, McpServerManifest, McpServerReadEntry } from '../schemas/mcpServer';
+import type {
+  ConfiguredMcpServer,
+  CreateMcpServerRequest,
+  McpAuthStatus,
+  McpServerManifest,
+  McpServerReadEntry,
+  PutMcpServerRequest,
+} from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
@@ -100,7 +107,8 @@ function toConfiguredMcpServer({
   token: OAuthToken | undefined;
 }): ConfiguredMcpServer {
   return {
-    ...redactMcpServerManifest(record.manifest),
+    name: record.name,
+    manifest: redactMcpServerManifest(record.manifest),
     auth_status: resolveMcpAuthStatus({
       manifest: record.manifest,
       ...(token !== undefined ? { token } : {}),
@@ -156,7 +164,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   };
 
   const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
-    const incomingManifest: McpServerManifest = c.req.valid('json');
+    const body: CreateMcpServerRequest = c.req.valid('json');
+    const incomingManifest = body.manifest;
 
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
     let dcrClientToSave: OAuthClientRecord | undefined;
@@ -207,7 +216,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
         return saved;
       });
 
-      return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
+      return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 201);
     } catch (error) {
       if (error instanceof McpServerNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
@@ -218,7 +227,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const incomingManifest: McpServerManifest = c.req.valid('json');
+    const body: PutMcpServerRequest = c.req.valid('json');
+    const incomingManifest = body.manifest;
 
     try {
       // Lock → resolve secrets → DCR (if needed) → upsert + saveClient in one txn.

@@ -64,11 +64,15 @@ function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?:
   };
 }
 
-function putInit(body: unknown): RequestInit {
+function wrapManifest(manifest: unknown) {
+  return { manifest };
+}
+
+function putInit(manifest: unknown): RequestInit {
   return {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(wrapManifest(manifest)),
   };
 }
 

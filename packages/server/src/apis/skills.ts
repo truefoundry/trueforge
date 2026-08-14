@@ -7,7 +7,7 @@ import {
   listConfiguredSkillsRoute,
   putSkillRoute,
 } from '../routes/skillRoutes';
-import type { ConfiguredSkill, SkillManifest } from '../schemas/skill';
+import type { ConfiguredSkill, CreateSkillRequest, PutSkillRequest } from '../schemas/skill';
 import { TENANT_ID } from './sessions';
 
 export interface SkillsRouterDeps<TTransaction> {
@@ -15,11 +15,11 @@ export interface SkillsRouterDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
 }
 
-/** Wire view of a stored skill: identity `name` plus persisted manifest. */
+/** Wire view of a stored skill: identity `name` plus nested manifest. */
 function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
   return {
-    ...record.manifest,
     name: record.name,
+    manifest: record.manifest,
   };
 }
 
@@ -31,14 +31,15 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   };
 
   const createHandler: RouteHandler<typeof createSkillRoute> = async c => {
-    const manifest: SkillManifest = c.req.valid('json');
+    const body: CreateSkillRequest = c.req.valid('json');
+    const manifest = body.manifest;
     try {
       const record = await deps.skillStore.createSkill({
         tenant_id: TENANT_ID,
         name: manifest.name,
         manifest,
       });
-      return c.json({ data: toConfiguredSkill(record) }, 200);
+      return c.json({ data: toConfiguredSkill(record) }, 201);
     } catch (error) {
       if (error instanceof SkillNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
@@ -48,7 +49,8 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   };
 
   const putHandler: RouteHandler<typeof putSkillRoute> = async c => {
-    const manifest: SkillManifest = c.req.valid('json');
+    const body: PutSkillRequest = c.req.valid('json');
+    const manifest = body.manifest;
     const record = await deps.skillStore.upsertSkill({
       tenant_id: TENANT_ID,
       name: manifest.name,

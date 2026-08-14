@@ -3,38 +3,18 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AlibabaModelProvider } from "./AlibabaModelProvider.js";
-import { AnthropicModelProvider } from "./AnthropicModelProvider.js";
-import { CustomModelProvider } from "./CustomModelProvider.js";
-import { FireworksModelProvider } from "./FireworksModelProvider.js";
-import { GoogleGeminiModelProvider } from "./GoogleGeminiModelProvider.js";
-import { MoonshotModelProvider } from "./MoonshotModelProvider.js";
-import { OpenAiModelProvider } from "./OpenAiModelProvider.js";
-import { TogetherAiModelProvider } from "./TogetherAiModelProvider.js";
-import { ZaiModelProvider } from "./ZaiModelProvider.js";
+import { ModelProviderManifest } from "./ModelProviderManifest.js";
+import { ResourceName } from "./ResourceName.js";
 
-export const ModelProvider: core.serialization.Schema<serializers.ModelProvider.Raw, TrueForge.ModelProvider> =
-    core.serialization.undiscriminatedUnion([
-        AlibabaModelProvider,
-        AnthropicModelProvider,
-        CustomModelProvider,
-        FireworksModelProvider,
-        GoogleGeminiModelProvider,
-        MoonshotModelProvider,
-        OpenAiModelProvider,
-        TogetherAiModelProvider,
-        ZaiModelProvider,
-    ]);
+export const ModelProvider: core.serialization.ObjectSchema<serializers.ModelProvider.Raw, TrueForge.ModelProvider> =
+    core.serialization.object({
+        manifest: ModelProviderManifest,
+        name: ResourceName,
+    });
 
 export declare namespace ModelProvider {
-    export type Raw =
-        | AlibabaModelProvider.Raw
-        | AnthropicModelProvider.Raw
-        | CustomModelProvider.Raw
-        | FireworksModelProvider.Raw
-        | GoogleGeminiModelProvider.Raw
-        | MoonshotModelProvider.Raw
-        | OpenAiModelProvider.Raw
-        | TogetherAiModelProvider.Raw
-        | ZaiModelProvider.Raw;
+    export interface Raw {
+        manifest: ModelProviderManifest.Raw;
+        name: ResourceName.Raw;
+    }
 }

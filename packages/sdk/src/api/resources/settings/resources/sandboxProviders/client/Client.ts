@@ -111,7 +111,7 @@ export class SandboxProvidersClient {
     /**
      * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
-     * @param {TrueForge.SandboxProviderManifest} request
+     * @param {TrueForge.settings.PutSandboxProviderRequest} request
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -121,27 +121,29 @@ export class SandboxProvidersClient {
      *
      * @example
      *     await client.settings.sandboxProviders.upsert({
-     *         auth: {
-     *             apiKey: "api_key"
-     *         },
-     *         autoArchiveIntervalInMinutes: 1,
-     *         autoDeleteIntervalInMinutes: 1,
-     *         autoStopIntervalInMinutes: 1,
-     *         execTimeoutMs: 1,
-     *         type: "daytona"
+     *         manifest: {
+     *             auth: {
+     *                 apiKey: "api_key"
+     *             },
+     *             autoArchiveIntervalInMinutes: 1,
+     *             autoDeleteIntervalInMinutes: 1,
+     *             autoStopIntervalInMinutes: 1,
+     *             execTimeoutMs: 1,
+     *             type: "daytona"
+     *         }
      *     })
      */
     public upsert(
-        request: TrueForge.SandboxProviderManifest,
+        request: TrueForge.settings.PutSandboxProviderRequest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutSandboxProviderResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetSandboxProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueForge.SandboxProviderManifest,
+        request: TrueForge.settings.PutSandboxProviderRequest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutSandboxProviderResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetSandboxProviderResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -160,7 +162,7 @@ export class SandboxProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.SandboxProviderManifest.jsonOrThrow(request, {
+                serializers.settings.PutSandboxProviderRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -176,7 +178,7 @@ export class SandboxProvidersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutSandboxProviderResponse.parseOrThrow(_response.body, {
+                data: serializers.GetSandboxProviderResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

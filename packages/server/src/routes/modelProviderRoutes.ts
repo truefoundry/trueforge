@@ -6,9 +6,10 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateModelProviderRequestSchema,
+  GetModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
-  ModelProviderSchema,
-  PutModelProviderResponseSchema,
+  PutModelProviderRequestSchema,
 } from '../schemas/modelProvider';
 
 const MODEL_PROVIDERS_TAG = 'Model Providers';
@@ -18,7 +19,7 @@ export const listModelProvidersRoute = createRoute({
   path: '/',
   tags: [MODEL_PROVIDERS_TAG],
   summary: 'List configured model providers',
-  description: 'All configured providers with their models.',
+  description: 'All configured providers with nested manifests.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
@@ -49,13 +50,13 @@ export const createModelProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'create',
   request: {
     body: {
-      content: { 'application/json': { schema: ModelProviderSchema } },
+      content: { 'application/json': { schema: CreateModelProviderRequestSchema } },
       required: true,
     },
   },
   responses: {
-    200: {
-      content: { 'application/json': { schema: PutModelProviderResponseSchema } },
+    201: {
+      content: { 'application/json': { schema: GetModelProviderResponseSchema } },
       description: 'The created provider',
     },
     400: {
@@ -81,13 +82,13 @@ export const putModelProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'upsert',
   request: {
     body: {
-      content: { 'application/json': { schema: ModelProviderSchema } },
+      content: { 'application/json': { schema: PutModelProviderRequestSchema } },
       required: true,
     },
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutModelProviderResponseSchema } },
+      content: { 'application/json': { schema: GetModelProviderResponseSchema } },
       description: 'The saved provider',
     },
     400: {

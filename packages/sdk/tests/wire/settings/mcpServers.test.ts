@@ -12,12 +12,9 @@ describe("McpServersClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    auth: { type: "dcr" },
                     auth_status: { status: "authenticated" },
-                    description: "description",
+                    manifest: { description: "description", name: "name", type: "remote", url: "url" },
                     name: "name",
-                    type: "remote",
-                    url: "url",
                 },
             ],
         };
@@ -34,16 +31,16 @@ describe("McpServersClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    auth: {
-                        type: "dcr",
-                    },
                     authStatus: {
                         status: "authenticated",
                     },
-                    description: "description",
+                    manifest: {
+                        description: "description",
+                        name: "name",
+                        type: "remote",
+                        url: "url",
+                    },
                     name: "name",
-                    type: "remote",
-                    url: "url",
                 },
             ],
         });
@@ -90,15 +87,18 @@ describe("McpServersClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "description", name: "name", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "description", name: "name", type: "remote", url: "url" } };
         const rawResponseBody = {
             data: {
-                auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
-                description: "description",
+                manifest: {
+                    auth: { type: "dcr" },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
                 name: "name",
-                type: "remote",
-                url: "url",
             },
         };
 
@@ -112,23 +112,29 @@ describe("McpServersClient", () => {
             .build();
 
         const response = await client.settings.mcpServers.create({
-            description: "description",
-            name: "name",
-            url: "url",
-        });
-        expect(response).toEqual({
-            data: {
-                auth: {
-                    type: "dcr",
-                },
-                authStatus: {
-                    authorizationUrl: "authorization_url",
-                    status: "authenticated",
-                },
+            manifest: {
                 description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
+            },
+        });
+        expect(response).toEqual({
+            data: {
+                authStatus: {
+                    authorizationUrl: "authorization_url",
+                    status: "authenticated",
+                },
+                manifest: {
+                    auth: {
+                        type: "dcr",
+                    },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
+                name: "name",
             },
         });
     });
@@ -136,7 +142,7 @@ describe("McpServersClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -150,9 +156,12 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.create({
-                description: "x",
-                name: "xy",
-                url: "url",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
@@ -160,7 +169,7 @@ describe("McpServersClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -174,9 +183,12 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.create({
-                description: "x",
-                name: "xy",
-                url: "url",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
@@ -184,7 +196,7 @@ describe("McpServersClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -198,9 +210,12 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.create({
-                description: "x",
-                name: "xy",
-                url: "url",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
@@ -208,15 +223,18 @@ describe("McpServersClient", () => {
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "description", name: "name", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "description", name: "name", type: "remote", url: "url" } };
         const rawResponseBody = {
             data: {
-                auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
-                description: "description",
+                manifest: {
+                    auth: { type: "dcr" },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
                 name: "name",
-                type: "remote",
-                url: "url",
             },
         };
 
@@ -230,23 +248,29 @@ describe("McpServersClient", () => {
             .build();
 
         const response = await client.settings.mcpServers.upsert({
-            description: "description",
-            name: "name",
-            url: "url",
-        });
-        expect(response).toEqual({
-            data: {
-                auth: {
-                    type: "dcr",
-                },
-                authStatus: {
-                    authorizationUrl: "authorization_url",
-                    status: "authenticated",
-                },
+            manifest: {
                 description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
+            },
+        });
+        expect(response).toEqual({
+            data: {
+                authStatus: {
+                    authorizationUrl: "authorization_url",
+                    status: "authenticated",
+                },
+                manifest: {
+                    auth: {
+                        type: "dcr",
+                    },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
+                name: "name",
             },
         });
     });
@@ -254,7 +278,7 @@ describe("McpServersClient", () => {
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -268,9 +292,12 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.upsert({
-                description: "x",
-                name: "xy",
-                url: "url",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
@@ -278,7 +305,7 @@ describe("McpServersClient", () => {
     test("upsert (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -292,9 +319,12 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.upsert({
-                description: "x",
-                name: "xy",
-                url: "url",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
@@ -305,12 +335,15 @@ describe("McpServersClient", () => {
 
         const rawResponseBody = {
             data: {
-                auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
-                description: "description",
+                manifest: {
+                    auth: { type: "dcr" },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
                 name: "name",
-                type: "remote",
-                url: "url",
             },
         };
 
@@ -325,17 +358,20 @@ describe("McpServersClient", () => {
         const response = await client.settings.mcpServers.get("name");
         expect(response).toEqual({
             data: {
-                auth: {
-                    type: "dcr",
-                },
                 authStatus: {
                     authorizationUrl: "authorization_url",
                     status: "authenticated",
                 },
-                description: "description",
+                manifest: {
+                    auth: {
+                        type: "dcr",
+                    },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
                 name: "name",
-                type: "remote",
-                url: "url",
             },
         });
     });

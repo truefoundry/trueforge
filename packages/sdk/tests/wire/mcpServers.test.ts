@@ -179,12 +179,15 @@ describe("McpServersClient", () => {
 
         const rawResponseBody = {
             data: {
-                auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
-                description: "description",
+                manifest: {
+                    auth: { type: "dcr" },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
                 name: "name",
-                type: "remote",
-                url: "url",
             },
         };
 
@@ -199,17 +202,20 @@ describe("McpServersClient", () => {
         const response = await client.mcpServers.deleteAuthorize("name");
         expect(response).toEqual({
             data: {
-                auth: {
-                    type: "dcr",
-                },
                 authStatus: {
                     authorizationUrl: "authorization_url",
                     status: "authenticated",
                 },
-                description: "description",
+                manifest: {
+                    auth: {
+                        type: "dcr",
+                    },
+                    description: "description",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
                 name: "name",
-                type: "remote",
-                url: "url",
             },
         });
     });

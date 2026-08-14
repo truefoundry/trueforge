@@ -74,12 +74,14 @@ describe("SandboxProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "api_key" },
-            auto_archive_interval_in_minutes: 1,
-            auto_delete_interval_in_minutes: 1,
-            auto_stop_interval_in_minutes: 1,
-            exec_timeout_ms: 1,
-            type: "daytona",
+            manifest: {
+                auth: { api_key: "api_key" },
+                auto_archive_interval_in_minutes: 1,
+                auto_delete_interval_in_minutes: 1,
+                auto_stop_interval_in_minutes: 1,
+                exec_timeout_ms: 1,
+                type: "daytona",
+            },
         };
         const rawResponseBody = {
             data: {
@@ -106,14 +108,16 @@ describe("SandboxProvidersClient", () => {
             .build();
 
         const response = await client.settings.sandboxProviders.upsert({
-            auth: {
-                apiKey: "api_key",
+            manifest: {
+                auth: {
+                    apiKey: "api_key",
+                },
+                autoArchiveIntervalInMinutes: 1,
+                autoDeleteIntervalInMinutes: 1,
+                autoStopIntervalInMinutes: 1,
+                execTimeoutMs: 1,
+                type: "daytona",
             },
-            autoArchiveIntervalInMinutes: 1,
-            autoDeleteIntervalInMinutes: 1,
-            autoStopIntervalInMinutes: 1,
-            execTimeoutMs: 1,
-            type: "daytona",
         });
         expect(response).toEqual({
             data: {
@@ -137,12 +141,14 @@ describe("SandboxProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "x" },
-            auto_archive_interval_in_minutes: 1,
-            auto_delete_interval_in_minutes: 1,
-            auto_stop_interval_in_minutes: 1,
-            exec_timeout_ms: 1,
-            type: "daytona",
+            manifest: {
+                auth: { api_key: "x" },
+                auto_archive_interval_in_minutes: 1,
+                auto_delete_interval_in_minutes: 1,
+                auto_stop_interval_in_minutes: 1,
+                exec_timeout_ms: 1,
+                type: "daytona",
+            },
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -157,14 +163,16 @@ describe("SandboxProvidersClient", () => {
 
         await expect(async () => {
             return await client.settings.sandboxProviders.upsert({
-                auth: {
-                    apiKey: "x",
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    autoArchiveIntervalInMinutes: 1,
+                    autoDeleteIntervalInMinutes: 1,
+                    autoStopIntervalInMinutes: 1,
+                    execTimeoutMs: 1,
+                    type: "daytona",
                 },
-                autoArchiveIntervalInMinutes: 1,
-                autoDeleteIntervalInMinutes: 1,
-                autoStopIntervalInMinutes: 1,
-                execTimeoutMs: 1,
-                type: "daytona",
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
@@ -173,12 +181,14 @@ describe("SandboxProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "x" },
-            auto_archive_interval_in_minutes: 1,
-            auto_delete_interval_in_minutes: 1,
-            auto_stop_interval_in_minutes: 1,
-            exec_timeout_ms: 1,
-            type: "daytona",
+            manifest: {
+                auth: { api_key: "x" },
+                auto_archive_interval_in_minutes: 1,
+                auto_delete_interval_in_minutes: 1,
+                auto_stop_interval_in_minutes: 1,
+                exec_timeout_ms: 1,
+                type: "daytona",
+            },
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -193,14 +203,16 @@ describe("SandboxProvidersClient", () => {
 
         await expect(async () => {
             return await client.settings.sandboxProviders.upsert({
-                auth: {
-                    apiKey: "x",
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    autoArchiveIntervalInMinutes: 1,
+                    autoDeleteIntervalInMinutes: 1,
+                    autoStopIntervalInMinutes: 1,
+                    execTimeoutMs: 1,
+                    type: "daytona",
                 },
-                autoArchiveIntervalInMinutes: 1,
-                autoDeleteIntervalInMinutes: 1,
-                autoStopIntervalInMinutes: 1,
-                execTimeoutMs: 1,
-                type: "daytona",
             });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });

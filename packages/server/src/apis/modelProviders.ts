@@ -1,12 +1,22 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { ModelProviderNameConflictError, type IModelProviderStore } from '../db/modelProviderStore';
+import {
+  ModelProviderNameConflictError,
+  type IModelProviderStore,
+  type ModelProviderRecord,
+} from '../db/modelProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createModelProviderRoute,
   listModelProvidersRoute,
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
-import { modelProviderName, type ModelProvider } from '../schemas/modelProvider';
+import {
+  modelProviderName,
+  type CreateModelProviderRequest,
+  type ModelProvider,
+  type ModelProviderManifest,
+  type PutModelProviderRequest,
+} from '../schemas/modelProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -15,7 +25,7 @@ export interface ModelProvidersRouterDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
 }
 
-function redactModelProvider(manifest: ModelProvider): ModelProvider {
+function redactModelProvider(manifest: ModelProviderManifest): ModelProviderManifest {
   if (manifest.auth === undefined) {
     return manifest;
   }
@@ -29,9 +39,9 @@ function resolveModelProviderManifestForWrite({
   incoming,
   existing,
 }: {
-  incoming: ModelProvider;
-  existing: ModelProvider | undefined;
-}): ModelProvider {
+  incoming: ModelProviderManifest;
+  existing: ModelProviderManifest | undefined;
+}): ModelProviderManifest {
   if (incoming.auth === undefined) {
     return incoming;
   }
@@ -46,20 +56,28 @@ function resolveModelProviderManifestForWrite({
   };
 }
 
+function toWireProvider(record: ModelProviderRecord): ModelProvider {
+  return {
+    name: record.name,
+    manifest: redactModelProvider(record.manifest),
+  };
+}
+
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);
-    return c.json({ data: records.map(record => redactModelProvider(record.manifest)) }, 200);
+    return c.json({ data: records.map(toWireProvider) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createModelProviderRoute> = async c => {
-    const provider = c.req.valid('json');
+    const body: CreateModelProviderRequest = c.req.valid('json');
+    const provider = body.manifest;
     const name = modelProviderName(provider);
     try {
       // Create has no prior row; redacted keep resolves to MissingStoredSecretError → 400.
       const manifest = resolveModelProviderManifestForWrite({ incoming: provider, existing: undefined });
       const record = await deps.modelProviderStore.createProvider({ tenant_id: TENANT_ID, name, manifest });
-      return c.json({ data: redactModelProvider(record.manifest) }, 200);
+      return c.json({ data: toWireProvider(record) }, 201);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);
@@ -72,7 +90,8 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
-    const provider = c.req.valid('json');
+    const body: PutModelProviderRequest = c.req.valid('json');
+    const provider = body.manifest;
     const name = modelProviderName(provider);
     try {
       // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
@@ -88,7 +107,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
         });
         return deps.modelProviderStore.upsertProvider({ tenant_id: TENANT_ID, name, manifest }, transaction);
       });
-      return c.json({ data: redactModelProvider(record.manifest) }, 200);
+      return c.json({ data: toWireProvider(record) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);

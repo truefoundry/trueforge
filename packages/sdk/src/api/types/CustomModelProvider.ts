@@ -8,7 +8,6 @@ export interface CustomModelProvider {
     baseUrl: string;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ModelEntry[];
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
     type: "custom";
 }

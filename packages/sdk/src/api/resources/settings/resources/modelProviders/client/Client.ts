@@ -24,7 +24,7 @@ export class ModelProvidersClient {
     }
 
     /**
-     * All configured providers with their models.
+     * All configured providers with nested manifests.
      *
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -123,7 +123,7 @@ export class ModelProvidersClient {
     /**
      * Creates a provider (models included). Fails if `name` is already taken. Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value required; redacted with no stored secret returns 400.
      *
-     * @param {TrueForge.ModelProvider} request
+     * @param {TrueForge.settings.CreateModelProviderRequest} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -133,28 +133,30 @@ export class ModelProvidersClient {
      *
      * @example
      *     await client.settings.modelProviders.create({
-     *         auth: {
-     *             apiKey: "api_key"
-     *         },
-     *         models: [{
-     *                 modelId: "model_id",
-     *                 name: "name",
-     *                 properties: {}
-     *             }],
-     *         type: "alibaba"
+     *         manifest: {
+     *             auth: {
+     *                 apiKey: "api_key"
+     *             },
+     *             models: [{
+     *                     modelId: "model_id",
+     *                     name: "name",
+     *                     properties: {}
+     *                 }],
+     *             type: "alibaba"
+     *         }
      *     })
      */
     public create(
-        request: TrueForge.ModelProvider,
+        request: TrueForge.settings.CreateModelProviderRequest,
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutModelProviderResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetModelProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__create(request, requestOptions));
     }
 
     private async __create(
-        request: TrueForge.ModelProvider,
+        request: TrueForge.settings.CreateModelProviderRequest,
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutModelProviderResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetModelProviderResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -173,7 +175,7 @@ export class ModelProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.ModelProvider.jsonOrThrow(request, {
+                serializers.settings.CreateModelProviderRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -189,7 +191,7 @@ export class ModelProvidersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutModelProviderResponse.parseOrThrow(_response.body, {
+                data: serializers.GetModelProviderResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -244,7 +246,7 @@ export class ModelProvidersClient {
     /**
      * Create or replace a provider (models included). Well-known types use `type` as `name` (one each); `custom` is named by the caller. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
-     * @param {TrueForge.ModelProvider} request
+     * @param {TrueForge.settings.PutModelProviderRequest} request
      * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -253,28 +255,30 @@ export class ModelProvidersClient {
      *
      * @example
      *     await client.settings.modelProviders.upsert({
-     *         auth: {
-     *             apiKey: "api_key"
-     *         },
-     *         models: [{
-     *                 modelId: "model_id",
-     *                 name: "name",
-     *                 properties: {}
-     *             }],
-     *         type: "alibaba"
+     *         manifest: {
+     *             auth: {
+     *                 apiKey: "api_key"
+     *             },
+     *             models: [{
+     *                     modelId: "model_id",
+     *                     name: "name",
+     *                     properties: {}
+     *                 }],
+     *             type: "alibaba"
+     *         }
      *     })
      */
     public upsert(
-        request: TrueForge.ModelProvider,
+        request: TrueForge.settings.PutModelProviderRequest,
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.PutModelProviderResponse> {
+    ): core.HttpResponsePromise<TrueForge.GetModelProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
     }
 
     private async __upsert(
-        request: TrueForge.ModelProvider,
+        request: TrueForge.settings.PutModelProviderRequest,
         requestOptions?: ModelProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.PutModelProviderResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetModelProviderResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -293,7 +297,7 @@ export class ModelProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.ModelProvider.jsonOrThrow(request, {
+                serializers.settings.PutModelProviderRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -309,7 +313,7 @@ export class ModelProvidersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.PutModelProviderResponse.parseOrThrow(_response.body, {
+                data: serializers.GetModelProviderResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

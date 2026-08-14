@@ -5,8 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface McpServerReadEntry {
     auth?: TrueForge.McpServerAuthPublic;
     authStatus: TrueForge.McpAuthStatus;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
     /** URL of the remote MCP server. */
     url: string;
 }

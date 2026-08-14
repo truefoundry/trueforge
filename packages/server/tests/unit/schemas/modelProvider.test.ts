@@ -1,10 +1,10 @@
 import { VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
-import { ModelProviderSchema, modelProviderName } from '../../../src/schemas/modelProvider';
+import { ModelProviderManifestSchema, modelProviderName } from '../../../src/schemas/modelProvider';
 
 const models = [{ model_id: 'a-model', name: 'a-model', properties: {} }];
 
 function parse(body: Record<string, unknown>): { success: boolean; name?: string; base_url?: string } {
-  const result = ModelProviderSchema.safeParse({ auth: { api_key: 'k' }, models, ...body });
+  const result = ModelProviderManifestSchema.safeParse({ auth: { api_key: 'k' }, models, ...body });
   return result.success
     ? { success: true, name: modelProviderName(result.data), base_url: result.data.base_url }
     : { success: false };
@@ -18,7 +18,7 @@ function providerFor(type: string, body: Record<string, unknown> = {}): Record<s
   return { type, ...(CALLER_SUPPLIED_TYPES.includes(type) ? { name: 'internal' } : {}), ...body };
 }
 
-describe('ModelProviderSchema', () => {
+describe('ModelProviderManifestSchema', () => {
   // A type with no schema of its own leaves its catalog entries unconfigurable.
   it('can configure every adapter the harness can build', () => {
     const rejected = VERCEL_AI_PROVIDER_NAMES.filter(

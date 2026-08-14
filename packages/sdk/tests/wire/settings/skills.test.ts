@@ -10,7 +10,12 @@ describe("SkillsClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" }],
+            data: [
+                {
+                    manifest: { description: "description", name: "name", ref: "ref", type: "git", url: "url" },
+                    name: "name",
+                },
+            ],
         };
 
         server
@@ -25,12 +30,14 @@ describe("SkillsClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    description: "description",
+                    manifest: {
+                        description: "description",
+                        name: "name",
+                        ref: "ref",
+                        type: "git",
+                        url: "url",
+                    },
                     name: "name",
-                    path: "path",
-                    ref: "ref",
-                    type: "git",
-                    url: "url",
                 },
             ],
         });
@@ -77,9 +84,21 @@ describe("SkillsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "description", name: "name", ref: "ref", type: "git", url: "url" };
+        const rawRequestBody = {
+            manifest: { description: "description", name: "name", ref: "ref", type: "git", url: "url" },
+        };
         const rawResponseBody = {
-            data: { description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" },
+            data: {
+                manifest: {
+                    description: "description",
+                    name: "name",
+                    path: "path",
+                    ref: "ref",
+                    type: "git",
+                    url: "url",
+                },
+                name: "name",
+            },
         };
 
         server
@@ -92,20 +111,25 @@ describe("SkillsClient", () => {
             .build();
 
         const response = await client.settings.skills.create({
-            description: "description",
-            name: "name",
-            ref: "ref",
-            type: "git",
-            url: "url",
-        });
-        expect(response).toEqual({
-            data: {
+            manifest: {
                 description: "description",
                 name: "name",
-                path: "path",
                 ref: "ref",
                 type: "git",
                 url: "url",
+            },
+        });
+        expect(response).toEqual({
+            data: {
+                manifest: {
+                    description: "description",
+                    name: "name",
+                    path: "path",
+                    ref: "ref",
+                    type: "git",
+                    url: "url",
+                },
+                name: "name",
             },
         });
     });
@@ -113,7 +137,7 @@ describe("SkillsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -127,11 +151,13 @@ describe("SkillsClient", () => {
 
         await expect(async () => {
             return await client.settings.skills.create({
-                description: "x",
-                name: "xy",
-                ref: "x",
-                type: "git",
-                url: "x",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    ref: "x",
+                    type: "git",
+                    url: "x",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
@@ -139,7 +165,7 @@ describe("SkillsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -153,11 +179,13 @@ describe("SkillsClient", () => {
 
         await expect(async () => {
             return await client.settings.skills.create({
-                description: "x",
-                name: "xy",
-                ref: "x",
-                type: "git",
-                url: "x",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    ref: "x",
+                    type: "git",
+                    url: "x",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
@@ -165,9 +193,21 @@ describe("SkillsClient", () => {
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "description", name: "name", ref: "ref", type: "git", url: "url" };
+        const rawRequestBody = {
+            manifest: { description: "description", name: "name", ref: "ref", type: "git", url: "url" },
+        };
         const rawResponseBody = {
-            data: { description: "description", name: "name", path: "path", ref: "ref", type: "git", url: "url" },
+            data: {
+                manifest: {
+                    description: "description",
+                    name: "name",
+                    path: "path",
+                    ref: "ref",
+                    type: "git",
+                    url: "url",
+                },
+                name: "name",
+            },
         };
 
         server
@@ -180,20 +220,25 @@ describe("SkillsClient", () => {
             .build();
 
         const response = await client.settings.skills.upsert({
-            description: "description",
-            name: "name",
-            ref: "ref",
-            type: "git",
-            url: "url",
-        });
-        expect(response).toEqual({
-            data: {
+            manifest: {
                 description: "description",
                 name: "name",
-                path: "path",
                 ref: "ref",
                 type: "git",
                 url: "url",
+            },
+        });
+        expect(response).toEqual({
+            data: {
+                manifest: {
+                    description: "description",
+                    name: "name",
+                    path: "path",
+                    ref: "ref",
+                    type: "git",
+                    url: "url",
+                },
+                name: "name",
             },
         });
     });
@@ -201,7 +246,7 @@ describe("SkillsClient", () => {
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { description: "x", name: "xy", ref: "x", type: "git", url: "x" };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -215,11 +260,13 @@ describe("SkillsClient", () => {
 
         await expect(async () => {
             return await client.settings.skills.upsert({
-                description: "x",
-                name: "xy",
-                ref: "x",
-                type: "git",
-                url: "x",
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    ref: "x",
+                    type: "git",
+                    url: "x",
+                },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
