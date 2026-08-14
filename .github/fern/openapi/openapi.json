@@ -2705,24 +2705,6 @@
         },
         "type": "object"
       },
-      "SandboxBuildMetadata": {
-        "additionalProperties": false,
-        "properties": {
-          "build_ref": {
-            "description": "Provider build handle derived from the image digest (e.g. Daytona snapshot name).",
-            "type": "string"
-          },
-          "image_uri": {
-            "description": "Full reference of the release sandbox image this build refers to.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "build_ref",
-          "image_uri"
-        ],
-        "type": "object"
-      },
       "SandboxBuildStatus": {
         "description": "Current build status.",
         "enum": [
@@ -2913,9 +2895,6 @@
       "SandboxProviderResponse": {
         "additionalProperties": false,
         "properties": {
-          "build_metadata": {
-            "$ref": "#/components/schemas/SandboxBuildMetadata"
-          },
           "manifest": {
             "$ref": "#/components/schemas/SandboxProviderManifest"
           },
@@ -2933,8 +2912,7 @@
         "required": [
           "manifest",
           "status",
-          "status_reason",
-          "build_metadata"
+          "status_reason"
         ],
         "type": "object"
       },

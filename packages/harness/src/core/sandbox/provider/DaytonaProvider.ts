@@ -242,7 +242,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   private toBuild(state: Snapshot['state'], errorReason: string | null): SandboxBuild {
-    const metadata = { buildRef: this.buildRef, imageUri: this.imageUri };
+    const metadata = { build_ref: this.buildRef, image_uri: this.imageUri };
     switch (state) {
       case BUILD_STATE_ACTIVE:
         return { status: 'ready', reason: null, metadata };
@@ -279,7 +279,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     return {
       status: 'pending',
       reason: 'Sandbox image build started.',
-      metadata: { buildRef: this.buildRef, imageUri: this.imageUri },
+      metadata: { build_ref: this.buildRef, image_uri: this.imageUri },
     };
   }
 
@@ -290,7 +290,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       return {
         status: 'pending',
         reason: 'Sandbox image build not started.',
-        metadata: { buildRef: this.buildRef, imageUri: this.imageUri },
+        metadata: { build_ref: this.buildRef, image_uri: this.imageUri },
       };
     }
     return this.toBuild(snapshot.state, snapshot.errorReason);

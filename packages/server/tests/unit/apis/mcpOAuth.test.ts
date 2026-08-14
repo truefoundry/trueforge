@@ -104,7 +104,6 @@ describe('MCP OAuth authorize + callback', () => {
     oauthRouter = createMcpOAuthRouter({
       tokenStore,
       mcpServerStore,
-      withTransaction,
       logger,
     });
   });

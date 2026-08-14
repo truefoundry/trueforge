@@ -6,20 +6,22 @@ import { sql, type Kysely } from 'kysely';
  * orphan refs stay NULL.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
-  await sql`
-    ALTER TABLE session
-      ADD COLUMN agent_name TEXT
-  `.execute(db);
-  await sql`
-    UPDATE session
-    SET agent_name = (
-      SELECT a.name
-      FROM agent AS a
-      WHERE a.id = session.agent_id
-        AND a.tenant_id = session.tenant_id
-    )
-    WHERE agent_id IS NOT NULL
-  `.execute(db);
+  await db.transaction().execute(async trx => {
+    await sql`
+      ALTER TABLE session
+        ADD COLUMN agent_name TEXT
+    `.execute(trx);
+    await sql`
+      UPDATE session
+      SET agent_name = (
+        SELECT a.name
+        FROM agent AS a
+        WHERE a.id = session.agent_id
+          AND a.tenant_id = session.tenant_id
+      )
+      WHERE agent_id IS NOT NULL
+    `.execute(trx);
+  });
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

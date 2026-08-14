@@ -254,7 +254,7 @@ export const authorizeMcpServerRoute = createRoute({
   },
 });
 
-export const deleteMcpServerAuthRoute = createRoute({
+export const deleteAuthorizeMcpServerRoute = createRoute({
   method: 'delete',
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],

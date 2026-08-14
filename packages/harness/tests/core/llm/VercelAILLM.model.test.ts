@@ -4,7 +4,7 @@
  * resolveMaxOutputTokens, and buildStreamTextArgs (key presence under
  * exactOptionalPropertyTypes).
  */
-import type { VercelAIProviderConfig } from '../../../src/core/llm/VercelAILLM';
+import type { VercelAIProviderConfig, VercelAIProviderName } from '../../../src/core/llm/VercelAILLM';
 import {
   buildLanguageModel,
   buildStreamTextArgs,
@@ -13,9 +13,20 @@ import {
 } from '../../../src/core/llm/VercelAILLM';
 
 function makeConfig(
-  overrides: Partial<VercelAIProviderConfig> & { provider: VercelAIProviderConfig['provider'] },
+  overrides: Omit<Partial<VercelAIProviderConfig>, 'provider' | 'model'> & {
+    provider: VercelAIProviderName;
+    model?: VercelAIProviderConfig['model'];
+  },
 ): VercelAIProviderConfig {
-  return { name: 'test', modelId: 'test-model', apiKey: 'sk-test', headers: {}, ...overrides };
+  const { provider, model, ...rest } = overrides;
+  return {
+    name: 'test',
+    model: model ?? { id: 'test-model', name: 'test-model' },
+    apiKey: 'sk-test',
+    headers: {},
+    ...rest,
+    provider: { type: provider, name: provider },
+  };
 }
 
 // ─────────── buildLanguageModel ───────────
@@ -46,14 +57,20 @@ describe('buildLanguageModel', () => {
   });
 
   it('throws for unknown provider string (exhaustive default branch)', () => {
-    const badConfig = JSON.parse('{"provider":"unknown-provider","name":"x","apiKey":"k","headers":{}}');
+    const badConfig = JSON.parse(
+      '{"provider":{"type":"unknown-provider","name":"x"},"name":"x","model":{"id":"m","name":"m"},"apiKey":"k","headers":{}}',
+    );
     expect(() => buildLanguageModel(badConfig)).toThrow('Unknown provider');
   });
 
-  // `name` carries the provider-qualified alias, which no provider would accept as a model id.
-  it('sends modelId, never name', () => {
+  // Display `name` is not a model id; only `model.id` is sent to the adapter.
+  it('sends model.id, never display name', () => {
     const model: unknown = buildLanguageModel(
-      makeConfig({ provider: 'anthropic', name: 'anthropic/alias', modelId: 'claude-sonnet-5' }),
+      makeConfig({
+        provider: 'anthropic',
+        name: 'anthropic/alias',
+        model: { id: 'claude-sonnet-5', name: 'alias' },
+      }),
     );
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');

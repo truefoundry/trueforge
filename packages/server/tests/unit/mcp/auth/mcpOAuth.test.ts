@@ -30,8 +30,6 @@ function newStores(): Stores {
   return { tokenStore: new InMemoryOAuthTokenStore(), mcpServerStore: new InMemoryOAuthClientStore() };
 }
 
-const withNoTransaction = <T>(callback: (transaction: undefined) => Promise<T>) => callback(undefined);
-
 const CLIENT_NAME = 'harness';
 const SERVER_URL = 'https://mcp.example.com/sse';
 const AS_ORIGIN = 'https://auth.example.com';
@@ -303,18 +301,16 @@ describe('createMcpOAuthClient / ensureMcpClientRegistered', () => {
 
 describe('buildMcpAuthorizationUrl', () => {
   it('saves pending authorization with PKCE when the AS advertises S256', async () => {
-    const { tokenStore, mcpServerStore } = newStores();
-    await mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
+    const { tokenStore } = newStores();
     stubOauthFetch({});
 
     const authUrl = await buildMcpAuthorizationUrl({
       tokenStore,
-      mcpServerStore,
+      client: sampleClient,
       serverId: SERVER_ID,
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      clientName: CLIENT_NAME,
       redirectUrl: 'https://app.example.com/after',
     });
 
@@ -340,23 +336,19 @@ describe('buildMcpAuthorizationUrl', () => {
   });
 
   it('still uses PKCE S256 when the AS does not advertise code_challenge_methods', async () => {
-    const { tokenStore, mcpServerStore } = newStores();
-    await mcpServerStore.saveClient({
-      id: SERVER_ID,
-      record: {
-        ...sampleClient,
-        server: { ...sampleClient.server, codeChallengeMethodsSupported: null },
-      },
-    });
+    const { tokenStore } = newStores();
+    const client: OAuthClientRecord = {
+      ...sampleClient,
+      server: { ...sampleClient.server, codeChallengeMethodsSupported: null },
+    };
 
     const authUrl = await buildMcpAuthorizationUrl({
       tokenStore,
-      mcpServerStore,
+      client,
       serverId: SERVER_ID,
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      clientName: CLIENT_NAME,
     });
 
     expect(authUrl.searchParams.get('code_challenge_method')).toBe('S256');
@@ -380,24 +372,20 @@ describe('buildMcpAuthorizationUrl', () => {
   });
 
   it('throws when stored client metadata lists only non-S256 methods', async () => {
-    const { tokenStore, mcpServerStore } = newStores();
-    await mcpServerStore.saveClient({
-      id: SERVER_ID,
-      record: {
-        ...sampleClient,
-        server: { ...sampleClient.server, codeChallengeMethodsSupported: ['plain'] },
-      },
-    });
+    const { tokenStore } = newStores();
+    const client: OAuthClientRecord = {
+      ...sampleClient,
+      server: { ...sampleClient.server, codeChallengeMethodsSupported: ['plain'] },
+    };
 
     await expect(
       buildMcpAuthorizationUrl({
         tokenStore,
-        mcpServerStore,
+        client,
         serverId: SERVER_ID,
         userRef: USER_REF,
         mcpServerUrl: SERVER_URL,
         mcpServerName: SERVER_NAME,
-        clientName: CLIENT_NAME,
       }),
     ).rejects.toMatchObject({
       name: 'McpConnectionError',
@@ -622,7 +610,12 @@ describe('completeMcpAuthorization', () => {
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
 
     const authUrl = await buildMcpAuthorizationUrl({
-      ...resolveParams(stores),
+      tokenStore: stores.tokenStore,
+      client: sampleClient,
+      serverId: SERVER_ID,
+      userRef: USER_REF,
+      mcpServerUrl: SERVER_URL,
+      mcpServerName: SERVER_NAME,
       redirectUrl: 'https://app.example.com/connected',
     });
     const state = authUrl.searchParams.get('state')!;
@@ -646,7 +639,6 @@ describe('completeMcpAuthorization', () => {
     await completeMcpAuthorization({
       tokenStore: stores.tokenStore,
       mcpServerStore: stores.mcpServerStore,
-      withTransaction: withNoTransaction,
       pending,
       code: 'auth-code-1',
     });
@@ -674,7 +666,6 @@ describe('completeMcpAuthorization', () => {
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
-        withTransaction: withNoTransaction,
         pending: {
           state: 'state-1',
           id: SERVER_ID,
@@ -693,17 +684,15 @@ describe('completeMcpAuthorization', () => {
 
   it('clears client state on invalid_client and surfaces a re-connect error', async () => {
     const stores = newStores();
-    const deleteToken = jest.spyOn(stores.tokenStore, 'deleteToken');
     const deleteClient = jest.spyOn(stores.mcpServerStore, 'deleteClient');
-    const transaction = {};
-    let withTransactionCalls = 0;
-    const withTransaction = <T>(callback: (transaction: object) => Promise<T>) => {
-      withTransactionCalls += 1;
-      return callback(transaction);
-    };
     await stores.mcpServerStore.saveClient({ id: SERVER_ID, record: sampleClient });
     const authUrl = await buildMcpAuthorizationUrl({
-      ...resolveParams(stores),
+      tokenStore: stores.tokenStore,
+      client: sampleClient,
+      serverId: SERVER_ID,
+      userRef: USER_REF,
+      mcpServerUrl: SERVER_URL,
+      mcpServerName: SERVER_NAME,
       redirectUrl: 'https://app.example.com/after',
     });
     const state = authUrl.searchParams.get('state')!;
@@ -725,7 +714,6 @@ describe('completeMcpAuthorization', () => {
       completeMcpAuthorization({
         tokenStore: stores.tokenStore,
         mcpServerStore: stores.mcpServerStore,
-        withTransaction,
         pending,
         code: 'auth-code-1',
       }),
@@ -733,11 +721,8 @@ describe('completeMcpAuthorization', () => {
       name: 'McpConnectionError',
       message: expect.stringContaining('registration is invalid'),
     });
-    expect(withTransactionCalls).toBe(1);
-    expect(deleteToken).toHaveBeenCalledWith({ id: SERVER_ID, userRef: USER_REF }, transaction);
-    expect(deleteClient).toHaveBeenCalledWith({ id: SERVER_ID }, transaction);
+    expect(deleteClient).toHaveBeenCalledWith({ id: SERVER_ID });
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
-    expect(await stores.tokenStore.getToken({ id: SERVER_ID, userRef: USER_REF })).toBeUndefined();
   });
 });
 

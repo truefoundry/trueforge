@@ -47,11 +47,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       {
         data: {
           manifest: redactSandboxProvider(record.manifest),
-          ...(status ?? {
-            status: record.status,
-            status_reason: record.status_reason,
-            build_metadata: record.build_metadata,
-          }),
+          status: status?.status ?? record.status,
+          status_reason: status?.status_reason ?? record.status_reason,
         },
       },
       200,
@@ -84,7 +81,16 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         );
         return { manifest: resolved, status: built };
       });
-      return c.json({ data: { manifest: redactSandboxProvider(manifest), ...status } }, 200);
+      return c.json(
+        {
+          data: {
+            manifest: redactSandboxProvider(manifest),
+            status: status.status,
+            status_reason: status.status_reason,
+          },
+        },
+        200,
+      );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);

@@ -24,36 +24,33 @@
         ]
       },
       "Agent": {
-        "allOf": [
-          {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Immutable server-generated agent identifier.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "manifest": {
             "$ref": "#/components/schemas/AgentSpec"
           },
-          {
-            "properties": {
-              "id": {
-                "description": "Immutable server-generated agent identifier.",
-                "minLength": 1,
-                "type": "string"
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
               },
-              "name": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/ResourceName"
-                  },
-                  {
-                    "description": "Immutable unique agent name within the tenant."
-                  }
-                ]
+              {
+                "description": "Fully qualified name. Unique within a tenant."
               }
-            },
-            "required": [
-              "id",
-              "name"
-            ],
-            "type": "object"
+            ]
           }
+        },
+        "required": [
+          "id",
+          "name",
+          "manifest"
         ],
-        "description": "Complete agent definition used inline on a session or saved as a named agent."
+        "type": "object"
       },
       "AgentInfo": {
         "properties": {
@@ -181,32 +178,6 @@
           "content"
         ],
         "type": "object"
-      },
-      "AgentWriteRequest": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/AgentSpec"
-          },
-          {
-            "properties": {
-              "name": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/ResourceName"
-                  },
-                  {
-                    "description": "Fully qualified name. Unique within a tenant."
-                  }
-                ]
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "type": "object"
-          }
-        ],
-        "description": "Complete agent definition used inline on a session or saved as a named agent."
       },
       "AlibabaModelProvider": {
         "additionalProperties": false,
@@ -441,11 +412,6 @@
             "exclusiveMinimum": 0,
             "type": "integer"
           },
-          "snapshot_name": {
-            "description": "Daytona snapshot used when creating sandboxes.",
-            "minLength": 1,
-            "type": "string"
-          },
           "type": {
             "description": "Daytona sandbox provider.",
             "enum": [
@@ -456,7 +422,6 @@
         },
         "required": [
           "type",
-          "snapshot_name",
           "exec_timeout_ms",
           "auto_stop_interval_in_minutes",
           "auto_archive_interval_in_minutes",
@@ -808,14 +773,26 @@
         },
         "type": "object"
       },
-      "CreateAgentResponse": {
+      "CreateAgentRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Agent"
+          "manifest": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "name": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ResourceName"
+              },
+              {
+                "description": "Fully qualified name. Unique within a tenant."
+              }
+            ]
           }
         },
         "required": [
-          "data"
+          "name",
+          "manifest"
         ],
         "type": "object"
       },
@@ -944,56 +921,6 @@
         ],
         "type": "object"
       },
-      "DaytonaSandboxProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
-          },
-          "auto_archive_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_delete_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_stop_interval_in_minutes": {
-            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "exec_timeout_ms": {
-            "description": "Default sandbox command exec timeout in milliseconds.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "snapshot_name": {
-            "description": "Daytona snapshot used when creating sandboxes.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "Daytona sandbox provider.",
-            "enum": [
-              "daytona"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "snapshot_name",
-          "auth",
-          "exec_timeout_ms",
-          "auto_stop_interval_in_minutes",
-          "auto_archive_interval_in_minutes",
-          "auto_delete_interval_in_minutes"
-        ],
-        "type": "object"
-      },
       "DaytonaSandboxProviderAuth": {
         "additionalProperties": false,
         "description": "Daytona authentication credentials.",
@@ -1007,6 +934,10 @@
         "required": [
           "api_key"
         ],
+        "type": "object"
+      },
+      "DeleteAgentResponse": {
+        "properties": {},
         "type": "object"
       },
       "DynamicSubAgentsConfig": {
@@ -1249,7 +1180,7 @@
       "GetSandboxProviderResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+            "$ref": "#/components/schemas/SandboxProviderResponse"
           }
         },
         "required": [
@@ -2491,14 +2422,15 @@
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
       },
-      "PutAgentResponse": {
+      "PutAgentRequest": {
+        "additionalProperties": false,
         "properties": {
-          "data": {
-            "$ref": "#/components/schemas/Agent"
+          "manifest": {
+            "$ref": "#/components/schemas/AgentSpec"
           }
         },
         "required": [
-          "data"
+          "manifest"
         ],
         "type": "object"
       },
@@ -2527,7 +2459,7 @@
       "PutSandboxProviderResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+            "$ref": "#/components/schemas/SandboxProviderResponse"
           }
         },
         "required": [
@@ -2773,6 +2705,15 @@
         },
         "type": "object"
       },
+      "SandboxBuildStatus": {
+        "description": "Current build status.",
+        "enum": [
+          "pending",
+          "ready",
+          "failed"
+        ],
+        "type": "string"
+      },
       "SandboxConfig": {
         "default": {
           "enabled": false,
@@ -2905,6 +2846,74 @@
             "type": "array"
           }
         },
+        "type": "object"
+      },
+      "SandboxProviderManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
+          },
+          "auto_archive_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_delete_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_stop_interval_in_minutes": {
+            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "exec_timeout_ms": {
+            "description": "Default sandbox command exec timeout in milliseconds.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "description": "Daytona sandbox provider.",
+            "enum": [
+              "daytona"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "auth",
+          "exec_timeout_ms",
+          "auto_stop_interval_in_minutes",
+          "auto_archive_interval_in_minutes",
+          "auto_delete_interval_in_minutes"
+        ],
+        "type": "object"
+      },
+      "SandboxProviderResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxProviderManifest"
+          },
+          "status": {
+            "$ref": "#/components/schemas/SandboxBuildStatus"
+          },
+          "status_reason": {
+            "description": "Human-readable detail for the current status; null when ready.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "manifest",
+          "status",
+          "status_reason"
+        ],
         "type": "object"
       },
       "Session": {
@@ -4044,49 +4053,6 @@
           }
         ]
       },
-      "UpdateAgentRequest": {
-        "description": "Complete agent definition used inline on a session or saved as a named agent.",
-        "properties": {
-          "config": {
-            "$ref": "#/components/schemas/RuntimeConfig"
-          },
-          "instructions": {
-            "description": "Optional system prompt — the agent's role, behavior, and constraints.",
-            "type": "string"
-          },
-          "mcp_servers": {
-            "description": "Optional MCP servers attached by configured name.",
-            "items": {
-              "$ref": "#/components/schemas/MCPServer"
-            },
-            "type": "array"
-          },
-          "messages": {
-            "description": "Optional seed user messages injected at the start of every session.",
-            "items": {
-              "$ref": "#/components/schemas/AgentSpecUserMessage"
-            },
-            "type": "array"
-          },
-          "model": {
-            "$ref": "#/components/schemas/AgentSpecModel"
-          },
-          "response_format": {
-            "$ref": "#/components/schemas/ResponseFormat"
-          },
-          "skills": {
-            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
-            "items": {
-              "$ref": "#/components/schemas/SkillNameRef"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "model"
-        ],
-        "type": "object"
-      },
       "UpdateSessionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4298,18 +4264,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AgentWriteRequest"
+                "$ref": "#/components/schemas/CreateAgentRequest"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateAgentResponse"
+                  "$ref": "#/components/schemas/GetAgentResponse"
                 }
               }
             },
@@ -4374,7 +4340,14 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAgentResponse"
+                }
+              }
+            },
             "description": "Agent deleted."
           },
           "401": {
@@ -4443,26 +4416,20 @@
           "agents"
         ],
         "x-fern-sdk-method-name": "get"
-      }
-    },
-    "/api/v1/agents/{name}": {
+      },
       "put": {
-        "description": "Replaces the AgentSpec for an existing agent keyed by immutable `name`.",
+        "description": "Replaces the manifest for an existing agent keyed by immutable `agent_id`.",
         "parameters": [
           {
-            "description": "Immutable unique agent name within the tenant.",
+            "description": "Immutable agent identifier.",
             "in": "path",
-            "name": "name",
+            "name": "agent_id",
             "required": true,
             "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ResourceName"
-                },
-                {
-                  "description": "Immutable unique agent name within the tenant."
-                }
-              ]
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
             }
           }
         ],
@@ -4470,7 +4437,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateAgentRequest"
+                "$ref": "#/components/schemas/PutAgentRequest"
               }
             }
           },
@@ -4481,7 +4448,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PutAgentResponse"
+                  "$ref": "#/components/schemas/GetAgentResponse"
                 }
               }
             },
@@ -6819,7 +6786,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DaytonaSandboxProvider"
+                "$ref": "#/components/schemas/SandboxProviderManifest"
               }
             }
           },
@@ -6845,6 +6812,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Daytona rejected the provided API key."
           }
         },
         "summary": "Create or replace the sandbox provider",

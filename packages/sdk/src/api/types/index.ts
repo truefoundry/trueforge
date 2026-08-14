@@ -124,7 +124,6 @@ export * from "./ResponseFormatJsonSchema.js";
 export * from "./ResponseFormatJsonSchemaJsonSchema.js";
 export * from "./ResponseFormatText.js";
 export * from "./RuntimeConfig.js";
-export * from "./SandboxBuildMetadata.js";
 export * from "./SandboxBuildStatus.js";
 export * from "./SandboxConfig.js";
 export * from "./SandboxCreatedEvent.js";
