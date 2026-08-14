@@ -64,89 +64,104 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
 ## Build your first agent
 
-With TrueForge open in your browser, this walkthrough takes you from an empty workspace to a saved, reusable agent. The example builds a **GitHub repo explainer** — an agent that turns any public repo into a one-page PDF brief.
+With TrueForge open in your browser, this walkthrough takes you from an empty workspace to a saved, reusable agent. The example builds a **web research briefer** — an agent that searches the web, fans out to parallel subagents, and turns its findings into an interactive one-page brief.
 
 <Steps>
   <Step title="Add a model provider">
-    Open **Settings → Models**, pick a provider from the catalog, and paste your API key. Its models become available immediately.
+    Open **Settings → Models**, find a provider in the catalog, and click **Configure**. Paste your API key in **Configure Provider Details** and click **Create** — the provider's models become available immediately.
 
-    <Frame>
-      <img src="/images/quickstart-models.png" alt="Settings → Models with the OpenAI provider expanded, showing an API key field and a Create button" />
-    </Frame>
+    <Columns cols={2}>
+      <Frame caption="Pick a provider from the catalog.">
+        ![Settings → Models listing providers such as OpenAI, Anthropic, and Google, each with a Configure button](/images/quickstart-models.png)
+      </Frame>
+      <Frame caption="Paste an API key and click Create.">
+        ![The Configure Provider Details dialog with an API key field and a collapsed Advanced custom endpoint section](/images/quickstart-model-configure.png)
+      </Frame>
+    </Columns>
   </Step>
 
-  <Step title="Connect a tool">
-    Open **Settings → Connectors** and add a [Model Context Protocol (MCP)](/mcp-servers) server — this is how your agent reaches external tools and data. TrueForge ships a catalog you can connect in one click (some use OAuth, some an API key, some need no auth), and you can register your own server by URL with **Add MCP Server**.
+  <Step title="Connect a web-search tool">
+    Open **Settings → Connectors** and add a [Model Context Protocol (MCP)](/mcp-servers) server — this is how your agent reaches external tools and data. TrueForge ships a catalog you can connect in one click; each entry shows its auth type (OAuth, an API key, or none), and you can register your own server by URL with **Add MCP Server**.
 
-    For this walkthrough, connect **DeepWiki** — it needs no authentication and lets the agent read and answer questions about any public GitHub repo. Find it in the catalog and click **Connect**.
+    For this walkthrough, connect **Exa** — a web-search server that needs no authentication. Find it in the catalog and click **Connect**; it moves to **Configured**.
 
     <Frame>
-      <img src="/images/quickstart-connectors.png" alt="Settings → Connectors with DeepWiki connected, above a catalog of more MCP servers" />
+      ![Settings → Connectors with Exa connected, above a catalog of more MCP servers labelled by auth type](/images/quickstart-connectors.png)
     </Frame>
   </Step>
 
   <Step title="Add a skill">
     Open **Settings → Skills**. A [skill](/skills) is a git-backed `SKILL.md` instruction pack the agent loads on demand. Enable one from the built-in list, or click **Import from GitHub** to add a skill from any public repository.
 
-    For this walkthrough, import the **pdf** skill so the agent can turn its findings into a PDF. Click **Import from GitHub** and fill in:
+    For this walkthrough, enable **web-artifacts-builder** from the built-in list — it lets the agent turn its findings into a self-contained, interactive web page. Click **Enable**; it moves to **Enabled**.
 
-    - **Name** — `pdf`
-    - **Description** — `Use this skill whenever the user wants to do anything with PDF files`
-    - **Repository URL** — `https://github.com/anthropics/skills`
-    - **Path** — `skills/pdf`
-    - **Ref** — `main`
-
-    Click **Import**; the skill moves to **Selected**.
-
-    <Frame caption="Import from GitHub — point TrueForge at a SKILL.md in any public repo.">
-      <img src="/images/quickstart-skill-1.png" alt="The Import from GitHub dialog filled in for the pdf skill" />
+    <Frame>
+      ![Settings → Skills with web-artifacts-builder enabled, above the built-in skill catalog](/images/quickstart-skill.png)
     </Frame>
   </Step>
 
-  <Step title="Add a sandbox provider (optional)">
-    A [sandbox](/sandbox) lets the agent run code, work with files, and use skills. TrueForge supports [Daytona](https://www.daytona.io) today. It's a one-time setup:
+  <Step title="Add a sandbox provider">
+    A [sandbox](/sandbox) lets the agent run code, work with files, and use skills — so it's required for the skill you just enabled. TrueForge supports [Daytona](https://www.daytona.io) today. It's a one-time setup:
 
     1. **Create a Daytona API key** with permission to write and delete snapshots and write sandboxes.
-    2. **Add the provider** under **Settings → Sandbox providers** — choose Daytona and enter your API key.
+    2. Open **Settings → Sandbox providers**, choose **Daytona**, click **Configure**, paste your API key, and click **Save**.
 
-    <Frame>
-      <img src="/images/quickstart-sandbox.png" alt="The Configure Daytona dialog: snapshot name, API key, and a collapsed Advanced settings section" />
-    </Frame>
+    <Columns cols={2}>
+      <Frame caption="Paste your Daytona API key.">
+        ![The Configure Daytona dialog with an API key field and a collapsed Advanced settings section](/images/quickstart-sandbox-configure.png)
+      </Frame>
+      <Frame caption="Connected and ready.">
+        ![Settings → Sandbox providers showing Daytona as Connected](/images/quickstart-sandbox-connected.png)
+      </Frame>
+    </Columns>
 
     See the [Sandbox guide](/sandbox) for provider setup details.
   </Step>
 
   <Step title="Compose an agent and start chatting">
-    Back in the chat, assemble the agent for this conversation, then send your first message.
+    Back in the chat, assemble the agent for this conversation. Pick a model from the selector in the composer, then open the **Tools** menu and set three things:
 
-    1. **Pick a model** from the selector in the composer.
-    2. Open the **+** menu → **Connectors** and enable the MCP server you connected.
-    3. In the same menu → **Skills**, enable your skill.
-    4. **Send your first message.**
+    - **Connectors** — enable **Exa**.
+    - **Skills** — enable **web-artifacts-builder**.
+    - **Capabilities** — leave **Dynamic sub-agents** on (it's the default). This lets the agent research each item in parallel instead of one at a time.
 
-    For example, paste this to try the GitHub repo explainer:
+    <Columns cols={3}>
+      <Frame caption="Connectors">
+        ![The composer Tools menu on the Connectors tab with Exa enabled](/images/quickstart-compose-connectors.png)
+      </Frame>
+      <Frame caption="Skills">
+        ![The Tools menu on the Skills tab with web-artifacts-builder enabled](/images/quickstart-compose-skills.png)
+      </Frame>
+      <Frame caption="Capabilities">
+        ![The Tools menu on the Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on](/images/quickstart-compose-capabilities.png)
+      </Frame>
+    </Columns>
+
+    Then send your first message. For example:
 
     ```text
-    Use DeepWiki to explain the truefoundry/models repository — what it does, its architecture, and how to get started. Then use the pdf skill to save a one-page brief as a PDF.
+    Research the current state of open-source vector databases. Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.
     ```
 
-    <Frame caption="The agent runs — here it used the connector, the sandbox, and the pdf skill to generate a one-page brief.">
-      <img src="/images/quickstart-chat-result.png" alt="A completed chat where the agent generated a one-page PDF brief, with one connector and one skill active" />
+    The agent searches with Exa, delegates each database to a parallel subagent, and uses **web-artifacts-builder** in the sandbox to render an interactive brief.
+
+    <Frame caption="The result — an interactive brief the agent built from its web research: a comparison, feature chips, and a strengths chart.">
+      ![A chat result showing an interactive comparison of Qdrant, Weaviate, and Milvus with license badges, feature chips, Performance/Features/Licensing tabs, and a radar chart of relative strengths](/images/quickstart-chat-result.png)
     </Frame>
   </Step>
 
   <Step title="Save it as an agent">
-    Happy with the setup? Click **Save as agent**, enter a name and system instructions, and click **Save** — this captures the model, connectors, skills, and prompt together as a reusable agent. For this example:
+    Happy with the setup? Click **Save Agent**, then in **Save agent** give it a name and instructions and click **Save changes** — this captures the model, connectors, skills, and prompt together as a reusable agent. For this example:
 
-    - **Name** — `github-repo-explainer`
-    - **System instructions** —
+    - **Name** — `web-research-brief`
+    - **Instructions** —
 
     ```text
-    You are a GitHub repo explainer. Given a public repository, use DeepWiki to understand what it does and how it's structured, then produce a clear one-page PDF brief covering its purpose, architecture, and how to run it.
+    You are a web research assistant. Given a topic or question, use Exa to search the web and pull content from the most relevant, recent sources. When the request compares several items, research each one in parallel, then synthesize the findings into a clear one-page brief.
     ```
 
     <Frame>
-      <img src="/images/quickstart-save-agent.png" alt="The Save as agent dialog with a name and system instructions" />
+      ![The Save agent dialog with a name, instructions, and a configuration summary of model, connectors, and skills](/images/quickstart-save-agent.png)
     </Frame>
   </Step>
 
@@ -154,7 +169,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     Open **Agents Library** from the sidebar. Your saved agent is there — click **Try** to start a fresh chat with the same setup, or **Edit** to tweak it. See [Agent Library](/agent-library) for shared-visibility notes in hosted mode.
 
     <Frame>
-      <img src="/images/quickstart-agents-library.png" alt="The Agents Library listing the saved github-repo-explainer agent with Edit and Try actions" />
+      ![The Agents Library listing the saved web-research-brief agent with Edit and Try actions](/images/quickstart-agents-library.png)
     </Frame>
   </Step>
 </Steps>
