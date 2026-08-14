@@ -42,16 +42,6 @@ const readyBuild: SandboxBuild = {
   reason: null,
   metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: IMAGE_URI },
 };
-const pendingBuild: SandboxBuild = {
-  status: 'pending',
-  reason: 'Sandbox image build started.',
-  metadata: readyBuild.metadata,
-};
-const failedBuild: SandboxBuild = {
-  status: 'failed',
-  reason: 'Sandbox image build failed: Access denied',
-  metadata: readyBuild.metadata,
-};
 const expectedStatus = {
   status: 'ready' as const,
   status_reason: null,
@@ -182,29 +172,6 @@ describe('sandboxProviders router', () => {
     );
     expect((await router.request('/', putInit(putBody))).status).toBe(422);
     expect((await router.request('/')).status).toBe(404);
-  });
-
-  it('PUT persists failed once the backgrounded build is rejected', async () => {
-    const { settingsRouter: router, sandboxProviderStore: store } = await createRouters();
-    let reportFailure: ((build: SandboxBuild) => Promise<void>) | undefined;
-    mockProviderFactory.mockImplementation((options: { onBuildFailure?: (build: SandboxBuild) => Promise<void> }) => {
-      reportFailure = options.onBuildFailure;
-      return stubProvider({ buildImage: jest.fn().mockResolvedValue(pendingBuild) });
-    });
-
-    const put = await router.request('/', putInit(putBody));
-    expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({
-      data: { ...putBodyWire, status: 'pending', status_reason: pendingBuild.reason },
-    });
-
-    // Daytona rejects the create only after buildImage has already answered `pending`.
-    expect(reportFailure).toBeDefined();
-    await reportFailure?.(failedBuild);
-
-    const stored = await store.getSandboxProvider(TENANT_ID);
-    expect(stored?.status).toBe('failed');
-    expect(stored?.status_reason).toBe(failedBuild.reason);
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {

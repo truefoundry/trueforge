@@ -228,7 +228,6 @@ export async function resolveSandboxProvider({
     tenant_id,
     logger,
     build_metadata: record.build_metadata,
-    onBuildFailure: undefined,
   });
 }
 

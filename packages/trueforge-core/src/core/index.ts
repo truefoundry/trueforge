@@ -143,7 +143,7 @@ export type { CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';
 export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema } from './sandbox/codeMode/types';
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
-export type { DaytonaBuildFailureHandler, DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
+export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
   ExecErrorResult,

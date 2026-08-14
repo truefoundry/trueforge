@@ -7,7 +7,6 @@ import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sand
 import {
   checkSnapshotStatus,
   isDaytonaAuthError,
-  persistBuildFailure,
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
@@ -15,7 +14,7 @@ import type { PutSandboxProviderRequest, SandboxProviderManifest } from '../sche
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
-/** Cap the Daytona build kickoff so a slow/unreachable provider can't hold the request (or DB txn) open. */
+/** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
 const BUILD_REQUEST_TIMEOUT_MS = 3_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
@@ -80,9 +79,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           tenant_id: TENANT_ID,
           logger: deps.logger,
           ...(locked ? { build_metadata: locked.build_metadata } : {}),
-          onBuildFailure: build =>
-            persistBuildFailure({ store: deps.sandboxProviderStore, tenant_id: TENANT_ID, build }),
         });
+        // Awaits register-only POST (~1s). Auth failures throw here → 422 below; progress is on GET.
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
