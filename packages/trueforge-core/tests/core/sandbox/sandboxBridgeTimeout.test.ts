@@ -64,6 +64,11 @@ describe('Code Mode timeouts', () => {
   it('derives the Code Mode wait from MCP request + connect plus a buffer', async () => {
     let capturedTimeoutSeconds: number | undefined;
     const transport: CodeModeTransport = {
+      getClientInstall: () => ({
+        content: '#!/usr/bin/env python3\nprint("mock")\n',
+        remotePath: '/opt/tfy/mcp-client/mcp_client.py',
+        pathBinSymlink: '/usr/local/bin/mcp-client',
+      }),
       start: params => {
         capturedTimeoutSeconds = params.requestTimeoutSeconds;
         return Promise.resolve({

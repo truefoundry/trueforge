@@ -16,14 +16,24 @@ import {
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
-import type { CodeModeTransport } from './codeMode/CodeModeTransport';
+import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { SANDBOX_FILE_UPLOADS_DIR } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
-import { sandboxScripts } from './sandboxScripts.gen';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
+import { dirname, join } from 'node:path';
 import { SKILLS_DIR } from './skills/constants';
 import type { ISkillMounter } from './skills/ISkillMounter';
+
+/** Layout derived from install remotePath (always `…/mcp_client.py`). */
+function mcpClientLayout(remotePath: string): { pythonPath: string; binDir: string; binLink: string } {
+  const pythonPath = dirname(remotePath);
+  const binDir = join(pythonPath, 'bin');
+  return { pythonPath, binDir, binLink: join(binDir, 'mcp-client') };
+}
+
+/** Fallback PATH tail when the provider does not pass PATH (Daytona image defaults). */
+const DEFAULT_SANDBOX_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
 
 export interface SandboxInfo {
   sandbox_id: string;
@@ -105,15 +115,6 @@ const SANDBOX_FILE_OUTPUT_TAG = 'sandbox-file-output';
 export const SANDBOX_SCHEMA_INFER_TAG = 'sandbox-schema-infer';
 const SANDBOX_FILE_UPLOADS_TAG = 'sandbox-file-uploads';
 
-// Stable directory inside the sandbox where the MCP client library is uploaded.
-// MCP client upload dir. Two lookup channels:
-//   - Python imports → PYTHONPATH points here (set by injectMCPClientEnv).
-//   - Shell `mcp-client` → symlinked into MCP_CLIENT_BIN_SYMLINK (on default PATH);
-//     basename drops `.py` so the agent doesn't reflexively prefix with `python`.
-const MCP_CLIENT_DIR = '/opt/tfy/mcp-client';
-const MCP_CLIENT_PATH = `${MCP_CLIENT_DIR}/mcp_client.py`;
-const MCP_CLIENT_BIN_SYMLINK = '/usr/local/bin/mcp-client';
-
 // Per-server config sent to mcp_client.py via TFY_MCP_SERVERS.
 interface SandboxMcpServerConfig {
   allowed_tools: string[];
@@ -139,19 +140,28 @@ function injectTraceContextEnv(): Record<string, string> {
 /**
  * Injects environment variables required for mcp_client.py into sandbox_exec arguments.
  * Transport-specific vars (NATS URL/prefix/timeout) come from `codeModeEnv` via transport.start().
+ * PYTHONPATH / layout bin PATH come from transport.getClientInstall remotePath (Sandbox-derived).
  */
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
   mcpServers: Record<string, SandboxMcpServerConfig>;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
   codeModeEnv?: Record<string, string> | undefined;
+  mcpClientInstall?: CodeModeClientInstall | undefined;
 }): Record<string, string> {
   const codeModeEnv = params.codeModeEnv ?? {};
   const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
+  const install = params.mcpClientInstall;
+  const layout = install === undefined ? undefined : mcpClientLayout(install.remotePath);
+  const pathTail = params.env?.['PATH'] ?? params.execExtraEnv?.['PATH'] ?? DEFAULT_SANDBOX_PATH;
   return {
     ...(params.execExtraEnv ?? {}),
     ...(params.env ?? {}),
-    PYTHONPATH: MCP_CLIENT_DIR,
+    ...(layout !== undefined && {
+      PYTHONPATH: layout.pythonPath,
+      // Prepend layout bin; Daytona also keeps pathBinSymlink on /usr/local/bin.
+      PATH: `${layout.binDir}:${pathTail}`,
+    }),
     ...(Object.keys(params.mcpServers).length > 0 && {
       TFY_MCP_SERVERS: Buffer.from(JSON.stringify(params.mcpServers)).toString('base64'),
     }),
@@ -210,12 +220,13 @@ export class Sandbox extends LocalToolMCP {
   private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
-  private readonly mcpClientScriptBase64: string;
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
   private codeModeDispatcher: CodeModeDispatcher | undefined;
   private codeModeTransport: CodeModeTransport | undefined;
+  /** Cached from transport.getClientInstall after sandbox init (when Code Mode is configured). */
+  private mcpClientInstall: CodeModeClientInstall | undefined;
 
   private tools = [
     defineTool({
@@ -236,10 +247,6 @@ export class Sandbox extends LocalToolMCP {
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.execExtraEnv = options.execExtraEnv;
-    // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
-    // text are all hardcoded here, so injecting different content was never a
-    // real extension point. Consumers don't see or provide them.
-    this.mcpClientScriptBase64 = Buffer.from(sandboxScripts.mcpClient, 'utf-8').toString('base64');
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 
@@ -492,6 +499,7 @@ export class Sandbox extends LocalToolMCP {
       mcpServers: this.buildMcpServersEnvelope(),
       execExtraEnv: this.execExtraEnv,
       codeModeEnv,
+      mcpClientInstall: this.mcpClientInstall,
     });
     const gitAuthEnv =
       this.resolvedGitCredentialsContent !== null
@@ -593,18 +601,37 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private async initSandboxEnvironment(): Promise<void> {
-    const toolResultDumpDir = this.provider.getToolResultDumpDir(this.requiredSandboxInfo.sandbox_id);
+    const sandboxId = this.requiredSandboxInfo.sandbox_id;
+    const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
 
     this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
 
-    const initSteps = [
-      `mkdir -p ${MCP_CLIENT_DIR} ${Sandbox.FILE_UPLOADS_DIR} ${toolResultDumpDir} ${SKILLS_DIR}`,
-      `rm -f ${MCP_CLIENT_PATH}`,
-      `echo '${this.mcpClientScriptBase64}' | base64 -d > ${MCP_CLIENT_PATH}`,
-      // Make executable + symlink onto PATH so `mcp-client` runs by name.
-      `chmod 0555 ${MCP_CLIENT_PATH}`,
-      `ln -sf ${MCP_CLIENT_PATH} ${MCP_CLIENT_BIN_SYMLINK}`,
-    ];
+    this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
+    const install = this.mcpClientInstall;
+
+    const dirs = [shellEscape(Sandbox.FILE_UPLOADS_DIR), shellEscape(toolResultDumpDir), shellEscape(SKILLS_DIR)];
+    if (install !== undefined) {
+      const { pythonPath, binDir } = mcpClientLayout(install.remotePath);
+      dirs.push(shellEscape(pythonPath), shellEscape(binDir));
+    }
+    ensureExecSuccess(await this.provider.exec({ sandboxId, command: `mkdir -p ${dirs.join(' ')}` }));
+
+    const initSteps: string[] = [];
+    if (install !== undefined) {
+      const { binLink } = mcpClientLayout(install.remotePath);
+      await this.provider.uploadFile({
+        sandboxId,
+        remotePath: install.remotePath,
+        content: Buffer.from(install.content, 'utf-8'),
+      });
+      initSteps.push(
+        `chmod 0555 ${shellEscape(install.remotePath)}`,
+        `ln -sf ${shellEscape(install.remotePath)} ${shellEscape(binLink)}`,
+      );
+      if (install.pathBinSymlink !== undefined) {
+        initSteps.push(`ln -sf ${shellEscape(install.remotePath)} ${shellEscape(install.pathBinSymlink)}`);
+      }
+    }
 
     // Fold skill installation into this single init exec. The mounter returns a declarative
     // command + env + timeout; runs even when empty so its downloader can prune a reused sandbox.
@@ -613,16 +640,21 @@ export class Sandbox extends LocalToolMCP {
       initSteps.push(skillInit.command);
     }
 
-    const script = initSteps.join(' && ');
-    const result = await this.provider.exec({
-      sandboxId: this.requiredSandboxInfo.sandbox_id,
-      command: script,
-      env: skillInit?.env,
-      timeoutSeconds: skillInit?.timeoutSeconds,
-    });
-    ensureExecSuccess(result);
+    if (initSteps.length > 0) {
+      ensureExecSuccess(
+        await this.provider.exec({
+          sandboxId,
+          command: initSteps.join(' && '),
+          env: skillInit?.env,
+          timeoutSeconds: skillInit?.timeoutSeconds,
+        }),
+      );
+    }
+
     this.logger.info(
-      `Sandbox initialized: MCP client at ${MCP_CLIENT_PATH} (symlinked to ${MCP_CLIENT_BIN_SYMLINK}); skills dir ${SKILLS_DIR}`,
+      install === undefined
+        ? `Sandbox initialized: skills dir ${SKILLS_DIR}`
+        : `Sandbox initialized: MCP client at ${install.remotePath}; skills dir ${SKILLS_DIR}`,
     );
 
     await this.writeGitCredentials();

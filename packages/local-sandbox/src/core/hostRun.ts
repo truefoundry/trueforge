@@ -9,11 +9,11 @@
 import { getDefaultWritePaths, SandboxManager } from '@anthropic-ai/sandbox-runtime';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
-import { sandboxScripts } from '../sandboxScripts.gen.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -170,7 +170,13 @@ function commandEnv(params: {
     TMPDIR: tmp,
     TMP: tmp,
     TEMP: tmp,
-    PATH: commandPath(params.platform),
+    // Local MCP client CLI lives at <sandbox>/mcp-client/bin (see CodeModeUdsTransport install layout).
+    PATH: (() => {
+      const base = commandPath(params.platform);
+      const ours = `${join(params.sandboxRootPath, 'mcp-client', 'bin')}:${base}`;
+      const theirs = params.extra?.['PATH'];
+      return theirs !== undefined && theirs.length > 0 ? `${ours}:${theirs}` : ours;
+    })(),
   };
   return {
     ...params.extra,
@@ -277,9 +283,11 @@ export async function createSandbox(sandboxRootPath: string): Promise<string> {
   await mkdir(sandboxRootPath, { recursive: true, mode: 0o700 });
   await mkdir(join(sandboxRootPath, '.tmp'), { recursive: true, mode: 0o700 });
   await mkdir(join(sandboxRootPath, '.home'), { recursive: true, mode: 0o700 });
-  darwinUnixSocketSandboxRoots.add(sandboxRootPath);
+  // Seatbelt allowWrite matches real paths (/private/var/... on macOS).
+  const realRoot = realpathSync(sandboxRootPath);
+  darwinUnixSocketSandboxRoots.add(realRoot);
   syncDarwinUnixSockets();
-  return sandboxRootPath;
+  return realRoot;
 }
 
 export async function removeSandbox(sandboxRootPath: string): Promise<void> {
@@ -493,11 +501,4 @@ export async function runSupervisorSession(params: {
       });
     });
   });
-}
-
-/** Install the local Code Mode MCP client into the sandbox (only sandbox root is writable). */
-export async function installMcpFixture(sandboxRootPath: string): Promise<string> {
-  const dest = join(sandboxRootPath, 'mcp_client_local.py');
-  await writeFile(dest, sandboxScripts.mcpClientLocal, 'utf8');
-  return dest;
 }

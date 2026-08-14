@@ -8,6 +8,7 @@
  * The caller owns that parent directory's lifetime; this transport unlinks the sock it creates.
  */
 import type {
+  CodeModeClientInstall,
   CodeModeDispatcher,
   CodeModeReply,
   CodeModeRequest,
@@ -15,16 +16,33 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import { CodeModeRequestSchema, validateNoPathTraversal } from '@truefoundry/trueforge-core/core';
 import { chmodSync, existsSync, realpathSync, statSync } from 'node:fs';
-import { chmod, unlink } from 'node:fs/promises';
+import { chmod, mkdir, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { createServer, type Server, type Socket } from 'node:net';
-import { isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { ulid } from 'ulid';
+import { sandboxScripts } from '../sandboxScripts.gen.js';
 import { encodeJsonMessage, JsonMessageReader, MAX_MESSAGE_BYTES } from './frame.js';
 import { registerCodeModeSocketPath, unregisterCodeModeSocketPath } from './hostRun.js';
 
 const MAX_CODE_MODE_SOCKET_PARENT_BYTES = 60;
 const CODE_MODE_SOCKET_PARENT_MODE = 0o700;
 const CODE_MODE_SOCKET_MODE = 0o600;
+
+/** Install layout for local Code Mode MCP client (sandboxId = absolute sandbox root). */
+export function localMcpClientRemotePath(sandboxId: string): string {
+  return join(sandboxId, 'mcp-client', 'mcp_client.py');
+}
+
+/** Install the local Code Mode MCP client into the sandbox (same layout as Sandbox.init). */
+export async function installMcpFixture(sandboxRootPath: string): Promise<{ remotePath: string }> {
+  const remotePath = localMcpClientRemotePath(sandboxRootPath);
+  const binLink = join(dirname(remotePath), 'bin', 'mcp-client');
+  await mkdir(dirname(binLink), { recursive: true, mode: 0o700 });
+  await writeFile(remotePath, sandboxScripts.mcpClientLocal, { encoding: 'utf8', mode: 0o555 });
+  await rm(binLink, { force: true });
+  await symlink(remotePath, binLink);
+  return { remotePath };
+}
 
 export interface CodeModeUdsTransportOptions {
   /**
@@ -79,6 +97,13 @@ export class CodeModeUdsTransport implements CodeModeTransport {
     this.codeModeSocketParentPath = assertCodeModeSocketParentPath(options.codeModeSocketParentPath);
     this.maxMessageBytes = options.maxMessageBytes ?? MAX_MESSAGE_BYTES;
     this.onProtocolError = options.onProtocolError;
+  }
+
+  getClientInstall(params: { sandboxId: string }): CodeModeClientInstall {
+    return {
+      content: sandboxScripts.mcpClientLocal,
+      remotePath: localMcpClientRemotePath(params.sandboxId),
+    };
   }
 
   start(params: {

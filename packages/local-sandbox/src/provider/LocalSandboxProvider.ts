@@ -17,7 +17,7 @@ import {
 } from '@truefoundry/trueforge-core/core';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { ulid } from 'ulid';
 import { CodeModeUdsTransport, assertCodeModeSocketParentPath } from '../core/CodeModeUdsTransport.js';
 import {
@@ -64,8 +64,9 @@ export interface LocalSandboxProviderOptions {
 }
 
 /** Sandbox-relative path for sandboxed commands (avoids /var vs /private/var seatbelt mismatches). */
-function sandboxRelativePath(userPath: string): string {
-  return userPath.replace(/^\.\/+/, '');
+function toSandboxRelativePath(params: { sandboxRootPath: string; absolutePath: string }): string {
+  const rel = relative(params.sandboxRootPath, params.absolutePath);
+  return rel === '' ? '.' : rel;
 }
 
 export class LocalSandboxProvider implements SandboxProvider {
@@ -338,8 +339,8 @@ export class LocalSandboxProvider implements SandboxProvider {
   async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
     await this.ensureSrt();
     const sandboxRootPath = params.sandboxId;
-    this.resolveInSandboxRoot(sandboxRootPath, params.path);
-    const relPath = sandboxRelativePath(params.path);
+    const absolutePath = this.resolveInSandboxRoot(sandboxRootPath, params.path);
+    const relPath = toSandboxRelativePath({ sandboxRootPath, absolutePath });
     const info = await this.getFileInfo({ sandboxRootPath, relPath, userPath: params.path });
     if (info.isDir) {
       throw new SandboxPathIsDirectoryError(params.path);
@@ -361,7 +362,7 @@ export class LocalSandboxProvider implements SandboxProvider {
     return buf;
   }
 
-  /** Payload on stdin so large uploads stay off argv. */
+  /** Payload on stdin so large uploads stay off argv. Parent dirs must already exist. */
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
     await this.ensureSrt();
     if (params.content.length > this.fileMaxBytesForDownload) {
@@ -370,13 +371,11 @@ export class LocalSandboxProvider implements SandboxProvider {
     const sandboxRootPath = params.sandboxId;
     // Resolve for traversal checks, but pass sandbox-relative paths to the shell.
     // Absolute /var/folders/... paths lose quoting under SRT and become mkdir /var.
-    this.resolveInSandboxRoot(sandboxRootPath, params.remotePath);
-    const remotePath = sandboxRelativePath(params.remotePath);
-    const parent = dirname(remotePath);
-    const mkdirPart = parent === '.' ? '' : `mkdir -p ${shellEscape(parent)} && `;
+    const absolutePath = this.resolveInSandboxRoot(sandboxRootPath, params.remotePath);
+    const remotePath = toSandboxRelativePath({ sandboxRootPath, absolutePath });
     const result = await this.runSandboxCommand({
       sandboxRootPath,
-      command: `${mkdirPart}cat > ${shellEscape(remotePath)}`,
+      command: `cat > ${shellEscape(remotePath)}`,
       stdin: params.content,
     });
     if (result.exitCode !== 0) {

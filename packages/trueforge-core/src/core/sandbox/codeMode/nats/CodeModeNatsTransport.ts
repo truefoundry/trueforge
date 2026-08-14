@@ -7,9 +7,15 @@ import { WebSocket } from 'ws';
 import { extractErrorLogFields } from '../../../util/errorLogFields';
 import { withTimeout } from '../../../util/promiseUtils';
 import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../../constants';
+import { sandboxScripts } from '../../sandboxScripts.gen';
 import type { CodeModeDispatcher } from '../CodeModeDispatcher';
-import type { CodeModeTransport } from '../CodeModeTransport';
+import type { CodeModeClientInstall, CodeModeTransport } from '../CodeModeTransport';
 import { CodeModeRequestSchema, type CodeModeReply, type CodeModeRequest } from '../types';
+
+/** Stable install path inside Daytona / TFY sandbox images. */
+const MCP_CLIENT_PATH = '/opt/tfy/mcp-client/mcp_client.py';
+/** Product CLI entry already on the image PATH. */
+const MCP_CLIENT_PATH_BIN_SYMLINK = '/usr/local/bin/mcp-client';
 
 // `wsconnect` from @nats-io/nats-core relies on a global WebSocket constructor; in Node we
 // provide it from `ws`. Same pattern as `src/services/NatsService.ts`.
@@ -44,6 +50,14 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     this.resolveHostUrl = params.resolveHostUrl;
     this.sandboxClientNatsUrl = params.sandboxClientNatsUrl ?? `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`;
     this.logger = params.logger.child({ module: 'CodeModeNatsTransport' });
+  }
+
+  getClientInstall(_params: { sandboxId: string }): CodeModeClientInstall {
+    return {
+      content: sandboxScripts.mcpClient,
+      remotePath: MCP_CLIENT_PATH,
+      pathBinSymlink: MCP_CLIENT_PATH_BIN_SYMLINK,
+    };
   }
 
   start(params: {

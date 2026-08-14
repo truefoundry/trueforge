@@ -14,11 +14,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ulid } from 'ulid';
-import { CodeModeUdsTransport } from '../src/core/CodeModeUdsTransport.js';
+import { CodeModeUdsTransport, installMcpFixture } from '../src/core/CodeModeUdsTransport.js';
 import {
   commandPath,
   createSandbox,
-  installMcpFixture,
   MAX_OUTPUT_BYTES,
   platformAllowRead,
   registerCodeModeSocketPath,
@@ -216,6 +215,7 @@ function makeDemoToolSet(params: { onRequest?: () => void }): IToolSet {
 
 async function withCodeModeTransport(params: {
   codeModeSocketParentPath: string;
+  sandboxRootPath: string;
   maxMessageBytes?: number;
   onProtocolError?: (message: string) => void;
   onRequest?: () => void;
@@ -230,14 +230,16 @@ async function withCodeModeTransport(params: {
     toolSets: [makeDemoToolSet({ onRequest: params.onRequest })],
     logger: makeSilentCodeModeLogger(),
   });
+  const install = transport.getClientInstall({ sandboxId: params.sandboxRootPath });
   try {
     const { env } = await transport.start({
       codeModeDispatcher: dispatcher,
-      sandboxId: 'smoke',
+      sandboxId: params.sandboxRootPath,
       requestTimeoutSeconds: 60,
     });
     await params.run({
       ...env,
+      PYTHONPATH: dirname(install.remotePath),
       TFY_MCP_SERVERS: TFY_MCP_SERVERS_DEMO,
       TFY_ENABLE_AGENT_APPROVALS: 'true',
     });
@@ -258,6 +260,7 @@ async function smokeCodeMode(params: {
 
   await withCodeModeTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    sandboxRootPath: params.sandboxRootPath,
     onRequest: () => {
       toolRequests += 1;
     },
@@ -278,7 +281,7 @@ async function smokeCodeMode(params: {
         sandboxRootPath: params.sandboxRootPath,
         shell: params.shell,
         platform: params.platform,
-        command: `python3 mcp_client_local.py call-tool demo ping '${JSON.stringify({ message: 'poc' })}'`,
+        command: `mcp-client call-tool demo ping '${JSON.stringify({ message: 'poc' })}'`,
         env,
         timeoutMs: 15_000,
       });
@@ -295,6 +298,7 @@ async function smokeCodeMode(params: {
   let oversizeError: string | undefined;
   await withCodeModeTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    sandboxRootPath: params.sandboxRootPath,
     maxMessageBytes: oversizeCap,
     onProtocolError: message => {
       oversizeError = message;
@@ -327,6 +331,7 @@ async function smokeCodeMode(params: {
   let badJsonError: string | undefined;
   await withCodeModeTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    sandboxRootPath: params.sandboxRootPath,
     onProtocolError: message => {
       badJsonError = message;
     },
@@ -357,6 +362,7 @@ async function smokeCodeMode(params: {
 
   await withCodeModeTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    sandboxRootPath: params.sandboxRootPath,
     onRequest: () => {
       toolRequests += 1;
     },
@@ -368,7 +374,7 @@ async function smokeCodeMode(params: {
         command: [
           "python3 - <<'PY'",
           'import asyncio, json, time',
-          'from mcp_client_local import call_tool',
+          'from mcp_client import call_tool',
           'async def main():',
           '  started = time.monotonic()',
           '  results = await asyncio.gather(',
@@ -395,6 +401,7 @@ async function smokeCodeMode(params: {
   const beforeMissing = toolRequests;
   await withCodeModeTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    sandboxRootPath: params.sandboxRootPath,
     onRequest: () => {
       toolRequests += 1;
     },
@@ -406,7 +413,7 @@ async function smokeCodeMode(params: {
         command: [
           'set -euo pipefail',
           'unset TFY_MCP_SOCK',
-          `if python3 mcp_client_local.py call-tool demo ping '${JSON.stringify({ message: 'x' })}'; then`,
+          `if mcp-client call-tool demo ping '${JSON.stringify({ message: 'x' })}'; then`,
           '  echo "expected missing-sock failure" >&2',
           '  exit 1',
           'fi',
@@ -426,6 +433,7 @@ async function smokeCodeMode(params: {
   let holdPid: number | undefined;
   await withCodeModeTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    sandboxRootPath: params.sandboxRootPath,
     onRequest: () => {
       hostInjected += 1;
     },
