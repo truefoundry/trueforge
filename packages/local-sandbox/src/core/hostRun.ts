@@ -9,32 +9,14 @@
 import { getDefaultWritePaths, SandboxManager } from '@anthropic-ai/sandbox-runtime';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { sandboxScripts } from '../sandboxScripts.gen.js';
 
 const execFileAsync = promisify(execFile);
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-/** Package root from src/ or dist/src/ (Jest runs TypeScript source). */
-function packageRoot(startDir: string): string {
-  let dir = startDir;
-  for (;;) {
-    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'fixtures'))) {
-      return dir;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error(`local-sandbox package root not found from ${startDir}`);
-    }
-    dir = parent;
-  }
-}
-const ROOT = packageRoot(HERE);
-const FIXTURES = join(ROOT, 'fixtures');
 /** SRT ships Linux helpers (e.g. apply-seccomp) under vendor/; the wrapped command must read them. */
 // Package-root resolve (not app-module loading): Jest's CJS transform breaks import.meta.resolve.
 const SRT_VENDOR = join(
@@ -513,9 +495,9 @@ export async function runSupervisorSession(params: {
   });
 }
 
-/** Copy the MCP client fixture into the sandbox (isolation: only sandbox root is writable). */
+/** Install the local Code Mode MCP client into the sandbox (only sandbox root is writable). */
 export async function installMcpFixture(sandboxRootPath: string): Promise<string> {
-  const dest = join(sandboxRootPath, 'mcp_pipe_client.py');
-  await copyFile(join(FIXTURES, 'mcp_pipe_client.py'), dest);
+  const dest = join(sandboxRootPath, 'mcp_client_local.py');
+  await writeFile(dest, sandboxScripts.mcpClientLocal, 'utf8');
   return dest;
 }

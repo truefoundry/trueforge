@@ -16,19 +16,20 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "fixtures"
+    "dist"
   ],
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "build:smoke": "tsc -p tsconfig.smoke.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:gen": "node scripts/generate-sandbox-scripts.mjs",
+    "build:gen:watch": "node --watch-path=src/scripts scripts/generate-sandbox-scripts.mjs",
+    "build": "pnpm run build:gen && tsc -p tsconfig.build.json",
+    "build:smoke": "pnpm run build:gen && tsc -p tsconfig.smoke.json",
+    "typecheck": "pnpm run build:gen && tsc -p tsconfig.json --noEmit",
     "lint": "eslint src scripts --max-warnings 0 --config ../../eslint.config.mjs",
-    "test": "NODE_OPTIONS='--conditions=trueforge-dev' jest --config jest.config.cjs --testPathIgnorePatterns=smoke\\.test\\.ts$",
-    "smoke": "NODE_OPTIONS='--conditions=trueforge-dev' jest --config jest.config.cjs --runInBand --forceExit test/smoke.test.ts",
+    "test": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' jest --config jest.config.cjs --testPathIgnorePatterns=smoke\\.test\\.ts$",
+    "smoke": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' jest --config jest.config.cjs --runInBand --forceExit test/smoke.test.ts",
     "smoke:lima": "bash scripts/smoke-lima.sh",
     "probe:loopback": "pnpm build:smoke && node dist/scripts/probe-loopback.js"
   },

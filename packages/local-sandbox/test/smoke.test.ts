@@ -41,6 +41,10 @@ const ENV_INHERIT_MARKER = 'TFY_SMOKE_INHERIT';
 const ENV_INHERIT_VALUE = `inherit-${randomUUID()}`;
 const ENV_PEER_MARKER = 'TFY_SMOKE_PEER_ENV';
 const ENV_PEER_VALUE = `peer-secret-${randomUUID()}`;
+/** Product-shaped allowlist for smoke Code Mode client (demo/ping only). */
+const TFY_MCP_SERVERS_DEMO = Buffer.from(JSON.stringify({ demo: { allowed_tools: ['ping'] } }), 'utf8').toString(
+  'base64',
+);
 // Package-root resolve: Jest's CJS transform breaks import.meta.resolve.
 const SRT_VENDOR = join(
   dirname(createRequire(import.meta.url).resolve('@anthropic-ai/sandbox-runtime/package.json')),
@@ -232,7 +236,11 @@ async function withCodeModeTransport(params: {
       sandboxId: 'smoke',
       requestTimeoutSeconds: 60,
     });
-    await params.run(env);
+    await params.run({
+      ...env,
+      TFY_MCP_SERVERS: TFY_MCP_SERVERS_DEMO,
+      TFY_ENABLE_AGENT_APPROVALS: 'true',
+    });
   } finally {
     dispatcher.close();
     await transport.stop();
@@ -266,18 +274,20 @@ async function smokeCodeMode(params: {
       );
       console.log('ok: Code Mode UDS parent 0700 + sock 0600');
 
-      const list = await runSupervisorSession({
+      const call = await runSupervisorSession({
         sandboxRootPath: params.sandboxRootPath,
         shell: params.shell,
         platform: params.platform,
-        command: 'python3 mcp_pipe_client.py list-tools --server demo',
+        command: `python3 mcp_client_local.py call-tool demo ping '${JSON.stringify({ message: 'poc' })}'`,
         env,
         timeoutMs: 15_000,
       });
-      assert.equal(list.protocolError, undefined, list.protocolError);
-      assert.equal(list.exitCode, 0, list.stderrText);
-      assert.match(list.stdoutText, /list-tools-ok/);
-      console.log('ok: Code Mode list-tools (UDS)');
+      assert.equal(call.protocolError, undefined, call.protocolError);
+      assert.equal(call.exitCode, 0, call.stderrText);
+      const callJson: unknown = JSON.parse(call.stdoutText.trim().split(/\r?\n/).filter(Boolean).at(-1) ?? '');
+      assert.ok(callJson !== null && typeof callJson === 'object');
+      assert.ok('echo' in callJson);
+      console.log('ok: Code Mode call-tool (UDS)');
     },
   });
 
@@ -355,7 +365,20 @@ async function smokeCodeMode(params: {
         sandboxRootPath: params.sandboxRootPath,
         shell: params.shell,
         platform: params.platform,
-        command: 'python3 mcp_pipe_client.py multiplex --server demo --count 2',
+        command: [
+          "python3 - <<'PY'",
+          'import asyncio, json, time',
+          'from mcp_client_local import call_tool',
+          'async def main():',
+          '  started = time.monotonic()',
+          '  results = await asyncio.gather(',
+          '    call_tool("demo", "ping", {"message": "m0", "delay_ms": 150}),',
+          '    call_tool("demo", "ping", {"message": "m1", "delay_ms": 150}),',
+          '  )',
+          '  print("multiplex-ok", int((time.monotonic() - started) * 1000), json.dumps(results))',
+          'asyncio.run(main())',
+          'PY',
+        ].join('\n'),
         env,
         timeoutMs: 15_000,
       });
@@ -383,7 +406,7 @@ async function smokeCodeMode(params: {
         command: [
           'set -euo pipefail',
           'unset TFY_MCP_SOCK',
-          'if python3 mcp_pipe_client.py list-tools --server demo; then',
+          `if python3 mcp_client_local.py call-tool demo ping '${JSON.stringify({ message: 'x' })}'; then`,
           '  echo "expected missing-sock failure" >&2',
           '  exit 1',
           'fi',
