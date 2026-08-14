@@ -247,4 +247,18 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
     expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
   });
+
+  it('PUT update reuses persisted build_metadata (no image upgrade on re-save)', async () => {
+    const { settingsRouter } = await createRouters();
+    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect(mockProviderFactory.mock.calls[0]?.[0]).not.toHaveProperty('build_metadata');
+
+    mockProviderFactory.mockClear();
+    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect(mockProviderFactory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        build_metadata: readyBuild.metadata,
+      }),
+    );
+  });
 });

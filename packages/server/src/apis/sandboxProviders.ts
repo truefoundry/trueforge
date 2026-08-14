@@ -71,7 +71,14 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       const { manifest, status } = await deps.withTransaction(async transaction => {
         const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
         const resolved = resolveManifest(locked);
-        const provider = toDaytonaSandboxProvider({ manifest: resolved, tenant_id: TENANT_ID, logger: deps.logger });
+        // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
+        // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
+        const provider = toDaytonaSandboxProvider({
+          manifest: resolved,
+          tenant_id: TENANT_ID,
+          logger: deps.logger,
+          ...(locked ? { build_metadata: locked.build_metadata } : {}),
+        });
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
