@@ -157,6 +157,7 @@ const ConnectorSettings = () => {
           : { type: 'none' });
     await connectorCatalog.createConnector({
       name: entry.name,
+      description: entry.description ?? entry.url,
       url: entry.url,
       auth,
     });
@@ -193,6 +194,7 @@ const ConnectorSettings = () => {
         await connectorCatalog.updateConnector({
           id: existingConnector.id,
           name: existingConnector.name,
+          description: existingConnector.description,
           url: existingConnector.url,
           auth,
         });
@@ -211,6 +213,7 @@ const ConnectorSettings = () => {
     await runMutation(async () => {
       await connectorCatalog.createConnector({
         name: draft.name,
+        description: draft.url,
         url: draft.url,
         auth: draft.auth,
       });

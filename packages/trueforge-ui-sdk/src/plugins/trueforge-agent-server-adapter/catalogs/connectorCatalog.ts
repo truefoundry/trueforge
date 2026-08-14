@@ -191,27 +191,24 @@ export function createConnectorCatalog(
     },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
-      const catalog = await client.catalog.mcpServers.list();
-      const preset = catalog.data.find(server => server.name === req.name);
       const body = await client.settings.mcpServers.create({
         manifest: toHarnessManifest({
           name: req.name,
           url: req.url,
           auth,
-          description: preset?.description,
+          description: req.description,
         }),
       });
       return toUiConnector(body.data);
     },
     updateConnector: async req => {
-      const existing = await getConfigured(req.id);
       const auth = await resolveWriteAuth({ id: req.id, auth: req.auth });
       const body = await client.settings.mcpServers.upsert({
         manifest: toHarnessManifest({
           name: req.id,
           url: req.url,
           auth,
-          description: existing.manifest.description,
+          description: req.description,
         }),
       });
       return toUiConnector(body.data);
