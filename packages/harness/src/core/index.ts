@@ -133,7 +133,7 @@ export type {
 
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
-export { extractErrorLogFields } from './util/errorLogFields';
+export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
 // Sandbox (concrete implementation; provider details exported for composition)
