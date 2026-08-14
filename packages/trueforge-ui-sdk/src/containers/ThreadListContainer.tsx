@@ -294,13 +294,22 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
     };
 
     viewport.addEventListener('scroll', tryLoadMore, { passive: true });
-    window.addEventListener('resize', tryLoadMore);
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => tryLoadMore());
+    if (resizeObserver) {
+      resizeObserver.observe(viewport);
+    } else {
+      window.addEventListener('resize', tryLoadMore);
+    }
     tryLoadMore();
 
     return () => {
       cancelled = true;
       viewport.removeEventListener('scroll', tryLoadMore);
-      window.removeEventListener('resize', tryLoadMore);
+      resizeObserver?.disconnect();
+      if (!resizeObserver) {
+        window.removeEventListener('resize', tryLoadMore);
+      }
     };
   }, [hasMore, isIdle, isLoading, isLoadingMore, threadIds.length]);
 

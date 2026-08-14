@@ -1,13 +1,27 @@
 // @vitest-environment jsdom
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 
 const { loadMore } = vi.hoisted(() => ({
   loadMore: vi.fn().mockResolvedValue(undefined),
 }));
+
+let resizeCallback: ResizeObserverCallback | undefined;
+let resizeObserver: ResizeObserver | undefined;
+
+class ResizeObserverMock implements ResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    resizeCallback = callback;
+    resizeObserver = this;
+  }
+
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
 
 vi.mock('@assistant-ui/react', () => ({
   useAui: () => ({
@@ -80,12 +94,40 @@ function getViewport(container: HTMLElement): HTMLElement {
   return viewport;
 }
 
+function notifyViewportResize(): void {
+  if (resizeCallback === undefined || resizeObserver === undefined) {
+    throw new Error('Expected viewport ResizeObserver');
+  }
+  resizeCallback([], resizeObserver);
+}
+
+beforeEach(() => {
+  resizeCallback = undefined;
+  resizeObserver = undefined;
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   loadMore.mockReset().mockResolvedValue(undefined);
 });
 
 describe('ThreadListContainer pagination', () => {
+  it('remeasures when a hidden viewport becomes visible', async () => {
+    loadMore.mockClear();
+    const { container } = render(<ThreadListContainer />);
+    const viewport = getViewport(container);
+
+    expect(loadMore).not.toHaveBeenCalled();
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 200 });
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 400 });
+
+    notifyViewportResize();
+
+    await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(1));
+  });
+
   it('rechecks an underflowing viewport after a Strict Mode effect remount', () => {
     loadMore.mockReturnValue(new Promise<void>(() => {}));
     const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(200);
@@ -110,7 +152,7 @@ describe('ThreadListContainer pagination', () => {
     Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 0 });
     Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 200 });
     Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 400 });
-    fireEvent(window, new Event('resize'));
+    notifyViewportResize();
 
     await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(1));
   });
@@ -150,7 +192,7 @@ describe('ThreadListContainer pagination', () => {
     Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 0 });
     Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 800 });
     Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 200 });
-    fireEvent(window, new Event('resize'));
+    notifyViewportResize();
 
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(loadMore).not.toHaveBeenCalled();
