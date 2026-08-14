@@ -31,9 +31,11 @@ jobs:
     timeout-minutes: 30
     # A pull_request path filter matches the whole PR, not just the new commit,
     # so this job's own commits would otherwise retrigger it indefinitely.
+    # github-actions[bot]: legacy GITHUB_TOKEN pushes (if any still land).
+    # trueforge-dev-bot[bot]: App-token pushes from this workflow (slug of the Generate SDK App).
     if: >
       github.actor != 'github-actions[bot]' &&
-      github.actor != format('{0}[bot]', vars.GENERATE_SDK_APP_SLUG)
+      github.actor != 'trueforge-dev-bot[bot]'
     permissions:
       contents: write
 
@@ -43,8 +45,8 @@ jobs:
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.GENERATE_SDK_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
       # Branch tip, not the merge commit, so output can be pushed back; forks need the head repo named.
       - name: Check out repository code
