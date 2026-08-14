@@ -51,7 +51,7 @@ describe('modelProviderCatalog mappers', () => {
       ],
     };
 
-    assert.deepEqual(toUiModelProvider(harness), {
+    assert.deepEqual(toUiModelProvider({ name: 'openai', manifest: harness }), {
       id: 'openai',
       type: 'openai',
       name: 'openai',
@@ -69,11 +69,14 @@ describe('modelProviderCatalog mappers', () => {
   it('keeps a custom provider under the name it was given', () => {
     assert.deepEqual(
       toUiModelProvider({
-        type: 'custom' as const,
         name: 'local-llama',
-        baseUrl: 'http://127.0.0.1:11434/v1',
-        auth: { apiKey: 'sk-local' },
-        models: [{ modelId: 'llama3', name: 'llama3', properties: {} }],
+        manifest: {
+          type: 'custom' as const,
+          name: 'local-llama',
+          baseUrl: 'http://127.0.0.1:11434/v1',
+          auth: { apiKey: 'sk-local' },
+          models: [{ modelId: 'llama3', name: 'llama3', properties: {} }],
+        },
       }),
       {
         id: 'local-llama',

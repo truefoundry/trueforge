@@ -83,12 +83,15 @@ describe('skillCatalog mappers', () => {
     assert.deepEqual(
       toUiSkill(
         {
-          type: 'git',
           name: 'algorithmic-art',
-          url: 'https://github.com/anthropics/skills',
-          path: 'skills/algorithmic-art',
-          ref: 'main',
-          description: 'Create algorithmic art',
+          manifest: {
+            type: 'git',
+            name: 'algorithmic-art',
+            url: 'https://github.com/anthropics/skills',
+            path: 'skills/algorithmic-art',
+            ref: 'main',
+            description: 'Create algorithmic art',
+          },
         },
         catalogNames,
       ),
@@ -102,12 +105,15 @@ describe('skillCatalog mappers', () => {
     assert.deepEqual(
       toUiSkill(
         {
-          type: 'git',
           name: 'house-style',
-          url: 'https://github.com/example/skills',
-          path: 'skills/house-style',
-          ref: 'main',
-          description: 'House style',
+          manifest: {
+            type: 'git',
+            name: 'house-style',
+            url: 'https://github.com/example/skills',
+            path: 'skills/house-style',
+            ref: 'main',
+            description: 'House style',
+          },
         },
         catalogNames,
       ),
