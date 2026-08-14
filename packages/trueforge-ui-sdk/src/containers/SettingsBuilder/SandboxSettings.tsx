@@ -18,6 +18,8 @@ import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
 
+const SNAPSHOT_STATUS_POLL_INTERVAL_MS = 10000;
+
 const configFrom = ({
   execTimeoutMs,
   autoStopIntervalInMinutes,
@@ -93,6 +95,46 @@ const SandboxSettings = () => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const hasPendingProvider = providers.some(entry => entry.snapshotSyncStatus.status === 'pending');
+
+  useEffect(() => {
+    if (!sandboxCatalog || !hasPendingProvider) return;
+    const activeSandboxCatalog = sandboxCatalog;
+
+    let cancelled = false;
+    let timeoutId: number | undefined;
+
+    function schedulePoll() {
+      timeoutId = window.setTimeout(() => {
+        void poll();
+      }, SNAPSHOT_STATUS_POLL_INTERVAL_MS);
+    }
+
+    async function poll() {
+      try {
+        const listed = await activeSandboxCatalog.listSandboxProviders();
+        if (cancelled) return;
+        setProviders(listed);
+        setError(null);
+        if (listed.some(entry => entry.snapshotSyncStatus.status === 'pending')) {
+          schedulePoll();
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(getErrorMessage(err, 'Failed to refresh sandbox providers'));
+        schedulePoll();
+      }
+    }
+
+    schedulePoll();
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [sandboxCatalog, hasPendingProvider]);
 
   // Tenant/UI-wide: only one sandbox provider may be configured at a time.
   const hasConfiguredProvider = providers.length > 0;

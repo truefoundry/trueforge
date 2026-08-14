@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import SandboxSettings from '@/containers/SettingsBuilder/SandboxSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
@@ -22,6 +22,10 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close = function close() {
     this.removeAttribute('open');
   };
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const catalogEntry: SandboxProviderCatalogEntry = {
@@ -54,12 +58,16 @@ function sandboxEntry({
 
 function createFakeHost(initial: SandboxProviderListEntry[] = []) {
   let providers = [...initial];
+  let listCalls = 0;
   const created: CreateSandboxProviderRequest[] = [];
   const updated: UpdateSandboxProviderRequest[] = [];
 
   const sandboxCatalog = {
     getSandboxProviderCatalog: async () => [catalogEntry],
-    listSandboxProviders: async () => providers,
+    listSandboxProviders: async () => {
+      listCalls += 1;
+      return providers;
+    },
     createSandboxProvider: async (req: CreateSandboxProviderRequest) => {
       created.push(req);
       const provider: SandboxProviderBase = {
@@ -106,7 +114,11 @@ function createFakeHost(initial: SandboxProviderListEntry[] = []) {
   return {
     created,
     updated,
+    getListCalls: () => listCalls,
     getProviders: () => providers,
+    setProviders: (next: SandboxProviderListEntry[]) => {
+      providers = next;
+    },
     wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
   };
 }
@@ -273,6 +285,49 @@ describe('SandboxSettings', () => {
     await waitFor(() => {
       expect(screen.getByRole('tooltip')).toHaveTextContent('Snapshot build is queued');
     });
+  });
+
+  it('polls pending snapshot status every ten seconds until it changes', async () => {
+    vi.useFakeTimers();
+    const provider: SandboxProviderBase = {
+      id: 'sb-1',
+      name: 'Daytona',
+      catalogId: 'cat-daytona',
+      isConnected: true,
+      execTimeoutMs: 60000,
+      autoStopIntervalInMinutes: 30,
+      autoArchiveIntervalInMinutes: 1440,
+      autoDeleteIntervalInMinutes: 10080,
+    };
+    const host = createFakeHost([sandboxEntry({ provider, status: 'pending' })]);
+    const { wrapper: Wrapper } = host;
+    render(
+      <Wrapper>
+        <SandboxSettings />
+      </Wrapper>,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(host.getListCalls()).toBe(1);
+
+    host.setProviders([sandboxEntry({ provider, status: 'ready' })]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_999);
+    });
+    expect(host.getListCalls()).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(host.getListCalls()).toBe(2);
+    expect(screen.getByText('Connected')).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(host.getListCalls()).toBe(2);
   });
 
   it('renders snapshot status badges and exposes failed status reason in a tooltip', async () => {
