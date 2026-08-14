@@ -16,7 +16,14 @@ export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403);
 }
 
-/** Builds the runtime provider for a stored manifest. No network I/O until a method is called. */
+/**
+ * Builds the runtime provider for a stored manifest. No network I/O until a method is called.
+ *
+ * When `build_metadata` is present, pin both `sandboxImage` and `buildRef` to what was actually
+ * built — image bumps in the running binary must not rewrite an existing tenant onto a new
+ * snapshot (upgrades are not supported yet). First-time configure omits metadata and uses
+ * {@link SANDBOX_IMAGE_URI}.
+ */
 export function toDaytonaSandboxProvider({
   manifest,
   tenant_id,
@@ -33,7 +40,7 @@ export function toDaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
     ...settings,
     tenantName: tenant_id,
-    sandboxImage: SANDBOX_IMAGE_URI,
+    sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
     buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,

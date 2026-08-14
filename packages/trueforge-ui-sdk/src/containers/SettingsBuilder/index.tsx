@@ -1,14 +1,15 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 
+import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
-import { useOptionalCatalogServer } from '@/server/ServerContext.js';
-import { useShellMode } from '@/server/ShellModeContext.js';
+import { useOptionalCatalogServer, useOptionalRefreshServerCapabilities } from '@/server/ServerContext.js';
+import { useShellMode, type SettingsSection } from '@/server/ShellModeContext.js';
 
 // Section modules (and their list/catalog APIs) load only when that tab mounts.
 const ModelSettings = lazy(() => import('./ModelSettings.js'));
@@ -25,38 +26,42 @@ function SettingsSectionFallback() {
   );
 }
 
-type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox';
-
 const TruefoundrySettingsBuilder = () => {
-  const { settingsOpen, setSettingsOpen } = useShellMode();
+  const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
+  const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
+  const { refresh: refreshDraftCatalog } = useDraftCatalog();
   // dock/widget panels are ~mobile width even on a wide viewport — keep Settings stacked.
   const compact = useCompactLayout();
-  const [section, setSection] = useState<SettingsSection>('models');
-
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
 
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    refreshDraftCatalog();
+    refreshServerCapabilities?.();
+  }, [refreshDraftCatalog, refreshServerCapabilities, setSettingsOpen]);
+
   useEffect(() => {
     if (!hasSkills && section === 'skills') {
-      setSection('models');
+      setSettingsOpen(settingsOpen, 'models');
     }
     if (!hasSandbox && section === 'sandbox') {
-      setSection('models');
+      setSettingsOpen(settingsOpen, 'models');
     }
-  }, [hasSkills, hasSandbox, section]);
+  }, [hasSkills, hasSandbox, section, settingsOpen, setSettingsOpen]);
 
   useEffect(() => {
     if (!settingsOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.stopImmediatePropagation();
-      setSettingsOpen(false);
+      closeSettings();
     };
     // Capture so layout Escape handlers (sessions drawer / widget) do not also fire.
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [settingsOpen, setSettingsOpen]);
+  }, [closeSettings, settingsOpen]);
 
   const sections = useMemo<
     Array<{
@@ -92,7 +97,7 @@ const TruefoundrySettingsBuilder = () => {
           aria-label="Back"
           title="Back"
           className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-          onClick={() => setSettingsOpen(false)}
+          onClick={closeSettings}
         >
           <Icon name="arrow-left" />
         </button>
@@ -123,7 +128,7 @@ const TruefoundrySettingsBuilder = () => {
                   : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {
-                setSection(item.id);
+                setSettingsOpen(true, item.id);
               }}
             >
               <Icon name={item.icon} className="h-4 w-4 shrink-0" />

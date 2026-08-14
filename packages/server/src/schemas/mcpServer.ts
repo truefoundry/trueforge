@@ -40,12 +40,19 @@ export const McpServerAuthSettingsSchema = z
   .discriminatedUnion('type', [McpServerHeaderAuthSchema, McpServerDcrAuthSchema])
   .openapi('ConfiguredMcpServerAuth');
 
+export const McpServerDescriptionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .describe('Concise summary of what this MCP server provides.');
+
 /** Configured MCP server document persisted as `mcp_server.manifest`. */
 export const McpServerManifestObjectSchema = z
   .object({
     type: McpServerTypeSchema.describe('MCP server kind (`remote` today).'),
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
+    description: McpServerDescriptionSchema,
     auth: McpServerAuthSettingsSchema.optional().describe(
       'Optional auth settings. Omit when the server needs no credentials.',
     ),

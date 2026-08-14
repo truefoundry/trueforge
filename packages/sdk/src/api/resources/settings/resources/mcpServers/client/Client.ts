@@ -129,6 +129,7 @@ export class McpServersClient {
      *
      * @example
      *     await client.settings.mcpServers.create({
+     *         description: "description",
      *         name: "name",
      *         url: "url"
      *     })
@@ -252,6 +253,7 @@ export class McpServersClient {
      *
      * @example
      *     await client.settings.mcpServers.upsert({
+     *         description: "description",
      *         name: "name",
      *         url: "url"
      *     })

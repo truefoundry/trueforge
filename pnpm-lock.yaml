@@ -61,8 +61,8 @@ importers:
         specifier: 0.2.21
         version: 0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8)
       '@truefoundry/assistant-ui-runtime':
-        specifier: 0.1.15
-        version: 0.1.15(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        specifier: 0.1.16
+        version: 0.1.16(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/trueforge-sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -334,8 +334,8 @@ importers:
         specifier: ^0.13.2
         version: 0.13.3(@openuidev/react-headless@0.9.4(react@19.2.8)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))))(@openuidev/react-lang@0.2.9(@modelcontextprotocol/sdk@1.29.0(supports-color@8.1.1)(zod@4.4.3))(react@19.2.8)(zod@4.4.3))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(zod@4.4.3)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/assistant-ui-runtime':
-        specifier: 0.1.15
-        version: 0.1.15(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        specifier: 0.1.16
+        version: 0.1.16(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/trueforge-sdk':
         specifier: workspace:*
         version: link:../sdk
@@ -3436,8 +3436,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@truefoundry/assistant-ui-runtime@0.1.15':
-    resolution: {integrity: sha512-WHbQJ0pEoVNYJ5dt99powKqPqLQejpOEYX5jsLkmZMLwty1fgGYgflovXo0StD2VUAblklstL9vpwu/pqMMh/g==}
+  '@truefoundry/assistant-ui-runtime@0.1.16':
+    resolution: {integrity: sha512-f90VorMg+Rfc0lv3/g4akLKBiWLNNUOsqh4yfd/NNgQfs2cKt6Zqd+nZQ01+xs6/oVaT0SuT8y6XxG7e/kv0TA==}
     peerDependencies:
       '@types/react': '*'
       react: ^18 || ^19
@@ -7626,7 +7626,7 @@ snapshots:
       '@aws/lambda-invoke-store': 0.3.0
       '@smithy/core': 3.32.0
       '@smithy/signature-v4': 5.7.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       bowser: 2.14.1
       tslib: 2.8.1
 
@@ -7635,7 +7635,7 @@ snapshots:
       '@aws-sdk/core': 3.977.7
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-http@3.972.70':
@@ -7645,7 +7645,7 @@ snapshots:
       '@smithy/core': 3.32.0
       '@smithy/fetch-http-handler': 5.7.0
       '@smithy/node-http-handler': 4.10.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-ini@3.973.13':
@@ -7661,7 +7661,7 @@ snapshots:
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
       '@smithy/credential-provider-imds': 4.5.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-login@3.972.75':
@@ -7670,7 +7670,7 @@ snapshots:
       '@aws-sdk/nested-clients': 3.997.42
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-node@3.972.79':
@@ -7684,7 +7684,7 @@ snapshots:
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
       '@smithy/credential-provider-imds': 4.5.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-process@3.972.68':
@@ -7692,7 +7692,7 @@ snapshots:
       '@aws-sdk/core': 3.977.7
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-sso@3.973.12':
@@ -7702,7 +7702,7 @@ snapshots:
       '@aws-sdk/token-providers': 3.1108.0
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-web-identity@3.972.74':
@@ -7711,7 +7711,7 @@ snapshots:
       '@aws-sdk/nested-clients': 3.997.42
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/lib-storage@3.1109.0(@aws-sdk/client-s3@3.1109.0)':
@@ -7741,7 +7741,7 @@ snapshots:
       '@smithy/core': 3.32.0
       '@smithy/fetch-http-handler': 5.7.0
       '@smithy/node-http-handler': 4.10.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/signature-v4-multi-region@3.996.44':
@@ -7757,17 +7757,17 @@ snapshots:
       '@aws-sdk/nested-clients': 3.997.42
       '@aws-sdk/types': 3.974.3
       '@smithy/core': 3.32.0
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/types@3.974.3':
     dependencies:
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws-sdk/xml-builder@3.972.38':
     dependencies:
-      '@smithy/types': 4.16.1
+      '@smithy/types': 4.17.0
       tslib: 2.8.1
 
   '@aws/lambda-invoke-store@0.3.0': {}
@@ -10560,7 +10560,7 @@ snapshots:
       '@types/react': 19.2.17
       '@types/react-dom': 19.2.3(@types/react@19.2.17)
 
-  '@truefoundry/assistant-ui-runtime@0.1.15(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
+  '@truefoundry/assistant-ui-runtime@0.1.16(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.0)(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
     dependencies:
       '@assistant-ui/core': 0.2.22(@assistant-ui/store@0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8))(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(assistant-cloud@0.1.35(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(zustand@5.0.14(@types/react@19.2.17)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@assistant-ui/store': 0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8)
@@ -10750,10 +10750,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.7.0(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+  '@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
     dependencies:
       '@eslint-community/regexpp': 4.12.2
-      '@typescript-eslint/parser': 8.65.0(eslint@10.7.0(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/parser': 8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       '@typescript-eslint/scope-manager': 8.65.0
       '@typescript-eslint/type-utils': 8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       '@typescript-eslint/utils': 8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
@@ -14920,7 +14920,7 @@ snapshots:
 
   typescript-eslint@8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3):
     dependencies:
-      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.7.0(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@typescript-eslint/eslint-plugin': 8.65.0(@typescript-eslint/parser@8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       '@typescript-eslint/parser': 8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       '@typescript-eslint/typescript-estree': 8.65.0(supports-color@8.1.1)(typescript@5.9.3)
       '@typescript-eslint/utils': 8.65.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)

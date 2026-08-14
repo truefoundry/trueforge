@@ -10,6 +10,7 @@ export const McpServerManifest: core.serialization.Schema<
     TrueForge.settings.McpServerManifest
 > = core.serialization.object({
     auth: McpServerManifestAuth.optional(),
+    description: core.serialization.string(),
     name: core.serialization.string(),
     url: core.serialization.string(),
 });
@@ -17,6 +18,7 @@ export const McpServerManifest: core.serialization.Schema<
 export declare namespace McpServerManifest {
     export interface Raw {
         auth?: McpServerManifestAuth.Raw | null;
+        description: string;
         name: string;
         url: string;
     }

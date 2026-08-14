@@ -17,12 +17,14 @@ const putBody = {
   type: 'remote' as const,
   name: 'deepwiki',
   url: 'https://mcp.deepwiki.com/mcp',
+  description: 'DeepWiki MCP server.',
 };
 
 const putBodyWithDcr = {
   type: 'remote' as const,
   name: 'linear',
   url: 'https://mcp.linear.app/mcp',
+  description: 'Linear MCP server.',
   auth: { type: 'dcr' as const },
 };
 
@@ -34,6 +36,7 @@ const putBodyWithHeaderAuth = {
   type: 'remote' as const,
   name: 'private-mcp',
   url: 'https://mcp.example.com/mcp',
+  description: 'Private MCP server.',
   auth: {
     type: 'header' as const,
     headers: { Authorization: HEADER_TOKEN },
@@ -166,6 +169,7 @@ describe('mcp-servers routers', () => {
       type: 'remote' as const,
       name: 'create-only-mcp',
       url: 'https://mcp.example.com/create-only',
+      description: 'Create-only MCP server.',
     };
     const created = await settingsRouter.request('/', postInit(createBody));
     expect(created.status).toBe(200);
@@ -210,6 +214,7 @@ describe('mcp-servers routers', () => {
       type: 'remote' as const,
       name: 'create-dcr-fail',
       url: 'https://mcp.example.com/dcr-fail',
+      description: 'Create DCR fail MCP server.',
       auth: { type: 'dcr' as const },
     };
     const response = await settingsRouter.request('/', postInit(createDcr));
@@ -659,6 +664,7 @@ describe('mcp-servers routers', () => {
           type: 'remote',
           name: 'failing-oauth-mcp',
           url: mcpUrl,
+          description: 'Failing OAuth MCP server.',
           auth: { type: 'dcr' },
         }),
       );
@@ -723,6 +729,7 @@ describe('mcp-servers routers', () => {
           type: 'remote',
           name: 'oauth-mcp',
           url: mcpUrl,
+          description: 'OAuth MCP server.',
           auth: { type: 'dcr' },
         }),
       );
