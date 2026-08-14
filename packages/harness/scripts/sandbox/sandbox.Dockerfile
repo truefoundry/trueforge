@@ -34,6 +34,8 @@ RUN apt-get update \
         fastmcp==3.2.4 \
         genson==1.3.0 \
         nats-py==2.15.0 \
+        openpyxl==3.1.5 \
+        pandas==3.0.5 \
         pydantic==2.12.5 \
         requests==2.33.1 \
       && rm -rf /var/lib/apt/lists/*

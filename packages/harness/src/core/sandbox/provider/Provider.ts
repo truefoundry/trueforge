@@ -51,19 +51,15 @@ export type SandboxInit = Omit<SandboxExecParams, 'sandboxId'>;
 
 export type SandboxBuildStatus = 'pending' | 'ready' | 'failed';
 
-/** Provider-internal build details, surfaced to callers as opaque metadata. */
-export interface SandboxBuildMetadata {
-  /** Provider build handle derived from the image digest (e.g. the Daytona snapshot name). */
-  buildRef: string;
-  /** Full reference of the release sandbox image this build refers to. */
-  imageUri: string;
-}
+/** Provider-specific opaque build metadata (string map). */
+export type SandboxBuildMetadata = Record<string, string>;
 
 export interface SandboxBuild {
   status: SandboxBuildStatus;
   /** Human-readable detail for the current status (shown to the user); null when ready. */
   reason: string | null;
-  metadata: SandboxBuildMetadata;
+  /** Provider-specific build details; null when the provider has none. */
+  metadata: SandboxBuildMetadata | null;
 }
 
 export interface SandboxProvider {

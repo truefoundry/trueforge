@@ -65,7 +65,7 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
         manifest: json(input.manifest),
         status: input.status,
         status_reason: input.status_reason,
-        build_metadata: json(input.build_metadata),
+        build_metadata: input.build_metadata !== null ? json(input.build_metadata) : null,
         created_at: now(),
         updated_at: now(),
       })
@@ -74,7 +74,7 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
           manifest: json(input.manifest),
           status: input.status,
           status_reason: input.status_reason,
-          build_metadata: json(input.build_metadata),
+          build_metadata: input.build_metadata !== null ? json(input.build_metadata) : null,
           updated_at: now(),
         }),
       )
@@ -93,7 +93,7 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
       .set({
         status: input.status,
         status_reason: input.status_reason,
-        build_metadata: json(input.build_metadata),
+        build_metadata: input.build_metadata !== null ? json(input.build_metadata) : null,
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id)

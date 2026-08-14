@@ -8,7 +8,7 @@
  *
  * `STANDALONE` is a discriminated mode selector:
  * - `true` (default): SQLite only; no Redis / executor peering.
- * - `false`: Postgres + Redis (defaults to local harness credentials /
+ * - `false`: Postgres + Redis (defaults to local trueforge credentials /
  *   `redis://localhost:6379`).
  */
 import { existsSync } from 'node:fs';
@@ -26,10 +26,10 @@ const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 /** Turn ids minted by a standalone process; no peer can ever own them. */
 const LOCAL_EXECUTOR_ID = 'local';
 /** OS-standard data dir for SQLite in standalone mode. */
-const ENV_PATHS_APP_NAME = 'truefoundry-utils';
-const DEFAULT_POSTGRES_USER = 'harness';
-const DEFAULT_POSTGRES_PASSWORD = 'harness';
-const DEFAULT_POSTGRES_DB = 'harness';
+const ENV_PATHS_APP_NAME = 'trueforge';
+const DEFAULT_POSTGRES_USER = 'trueforge';
+const DEFAULT_POSTGRES_PASSWORD = 'trueforge';
+const DEFAULT_POSTGRES_DB = 'trueforge';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';

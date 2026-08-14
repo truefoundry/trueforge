@@ -1,1 +1,2 @@
 - JSON projection aliases MUST be listed in `client.ts`'s `JSON_RESULT_COLUMNS`.
+- Kysely's SqliteAdapter keeps `supportsTransactionalDdl: false`, so Migrator does not wrap migrations. Every `up`/`down` that touches the schema MUST open `db.transaction()` itself. `PRAGMA foreign_keys` is a no-op inside a transaction — toggle it outside the txn when rebuilding a referenced parent (see kysely#56).

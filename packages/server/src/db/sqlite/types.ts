@@ -196,8 +196,8 @@ export interface SandboxProviderTable {
   status: SandboxBuildStatus;
   /** Human-readable detail for `status`; null when ready. */
   status_reason: string | null;
-  /** SandboxBuildMetadata document (build_ref + image_uri). */
-  build_metadata: JsonbColumn<SandboxBuildMetadata>;
+  /** SandboxBuildMetadata document (opaque string map); null when the provider has none. */
+  build_metadata: JsonbColumn<SandboxBuildMetadata> | null;
   created_at: string;
   updated_at: string;
 }

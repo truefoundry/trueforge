@@ -69,7 +69,7 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
         manifest: jsonbBind(input.manifest),
         status: input.status,
         status_reason: input.status_reason,
-        build_metadata: jsonbBind(input.build_metadata),
+        build_metadata: input.build_metadata !== null ? jsonbBind(input.build_metadata) : null,
         created_at: timestamp,
         updated_at: timestamp,
       })
@@ -78,7 +78,7 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
           manifest: jsonbBind(input.manifest),
           status: input.status,
           status_reason: input.status_reason,
-          build_metadata: jsonbBind(input.build_metadata),
+          build_metadata: input.build_metadata !== null ? jsonbBind(input.build_metadata) : null,
           updated_at: timestamp,
         }),
       )
@@ -96,7 +96,7 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
       .set({
         status: input.status,
         status_reason: input.status_reason,
-        build_metadata: jsonbBind(input.build_metadata),
+        build_metadata: input.build_metadata !== null ? jsonbBind(input.build_metadata) : null,
         updated_at: nowIso(),
       })
       .where('tenant_id', '=', input.tenant_id)
