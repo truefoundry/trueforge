@@ -209,11 +209,7 @@ const ConnectorSettings = () => {
   const handleAddMcpServer = async (draft: AddMcpServerDraft) => {
     setFormError(null);
     await runMutation(async () => {
-      await connectorCatalog.createConnector({
-        name: draft.name,
-        url: draft.url,
-        auth: draft.auth,
-      });
+      await connectorCatalog.createConnector({ ...draft });
     }, setFormError);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} added` });

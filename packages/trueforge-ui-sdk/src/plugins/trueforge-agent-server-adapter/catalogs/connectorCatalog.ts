@@ -198,7 +198,7 @@ export function createConnectorCatalog(
           name: req.name,
           url: req.url,
           auth,
-          description: preset?.description,
+          description: req.description ?? preset?.description,
         }),
       });
       return toUiConnector(body.data);

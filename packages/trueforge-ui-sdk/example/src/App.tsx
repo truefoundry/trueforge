@@ -147,10 +147,13 @@ const emptyCatalog: CatalogServer = {
     getToolsByConnectorId: async () => [],
     createConnector: async req => {
       const catalogEntry = exampleConnectorCatalog.find(entry => entry.url === req.url);
+      const requestDescription =
+        'description' in req && typeof req.description === 'string' ? req.description.trim() : '';
       const connector: ConnectorBase = {
         id: catalogEntry?.id ?? `connector-${Date.now()}`,
         name: req.name,
-        description: catalogEntry?.description ?? 'Custom MCP server.',
+        description:
+          requestDescription !== '' ? requestDescription : (catalogEntry?.description ?? 'Custom MCP server.'),
         url: req.url,
         auth: toPublicAuth(req.auth),
         requiresAuth: req.auth.type === 'dcr',
