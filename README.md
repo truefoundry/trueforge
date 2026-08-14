@@ -106,7 +106,7 @@ See the [chart README](charts/trueforge/README.md) (including [`configs.oidc`](c
 
 ## Build your first agent
 
-Full walkthrough: [Quickstart](https://trueforge.dev/quickstart). The example below builds a **web research briefer** — it searches the web, fans out to parallel subagents, and renders an interactive brief. To get started, you also need a model key.
+Full walkthrough: [Quickstart](https://trueforge.dev/quickstart). The example below builds a **web research briefer** — it searches the web, fans out to parallel subagents, and renders an interactive brief. To get started, you only need a model key.
 
 1. **Add a model provider** - **Settings → Models**, pick a provider, paste your API key.
 
