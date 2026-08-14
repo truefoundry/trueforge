@@ -34,7 +34,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import { extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
   type CompletionUsage,
@@ -985,19 +985,12 @@ export function describeStreamError(raw: unknown): string {
     }
     return raw.message;
   }
+  return describeUnknownError(raw);
+}
 
-  if (typeof raw !== 'object' || raw === null) {
-    return String(raw);
-  }
-  const message: unknown = Reflect.get(raw, 'message');
-  if (typeof message === 'string' && message.length > 0) {
-    return message;
-  }
-  try {
-    return JSON.stringify(raw);
-  } catch {
-    return `unserialisable provider error (${Object.keys(raw).join(', ')})`;
-  }
+export function toStreamError(raw: unknown): Error {
+  if (raw instanceof Error) return raw;
+  return new Error(describeStreamError(raw), { cause: raw });
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1430,7 +1423,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
       }
-      throw error;
+      throw toStreamError(error);
     }
 
     // Detached: warnings resolve at stream start, and a pending or rejected promise must never
@@ -1468,7 +1461,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
       }
-      throw error;
+      throw toStreamError(error);
     }
   }
 

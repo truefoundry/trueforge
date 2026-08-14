@@ -54,6 +54,7 @@ import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
 import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
+import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
@@ -1358,7 +1359,10 @@ export class AgentThread {
         if (outcome === 'exit') return;
       }
     } catch (error) {
-      yield this.generateErrorEvent(error instanceof Error ? error.message : 'Unknown error occurred');
+      // Providers / transports often reject with plain objects; instanceof Error would
+      // otherwise collapse those into an opaque "Unknown error occurred" in Agent Steps.
+      this.logger.error('Agent thread execution failed', extractErrorLogFields(error));
+      yield this.generateErrorEvent(describeUnknownError(error));
     } finally {
       this.contextBusy = false;
     }

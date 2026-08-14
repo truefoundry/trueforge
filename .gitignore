@@ -8,6 +8,7 @@ coverage/
 *.tsbuildinfo
 .pnpm-store/
 .eslintcache
+.prettiercache
 packages/harness/src/core/sandbox/sandboxScripts.gen.ts
 packages/server/src/catalog/modelCatalog.gen.ts
 packages/server/src/catalog/mcpCatalog.gen.ts

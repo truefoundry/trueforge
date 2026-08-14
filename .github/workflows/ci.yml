@@ -125,6 +125,13 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
+      - name: Cache prettier
+        uses: actions/cache@v6.1.0
+        with:
+          path: .prettiercache
+          # Project tsconfigs only (plugin reads them); !node_modules so post-install **/ globs stay bounded.
+          key: prettier-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '.prettierrc', '.prettierignore', 'package.json', '**/tsconfig*.json', '!**/node_modules/**') }}
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
