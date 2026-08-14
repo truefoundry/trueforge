@@ -65,7 +65,7 @@ flowchart LR
 <Note>
   - **Shared tools and sandbox** — subagents have access to the same MCP tools and sandbox environment as the root
   agent. - **No user interaction** — subagents cannot ask the user questions. Only the root agent talks to the user.
-  Subagent tool calls that require [approval](/create-agent/tool-approval) still pause for the user, though. - **No nesting** —
+  Subagent tool calls that require [approval](/create-agent/overview#tool-approval) still pause for the user, though. - **No nesting** —
   subagents cannot create other subagents. Delegation is one level deep. - **Parallel execution** — multiple subagents
   run concurrently. The root agent waits for all of them before continuing.
 </Note>

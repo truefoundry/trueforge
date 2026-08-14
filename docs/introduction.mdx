@@ -56,7 +56,7 @@ flowchart LR
 Runs the agent loop. When a user sends a message, the server:
 
 - Plans the turn, calls the model, and executes tools — streaming every step back
-- Pauses for [human approval](/create-agent/tool-approval) on sensitive actions
+- Pauses for [human approval](/create-agent/overview#tool-approval) on sensitive actions
 - Keeps context lean on long tasks with [key features](/key-features/overview) like subagents and compaction
 - Persists sessions, so conversations survive reconnects and restarts
 

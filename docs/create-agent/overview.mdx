@@ -1,7 +1,7 @@
 ---
 title: 'Create an Agent'
-sidebarTitle: 'Select resources'
-description: 'Pick a model, attach MCP servers and skills, write instructions, and save a reusable agent.'
+sidebarTitle: 'Create an Agent'
+description: 'Pick a model, attach MCP servers and skills, write instructions, save a reusable agent, and tune its capabilities.'
 ---
 
 After [initial setup](/harness/initial-setup), build an agent in the chat UI composer (or via the [SDK](/api/overview)).
@@ -12,9 +12,9 @@ An agent is a saved combination of:
 2. **MCP servers** — which tools it can call
 3. **Skills** — which procedures it can load
 4. **Instructions** — the system prompt for this agent's role
-5. **Optional config** — sandbox, tool approvals, ask-user-questions, generative UI
+5. **Configuration** — sandbox, tool approvals, ask-user-questions, generative UI
 
-## In the UI
+## Build it in the UI
 
 1. Open TrueForge and use the composer to create or edit an agent.
 2. **Select a model** from the providers you configured under Settings → Models.
@@ -24,7 +24,7 @@ An agent is a saved combination of:
 6. **Save** the agent so it appears in the [Agent Library](/agent-library).
 
 <Frame caption="Save a reusable agent from the composer.">
-  <img src="/images/quickstart-save-agent.png" alt="Save agent dialog in the TrueForge composer" />
+  <img src="/images/create-agent-save.png" alt="The Save agent dialog with a name, instructions, and a configuration summary of model, connectors, and skills" />
 </Frame>
 
 ## Selecting models, MCP servers, and skills
@@ -37,14 +37,53 @@ An agent is a saved combination of:
 
 Switching the model is a one-click (or one-field) change. No new API keys in the agent definition.
 
-## Related configuration
+## Configure capabilities
 
-These knobs are available on the agent today primarily through the **API / SDK** (not yet fully exposed in the builder UI):
+Beyond model, tools, and skills, an agent has a few runtime behaviors you can tune.
 
-| Capability | Default | Docs |
-| --- | --- | --- |
-| [Tool approval](/create-agent/tool-approval) | Write/destructive tools pause for approval | Configure which tools require confirmation |
-| [Ask User Questions](/create-agent/ask-user-questions) | Enabled | Let the agent ask structured multiple-choice questions |
-| [Generative UI](/create-agent/generative-ui) | Enabled | Let the agent render charts, tables, and cards |
+<Note>
+  The composer's **Capabilities** tab has toggles for **Generative UI**, **Ask clarifying questions** (ask-user-questions), and **Dynamic sub-agents** — all three are **on by default**. (Dynamic sub-agents is covered in [Subagents](/key-features/subagents).) Finer-grained settings — the per-tool **approval policy** (`require_approval_for_tools`) and the raw `config.*` fields — are set via the **API / SDK**. See the [Agent Spec reference](/create-agent/agent-spec).
+</Note>
 
-For the full field list, see the [Agent Spec reference](/create-agent/agent-spec).
+### Tool approval
+
+Some actions — deploying, deleting data, sending refunds — shouldn't run without explicit consent. **Tool approval** (human in the loop) pauses the agent before a sensitive MCP tool call, shows the tool name and arguments, and resumes only after the user approves or denies. Safe read-only tools stay autonomous.
+
+Approval policy is set **per MCP server**. The default gates write and destructive tools — anything the server doesn't mark read-only; you can also list specific tools or gate every tool ([`mcp_servers`](/create-agent/agent-spec#mcp_servers)).
+
+<Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
+  <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
+</Frame>
+
+Use approvals for state changes, irreversible actions, production impact, external communications, or expensive operations. Skip them for safe reads (list, fetch, search). Approval doesn't replace authorization — it only decides whether a pending call should proceed.
+
+### Ask user questions
+
+Agents often hit decision points they shouldn't guess — which environment to deploy to, which of several matches the user meant, or what an ambiguous required field should be. **Ask User Questions** pauses the agent, shows a multiple-choice prompt, and resumes with the chosen answer. It's on by default; toggle it in the composer's **Capabilities** tab.
+
+<Frame caption="The chat UI renders the question and options as a selectable card.">
+  <img src="/images/ask-user-questions.png" alt="Chat UI showing an agent question with multiple-choice options and a Submit button" />
+</Frame>
+
+Good for: choosing a target environment or account, disambiguating multiple matches, filling required fields the user didn't specify, or picking a strategy before a destructive step. Skip it when the agent can confidently infer the answer — over-asking turns the agent into a form.
+
+### Generative UI
+
+For dashboards, comparisons, and structured data, **Generative UI** lets the agent stream interactive components — charts, tables, cards, forms — that the chat UI renders as React. It's on by default; toggle it in the composer's **Capabilities** tab. The agent embeds a small OpenUI snippet in its response; the client renders real components as tokens stream in — no arbitrary code execution, only registered components.
+
+<Frame caption="A Generative UI response with a chart rendered inline in chat.">
+  <img src="/images/generative-ui.png" alt="Rendered Generative UI response with an inline bar chart comparing options" />
+</Frame>
+
+| Use case | What the agent renders |
+| --- | --- |
+| Dashboards | KPI cards, charts, comparison tables |
+| Tables | Sortable logs, resources, result sets |
+| Charts | Bar, line, pie patterns faster than prose |
+| Forms | Guided inputs for the next action |
+
+Skip it for short explanations, bullet lists, or code blocks where markdown is enough.
+
+## Agent spec reference
+
+For the full field list — `model`, `instructions`, `mcp_servers`, `skills`, `config`, and more — see the [Agent Spec reference](/create-agent/agent-spec).

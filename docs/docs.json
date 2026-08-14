@@ -1,6 +1,11 @@
 {
   "$schema": "https://mintlify.com",
   "theme": "mint",
+  "redirects": [
+    { "source": "/create-agent/tool-approval", "destination": "/create-agent/overview#tool-approval" },
+    { "source": "/create-agent/ask-user-questions", "destination": "/create-agent/overview#ask-user-questions" },
+    { "source": "/create-agent/generative-ui", "destination": "/create-agent/overview#generative-ui" }
+  ],
   "name": "TrueForge",
   "logo": {
     "light": "/logo/light.svg",
@@ -44,13 +49,7 @@
               },
               {
                 "group": "Create an Agent",
-                "pages": [
-                  "create-agent/overview",
-                  "create-agent/tool-approval",
-                  "create-agent/ask-user-questions",
-                  "create-agent/generative-ui",
-                  "create-agent/agent-spec"
-                ]
+                "pages": ["create-agent/overview", "create-agent/agent-spec"]
               },
               "agent-library",
               {
