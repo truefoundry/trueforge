@@ -171,7 +171,7 @@ flowchart LR
 | [Benchmarking](https://trueforge.dev/benchmarking)             | Cost/accuracy vs Claude Managed Agents and deepagents             |
 | [Setup Login](https://trueforge.dev/authentication/overview)   | Optional OIDC for shared deployments                              |
 | [SDK](https://trueforge.dev/api/overview)                      | TypeScript client: sessions, turns, events                        |
-| [Chat UI](https://trueforge.dev/chat-ui)                       | Bundled UI and embedding `@truefoundry/trueforge-ui`              |
+| [Chat UI](https://trueforge.dev/ui-sdk/get-started/quickstart) | Bundled UI and embedding `@truefoundry/trueforge-ui`              |
 | [API Reference](https://trueforge.dev/api-reference)           | OpenAPI paths and schemas                                         |
 
 ## Benchmarks
