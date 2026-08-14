@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`@truefoundry/assistant-ui-runtime` ≥ 0.1.19** — depends on the consolidated
+- **`@truefoundry/assistant-ui-runtime` ≥ 0.1.18** — depends on the consolidated
   runtime release that includes:
   - `getModels` → `properties.reasoningEfforts` for thinking-capable models
   - extras ancestor walk so nested/readonly AUI clients resolve
