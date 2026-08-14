@@ -102,7 +102,7 @@ flowchart LR
 | **Turn 3** | Jane (or a support rep) | Approval: allow `process_refund`               | Agent runs the refund and sends a confirmation.                 |
 
 <Note>
-  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/create-agent/ask-user-questions))
+  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/create-agent/overview#ask-user-questions))
   or needs MCP OAuth ([`mcp.auth_required`](/mcp-servers#in-chat-authentication)). You resume with a new turn, just like
   Turn 3 above.
 </Note>
@@ -345,8 +345,8 @@ Turn `input` accepts three item types:
 | `type`               | Purpose                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------- |
 | `user.message`       | A message. `content` is a string or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/create-agent/tool-approval) for a paused tool call.                 |
-| `user.tool_response` | An [answer](/create-agent/ask-user-questions) for a paused client-side tool call.           |
+| `user.tool_approval` | An [approval decision](/create-agent/overview#tool-approval) for a paused tool call.                 |
+| `user.tool_response` | An [answer](/create-agent/overview#ask-user-questions) for a paused client-side tool call.           |
 
 A single turn cannot mix `user.message` items with approval or tool-response items.
 
@@ -394,7 +394,7 @@ for await (const { data: event } of resume) {
 }
 ```
 
-The same pattern applies to [`tool.response_required`](/create-agent/ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
+The same pattern applies to [`tool.response_required`](/create-agent/overview#ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
 
 ## Reconnects, cancel, and history
 

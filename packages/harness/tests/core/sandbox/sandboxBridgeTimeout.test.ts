@@ -1,25 +1,21 @@
-jest.mock('../../../src/core/sandbox/SandboxNatsBridge', () => {
-  const actual = jest.requireActual('../../../src/core/sandbox/SandboxNatsBridge');
-  return {
-    ...actual,
-    SandboxNatsBridge: { connect: jest.fn() },
-  };
-});
-
+import type { CodeModeTransport } from '../../../src/core/sandbox/codeMode/CodeModeTransport';
 import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
 import { Sandbox, SANDBOX_EXEC_TOOL_NAME } from '../../../src/core/sandbox/Sandbox';
-import { SandboxNatsBridge } from '../../../src/core/sandbox/SandboxNatsBridge';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
 
-const mockBridgeConnect = SandboxNatsBridge.connect as jest.Mock;
 const AGENT_COMMAND = 'echo hello';
 
-function makeSandbox(options: { mcpRequestTimeoutMs: number; mcpConnectTimeoutMs: number }): {
+function makeSandbox(options: {
+  mcpRequestTimeoutMs: number;
+  mcpConnectTimeoutMs: number;
+  transport?: CodeModeTransport;
+}): {
   sandbox: Sandbox;
   execCalls: SandboxExecParams[];
 } {
   const execCalls: SandboxExecParams[] = [];
+  const transport = options.transport;
   const provider: SandboxProvider = {
     buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
     getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
@@ -33,13 +29,19 @@ function makeSandbox(options: { mcpRequestTimeoutMs: number; mcpConnectTimeoutMs
     getGitCredentialsPath: () => '/tmp/.git-credentials',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
-    getNatsBridgeUrl: () => Promise.resolve('ws://localhost:4444'),
+    createCodeModeTransport: () => {
+      if (transport === undefined) {
+        throw new Error('createCodeModeTransport should not be called without a mock transport');
+      }
+      return transport;
+    },
   };
   return {
     sandbox: new Sandbox({
       provider,
       blockDestructiveToolsInCodeMode: true,
-      ...options,
+      mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
+      mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
       execExtraEnv: { TFY_TENANT_NAME: 'test-tenant' },
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
@@ -59,25 +61,32 @@ async function execAgentCommand(sandbox: Sandbox, execCalls: SandboxExecParams[]
 }
 
 describe('Code Mode timeouts', () => {
-  beforeEach(() => {
-    mockBridgeConnect.mockReset();
-    mockBridgeConnect.mockResolvedValue({
-      subjectPrefix: 'sandbox.bridge.test',
-      whenClosed: () => new Promise<void>(() => {}),
-      close: () => Promise.resolve(),
-    });
-  });
-
-  it('derives the NATS wait from MCP request + connect plus a buffer', async () => {
+  it('derives the Code Mode wait from MCP request + connect plus a buffer', async () => {
+    let capturedTimeoutSeconds: number | undefined;
+    const transport: CodeModeTransport = {
+      start: params => {
+        capturedTimeoutSeconds = params.requestTimeoutSeconds;
+        return Promise.resolve({
+          env: {
+            TFY_NATS_URL: 'ws://localhost:4223',
+            TFY_NATS_SUBJECT_PREFIX: 'sandbox.bridge.test',
+            TFY_CM_REQUEST_TIMEOUT_SECONDS: String(params.requestTimeoutSeconds),
+          },
+        });
+      },
+      stop: () => Promise.resolve(),
+    };
     const { sandbox, execCalls } = makeSandbox({
       mcpRequestTimeoutMs: 90_000,
       mcpConnectTimeoutMs: 30_000,
+      transport,
     });
     sandbox.configureCodeMode([makeMockIMCPServer({ name: 'github', preload: true })]);
 
     const call = await execAgentCommand(sandbox, execCalls);
 
-    expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBe('150');
+    expect(capturedTimeoutSeconds).toBe(150);
+    expect(call.env?.['TFY_CM_REQUEST_TIMEOUT_SECONDS']).toBe('150');
   });
 
   it('leaves the exec timeout to the provider default', async () => {
@@ -88,7 +97,7 @@ describe('Code Mode timeouts', () => {
 
     const call = await execAgentCommand(sandbox, execCalls);
 
-    expect(call.env?.['TFY_NATS_REQUEST_TIMEOUT_SECONDS']).toBeUndefined();
+    expect(call.env?.['TFY_CM_REQUEST_TIMEOUT_SECONDS']).toBeUndefined();
     expect(call.timeoutSeconds).toBeUndefined();
   });
 });

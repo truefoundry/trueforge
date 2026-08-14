@@ -46,7 +46,7 @@
     "test:store:sqlite": "pnpm --filter @truefoundry/trueforge test:store:sqlite",
     "test:trueforge-ui": "pnpm --filter @truefoundry/trueforge-ui test",
     "test": "pnpm test:harness && pnpm test:trueforge-ui && pnpm test:server && pnpm test:frontend",
-    "typecheck": "pnpm --filter @truefoundry/trueforge-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/trueforge typecheck && pnpm --filter frontend typecheck",
+    "typecheck": "pnpm --filter @truefoundry/trueforge-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/trueforge typecheck && pnpm --filter frontend typecheck && pnpm --filter @truefoundry/local-sandbox typecheck",
     "version": "node scripts/version.mjs"
   },
   "devDependencies": {

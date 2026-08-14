@@ -12,6 +12,10 @@ Register them once under **Settings → Connectors**. Agents attach servers by n
 
 Open **Settings → Connectors**, pick a server from the catalog, complete auth if required, and save. The server is then available when you [create an agent](/create-agent/overview).
 
+<Frame caption="Settings → Connectors — connect a server from the catalog (each shows its auth type).">
+  <img src="/images/mcp-connectors.png" alt="The Settings → Connectors page showing a connected server above a catalog of MCP servers labelled by auth type" />
+</Frame>
+
 You can also use **Add MCP Server** to register any remote URL that is not in the catalog.
 
 <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
@@ -46,27 +50,12 @@ The catalog entries under **Settings → Connectors** (Linear, Notion, GitHub, a
 
 If a server uses OAuth and the user has not yet authorized it, the turn pauses and the chat UI shows a **Connect** button. The user completes OAuth in a popup and continues the conversation — the agent does not fail.
 
-{/* TODO: Add screenshot of in-chat MCP OAuth Connect button. */}
-<Frame caption="TODO: Screenshot — in-chat MCP authentication showing the Connect button when OAuth is required.">
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 200,
-      border: "1px dashed #94a3b8",
-      borderRadius: 8,
-      color: "#64748b",
-      padding: 24,
-      textAlign: "center",
-    }}
-  >
-    TODO: Screenshot of in-chat MCP auth (Connect button in chat)
-  </div>
+<Frame caption="In-chat MCP authentication — the turn pauses with a Connect button until the user authorizes the server, then continues.">
+  <img src="/images/mcp-in-chat-auth.png" alt="The chat UI showing an MCP Authentication Required panel for the Notion server, with Connect and Continue buttons" />
 </Frame>
 
 ## Next steps
 
 - Attach MCP servers when you [create an agent](/create-agent/overview).
-- Configure which tools need [approval](/create-agent/tool-approval) (API today).
+- Configure which tools need [approval](/create-agent/overview#tool-approval) (API today).
 - Keep tool schemas lean with [deferred loading](/key-features/deferred-tool-loading) in Key Features.

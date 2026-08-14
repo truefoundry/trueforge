@@ -4,6 +4,9 @@ import { randomUUID } from 'crypto';
 import dedent from 'dedent';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
+import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
+import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import { SandboxFileNotFoundError, SandboxFileTooLargeError, SandboxPathIsDirectoryError } from '../SandboxErrors';
 import {
   ensureExecSuccess,
@@ -170,8 +173,12 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   // The TFY sandbox exposes a static, cluster-internal NATS WebSocket URL (no signed URLs).
-  getNatsBridgeUrl(): Promise<string> {
-    return Promise.resolve(this.natsBridgeUrl);
+  createCodeModeTransport(): CodeModeTransport {
+    return new CodeModeNatsTransport({
+      resolveHostUrl: () => Promise.resolve(this.natsBridgeUrl),
+      sandboxClientNatsUrl: `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`,
+      logger: this.logger,
+    });
   }
 
   getAdditionalInstructions(): string {

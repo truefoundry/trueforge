@@ -66,7 +66,7 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
     getGitCredentialsPath: () => '/tmp/.git-credentials',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
-    getNatsBridgeUrl: jest.fn(),
+    createCodeModeTransport: jest.fn(),
   };
   return new Sandbox({
     provider,

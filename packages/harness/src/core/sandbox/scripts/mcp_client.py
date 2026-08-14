@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # /// script
-# dependencies = ["fastmcp==3.2.4", "pydantic==2.12.5", "nats-py==2.15.0"]
+# dependencies = ["pydantic==2.12.5", "nats-py==2.15.0"]
 # ///
 
 import os
@@ -53,7 +53,7 @@ class _BridgeReply(BaseModel):
     ok: bool
     result: Any = None
     error: str = "unknown error"
-    source: str = "gateway"
+    source: str = "internal"
 
 
 class _ServerConfig(TypedDict):
@@ -142,7 +142,7 @@ async def _nats_request(subject: str, payload: dict[str, Any]) -> Any:
     from nats.errors import NoRespondersError
 
     data = json.dumps(payload).encode()
-    request_timeout = float(os.environ["TFY_NATS_REQUEST_TIMEOUT_SECONDS"])
+    request_timeout = float(os.environ["TFY_CM_REQUEST_TIMEOUT_SECONDS"])
 
     # Phase 1: establish a connection, retrying only connect failures.
     nc = None
@@ -185,12 +185,12 @@ async def _nats_request(subject: str, payload: dict[str, Any]) -> Any:
             except ValidationError as e:
                 raise RuntimeError(f"NATS reply on '{subject}' is malformed: {e}") from None
             if not reply.ok:
-                # A well-formed reply means the bridge/transport worked; `source` says who's at fault.
-                if reply.source == "agent":
+                # A well-formed reply means the transport worked; `source` says who's at fault.
+                if reply.source == "caller":
                     raise RuntimeError(f"Invalid MCP request on '{subject}': {reply.error}") from None
-                if reply.source == "bridge":
-                    raise RuntimeError(f"NATS bridge error on '{subject}': {reply.error}") from None
-                raise RuntimeError(f"Gateway MCP error on '{subject}': {reply.error}") from None
+                if reply.source == "transport":
+                    raise RuntimeError(f"Code Mode transport error on '{subject}': {reply.error}") from None
+                raise RuntimeError(f"Internal MCP error on '{subject}': {reply.error}") from None
             return reply.result
         raise RuntimeError(
             f"NATS bridge has no responder for '{subject}' after {_NATS_REQUEST_MAX_ATTEMPTS} attempts: {last_transport_error}"
