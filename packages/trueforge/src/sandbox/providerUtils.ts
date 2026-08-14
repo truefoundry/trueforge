@@ -1,6 +1,11 @@
 /** Daytona provider construction + persisted build-status refresh (see checkSnapshotStatus). */
 import { Daytona, DaytonaError } from '@daytona/sdk';
-import { DaytonaSandboxProvider, SANDBOX_IMAGE_URI, type SandboxBuild } from '@truefoundry/trueforge-core/core';
+import {
+  DaytonaSandboxProvider,
+  SANDBOX_IMAGE_URI,
+  type DaytonaBuildFailureHandler,
+  type SandboxBuild,
+} from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -29,11 +34,13 @@ export function toDaytonaSandboxProvider({
   tenant_id,
   logger,
   build_metadata,
+  onBuildFailure,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
+  onBuildFailure: DaytonaBuildFailureHandler | undefined;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
@@ -43,8 +50,27 @@ export function toDaytonaSandboxProvider({
     sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
     buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    onBuildFailure,
     logger,
   });
+}
+
+/**
+ * Persists a build that Daytona rejected after `buildImage` already answered `pending`.
+ * Callers that kick off a build inside a transaction still get the right final row: that
+ * transaction holds the provider row lock, so this write lands after its `pending` upsert
+ * commits rather than being overwritten by it.
+ */
+export async function persistBuildFailure<TTransaction>({
+  store,
+  tenant_id,
+  build,
+}: {
+  store: ISandboxProviderStore<TTransaction>;
+  tenant_id: string;
+  build: SandboxBuild;
+}): Promise<void> {
+  await store.updateSandboxStatus({ tenant_id, ...toSandboxStatus(build) });
 }
 
 /** Maps a core `SandboxBuild` onto the persisted/wire status shape (metadata passes through). */
@@ -90,6 +116,7 @@ export async function checkSnapshotStatus({
     tenant_id,
     logger,
     build_metadata: record.build_metadata,
+    onBuildFailure: build => persistBuildFailure({ store, tenant_id, build }),
   });
   let build: SandboxBuild;
   if (record.status === 'ready') {

@@ -7,6 +7,7 @@ import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sand
 import {
   checkSnapshotStatus,
   isDaytonaAuthError,
+  persistBuildFailure,
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
@@ -79,6 +80,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           tenant_id: TENANT_ID,
           logger: deps.logger,
           ...(locked ? { build_metadata: locked.build_metadata } : {}),
+          onBuildFailure: build =>
+            persistBuildFailure({ store: deps.sandboxProviderStore, tenant_id: TENANT_ID, build }),
         });
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
