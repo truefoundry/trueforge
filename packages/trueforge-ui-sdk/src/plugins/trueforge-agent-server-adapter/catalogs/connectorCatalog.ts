@@ -58,6 +58,7 @@ export function toUiCatalogEntry(server: TrueForgeApi.CatalogMcpServer): UiConne
     id: server.name,
     name: server.name,
     url: server.url,
+    description: server.description,
     ...(server.logo === undefined ? {} : { logo: server.logo }),
     auth: toUiAuthPublic(server.auth),
   };
@@ -74,7 +75,7 @@ export function toUiConnector(server: TrueForgeApi.ConfiguredMcpServer): UiConne
   return {
     id: server.name,
     name: server.name,
-    description: server.url,
+    description: server.description,
     url: server.url,
     auth,
     requiresAuth: server.authStatus.status === 'auth_required',

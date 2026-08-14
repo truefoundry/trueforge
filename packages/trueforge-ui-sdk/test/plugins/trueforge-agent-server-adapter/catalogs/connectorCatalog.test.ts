@@ -51,6 +51,7 @@ describe('connectorCatalog mappers', () => {
         id: 'linear',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
         auth: { type: 'dcr' },
       },
     );
@@ -68,7 +69,7 @@ describe('connectorCatalog mappers', () => {
       {
         id: 'deepwiki',
         name: 'deepwiki',
-        description: 'https://mcp.deepwiki.com/mcp',
+        description: 'DeepWiki MCP server.',
         url: 'https://mcp.deepwiki.com/mcp',
         auth: { type: 'none' },
         requiresAuth: false,
