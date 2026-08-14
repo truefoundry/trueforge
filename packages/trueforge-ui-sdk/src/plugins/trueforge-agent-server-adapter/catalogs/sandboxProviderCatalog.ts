@@ -63,7 +63,7 @@ export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManife
 }
 
 export function toUiSandboxProviderListEntry(
-  response: TrueForgeApi.SandboxProviderResponse,
+  response: TrueForgeApi.GetSandboxProviderResponse['data'],
 ): UiSandboxProviderListEntry {
   return {
     data: toUiSandboxProvider(response.manifest),

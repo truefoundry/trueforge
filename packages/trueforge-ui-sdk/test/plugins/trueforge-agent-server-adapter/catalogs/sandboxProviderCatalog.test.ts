@@ -31,15 +31,11 @@ describe('sandboxProviderCatalog mappers', () => {
   }: {
     status: TrueForgeApi.SandboxBuildStatus;
     statusReason: string | null;
-  }): TrueForgeApi.SandboxProviderResponse {
+  }): TrueForgeApi.GetSandboxProviderResponse['data'] {
     return {
       manifest: harnessConfigured,
       status,
       statusReason,
-      buildMetadata: {
-        buildRef: 'snapshot-ref',
-        imageUri: 'registry.example.com/sandbox:latest',
-      },
     };
   }
 
