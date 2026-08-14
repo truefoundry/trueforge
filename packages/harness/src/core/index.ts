@@ -137,9 +137,18 @@ export { describeUnknownError, extractErrorLogFields } from './util/errorLogFiel
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
 // Sandbox (concrete implementation; provider details exported for composition)
+export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
+export type { CodeModeLogger } from './sandbox/codeMode/CodeModeDispatcher';
+export type { CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';
+export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema } from './sandbox/codeMode/types';
+export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
+export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
+  ExecErrorResult,
+  ExecResult,
+  ExecSuccessResult,
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
@@ -150,7 +159,15 @@ export type {
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
 export type { SandboxInfo } from './sandbox/Sandbox';
-export { SandboxError, validateNoPathTraversal, validateSandboxOwnedByTenant } from './sandbox/SandboxErrors';
+export {
+  SandboxError,
+  SandboxFileNotFoundError,
+  SandboxFileTooLargeError,
+  SandboxNotAvailableError,
+  SandboxPathIsDirectoryError,
+  validateNoPathTraversal,
+  validateSandboxOwnedByTenant,
+} from './sandbox/SandboxErrors';
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources

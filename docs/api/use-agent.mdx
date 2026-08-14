@@ -378,7 +378,7 @@ rl.close();
 
 ### Handle tool approvals
 
-When a tool call is configured to require [human approval](/create-agent/tool-approval), the agent emits a [`tool.approval_required`](/api/turn-events#tool-approval-required) event and the turn ends. Each event carries a `threadId` and the `toolCalls` awaiting a decision — a single turn can emit more than one (for example, when parallel threads each call a gated tool), so collect all of them. Resume by creating a new turn with one `user.tool_approval` item per pending tool call — allow it, or deny it with an optional reason.
+When a tool call is configured to require [human approval](/create-agent/overview#tool-approval), the agent emits a [`tool.approval_required`](/api/turn-events#tool-approval-required) event and the turn ends. Each event carries a `threadId` and the `toolCalls` awaiting a decision — a single turn can emit more than one (for example, when parallel threads each call a gated tool), so collect all of them. Resume by creating a new turn with one `user.tool_approval` item per pending tool call — allow it, or deny it with an optional reason.
 
 Each pending tool-call ref carries the `sourceEventId` of the [`model.message`](/api/turn-events#model-message) that emitted the tool call. Keep the same `id`-keyed [event index](#handling-event-delta-while-streaming) you build while streaming, then look up `events.get(sourceEventId)` to read the tool's name and arguments.
 
@@ -447,7 +447,7 @@ rl.close();
 
 ### Answer agent questions
 
-When the agent needs input it cannot safely assume, it can ask the user a structured question via the built-in client-side [`ask_user_question`](/create-agent/ask-user-questions) tool. Since the tool runs on your side, the agent emits a [`tool.response_required`](/api/turn-events#tool-response-required) event and the turn ends. The pending tool call's `arguments` carry the `question` and its `options`. Collect the user's answer and resume by creating a new turn with one `user.tool_response` item per pending tool call.
+When the agent needs input it cannot safely assume, it can ask the user a structured question via the built-in client-side [`ask_user_question`](/create-agent/overview#ask-user-questions) tool. Since the tool runs on your side, the agent emits a [`tool.response_required`](/api/turn-events#tool-response-required) event and the turn ends. The pending tool call's `arguments` carry the `question` and its `options`. Collect the user's answer and resume by creating a new turn with one `user.tool_response` item per pending tool call.
 
 ```typescript
 import { createInterface } from 'node:readline/promises';

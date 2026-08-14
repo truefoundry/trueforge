@@ -15,10 +15,11 @@ import {
 } from '../runtime/DeferredTool';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
-import { DEFAULT_SANDBOX_NATS_WS_PORT, SANDBOX_FILE_UPLOADS_DIR } from './constants';
+import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
+import type { CodeModeTransport } from './codeMode/CodeModeTransport';
+import { SANDBOX_FILE_UPLOADS_DIR } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
-import { SandboxNatsBridge } from './SandboxNatsBridge';
 import { sandboxScripts } from './sandboxScripts.gen';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { SKILLS_DIR } from './skills/constants';
@@ -133,18 +134,16 @@ function injectTraceContextEnv(): Record<string, string> {
 
 /**
  * Injects environment variables required for mcp_client.py into sandbox_exec arguments.
- *
- * `natsBridgeSubjectPrefix` MUST be the prefix the gateway-side bridge subscribed to; the
- * sandbox script publishes to `<prefix>.mcp` (operation in the payload's `op` field) and only
- * this bridge receives them. See SandboxNatsBridge.
+ * Transport-specific vars (NATS URL/prefix/timeout) come from `codeModeEnv` via transport.start().
  */
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
   mcpServers: Record<string, SandboxMcpServerConfig>;
   execExtraEnv?: Readonly<Record<string, string>> | undefined;
-  natsBridgeSubjectPrefix?: string | undefined;
-  natsRequestTimeoutSeconds: number;
+  codeModeEnv?: Record<string, string> | undefined;
 }): Record<string, string> {
+  const codeModeEnv = params.codeModeEnv ?? {};
+  const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
   return {
     ...(params.execExtraEnv ?? {}),
     ...(params.env ?? {}),
@@ -152,13 +151,10 @@ function injectMCPClientEnv(params: {
     ...(Object.keys(params.mcpServers).length > 0 && {
       TFY_MCP_SERVERS: Buffer.from(JSON.stringify(params.mcpServers)).toString('base64'),
     }),
-    ...(params.natsBridgeSubjectPrefix && {
-      TFY_NATS_URL: `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`,
-      TFY_NATS_SUBJECT_PREFIX: params.natsBridgeSubjectPrefix,
-      TFY_NATS_REQUEST_TIMEOUT_SECONDS: String(params.natsRequestTimeoutSeconds),
-      // W3C trace context captured per-exec so each NATS request carries the originating
-      // Sandbox: exec span as parent. Without this, MCP spans dispatched via the bridge
-      // inherit whatever ALS context the NATS callback runs under (stale, shared across execs).
+    ...codeModeEnv,
+    ...(hasCodeModeTransport && {
+      // W3C trace context captured per-exec so each Code Mode request carries the originating
+      // Sandbox: exec span as parent.
       ...injectTraceContextEnv(),
     }),
     // Approvals are always enabled: destructive tools cannot run in code mode.
@@ -206,7 +202,7 @@ export class Sandbox extends LocalToolMCP {
   private sandboxInitPromise?: Promise<void> | undefined;
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
-  private readonly natsRequestTimeoutSeconds: number;
+  private readonly requestTimeoutSeconds: number;
   private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
@@ -214,7 +210,8 @@ export class Sandbox extends LocalToolMCP {
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
-  private natsBridgePromise?: Promise<SandboxNatsBridge | undefined> | undefined;
+  private codeModeDispatcher: CodeModeDispatcher | undefined;
+  private codeModeTransport: CodeModeTransport | undefined;
 
   private tools = [
     defineTool({
@@ -233,7 +230,7 @@ export class Sandbox extends LocalToolMCP {
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
-    this.natsRequestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
+    this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.execExtraEnv = options.execExtraEnv;
     // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
     // text are all hardcoded here, so injecting different content was never a
@@ -265,7 +262,12 @@ export class Sandbox extends LocalToolMCP {
     if (!servers.length) {
       return;
     }
+    if (this.codeModeDispatcher !== undefined || this.codeModeTransport !== undefined) {
+      throw new Error('Code Mode is already configured for this Sandbox');
+    }
     this.codeExecToolSets = servers;
+    this.codeModeDispatcher = new CodeModeDispatcher({ toolSets: servers, logger: this.logger });
+    this.codeModeTransport = this.provider.createCodeModeTransport();
   }
 
   estimateSkillsTokens(): number {
@@ -478,13 +480,12 @@ export class Sandbox extends LocalToolMCP {
         overrides: { sandboxCreated: sandboxCreatedFlag, sandboxInfo },
       });
     }
-    const bridge = await this.ensureNatsBridgeConnected(sandboxInfo.sandbox_id);
+    const codeModeEnv = await this.ensureCodeModeStarted(sandboxInfo.sandbox_id);
     const mcpClientEnv = injectMCPClientEnv({
       env: input.env,
       mcpServers: this.buildMcpServersEnvelope(),
       execExtraEnv: this.execExtraEnv,
-      natsBridgeSubjectPrefix: bridge?.subjectPrefix,
-      natsRequestTimeoutSeconds: this.natsRequestTimeoutSeconds,
+      codeModeEnv,
     });
     const gitAuthEnv =
       this.resolvedGitCredentialsContent !== null
@@ -622,71 +623,45 @@ export class Sandbox extends LocalToolMCP {
   }
 
   /**
-   * Lazily connect the sandbox→gateway NATS bridge. Single-flight and idempotent.
-   * Skipped when there are no MCP servers exposed to code mode (nothing to bridge). Connect
-   * failures resolve to `undefined` (no NATS env for that exec); mcp_client then errors at call
-   * time — there is no HTTPS fallback.
+   * Lazily start Code Mode transport. Single-flight and idempotent inside the transport.
+   * Skipped when code mode was never configured. Connect failures resolve to `undefined`
+   * (no Code Mode env for that exec); mcp_client then errors at call time — no HTTPS fallback.
    */
-  private async ensureNatsBridgeConnected(sandboxId: string): Promise<SandboxNatsBridge | undefined> {
-    // No MCP servers means the bridge has nothing to dispatch to. Avoid the connect cost.
-    if (this.codeExecToolSets.length === 0) return undefined;
-    this.natsBridgePromise ??= this.connectNatsBridge(sandboxId).catch((e: unknown) => {
-      // Connect-level errors (network, timeout, broker not up) are not sticky: a later exec
-      // may succeed (e.g. after sandbox warmup). Wipe the cached promise so retries happen.
-      this.logger.error('Sandbox NATS bridge connect failed', {
+  private async ensureCodeModeStarted(sandboxId: string): Promise<Record<string, string> | undefined> {
+    const dispatcher = this.codeModeDispatcher;
+    const transport = this.codeModeTransport;
+    if (dispatcher === undefined || transport === undefined) {
+      return undefined;
+    }
+    try {
+      const { env } = await transport.start({
+        codeModeDispatcher: dispatcher,
+        sandboxId,
+        requestTimeoutSeconds: this.requestTimeoutSeconds,
+      });
+      return env;
+    } catch (e) {
+      // Connect-level errors are not sticky: transport clears its session so a later exec may retry.
+      this.logger.error('Code Mode transport start failed', {
         ...extractErrorLogFields(e),
         sandboxId,
       });
-      this.natsBridgePromise = undefined;
       return undefined;
-    });
-    return this.natsBridgePromise;
-  }
-
-  private async connectNatsBridge(sandboxId: string): Promise<SandboxNatsBridge> {
-    const wsUrl = await this.provider.getNatsBridgeUrl(sandboxId);
-    const toolSets = new Map<string, IToolSet>();
-    for (const server of this.codeExecToolSets) {
-      toolSets.set(server.name, server);
     }
-    const bridge = await SandboxNatsBridge.connect({ url: wsUrl, toolSets, logger: this.logger });
-    this.logger.info('Sandbox NATS bridge connected', {
-      sandboxId,
-      toolSetCount: toolSets.size,
-    });
-    this.attachBridgeInvalidationOnClose(bridge, sandboxId);
-    return bridge;
   }
 
-  private attachBridgeInvalidationOnClose(bridge: SandboxNatsBridge, sandboxId: string): void {
-    const cachedPromise = this.natsBridgePromise;
-    // fire and forget
-    void bridge.whenClosed().then(() => {
-      if (this.natsBridgePromise === cachedPromise) {
-        this.natsBridgePromise = undefined;
-        this.logger.info('Sandbox NATS bridge closed; cache invalidated, next exec will reconnect', { sandboxId });
-      }
-    });
-  }
-
-  // Tears down per-Sandbox resources. Awaits the in-flight connect (if any) and explicitly
-  // closes the bridge — dropping the field alone would leak the WS socket and live
-  // subscriptions, and orphan a bridge that finishes connecting after close() returned.
+  // Tears down per-Sandbox Code Mode resources. Dispatcher close first (in-flight requests get
+  // source: transport), then transport.stop() — always safe whether start succeeded, failed, or never ran.
   async close(): Promise<void> {
-    const pendingPromise = this.natsBridgePromise;
-    this.natsBridgePromise = undefined;
-    if (!pendingPromise) return;
-    let bridge: SandboxNatsBridge | undefined;
+    this.codeModeDispatcher?.close();
+    this.codeModeDispatcher = undefined;
+    const transport = this.codeModeTransport;
+    this.codeModeTransport = undefined;
+    if (transport === undefined) return;
     try {
-      bridge = await pendingPromise;
-    } catch {
-      // Connect-error path already logged inside ensureNatsBridgeConnected's .catch.
-    }
-    if (!bridge) return;
-    try {
-      await bridge.close();
+      await transport.stop();
     } catch (e) {
-      this.logger.warn('Error closing sandbox NATS bridge', extractErrorLogFields(e));
+      this.logger.warn('Error stopping Code Mode transport', extractErrorLogFields(e));
     }
   }
 }

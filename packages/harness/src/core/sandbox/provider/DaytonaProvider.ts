@@ -11,6 +11,8 @@ import {
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
 } from '../SandboxErrors';
+import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
+import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
@@ -384,14 +386,19 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     });
   }
 
-  async getNatsBridgeUrl(sandboxId: string): Promise<string> {
-    // Daytona hands us a signed https preview URL; convert http(s) -> ws(s) for the NATS client.
-    const previewUrl = await this.getPreviewUrl({
-      sandboxId,
-      port: this.natsBridgePort,
-      expiresInSeconds: this.previewUrlExpirySeconds,
+  createCodeModeTransport(): CodeModeTransport {
+    return new CodeModeNatsTransport({
+      resolveHostUrl: async (sandboxId: string) => {
+        const previewUrl = await this.getPreviewUrl({
+          sandboxId,
+          port: this.natsBridgePort,
+          expiresInSeconds: this.previewUrlExpirySeconds,
+        });
+        return httpUrlToWsUrl(previewUrl);
+      },
+      sandboxClientNatsUrl: `ws://localhost:${String(this.natsBridgePort)}`,
+      logger: this.logger,
     });
-    return httpUrlToWsUrl(previewUrl);
   }
 
   getAdditionalInstructions(): string | undefined {

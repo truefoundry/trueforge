@@ -1,3 +1,5 @@
+import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
+
 /** Command executed in sandbox — exitCode may be non-zero but the infra call succeeded. */
 export interface ExecSuccessResult {
   success: true;
@@ -85,8 +87,8 @@ export interface SandboxProvider {
   uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void>;
 
   /**
-   * Returns a ready-to-use `ws(s)://` URL for this sandbox's pod-local NATS broker, which the
-   * gateway connects to as the MCP responder. Throws on failure (caller retries on a later exec).
+   * Construct a Code Mode transport for this provider (no connect/listen yet).
+   * Throws if the provider does not support Code Mode.
    */
-  getNatsBridgeUrl(sandboxId: string): Promise<string>;
+  createCodeModeTransport(): CodeModeTransport;
 }

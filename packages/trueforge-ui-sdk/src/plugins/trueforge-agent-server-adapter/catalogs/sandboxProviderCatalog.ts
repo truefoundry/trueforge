@@ -13,10 +13,12 @@ import type {
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
+  SandboxProviderListEntry,
 } from '../../../server/types.js';
 
 export type UiSandboxProvider = SandboxProviderBase;
 export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
+export type UiSandboxProviderListEntry = SandboxProviderListEntry;
 
 const DAYTONA_TYPE = 'daytona';
 const DAYTONA_DISPLAY_NAME = 'Daytona';
@@ -34,7 +36,6 @@ export function configFromHarness(
   return {
     // Snapshot/image is now release-owned; the field is gone from the backend. The external
     // SandboxProviderConfig still requires it, so send an empty placeholder until that type drops it.
-    snapshotName: '',
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
@@ -59,6 +60,36 @@ export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManife
     isConnected: true,
     ...configFromHarness(provider),
   };
+}
+
+export function toUiSandboxProviderListEntry(
+  response: TrueForgeApi.GetSandboxProviderResponse['data'],
+): UiSandboxProviderListEntry {
+  return {
+    data: toUiSandboxProvider(response.manifest),
+    snapshotSyncStatus: {
+      status: response.status,
+      ...(response.statusReason ? { statusReason: response.statusReason } : {}),
+    },
+  };
+}
+
+export function filterUiSandboxProviders({
+  providers,
+  query,
+}: {
+  providers: UiSandboxProviderListEntry[];
+  query?: string;
+}): UiSandboxProviderListEntry[] {
+  const normalizedQuery = query?.trim().toLowerCase();
+  if (normalizedQuery === undefined || normalizedQuery === '') {
+    return providers;
+  }
+  return providers.filter(
+    provider =>
+      provider.data.name.toLowerCase().includes(normalizedQuery) ||
+      provider.data.id.toLowerCase().includes(normalizedQuery),
+  );
 }
 
 export function toHarnessManifest(
@@ -97,10 +128,10 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       return body.data.map(toUiCatalogEntry);
     },
     listSandboxProviders: async req => {
-      let providers: UiSandboxProvider[];
+      let providers: UiSandboxProviderListEntry[];
       try {
         const body = await client.settings.sandboxProviders.get();
-        providers = [toUiSandboxProvider(body.data.manifest)];
+        providers = [toUiSandboxProviderListEntry(body.data)];
       } catch (err) {
         if (err instanceof TrueForgeApi.NotFoundError) {
           providers = [];
@@ -108,13 +139,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
           throw err;
         }
       }
-      const query = req?.query?.trim().toLowerCase();
-      if (query === undefined || query === '') {
-        return providers;
-      }
-      return providers.filter(
-        provider => provider.name.toLowerCase().includes(query) || provider.id.toLowerCase().includes(query),
-      );
+      return filterUiSandboxProviders({ providers, query: req?.query });
     },
     createSandboxProvider: async req => {
       const body = await client.settings.sandboxProviders.upsert({

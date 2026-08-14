@@ -69,7 +69,7 @@ Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by n
 | `enable_tools`               | `["@all"]`                   | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                       |
 | `disable_tools`              | `[]`                         | Tools subtracted from the enabled set.                                                                         |
 | `preload_tools`              | `[]`                         | Tools loaded eagerly into context while the rest stay deferred.                                                |
-| `require_approval_for_tools` | `["@write", "@destructive"]` | Tools that pause for [human approval](/create-agent/tool-approval): `@all`, `@write`, `@destructive`, or literal names. |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | Tools that pause for [human approval](/create-agent/overview#tool-approval): `@all`, `@write`, `@destructive`, or literal names. |
 | `preload`                    | `false`                      | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).              |
 
 The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.
@@ -98,8 +98,8 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | `sandbox`            | `{ "enabled": false }` | [Sandbox](/sandbox) for code execution, files, and skills.                                                                                      |
 | `dynamic_sub_agents` | `{ "enabled": true }`  | [Subagents](/key-features/subagents).                                                                                                    |
 | `context_management` | all enabled            | [Compaction](/key-features/overview#context-compaction) and [large tool response offloading](/key-features/large-tool-responses). |
-| `generative_ui`      | `{ "enabled": true }`  | [Generative UI](/create-agent/generative-ui) (OpenUI blocks).                                                                                                |
-| `ask_user_questions` | `{ "enabled": true }`  | The [`ask_user_question`](/create-agent/ask-user-questions) tool.                                                                                            |
+| `generative_ui`      | `{ "enabled": true }`  | [Generative UI](/create-agent/overview#generative-ui) (OpenUI blocks).                                                                                                |
+| `ask_user_questions` | `{ "enabled": true }`  | The [`ask_user_question`](/create-agent/overview#ask-user-questions) tool.                                                                                            |
 
 ### `config.sandbox`
 

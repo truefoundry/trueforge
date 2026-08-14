@@ -55,7 +55,7 @@ sequenceDiagram
 Code Mode is available whenever the agent's [sandbox](/sandbox) is enabled. The agent decides at runtime whether a task is worth running in code or whether a single direct tool call is enough. Before writing a script, it can call [`get_tool_output_schema`](/key-features/deferred-tool-loading#how-it-works) so it knows the exact shape of a tool's response instead of guessing keys from raw JSON.
 
 <Note>
-  [Approval policies](/create-agent/tool-approval) still apply in Code Mode — a script that calls a tool matching
+  [Approval policies](/create-agent/overview#tool-approval) still apply in Code Mode — a script that calls a tool matching
   `require_approval_for_tools` pauses for user approval just like a direct tool call.
 </Note>
 
