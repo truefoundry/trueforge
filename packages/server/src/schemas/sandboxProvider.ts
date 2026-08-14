@@ -17,6 +17,7 @@ const DaytonaSandboxProviderAuthSchema = z
       ),
   })
   .strict()
+  .describe('Daytona authentication credentials.')
   .openapi('DaytonaSandboxProviderAuth');
 
 /**
@@ -28,7 +29,7 @@ const DaytonaSandboxProviderAuthSchema = z
 export const DaytonaSandboxProviderSchema = z
   .object({
     type: z.literal('daytona').describe('Daytona sandbox provider.'),
-    auth: DaytonaSandboxProviderAuthSchema.describe('Daytona authentication credentials.'),
+    auth: DaytonaSandboxProviderAuthSchema,
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
     auto_stop_interval_in_minutes: z
       .number()

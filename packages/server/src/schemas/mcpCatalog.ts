@@ -9,7 +9,7 @@ import { McpServerDescriptionSchema, McpServerManifestAuthSchema, McpServerTypeS
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogMcpServerSchema = z
   .object({
-    type: McpServerTypeSchema.describe('MCP server kind (`remote` today).'),
+    type: McpServerTypeSchema,
     name: NameSchema,
     logo: z.url().optional().describe('URL of the MCP server logo asset.'),
     url: z.url().describe('URL of the remote MCP server.'),

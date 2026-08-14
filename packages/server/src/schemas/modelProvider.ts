@@ -26,13 +26,14 @@ export const ModelPropertiesSchema = z
       .describe('Supported reasoning-effort values for this model.'),
   })
   .strict()
+  .describe('Optional model capability metadata.')
   .openapi('ModelProperties');
 
 export const ModelEntrySchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
-    name: NameSchema.describe('Internal identifier; forms the fully qualified name `name/model_name`.'),
-    properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
+    name: NameSchema,
+    properties: ModelPropertiesSchema,
   })
   .strict()
   .openapi('ModelEntry');
@@ -63,11 +64,12 @@ const ModelProviderAuthSchema = z
       ),
   })
   .strict()
+  .describe('Provider authentication credentials.')
   .openapi('ModelProviderAuth');
 
 const ModelProviderManifestBaseSchema = z
   .object({
-    auth: ModelProviderAuthSchema.describe('Provider authentication credentials.'),
+    auth: ModelProviderAuthSchema,
     models: z.array(ModelEntrySchema).min(1).describe('Models exposed by this provider (at least one).'),
   })
   .strict();
@@ -215,6 +217,7 @@ export const ModelListProviderSchema = z
     name: z.string().min(1).describe('Configured provider resource name; matches the FQN prefix of `name`.'),
   })
   .strict()
+  .describe('Owning configured provider.')
   .openapi('ModelListProvider');
 
 /** Read view over configured providers: FQN plus explicit provider identity for clients. */
@@ -224,8 +227,8 @@ export const ModelSchema = z
       .string()
       .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
-    provider: ModelListProviderSchema.describe('Owning configured provider.'),
-    properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
+    provider: ModelListProviderSchema,
+    properties: ModelPropertiesSchema,
   })
   .strict()
   .openapi('Model');
