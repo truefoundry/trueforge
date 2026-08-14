@@ -51,6 +51,7 @@ import {
   Sun,
   Terminal,
   Trash2,
+  TriangleAlert,
   Wrench,
   X,
 } from 'lucide-react';
@@ -120,6 +121,8 @@ const defaults: Record<string, IconEntry> = {
   'box-archive': Archive,
   'clock-rotate-left': History,
   'circle-exclamation': CircleAlert,
+  info: Info,
+  'triangle-exclamation': TriangleAlert,
   'chevron-down': ChevronDown,
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
@@ -163,7 +166,6 @@ const defaults: Record<string, IconEntry> = {
   compress: Minimize2,
   'external-link': ExternalLink,
   github: Github,
-  info: Info,
 };
 
 for (const [name, icon] of Object.entries(defaults)) {

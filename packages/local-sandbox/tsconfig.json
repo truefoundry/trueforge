@@ -1,30 +1,9 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "allowUnreachableCode": false,
-    "allowUnusedLabels": false,
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["ES2022"],
     "types": ["node"],
-    "skipLibCheck": true,
-    "outDir": "dist",
-    "rootDir": ".",
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true
+    "noEmit": true,
+    "customConditions": ["trueforge-dev"]
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["dist", "test", "node_modules"]
