@@ -13,6 +13,7 @@ function manifest(overrides: Partial<McpServerManifest> = {}): McpServerManifest
     type: 'remote',
     name: 'linear',
     url: 'https://mcp.linear.app/mcp',
+    description: 'Linear MCP server.',
     auth: { type: 'dcr' },
     ...overrides,
   };

@@ -10,6 +10,7 @@ export const CreateMcpServerRequest: core.serialization.Schema<
     TrueForge.settings.CreateMcpServerRequest
 > = core.serialization.object({
     auth: CreateMcpServerRequestAuth.optional(),
+    description: core.serialization.string(),
     name: core.serialization.string(),
     url: core.serialization.string(),
 });
@@ -17,6 +18,7 @@ export const CreateMcpServerRequest: core.serialization.Schema<
 export declare namespace CreateMcpServerRequest {
     export interface Raw {
         auth?: CreateMcpServerRequestAuth.Raw | null;
+        description: string;
         name: string;
         url: string;
     }

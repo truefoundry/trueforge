@@ -2112,6 +2112,7 @@ Creates an MCP server by `name`. Fails if `name` is already taken. Runs DCR regi
 
 ```typescript
 await client.settings.mcpServers.create({
+    description: "description",
     name: "name",
     url: "url"
 });
@@ -2178,6 +2179,7 @@ Create or replace by `name`. Does not start DCR or change oauth client columns. 
 
 ```typescript
 await client.settings.mcpServers.upsert({
+    description: "description",
     name: "name",
     url: "url"
 });

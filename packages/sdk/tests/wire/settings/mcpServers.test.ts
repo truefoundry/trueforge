@@ -14,6 +14,7 @@ describe("McpServersClient", () => {
                 {
                     auth: { type: "dcr" },
                     auth_status: { status: "authenticated" },
+                    description: "description",
                     name: "name",
                     type: "remote",
                     url: "url",
@@ -39,6 +40,7 @@ describe("McpServersClient", () => {
                     authStatus: {
                         status: "authenticated",
                     },
+                    description: "description",
                     name: "name",
                     type: "remote",
                     url: "url",
@@ -88,11 +90,12 @@ describe("McpServersClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "name", type: "remote", url: "url" };
+        const rawRequestBody = { description: "description", name: "name", type: "remote", url: "url" };
         const rawResponseBody = {
             data: {
                 auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
@@ -109,6 +112,7 @@ describe("McpServersClient", () => {
             .build();
 
         const response = await client.settings.mcpServers.create({
+            description: "description",
             name: "name",
             url: "url",
         });
@@ -121,6 +125,7 @@ describe("McpServersClient", () => {
                     authorizationUrl: "authorization_url",
                     status: "authenticated",
                 },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
@@ -131,7 +136,7 @@ describe("McpServersClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -145,6 +150,7 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.create({
+                description: "x",
                 name: "xy",
                 url: "url",
             });
@@ -154,7 +160,7 @@ describe("McpServersClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -168,6 +174,7 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.create({
+                description: "x",
                 name: "xy",
                 url: "url",
             });
@@ -177,7 +184,7 @@ describe("McpServersClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -191,6 +198,7 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.create({
+                description: "x",
                 name: "xy",
                 url: "url",
             });
@@ -200,11 +208,12 @@ describe("McpServersClient", () => {
     test("upsert (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "name", type: "remote", url: "url" };
+        const rawRequestBody = { description: "description", name: "name", type: "remote", url: "url" };
         const rawResponseBody = {
             data: {
                 auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
@@ -221,6 +230,7 @@ describe("McpServersClient", () => {
             .build();
 
         const response = await client.settings.mcpServers.upsert({
+            description: "description",
             name: "name",
             url: "url",
         });
@@ -233,6 +243,7 @@ describe("McpServersClient", () => {
                     authorizationUrl: "authorization_url",
                     status: "authenticated",
                 },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
@@ -243,7 +254,7 @@ describe("McpServersClient", () => {
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -257,6 +268,7 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.upsert({
+                description: "x",
                 name: "xy",
                 url: "url",
             });
@@ -266,7 +278,7 @@ describe("McpServersClient", () => {
     test("upsert (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { name: "xy", type: "remote", url: "url" };
+        const rawRequestBody = { description: "x", name: "xy", type: "remote", url: "url" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -280,6 +292,7 @@ describe("McpServersClient", () => {
 
         await expect(async () => {
             return await client.settings.mcpServers.upsert({
+                description: "x",
                 name: "xy",
                 url: "url",
             });
@@ -294,6 +307,7 @@ describe("McpServersClient", () => {
             data: {
                 auth: { type: "dcr" },
                 auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",
@@ -318,6 +332,7 @@ describe("McpServersClient", () => {
                     authorizationUrl: "authorization_url",
                     status: "authenticated",
                 },
+                description: "description",
                 name: "name",
                 type: "remote",
                 url: "url",

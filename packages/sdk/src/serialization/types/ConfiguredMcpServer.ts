@@ -13,6 +13,7 @@ export const ConfiguredMcpServer: core.serialization.ObjectSchema<
 > = core.serialization.object({
     auth: ConfiguredMcpServerAuth.optional(),
     authStatus: core.serialization.property("auth_status", McpAuthStatus),
+    description: core.serialization.string(),
     name: core.serialization.string(),
     type: McpServerType,
     url: core.serialization.string(),
@@ -22,6 +23,7 @@ export declare namespace ConfiguredMcpServer {
     export interface Raw {
         auth?: ConfiguredMcpServerAuth.Raw | null;
         auth_status: McpAuthStatus.Raw;
+        description: string;
         name: string;
         type: McpServerType.Raw;
         url: string;

@@ -11,6 +11,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
     TrueForge.CatalogMcpServer
 > = core.serialization.object({
     auth: ConfiguredMcpServerAuth.optional(),
+    description: core.serialization.string(),
     logo: core.serialization.string().optional(),
     name: core.serialization.string(),
     type: McpServerType,
@@ -20,6 +21,7 @@ export const CatalogMcpServer: core.serialization.ObjectSchema<
 export declare namespace CatalogMcpServer {
     export interface Raw {
         auth?: ConfiguredMcpServerAuth.Raw | null;
+        description: string;
         logo?: string | null;
         name: string;
         type: McpServerType.Raw;

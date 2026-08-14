@@ -5,6 +5,7 @@ import type * as TrueForge from "../../../../../../index.js";
 /**
  * @example
  *     {
+ *         description: "description",
  *         name: "name",
  *         url: "url"
  *     }
@@ -12,6 +13,8 @@ import type * as TrueForge from "../../../../../../index.js";
 export interface McpServerManifest {
     /** Optional auth settings. Omit when the server needs no credentials. */
     auth?: TrueForge.settings.McpServerManifestAuth;
+    /** Concise summary of what this MCP server provides. */
+    description: string;
     /** Fully qualified name. Unique within a tenant. */
     name: string;
     /** URL of the remote MCP server. */
