@@ -17,6 +17,14 @@ const putBody = {
   description: 'Creating algorithmic art using p5.js with seeded randomness.',
 };
 
+function wrapManifest(manifest: unknown) {
+  return { manifest };
+}
+
+function configured(manifest: { name: string }) {
+  return { name: manifest.name, manifest };
+}
+
 function putInit(body: unknown): RequestInit {
   return {
     method: 'PUT',
@@ -70,13 +78,13 @@ describe('skills routers', () => {
   });
 
   it('PUT upserts a skill and echoes the stored manifest', async () => {
-    const response = await settingsRouter.request('/', putInit(putBody));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(putBody)));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ data: putBody });
+    expect(await response.json()).toEqual({ data: configured(putBody) });
 
     const list = await settingsRouter.request('/');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [putBody] });
+    expect(await list.json()).toEqual({ data: [configured(putBody)] });
   });
 
   it('POST creates a skill and returns 409 on name clash', async () => {
@@ -85,11 +93,11 @@ describe('skills routers', () => {
       name: 'create-only-skill',
       path: 'skills/create-only-skill',
     };
-    const created = await settingsRouter.request('/', postInit(createBody));
-    expect(created.status).toBe(200);
-    expect(await created.json()).toEqual({ data: createBody });
+    const created = await settingsRouter.request('/', postInit(wrapManifest(createBody)));
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual({ data: configured(createBody) });
 
-    const clash = await settingsRouter.request('/', postInit(createBody));
+    const clash = await settingsRouter.request('/', postInit(wrapManifest(createBody)));
     expect(clash.status).toBe(409);
     expect(await clash.json()).toEqual({
       error: { message: 'Skill name already exists: create-only-skill' },
@@ -109,15 +117,15 @@ describe('skills routers', () => {
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
     const { url: _, ...withoutUrl } = putBody;
-    const missingUrl = await settingsRouter.request('/', putInit(withoutUrl));
+    const missingUrl = await settingsRouter.request('/', putInit(wrapManifest(withoutUrl)));
     expect(missingUrl.status).toBe(400);
 
-    const badName = await settingsRouter.request('/', putInit({ ...putBody, name: 'Not A Name' }));
+    const badName = await settingsRouter.request('/', putInit(wrapManifest({ ...putBody, name: 'Not A Name' })));
     expect(badName.status).toBe(400);
 
     const badUrl = await settingsRouter.request(
       '/',
-      putInit({ ...putBody, name: 'bad-url', url: 'https://example.com/repo' }),
+      putInit(wrapManifest({ ...putBody, name: 'bad-url', url: 'https://example.com/repo' })),
     );
     expect(badUrl.status).toBe(400);
   });
