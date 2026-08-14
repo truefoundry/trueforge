@@ -23,9 +23,7 @@ export type UiConnectorCatalogEntry = ConnectorCatalogEntry;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
 
-export function toUiAuthPublic(
-  auth: TrueForgeApi.ConfiguredMcpServerAuth | TrueForgeApi.McpServerManifestAuth | undefined,
-): UiConnectorAuthPublic {
+export function toUiAuthPublic(auth: TrueForgeApi.McpServerManifestAuth | undefined): UiConnectorAuthPublic {
   if (auth === undefined) {
     return { type: 'none' };
   }
