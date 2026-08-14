@@ -1,7 +1,6 @@
 /**
- * Sandbox-provider domain + wire schemas: configured provider manifests (DB /
- * PUT body) and OpenAPI request/response shapes. Catalog file schemas live in
- * sandboxCatalog.ts.
+ * Sandbox-provider domain + wire schemas: configured provider jsonb and OpenAPI
+ * request/response shapes. Catalog file schemas live in sandboxCatalog.ts.
  *
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
  */
@@ -21,10 +20,10 @@ const DaytonaSandboxProviderAuthSchema = z
   .openapi('DaytonaSandboxProviderAuth');
 
 /**
- * Daytona-backed sandbox provider config. Wire PUT body and persisted
- * `sandbox_provider.manifest` document share this shape. Left unnamed for OpenAPI so
- * `SandboxProviderManifest` (its single-variant alias) is the one emitted component and the
- * response `manifest` field is a plain `$ref` instead of an `allOf` wrapper.
+ * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
+ * Left unnamed for OpenAPI so `SandboxProviderManifest` (its single-variant alias)
+ * is the one emitted component and the response `manifest` field is a plain `$ref`
+ * instead of an `allOf` wrapper.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
@@ -50,7 +49,7 @@ export const DaytonaSandboxProviderSchema = z
   .strict();
 
 /**
- * Persisted jsonb + PUT body: the provider config only (no build status). Single variant today —
+ * Persisted jsonb: the provider config only (no build status). Single variant today —
  * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
  * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
  */
@@ -78,27 +77,26 @@ export const SandboxStatusSchema = z
   })
   .strict();
 
-/** GET/PUT response body: the stored provider manifest plus its build status (no build_metadata). */
-export const SandboxProviderResponseSchema = z
+/** Settings wire item: nested manifest plus build status (no build_metadata). */
+export const SandboxProviderSchema = z
   .object({
     manifest: SandboxProviderManifestSchema,
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
   })
   .strict()
-  .openapi('SandboxProviderResponse');
+  .openapi('SandboxProvider');
 
-export const PutSandboxProviderRequestSchema = SandboxProviderManifestSchema;
-
-export const PutSandboxProviderResponseSchema = z
+export const PutSandboxProviderRequestSchema = z
   .object({
-    data: SandboxProviderResponseSchema,
+    manifest: SandboxProviderManifestSchema,
   })
-  .openapi('PutSandboxProviderResponse');
+  .strict()
+  .openapi('PutSandboxProviderRequest');
 
 export const GetSandboxProviderResponseSchema = z
   .object({
-    data: SandboxProviderResponseSchema,
+    data: SandboxProviderSchema,
   })
   .openapi('GetSandboxProviderResponse');
 
@@ -108,7 +106,7 @@ export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
-export type SandboxProviderResponse = z.infer<typeof SandboxProviderResponseSchema>;
+export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
 export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
