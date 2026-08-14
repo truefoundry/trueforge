@@ -181,9 +181,19 @@ never returned.
 
   <Accordion title="Sandbox providers">
     ```ts
+    interface SandboxSnapshotSyncStatus {
+      status: 'pending' | 'ready' | 'failed';
+      statusReason?: string;
+    }
+
+    interface SandboxProviderListEntry {
+      data: SandboxProviderBase;
+      snapshotSyncStatus: SandboxSnapshotSyncStatus;
+    }
+
     interface SandboxCatalogServer {
       getSandboxProviderCatalog(): Promise<SandboxProviderCatalogEntry[]>;
-      listSandboxProviders(req?: { query?: string }): Promise<SandboxProviderBase[]>;
+      listSandboxProviders(req?: { query?: string }): Promise<SandboxProviderListEntry[]>;
       createSandboxProvider(req: CreateSandboxProviderRequest): Promise<SandboxProviderBase>;
       updateSandboxProvider(req: UpdateSandboxProviderRequest): Promise<SandboxProviderBase>;
       deleteSandboxProvider?(req: { id: string }): Promise<void>;
@@ -209,6 +219,8 @@ never returned.
     `SandboxProviderBase` extends that config with `{ id, name, catalogId, isConnected }`. Note
     it carries the last-saved config rather than omitting it, so an update form can show current
     values without a second fetch. `SandboxProviderCatalogEntry` adds `{ id, name, type }`.
+    `SandboxProviderListEntry` pairs each configured provider with the current snapshot sync
+    status. A failed status may include `statusReason` with a human-readable failure detail.
 
     `CreateSandboxProviderRequest` adds `catalogId`, `name`, `type`, and a required `apiKey`.
     `UpdateSandboxProviderRequest` takes `id` plus the config, with an **optional** `apiKey` —
