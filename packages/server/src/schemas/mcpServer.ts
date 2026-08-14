@@ -36,9 +36,10 @@ const McpServerDcrAuthSchema = z
   .strict()
   .openapi('McpServerDcrAuth');
 
-export const McpServerAuthSettingsSchema = z
+export const McpServerManifestAuthSchema = z
   .discriminatedUnion('type', [McpServerHeaderAuthSchema, McpServerDcrAuthSchema])
-  .openapi('ConfiguredMcpServerAuth');
+  .describe('Optional auth settings. Omit when the server needs no credentials.')
+  .openapi('McpServerManifestAuth');
 
 export const McpServerDescriptionSchema = z
   .string()
@@ -49,13 +50,11 @@ export const McpServerDescriptionSchema = z
 /** Configured MCP server document persisted as `mcp_server.manifest`. */
 export const McpServerManifestObjectSchema = z
   .object({
-    type: McpServerTypeSchema.describe('MCP server kind (`remote` today).'),
+    type: McpServerTypeSchema,
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
     description: McpServerDescriptionSchema,
-    auth: McpServerAuthSettingsSchema.optional().describe(
-      'Optional auth settings. Omit when the server needs no credentials.',
-    ),
+    auth: McpServerManifestAuthSchema.optional(),
   })
   .strict();
 
@@ -72,19 +71,33 @@ export const McpAuthStatusSchema = z
       .describe('When auth is required, this contains the URL to redirect the user to for authorization.'),
   })
   .strict()
+  .describe('Current auth state.')
   .openapi('McpAuthStatus');
 
-/** Admin/settings wire view: manifest fields plus nested auth_status. */
-export const ConfiguredMcpServerSchema = McpServerManifestObjectSchema.extend({
-  auth_status: McpAuthStatusSchema,
-}).openapi('ConfiguredMcpServer');
+/** Admin/settings wire view: identity column plus nested manifest and auth_status. */
+export const ConfiguredMcpServerSchema = z
+  .object({
+    name: NameSchema,
+    manifest: McpServerManifestSchema,
+    auth_status: McpAuthStatusSchema,
+  })
+  .strict()
+  .openapi('ConfiguredMcpServer');
 
-/** PUT body — same Zod shape as `McpServerManifest` (OpenAPI name stays `McpServerManifest`). */
-export const PutMcpServerRequestSchema = McpServerManifestSchema;
-/** Shared create/upsert/disconnect response envelope (`{ data: ConfiguredMcpServer }`). */
-export const PutMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('PutMcpServerResponse');
-/** POST create body — separate OpenAPI name so Fern keeps the main-branch upsert request + `type` inject. */
-export const CreateMcpServerRequestSchema = McpServerManifestObjectSchema.openapi('CreateMcpServerRequest');
+export const CreateMcpServerRequestSchema = z
+  .object({
+    manifest: McpServerManifestSchema,
+  })
+  .strict()
+  .openapi('CreateMcpServerRequest');
+
+export const PutMcpServerRequestSchema = z
+  .object({
+    manifest: McpServerManifestSchema,
+  })
+  .strict()
+  .openapi('PutMcpServerRequest');
+
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
 export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
@@ -96,6 +109,7 @@ export const McpServerAuthPublicSchema = z
     z.object({ type: z.literal('dcr') }).strict(),
     z.object({ type: z.literal('header') }).strict(),
   ])
+  .describe('Auth mechanism when configured (no secrets). Omit when the server needs no credentials.')
   .openapi('McpServerAuthPublic');
 
 /** Chat/composer read view — public fields plus per-user auth_status. */
@@ -103,10 +117,8 @@ export const McpServerReadEntrySchema = z
   .object({
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
-    auth: McpServerAuthPublicSchema.optional().describe(
-      'Auth mechanism when configured (no secrets). Omit when the server needs no credentials.',
-    ),
-    auth_status: McpAuthStatusSchema.describe('Auth state for the calling user.'),
+    auth: McpServerAuthPublicSchema.optional(),
+    auth_status: McpAuthStatusSchema,
   })
   .strict()
   .openapi('McpServerReadEntry');
@@ -116,11 +128,13 @@ export const ListAvailableMcpServersResponseSchema = z
   .openapi('ListAvailableMcpServersResponse');
 
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
-export type McpServerAuthSettings = z.infer<typeof McpServerAuthSettingsSchema>;
+export type McpServerManifestAuth = z.infer<typeof McpServerManifestAuthSchema>;
 export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;
 export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;
 export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
 export type ConfiguredMcpServer = z.infer<typeof ConfiguredMcpServerSchema>;
+export type CreateMcpServerRequest = z.infer<typeof CreateMcpServerRequestSchema>;
+export type PutMcpServerRequest = z.infer<typeof PutMcpServerRequestSchema>;
 export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
 
 /**

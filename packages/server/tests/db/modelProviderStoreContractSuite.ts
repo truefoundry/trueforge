@@ -3,7 +3,7 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { ModelProviderNameConflictError, type IModelProviderStore } from '../../src/db/modelProviderStore';
-import type { ModelProvider } from '../../src/schemas/modelProvider';
+import type { ModelProviderManifest } from '../../src/schemas/modelProvider';
 
 const TENANT = 'default';
 
@@ -19,7 +19,7 @@ const anthropic = {
       properties: { context_length: 200000, max_output_tokens: 32768, reasoning_efforts: ['low', 'high'] },
     },
   ],
-} satisfies ModelProvider;
+} satisfies ModelProviderManifest;
 
 const openai = {
   type: 'openai',
@@ -28,7 +28,7 @@ const openai = {
   models: [
     { model_id: 'gpt-5.6-sol', name: 'gpt-5-6-sol', properties: { context_length: 400000, max_output_tokens: 32768 } },
   ],
-} satisfies ModelProvider;
+} satisfies ModelProviderManifest;
 
 const custom = {
   type: 'custom',
@@ -36,7 +36,7 @@ const custom = {
   base_url: 'https://llm.internal.example.com/v1',
   auth: { api_key: 'sk-custom' },
   models: anthropic.models,
-} satisfies ModelProvider;
+} satisfies ModelProviderManifest;
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 

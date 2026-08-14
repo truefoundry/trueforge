@@ -117,8 +117,8 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       );
     },
     createSandboxProvider: async req => {
-      const body = await client.settings.sandboxProviders.upsert(
-        toHarnessManifest({
+      const body = await client.settings.sandboxProviders.upsert({
+        manifest: toHarnessManifest({
           type: req.type,
           apiKey: req.apiKey,
           execTimeoutMs: req.execTimeoutMs,
@@ -126,13 +126,13 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
         }),
-      );
+      });
       return toUiSandboxProvider(body.data.manifest);
     },
     updateSandboxProvider: async req => {
       const apiKey = await resolveApiKey(req.apiKey);
-      const body = await client.settings.sandboxProviders.upsert(
-        toHarnessManifest({
+      const body = await client.settings.sandboxProviders.upsert({
+        manifest: toHarnessManifest({
           type: DAYTONA_TYPE,
           apiKey,
           execTimeoutMs: req.execTimeoutMs,
@@ -140,7 +140,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
         }),
-      );
+      });
       return toUiSandboxProvider(body.data.manifest);
     },
   };

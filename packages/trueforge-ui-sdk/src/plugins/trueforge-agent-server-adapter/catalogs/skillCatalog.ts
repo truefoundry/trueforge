@@ -35,11 +35,11 @@ export function toHarnessManifest(req: SkillConfigBase): TrueForgeApi.SkillManif
   };
 }
 
-export function toUiSkill(skill: TrueForgeApi.SkillManifest, catalogNames: ReadonlySet<string>): UiSkill {
+export function toUiSkill(skill: TrueForgeApi.ConfiguredSkill, catalogNames: ReadonlySet<string>): UiSkill {
   const base = {
     id: skill.name,
     name: skill.name,
-    description: skill.description,
+    description: skill.manifest.description,
   };
   if (catalogNames.has(skill.name)) {
     return { ...base, catalogId: skill.name };
@@ -67,20 +67,20 @@ export function createSkillCatalog(client: TrueForge): SkillCatalogServer<UiSkil
       );
     },
     createSkill: async req => {
-      const body = await client.settings.skills.create(toHarnessManifest(req));
+      const body = await client.settings.skills.create({ manifest: toHarnessManifest(req) });
       const catalogId = 'catalogId' in req ? req.catalogId : undefined;
       if (catalogId !== undefined) {
         return {
           id: body.data.name,
           name: body.data.name,
-          description: body.data.description,
+          description: body.data.manifest.description,
           catalogId,
         };
       }
       return {
         id: body.data.name,
         name: body.data.name,
-        description: body.data.description,
+        description: body.data.manifest.description,
       };
     },
   };

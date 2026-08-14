@@ -12,10 +12,12 @@ describe("ModelProvidersClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    auth: { api_key: "api_key" },
-                    base_url: "base_url",
-                    models: [{ model_id: "model_id", name: "name", properties: {} }],
-                    type: "alibaba",
+                    manifest: {
+                        auth: { api_key: "api_key" },
+                        models: [{ model_id: "model_id", name: "name", properties: {} }],
+                        type: "alibaba",
+                    },
+                    name: "name",
                 },
             ],
         };
@@ -32,18 +34,20 @@ describe("ModelProvidersClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    auth: {
-                        apiKey: "api_key",
-                    },
-                    baseUrl: "base_url",
-                    models: [
-                        {
-                            modelId: "model_id",
-                            name: "name",
-                            properties: {},
+                    manifest: {
+                        auth: {
+                            apiKey: "api_key",
                         },
-                    ],
-                    type: "alibaba",
+                        models: [
+                            {
+                                modelId: "model_id",
+                                name: "name",
+                                properties: {},
+                            },
+                        ],
+                        type: "alibaba",
+                    },
+                    name: "name",
                 },
             ],
         });
@@ -91,16 +95,21 @@ describe("ModelProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "api_key" },
-            models: [{ model_id: "model_id", name: "name", properties: {} }],
-            type: "alibaba",
+            manifest: {
+                auth: { api_key: "api_key" },
+                models: [{ model_id: "model_id", name: "name", properties: {} }],
+                type: "alibaba",
+            },
         };
         const rawResponseBody = {
             data: {
-                auth: { api_key: "api_key" },
-                base_url: "base_url",
-                models: [{ model_id: "model_id", name: "name", properties: {} }],
-                type: "alibaba",
+                manifest: {
+                    auth: { api_key: "api_key" },
+                    base_url: "base_url",
+                    models: [{ model_id: "model_id", name: "name", properties: {} }],
+                    type: "alibaba",
+                },
+                name: "name",
             },
         };
 
@@ -114,24 +123,10 @@ describe("ModelProvidersClient", () => {
             .build();
 
         const response = await client.settings.modelProviders.create({
-            auth: {
-                apiKey: "api_key",
-            },
-            models: [
-                {
-                    modelId: "model_id",
-                    name: "name",
-                    properties: {},
-                },
-            ],
-            type: "alibaba",
-        });
-        expect(response).toEqual({
-            data: {
+            manifest: {
                 auth: {
                     apiKey: "api_key",
                 },
-                baseUrl: "base_url",
                 models: [
                     {
                         modelId: "model_id",
@@ -142,18 +137,39 @@ describe("ModelProvidersClient", () => {
                 type: "alibaba",
             },
         });
+        expect(response).toEqual({
+            data: {
+                manifest: {
+                    auth: {
+                        apiKey: "api_key",
+                    },
+                    baseUrl: "base_url",
+                    models: [
+                        {
+                            modelId: "model_id",
+                            name: "name",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
+                },
+                name: "name",
+            },
+        });
     });
 
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "x" },
-            models: [
-                { model_id: "x", name: "xy", properties: {} },
-                { model_id: "x", name: "xy", properties: {} },
-            ],
-            type: "alibaba",
+            manifest: {
+                auth: { api_key: "x" },
+                models: [
+                    { model_id: "x", name: "xy", properties: {} },
+                    { model_id: "x", name: "xy", properties: {} },
+                ],
+                type: "alibaba",
+            },
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -168,22 +184,24 @@ describe("ModelProvidersClient", () => {
 
         await expect(async () => {
             return await client.settings.modelProviders.create({
-                auth: {
-                    apiKey: "x",
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    models: [
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
                 },
-                models: [
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                ],
-                type: "alibaba",
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
@@ -192,12 +210,14 @@ describe("ModelProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "x" },
-            models: [
-                { model_id: "x", name: "xy", properties: {} },
-                { model_id: "x", name: "xy", properties: {} },
-            ],
-            type: "alibaba",
+            manifest: {
+                auth: { api_key: "x" },
+                models: [
+                    { model_id: "x", name: "xy", properties: {} },
+                    { model_id: "x", name: "xy", properties: {} },
+                ],
+                type: "alibaba",
+            },
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -212,22 +232,24 @@ describe("ModelProvidersClient", () => {
 
         await expect(async () => {
             return await client.settings.modelProviders.create({
-                auth: {
-                    apiKey: "x",
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    models: [
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
                 },
-                models: [
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                ],
-                type: "alibaba",
             });
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
@@ -236,16 +258,21 @@ describe("ModelProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "api_key" },
-            models: [{ model_id: "model_id", name: "name", properties: {} }],
-            type: "alibaba",
+            manifest: {
+                auth: { api_key: "api_key" },
+                models: [{ model_id: "model_id", name: "name", properties: {} }],
+                type: "alibaba",
+            },
         };
         const rawResponseBody = {
             data: {
-                auth: { api_key: "api_key" },
-                base_url: "base_url",
-                models: [{ model_id: "model_id", name: "name", properties: {} }],
-                type: "alibaba",
+                manifest: {
+                    auth: { api_key: "api_key" },
+                    base_url: "base_url",
+                    models: [{ model_id: "model_id", name: "name", properties: {} }],
+                    type: "alibaba",
+                },
+                name: "name",
             },
         };
 
@@ -259,24 +286,10 @@ describe("ModelProvidersClient", () => {
             .build();
 
         const response = await client.settings.modelProviders.upsert({
-            auth: {
-                apiKey: "api_key",
-            },
-            models: [
-                {
-                    modelId: "model_id",
-                    name: "name",
-                    properties: {},
-                },
-            ],
-            type: "alibaba",
-        });
-        expect(response).toEqual({
-            data: {
+            manifest: {
                 auth: {
                     apiKey: "api_key",
                 },
-                baseUrl: "base_url",
                 models: [
                     {
                         modelId: "model_id",
@@ -287,18 +300,39 @@ describe("ModelProvidersClient", () => {
                 type: "alibaba",
             },
         });
+        expect(response).toEqual({
+            data: {
+                manifest: {
+                    auth: {
+                        apiKey: "api_key",
+                    },
+                    baseUrl: "base_url",
+                    models: [
+                        {
+                            modelId: "model_id",
+                            name: "name",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
+                },
+                name: "name",
+            },
+        });
     });
 
     test("upsert (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
-            auth: { api_key: "x" },
-            models: [
-                { model_id: "x", name: "xy", properties: {} },
-                { model_id: "x", name: "xy", properties: {} },
-            ],
-            type: "alibaba",
+            manifest: {
+                auth: { api_key: "x" },
+                models: [
+                    { model_id: "x", name: "xy", properties: {} },
+                    { model_id: "x", name: "xy", properties: {} },
+                ],
+                type: "alibaba",
+            },
         };
         const rawResponseBody = { error: { message: "message" } };
 
@@ -313,22 +347,24 @@ describe("ModelProvidersClient", () => {
 
         await expect(async () => {
             return await client.settings.modelProviders.upsert({
-                auth: {
-                    apiKey: "x",
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    models: [
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
                 },
-                models: [
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                    {
-                        modelId: "x",
-                        name: "xy",
-                        properties: {},
-                    },
-                ],
-                type: "alibaba",
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });

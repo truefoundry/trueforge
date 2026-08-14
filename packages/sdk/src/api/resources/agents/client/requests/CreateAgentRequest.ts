@@ -15,6 +15,5 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface CreateAgentRequest {
     manifest: TrueForge.AgentSpec;
-    /** Fully qualified name. Unique within a tenant. */
-    name: string;
+    name: TrueForge.ResourceName;
 }

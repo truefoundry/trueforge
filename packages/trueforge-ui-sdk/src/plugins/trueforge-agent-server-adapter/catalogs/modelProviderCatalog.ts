@@ -40,14 +40,13 @@ export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntr
 }
 
 export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModelProvider {
-  // Only `custom` carries a name; the API names every other type after its type.
-  const name = provider.type === 'custom' ? provider.name : provider.type;
+  const { name, manifest } = provider;
   return {
     id: name,
-    type: provider.type,
+    type: manifest.type,
     name,
-    ...(provider.baseUrl === undefined ? {} : { baseUrl: provider.baseUrl }),
-    models: provider.models.map(toUiModelEntry),
+    ...(manifest.baseUrl === undefined ? {} : { baseUrl: manifest.baseUrl }),
+    models: manifest.models.map(toUiModelEntry),
   };
 }
 
@@ -72,7 +71,7 @@ export function toUiCatalogModelProviderEntry(
 
 const PROVIDER_TYPES: readonly string[] = [...Object.values(TrueForgeApi.CatalogWellKnownModelProviderType), 'custom'];
 
-function isProviderType(type: string): type is TrueForgeApi.ModelProvider['type'] {
+function isProviderType(type: string): type is TrueForgeApi.ModelProviderManifest['type'] {
   return PROVIDER_TYPES.includes(type);
 }
 
@@ -82,7 +81,7 @@ export function toHarnessModelProvider(req: {
   apiKey: string;
   baseUrl?: string;
   models: UiModelEntry[];
-}): TrueForgeApi.ModelProvider {
+}): TrueForgeApi.ModelProviderManifest {
   const models = req.models.map(toHarnessModelEntry);
   if (!isProviderType(req.type)) {
     throw new Error(`Unsupported model provider type: ${req.type}`);
@@ -133,11 +132,11 @@ export function createModelProviderCatalog(
     }
     // Update with empty means keep the stored key.
     const listed = await client.settings.modelProviders.list();
-    const existing = listed.data.find(provider => toUiModelProvider(provider).id === req.id);
+    const existing = listed.data.find(provider => provider.name === req.id);
     if (existing === undefined) {
       throw new Error(`Model provider "${req.id}" not found`);
     }
-    return existing.auth?.apiKey ?? '';
+    return existing.manifest.auth?.apiKey ?? '';
   }
 
   return {
@@ -151,29 +150,29 @@ export function createModelProviderCatalog(
     },
     createModelProvider: async req => {
       const apiKey = await resolveApiKey({ type: req.type, apiKey: req.apiKey });
-      const body = await client.settings.modelProviders.create(
-        toHarnessModelProvider({
+      const body = await client.settings.modelProviders.create({
+        manifest: toHarnessModelProvider({
           type: req.type,
           name: req.name,
           apiKey,
           ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
           models: req.models,
         }),
-      );
+      });
       return toUiModelProvider(body.data);
     },
     updateModelProvider: async req => {
       // UI sends apiKey: "" when only models change; reuse the stored key.
       const apiKey = await resolveApiKey({ id: req.id, type: req.type, apiKey: req.apiKey });
-      const body = await client.settings.modelProviders.upsert(
-        toHarnessModelProvider({
+      const body = await client.settings.modelProviders.upsert({
+        manifest: toHarnessModelProvider({
           type: req.type,
           name: req.id,
           apiKey,
           ...(req.baseUrl === undefined ? {} : { baseUrl: req.baseUrl }),
           models: req.models,
         }),
-      );
+      });
       return toUiModelProvider(body.data);
     },
   };

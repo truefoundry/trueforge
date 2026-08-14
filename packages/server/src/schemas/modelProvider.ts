@@ -1,7 +1,6 @@
 /**
- * Model-provider domain + wire schemas: configured provider manifests (DB /
- * PUT body / response) and OpenAPI request/response shapes. Catalog file schemas
- * live on ModelCatalog.
+ * Model-provider domain + wire schemas: configured provider manifests (DB jsonb)
+ * and OpenAPI request/response shapes. Catalog file schemas live on ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
@@ -27,13 +26,14 @@ export const ModelPropertiesSchema = z
       .describe('Supported reasoning-effort values for this model.'),
   })
   .strict()
+  .describe('Optional model capability metadata.')
   .openapi('ModelProperties');
 
 export const ModelEntrySchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
-    name: NameSchema.describe('Internal identifier; forms the fully qualified name `name/model_name`.'),
-    properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
+    name: NameSchema,
+    properties: ModelPropertiesSchema,
   })
   .strict()
   .openapi('ModelEntry');
@@ -64,11 +64,12 @@ const ModelProviderAuthSchema = z
       ),
   })
   .strict()
+  .describe('Provider authentication credentials.')
   .openapi('ModelProviderAuth');
 
 const ModelProviderManifestBaseSchema = z
   .object({
-    auth: ModelProviderAuthSchema.describe('Provider authentication credentials.'),
+    auth: ModelProviderAuthSchema,
     models: z.array(ModelEntrySchema).min(1).describe('Models exposed by this provider (at least one).'),
   })
   .strict();
@@ -151,9 +152,8 @@ export function refineModelProviderManifest(
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
 /**
- * Configured provider: PUT body, response data, and the persisted `model_provider.manifest` document
- * in one shape. Only `custom` carries a name, so the row's key column comes from
- * `modelProviderName` rather than from a field every type repeats.
+ * Configured provider jsonb (`model_provider.manifest`). Only `custom` carries a name, so the
+ * row's key column comes from `modelProviderName` rather than from a field every type repeats.
  */
 const ModelProviderBodySchema = z
   .discriminatedUnion('type', [
@@ -169,12 +169,41 @@ const ModelProviderBodySchema = z
   ])
   .superRefine(refineModelProviderManifest);
 
-export const ModelProviderSchema = ModelProviderBodySchema.openapi('ModelProvider');
+export const ModelProviderManifestSchema = ModelProviderBodySchema.openapi('ModelProviderManifest');
 
 /** The row's key: only `custom` carries a name of its own. */
-export function modelProviderName(provider: ModelProvider): ResourceName {
+export function modelProviderName(provider: ModelProviderManifest): ResourceName {
   return provider.type === 'custom' ? provider.name : provider.type;
 }
+
+/** Settings wire item: identity column plus nested manifest. */
+export const ModelProviderSchema = z
+  .object({
+    name: NameSchema,
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
+  .openapi('ModelProvider');
+
+export const CreateModelProviderRequestSchema = z
+  .object({
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
+  .openapi('CreateModelProviderRequest');
+
+export const PutModelProviderRequestSchema = z
+  .object({
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
+  .openapi('PutModelProviderRequest');
+
+export const GetModelProviderResponseSchema = z
+  .object({
+    data: ModelProviderSchema,
+  })
+  .openapi('GetModelProviderResponse');
 
 export const ListModelProvidersResponseSchema = z
   .object({
@@ -182,19 +211,13 @@ export const ListModelProvidersResponseSchema = z
   })
   .openapi('ListModelProvidersResponse');
 
-/** Shared create/upsert response envelope (`{ data: ModelProvider }`). */
-export const PutModelProviderResponseSchema = z
-  .object({
-    data: ModelProviderSchema,
-  })
-  .openapi('PutModelProviderResponse');
-
 /** Provider identity on the models list read view. */
 export const ModelListProviderSchema = z
   .object({
     name: z.string().min(1).describe('Configured provider resource name; matches the FQN prefix of `name`.'),
   })
   .strict()
+  .describe('Owning configured provider.')
   .openapi('ModelListProvider');
 
 /** Read view over configured providers: FQN plus explicit provider identity for clients. */
@@ -204,8 +227,8 @@ export const ModelSchema = z
       .string()
       .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
-    provider: ModelListProviderSchema.describe('Owning configured provider.'),
-    properties: ModelPropertiesSchema.describe('Optional model capability metadata.'),
+    provider: ModelListProviderSchema,
+    properties: ModelPropertiesSchema,
   })
   .strict()
   .openapi('Model');
@@ -216,6 +239,9 @@ export const ListModelsResponseSchema = z
   })
   .openapi('ListModelsResponse');
 
+export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
+export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
+export type PutModelProviderRequest = z.infer<typeof PutModelProviderRequestSchema>;
 export type ModelListProvider = z.infer<typeof ModelListProviderSchema>;
 export type Model = z.infer<typeof ModelSchema>;

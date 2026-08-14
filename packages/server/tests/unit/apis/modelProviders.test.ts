@@ -52,19 +52,27 @@ const customBodyWire = {
   auth: { api_key: toRedactedSecretValue(customBody.auth.api_key) },
 };
 
-function putInit(body: unknown): RequestInit {
+function wrapManifest(manifest: unknown) {
+  return { manifest };
+}
+
+function configured(name: string, manifest: unknown) {
+  return { name, manifest };
+}
+
+function putInit(manifest: unknown): RequestInit {
   return {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(wrapManifest(manifest)),
   };
 }
 
-function postInit(body: unknown): RequestInit {
+function postInit(manifest: unknown): RequestInit {
   return {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(wrapManifest(manifest)),
   };
 }
 
@@ -135,18 +143,18 @@ describe('settings model-providers and models routers', () => {
   it('PUT upserts a well-known provider without base_url and returns redacted auth', async () => {
     const response = await settingsRouter.request('/model-providers', putInit(anthropicBody));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ data: anthropicProviderWire });
+    expect(await response.json()).toEqual({ data: configured('anthropic', anthropicProviderWire) });
 
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [anthropicProviderWire] });
+    expect(await list.json()).toEqual({ data: [configured('anthropic', anthropicProviderWire)] });
   });
 
   it('POST creates a provider and returns 409 on name clash', async () => {
     const { settingsRouter: fresh } = await createRouters();
     const created = await fresh.request('/model-providers', postInit(anthropicBody));
-    expect(created.status).toBe(200);
-    expect(await created.json()).toEqual({ data: anthropicProviderWire });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual({ data: configured('anthropic', anthropicProviderWire) });
 
     const clash = await fresh.request('/model-providers', postInit(anthropicBody));
     expect(clash.status).toBe(409);
@@ -162,7 +170,7 @@ describe('settings model-providers and models routers', () => {
 
     const created = await settingsRouter.request('/model-providers', putInit(customBody));
     expect(created.status).toBe(200);
-    expect(await created.json()).toEqual({ data: customBodyWire });
+    expect(await created.json()).toEqual({ data: configured('internal', customBodyWire) });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
@@ -219,11 +227,11 @@ describe('custom providers may omit auth', () => {
 
     const put = await settingsRouter.request('/model-providers', putInit(body));
     expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({ data: expectedWire });
+    expect(await put.json()).toEqual({ data: configured(name, expectedWire) });
 
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
-    expect(await list.json()).toEqual({ data: [expectedWire] });
+    expect(await list.json()).toEqual({ data: [configured(name, expectedWire)] });
   });
 
   it('rejects empty api_key', async () => {
@@ -266,12 +274,12 @@ describe('well-known types are limited to one provider', () => {
     const update = await settingsRouter.request('/model-providers', putInit(rotated));
     expect(update.status).toBe(200);
     expect(await update.json()).toEqual({
-      data: withRedactedApiKey({ ...anthropicProvider, auth: rotated.auth }),
+      data: configured('anthropic', withRedactedApiKey({ ...anthropicProvider, auth: rotated.auth })),
     });
 
     const list = await settingsRouter.request('/model-providers');
     expect(await list.json()).toEqual({
-      data: [withRedactedApiKey({ ...anthropicProvider, auth: rotated.auth })],
+      data: [configured('anthropic', withRedactedApiKey({ ...anthropicProvider, auth: rotated.auth }))],
     });
     const models = await modelsRouter.request('/');
     expect(((await models.json()) as { data: { name: string }[] }).data.map(entry => entry.name)).toEqual([
@@ -299,7 +307,7 @@ describe('well-known types are limited to one provider', () => {
     const response = await settingsRouter.request('/model-providers', putInit(proxied));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: withRedactedApiKey({ ...anthropicProvider, base_url: proxied.base_url }),
+      data: configured('anthropic', withRedactedApiKey({ ...anthropicProvider, base_url: proxied.base_url })),
     });
   });
 
@@ -311,7 +319,7 @@ describe('well-known types are limited to one provider', () => {
 
     const list = await settingsRouter.request('/model-providers');
     expect(await list.json()).toEqual({
-      data: [customBodyWire, withRedactedApiKey(second)],
+      data: [configured('internal', customBodyWire), configured('internal-eu', withRedactedApiKey(second))],
     });
   });
 });
@@ -368,10 +376,10 @@ describe('model-provider secret redaction and strict PUT', () => {
     const update = await settingsRouter.request('/model-providers', putInit(redactedKeep));
     expect(update.status).toBe(200);
     const updateBody = (await update.json()) as {
-      data: { auth: { api_key: string }; models: unknown[] };
+      data: { name: string; manifest: { auth: { api_key: string }; models: unknown[] } };
     };
-    expect(updateBody.data.auth.api_key).toBe(toRedactedSecretValue(anthropicBody.auth.api_key));
-    expect(updateBody.data.models).toHaveLength(2);
+    expect(updateBody.data.manifest.auth.api_key).toBe(toRedactedSecretValue(anthropicBody.auth.api_key));
+    expect(updateBody.data.manifest.models).toHaveLength(2);
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
     expect(stored?.manifest.auth?.api_key).toBe('sk-ant-secret');
@@ -385,8 +393,8 @@ describe('model-provider secret redaction and strict PUT', () => {
     const rotated = { ...anthropicBody, auth: { api_key: rotatedKey } };
     const update = await settingsRouter.request('/model-providers', putInit(rotated));
     expect(update.status).toBe(200);
-    expect((await update.json()) as { data: { auth: { api_key: string } } }).toEqual({
-      data: withRedactedApiKey({ ...anthropicProvider, auth: { api_key: rotatedKey } }),
+    expect((await update.json()) as { data: { name: string; manifest: { auth: { api_key: string } } } }).toEqual({
+      data: configured('anthropic', withRedactedApiKey({ ...anthropicProvider, auth: { api_key: rotatedKey } })),
     });
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
@@ -409,7 +417,7 @@ describe('catalog presets are configurable', () => {
     expect(logo === undefined || typeof logo === 'string').toBe(true);
     const response = await settingsRouter.request('/model-providers', putInit(body));
     expect(response.status).toBe(200);
-    const json = (await response.json()) as { data: { auth: { api_key: string } } };
-    expect(json.data.auth.api_key).toBe(toRedactedSecretValue(`sk-${preset.type}`));
+    const json = (await response.json()) as { data: { name: string; manifest: { auth: { api_key: string } } } };
+    expect(json.data.manifest.auth.api_key).toBe(toRedactedSecretValue(`sk-${preset.type}`));
   });
 });

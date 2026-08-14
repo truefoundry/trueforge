@@ -3,29 +3,23 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ConfiguredMcpServerAuth } from "./ConfiguredMcpServerAuth.js";
 import { McpAuthStatus } from "./McpAuthStatus.js";
-import { McpServerType } from "./McpServerType.js";
+import { McpServerManifest } from "./McpServerManifest.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const ConfiguredMcpServer: core.serialization.ObjectSchema<
     serializers.ConfiguredMcpServer.Raw,
     TrueForge.ConfiguredMcpServer
 > = core.serialization.object({
-    auth: ConfiguredMcpServerAuth.optional(),
     authStatus: core.serialization.property("auth_status", McpAuthStatus),
-    description: core.serialization.string(),
-    name: core.serialization.string(),
-    type: McpServerType,
-    url: core.serialization.string(),
+    manifest: McpServerManifest,
+    name: ResourceName,
 });
 
 export declare namespace ConfiguredMcpServer {
     export interface Raw {
-        auth?: ConfiguredMcpServerAuth.Raw | null;
         auth_status: McpAuthStatus.Raw;
-        description: string;
-        name: string;
-        type: McpServerType.Raw;
-        url: string;
+        manifest: McpServerManifest.Raw;
+        name: ResourceName.Raw;
     }
 }

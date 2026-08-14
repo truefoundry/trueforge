@@ -15,7 +15,6 @@ export const NameSchema = z
     /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/,
     'must be 2–64 lowercase chars: start with a letter, end with alphanumeric, optionally separated by ".", "_" or "-"',
   )
-  .describe('Fully qualified name. Unique within a tenant.')
   .openapi('ResourceName');
 
 export type ResourceName = z.infer<typeof NameSchema>;

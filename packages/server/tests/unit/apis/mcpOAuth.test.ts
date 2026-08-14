@@ -122,11 +122,13 @@ describe('MCP OAuth authorize + callback', () => {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        type: 'remote',
-        name,
-        url: MCP_URL,
-        description: 'OAuth MCP server.',
-        auth: { type: 'dcr' },
+        manifest: {
+          type: 'remote',
+          name,
+          url: MCP_URL,
+          description: 'OAuth MCP server.',
+          auth: { type: 'dcr' },
+        },
       }),
     });
     expect(put.status).toBe(200);
@@ -146,11 +148,13 @@ describe('MCP OAuth authorize + callback', () => {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        type: 'remote',
-        name: 'oauth-mcp',
-        url: MCP_URL,
-        description: 'OAuth MCP server.',
-        auth: { type: 'dcr' },
+        manifest: {
+          type: 'remote',
+          name: 'oauth-mcp',
+          url: MCP_URL,
+          description: 'OAuth MCP server.',
+          auth: { type: 'dcr' },
+        },
       }),
     });
     expect(put.status).toBe(200);
@@ -229,11 +233,13 @@ describe('MCP OAuth authorize + callback', () => {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        type: 'remote',
-        name: 'oauth-mcp-scoped',
-        url: MCP_URL,
-        description: 'OAuth MCP server.',
-        auth: { type: 'dcr' },
+        manifest: {
+          type: 'remote',
+          name: 'oauth-mcp-scoped',
+          url: MCP_URL,
+          description: 'OAuth MCP server.',
+          auth: { type: 'dcr' },
+        },
       }),
     });
     expect(put.status).toBe(200);
