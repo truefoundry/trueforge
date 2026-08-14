@@ -10,6 +10,8 @@ image:
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
+# Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
+# overriding image.repository / subchart registries to a private registry.
 nameOverride: ""
 fullnameOverride: ""
 
@@ -61,7 +63,9 @@ server:
 # { valueFrom: { secretKeyRef: ... } }.
 configs:
   oidc:
-    # When false, no OIDC_* env is set (fixed local admin identity).
+    # Dev default: false → no OIDC_* env; fixed local admin identity
+    # (trueforge-default). Anyone who can reach the API/UI is admin.
+    # Enable for any shared or public deployment.
     enabled: false
     issuerUrl: ""
     clientId: ""
@@ -100,11 +104,12 @@ postgresql:
     repository: tfy-mirror/bitnamilegacy/postgresql
     tag: 17.6.0-debian-12-r4
   auth:
-    username: truefoundry_utils
-    database: truefoundry_utils
-    # Dev default. In production set a strong password or reference a Secret via
-    # `existingSecret` (Bitnami reads the user password from key `password`).
-    password: truefoundry_utils
+    username: trueforge
+    database: trueforge
+    # Dev default password (publicly known). Before any shared/public deploy,
+    # set a strong password or reference a Secret via `existingSecret`
+    # (Bitnami reads the user password from key `password`).
+    password: trueforge
     existingSecret: ""
   primary:
     persistence:
@@ -112,9 +117,10 @@ postgresql:
       size: 8Gi
 
 # --- Bundled Redis (Bitnami subchart) ------------------------------------------
-# Rendered only when redis.enabled is true. Auth is disabled so REDIS_URL is a
-# plain redis://host:6379 the server can consume directly. For passworded Redis,
-# disable the subchart and use externalRedis with a Secret.
+# Rendered only when redis.enabled is true. Auth is disabled (dev default) so
+# REDIS_URL is a plain redis://host:6379. Safe only while Redis stays inside
+# the cluster trust boundary. For passworded Redis, disable the subchart and
+# use externalRedis with a Secret.
 redis:
   enabled: true
   architecture: standalone
@@ -134,8 +140,8 @@ redis:
 externalPostgres:
   host: ""
   port: 5432
-  database: truefoundry_utils
-  user: truefoundry_utils
+  database: trueforge
+  user: trueforge
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   password: ""
   # password:

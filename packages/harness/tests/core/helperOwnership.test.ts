@@ -5,7 +5,7 @@ import {
   INTERNAL_SYSTEM_PROMPT,
   makeUnknownToolInfo,
 } from '../../src/core/runtime/contextUtils';
-import { extractErrorLogFields } from '../../src/core/util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields } from '../../src/core/util/errorLogFields';
 import { PromiseTimeoutError, withTimeout } from '../../src/core/util/promiseUtils';
 
 describe('canonical helper ownership fidelity', () => {
@@ -13,6 +13,25 @@ describe('canonical helper ownership fidelity', () => {
     const err = new Error('x');
     expect(extractErrorLogFields(err)).toEqual({ error: 'x', stack: err.stack });
     expect(extractErrorLogFields('plain')).toEqual({ error: 'plain' });
+    expect(extractErrorLogFields({ message: 'provider blew up' })).toEqual({ error: 'provider blew up' });
+    expect(extractErrorLogFields({ code: 'rate_limit', status: 429 })).toEqual({
+      error: JSON.stringify({ code: 'rate_limit', status: 429 }),
+    });
+  });
+
+  it('describeUnknownError prefers message fields over opaque placeholders', () => {
+    expect(describeUnknownError(new Error('boom'))).toBe('boom');
+    expect(describeUnknownError({ message: 'The requested model does not exist.' })).toBe(
+      'The requested model does not exist.',
+    );
+    expect(describeUnknownError(undefined)).toBe('undefined');
+  });
+
+  it('describeUnknownError uses a bland fallback when the value cannot be serialised', () => {
+    const circular: { self?: unknown } = {};
+    circular.self = circular;
+    expect(describeUnknownError(circular)).toBe('An unexpected error occurred');
+    expect(extractErrorLogFields(circular).error).toMatch(/^unserialisable error \(/);
   });
 
   it('DaytonaProvider owns http→ws URL conversion (no shared helper module)', () => {

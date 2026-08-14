@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import TruefoundrySettingsBuilder from '@/containers/SettingsBuilder/index.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
@@ -65,11 +66,13 @@ function SettingsControls() {
 
 function TestShell({ server, children }: { server?: AgentUIServer; children?: ReactNode }) {
   const content = (
-    <ShellModeProvider>
-      <SettingsControls />
-      <TruefoundrySettingsBuilder />
-      {children}
-    </ShellModeProvider>
+    <DraftCatalogProvider>
+      <ShellModeProvider>
+        <SettingsControls />
+        <TruefoundrySettingsBuilder />
+        {children}
+      </ShellModeProvider>
+    </DraftCatalogProvider>
   );
   return server === undefined ? content : <ServerProvider server={server}>{content}</ServerProvider>;
 }
@@ -159,5 +162,49 @@ describe('TruefoundrySettingsBuilder', () => {
 
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
     expect(parentKeyDown).not.toHaveBeenCalled();
+  });
+
+  it('refreshes composer catalogs when settings close', async () => {
+    const getModels = vi.fn(async () => []);
+    const getSkills = vi.fn(async () => []);
+    const getMcp = vi.fn(async () => []);
+    const getCapabilities = vi.fn(async () => ({
+      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+    }));
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog(),
+      getModels,
+      getSkills,
+      getMcp,
+      getCapabilities,
+    });
+    render(<TestShell server={server} />);
+    await openSettings();
+    await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
+    const capabilitiesCallsAfterOpen = getCapabilities.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+    await waitFor(() => expect(getModels).toHaveBeenCalledOnce());
+    expect(getSkills).toHaveBeenCalledOnce();
+    expect(getMcp).toHaveBeenCalledOnce();
+    await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(capabilitiesCallsAfterOpen));
+  });
+
+  it('does not reopen settings when a stale optional section is reset while closed', async () => {
+    const { rerender } = render(<TestShell server={createServer({ skills: true })} />);
+    await openSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
+    await waitFor(() => {
+      expect(screen.getByText('Skill settings content')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+
+    rerender(<TestShell server={createServer()} />);
+
+    expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
   });
 });

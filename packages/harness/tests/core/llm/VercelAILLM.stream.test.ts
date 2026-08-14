@@ -17,6 +17,7 @@ import {
   mapFinishReason,
   mapStreamToChunks,
   normalizeUsage,
+  toStreamError,
 } from '../../../src/core/llm/VercelAILLM';
 
 // ─────────── Helpers ───────────
@@ -211,6 +212,21 @@ describe('describeStreamError', () => {
       expect(describeStreamError(42)).toBe('42');
       expect(describeStreamError(null)).toBe('null');
     });
+  });
+});
+
+describe('toStreamError', () => {
+  it('returns Error instances unchanged', () => {
+    const err = new Error('keep me');
+    err.name = 'AbortError';
+    expect(toStreamError(err)).toBe(err);
+  });
+
+  it('wraps plain objects using describeStreamError', () => {
+    const wrapped = toStreamError({ message: 'The requested model does not exist.' });
+    expect(wrapped).toBeInstanceOf(Error);
+    expect(wrapped.message).toBe('The requested model does not exist.');
+    expect(wrapped.cause).toEqual({ message: 'The requested model does not exist.' });
   });
 });
 

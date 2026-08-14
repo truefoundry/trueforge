@@ -5,11 +5,7 @@
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import {
-  GetSandboxProviderResponseSchema,
-  PutSandboxProviderRequestSchema,
-  PutSandboxProviderResponseSchema,
-} from '../schemas/sandboxProvider';
+import { GetSandboxProviderResponseSchema, PutSandboxProviderRequestSchema } from '../schemas/sandboxProvider';
 
 const SANDBOX_PROVIDERS_TAG = 'Sandbox Providers';
 
@@ -51,7 +47,7 @@ export const putSandboxProviderRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutSandboxProviderResponseSchema } },
+      content: { 'application/json': { schema: GetSandboxProviderResponseSchema } },
       description: 'The saved sandbox provider.',
     },
     400: {

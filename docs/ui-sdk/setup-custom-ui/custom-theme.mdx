@@ -11,9 +11,24 @@ Pass design tokens on the theme object to override component styles. You can als
 type ThemeConfig = {
   ...
   tokens?: Partial<SemanticTokens>;
-  icons?: IconMap;
   ...
 };
+```
+
+Pass the theme object on `TrueforgeUI`:
+
+```tsx App.tsx
+<TrueforgeUI
+  server={server}
+  layout="sidebar"
+  theme={{
+    tokens: {
+      primaryButtonBg: "#6366F1",
+      userMessageBg: "#6366F1",
+      // ...other tokens
+    },
+  }}
+/>
 ```
 
 ## The token object
@@ -115,46 +130,3 @@ Those tokens map to CSS variables:
 --composer-radius
 ```
 Changing a few semantic tokens updates the UI consistently without writing component-specific CSS.
-
-## Styling rendered content
-
-`theme.classNames` (`ContentClassNames`) adds host CSS classes onto content renderers. Pass it through `theme` on `TrueforgeUI` (or `SlotsProvider`):
-
-```tsx
-<TrueforgeUI
-  theme={{
-    classNames: {
-      markdown: "prose prose-sm",
-      openui: { root: "my-openui" },
-    },
-  }}
-  /* … */
-/>
-```
-
-```ts
-type ContentClassNames = {
-  /** Root of the markdown renderer (joins `.aui-markdown`). */
-  markdown?: string;
-  /** Inline `` `code` `` spans inside markdown. */
-  inlineCode?: string;
-  syntaxHighlighter?: {
-    root?: string; // joins `.aui-syntax-highlighter`
-    pre?: string;
-    code?: string;
-    lineNumber?: string;
-  };
-  openui?: {
-    root?: string; // joins `.aui-openui`
-    scope?: string; // OpenUI theme scope (`.markdown-openui-scope`)
-  };
-  monaco?: {
-    root?: string; // joins `.aui-monaco`
-    editor?: string; // Monaco mount container
-    /** Monaco theme name; when unset, follows light/dark mode. */
-    monacoTheme?: string;
-  };
-};
-```
-
-For CSS-only adjustments you can instead target the stable class names directly: `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`.

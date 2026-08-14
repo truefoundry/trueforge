@@ -4,16 +4,17 @@
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema, uniqueNames } from './common';
-import { McpServerAuthSettingsSchema, McpServerTypeSchema } from './mcpServer';
+import { McpServerDescriptionSchema, McpServerManifestAuthSchema, McpServerTypeSchema } from './mcpServer';
 
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogMcpServerSchema = z
   .object({
-    type: McpServerTypeSchema.describe('MCP server kind (`remote` today).'),
+    type: McpServerTypeSchema,
     name: NameSchema,
     logo: z.url().optional().describe('URL of the MCP server logo asset.'),
     url: z.url().describe('URL of the remote MCP server.'),
-    auth: McpServerAuthSettingsSchema.optional().describe('Optional default auth settings for the preset.'),
+    description: McpServerDescriptionSchema,
+    auth: McpServerManifestAuthSchema.optional(),
   })
   .strict()
   .openapi('CatalogMcpServer');

@@ -10,7 +10,16 @@ describe("McpServersClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ auth: { type: "dcr" }, logo: "logo", name: "name", type: "remote", url: "url" }],
+            data: [
+                {
+                    auth: { type: "dcr" },
+                    description: "description",
+                    logo: "logo",
+                    name: "name",
+                    type: "remote",
+                    url: "url",
+                },
+            ],
         };
 
         server
@@ -28,6 +37,7 @@ describe("McpServersClient", () => {
                     auth: {
                         type: "dcr",
                     },
+                    description: "description",
                     logo: "logo",
                     name: "name",
                     type: "remote",

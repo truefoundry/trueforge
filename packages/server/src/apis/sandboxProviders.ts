@@ -10,7 +10,7 @@ import {
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import type { SandboxProviderManifest } from '../schemas/sandboxProvider';
+import type { PutSandboxProviderRequest, SandboxProviderManifest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -47,11 +47,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       {
         data: {
           manifest: redactSandboxProvider(record.manifest),
-          ...(status ?? {
-            status: record.status,
-            status_reason: record.status_reason,
-            build_metadata: record.build_metadata,
-          }),
+          status: status?.status ?? record.status,
+          status_reason: status?.status_reason ?? record.status_reason,
         },
       },
       200,
@@ -59,7 +56,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
   };
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
-    const incoming: SandboxProviderManifest = c.req.valid('json');
+    const body: PutSandboxProviderRequest = c.req.valid('json');
+    const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
       auth: {
@@ -74,7 +72,14 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       const { manifest, status } = await deps.withTransaction(async transaction => {
         const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
         const resolved = resolveManifest(locked);
-        const provider = toDaytonaSandboxProvider({ manifest: resolved, tenant_id: TENANT_ID, logger: deps.logger });
+        // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
+        // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
+        const provider = toDaytonaSandboxProvider({
+          manifest: resolved,
+          tenant_id: TENANT_ID,
+          logger: deps.logger,
+          ...(locked ? { build_metadata: locked.build_metadata } : {}),
+        });
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
@@ -84,7 +89,16 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         );
         return { manifest: resolved, status: built };
       });
-      return c.json({ data: { manifest: redactSandboxProvider(manifest), ...status } }, 200);
+      return c.json(
+        {
+          data: {
+            manifest: redactSandboxProvider(manifest),
+            status: status.status,
+            status_reason: status.status_reason,
+          },
+        },
+        200,
+      );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);

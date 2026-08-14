@@ -97,7 +97,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
           ? () => {
               setOpen(false);
               setQuery('');
-              shell?.setSettingsOpen(true);
+              shell?.setSettingsOpen(true, 'models');
             }
           : undefined
       }

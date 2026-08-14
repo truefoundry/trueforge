@@ -3,16 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ResourceName } from "./ResourceName.js";
 
 export const SkillReadEntry: core.serialization.ObjectSchema<serializers.SkillReadEntry.Raw, TrueForge.SkillReadEntry> =
     core.serialization.object({
         description: core.serialization.string(),
-        name: core.serialization.string(),
+        name: ResourceName,
     });
 
 export declare namespace SkillReadEntry {
     export interface Raw {
         description: string;
-        name: string;
+        name: ResourceName.Raw;
     }
 }

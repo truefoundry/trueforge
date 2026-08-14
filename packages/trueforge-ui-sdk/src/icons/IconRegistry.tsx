@@ -166,6 +166,7 @@ const defaults: Record<string, IconEntry> = {
   compress: Minimize2,
   'external-link': ExternalLink,
   github: Github,
+  info: Info,
 };
 
 for (const [name, icon] of Object.entries(defaults)) {

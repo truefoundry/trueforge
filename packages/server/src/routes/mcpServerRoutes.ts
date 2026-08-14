@@ -12,7 +12,6 @@ import {
   ListMcpServersResponseSchema,
   McpAuthStatusSchema,
   PutMcpServerRequestSchema,
-  PutMcpServerResponseSchema,
 } from '../schemas/mcpServer';
 
 const MCP_SERVERS_TAG = 'MCP Servers';
@@ -108,8 +107,8 @@ export const createMcpServerRoute = createRoute({
     },
   },
   responses: {
-    200: {
-      content: { 'application/json': { schema: PutMcpServerResponseSchema } },
+    201: {
+      content: { 'application/json': { schema: GetMcpServerResponseSchema } },
       description: 'The created MCP server with auth_status',
     },
     400: {
@@ -145,7 +144,7 @@ export const putMcpServerRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutMcpServerResponseSchema } },
+      content: { 'application/json': { schema: GetMcpServerResponseSchema } },
       description: 'The saved MCP server with auth_status',
     },
     400: {
@@ -254,7 +253,7 @@ export const authorizeMcpServerRoute = createRoute({
   },
 });
 
-export const deleteMcpServerAuthRoute = createRoute({
+export const deleteAuthorizeMcpServerRoute = createRoute({
   method: 'delete',
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
@@ -270,7 +269,7 @@ export const deleteMcpServerAuthRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: PutMcpServerResponseSchema } },
+      content: { 'application/json': { schema: GetMcpServerResponseSchema } },
       description: 'The MCP server after disconnect (auth_required for dcr).',
     },
     404: {

@@ -23,7 +23,7 @@ export type UiConnectorCatalogEntry = ConnectorCatalogEntry;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
 
-export function toUiAuthPublic(auth: TrueForgeApi.ConfiguredMcpServerAuth | undefined): UiConnectorAuthPublic {
+export function toUiAuthPublic(auth: TrueForgeApi.McpServerManifestAuth | undefined): UiConnectorAuthPublic {
   if (auth === undefined) {
     return { type: 'none' };
   }
@@ -37,7 +37,7 @@ export function toUiAuthPublic(auth: TrueForgeApi.ConfiguredMcpServerAuth | unde
   };
 }
 
-export function toHarnessAuth(auth: ConnectorAuth): TrueForgeApi.ConfiguredMcpServerAuth | undefined {
+export function toHarnessAuth(auth: ConnectorAuth): TrueForgeApi.McpServerManifestAuth | undefined {
   if (auth.type === 'none') {
     return undefined;
   }
@@ -58,6 +58,7 @@ export function toUiCatalogEntry(server: TrueForgeApi.CatalogMcpServer): UiConne
     id: server.name,
     name: server.name,
     url: server.url,
+    description: server.description,
     ...(server.logo === undefined ? {} : { logo: server.logo }),
     auth: toUiAuthPublic(server.auth),
   };
@@ -70,12 +71,12 @@ export function toUiTool(tool: Record<string, unknown>): ToolBase {
 }
 
 export function toUiConnector(server: TrueForgeApi.ConfiguredMcpServer): UiConnector {
-  const auth = toUiAuthPublic(server.auth);
+  const auth = toUiAuthPublic(server.manifest.auth);
   return {
     id: server.name,
     name: server.name,
-    description: server.url,
-    url: server.url,
+    description: server.manifest.description,
+    url: server.manifest.url,
     auth,
     requiresAuth: server.authStatus.status === 'auth_required',
     authenticated: server.authStatus.status !== 'auth_required',
@@ -95,17 +96,19 @@ export function toUiConnectorFromReadEntry(server: TrueForgeApi.McpServerReadEnt
   };
 }
 
-export interface HarnessMcpUpsert {
+export function toHarnessManifest(req: {
   name: string;
   url: string;
-  auth?: TrueForgeApi.ConfiguredMcpServerAuth;
-}
-
-export function toHarnessManifest(req: { name: string; url: string; auth: ConnectorAuth }): HarnessMcpUpsert {
+  auth: ConnectorAuth;
+  description?: string;
+}): TrueForgeApi.McpServerManifest {
   const auth = toHarnessAuth(req.auth);
+  const trimmed = req.description?.trim();
   return {
+    type: 'remote',
     name: req.name,
     url: req.url,
+    description: trimmed !== undefined && trimmed !== '' ? trimmed : `${req.name} MCP server`,
     ...(auth === undefined ? {} : { auth }),
   };
 }
@@ -143,16 +146,16 @@ export function createConnectorCatalog(
       throw new Error('API key is required for header-authenticated MCP servers');
     }
     const existing = await getConfigured(req.id);
-    if (existing.auth?.type !== 'header') {
+    if (existing.manifest.auth?.type !== 'header') {
       throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
     }
     const preferredHeader = req.auth.headerName?.trim();
-    const storedHeaderName = Object.keys(existing.auth.headers)[0];
+    const storedHeaderName = Object.keys(existing.manifest.auth.headers)[0];
     const headerName =
       preferredHeader !== undefined && preferredHeader !== ''
         ? preferredHeader
         : (storedHeaderName ?? DEFAULT_API_KEY_HEADER);
-    const stored = existing.auth.headers[headerName] ?? Object.values(existing.auth.headers)[0];
+    const stored = existing.manifest.auth.headers[headerName] ?? Object.values(existing.manifest.auth.headers)[0];
     if (stored === undefined) {
       throw new Error(`MCP server "${req.id}" has no stored header credentials to reuse`);
     }
@@ -188,12 +191,29 @@ export function createConnectorCatalog(
     },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
-      const body = await client.settings.mcpServers.create(toHarnessManifest({ name: req.name, url: req.url, auth }));
+      const catalog = await client.catalog.mcpServers.list();
+      const preset = catalog.data.find(server => server.name === req.name);
+      const body = await client.settings.mcpServers.create({
+        manifest: toHarnessManifest({
+          name: req.name,
+          url: req.url,
+          auth,
+          description: preset?.description,
+        }),
+      });
       return toUiConnector(body.data);
     },
     updateConnector: async req => {
+      const existing = await getConfigured(req.id);
       const auth = await resolveWriteAuth({ id: req.id, auth: req.auth });
-      const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.id, url: req.url, auth }));
+      const body = await client.settings.mcpServers.upsert({
+        manifest: toHarnessManifest({
+          name: req.id,
+          url: req.url,
+          auth,
+          description: existing.manifest.description,
+        }),
+      });
       return toUiConnector(body.data);
     },
     authenticateConnector: async req => {
@@ -205,7 +225,7 @@ export function createConnectorCatalog(
     },
     disconnectConnector: async req => {
       const existing = await getConfigured(req.id);
-      if (existing.auth?.type !== 'dcr') {
+      if (existing.manifest.auth?.type !== 'dcr') {
         throw new Error(`Disconnect is only supported for OAuth MCP servers`);
       }
       const body = await client.mcpServers.deleteAuthorize(req.id);

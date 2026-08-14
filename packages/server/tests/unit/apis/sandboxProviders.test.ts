@@ -40,12 +40,11 @@ const IMAGE_URI = 'tfy.jfrog.io/tfy-images/truefoundry-utils-core-sandbox:029ea5
 const readyBuild: SandboxBuild = {
   status: 'ready',
   reason: null,
-  metadata: { buildRef: 'trueforge-build-029ea5ff', imageUri: IMAGE_URI },
+  metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: IMAGE_URI },
 };
 const expectedStatus = {
   status: 'ready' as const,
   status_reason: null,
-  build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: IMAGE_URI },
 };
 
 /** Wire GET/PUT response: the (redacted) manifest nested under `manifest`, plus the build status. */
@@ -65,11 +64,15 @@ function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?:
   };
 }
 
-function putInit(body: unknown): RequestInit {
+function wrapManifest(manifest: unknown) {
+  return { manifest };
+}
+
+function putInit(manifest: unknown): RequestInit {
   return {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(wrapManifest(manifest)),
   };
 }
 
@@ -247,5 +250,19 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
     expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
+  });
+
+  it('PUT update reuses persisted build_metadata (no image upgrade on re-save)', async () => {
+    const { settingsRouter } = await createRouters();
+    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect(mockProviderFactory.mock.calls[0]?.[0]).not.toHaveProperty('build_metadata');
+
+    mockProviderFactory.mockClear();
+    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect(mockProviderFactory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        build_metadata: readyBuild.metadata,
+      }),
+    );
   });
 });

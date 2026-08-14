@@ -15,6 +15,9 @@ function CatalogProbe() {
       <button type="button" onClick={() => catalog.ensureLoaded()}>
         Load catalog
       </button>
+      <button type="button" onClick={() => catalog.refresh()}>
+        Refresh catalog
+      </button>
       <button type="button" onClick={() => void catalog.refreshConnectors()}>
         Refresh connectors
       </button>
@@ -198,6 +201,30 @@ describe('DraftCatalogProvider', () => {
     await waitFor(() => expect(getMcp).toHaveBeenCalledTimes(2));
     expect(getModels).toHaveBeenCalledTimes(1);
     expect(getSkills).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloads every collection when the catalog is refreshed', async () => {
+    const getModels = vi.fn(async (): Promise<ModelSelection[]> => []);
+    const getSkills = vi.fn(async (): Promise<AgentSkill[]> => []);
+    const getMcp = vi.fn(async (): Promise<ConnectorState[]> => []);
+    const server = createMockAgentUIServer({ getModels, getSkills, getMcp });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+    await waitFor(() => expect(getModels).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh catalog' }));
+
+    await waitFor(() => expect(getModels).toHaveBeenCalledTimes(2));
+    expect(getSkills).toHaveBeenCalledTimes(2);
+    expect(getMcp).toHaveBeenCalledTimes(2);
   });
 
   it('uses the nearest server when catalog providers are nested', async () => {

@@ -44,12 +44,14 @@ describe('connectorCatalog mappers', () => {
         type: 'remote',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
         auth: { type: 'dcr' },
       }),
       {
         id: 'linear',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
         auth: { type: 'dcr' },
       },
     );
@@ -58,15 +60,19 @@ describe('connectorCatalog mappers', () => {
   it('maps configured servers without embedding tools', () => {
     assert.deepEqual(
       toUiConnector({
-        type: 'remote',
         name: 'deepwiki',
-        url: 'https://mcp.deepwiki.com/mcp',
+        manifest: {
+          type: 'remote',
+          name: 'deepwiki',
+          url: 'https://mcp.deepwiki.com/mcp',
+          description: 'DeepWiki MCP server.',
+        },
         authStatus: { status: 'not_required' },
       }),
       {
         id: 'deepwiki',
         name: 'deepwiki',
-        description: 'https://mcp.deepwiki.com/mcp',
+        description: 'DeepWiki MCP server.',
         url: 'https://mcp.deepwiki.com/mcp',
         auth: { type: 'none' },
         requiresAuth: false,
@@ -77,20 +83,28 @@ describe('connectorCatalog mappers', () => {
 
   it('maps auth_required vs authenticated for oauth connectors', () => {
     const pending = toUiConnector({
-      type: 'remote',
       name: 'linear',
-      url: 'https://mcp.linear.app/mcp',
-      auth: { type: 'dcr' },
+      manifest: {
+        type: 'remote',
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
+        auth: { type: 'dcr' },
+      },
       authStatus: { status: 'auth_required' },
     });
     assert.equal(pending.authenticated, false);
     assert.equal(pending.requiresAuth, true);
 
     const connected = toUiConnector({
-      type: 'remote',
       name: 'linear',
-      url: 'https://mcp.linear.app/mcp',
-      auth: { type: 'dcr' },
+      manifest: {
+        type: 'remote',
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
+        auth: { type: 'dcr' },
+      },
       authStatus: { status: 'authenticated' },
     });
     assert.equal(connected.authenticated, true);
@@ -139,8 +153,10 @@ describe('connectorCatalog mappers', () => {
         auth: { type: 'dcr' },
       }),
       {
+        type: 'remote',
         name: 'linear',
         url: 'https://mcp.linear.app/mcp',
+        description: 'linear MCP server',
         auth: { type: 'dcr' },
       },
     );
@@ -151,8 +167,40 @@ describe('connectorCatalog mappers', () => {
         auth: { type: 'none' },
       }),
       {
+        type: 'remote',
         name: 'custom-mcp',
         url: 'https://example.com/mcp',
+        description: 'custom-mcp MCP server',
+      },
+    );
+    assert.deepEqual(
+      toHarnessManifest({
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'dcr' },
+        description: 'Linear MCP server.',
+      }),
+      {
+        type: 'remote',
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
+        auth: { type: 'dcr' },
+      },
+    );
+    assert.deepEqual(
+      toHarnessManifest({
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'dcr' },
+        description: '   ',
+      }),
+      {
+        type: 'remote',
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        description: 'linear MCP server',
+        auth: { type: 'dcr' },
       },
     );
   });

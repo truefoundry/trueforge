@@ -19,11 +19,11 @@
     "dev:no-watch": "STANDALONE=false NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge --filter frontend dev:no-watch",
     "dev:server:ui": "pnpm --filter frontend build && pnpm --filter @truefoundry/trueforge build:frontend-assets && STANDALONE=false NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge-core --filter @truefoundry/trueforge dev",
     "dev": "STANDALONE=false NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge-core --filter @truefoundry/trueforge --filter frontend dev",
-    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --error-on-unmatched-pattern --config .prettierrc",
-    "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --config .prettierrc",
-    "format": "prettier --write . --cache --config .prettierrc",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --cache-location .prettiercache --cache-strategy content --error-on-unmatched-pattern --config .prettierrc",
+    "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\" --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc",
+    "format": "prettier --write . --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc",
     "lint:ci": "eslint . --cache --cache-location .eslintcache",
-    "lint": "eslint . --fix --cache --cache-location .eslintcache",
+    "lint": "eslint . --fix --cache --cache-location .eslintcache --cache-strategy content",
     "openapi:write": "pnpm --filter @truefoundry/trueforge openapi:write",
     "pack:dry": "pnpm --filter @truefoundry/trueforge-core pack:dry && pnpm --filter @truefoundry/trueforge pack:dry",
     "postinstall": "pnpm --filter @truefoundry/trueforge-core build:gen",
@@ -64,6 +64,6 @@
     "typescript-eslint": "^8.65.0"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,md}": "prettier --write --cache --config .prettierrc"
+    "*.{js,jsx,ts,tsx,json,md}": "prettier --write --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc"
   }
 }

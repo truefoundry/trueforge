@@ -42,6 +42,8 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
+export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox';
+
 type ShellModeContextValue = {
   mode: ShellMode;
   /** Host agentConfig mode (capabilities source). */
@@ -53,7 +55,8 @@ type ShellModeContextValue = {
   /** Sidebar / list New Chat control. */
   isNewChatEnabled: boolean;
   settingsOpen: boolean;
-  setSettingsOpen: (open: boolean) => void;
+  settingsSection: SettingsSection;
+  setSettingsOpen: (open: boolean, section?: SettingsSection) => void;
   /**
    * Bind from the Agents Library (Try = immutable, Edit = mutable + agentSpec).
    * Prefer this over `selectAgent` / `openDraft` when both fields are available.
@@ -168,12 +171,16 @@ export function ShellModeProvider({
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
   const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const settingsEnabled = capabilities?.settings?.enabled !== false;
   const settingsOpen = settingsEnabled && settingsOpenState;
   const setSettingsOpen = useCallback(
-    (open: boolean) => {
+    (open: boolean, section?: SettingsSection) => {
+      if (section !== undefined) {
+        setSettingsSection(section);
+      }
       setSettingsOpenState(settingsEnabled && open);
     },
     [settingsEnabled],
@@ -356,6 +363,7 @@ export function ShellModeProvider({
       isComposerEnabled,
       isNewChatEnabled,
       settingsOpen,
+      settingsSection,
       setSettingsOpen,
       selectLibraryAgent,
       bindMutableAgent,
@@ -378,6 +386,7 @@ export function ShellModeProvider({
       isComposerEnabled,
       isNewChatEnabled,
       settingsOpen,
+      settingsSection,
       setSettingsOpen,
       selectLibraryAgent,
       bindMutableAgent,

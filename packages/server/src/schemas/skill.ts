@@ -71,14 +71,33 @@ export const SkillManifestObjectSchema = z
 
 export const SkillManifestSchema = SkillManifestObjectSchema.openapi('SkillManifest');
 
-/** Admin/settings wire view — same fields as the stored manifest (no auth_status). */
-export const ConfiguredSkillSchema = SkillManifestSchema;
+/** Admin/settings wire view: identity column plus nested manifest. */
+export const ConfiguredSkillSchema = z
+  .object({
+    name: NameSchema,
+    manifest: SkillManifestSchema,
+  })
+  .strict()
+  .openapi('ConfiguredSkill');
 
-/** Shared create/upsert response envelope (`{ data: SkillManifest }`). */
-export const PutSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('PutSkillResponse');
-export const ListConfiguredSkillsResponseSchema = z
+export const CreateSkillRequestSchema = z
+  .object({
+    manifest: SkillManifestSchema,
+  })
+  .strict()
+  .openapi('CreateSkillRequest');
+
+export const PutSkillRequestSchema = z
+  .object({
+    manifest: SkillManifestSchema,
+  })
+  .strict()
+  .openapi('PutSkillRequest');
+
+export const GetSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('GetSkillResponse');
+export const ListSkillsResponseSchema = z
   .object({ data: z.array(ConfiguredSkillSchema) })
-  .openapi('ListConfiguredSkillsResponse');
+  .openapi('ListSkillsResponse');
 
 /** Chat/composer read view — discovery fields only. */
 export const SkillReadEntrySchema = z
@@ -96,4 +115,6 @@ export const ListAvailableSkillsResponseSchema = z
 export type SkillType = z.infer<typeof SkillTypeSchema>;
 export type SkillManifest = z.infer<typeof SkillManifestSchema>;
 export type ConfiguredSkill = z.infer<typeof ConfiguredSkillSchema>;
+export type CreateSkillRequest = z.infer<typeof CreateSkillRequestSchema>;
+export type PutSkillRequest = z.infer<typeof PutSkillRequestSchema>;
 export type SkillReadEntry = z.infer<typeof SkillReadEntrySchema>;

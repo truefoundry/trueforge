@@ -70,6 +70,7 @@ describe('getMcpConnection', () => {
           type: 'remote',
           name: 'oauth-mcp',
           url: mcpUrl,
+          description: 'OAuth MCP server.',
           auth: { type: 'dcr' },
         },
       });
@@ -119,6 +120,7 @@ describe('getMcpConnection', () => {
         type: 'remote',
         name: 'tokened-mcp',
         url: 'https://mcp.tokened.example/mcp',
+        description: 'Tokened MCP server.',
         auth: { type: 'dcr' },
       },
     });
@@ -158,6 +160,7 @@ describe('getMcpConnection', () => {
         type: 'remote',
         name: 'open-mcp',
         url: 'https://mcp.open.example/mcp',
+        description: 'Open MCP server.',
       },
     });
 
@@ -186,6 +189,7 @@ describe('getMcpConnection', () => {
         type: 'remote',
         name: 'header-mcp',
         url: 'https://mcp.header.example/mcp',
+        description: 'Header MCP server.',
         auth: { type: 'header', headers: { Authorization: 'Bearer static-token' } },
       },
     });
