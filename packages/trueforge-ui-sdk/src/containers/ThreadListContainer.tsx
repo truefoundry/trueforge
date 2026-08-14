@@ -272,8 +272,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const isIdle = shell?.mode.status === 'idle';
   const canDeleteSession = typeof server?.deleteSession === 'function';
 
-  // Scroll-driven pagination only — never auto-chain pages while the sentinel
-  // is visible on mount (that drained every listSessions page).
+  // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
   useEffect(() => {
     if (isIdle) return;
     const viewport = viewportRef.current;
@@ -284,10 +283,17 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
     const tryLoadMore = () => {
       if (cancelled || !hasMoreRef.current || loadMoreInflightRef.current) return;
-      // Require a real scroll so a short first page does not fill-drain the cursor.
-      if (viewport.scrollTop <= 0) return;
-      const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      if (remaining > LOAD_MORE_BOTTOM_PX) return;
+
+      // If the viewport has overflow, paginate only near the bottom.
+      const hasOverflow = viewport.scrollHeight > viewport.clientHeight;
+      if (hasOverflow) {
+        if (viewport.scrollTop <= 0) return;
+        const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+        // If the viewport is not close to the bottom, don't fetch the next page.
+        if (remaining > LOAD_MORE_BOTTOM_PX) return;
+      } else if (viewport.clientHeight <= 0) {
+        return;
+      }
 
       loadMoreInflightRef.current = true;
       void Promise.resolve(auiRef.current.threads().loadMore()).finally(() => {
@@ -299,12 +305,16 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
     };
 
     viewport.addEventListener('scroll', tryLoadMore, { passive: true });
+    window.addEventListener('resize', tryLoadMore);
+    tryLoadMore();
+
     return () => {
       cancelled = true;
       cancelAnimationFrame(chainRaf);
       viewport.removeEventListener('scroll', tryLoadMore);
+      window.removeEventListener('resize', tryLoadMore);
     };
-  }, [isIdle]);
+  }, [hasMore, isIdle, threadIds.length]);
 
   const handleNewChat = () => {
     onThreadOpen?.();

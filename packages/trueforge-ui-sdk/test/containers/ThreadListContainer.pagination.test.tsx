@@ -3,7 +3,9 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-const loadMore = vi.fn().mockResolvedValue(undefined);
+const { loadMore } = vi.hoisted(() => ({
+  loadMore: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('@assistant-ui/react', () => ({
   useAui: () => ({
@@ -13,7 +15,7 @@ vi.mock('@assistant-ui/react', () => ({
       switchToNewThread: vi.fn(),
     }),
   }),
-  useAuiState: (selector: (s: Record<string, unknown>) => unknown) =>
+  useAuiState: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       threads: {
         isLoading: false,
@@ -36,9 +38,6 @@ vi.mock('@assistant-ui/react', () => ({
     Root: ({ children, className }: { children?: ReactNode; className?: string }) => (
       <div className={className}>{children}</div>
     ),
-    Items: ({ children }: { children: (args: { threadListItem: { remoteId: string } }) => ReactNode }) => (
-      <>{children({ threadListItem: { remoteId: 's1' } })}</>
-    ),
   },
   ThreadListItemPrimitive: {
     Root: ({ children, className }: { children?: ReactNode; className?: string }) => (
@@ -54,11 +53,11 @@ vi.mock('@assistant-ui/react', () => ({
   },
 }));
 
-vi.mock('../server/ServerContext.js', () => ({
+vi.mock('../../src/server/ServerContext.js', () => ({
   useOptionalServer: () => undefined,
 }));
 
-vi.mock('../server/ShellModeContext.js', () => ({
+vi.mock('../../src/server/ShellModeContext.js', () => ({
   useOptionalShellMode: () => ({
     isLibraryEnabled: false,
     isNewChatEnabled: true,
@@ -71,24 +70,28 @@ vi.mock('../server/ShellModeContext.js', () => ({
   }),
 }));
 
-import { ThreadListContainer } from './ThreadListContainer.js';
+import { ThreadListContainer } from '../../src/containers/ThreadListContainer.js';
 
 describe('ThreadListContainer pagination', () => {
-  it('does not load more pages until the history list is scrolled', async () => {
+  it('loads more when the first page does not fill the viewport', async () => {
     loadMore.mockClear();
-    const { container } = render(
-      <div style={{ height: 200 }}>
-        <ThreadListContainer />
-      </div>,
-    );
-
+    const { container } = render(<ThreadListContainer />);
     const viewport = container.querySelector('[data-slot="aui_thread-list-viewport"]');
-    expect(viewport).toBeTruthy();
 
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(loadMore).not.toHaveBeenCalled();
+    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 0 });
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 200 });
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 400 });
+    fireEvent(window, new Event('resize'));
 
-    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 720 });
+    await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(1));
+  });
+
+  it('loads more when scrolled near the bottom', async () => {
+    loadMore.mockClear();
+    const { container } = render(<ThreadListContainer />);
+    const viewport = container.querySelector('[data-slot="aui_thread-list-viewport"]');
+
+    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 520 });
     Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 800 });
     Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 200 });
     fireEvent.scroll(viewport!);
@@ -96,21 +99,7 @@ describe('ThreadListContainer pagination', () => {
     await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(1));
   });
 
-  it('ignores scroll when still at the top of the list', async () => {
-    loadMore.mockClear();
-    const { container } = render(<ThreadListContainer />);
-    const viewport = container.querySelector('[data-slot="aui_thread-list-viewport"]');
-
-    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 0 });
-    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 800 });
-    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 200 });
-    fireEvent.scroll(viewport!);
-
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(loadMore).not.toHaveBeenCalled();
-  });
-
-  it('ignores scroll when not near the bottom', async () => {
+  it('does not load more before reaching the bottom', async () => {
     loadMore.mockClear();
     const { container } = render(<ThreadListContainer />);
     const viewport = container.querySelector('[data-slot="aui_thread-list-viewport"]');
