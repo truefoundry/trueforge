@@ -74,6 +74,7 @@
           {
             "group": "UI Chat",
             "pages": [
+              "chat-ui",
               "ui-sdk/get-started/quickstart",
               {
                 "group": "Frontend Customisation",

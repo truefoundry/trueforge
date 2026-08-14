@@ -1,0 +1,63 @@
+---
+title: 'TrueForge UI SDK'
+sidebarTitle: 'Overview'
+description: 'Use the bundled TrueForge chat experience — or embed the same UI in your app with the React UI SDK.'
+---
+
+`@truefoundry/trueforge-ui` provides a production-ready agent chat experience as a single, reusable React component. TrueForge ships this full chat UI with the server — browse agents, stream responses, approve tools, connect MCP OAuth, and manage Settings — and publishes the same experience as `@truefoundry/trueforge-ui` so you can embed it in your own React app.
+
+Key Features:
+
+- **Agent Modes** - Chat with a single agent, browse an agent library, or allow users to create and compose new agents.
+- **Chat** - Supports streaming responses, session history, tool calls with approval workflows, and file attachments.
+- **Themes** - Includes built-in themes for Claude, ChatGPT, Gemini, and TrueFoundry, with support for creating custom themes.
+- **Layouts** - Supports full-screen layouts with a sidebar or drawer, as well as embedded layouts with side-docked or floating widgets.
+- **Integration Settings** - Configure models, MCP servers, skills, and sandbox environments.
+- **Server Configuration** - Choose between TrueForge, a fully custom server, or TrueFoundry.
+
+## Bundled UI
+
+When you run TrueForge ([Quickstart](/quickstart)), open the app URL (for example `http://localhost:8790`). You get:
+
+- Agent composer and [Agent Library](/agent-library)
+- Streaming chat with tool calls, approvals, and ask-user-questions
+- Settings for [models](/models), [connectors](/mcp-servers), [skills](/skills), and [sandbox](/sandbox)
+- [Generative UI](/create-agent/generative-ui) rendering out of the box
+
+<Frame caption="The bundled chat UI — streaming responses and agent steps.">
+  <img src="/images/getting-started-chat.png" alt="TrueForge chat UI with agent response and tool calls" />
+</Frame>
+
+## Embed with the UI SDK
+
+Install and render a single component against your TrueForge server (or a compatible custom server):
+
+```bash
+npm install @truefoundry/trueforge-ui
+```
+
+```tsx
+import { TrueforgeUI } from '@truefoundry/trueforge-ui';
+
+export function App() {
+  return <TrueforgeUI server={{ type: 'trueforge', baseUrl: 'http://localhost:8790' }} />;
+}
+```
+
+See the [Quickstart](/ui-sdk/get-started/quickstart) for a complete setup.
+
+## What you can customize
+
+| Area | Options |
+| --- | --- |
+| **Agent modes** | Chat with one agent, browse the library, or let users compose agents |
+| **Layouts** | `sidebar` (default), `drawer`, `dock`, `widget` |
+| **Themes** | Built-in Claude, ChatGPT, Gemini, TrueFoundry — or your own theme |
+| **Slots** | Override individual UI regions without forking the whole app |
+| **Server** | TrueForge server, TrueFoundry-backed, or a custom server that implements the contract |
+
+## Interactive controls & code examples
+
+The hosted webapp provides an interactive interface for exploring and configuring all available controls and properties. Configure and preview component properties, override defaults, and generate a code snippet from your configuration.
+
+[https://ui.trueforge.dev/](https://ui.trueforge.dev/)
