@@ -103,12 +103,18 @@ export interface HarnessMcpUpsert {
   auth?: TrueForgeApi.ConfiguredMcpServerAuth;
 }
 
-export function toHarnessManifest(req: { name: string; url: string; auth: ConnectorAuth }): HarnessMcpUpsert {
+export function toHarnessManifest(req: {
+  name: string;
+  url: string;
+  auth: ConnectorAuth;
+  description?: string;
+}): HarnessMcpUpsert {
   const auth = toHarnessAuth(req.auth);
+  const trimmed = req.description?.trim();
   return {
     name: req.name,
     url: req.url,
-    description: `${req.name} MCP server`,
+    description: trimmed !== undefined && trimmed !== '' ? trimmed : `${req.name} MCP server`,
     ...(auth === undefined ? {} : { auth }),
   };
 }
@@ -191,12 +197,29 @@ export function createConnectorCatalog(
     },
     createConnector: async req => {
       const auth = await resolveWriteAuth({ auth: req.auth });
-      const body = await client.settings.mcpServers.create(toHarnessManifest({ name: req.name, url: req.url, auth }));
+      const catalog = await client.catalog.mcpServers.list();
+      const preset = catalog.data.find(server => server.name === req.name);
+      const body = await client.settings.mcpServers.create(
+        toHarnessManifest({
+          name: req.name,
+          url: req.url,
+          auth,
+          description: preset?.description,
+        }),
+      );
       return toUiConnector(body.data);
     },
     updateConnector: async req => {
+      const existing = await getConfigured(req.id);
       const auth = await resolveWriteAuth({ id: req.id, auth: req.auth });
-      const body = await client.settings.mcpServers.upsert(toHarnessManifest({ name: req.id, url: req.url, auth }));
+      const body = await client.settings.mcpServers.upsert(
+        toHarnessManifest({
+          name: req.id,
+          url: req.url,
+          auth,
+          description: existing.description,
+        }),
+      );
       return toUiConnector(body.data);
     },
     authenticateConnector: async req => {

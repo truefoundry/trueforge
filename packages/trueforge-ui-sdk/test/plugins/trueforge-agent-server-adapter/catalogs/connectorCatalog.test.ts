@@ -162,5 +162,33 @@ describe('connectorCatalog mappers', () => {
         description: 'custom-mcp MCP server',
       },
     );
+    assert.deepEqual(
+      toHarnessManifest({
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'dcr' },
+        description: 'Linear MCP server.',
+      }),
+      {
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        description: 'Linear MCP server.',
+        auth: { type: 'dcr' },
+      },
+    );
+    assert.deepEqual(
+      toHarnessManifest({
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'dcr' },
+        description: '   ',
+      }),
+      {
+        name: 'linear',
+        url: 'https://mcp.linear.app/mcp',
+        description: 'linear MCP server',
+        auth: { type: 'dcr' },
+      },
+    );
   });
 });
