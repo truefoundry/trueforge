@@ -1,7 +1,6 @@
 /**
- * Model-provider domain + wire schemas: configured provider manifests (DB /
- * PUT body / response) and OpenAPI request/response shapes. Catalog file schemas
- * live on ModelCatalog.
+ * Model-provider domain + wire schemas: configured provider manifests (DB jsonb)
+ * and OpenAPI request/response shapes. Catalog file schemas live on ModelCatalog.
  */
 import { z } from '@hono/zod-openapi';
 import { SUPPORTED_REASONING_EFFORTS, VERCEL_AI_PROVIDER_NAMES } from '@truefoundry/trueforge-core/core';
@@ -151,9 +150,8 @@ export function refineModelProviderManifest(
 export type ModelProperties = z.infer<typeof ModelPropertiesSchema>;
 
 /**
- * Configured provider: PUT body, response data, and the persisted `model_provider.manifest` document
- * in one shape. Only `custom` carries a name, so the row's key column comes from
- * `modelProviderName` rather than from a field every type repeats.
+ * Configured provider jsonb (`model_provider.manifest`). Only `custom` carries a name, so the
+ * row's key column comes from `modelProviderName` rather than from a field every type repeats.
  */
 const ModelProviderBodySchema = z
   .discriminatedUnion('type', [
@@ -169,25 +167,47 @@ const ModelProviderBodySchema = z
   ])
   .superRefine(refineModelProviderManifest);
 
-export const ModelProviderSchema = ModelProviderBodySchema.openapi('ModelProvider');
+export const ModelProviderManifestSchema = ModelProviderBodySchema.openapi('ModelProviderManifest');
 
 /** The row's key: only `custom` carries a name of its own. */
-export function modelProviderName(provider: ModelProvider): ResourceName {
+export function modelProviderName(provider: ModelProviderManifest): ResourceName {
   return provider.type === 'custom' ? provider.name : provider.type;
 }
+
+/** Settings wire item: identity column plus nested manifest. */
+export const ModelProviderSchema = z
+  .object({
+    name: NameSchema,
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
+  .openapi('ModelProvider');
+
+export const CreateModelProviderRequestSchema = z
+  .object({
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
+  .openapi('CreateModelProviderRequest');
+
+export const PutModelProviderRequestSchema = z
+  .object({
+    manifest: ModelProviderManifestSchema,
+  })
+  .strict()
+  .openapi('PutModelProviderRequest');
+
+export const GetModelProviderResponseSchema = z
+  .object({
+    data: ModelProviderSchema,
+  })
+  .openapi('GetModelProviderResponse');
 
 export const ListModelProvidersResponseSchema = z
   .object({
     data: z.array(ModelProviderSchema),
   })
   .openapi('ListModelProvidersResponse');
-
-/** Shared create/upsert response envelope (`{ data: ModelProvider }`). */
-export const PutModelProviderResponseSchema = z
-  .object({
-    data: ModelProviderSchema,
-  })
-  .openapi('PutModelProviderResponse');
 
 /** Provider identity on the models list read view. */
 export const ModelListProviderSchema = z
@@ -216,6 +236,9 @@ export const ListModelsResponseSchema = z
   })
   .openapi('ListModelsResponse');
 
+export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
 export type ModelProvider = z.infer<typeof ModelProviderSchema>;
+export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
+export type PutModelProviderRequest = z.infer<typeof PutModelProviderRequestSchema>;
 export type ModelListProvider = z.infer<typeof ModelListProviderSchema>;
 export type Model = z.infer<typeof ModelSchema>;

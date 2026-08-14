@@ -1,5 +1,5 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { Model, ModelProvider } from '../../../schemas/modelProvider';
+import type { Model, ModelProviderManifest } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
@@ -18,7 +18,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'model_provider'>) {
   return [
     'tenant_id' as const,
     'name' as const,
-    jsonText<ModelProvider>(eb.ref('manifest')).as('manifest'),
+    jsonText<ModelProviderManifest>(eb.ref('manifest')).as('manifest'),
     'created_at' as const,
     'updated_at' as const,
   ];
