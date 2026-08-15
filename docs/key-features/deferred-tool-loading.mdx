@@ -8,6 +8,25 @@ When an agent is connected to many MCP servers, each with dozens of tools, the f
 
 By default, **`preload` is `false`** — the agent only sees each MCP server's name and description at startup and loads individual tool schemas as needed. This keeps the context window lean while still giving the agent access to the full breadth of tools.
 
+## Set it in the composer
+
+Each connector in the **Save Agent** dialog has a book-icon **preload toggle** — off by default. Hover it to see the tradeoff, click to switch it on.
+
+<Columns cols={2}>
+  <Frame caption="Off (default) — tools are discovered on demand.">
+    <img
+      src="/images/preload-tools-off.png"
+      alt="Save Agent dialog with a connector's preload toggle off; the tooltip reads Preload tools OFF — the agent discovers tools on demand, lighter context upfront"
+    />
+  </Frame>
+  <Frame caption="On — tool definitions load into context upfront.">
+    <img
+      src="/images/preload-tools-on.png"
+      alt="Save Agent dialog with a connector's preload toggle on and highlighted; the tooltip reads Preload tools ON — tool definitions load into context upfront"
+    />
+  </Frame>
+</Columns>
+
 ## The problem
 
 - Each tool definition — name, description, input schema, output schema — consumes tokens from the available context window.
