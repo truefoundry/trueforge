@@ -297,11 +297,28 @@ sequenceDiagram
 
 A separate issue — Bob's shipping question, or even Jane's next problem — runs in its own session, where Turn 1 starts fresh with no refund history carried over.
 
+## Call an authenticated API
+
+When [login is off](/authentication/overview) (the default), omit any token — the SDK talks to the server as the shared local admin.
+
+When [OIDC login](/authentication/overview) is enabled, the HTTP API requires authentication. The chat UI uses an HttpOnly cookie after sign-in. For the SDK — or any other HTTP client — send the same OIDC **ID token** as a bearer token:
+
+```typescript
+const client = new TrueForge({
+  baseUrl: 'https://trueforge.myorg.com',
+  token: process.env.TRUEFORGE_TOKEN,
+});
+```
+
+That sets `Authorization: Bearer <id_token>` on every request. Get the token from your identity provider (or reuse a browser session). There is no device-code or client-credentials flow yet. Keep ID token lifetimes short at the IdP — the same JWT unlocks the API as either a cookie or a bearer token.
+
+A missing or expired token against an OIDC-enabled server returns `401`.
+
 ## Run it with the SDK
 
 ### 1. Create a session
 
-Pass an inline agent spec, or reference a saved agent by name:
+Pass an inline agent spec, or reference a saved agent by name. The example below assumes login is off; if OIDC is on, pass `token` as shown in [Call an authenticated API](#call-an-authenticated-api).
 
 ```typescript
 import { TrueForge } from '@truefoundry/trueforge-sdk';

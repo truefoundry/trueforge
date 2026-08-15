@@ -48,93 +48,11 @@ Building an agent is easy. Running one well is not - you need streaming, session
 
 It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (Postgres + Redis, Docker Compose or Helm).
 
-## Quick start
+## Getting started
 
-### Local mode (npx)
+Run TrueForge (local, Docker Compose, or Kubernetes), connect a model and tools, and build your first reusable agent in the [Quickstart](https://trueforge.dev/quickstart).
 
-Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure - UI and backend run locally; data is stored in SQLite:
-
-```bash
-npx @truefoundry/trueforge@rc
-```
-
-Then open [http://localhost:8790](http://localhost:8790).
-
-### From source (pnpm)
-
-Standalone (SQLite) topology from a clone - no Docker. Requires Node.js 22.13+ and [pnpm](https://pnpm.io):
-
-```bash
-git clone https://github.com/truefoundry/trueforge.git
-cd trueforge
-cp packages/server/.env.example packages/server/.env
-pnpm standalone:dev
-```
-
-Then open [http://localhost:3000](http://localhost:3000) - Vite serves the UI with live reload and proxies API calls to the server on port 8790. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide (including Postgres + Redis).
-
-### Hosted mode (Docker Compose)
-
-Server (UI + API), Postgres, and Redis:
-
-```bash
-git clone https://github.com/truefoundry/trueforge.git
-cd trueforge
-cp packages/server/.env.example packages/server/.env
-docker compose up --build
-```
-
-Then open [http://localhost:8791](http://localhost:8791).
-
-| Configuration                                         | Default                | Description                                    |
-| ----------------------------------------------------- | ---------------------- | ---------------------------------------------- |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`            | Postgres credentials (`packages/server/.env`). |
-| Host ports                                            | `8791`, `5433`, `6380` | App, Postgres, and Redis.                      |
-
-Every environment variable is documented in [`packages/server/.env.example`](packages/server/.env.example).
-
-### Hosted mode (Kubernetes)
-
-The [`charts/trueforge`](charts/trueforge) Helm chart deploys hosted mode with bundled Postgres and Redis (or your own):
-
-```bash
-helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
-  --version <x.y.z>
-```
-
-See the [chart README](charts/trueforge/README.md) (including [`configs.oidc`](charts/trueforge/README.md#oidc)) and [Quickstart](https://trueforge.dev/quickstart) for values and details.
-
-## Build your first agent
-
-Full walkthrough: [Quickstart](https://trueforge.dev/quickstart). The example below builds a **web research briefer** — it searches the web, fans out to parallel subagents, and renders an interactive brief. To get started, you only need a model key.
-
-1. **Add a model provider** - **Settings → Models**, pick a provider, paste your API key.
-
-   ![Configure a model provider](./docs/images/quickstart-models.png)
-
-2. **Connect a web-search tool** - **Settings → Connectors**, connect **Exa** (no auth needed).
-
-   ![Connect Exa](./docs/images/quickstart-connectors.png)
-
-3. **Compose and run** - pick a model, enable Exa, and send:
-
-   > Research the current state of open-source vector databases. Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.
-
-   The agent searches with Exa, delegates to parallel subagents, and renders an interactive brief inline. Generative UI is on by default, so no extra setup is needed.
-
-   ![The agent's interactive research brief](./docs/images/quickstart-chat-result.png)
-
-4. **Save as an agent** - click **Save Agent** and name it `web-research-brief`.
-
-   ![Save agent](./docs/images/quickstart-save-agent.png)
-
-5. **Find it in the Agent Library** - open **Agents Library**, then **Try** or **Edit**. In hosted mode with login enabled, agents created by anyone are visible to everyone - see [Agent Library](https://trueforge.dev/agent-library).
-
-   ![Agents Library](./docs/images/quickstart-agents-library.png)
-
-> **Optional — run code, files, and richer skills.** To let the agent run code or use skills like **web-artifacts-builder** (which packages the brief into a standalone, shareable HTML page), add a **Daytona** sandbox under **Settings → Sandbox providers**. Skills run in the sandbox.
->
-> ![Daytona sandbox connected](./docs/images/quickstart-sandbox-connected.png)
+To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Architecture
 
@@ -169,18 +87,18 @@ flowchart LR
 
 ## Documentation
 
-| Section                                                        | What you'll find                                                  |
-| -------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Introduction](https://trueforge.dev/introduction)             | What an agent harness is and how TrueForge fits together          |
-| [Quickstart](https://trueforge.dev/quickstart)                 | Run local or hosted, build your first agent                       |
-| [Initial Setup](https://trueforge.dev/harness/initial-setup)   | Models, MCP, skills, sandbox - catalogs and overrides             |
-| [Create an Agent](https://trueforge.dev/create-agent/overview) | Select resources; tool approval, questions, Generative UI         |
-| [Key Features](https://trueforge.dev/key-features/overview)    | Sandbox-as-tool, subagents, deferred tools, Code Mode, compaction |
-| [Benchmarking](https://trueforge.dev/benchmarking)             | Cost/accuracy vs Claude Managed Agents and deepagents             |
-| [Setup Login](https://trueforge.dev/authentication/overview)   | Optional OIDC for shared deployments                              |
-| [SDK](https://trueforge.dev/api/overview)                      | TypeScript client: sessions, turns, events                        |
-| [Chat UI](https://trueforge.dev/chat-ui)                       | Bundled UI and embedding `@truefoundry/trueforge-ui`              |
-| [API Reference](https://trueforge.dev/api-reference)           | OpenAPI paths and schemas                                         |
+| Section                                                             | What you'll find                                                  |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Introduction](https://trueforge.dev/introduction)                  | What an agent harness is and how TrueForge fits together          |
+| [Quickstart](https://trueforge.dev/quickstart)                      | Run local or hosted, build your first agent                       |
+| [Initial Setup](https://trueforge.dev/harness/initial-setup)        | Models, MCP, skills, sandbox - catalogs and overrides             |
+| [Create an Agent](https://trueforge.dev/create-agent/overview)      | Select resources; tool approval, questions, Generative UI         |
+| [Harness Capabilities](https://trueforge.dev/key-features/overview) | Sandbox-as-tool, subagents, deferred tools, Code Mode, compaction |
+| [Setup Login](https://trueforge.dev/authentication/overview)        | Optional OIDC for shared deployments                              |
+| [Benchmarking](https://trueforge.dev/benchmarking)                  | Cost/accuracy vs Claude Managed Agents and deepagents             |
+| [SDK](https://trueforge.dev/api/overview)                           | TypeScript client: sessions, turns, events                        |
+| [Chat UI](https://trueforge.dev/chat-ui)                            | Bundled UI and embedding `@truefoundry/trueforge-ui`              |
+| [API Reference](https://trueforge.dev/api-reference)                | OpenAPI paths and schemas                                         |
 
 ## Benchmarks
 

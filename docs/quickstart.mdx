@@ -125,21 +125,27 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     - **Skills** — enable **web-artifacts-builder**.
     - **Capabilities** — leave **Dynamic sub-agents** on (it's the default). This lets the agent research each item in parallel instead of one at a time.
 
-    <Columns cols={3}>
-      <Frame caption="Connectors">
-        ![The composer Tools menu on the Connectors tab with Exa enabled](/images/quickstart-compose-connectors.png)
-      </Frame>
-      <Frame caption="Skills">
-        ![The Tools menu on the Skills tab with web-artifacts-builder enabled](/images/quickstart-compose-skills.png)
-      </Frame>
-      <Frame caption="Capabilities">
-        ![The Tools menu on the Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on](/images/quickstart-compose-capabilities.png)
-      </Frame>
-    </Columns>
+    <Tabs>
+      <Tab title="Connectors">
+        <Frame>
+          ![The composer Tools menu on the Connectors tab with Exa enabled](/images/quickstart-compose-connectors.png)
+        </Frame>
+      </Tab>
+      <Tab title="Skills">
+        <Frame>
+          ![The Tools menu on the Skills tab with web-artifacts-builder enabled](/images/quickstart-compose-skills.png)
+        </Frame>
+      </Tab>
+      <Tab title="Capabilities">
+        <Frame>
+          ![The Tools menu on the Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on](/images/quickstart-compose-capabilities.png)
+        </Frame>
+      </Tab>
+    </Tabs>
 
     Then send your first message. For example:
 
-    ```text
+    ```text wrap
     Research the current state of open-source vector databases. Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.
     ```
 
@@ -156,7 +162,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     - **Name** — `web-research-brief`
     - **Instructions** —
 
-    ```text
+    ```text wrap
     You are a web research assistant. Given a topic or question, use Exa to search the web and pull content from the most relevant, recent sources. When the request compares several items, research each one in parallel, then synthesize the findings into a clear one-page brief.
     ```
 
@@ -220,7 +226,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
   <Card title="Create an Agent" icon="robot" href="/create-agent/overview">
     Select resources and configure approvals, questions, and Generative UI.
   </Card>
-  <Card title="Key Features" icon="layer-group" href="/key-features/overview">
+  <Card title="Harness Capabilities" icon="layer-group" href="/key-features/overview">
     Subagents, deferred tools, code mode, compaction, and more.
   </Card>
   <Card title="SDK" icon="code" href="/api/overview">

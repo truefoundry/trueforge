@@ -53,7 +53,7 @@
               },
               "agent-library",
               {
-                "group": "Key Features",
+                "group": "Harness Capabilities",
                 "pages": [
                   "key-features/overview",
                   "key-features/subagents",
@@ -62,8 +62,8 @@
                   "key-features/large-tool-responses"
                 ]
               },
-              "benchmarking",
-              "authentication/overview"
+              "authentication/overview",
+              "benchmarking"
             ]
           },
           {

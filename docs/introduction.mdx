@@ -19,6 +19,8 @@ An agent harness is the runtime layer around an LLM that turns it into a reliabl
 
 TrueForge is an **open-source agent harness** with three parts: a **core server** that runs the agent loop, an **HTTP API** (with a TypeScript SDK) to drive it from code, and a **chat UI** (with a React UI SDK) to drive it from the browser.
 
+<GitHub.Repo repo="truefoundry/trueforge" />
+
 <Frame caption="The bundled chat UI — a streaming response with the agent-steps panel expanded to show reasoning, tool calls, and a subagent.">
   <img src="/images/chat-ui.png" alt="The TrueForge chat UI showing an agent response with the agent-steps panel expanded — reasoning, Exa tool calls, and a subagent" />
 </Frame>
@@ -57,7 +59,7 @@ Runs the agent loop. When a user sends a message, the server:
 
 - Plans the turn, calls the model, and executes tools — streaming every step back
 - Pauses for [human approval](/create-agent/overview#tool-approval) on sensitive actions
-- Keeps context lean on long tasks with [key features](/key-features/overview) like subagents and compaction
+- Keeps context lean on long tasks with [harness capabilities](/key-features/overview) like subagents and compaction
 - Persists sessions, so conversations survive reconnects and restarts
 
 The services the loop talks to — [model providers](/models), [MCP servers](/mcp-servers), the [sandbox provider](/sandbox) — are **bring your own**: you configure them, TrueForge orchestrates them.
@@ -104,16 +106,19 @@ Like Claude's managed agents: one deployment the whole company uses, via Docker 
 - **Postgres** replaces SQLite as durable storage shared by all replicas
 - **Redis** peers the replicas — it hands off turn event streams and cancellation signals, so a client can reconnect to any replica and still resume a turn running on another one
 
-## Explore the docs
+## Start building
 
 <CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run TrueForge with one command, configure a model provider, and start chatting.
+  </Card>
   <Card title="Initial Setup" icon="sliders" href="/harness/initial-setup">
     Configure models, MCP servers, skills, and sandbox — and customize the shipped catalogs.
   </Card>
   <Card title="Create an Agent" icon="robot" href="/create-agent/overview">
     Select a model, attach connectors and skills, then save to the Agent Library.
   </Card>
-  <Card title="Key Features" icon="layer-group" href="/key-features/overview">
+  <Card title="Harness Capabilities" icon="layer-group" href="/key-features/overview">
     Sandbox-as-tool, subagents, deferred tools, code mode, compaction, and human checkpoints.
   </Card>
   <Card title="Setup Login" icon="lock" href="/authentication/overview">
@@ -124,19 +129,5 @@ Like Claude's managed agents: one deployment the whole company uses, via Docker 
   </Card>
   <Card title="Chat UI" icon="palette" href="/chat-ui">
     Bundled chat experience, or embed `@truefoundry/trueforge-ui` in your React app.
-  </Card>
-</CardGroup>
-
-## Start building
-
-<CardGroup cols={3}>
-  <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Run TrueForge with one command, configure a model provider, and start chatting.
-  </Card>
-  <Card title="Benchmarking" icon="chart-line" href="/benchmarking">
-    Same tasks and model vs Claude Managed Agents and deepagents — cost and accuracy.
-  </Card>
-  <Card title="UI SDK reference" icon="book" href="/chat-ui">
-    Themes, layouts, slots, and the full React component API.
   </Card>
 </CardGroup>
