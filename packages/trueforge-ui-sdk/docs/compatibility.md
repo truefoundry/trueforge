@@ -17,13 +17,13 @@ Install once at the app root.
 
 ## Bundled dependencies (installed with the SDK)
 
-| Package                             | Range         |
-| ----------------------------------- | ------------- |
-| `@assistant-ui/core`                | `^0.2.22`     |
-| `@assistant-ui/react`               | `^0.14.24`    |
-| `@truefoundry/assistant-ui-runtime` | `0.1.16`      |
-| `truefoundry-gateway-sdk`           | `^0.4.0-rc.6` |
-| `lucide-react`                      | `^0.562.0`    |
+| Package                             | Range      |
+| ----------------------------------- | ---------- |
+| `@assistant-ui/core`                | `^0.2.22`  |
+| `@assistant-ui/react`               | `^0.14.24` |
+| `@truefoundry/assistant-ui-runtime` | `0.1.18`   |
+| `truefoundry-gateway-sdk`           | `^0.4.0`   |
+| `lucide-react`                      | `^0.562.0` |
 
 `@assistant-ui/*` are also listed as **optional** peers so hosts that install
 them directly for customization stay on a compatible range.

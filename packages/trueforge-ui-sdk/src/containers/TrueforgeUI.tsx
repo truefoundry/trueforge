@@ -4,6 +4,7 @@ import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '
 import { lazy, Suspense, useMemo, type ReactNode } from 'react';
 
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
+import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ServerProvider } from '../server/ServerContext.js';
@@ -30,7 +31,8 @@ type RuntimeAdapters = NonNullable<UseTrueFoundryAgentRuntimeOptions['adapters']
 
 export type TrueforgeUIProps = {
   server: TrueforgeServerConfig;
-  layout: LayoutProp;
+  /** Built-in layout string or a custom layout component. Defaults to `"sidebar"`. */
+  layout?: LayoutProp;
   overrides?: SlotOverrides;
   theme?: ThemeConfig;
   className?: string;
@@ -180,7 +182,10 @@ function ChatProviderFromShell({
       listSessionsAgentId={listSessionsAgentId}
       initialSessionId={pendingSessionId ?? hostInitialSessionId}
     >
-      <DraftCatalogProvider>{children}</DraftCatalogProvider>
+      <DraftCatalogProvider>
+        <DraftSpecPreferenceBridge />
+        {children}
+      </DraftCatalogProvider>
     </TrueFoundryChatProvider>
   );
 }
@@ -205,7 +210,7 @@ export function TrueforgeUI(props: TrueforgeUIProps) {
 
 function TrueforgeUIShell(props: TrueforgeUIProps) {
   const {
-    layout,
+    layout = 'sidebar',
     overrides,
     theme,
     className,

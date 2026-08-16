@@ -1,0 +1,72 @@
+<svg width="920" height="360" viewBox="0 0 920 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">TrueForge architecture</title>
+  <desc id="desc">Chat UI and SDK connect to the TrueForge server HTTP API and agent loop, which talks to SQLite or Postgres and bring-your-own model providers, MCP servers, and sandbox.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M1 1 L9 5 L1 9" fill="none" stroke="#64748B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <!-- Clients -->
+  <g>
+    <rect x="24" y="72" width="168" height="72" rx="12" fill="#111827" stroke="#334155"/>
+    <text x="108" y="102" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#F8FAFC">Chat UI</text>
+    <text x="108" y="122" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#94A3B8">@truefoundry/trueforge-ui</text>
+  </g>
+  <g>
+    <rect x="24" y="216" width="168" height="72" rx="12" fill="#111827" stroke="#334155"/>
+    <text x="108" y="246" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#F8FAFC">Your code</text>
+    <text x="108" y="266" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#94A3B8">trueforge-sdk</text>
+  </g>
+
+  <!-- Server group -->
+  <rect x="248" y="48" width="280" height="264" rx="16" fill="#0B1220" stroke="#334155"/>
+  <text x="388" y="78" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" letter-spacing="0.04em" fill="#A78BFA">TRUEFORGE SERVER</text>
+
+  <g>
+    <rect x="276" y="100" width="224" height="64" rx="12" fill="#111827" stroke="#6D58FB"/>
+    <text x="388" y="138" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#F8FAFC">HTTP API</text>
+  </g>
+  <g>
+    <rect x="276" y="212" width="224" height="64" rx="12" fill="#111827" stroke="#6D58FB"/>
+    <text x="388" y="250" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#F8FAFC">Agent loop</text>
+  </g>
+
+  <!-- Storage -->
+  <g>
+    <ellipse cx="620" cy="180" rx="64" ry="36" fill="#111827" stroke="#334155"/>
+    <text x="620" y="176" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F8FAFC">SQLite /</text>
+    <text x="620" y="194" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F8FAFC">Postgres</text>
+  </g>
+
+  <!-- BYO group -->
+  <rect x="720" y="48" width="176" height="264" rx="16" fill="transparent" stroke="#475569" stroke-dasharray="5 4"/>
+  <text x="808" y="78" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" letter-spacing="0.04em" fill="#94A3B8">BRING YOUR OWN</text>
+
+  <g>
+    <rect x="740" y="100" width="136" height="48" rx="10" fill="#111827" stroke="#334155"/>
+    <text x="808" y="129" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F8FAFC">Models</text>
+  </g>
+  <g>
+    <rect x="740" y="168" width="136" height="48" rx="10" fill="#111827" stroke="#334155"/>
+    <text x="808" y="197" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F8FAFC">MCP servers</text>
+  </g>
+  <g>
+    <rect x="740" y="236" width="136" height="48" rx="10" fill="#111827" stroke="#334155"/>
+    <text x="808" y="265" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#F8FAFC">Sandbox</text>
+  </g>
+
+  <!-- Edges: clients → API → loop -->
+  <path d="M192 108 H240 V132 H276" stroke="#64748B" stroke-width="1.75" marker-end="url(#arrow)"/>
+  <path d="M192 252 H240 V132" stroke="#64748B" stroke-width="1.75"/>
+  <path d="M388 164 V212" stroke="#64748B" stroke-width="1.75" marker-end="url(#arrow)"/>
+
+  <!-- Edges: loop → storage + BYO bus -->
+  <path d="M500 244 H556 V216" stroke="#64748B" stroke-width="1.75" marker-end="url(#arrow)"/>
+  <path d="M500 244 H700" stroke="#64748B" stroke-width="1.75"/>
+  <path d="M700 124 V260" stroke="#64748B" stroke-width="1.75"/>
+  <path d="M700 124 H740" stroke="#64748B" stroke-width="1.75" marker-end="url(#arrow)"/>
+  <path d="M700 192 H740" stroke="#64748B" stroke-width="1.75" marker-end="url(#arrow)"/>
+  <path d="M700 260 H740" stroke="#64748B" stroke-width="1.75" marker-end="url(#arrow)"/>
+</svg>

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.0
+
+### Minor Changes
+
+- 2f08a99: Remember plain-draft composer choices (model, skills, MCP connectors, config) across New Chat and reloads via localStorage. Edit-flow and immutable library agents are unchanged. `TrueforgeUI` `layout` is optional and defaults to `"sidebar"`.
+- b56c003: Initial 0.1.0-rc.1 prerelease of all public packages.
+
+### Patch Changes
+
+- e9bf976: Wrap settings MCP, skills, model-provider, and sandbox create/put bodies as `{ manifest }`. List/get items nest the stored document (`name` plus `manifest`, plus derived fields). Create returns 201. Chat lists and catalogs stay flat. Adapter catalogs follow the new SDK shapes.
+- a9e8187: Improve nested tool approval handling and bump `@truefoundry/assistant-ui-runtime`.
+- 0730213: Save Agent dialog: add a per-connector **preload** toggle (writes `mcp_servers[].preload`), render the capabilities as side-by-side cards, and declutter the modal — inline model/connector/skill chips (model shows its provider logo), the "Connectors" label, no subtitle, content-sized height, and tighter spacing. Tooltips now portal into the nearest `<dialog>` so they render above modal content.
+- Updated dependencies [e9bf976]
+- Updated dependencies [b56c003]
+  - @truefoundry/trueforge-sdk@0.1.0
+
+## 0.1.0-rc.2
+
+### Minor Changes
+
+- 2f08a99: Remember plain-draft composer choices (model, skills, MCP connectors, config) across New Chat and reloads via localStorage. Edit-flow and immutable library agents are unchanged. `TrueforgeUI` `layout` is optional and defaults to `"sidebar"`.
+
+### Patch Changes
+
+- a9e8187: Improve nested tool approval handling and bump `@truefoundry/assistant-ui-runtime`.
+- 0730213: Save Agent dialog: add a per-connector **preload** toggle (writes `mcp_servers[].preload`), render the capabilities as side-by-side cards, and declutter the modal — inline model/connector/skill chips (model shows its provider logo), the "Connectors" label, no subtitle, content-sized height, and tighter spacing. Tooltips now portal into the nearest `<dialog>` so they render above modal content.
+
 ## 0.1.0-rc.1
 
 ### Patch Changes
@@ -26,8 +53,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`@truefoundry/assistant-ui-runtime` ≥ 0.1.18** — depends on the consolidated
+  runtime release that includes:
+  - `getModels` → `properties.reasoningEfforts` for thinking-capable models
+  - extras ancestor walk so nested/readonly AUI clients resolve
+    `useTrueFoundryRespondToToolApproval` (sub-agent Allow/Deny)
+  - parallel enabled-models + provider-metadata CP fetches
+  - `ModelSelectorEntry.name` / `id` = `model_fqn` (`account/model-id`)
+  - gateway mount sanitization (`normalizeMcpMount` / `normalizeSkillMount`,
+    registry `enableTools` default `["@all"]`)
+
+### Fixed
+
+- **Sub-agent Allow/Deny** — nested tool approvals inside `create_sub_agent` now
+  call `useTrueFoundryRespondToToolApproval` with the _nested_ tool's approval
+  id. The old bridge keyed off the outer sub-agent part (usually with no
+  approval), so clicks silently no-op'd. Requires `@truefoundry/assistant-ui-runtime`
+  ≥ 0.1.19 so extras resolve through the readonly nested AUI client.
+- **Sandbox provider contract** — drop `snapshotName` from `SandboxProviderConfig`
+  and wrap `listSandboxProviders` as `{ data, snapshotSyncStatus }` (Harness
+  `status` / `status_reason`). Re-exports `SandboxProviderListEntry` /
+  `SandboxSnapshotSyncStatus`.
+
 ### Added
 
+- **Draft composer preferences** — plain-draft model, skills, MCP connectors, and
+  config choices are remembered (in-memory + `localStorage`) and seed the next
+  New Chat after reload. Stale catalog entries are pruned once catalogs load.
+  Edit-flow (`agentId` set) and immutable library agents are unchanged.
+- **Optional `layout`** — `<TrueforgeUI />` `layout` prop defaults to `"sidebar"`.
 - **`type: "trueforge"` built-in server** — `<TrueforgeUI server={{ type: 'trueforge', baseUrl?, token?, fetch? }} />`
   resolves a full Harness `AgentUIServer` via
   `@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`

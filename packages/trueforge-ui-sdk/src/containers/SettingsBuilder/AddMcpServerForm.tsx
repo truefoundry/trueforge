@@ -13,6 +13,7 @@ export type McpAuthType = ConnectorAuthType;
 export type AddMcpServerDraft = {
   name: string;
   url: string;
+  description: string;
   auth: ConnectorAuth;
 };
 
@@ -41,6 +42,7 @@ const RequiredMark = () => (
 const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: AddMcpServerFormProps) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [description, setDescription] = useState('');
   const [authType, setAuthType] = useState<McpAuthType>('dcr');
   const [apiKey, setApiKey] = useState('');
   const [headerName, setHeaderName] = useState('');
@@ -48,6 +50,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
   const resetForm = () => {
     setName('');
     setUrl('');
+    setDescription('');
     setAuthType('dcr');
     setApiKey('');
     setHeaderName('');
@@ -58,7 +61,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
     onOpenChange(nextOpen);
   };
 
-  const isValid = !!name.trim() && !!url.trim() && (authType !== 'header' || !!apiKey.trim());
+  const isValid = !!name.trim() && !!description.trim() && !!url.trim() && (authType !== 'header' || !!apiKey.trim());
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,6 +80,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
       await onAdd({
         name: name.trim(),
         url: url.trim(),
+        description: description.trim(),
         auth,
       });
       resetForm();
@@ -120,6 +124,24 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               placeholder="analytics-postgres-mcp"
               autoFocus
               className={inputClassName}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="mcp-server-description" className="mb-1.5 block text-sm font-medium text-text-primary">
+              Description
+              <RequiredMark />
+            </label>
+            <textarea
+              id="mcp-server-description"
+              value={description}
+              onChange={event => {
+                setDescription(event.target.value);
+              }}
+              placeholder="Query analytics from Postgres"
+              required
+              rows={3}
+              className={auiInputClass('resize-y py-2.5 shadow-sm')}
             />
           </div>
 

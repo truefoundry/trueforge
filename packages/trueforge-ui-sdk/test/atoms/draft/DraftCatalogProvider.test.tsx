@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider, useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
+import { reconcileDraftSpecPreferences } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSkill, ConnectorState, ModelSelection } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -56,6 +57,64 @@ function deferred<T>() {
 }
 
 describe('DraftCatalogProvider', () => {
+  it('prunes unavailable remembered choices and falls back to the live model catalog', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'removed/model' },
+        skills: [{ name: 'Available skill' }, { name: 'Removed skill' }],
+        mcpServers: [{ name: 'Available MCP' }, { name: 'Removed MCP' }],
+      },
+      models: [
+        {
+          id: 'live/model',
+          name: 'live/model',
+          provider: { name: 'Live' },
+          properties: { reasoningEfforts: ['none', 'low'] },
+        },
+      ],
+      skills: [{ id: 'available-skill', name: 'Available skill' }],
+      connectors: [{ id: 'available-mcp', name: 'Available MCP' }],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({
+      model: { name: 'live/model', params: { reasoningEffort: 'low' } },
+      skills: [{ name: 'Available skill' }],
+      mcpServers: [{ name: 'Available MCP' }],
+    });
+  });
+
+  it('clears remembered skills when skills are unavailable', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills: [{ name: 'Skill' }],
+      },
+      models: [],
+      skills: [{ id: 'skill', name: 'Skill' }],
+      connectors: [],
+      skillsEnabled: false,
+    });
+
+    expect(update.skills).toEqual([]);
+  });
+
+  it('does not re-clear an already empty skills list when skills are unavailable', () => {
+    const emptySkills: object[] = [];
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills: emptySkills,
+      },
+      models: [],
+      skills: [],
+      connectors: [],
+      skillsEnabled: false,
+    });
+
+    expect(update).toEqual({});
+  });
+
   it('exposes an empty, idle catalog when used without a provider', () => {
     render(<CatalogProbe />);
 

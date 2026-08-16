@@ -157,6 +157,7 @@ const ConnectorSettings = () => {
           : { type: 'none' });
     await connectorCatalog.createConnector({
       name: entry.name,
+      description: entry.description ?? entry.url,
       url: entry.url,
       auth,
     });
@@ -193,6 +194,7 @@ const ConnectorSettings = () => {
         await connectorCatalog.updateConnector({
           id: existingConnector.id,
           name: existingConnector.name,
+          description: existingConnector.description,
           url: existingConnector.url,
           auth,
         });
@@ -201,7 +203,9 @@ const ConnectorSettings = () => {
       }
       closeApiKeyModal();
       setTimeout(() => {
-        toaster?.showSuccess({ title: `${entry.name} ${existingConnector ? 'updated' : 'connected'}` });
+        toaster?.showSuccess({
+          title: `${entry.name} ${existingConnector ? 'updated' : 'connected'}`,
+        });
       }, 100);
     }, setFormError).catch(() => {});
   };
@@ -209,11 +213,7 @@ const ConnectorSettings = () => {
   const handleAddMcpServer = async (draft: AddMcpServerDraft) => {
     setFormError(null);
     await runMutation(async () => {
-      await connectorCatalog.createConnector({
-        name: draft.name,
-        url: draft.url,
-        auth: draft.auth,
-      });
+      await connectorCatalog.createConnector({ ...draft });
     }, setFormError);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} added` });

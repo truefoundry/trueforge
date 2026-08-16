@@ -34,8 +34,6 @@ export function configFromHarness(
   provider: TrueForgeApi.CatalogDaytonaSandboxProvider | TrueForgeApi.SandboxProviderManifest,
 ): SandboxProviderConfig {
   return {
-    // Snapshot/image is now release-owned; the field is gone from the backend. The external
-    // SandboxProviderConfig still requires it, so send an empty placeholder until that type drops it.
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
@@ -96,7 +94,7 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
-  } & Omit<SandboxProviderConfig, 'snapshotName'>,
+  } & SandboxProviderConfig,
 ): TrueForgeApi.SandboxProviderManifest {
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);

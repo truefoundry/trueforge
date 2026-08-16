@@ -31,12 +31,42 @@ export function DraftCapabilitiesPanel({
   onChange,
   disabled = false,
   divided = false,
+  layout = 'list',
 }: {
   value: AgentCapabilityValues;
   onChange: (value: AgentCapabilityValues) => void;
   disabled?: boolean;
   divided?: boolean;
+  layout?: 'list' | 'cards';
 }) {
+  if (layout === 'cards') {
+    return (
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {CAPABILITIES.map(capability => {
+          const checked = value[capability.id];
+          return (
+            <div
+              key={capability.id}
+              className="border-border flex min-w-0 flex-col gap-2 rounded-lg border p-3 sm:flex-1"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-text-primary text-sm font-medium">{capability.label}</p>
+                <Switch
+                  checked={checked}
+                  aria-label={capability.label}
+                  disabled={disabled}
+                  className="mt-0.5"
+                  onCheckedChange={nextChecked => onChange({ ...value, [capability.id]: nextChecked })}
+                />
+              </div>
+              <p className="text-text-secondary text-xs leading-snug">{capability.description}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className={cn('flex flex-col', divided && 'overflow-hidden rounded-xl border border-border')}>
       {CAPABILITIES.map((capability, index) => {

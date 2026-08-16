@@ -10,6 +10,7 @@ type DraftCatalogValue = {
   models: ModelSelection[];
   skills: AgentSkill[];
   connectors: ConnectorState[];
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   /** Kick off catalog fetch (idempotent). Call when a picker opens. */
@@ -43,6 +44,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   const [models, setModels] = useState<ModelSelection[]>([]);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
+  const [completedEpoch, setCompletedEpoch] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,16 +98,20 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
         setError(errors[0] ?? null);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setCompletedEpoch(requestEpoch);
+          setLoading(false);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [requestEpoch, server]);
 
+  const loaded = requestEpoch !== null && completedEpoch === requestEpoch;
   const value = useMemo(
-    () => ({ server, models, skills, connectors, loading, error, ensureLoaded, refresh, refreshConnectors }),
-    [server, models, skills, connectors, loading, error, ensureLoaded, refresh, refreshConnectors],
+    () => ({ server, models, skills, connectors, loaded, loading, error, ensureLoaded, refresh, refreshConnectors }),
+    [server, models, skills, connectors, loaded, loading, error, ensureLoaded, refresh, refreshConnectors],
   );
 
   return <DraftCatalogContext.Provider value={value}>{children}</DraftCatalogContext.Provider>;
@@ -118,6 +124,7 @@ export function useDraftCatalog(): DraftCatalogValue {
       models: [],
       skills: [],
       connectors: [],
+      loaded: false,
       loading: false,
       error: null,
       ensureLoaded: IDLE_ENSURE,

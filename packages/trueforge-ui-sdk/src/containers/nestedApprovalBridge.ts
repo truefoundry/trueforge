@@ -1,18 +1,16 @@
 'use client';
 
-import type { ToolApprovalResponse } from '@assistant-ui/react';
 import { createContext, useContext } from 'react';
 
 /**
- * Sub-agent tool calls render inside a read-only nested thread context
- * (`MessagePartPrimitive.Messages`), so the standard `respondToApproval` prop
- * on their parts doesn't route back to the gateway. `ToolCallContainer` uses
- * this bridge instead when rendering nested calls, translating the response
- * through `useTrueFoundryRespondToToolApproval()` -- mirrors the reference's
- * `nestedToolCallMessageComponents` override.
+ * Sub-agent tool calls render inside a read-only nested thread
+ * (`MessagePartPrimitive.Messages`), so `part.respondToApproval` throws.
+ * When this flag is set, `ToolApprovalSlot` routes Allow/Deny through
+ * `useTrueFoundryRespondToToolApproval()` using the *nested* tool's
+ * approval id (not the outer `create_sub_agent` part).
  */
-export const NestedApprovalBridgeContext = createContext<((response: ToolApprovalResponse) => void) | null>(null);
+export const NestedApprovalBridgeContext = createContext(false);
 
-export function useNestedApprovalBridge(): ((response: ToolApprovalResponse) => void) | null {
+export function useNestedApprovalBridge(): boolean {
   return useContext(NestedApprovalBridgeContext);
 }
