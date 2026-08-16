@@ -41,11 +41,14 @@ export function DraftCapabilitiesPanel({
 }) {
   if (layout === 'cards') {
     return (
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         {CAPABILITIES.map(capability => {
           const checked = value[capability.id];
           return (
-            <div key={capability.id} className="border-border flex min-w-0 flex-1 flex-col gap-2 rounded-lg border p-3">
+            <div
+              key={capability.id}
+              className="border-border flex min-w-0 flex-col gap-2 rounded-lg border p-3 sm:flex-1"
+            >
               <div className="flex items-start justify-between gap-2">
                 <p className="text-text-primary text-sm font-medium">{capability.label}</p>
                 <Switch
