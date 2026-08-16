@@ -14,7 +14,7 @@
     <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
   </a>
   <a href="https://nodejs.org">
-    <img src="https://img.shields.io/badge/Node.js-%3E%3D22-green.svg" alt="Node.js >= 22">
+    <img src="https://img.shields.io/badge/Node.js-%3E%3D22.13-green.svg" alt="Node.js >= 22.13">
   </a>
   <a href="https://trueforge.dev">
     <img src="https://img.shields.io/badge/Documentation-trueforge.dev-blue.svg" alt="Documentation">
