@@ -5,7 +5,7 @@ import {
   useTrueFoundryAgentSpec,
   useTrueFoundryFlushAgentSpec,
 } from '@truefoundry/assistant-ui-runtime';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
@@ -16,11 +16,13 @@ import { readAgentCapabilities, withAgentCapabilities } from './draft/agentCapab
 import { DraftCapabilitiesPanel } from './draft/DraftCapabilitiesPanel.js';
 import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
 import { CatalogRow, ConnectorConnectButton, isUnauthenticatedDcrConnector } from './draft/DraftCompositeSelector.js';
-import { displayModelLabel, DraftModelCatalogPanel } from './draft/DraftModelCatalogPanel.js';
+import { displayModelLabel, DraftModelCatalogPanel, ProviderMark } from './draft/DraftModelCatalogPanel.js';
 import { modelPatchWithReasoningEffort } from './draft/reasoningEffort.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
+import { cn } from './lib/cn.js';
 import { auiInputClass } from './lib/inputClasses.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
+import { Tooltip } from './primitives/Tooltip.js';
 
 type SaveIntent = 'create' | 'update';
 type Editor = 'model' | 'mcp' | 'skills';
@@ -39,35 +41,110 @@ function editableMountsFromSpec(value: unknown): EditableMount[] {
   return mounts;
 }
 
-function SummarySection({
-  icon,
-  title,
-  value,
+function ConfigSection({
+  label,
   onEdit,
   disabled,
+  children,
 }: {
-  icon: string;
-  title: string;
-  value: string;
+  label: string;
   onEdit: () => void;
   disabled: boolean;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border px-5 py-3.5 last:border-b-0">
-      <Icon name={icon} className="text-text-secondary size-4 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="text-text-primary text-sm font-medium">{title}</p>
-        <p className="text-text-secondary mt-0.5 truncate text-xs">{value}</p>
+    <div className="mb-3">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-text-secondary text-xs font-semibold tracking-wide uppercase">{label}</span>
+        <button
+          type="button"
+          aria-label={`Edit ${label}`}
+          disabled={disabled}
+          className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
+          onClick={onEdit}
+        >
+          <Icon name="pencil" className="size-3.5" />
+        </button>
       </div>
+      {children}
+    </div>
+  );
+}
+
+const PRELOAD_TOOLS_COPY = {
+  header: 'Preload tools',
+  on: 'Tool definitions load into context upfront. No discovery step, but uses more context.',
+  off: 'The agent discovers tools on demand. Lighter context upfront, but a discovery step the first time it needs a tool.',
+} as const;
+
+function PreloadToggle({ on, disabled, onToggle }: { on: boolean; disabled: boolean; onToggle: () => void }) {
+  const label = `${PRELOAD_TOOLS_COPY.header} · ${on ? 'ON' : 'OFF'}`;
+  const body = on ? PRELOAD_TOOLS_COPY.on : PRELOAD_TOOLS_COPY.off;
+  return (
+    <Tooltip
+      className="max-w-[17rem] whitespace-normal"
+      content={
+        <div className="text-left">
+          <p className="mb-1 text-[11px] font-semibold tracking-wide uppercase">{label}</p>
+          <p className="text-xs leading-snug">{body}</p>
+        </div>
+      }
+    >
       <button
         type="button"
-        aria-label={`Edit ${title}`}
+        aria-label={label}
+        aria-pressed={on}
         disabled={disabled}
-        className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
-        onClick={onEdit}
+        onClick={onToggle}
+        className={cn(
+          'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md border',
+          'transition-[color,background-color,border-color,transform] active:scale-90',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40',
+          'disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
+          on
+            ? 'border-primary-button-bg/40 bg-primary-button-bg/10 text-primary-button-bg hover:border-primary-button-bg/70 hover:bg-primary-button-bg/20'
+            : 'border-border text-text-secondary hover:border-text-secondary/50 hover:bg-text-secondary/10 hover:text-text-primary',
+        )}
       >
-        <Icon name="pencil" className="size-3.5" />
+        <Icon name="book-open" className="size-3.5" />
       </button>
+    </Tooltip>
+  );
+}
+
+function MountChips({
+  mounts,
+  disabled,
+  emptyLabel,
+  onTogglePreload,
+}: {
+  mounts: EditableMount[];
+  disabled: boolean;
+  emptyLabel: string;
+  onTogglePreload?: (id: string) => void;
+}) {
+  if (mounts.length === 0) {
+    return <p className="text-text-secondary text-xs">{emptyLabel}</p>;
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {mounts.map(mount => {
+        const on = Boolean((mount.value as { preload?: boolean }).preload);
+        return (
+          <span
+            key={mount.id}
+            className={cn(
+              'border-border flex items-center gap-2 rounded-lg border py-1 pr-2.5',
+              onTogglePreload ? 'pl-1.5' : 'pl-2.5',
+            )}
+          >
+            {onTogglePreload ? (
+              <PreloadToggle on={on} disabled={disabled} onToggle={() => onTogglePreload(mount.id)} />
+            ) : null}
+            <span className="text-text-primary text-sm">{mount.name}</span>
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -121,6 +198,10 @@ function SaveAgentButtonContent({
 
   const mcpMounts = useMemo(() => editableMountsFromSpec(draftSpec?.mcpServers), [draftSpec?.mcpServers]);
   const skillMounts = useMemo(() => editableMountsFromSpec(draftSpec?.skills), [draftSpec?.skills]);
+  const modelEntry = useMemo(
+    () => catalog.models.find(model => model.name === draftSpec?.model.name),
+    [catalog.models, draftSpec?.model.name],
+  );
 
   useEffect(() => {
     if (error === null) return;
@@ -189,6 +270,16 @@ function SaveAgentButtonContent({
     }
   };
 
+  const toggleMcpPreload = (id: string) => {
+    if (draftSpec === null) return;
+    const next = (draftSpec.mcpServers ?? []).map(item => {
+      const record = item as Record<string, unknown>;
+      const itemId = typeof record.id === 'string' ? record.id : (record.name as string);
+      return itemId === id ? ({ ...record, preload: record.preload !== true } as typeof item) : item;
+    });
+    setDraftSpec({ ...draftSpec, mcpServers: next });
+  };
+
   const filteredConnectors = catalog.connectors.filter(item =>
     `${item.name} ${item.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
@@ -219,14 +310,13 @@ function SaveAgentButtonContent({
         open={open}
         onOpenChange={next => !next && close()}
         title={intent === 'create' ? 'Save agent' : 'Update agent'}
-        description="Review the configuration before saving."
-        className="md:max-w-lg"
+        className="md:h-auto md:max-h-[85dvh] md:max-w-2xl"
         aria-label={intent === 'create' ? 'Save agent' : 'Update agent'}
       >
         {draftSpec ? (
-          <div className="flex min-h-0 w-[min(32rem,calc(100vw-2rem))] flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <label className="mb-4 block">
+          <div className="flex min-h-0 w-full flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
+              <label className="mb-3 block">
                 <span className="mb-1.5 block text-sm font-medium">Agent name</span>
                 <input
                   value={name}
@@ -237,49 +327,50 @@ function SaveAgentButtonContent({
                 />
               </label>
 
-              <label className="mb-4 block">
+              <label className="mb-3 block">
                 <span className="mb-1.5 block text-sm font-medium">Instructions</span>
                 <textarea
                   value={draftSpec.instructions ?? ''}
                   disabled={saving}
                   onChange={event => setDraftSpec({ ...draftSpec, instructions: event.target.value })}
-                  rows={4}
+                  rows={5}
                   placeholder="You are a release notes writer for a platform team."
                   className={auiInputClass('resize-y py-2 disabled:opacity-60')}
                 />
               </label>
 
-              <div className="mb-4">
-                <h3 className="mb-2 text-sm font-medium">Configuration</h3>
-                <div className="overflow-hidden rounded-xl border border-border">
-                  <SummarySection
-                    icon="cpu"
-                    title="Model"
-                    value={draftSpec.model.name ? displayModelLabel(draftSpec.model.name) : 'Not selected'}
-                    disabled={saving}
-                    onEdit={() => setEditor('model')}
-                  />
-                  <SummarySection
-                    icon="plug"
-                    title="Connectors"
-                    value={`${mcpMounts.length} selected`}
-                    disabled={saving}
-                    onEdit={() => setEditor('mcp')}
-                  />
-                  <SummarySection
-                    icon="lightbulb"
-                    title="Skills"
-                    value={`${skillMounts.length} selected`}
-                    disabled={saving}
-                    onEdit={() => setEditor('skills')}
-                  />
-                </div>
-              </div>
+              <ConfigSection label="Model" onEdit={() => setEditor('model')} disabled={saving}>
+                {draftSpec.model.name ? (
+                  <span className="border-border inline-flex items-center gap-2 rounded-lg border py-1 pr-2.5 pl-2">
+                    <ProviderMark
+                      logo={modelEntry?.provider.logo}
+                      label={modelEntry?.provider.name ?? draftSpec.model.name}
+                      className="size-5 text-[10px]"
+                    />
+                    <span className="text-text-primary text-sm">{displayModelLabel(draftSpec.model.name)}</span>
+                  </span>
+                ) : (
+                  <p className="text-text-secondary text-xs">No model selected.</p>
+                )}
+              </ConfigSection>
+
+              <ConfigSection label="Connectors" onEdit={() => setEditor('mcp')} disabled={saving}>
+                <MountChips
+                  mounts={mcpMounts}
+                  disabled={saving}
+                  emptyLabel="No connectors added."
+                  onTogglePreload={toggleMcpPreload}
+                />
+              </ConfigSection>
+
+              <ConfigSection label="Skills" onEdit={() => setEditor('skills')} disabled={saving}>
+                <MountChips mounts={skillMounts} disabled={saving} emptyLabel="No skills added." />
+              </ConfigSection>
 
               <div>
-                <h3 className="mb-2 text-sm font-medium">Capabilities</h3>
+                <p className="text-text-secondary mb-1.5 text-xs font-semibold tracking-wide uppercase">Capabilities</p>
                 <DraftCapabilitiesPanel
-                  divided
+                  layout="cards"
                   value={readAgentCapabilities(draftSpec.config)}
                   disabled={saving}
                   onChange={values =>
