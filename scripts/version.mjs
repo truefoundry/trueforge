@@ -11,7 +11,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sdkPackageJsonPath = path.join(rootDir, 'packages/sdk/package.json');
+const sdkPackageJsonPath = path.join(rootDir, 'packages/trueforge-sdk/package.json');
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
@@ -38,21 +38,21 @@ async function readSdkVersion() {
   try {
     raw = await readFile(sdkPackageJsonPath, 'utf8');
   } catch (error) {
-    throw new Error('Failed to read packages/sdk/package.json', { cause: error });
+    throw new Error('Failed to read packages/trueforge-sdk/package.json', { cause: error });
   }
 
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error('Failed to parse packages/sdk/package.json', { cause: error });
+    throw new Error('Failed to parse packages/trueforge-sdk/package.json', { cause: error });
   }
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('packages/sdk/package.json must be a JSON object');
+    throw new Error('packages/trueforge-sdk/package.json must be a JSON object');
   }
   if (!('version' in parsed) || typeof parsed.version !== 'string' || parsed.version.length === 0) {
-    throw new Error('packages/sdk/package.json is missing a non-empty string version');
+    throw new Error('packages/trueforge-sdk/package.json is missing a non-empty string version');
   }
   return parsed.version;
 }
@@ -66,5 +66,5 @@ if (before === after) {
 } else {
   console.log(`SDK version ${before} → ${after}; regenerating SDK so Fern rebakes version literals`);
   await run('pnpm', ['sdk:generate']);
-  await run('git', ['add', '.github/fern/openapi', 'docs/openapi.json', 'packages/sdk', 'pnpm-lock.yaml']);
+  await run('git', ['add', '.github/fern/openapi', 'docs/openapi.json', 'packages/trueforge-sdk', 'pnpm-lock.yaml']);
 }

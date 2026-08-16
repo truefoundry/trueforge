@@ -24,7 +24,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     ```bash
     git clone https://github.com/truefoundry/trueforge && cd trueforge
-    cp packages/server/.env.example packages/server/.env
+    cp packages/trueforge/.env.example packages/trueforge/.env
     docker compose up --build
     ```
 
@@ -32,7 +32,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     | Configuration                                         | Default                 | Description                                              |
     | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
-    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/server/.env`.  |
+    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/trueforge/.env`.  |
     | <Tooltip tip="Public origin at which users and external services reach TrueForge (e.g. https://trueforge.myorg.com). The server uses it to build MCP OAuth and OIDC login callbacks." cta="See the FAQ" href="/quickstart#faq">`PUBLIC_BASE_URL`</Tooltip> | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.             |
     | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
 
@@ -212,7 +212,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     PUBLIC_BASE_URL=https://trueforge.myorg.com npx @truefoundry/trueforge
     ```
 
-    In hosted mode, set it in `packages/server/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
+    In hosted mode, set it in `packages/trueforge/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
 
   </Accordion>
 </AccordionGroup>

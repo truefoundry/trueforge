@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import {
   runCodeModeTransportContractSuite,
   type CodeModeTransportContractFixture,
-} from '../../harness/tests/core/sandbox/codeMode/codeModeTransportContractSuite';
+} from '../../trueforge-core/tests/core/sandbox/codeMode/codeModeTransportContractSuite';
 import { CodeModeUdsTransport } from '../src/core/CodeModeUdsTransport.js';
 import { encodeJsonMessage, JsonMessageReader, MAX_MESSAGE_BYTES } from '../src/core/frame.js';
 

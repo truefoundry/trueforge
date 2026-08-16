@@ -1,0 +1,84 @@
+{
+  "name": "@truefoundry/trueforge",
+  "version": "0.1.0",
+  "description": "TrueForge agent server + UI (npx @truefoundry/trueforge)",
+  "author": "TrueFoundry",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truefoundry/trueforge.git",
+    "directory": "packages/trueforge"
+  },
+  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge#readme",
+  "bugs": {
+    "url": "https://github.com/truefoundry/trueforge/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "private": false,
+  "type": "module",
+  "bin": "./dist/cli.js",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:frontend-assets": "node scripts/copy-frontend.mjs",
+    "build:gen:watch": "node --watch-path=catalog/model-catalog.yaml --watch-path=catalog/mcp-catalog.yaml --watch-path=catalog/skill-catalog.yaml --watch-path=catalog/sandbox-catalog.yaml scripts/generate-catalog.mjs",
+    "build:gen": "node scripts/generate-catalog.mjs",
+    "build:clean": "rm -rf dist",
+    "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:clean && tsup && chmod +x dist/cli.js && pnpm run build:frontend-assets",
+    "dev:serve": "NODE_OPTIONS='--conditions=trueforge-dev' NODE_ENV=development tsx watch --env-file=.env src/main.ts",
+    "dev": "pnpm run \"/^(build:gen:watch|dev:serve)$/\"",
+    "dev:no-watch": "NODE_OPTIONS='--conditions=trueforge-dev' NODE_ENV=development tsx --env-file=.env src/main.ts",
+    "start": "NODE_ENV=production node --env-file=.env dist/main.js",
+    "push-sandbox-image-to-daytona": "node scripts/push-sandbox-image-to-daytona.mjs",
+    "migrate": "NODE_OPTIONS='--conditions=trueforge-dev' STANDALONE=false tsx --env-file=.env src/db/postgres/migrate-cli.ts",
+    "openapi:write": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' tsx --env-file=.env.test scripts/write-openapi.ts",
+    "pack:dry": "pnpm pack --dry-run",
+    "migrate:legacy-sqlite-path": "node scripts/migrate-legacy-sqlite-path.mjs",
+    "predev:no-watch": "pnpm --filter @truefoundry/trueforge-core build:gen && pnpm run build:gen",
+    "predev": "pnpm --filter @truefoundry/trueforge-core build:gen && pnpm run build:gen",
+    "test:eventsub": "jest --config jest.eventsub.config.cjs",
+    "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
+    "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
+    "test": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.unit.config.cjs",
+    "typecheck": "pnpm run build:gen && tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json"
+  },
+  "dependencies": {
+    "@daytona/sdk": "^0.204.1",
+    "@hono/node-server": "^2.0.11",
+    "@hono/swagger-ui": "^0.2.1",
+    "@hono/zod-openapi": "^1.5.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@truefoundry/trueforge-core": "workspace:*",
+    "better-sqlite3": "^13.0.2",
+    "env-paths": "^4.0.0",
+    "hono": "^4.12.34",
+    "jose": "^6.2.8",
+    "kysely": "^0.29.4",
+    "openid-client": "^6.8.4",
+    "pg": "^8.22.0",
+    "redis": "^5.10.0",
+    "ulid": "^3.0.2",
+    "winston": "^3.13.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.11.0",
+    "@swc/jest": "^0.2.37",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^24.12.0",
+    "@types/pg": "^8.20.0",
+    "jest": "^29.7.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.16.2",
+    "typescript": "^7.0.2"
+  }
+}

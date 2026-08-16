@@ -54,7 +54,7 @@ session cookies.
 ### Server adapter (in the UI package)
 
 Harness ↔ `AgentUIServer` mapping lives in
-[`@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`](../trueforge-ui-sdk/src/plugins/trueforge-agent-server-adapter/).
+[`@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`](../trueforge-ui/src/plugins/trueforge-agent-server-adapter/).
 Hosts that need the factory outside `<TrueforgeUI />` can import
 `createTrueForgeAgentUIServer` from that subpath.
 

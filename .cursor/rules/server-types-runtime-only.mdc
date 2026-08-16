@@ -1,6 +1,6 @@
 ---
 description: AgentUIServer / server-port types are defined only in assistant-ui-runtime; UI re-exports
-globs: packages/trueforge-ui-sdk/src/server/**/*,packages/trueforge-ui-sdk/src/**/*Server*,packages/trueforge-ui-sdk/src/**/*server*,packages/frontend/src/harnessServer.ts,packages/frontend/src/harnessBuilderServer.ts
+globs: packages/trueforge-ui/src/server/**/*,packages/trueforge-ui/src/**/*Server*,packages/trueforge-ui/src/**/*server*,packages/frontend/src/harnessServer.ts,packages/frontend/src/harnessBuilderServer.ts
 alwaysApply: false
 ---
 
@@ -11,7 +11,7 @@ Canonical `AgentUIServer` / chat / builder / catalog port types live only in
 
 ## Rules
 
-- [`packages/trueforge-ui-sdk/src/server/types.ts`](packages/trueforge-ui-sdk/src/server/types.ts)
+- [`packages/trueforge-ui/src/server/types.ts`](packages/trueforge-ui/src/server/types.ts)
   is the host-facing barrel: re-export only from `@truefoundry/assistant-ui-runtime`
   (prefer `/server` when avoiding root name collisions). Do **not** put hand-written
   server port/DTO interfaces there or elsewhere in this monorepo.

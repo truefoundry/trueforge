@@ -52,7 +52,7 @@ done
 
 export SESSION_STORE_TEST_PG_URL="$URL"
 echo "Postgres ready. Running Postgres store tests (${URL})..."
-pnpm --dir packages/server test:store:postgres "$@"
+pnpm --dir packages/trueforge test:store:postgres "$@"
 
 echo "Running SQLite store tests..."
-pnpm --dir packages/server test:store:sqlite "$@"
+pnpm --dir packages/trueforge test:store:sqlite "$@"

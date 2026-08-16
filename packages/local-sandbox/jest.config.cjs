@@ -27,9 +27,9 @@ module.exports = {
   transformIgnorePatterns: [],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
-    '^@truefoundry/trueforge-core/core/(.*)$': '<rootDir>/../harness/src/core/$1',
-    '^@truefoundry/trueforge-core/core$': '<rootDir>/../harness/src/core/index.ts',
-    '^@truefoundry/trueforge-core$': '<rootDir>/../harness/src/index.ts',
+    '^@truefoundry/trueforge-core/core/(.*)$': '<rootDir>/../trueforge-core/src/core/$1',
+    '^@truefoundry/trueforge-core/core$': '<rootDir>/../trueforge-core/src/core/index.ts',
+    '^@truefoundry/trueforge-core$': '<rootDir>/../trueforge-core/src/index.ts',
   },
   testTimeout: 120_000,
   maxWorkers: '50%',

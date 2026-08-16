@@ -23,21 +23,19 @@ For security vulnerabilities, do **not** open a public issue — see [SECURITY.m
 
 This is a pnpm workspace:
 
-| Workspace package             | Published as                  | Path                                                     | What it is                                   |
-| ----------------------------- | ----------------------------- | -------------------------------------------------------- | -------------------------------------------- |
-| `@truefoundry/trueforge`      | `@truefoundry/trueforge`      | [`packages/server`](packages/server)                     | Agent server + bundled UI                    |
-| `@truefoundry/trueforge-core` | `@truefoundry/trueforge-core` | [`packages/harness`](packages/harness)                   | Library: agent core, sessions, and streaming |
-| `@truefoundry/trueforge-ui`   | `@truefoundry/trueforge-ui`   | [`packages/trueforge-ui-sdk`](packages/trueforge-ui-sdk) | Embeddable agent chat UI SDK                 |
-| `@truefoundry/trueforge-sdk`  | `@truefoundry/trueforge-sdk`  | [`packages/sdk`](packages/sdk)                           | Generated TypeScript API client              |
-| `frontend`                    | —                             | [`packages/frontend`](packages/frontend)                 | Chat UI app (bundled into the server)        |
-
-> Note: some folder names (`packages/harness`, `packages/server`) predate the public package names.
+| Workspace package             | Published as                  | Path                                                 | What it is                                   |
+| ----------------------------- | ----------------------------- | ---------------------------------------------------- | -------------------------------------------- |
+| `@truefoundry/trueforge`      | `@truefoundry/trueforge`      | [`packages/trueforge`](packages/trueforge)           | Agent server + bundled UI                    |
+| `@truefoundry/trueforge-core` | `@truefoundry/trueforge-core` | [`packages/trueforge-core`](packages/trueforge-core) | Library: agent core, sessions, and streaming |
+| `@truefoundry/trueforge-ui`   | `@truefoundry/trueforge-ui`   | [`packages/trueforge-ui`](packages/trueforge-ui)     | Embeddable agent chat UI SDK                 |
+| `@truefoundry/trueforge-sdk`  | `@truefoundry/trueforge-sdk`  | [`packages/trueforge-sdk`](packages/trueforge-sdk)   | Generated TypeScript API client              |
+| `frontend`                    | —                             | [`packages/frontend`](packages/frontend)             | Chat UI app (bundled into the server)        |
 
 ## Setup
 
 ```bash
 pnpm install
-cp packages/server/.env.example packages/server/.env
+cp packages/trueforge/.env.example packages/trueforge/.env
 ```
 
 ## Running from source
@@ -110,7 +108,7 @@ On one origin (start / Docker): `/api/*` (including OpenAPI) and `/healthz` are 
 
 ### Configuration
 
-See [`packages/server/.env.example`](packages/server/.env.example) for every env var. Useful dev overrides:
+See [`packages/trueforge/.env.example`](packages/trueforge/.env.example) for every env var. Useful dev overrides:
 
 - `PORT` — API port (default `8790`)
 - `FRONTEND_PORT` — Vite UI port in dev (default `3000`); see [`packages/frontend/README.md`](packages/frontend/README.md)
@@ -127,7 +125,7 @@ Migrations run on server startup. To run Postgres migrations without starting HT
 pnpm --filter @truefoundry/trueforge migrate
 ```
 
-That script sets `STANDALONE=false` and uses `POSTGRES_*` from `packages/server/.env`. It will not run in standalone mode (SQLite migrations happen on boot instead).
+That script sets `STANDALONE=false` and uses `POSTGRES_*` from `packages/trueforge/.env`. It will not run in standalone mode (SQLite migrations happen on boot instead).
 
 ## Workspace scripts
 
@@ -159,7 +157,7 @@ pnpm format:check # Prettier
 Storage-layer changes should pass both store suites (CI runs them when store paths change):
 
 ```bash
-pnpm --dir packages/server test:store:sqlite
+pnpm --dir packages/trueforge test:store:sqlite
 pnpm test:store:local   # Postgres suite against local infra
 ```
 
@@ -172,12 +170,12 @@ pnpm smoke       # build, wait for healthy services, check /healthz and UI
 pnpm smoke:down
 ```
 
-Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/server/.env`. Host ports are offset from local dev so they do not collide: Postgres `:5433`, Redis `:6380`, app `:8791`.
+Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/trueforge/.env`. Host ports are offset from local dev so they do not collide: Postgres `:5433`, Redis `:6380`, app `:8791`.
 
 ## Generated code — do not edit by hand
 
-- [`packages/sdk`](packages/sdk), [`.github/fern/openapi/openapi.json`](.github/fern/openapi/openapi.json), and [`docs/openapi.json`](docs/openapi.json) are generated and committed. Edit route handlers under `packages/server/src/routes/` instead; CI regenerates the outputs. To regenerate locally (Docker required): `pnpm sdk:generate`.
-- Catalog YAML files under `packages/server/catalog/` are inlined at build time by `build:gen` scripts.
+- [`packages/trueforge-sdk`](packages/trueforge-sdk), [`.github/fern/openapi/openapi.json`](.github/fern/openapi/openapi.json), and [`docs/openapi.json`](docs/openapi.json) are generated and committed. Edit route handlers under `packages/trueforge/src/routes/` instead; CI regenerates the outputs. To regenerate locally (Docker required): `pnpm sdk:generate`.
+- Catalog YAML files under `packages/trueforge/catalog/` are inlined at build time by `build:gen` scripts.
 
 ## Server entry points
 
@@ -196,7 +194,7 @@ The repository-wide rules live in [`AGENTS.md`](AGENTS.md) (some packages have t
 - Static `import` / `import type` only — no `require()`.
 - Tests live under a top-level `test`/`tests` directory mirroring `src`, never inline.
 - Wire shapes (HTTP/OpenAPI) and database identifiers use `snake_case`.
-- Server env reads go through `packages/server/src/config.ts`, never `process.env` directly.
+- Server env reads go through `packages/trueforge/src/config.ts`, never `process.env` directly.
 - Remove dead code in the same change that makes it dead.
 
 Prettier and ESLint run as pre-commit hooks via husky + lint-staged.

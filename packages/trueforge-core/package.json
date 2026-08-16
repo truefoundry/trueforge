@@ -1,0 +1,138 @@
+{
+  "name": "@truefoundry/trueforge-core",
+  "version": "0.1.0",
+  "description": "TrueForge core library",
+  "author": "TrueFoundry",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truefoundry/trueforge.git",
+    "directory": "packages/trueforge-core"
+  },
+  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-core#readme",
+  "bugs": {
+    "url": "https://github.com/truefoundry/trueforge/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "private": false,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "trueforge-dev": {
+        "types": "./src/index.ts",
+        "default": "./src/index.ts"
+      },
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    },
+    "./core": {
+      "trueforge-dev": {
+        "types": "./src/core/index.ts",
+        "default": "./src/core/index.ts"
+      },
+      "types": "./dist/core/index.d.ts",
+      "require": "./dist/core/index.js",
+      "default": "./dist/core/index.mjs"
+    },
+    "./agent-session": {
+      "trueforge-dev": {
+        "types": "./src/agent-session/index.ts",
+        "default": "./src/agent-session/index.ts"
+      },
+      "types": "./dist/agent-session/index.d.ts",
+      "require": "./dist/agent-session/index.js",
+      "default": "./dist/agent-session/index.mjs"
+    },
+    "./request-reply": {
+      "trueforge-dev": {
+        "types": "./src/request-reply/index.ts",
+        "default": "./src/request-reply/index.ts"
+      },
+      "types": "./dist/request-reply/index.d.ts",
+      "require": "./dist/request-reply/index.js",
+      "default": "./dist/request-reply/index.mjs"
+    },
+    "./*.mjs": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.mjs"
+    },
+    "./*.js": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    },
+    "./*": {
+      "trueforge-dev": {
+        "types": "./src/*.ts",
+        "default": "./src/*.ts"
+      },
+      "types": "./dist/*.d.ts",
+      "require": "./dist/*.js",
+      "default": "./dist/*.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:gen": "node scripts/generate-sandbox-scripts.mjs",
+    "build:gen:watch": "node --watch-path=src/core/sandbox/scripts scripts/generate-sandbox-scripts.mjs",
+    "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:js && pnpm run build:dts && pnpm run build:pkg && pnpm run build:check",
+    "dev": "pnpm run build:gen:watch",
+    "build:js": "tsup",
+    "build:dts": "tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "build:pkg": "node scripts/write-dist-package-json.mjs",
+    "build:check": "node scripts/check-dist.mjs",
+    "typecheck": "pnpm run build:gen && tsc --noEmit",
+    "test": "pnpm run build:gen && jest --config jest.config.cjs",
+    "pack:dry": "pnpm pack --dry-run"
+  },
+  "dependencies": {
+    "@ai-sdk/alibaba": "^2.0.24",
+    "@ai-sdk/anthropic": "^4.0.25",
+    "@ai-sdk/google": "^4.0.29",
+    "@ai-sdk/moonshotai": "^3.0.25",
+    "@ai-sdk/openai": "^4.0.25",
+    "@ai-sdk/openai-compatible": "^3.0.18",
+    "@ai-sdk/provider": "^4.0.4",
+    "@ai-sdk/provider-utils": "^5.0.16",
+    "@daytona/sdk": "^0.204.1",
+    "@hono/zod-openapi": "^1.5.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@nats-io/nats-core": "3.0.2",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/core": "^2.9.0",
+    "ai": "^7.0.44",
+    "dedent": "^1.7.2",
+    "openai": "^7.2.0",
+    "ulid": "^3.0.2",
+    "winston": "^3.13.0",
+    "ws": "^8.21.0",
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "redis": "^5.10.0"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.11.0",
+    "@swc/jest": "^0.2.37",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^24.12.0",
+    "@types/ws": "^8.5.10",
+    "esbuild-plugin-file-path-extensions": "^2.1.4",
+    "jest": "^29.7.0",
+    "redis": "^5.10.0",
+    "tsup": "^8.5.0",
+    "typescript": "^7.0.2"
+  }
+}

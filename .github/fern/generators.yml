@@ -38,7 +38,7 @@ groups:
         version: 3.87.1
         output:
           location: local-file-system
-          path: ../../packages/sdk
+          path: ../../packages/trueforge-sdk
         config:
           packageJson:
             name: '@truefoundry/trueforge-sdk'
@@ -47,8 +47,8 @@ groups:
             repository:
               type: git
               url: git+https://github.com/truefoundry/trueforge.git
-              directory: packages/sdk
-            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/sdk#readme
+              directory: packages/trueforge-sdk
+            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
             bugs:
               url: https://github.com/truefoundry/trueforge/issues
             publishConfig:

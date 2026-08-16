@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runSandboxProviderContractSuite } from '../../../harness/tests/core/sandbox/provider/sandboxProviderContractSuite';
+import { runSandboxProviderContractSuite } from '../../../trueforge-core/tests/core/sandbox/provider/sandboxProviderContractSuite';
 import { LocalSandboxProvider } from '../../src/provider/LocalSandboxProvider';
 
 describe('LocalSandboxProvider (SandboxProvider contract)', () => {
