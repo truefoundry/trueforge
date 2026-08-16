@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.0
+
+### Minor Changes
+
+- 2f08a99: Remember plain-draft composer choices (model, skills, MCP connectors, config) across New Chat and reloads via localStorage. Edit-flow and immutable library agents are unchanged. `TrueforgeUI` `layout` is optional and defaults to `"sidebar"`.
+- b56c003: Initial 0.1.0-rc.1 prerelease of all public packages.
+
+### Patch Changes
+
+- e9bf976: Wrap settings MCP, skills, model-provider, and sandbox create/put bodies as `{ manifest }`. List/get items nest the stored document (`name` plus `manifest`, plus derived fields). Create returns 201. Chat lists and catalogs stay flat. Adapter catalogs follow the new SDK shapes.
+- a9e8187: Improve nested tool approval handling and bump `@truefoundry/assistant-ui-runtime`.
+- 0730213: Save Agent dialog: add a per-connector **preload** toggle (writes `mcp_servers[].preload`), render the capabilities as side-by-side cards, and declutter the modal — inline model/connector/skill chips (model shows its provider logo), the "Connectors" label, no subtitle, content-sized height, and tighter spacing. Tooltips now portal into the nearest `<dialog>` so they render above modal content.
+- Updated dependencies [e9bf976]
+- Updated dependencies [b56c003]
+  - @truefoundry/trueforge-sdk@0.1.0
+
 ## 0.1.0-rc.2
 
 ### Minor Changes

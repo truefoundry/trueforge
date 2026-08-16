@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge-core",
-  "version": "0.1.0-rc.0",
+  "version": "0.1.0",
   "description": "TrueForge core library",
   "author": "TrueFoundry",
   "license": "MIT",
