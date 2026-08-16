@@ -1,14 +1,14 @@
 ---
 title: 'SDK Overview'
 sidebarTitle: 'Overview'
-description: 'Understand Agent, Session, Turn, Event, and Delta — then drive TrueForge with the TypeScript SDK.'
+description: 'Understand Agent, Session, Turn, Event, and Delta, then drive TrueForge with the TypeScript SDK.'
 ---
 
-Everything the chat UI does is available programmatically. Use the TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk) to create sessions, stream turns, and handle approvals. For a full cookbook (streaming, approvals, reconnects, threads), see [Use an agent](/api/use-agent). For raw HTTP schemas and paths, use the **API Reference** tab.
+Everything the chat UI does, you can do in code. The TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk) creates sessions, streams turns, and handles approvals. This page explains the model; [Use an agent](/api/use-agent) is the runnable cookbook, and the **API Reference** tab has the raw HTTP schemas.
 
 ## Core concepts
 
-Interaction with an agent follows a strict hierarchy: **one Agent → many Sessions → many Turns → many Events → some Deltas**. The sections below walk through each layer using a single running example — a customer support agent named **`support-bot`**.
+Talking to an agent follows one hierarchy: **one Agent → many Sessions → many Turns → many Events → some Deltas**. The sections below walk through each layer with one running example: a customer support agent named **`support-bot`**.
 
 {/* Mermaid source for regenerating the image below:
 
@@ -30,15 +30,15 @@ flowchart TD
 <Frame caption="One agent serves many sessions; each session has many turns; each turn emits events; some events stream as deltas">
   <img
     src="/images/agent-session-hierarchy.png"
-    alt="Hierarchy diagram. A single agent (support-bot), defined once, is reused across many sessions. Two example sessions are shown — Jane's refund issue and Bob's shipping question — each containing turns. Turn 1 in each session expands to show the events emitted on the stream (turn.created, user.message, mcp.initialize, model.message, tool.response, tool.approval_required, turn.done) and the deltas that events like model.message produce as streaming chunks. A legend lists each event type and a pyramid summarizes Agent to Sessions to Turns to Events to Deltas."
+    alt="Hierarchy diagram. A single agent (support-bot), defined once, is reused across many sessions. Two example sessions are shown, Jane's refund issue and Bob's shipping question, each containing turns. Turn 1 in each session expands to show the events emitted on the stream (turn.created, user.message, mcp.initialize, model.message, tool.response, tool.approval_required, turn.done) and the deltas that events like model.message produce as streaming chunks. A legend lists each event type and a pyramid summarizes Agent to Sessions to Turns to Events to Deltas."
   />
 </Frame>
 
 ### Agent
 
-An **agent** is a definition, not a running process. You define it once — model, instructions, tools, config — and any number of conversations can use it. For `support-bot`, a customer support assistant that looks up orders and processes refunds via an MCP server, the [AgentSpec](/create-agent/agent-spec) looks like this:
+An **agent** is a definition, not a running process. You define it once (the model, instructions, tools, and config), and any number of conversations can use it. `support-bot` is a support assistant that looks up orders and processes refunds through an MCP server. Its [AgentSpec](/create-agent/agent-spec) looks like this:
 
-```json support-bot — AgentSpec
+```json support-bot AgentSpec
 {
   "model": {
     "name": "anthropic/claude-sonnet-4-6",
@@ -56,18 +56,18 @@ An **agent** is a definition, not a running process. You define it once — mode
 }
 ```
 
-You can save this spec as a named agent and reference it by name in every session, or pass it inline when creating a session. See the [agent spec reference](/create-agent/agent-spec) for every field.
+Save this spec as a named agent and reference it by name in every session, or pass it inline when you create a session. The [agent spec reference](/create-agent/agent-spec) lists every field.
 
 ### Session
 
-A **session** is **one issue** worked through with the agent. It is the conversation context: all turns on that issue chain together, and the agent remembers what happened earlier in the same session. Each new issue — whether from the same customer or a different one — gets its own session.
+A **session** is one issue worked through with the agent. It holds the conversation context: every turn on that issue chains together, and the agent remembers what happened earlier in the same session. Each new issue gets its own session, whether it comes from the same customer or a different one.
 
 | Session         | Issue                            | How it starts                              |
 | --------------- | -------------------------------- | ------------------------------------------ |
-| `sess-7f2a9c1b` | Jane — refund for order ORD-2031 | _"What's the status of order ORD-2031?"_   |
-| `sess-9d4e2a88` | Bob — shipping question          | A different customer starts their own chat |
+| `sess-7f2a9c1b` | Jane, refund for order ORD-2031  | _"What's the status of order ORD-2031?"_   |
+| `sess-9d4e2a88` | Bob, shipping question           | A different customer starts their own chat |
 
-Jane's follow-up messages about the refund stay in `sess-7f2a9c1b`. Bob's question runs in a separate session, so the two conversations never share context.
+Jane's follow-ups about the refund stay in `sess-7f2a9c1b`. Bob's question runs in a separate session, so the two conversations never share context.
 
 ```json Session for Jane's refund issue
 {
@@ -80,11 +80,11 @@ Jane's follow-up messages about the refund stay in `sess-7f2a9c1b`. Bob's questi
 }
 ```
 
-Persist the session `id` so Jane can return tomorrow and pick up where she left off. Only one turn runs inside a session at a time.
+Persist the session `id` so Jane can come back tomorrow and pick up where she left off. Only one turn runs in a session at a time.
 
 ### Turn
 
-A **turn** is one request in the conversation — a single back-and-forth boundary between your app and the agent. Each time Jane sends a message (or your app sends an approval), you create a new turn. Turns inside a session **chain automatically** (`previous_turn_id` defaults to `"auto"`): the agent sees every earlier turn without you resending history.
+A **turn** is one request in the conversation: a single back-and-forth between your app and the agent. Each time Jane sends a message (or your app sends an approval), you create a new turn. Turns in a session **chain automatically** (`previous_turn_id` defaults to `"auto"`), so the agent sees every earlier turn without you resending history.
 
 ```mermaid
 flowchart LR
@@ -102,51 +102,28 @@ flowchart LR
 | **Turn 3** | Jane (or a support rep) | Approval: allow `process_refund`               | Agent runs the refund and sends a confirmation.                 |
 
 <Note>
-  A turn can also end paused when the agent asks a clarifying question ([`tool.response_required`](/create-agent/overview#ask-user-questions))
+  A turn can also pause when the agent asks a clarifying question ([`tool.response_required`](/create-agent/overview#ask-user-questions))
   or needs MCP OAuth ([`mcp.auth_required`](/mcp-servers#in-chat-authentication)). You resume with a new turn, just like
   Turn 3 above.
 </Note>
 
 ### Event
 
-While a turn runs, the agent emits **events** on the SDK stream — one JSON object at a time. Events tell your app what the agent is doing: calling a tool, getting a result, writing a reply, or finishing.
+While a turn runs, the agent emits **events** on the SDK stream, one JSON object at a time. Each event tells your app what the agent is doing: calling a tool, getting a result, writing a reply, or finishing.
 
 **Events during Turn 1** (Jane asks for order status):
 
-| Order | Event type            | What your app learns                                |
-| ----- | --------------------- | --------------------------------------------------- |
-| 1     | `turn.created`        | Turn started — carries `turn_id`                    |
-| 2     | `mcp.initialize`      | Agent connected to `orders-api`                     |
-| 3     | `model.message`       | Agent decided to call `get_order`                   |
-| 4     | `tool.response`       | Order data: shipped, $1,240.00                      |
-| 5     | `model.message`       | Agent starts composing the reply (empty shell)      |
-| 6–8   | `model.message.delta` | Reply text arriving in chunks — see [Delta](#delta) |
-| 9     | `turn.done`           | Turn finished — final reply in `state.output`       |
+| Order | Event type            | What your app learns                             |
+| ----- | --------------------- | ------------------------------------------------ |
+| 1     | `turn.created`        | Turn started; carries `turn_id`                  |
+| 2     | `mcp.initialize`      | Agent connected to `orders-api`                  |
+| 3     | `model.message`       | Agent decided to call `get_order`                |
+| 4     | `tool.response`       | Order data: shipped, $1,240.00                   |
+| 5     | `model.message`       | Agent starts composing the reply (empty shell)   |
+| 6–8   | `model.message.delta` | Reply text arriving in chunks (see [Delta](#delta)) |
+| 9     | `turn.done`           | Turn finished; final reply in `state.output`     |
 
-Sample payloads:
-
-```json turn.created
-{
-  "type": "turn.created",
-  "id": "01jc...",
-  "turn_id": "turn-001",
-  "previous_turn_id": null,
-  "state": { "status": "running" },
-  "thread_id": null,
-  "created_at": "2026-06-24T10:00:01Z"
-}
-```
-
-```json tool.response
-{
-  "type": "tool.response",
-  "id": "01jc...",
-  "thread_id": "main",
-  "tool_call_id": "call-get-order-01",
-  "content": "{\"order_id\":\"ORD-2031\",\"status\":\"shipped\",\"total\":1240.00}",
-  "created_at": "2026-06-24T10:00:04Z"
-}
-```
+Sample payload:
 
 ```json turn.done
 {
@@ -166,15 +143,13 @@ Sample payloads:
 }
 ```
 
-Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events). The stream also carries a **sequence number** used for [resuming after a disconnect](/api/use-agent). The stream always opens with `turn.created` and closes with `turn.done`.
-
-For field-level schemas of every event type, see the [turn events reference](/api/turn-events).
+Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events), plus a **sequence number** used for [resuming after a disconnect](/api/use-agent). The stream always opens with `turn.created` and closes with `turn.done`. Field-level schemas for every event type are in the [turn events reference](/api/turn-events).
 
 ### Delta
 
-Most events arrive as a complete payload. **Model output is different** — the LLM streams token by token, so the harness sends a base `model.message` event first, then a series of `model.message.delta` fragments that you merge into it. All deltas share the base event's `id`.
+Most events arrive as a complete payload. Model output is the exception: the LLM streams token by token, so the harness sends a base `model.message` event first, then a series of `model.message.delta` fragments that you merge into it. All deltas share the base event's `id`.
 
-The agent's full reply in Turn 1 is: _"Your order ORD-2031 shipped on June 12. Total: $1,240.00."_ Your client receives:
+The agent's full reply in Turn 1 is _"Your order ORD-2031 shipped on June 12. Total: $1,240.00."_ Your client receives:
 
 ```json Base event (empty shell)
 { "type": "model.message", "id": "msg-a1", "thread_id": "main", "content": "" }
@@ -186,7 +161,7 @@ The agent's full reply in Turn 1 is: _"Your order ORD-2031 shipped on June 12. T
 { "type": "model.message.delta", "id": "msg-a1", "thread_id": "main", "content": " Total: $1,240.00.", "finish_reason": "stop" }
 ```
 
-Append each delta's `content` to the event with the matching `id` and re-render on every chunk — that's how the chat UI shows the reply word by word:
+Append each delta's `content` to the event with the matching `id` and re-render on every chunk. That's how the chat UI shows the reply word by word:
 
 ```text
 Your order ORD-2031
@@ -194,17 +169,17 @@ Your order ORD-2031 shipped on June 12.
 Your order ORD-2031 shipped on June 12. Total: $1,240.00.
 ```
 
-Deltas only exist on the live stream. When you list a turn's events afterwards (`GET .../events`), you get one pre-merged `model.message` — no deltas to handle on replay.
+Deltas only exist on the live stream. When you list a turn's events afterwards (`GET .../events`), each `model.message` is already merged, so you use it directly.
 
 <Note>
-  **Thread** is a related concept: an execution context inside a turn. The root agent runs on `thread_id: "main"`;
+  A **thread** is a related idea: an execution context inside a turn. The root agent runs on `thread_id: "main"`, and
   [subagents](/key-features/subagents) get their own thread ids, announced by `thread.created` / `thread.done`
-  events. Events carry `thread_id` so you can partition a single turn stream when subagents run in parallel.
+  events. Events carry `thread_id` so you can separate a single turn stream when subagents run in parallel.
 </Note>
 
 ## The three turns, end to end
 
-Here is Jane's whole refund session — your app opens a session, runs turns, and consumes streamed events.
+Here is Jane's whole refund session: your app opens a session, runs turns, and reads the streamed events.
 
 {/* Mermaid source for regenerating the image below:
 
@@ -248,60 +223,19 @@ sequenceDiagram
   />
 </Frame>
 
-<Tabs>
-<Tab title="Turn 1 — Order status">
-
-**Input:** `"What's the status of order ORD-2031?"`
-
-| #   | Event                    | Summary                                  |
-| --- | ------------------------ | ---------------------------------------- |
-| 1   | `turn.created`           | Turn starts                              |
-| 2   | `mcp.initialize`         | Connected to `orders-api`                |
-| 3   | `model.message` + deltas | Agent calls `get_order`                  |
-| 4   | `tool.response`          | `{ status: shipped, total: 1240.00 }`    |
-| 5   | `model.message` + deltas | Streams the reply to Jane's UI           |
-| 6   | `turn.done`              | Done — `state.output` has the full reply |
-
-</Tab>
-<Tab title="Turn 2 — Refund (pauses)">
-
-**Input:** `"Please issue a full refund for that order."`
-
-| #   | Event                    | Summary                                           |
-| --- | ------------------------ | ------------------------------------------------- |
-| 1   | `turn.created`           | Chains from Turn 1                                |
-| 2   | `model.message`          | Agent calls `process_refund`                      |
-| 3   | `tool.approval_required` | Paused — Jane must approve                        |
-| 4   | `turn.done`              | `state.required_actions` populated, `output` null |
-
-</Tab>
-<Tab title="Turn 3 — Approve (resume)">
-
-**Input:** `{ "type": "user.tool_approval", "approval": { "status": "allow" } }`
-
-| #   | Event                    | Summary                  |
-| --- | ------------------------ | ------------------------ |
-| 1   | `turn.created`           | Chains from Turn 2       |
-| 2   | `tool.response`          | Refund processed         |
-| 3   | `model.message` + deltas | Streams the confirmation |
-| 4   | `turn.done`              | Issue resolved           |
-
-</Tab>
-</Tabs>
-
 | Turn | Jane's action         | Ends with                | What your app does next               |
 | ---- | --------------------- | ------------------------ | ------------------------------------- |
 | 1    | Asks for order status | Reply in `output`        | Show reply, wait for the next message |
 | 2    | Requests refund       | `tool.approval_required` | Show approval UI → Turn 3             |
 | 3    | Approves refund       | Confirmation in `output` | Show confirmation, issue closed       |
 
-A separate issue — Bob's shipping question, or even Jane's next problem — runs in its own session, where Turn 1 starts fresh with no refund history carried over.
+A separate issue (Bob's shipping question, or Jane's next problem) runs in its own session, where Turn 1 starts fresh with no refund history.
 
 ## Call an authenticated API
 
-When [login is off](/authentication/overview) (the default), omit any token — the SDK talks to the server as the shared local admin.
+When [login is off](/authentication/overview) (the default), omit any token. The SDK talks to the server as the shared local admin.
 
-When [OIDC login](/authentication/overview) is enabled, the HTTP API requires authentication. The chat UI uses an HttpOnly cookie after sign-in. For the SDK — or any other HTTP client — send the same OIDC **ID token** as a bearer token:
+When [OIDC login](/authentication/overview) is enabled, the HTTP API requires authentication. The chat UI uses an HttpOnly cookie after sign-in; for the SDK (or any other HTTP client), send the same OIDC **ID token** as a bearer token:
 
 ```typescript
 const client = new TrueForge({
@@ -310,115 +244,9 @@ const client = new TrueForge({
 });
 ```
 
-That sets `Authorization: Bearer <id_token>` on every request. Get the token from your identity provider (or reuse a browser session). There is no device-code or client-credentials flow yet. Keep ID token lifetimes short at the IdP — the same JWT unlocks the API as either a cookie or a bearer token.
+That sets `Authorization: Bearer <id_token>` on every request. Get the token from your identity provider, or reuse a browser session. There's no device-code or client-credentials flow yet, so keep ID token lifetimes short at the IdP. A missing or expired token against an OIDC-enabled server returns `401`.
 
-A missing or expired token against an OIDC-enabled server returns `401`.
+## Next steps
 
-## Run it with the SDK
-
-### 1. Create a session
-
-Pass an inline agent spec, or reference a saved agent by name. The example below assumes login is off; if OIDC is on, pass `token` as shown in [Call an authenticated API](#call-an-authenticated-api).
-
-```typescript
-import { TrueForge } from '@truefoundry/trueforge-sdk';
-
-const client = new TrueForge({ baseUrl: 'http://localhost:8790' });
-
-const { data: session } = await client.sessions.create({
-  agent: {
-    spec: {
-      model: { name: 'anthropic/claude-sonnet-4-6' },
-      instructions: 'You help customers with orders. Always confirm before processing refunds.',
-      mcp_servers: [{ name: 'orders-api', require_approval_for_tools: ['process_refund'] }],
-    },
-  },
-});
-```
-
-### 2. Run a turn and stream events
-
-```typescript
-const stream = await client.sessions.createTurnStream(session.id, {
-  input: [{ type: 'user.message', content: 'What is the status of order ORD-2031?' }],
-});
-
-for await (const { data: event } of stream.withMetadata()) {
-  switch (event.type) {
-    case 'model.message.delta':
-      process.stdout.write(event.content ?? '');
-      break;
-    case 'turn.done':
-      console.log('\nstate:', event.state.status);
-      break;
-  }
-}
-```
-
-See [Use an agent](/api/use-agent) for delta merging, approvals, reconnects, and more.
-
-Turn `input` accepts three item types:
-
-| `type`               | Purpose                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| `user.message`       | A message. `content` is a string or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/create-agent/overview#tool-approval) for a paused tool call.                 |
-| `user.tool_response` | An [answer](/create-agent/overview#ask-user-questions) for a paused client-side tool call.           |
-
-A single turn cannot mix `user.message` items with approval or tool-response items.
-
-### 3. Chain the next turn
-
-Turns chain automatically to the session's last turn — you never resend history. You can also start a fresh root turn in the same session, or branch from a specific earlier turn. See [Use an agent](/api/use-agent).
-
-### 4. Handle a pause (approvals and questions)
-
-`process_refund` requires approval, so Turn 2 ends paused: the stream carries `tool.approval_required`, and `turn.done` arrives with `state.output: null` and the pending action in `state.required_actions`:
-
-```json turn.done (paused)
-{
-  "type": "turn.done",
-  "state": {
-    "status": "done",
-    "output": null,
-    "required_actions": [
-      {
-        "type": "tool.approval_required",
-        "thread_id": "main",
-        "tool_calls": [{ "id": "call-refund-01", "source_event_id": "msg-b2" }]
-      }
-    ]
-  }
-}
-```
-
-Resume with a new turn carrying the decision:
-
-```typescript
-const resume = await client.sessions.createTurnStream(session.id, {
-  input: [
-    {
-      type: 'user.tool_approval',
-      thread_id: 'main',
-      tool_call_id: 'call-refund-01',
-      approval: { status: 'allow' },
-    },
-  ],
-});
-
-for await (const { data: event } of resume) {
-  // stream confirmation…
-}
-```
-
-The same pattern applies to [`tool.response_required`](/create-agent/overview#ask-user-questions) (resume with `user.tool_response`) and [`mcp.auth_required`](/mcp-servers#in-chat-authentication) (resume after the user completes OAuth).
-
-## Reconnects, cancel, and history
-
-These are covered with SDK examples in [Use an agent](/api/use-agent):
-
-- **Reconnect** after a dropped stream from the last sequence number you saw
-- **Cancel** a running turn on a session
-- **Replay** persisted session events (deltas already merged) to restore a conversation
-
-For HTTP paths and OpenAPI schemas, see the **API Reference** tab.
+- [Use an agent](/api/use-agent) installs the SDK and walks through a runnable example plus the method recipes.
+- The **API Reference** tab has the raw HTTP endpoints and OpenAPI schemas.

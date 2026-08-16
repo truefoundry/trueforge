@@ -12,7 +12,7 @@ An agent is a saved combination of:
 2. **MCP servers** — which tools it can call
 3. **Skills** — which procedures it can load
 4. **Instructions** — the system prompt for this agent's role
-5. **Configuration** — sandbox, tool approvals, ask-user-questions, generative UI
+5. **Configuration** — runtime capabilities in the composer, plus finer controls in the [agent spec](/create-agent/agent-spec)
 
 ## Build it in the UI
 
@@ -31,23 +31,11 @@ Each connector also has a **preload** toggle — leave it off to keep context le
 
 ## Configure capabilities
 
-Beyond model, tools, and skills, you can tune how the agent behaves at runtime. **Generative UI**, **Ask clarifying questions**, and **Dynamic sub-agents** are toggles in the composer's **Capabilities** tab — all on by default. **Tool approval** is a per-tool policy (below).
+The composer's **Capabilities** tab has three toggles, all on by default: **Generative UI**, **Ask clarifying questions**, and **Dynamic sub-agents**. A few other behaviors are set in the agent spec instead; see [Set in the agent spec](#set-in-the-agent-spec) at the end.
 
-<Frame caption="The composer's Capabilities tab: Generative UI, Dynamic sub-agents, and Ask clarifying questions — all on by default.">
+<Frame caption="The composer's Capabilities tab: Generative UI, Dynamic sub-agents, and Ask clarifying questions, all on by default.">
   <img src="/images/create-agent-capabilities.png" alt="The composer Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on" />
 </Frame>
-
-### Tool approval
-
-Some actions — deploying, deleting data, sending refunds — shouldn't run without explicit consent. **Tool approval** (human in the loop) pauses the agent before a sensitive MCP tool call, shows the tool name and arguments, and resumes only after the user approves or denies. Safe read-only tools stay autonomous.
-
-Approval policy is set **per MCP server**. The default gates write and destructive tools — anything the server doesn't mark read-only; you can also list specific tools or gate every tool ([`mcp_servers`](/create-agent/agent-spec#mcp_servers)).
-
-<Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
-  <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
-</Frame>
-
-Use approvals for state changes, irreversible actions, production impact, external communications, or expensive operations. Skip them for safe reads (list, fetch, search). Approval doesn't replace authorization — it only decides whether a pending call should proceed.
 
 ### Ask user questions
 
@@ -84,6 +72,22 @@ For multi-step work across several sources, the agent can delegate focused subta
   <img src="/images/subagents.png" alt="Chat UI showing three parallel subagents — MCP research, Agent governance research, A2A protocol research — under Agent steps" />
 </Frame>
 
-## Agent spec reference
+## Set in the agent spec
 
-For the full field list — `model`, `instructions`, `mcp_servers`, `skills`, `config`, and more — see the [Agent Spec reference](/create-agent/agent-spec).
+The composer covers the common setup. A few behaviors aren't in the composer yet: you set them in the [agent spec](/create-agent/agent-spec) through the [SDK](/api/overview), and the chat UI still shows them at runtime.
+
+### Tool approval
+
+Some actions, like deploying, deleting data, or sending a refund, shouldn't run without a human's sign-off. **Tool approval** (human in the loop) pauses the agent before a sensitive MCP tool call, shows the tool name and arguments, and resumes only after the user approves or denies. Safe read-only tools stay autonomous.
+
+You set the policy **per MCP server** in the spec ([`mcp_servers`](/create-agent/agent-spec#mcp_servers)), not in the composer. The default gates write and destructive tools (anything the server doesn't mark read-only); you can also list specific tools or gate every tool. At runtime, the chat UI shows the pause with **Allow / Deny**.
+
+<Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
+  <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
+</Frame>
+
+Use approvals for state changes, irreversible actions, production impact, external communications, or expensive operations. Skip them for safe reads (list, fetch, search). Approval doesn't replace authorization; it only decides whether a pending call should proceed.
+
+### Other spec settings
+
+A few more controls live in the spec rather than the composer: which tools are enabled or disabled per server, the iteration limit, context management (compaction and large tool-response offloading), a structured `response_format`, and seed `messages`. The [Agent Spec reference](/create-agent/agent-spec) lists every field, and its **Set via** column marks each one UI, API, or both.
