@@ -1,15 +1,16 @@
-# Truefoundry TypeScript Library
+# TrueForge TypeScript Library
 
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Truefoundry%2FTypeScript)
 [![npm shield](https://img.shields.io/npm/v/@truefoundry/trueforge-sdk)](https://www.npmjs.com/package/@truefoundry/trueforge-sdk)
 
-TypeScript client for the TrueForge agent harness server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
+TypeScript client for the TrueForge Agent Harness Server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
 When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`).
 
 
 ## Table of Contents
 
+- [Documentation](#documentation)
 - [Installation](#installation)
 - [Reference](#reference)
 - [Usage](#usage)
@@ -30,6 +31,10 @@ When auth is enabled on the server, pass an ID token via the optional `token` cl
   - [Custom Fetcher](#custom-fetcher)
   - [Runtime Compatibility](#runtime-compatibility)
 - [Contributing](#contributing)
+
+## Documentation
+
+API reference documentation is available [here](https://trueforge.dev/api/use-agent).
 
 ## Installation
 
