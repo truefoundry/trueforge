@@ -54,6 +54,8 @@ groups:
             publishConfig:
               access: public
               provenance: false
+            engines:
+              node: '>=22'
           allowExtraFields: true
           allowCustomFetcher: true
           enableInlineTypes: false

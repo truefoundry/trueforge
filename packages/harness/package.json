@@ -81,6 +81,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build:gen": "node scripts/generate-sandbox-scripts.mjs",
     "build:gen:watch": "node --watch-path=src/core/sandbox/scripts scripts/generate-sandbox-scripts.mjs",

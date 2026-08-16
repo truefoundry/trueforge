@@ -49,6 +49,9 @@
     "NOTICE",
     "CHANGELOG.md"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "sideEffects": [
     "dist/styles.css",
     "src/icons/registerAgentIcons.ts"

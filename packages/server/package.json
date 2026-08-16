@@ -23,6 +23,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build:frontend-assets": "node scripts/copy-frontend.mjs",
     "build:gen:watch": "node --watch-path=catalog/model-catalog.yaml --watch-path=catalog/mcp-catalog.yaml --watch-path=catalog/skill-catalog.yaml --watch-path=catalog/sandbox-catalog.yaml scripts/generate-catalog.mjs",

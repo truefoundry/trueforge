@@ -20,7 +20,7 @@
     "fixtures"
   ],
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

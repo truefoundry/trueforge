@@ -15,7 +15,7 @@ For security vulnerabilities, do **not** open a public issue — see [SECURITY.m
 
 ## Prerequisites
 
-- **Node.js 22.13+** (see [`.nvmrc`](.nvmrc))
+- **Node.js 22+** (see [`.nvmrc`](.nvmrc))
 - **pnpm** (version pinned via `packageManager` in [`package.json`](package.json); `corepack enable` handles it)
 - **Docker** — only needed for Postgres/Redis dev infra, the smoke test, and SDK generation
 

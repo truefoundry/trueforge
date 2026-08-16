@@ -6,6 +6,9 @@
   "license": "MIT",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
     "ui:build": "pnpm --filter @truefoundry/trueforge-ui build",
