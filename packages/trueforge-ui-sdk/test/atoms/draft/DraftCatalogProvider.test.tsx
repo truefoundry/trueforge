@@ -99,6 +99,22 @@ describe('DraftCatalogProvider', () => {
     expect(update.skills).toEqual([]);
   });
 
+  it('does not re-clear an already empty skills list when skills are unavailable', () => {
+    const emptySkills: object[] = [];
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills: emptySkills,
+      },
+      models: [],
+      skills: [],
+      connectors: [],
+      skillsEnabled: false,
+    });
+
+    expect(update).toEqual({});
+  });
+
   it('exposes an empty, idle catalog when used without a provider', () => {
     render(<CatalogProbe />);
 

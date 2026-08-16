@@ -54,14 +54,17 @@ export function reconcileDraftSpecPreferences({
     update.mcpServers = nextMcpServers;
   }
 
-  const nextSkills =
-    skillsEnabled === false
-      ? agentSpec.skills === undefined
-        ? undefined
-        : []
-      : filterMounts(agentSpec.skills, new Set(skills.map(skill => skill.name)));
-  if (nextSkills !== agentSpec.skills) {
-    update.skills = nextSkills;
+  if (skillsEnabled === false) {
+    // Only clear when there is something to clear — a fresh `[]` each call would
+    // fail reference equality and loop `updateAgentSpec` forever.
+    if (agentSpec.skills !== undefined && agentSpec.skills.length > 0) {
+      update.skills = [];
+    }
+  } else {
+    const nextSkills = filterMounts(agentSpec.skills, new Set(skills.map(skill => skill.name)));
+    if (nextSkills !== agentSpec.skills) {
+      update.skills = nextSkills;
+    }
   }
 
   return update;
