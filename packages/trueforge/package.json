@@ -1,7 +1,7 @@
 {
   "name": "@truefoundry/trueforge",
   "version": "0.1.0",
-  "description": "TrueForge agent server + UI (npx @truefoundry/trueforge)",
+  "description": "TrueForge Agent Harness: server, HTTP API, and chat UI (npx @truefoundry/trueforge)",
   "author": "TrueFoundry",
   "license": "MIT",
   "repository": {
@@ -9,7 +9,7 @@
     "url": "git+https://github.com/truefoundry/trueforge.git",
     "directory": "packages/trueforge"
   },
-  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge#readme",
+  "homepage": "https://trueforge.dev",
   "bugs": {
     "url": "https://github.com/truefoundry/trueforge/issues"
   },
@@ -21,7 +21,8 @@
   "type": "module",
   "bin": "./dist/cli.js",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "engines": {
     "node": ">=22"

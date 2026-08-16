@@ -1,7 +1,7 @@
 {
   "name": "@truefoundry/trueforge-core",
   "version": "0.1.0",
-  "description": "TrueForge core library",
+  "description": "TrueForge Agent Harness library.",
   "author": "TrueFoundry",
   "license": "MIT",
   "repository": {
@@ -9,7 +9,7 @@
     "url": "git+https://github.com/truefoundry/trueforge.git",
     "directory": "packages/trueforge-core"
   },
-  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-core#readme",
+  "homepage": "https://trueforge.dev",
   "bugs": {
     "url": "https://github.com/truefoundry/trueforge/issues"
   },
@@ -79,7 +79,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "engines": {
     "node": ">=22"

@@ -46,8 +46,9 @@ if (!fs.existsSync(distPkgPath)) {
   }
 }
 
-// package.json is published as-is (no more staged dist/package.json rewrite), and only
-// `dist` ships (files: ["dist"]) — so a literal "development" condition pointing at
+// package.json is published as-is (no more staged dist/package.json rewrite), and
+// `src/` does not ship (files: ["dist", "README.md"]) — so a literal "development"
+// condition pointing at
 // ./src/... would be a live, resolvable-but-broken promise for any consumer whose
 // tooling defaults to activating it, not dead weight. Vite's default resolve.conditions
 // is ['module', 'browser', 'development|production'], which it substitutes to the literal

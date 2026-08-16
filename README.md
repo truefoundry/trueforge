@@ -26,6 +26,20 @@
     <img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg" alt="SDK">
   </a>
 </p>
+<p align="center">
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge" alt="npm @truefoundry/trueforge">
+  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-sdk">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-sdk?label=trueforge-sdk" alt="npm @truefoundry/trueforge-sdk">
+  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-ui">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-ui?label=trueforge-ui" alt="npm @truefoundry/trueforge-ui">
+  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core" alt="npm @truefoundry/trueforge-core">
+  </a>
+</p>
 
 # TrueForge
 

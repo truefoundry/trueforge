@@ -13,7 +13,7 @@ Publishing npm does not stamp or push the chart. Publishing the image/chart does
 
 | Package                       | Source                    | Notes                                                           |
 | ----------------------------- | ------------------------- | --------------------------------------------------------------- |
-| `@truefoundry/trueforge-core` | `packages/trueforge-core` | Library (`files: ["dist"]`)                                     |
+| `@truefoundry/trueforge-core` | `packages/trueforge-core` | Library (`files: ["dist", "README.md"]`)                        |
 | `@truefoundry/trueforge`      | `packages/trueforge`      | App + CLI; tarball includes embedded UI under `dist/_frontend/` |
 | `@truefoundry/trueforge-sdk`  | `packages/trueforge-sdk`  | Fern-generated client — do not hand-edit                        |
 | `@truefoundry/trueforge-ui`   | `packages/trueforge-ui`   | Embeddable chat UI                                              |
@@ -68,7 +68,7 @@ Do not mix stable and RC packages in one `changeset version` — exit pre only w
 
 ## Package layout (`@truefoundry/trueforge-core`)
 
-Packages publish from their package root. The core build emits CJS (`.js`), ESM (`.mjs`), and `.d.ts` under `dist/`; `package.json` `exports` point at those paths and `files: ["dist"]` limits the tarball to compiled output.
+Packages publish from their package root. The core build emits CJS (`.js`), ESM (`.mjs`), and `.d.ts` under `dist/`; `package.json` `exports` point at those paths and `files: ["dist", "README.md"]` keeps `src/` out of the tarball.
 
 - Deep imports such as `@truefoundry/trueforge-core/core/llm/LLMTypes` resolve via the package `exports` map for modern `moduleResolution` modes (`bundler`, `node16`, `nodenext`).
 - Curated barrels (`.`, `./core`, `./agent-session`) are the supported public API; deep imports are an escape hatch.
