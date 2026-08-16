@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { DRAFT_SPEC_PREFERENCES_STORAGE_KEY } from '@/server/draftSpecPreferences.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
@@ -16,6 +17,10 @@ function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
 }
 
 describe('ShellModeProvider', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+  });
+
   it('requires a provider for useShellMode', () => {
     expect(() => renderHook(() => useShellMode())).toThrow('useShellMode must be used within a ShellModeProvider.');
   });
@@ -398,5 +403,63 @@ describe('ShellModeProvider', () => {
     );
 
     expect(result.current.mode.status).toBe('idle');
+  });
+
+  it('uses remembered plain-draft preferences for the next chat', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentLibraryWithComposer',
+        defaultAgentSpec: { model: { name: 'default/model' } },
+      }),
+    });
+
+    act(() =>
+      result.current.rememberDraftSpec({
+        model: { name: 'chosen/model' },
+        skills: [{ name: 'Research' }],
+        mcpServers: [{ name: 'GitHub' }],
+        instructions: 'Do not retain this.',
+      }),
+    );
+    act(() => result.current.selectAgent('saved-agent'));
+    act(() => result.current.openDraft());
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      agentSpec: {
+        model: { name: 'chosen/model' },
+        skills: [{ name: 'Research' }],
+        mcpServers: [{ name: 'GitHub' }],
+      },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
+  });
+
+  it('hydrates remembered preferences on first paint', () => {
+    window.localStorage.setItem(
+      DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        spec: {
+          model: { name: 'remembered/model' },
+          config: { sandbox: { enabled: true } },
+        },
+      }),
+    );
+
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentComposer',
+        defaultAgentSpec: { model: { name: 'default/model' } },
+      }),
+    });
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      agentSpec: { model: { name: 'remembered/model' } },
+    });
   });
 });

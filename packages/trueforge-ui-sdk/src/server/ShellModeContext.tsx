@@ -2,6 +2,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import {
+  readDraftSpecPreferences,
+  selectDraftSpecPreferences,
+  writeDraftSpecPreferences,
+} from './draftSpecPreferences.js';
 import { useOptionalRefreshServerCapabilities, useServerCapabilities } from './ServerContext.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
@@ -71,6 +76,8 @@ type ShellModeContextValue = {
   selectAgent: (agentName: string) => void;
   /** @deprecated Prefer `selectLibraryAgent({ isMutable: true, agentSpec })`. */
   openDraft: () => void;
+  /** Remember plain-draft composer choices as the seed for future new chats. */
+  rememberDraftSpec: (agentSpec: AgentSpec) => void;
   /**
    * Open a history session, remounting when mutability/identity changes.
    * Prefer explicit `isMutable` from the session row; when omitted, agentName
@@ -152,8 +159,10 @@ export function ShellModeProvider({
 }) {
   const capabilities = useServerCapabilities();
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
-  const mutableSeedRef = useRef(mutableSeedFromConfig(agentConfig));
+  const rememberedSpecRef = useRef<AgentSpec | null>(readDraftSpecPreferences());
+  const mutableSeedRef = useRef(rememberedSpecRef.current ?? mutableSeedFromConfig(agentConfig));
   if (
+    rememberedSpecRef.current == null &&
     (agentConfig.mode === 'AgentComposer' || agentConfig.mode === 'AgentLibraryWithComposer') &&
     agentConfig.defaultAgentSpec != null
   ) {
@@ -284,6 +293,13 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
+  const rememberDraftSpec = useCallback((agentSpec: AgentSpec) => {
+    const preferences = selectDraftSpecPreferences(agentSpec);
+    rememberedSpecRef.current = preferences;
+    mutableSeedRef.current = preferences;
+    writeDraftSpecPreferences(preferences);
+  }, []);
+
   const openHistorySession = useCallback(
     ({
       sessionId,
@@ -369,6 +385,7 @@ export function ShellModeProvider({
       bindMutableAgent,
       selectAgent,
       openDraft,
+      rememberDraftSpec,
       openHistorySession,
       clearChat,
       runtimeKey,
@@ -392,6 +409,7 @@ export function ShellModeProvider({
       bindMutableAgent,
       selectAgent,
       openDraft,
+      rememberDraftSpec,
       openHistorySession,
       clearChat,
       runtimeKey,

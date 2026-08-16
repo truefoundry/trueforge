@@ -52,6 +52,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Draft composer preferences** — plain-draft model, skills, MCP connectors, and
+  config choices are remembered (in-memory + `localStorage`) and seed the next
+  New Chat after reload. Stale catalog entries are pruned once catalogs load.
+  Edit-flow (`agentId` set) and immutable library agents are unchanged.
+- **Optional `layout`** — `<TrueforgeUI />` `layout` prop defaults to `"sidebar"`.
 - **`type: "trueforge"` built-in server** — `<TrueforgeUI server={{ type: 'trueforge', baseUrl?, token?, fetch? }} />`
   resolves a full Harness `AgentUIServer` via
   `@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`
