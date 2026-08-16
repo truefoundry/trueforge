@@ -36,7 +36,7 @@ flowchart TD
 
 ### Agent
 
-An **agent** is a definition, not a running process. You define it once (the model, instructions, tools, and config), and any number of conversations can use it. `support-bot` is a support assistant that looks up orders and processes refunds through an MCP server. Its [AgentSpec](/create-agent/agent-spec) looks like this:
+An **agent** is a definition, not a running process. You define it once (the model, instructions, tools, and config), and any number of conversations can use it. `support-bot` is a support assistant that looks up orders and processes refunds through an MCP server. Its [AgentSpec](/create-agent/overview#create-an-agent-via-the-api) looks like this:
 
 ```json support-bot AgentSpec
 {
@@ -56,7 +56,7 @@ An **agent** is a definition, not a running process. You define it once (the mod
 }
 ```
 
-Save this spec as a named agent and reference it by name in every session, or pass it inline when you create a session. The [agent spec reference](/create-agent/agent-spec) lists every field.
+Save this spec as a named agent and reference it by name in every session, or pass it inline when you create a session. The [agent spec reference](/create-agent/overview#create-an-agent-via-the-api) lists every field.
 
 ### Session
 
@@ -102,7 +102,7 @@ flowchart LR
 | **Turn 3** | Jane (or a support rep) | Approval: allow `process_refund`               | Agent runs the refund and sends a confirmation.                 |
 
 <Note>
-  A turn can also pause when the agent asks a clarifying question ([`tool.response_required`](/create-agent/overview#ask-user-questions))
+  A turn can also pause when the agent asks a clarifying question ([`tool.response_required`](/create-agent/overview#whats-in-an-agent))
   or needs MCP OAuth ([`mcp.auth_required`](/mcp-servers#in-chat-authentication)). You resume with a new turn, just like
   Turn 3 above.
 </Note>

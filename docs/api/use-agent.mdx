@@ -7,7 +7,7 @@ description: 'Run a saved agent with the TypeScript SDK: a complete example, the
 The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk). For the mental model (Agent → Session → Turn → Event → Delta), start with [SDK Overview](/api/overview); for every event field, see [Turn events](/api/turn-events).
 
 <Note>
-Prerequisite: a named agent in the registry, or an inline [agent spec](/create-agent/agent-spec) you pass when creating the session. The examples below run the **`web-research-brief`** agent from the [Quickstart](/quickstart); build it there first, or swap in your own agent name / inline spec.
+Prerequisite: a named agent in the registry, or an inline [agent spec](/create-agent/overview#create-an-agent-via-the-api) you pass when creating the session. The examples below run the **`web-research-brief`** agent from the [Quickstart](/quickstart); build it there first, or swap in your own agent name / inline spec.
 </Note>
 
 Every snippet is self-contained and runnable. They all use the `client` from [Install and connect](#install-and-connect).
@@ -177,8 +177,8 @@ Turn `input` accepts three item types (a single turn can't mix a `user.message` 
 | `type` | Purpose |
 | --- | --- |
 | `user.message` | A message. `content` is a string, or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/create-agent/overview#tool-approval) for a paused tool call. |
-| `user.tool_response` | An [answer](/create-agent/overview#ask-user-questions) for a paused client-side tool call. |
+| `user.tool_approval` | An [approval decision](/create-agent/overview#whats-in-an-agent) for a paused tool call. |
+| `user.tool_response` | An [answer](/create-agent/overview#whats-in-an-agent) for a paused client-side tool call. |
 
 ### Non-streaming turn
 
@@ -287,7 +287,7 @@ For approvals and questions, each pending ref carries the `sourceEventId` of the
 
 ### Tool approvals
 
-A gated tool ([human approval](/create-agent/overview#tool-approval)) emits [`tool.approval_required`](/api/turn-events#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason.
+A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](/api/turn-events#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason.
 
 ```typescript
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
@@ -337,7 +337,7 @@ for await (const { data: event } of resume.withMetadata()) console.log(event.typ
 
 ### Agent questions
 
-When the agent uses the built-in [`ask_user_question`](/create-agent/overview#ask-user-questions) tool, it emits [`tool.response_required`](/api/turn-events#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Resume with one `user.tool_response` per pending call.
+When the agent uses the built-in [`ask_user_question`](/create-agent/overview#whats-in-an-agent) tool, it emits [`tool.response_required`](/api/turn-events#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Resume with one `user.tool_response` per pending call.
 
 ```typescript
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';

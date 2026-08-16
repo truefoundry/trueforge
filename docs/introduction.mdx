@@ -58,7 +58,7 @@ flowchart LR
 Runs the agent loop. When a user sends a message, the server:
 
 - Plans the turn, calls the model, and executes tools — streaming every step back
-- Pauses for [human approval](/create-agent/overview#tool-approval) on sensitive actions
+- Pauses for [human approval](/create-agent/overview#whats-in-an-agent) on sensitive actions
 - Keeps context lean on long tasks with [harness capabilities](/key-features/overview) like subagents and compaction
 - Persists sessions, so conversations survive reconnects and restarts
 
@@ -91,20 +91,13 @@ A ready-made interface for the agents you create:
 
 The agent features are identical in both modes — only the backend around the server changes. The [Quickstart](/quickstart) has run instructions for each.
 
-### Local mode — a personal productivity tool
-
-Like Claude Desktop, but on your terms: one process on your machine, started with `npx @truefoundry/trueforge`.
-
-- UI and backend run locally; sessions are stored in a local SQLite file
-- No database server, Redis, or other infrastructure to set up
-
-### Hosted mode — a shared deployment for your team
-
-Like Claude's managed agents: one deployment the whole company uses, via Docker Compose or the Helm chart.
-
-- Multiple server replicas run behind a load balancer
-- **Postgres** replaces SQLite as durable storage shared by all replicas
-- **Redis** peers the replicas — it hands off turn event streams and cancellation signals, so a client can reconnect to any replica and still resume a turn running on another one
+| | Local | Hosted |
+| --- | --- | --- |
+| **Best for** | Personal use — one process on your machine, like Claude Desktop | A shared deployment for your team, like Claude's managed agents |
+| **How to run** | `npx @truefoundry/trueforge` | Docker Compose or Helm |
+| **Storage** | SQLite | Postgres, shared by all replicas |
+| **Extra infra** | None | Postgres + Redis |
+| **Replicas** | Single process | Multiple replicas behind a load balancer. Redis peers them so streams and cancellations follow the client across replicas. |
 
 ## Start building
 

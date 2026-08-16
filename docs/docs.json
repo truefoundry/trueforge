@@ -2,9 +2,10 @@
   "$schema": "https://mintlify.com",
   "theme": "mint",
   "redirects": [
-    { "source": "/create-agent/tool-approval", "destination": "/create-agent/overview#tool-approval" },
-    { "source": "/create-agent/ask-user-questions", "destination": "/create-agent/overview#ask-user-questions" },
-    { "source": "/create-agent/generative-ui", "destination": "/create-agent/overview#generative-ui" }
+    { "source": "/create-agent/tool-approval", "destination": "/create-agent/overview#whats-in-an-agent" },
+    { "source": "/create-agent/ask-user-questions", "destination": "/create-agent/overview#whats-in-an-agent" },
+    { "source": "/create-agent/generative-ui", "destination": "/create-agent/overview#whats-in-an-agent" },
+    { "source": "/create-agent/agent-spec", "destination": "/create-agent/overview#create-an-agent-via-the-api" }
   ],
   "name": "TrueForge",
   "logo": {
@@ -47,10 +48,7 @@
                 "group": "Initial Setup",
                 "pages": ["harness/initial-setup", "models", "mcp-servers", "skills", "sandbox"]
               },
-              {
-                "group": "Create an Agent",
-                "pages": ["create-agent/overview", "create-agent/agent-spec"]
-              },
+              "create-agent/overview",
               "agent-library",
               {
                 "group": "Harness Capabilities",

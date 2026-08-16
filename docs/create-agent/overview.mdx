@@ -1,93 +1,283 @@
 ---
 title: 'Create an Agent'
-sidebarTitle: 'Overview'
-description: 'Pick a model, attach MCP servers and skills, write instructions, and save a reusable agent.'
+sidebarTitle: 'Create an Agent'
+description: 'Every option on an agent, what the UI covers today, and how to set the rest via the API.'
 ---
 
-After [initial setup](/harness/initial-setup), build an agent in the chat UI composer (or via the [SDK](/api/overview)).
+An agent is a saved, reusable definition: a model, instructions, the tools and skills it can use, and a set of runtime behaviors. You build one in the chat UI or via the [SDK](/api/overview) — either way, TrueForge stores the same **agent spec**, and any number of conversations can run against it.
 
-An agent is a saved combination of:
+- **[What's in an agent](#whats-in-an-agent)** — every option, explained.
+- **[Create an agent via the UI](#create-an-agent-via-the-ui)** — the options available in the chat UI today.
+- **[Create an agent via the API](#create-an-agent-via-the-api)** — the full agent spec, with every field.
 
-1. **Model** — which LLM runs the loop
-2. **MCP servers** — which tools it can call
-3. **Skills** — which procedures it can load
-4. **Instructions** — the system prompt for this agent's role
-5. **Configuration** — runtime capabilities in the composer, plus finer controls in the [agent spec](/create-agent/agent-spec)
+## What's in an agent
 
-## Build it in the UI
+Each option below is part of the agent definition. The **Set in** line on each shows where you can configure it today — the chat **UI**, the **API**, or both.
 
-1. Open TrueForge and use the composer to create or edit an agent.
-2. **Select a model** from the providers you configured under Settings → Models. Switching it later is a one-click change — no new API keys in the agent definition.
-3. **Attach connectors** (MCP servers) the agent should use. Prefer only the servers it needs.
-4. **Attach skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled on the agent).
-5. Write focused **instructions** — role, audience, and behavior. Put long playbooks in skills, not the prompt.
-6. **Save** the agent so it appears in the [Agent Library](/agent-library).
+<AccordionGroup>
+  <Accordion title="Model" icon="microchip">
+    The LLM that runs the agent loop. Pick any model from the providers you configured under **Settings → Models**; switching later is a one-click change, with no new API keys in the agent definition.
 
-<Frame caption="Save a reusable agent from the composer.">
+    Via the API you can also pass **model parameters** — `temperature`, `max_tokens`, `top_p`, `top_k`, `reasoning_effort`, and more — which are forwarded to the provider as-is.
+
+    **Set in:** UI (which model) · API (model + parameters)
+  </Accordion>
+
+  <Accordion title="Instructions" icon="message-lines">
+    The system prompt for this agent's role — what it does, who it's for, and how it should behave. The harness appends its own guidance for enabled capabilities (sandbox, subagents, and so on), so keep this focused on _your_ agent and move long playbooks into [skills](/skills) instead of the prompt.
+
+    **Set in:** UI + API
+  </Accordion>
+
+  <Accordion title="MCP servers (tools)" icon="plug">
+    The [MCP servers](/mcp-servers) whose tools the agent can call, attached by name from **Settings → Connectors**. Credentials live in the connector, never in the agent. Prefer only the servers the agent actually needs.
+
+    Per server you can further control (via the API):
+
+    - **Which tools are enabled or disabled** — expose everything, only read-only tools, or a specific list.
+    - **Preload** — load a server's full tool definitions upfront, or (default) discover them on demand to keep context lean. See [Deferred Tool Loading](/key-features/deferred-tool-loading). The **preload** toggle is also in the UI.
+    - **Tool approval** — pause before sensitive tool calls until a human approves. See below.
+
+    **Set in:** UI (attach servers, preload toggle) · API (tool filters, approval policy)
+  </Accordion>
+
+  <Accordion title="Tool approval (API only)" icon="user-shield">
+    Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
+
+    By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as destructive, the agent pauses for approval before running it. Read-only tools run autonomously.
+
+    <Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
+      <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
+    </Frame>
+
+    You can override which tools require approval — gate a specific list, or every tool — but that is configured **per MCP server via the API only** ([`require_approval_for_tools`](#mcp_servers)).
+
+    **Set in:** API
+  </Accordion>
+
+  <Accordion title="Skills" icon="book">
+    [Skills](/skills) are git-backed `SKILL.md` instruction packs that teach the agent specialized procedures — querying a database, following an escalation playbook, drafting release notes. Attach them by name; the agent loads the full skill only when it decides the skill is relevant.
+
+    Attaching skills requires the agent's **sandbox** to be enabled.
+
+    **Set in:** UI + API
+  </Accordion>
+
+  <Accordion title="Sandbox" icon="box">
+    An isolated environment for running code, files, and shell commands, separate from the server. It's **off by default** and provisioned only when the agent needs it. Required for [skills](/skills) and [Code Mode](/key-features/code-mode).
+
+    Optional extras (API): allow clients to **download files** the agent produces, and **inject git credentials** so the sandbox can clone private repos without the agent ever seeing the secret.
+
+    **Set in:** UI (on/off) · API (on/off + file downloads + git auth injection)
+  </Accordion>
+
+  <Accordion title="Generative UI" icon="chart-column">
+    Lets the agent stream interactive components — charts, tables, cards, forms — that the chat UI renders as React. The agent embeds a small OpenUI snippet in its response; the client renders real, registered components as tokens stream in (no arbitrary code execution). On by default.
+
+    <Frame caption="A Generative UI response with a chart rendered inline in chat.">
+      <img src="/images/generative-ui.png" alt="Rendered Generative UI response with an inline bar chart comparing options" />
+    </Frame>
+
+    | Use case | What the agent renders |
+    | --- | --- |
+    | Dashboards | KPI cards, charts, comparison tables |
+    | Tables | Sortable logs, resources, result sets |
+    | Charts | Bar, line, pie patterns faster than prose |
+    | Forms | Guided inputs for the next action |
+
+    Skip it for short explanations, bullet lists, or code where markdown is enough.
+
+    **Set in:** UI + API
+  </Accordion>
+
+  <Accordion title="Ask user questions" icon="circle-question">
+    Lets the agent pause at a decision it shouldn't guess — which environment to deploy to, which of several matches the user meant, an ambiguous required field — show a multiple-choice prompt, and resume with the chosen answer. On by default.
+
+    <Frame caption="The chat UI renders the question and options as a selectable card.">
+      <img src="/images/ask-user-questions.png" alt="Chat UI showing an agent question with multiple-choice options and a Submit button" />
+    </Frame>
+
+    Good for disambiguating matches, filling required fields the user didn't specify, or picking a strategy before a destructive step. Skip it when the agent can confidently infer the answer — over-asking turns the agent into a form.
+
+    **Set in:** UI + API
+  </Accordion>
+
+  <Accordion title="Dynamic sub-agents" icon="diagram-project">
+    Enable the harness to spawn **subagents**. This lets the TrueForge harness solve complicated tasks by breaking them into smaller pieces and running them in parallel, then merging only their results — keeping the main agent's context clean. On by default. See [Subagents](/key-features/subagents) for how it works.
+
+    <Frame caption="The agent fans out to parallel subagents, each shown as its own trace under Agent steps.">
+      <img src="/images/subagents.png" alt="Chat UI showing three parallel subagents — MCP research, Agent governance research, A2A protocol research — under Agent steps" />
+    </Frame>
+
+    **Set in:** UI + API
+  </Accordion>
+
+  <Accordion title="Context management (API only)" icon="compress">
+    Keeps long runs efficient. **Compaction** summarizes older history once the context crosses a token threshold, and **large tool-response offloading** writes oversized tool outputs to a sandbox file and leaves a short preview in context. Both are on by default. See [Harness Capabilities](/key-features/overview#context-compaction) and [Large tool responses](/key-features/large-tool-responses).
+
+    **Set in:** API
+  </Accordion>
+
+  <Accordion title="Iteration limit (API only)" icon="rotate">
+    A safety stop for how many agent-loop steps a single turn can take (1–1024, default 100). It halts runaway loops; it isn't a normal quality lever.
+
+    **Set in:** API
+  </Accordion>
+
+  <Accordion title="Response format (API only)" icon="brackets-curly">
+    Constrains the agent's final output. The default is free-form text; you can require a JSON object, or a JSON value matching a schema you provide.
+
+    **Set in:** API
+  </Accordion>
+
+  <Accordion title="Seed messages (API only)" icon="comments">
+    Optional starter messages added to the top of **every new conversation** with this agent, before the user says anything. Use them to prime the agent each time — for example, an opening line it should greet with, or standing context every session should begin from. They apply at the start of each session, not just once.
+
+    **Set in:** API
+  </Accordion>
+</AccordionGroup>
+
+## Create an agent via the UI
+
+1. Open TrueForge and use the chat UI to create or edit an agent.
+2. **Select a model** from the providers you configured under Settings → Models.
+3. **Attach connectors** (MCP servers) the agent should use — and set each server's **preload** toggle if you want its tools loaded upfront.
+4. **Attach skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled).
+5. Write focused **instructions** — role, audience, and behavior.
+6. Set the **Capabilities** toggles (all on by default): Generative UI, Ask clarifying questions, and Dynamic sub-agents.
+7. **Save** the agent so it appears in the [Agent Library](/agent-library).
+
+<Frame caption="Save a reusable agent from the chat UI.">
   <img src="/images/save-agent.png" alt="The Save agent dialog with a name, instructions, and a configuration summary of model, connectors, and skills" />
 </Frame>
 
-Each connector also has a **preload** toggle — leave it off to keep context lean, or turn it on to load that server's tool definitions upfront. See [Deferred Tool Loading](/key-features/deferred-tool-loading).
+Options available in the UI today: **model** (selection), **instructions**, **connectors** (attach + preload), **skills**, **sandbox** on/off, and the **Generative UI**, **Ask clarifying questions**, and **Dynamic sub-agents** toggles.
 
-## Configure capabilities
+<Note>
+  Everything else — model parameters, per-server tool filters, tool approval policy, iteration limit, context management, response format, seed messages, and sandbox extras — is [available via the API](#create-an-agent-via-the-api) today. These are deliberately kept out of the UI for now to keep it simple, and will be added to the UI in the future.
+</Note>
 
-The composer's **Capabilities** tab has three toggles, all on by default: **Generative UI**, **Ask clarifying questions**, and **Dynamic sub-agents**. A few other behaviors are set in the agent spec instead; see [Set in the agent spec](#set-in-the-agent-spec) at the end.
+## Create an agent via the API
 
-<Frame caption="The composer's Capabilities tab: Generative UI, Dynamic sub-agents, and Ask clarifying questions, all on by default.">
-  <img src="/images/create-agent-capabilities.png" alt="The composer Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on" />
-</Frame>
+The [SDK](/api/overview) exposes **every** option through the agent spec. Save the spec as a named agent and reference it by name, or pass it inline when you create a session. All fields are `snake_case`, and every field except `model` has a default.
 
-### Ask user questions
+```json A complete example
+{
+  "model": {
+    "name": "anthropic/claude-sonnet-4-6",
+    "params": { "max_tokens": 4096, "temperature": 0.2 }
+  },
+  "instructions": "You help customers with orders. Always confirm before processing refunds.",
+  "mcp_servers": [
+    {
+      "name": "orders-api",
+      "enable_tools": ["@all"],
+      "require_approval_for_tools": ["process_refund"],
+      "preload": false
+    }
+  ],
+  "skills": [{ "name": "customer-support" }],
+  "config": {
+    "sandbox": { "enabled": true },
+    "generative_ui": { "enabled": true },
+    "ask_user_questions": { "enabled": true },
+    "dynamic_sub_agents": { "enabled": true },
+    "context_management": {
+      "compaction": { "enabled": true },
+      "large_tool_response": { "enabled": true }
+    },
+    "iteration_limit": 50
+  }
+}
+```
 
-Agents often hit decision points they shouldn't guess — which environment to deploy to, which of several matches the user meant, or what an ambiguous required field should be. **Ask User Questions** pauses the agent, shows a multiple-choice prompt, and resumes with the chosen answer. It's on by default; toggle it in the composer's **Capabilities** tab.
+The **Set via** column on each table below marks where a field is configurable today — **UI**, **API**, or both.
 
-<Frame caption="The chat UI renders the question and options as a selectable card.">
-  <img src="/images/ask-user-questions.png" alt="Chat UI showing an agent question with multiple-choice options and a Submit button" />
-</Frame>
+### `model`
 
-Good for: choosing a target environment or account, disambiguating multiple matches, filling required fields the user didn't specify, or picking a strategy before a destructive step. Skip it when the agent can confidently infer the answer — over-asking turns the agent into a form.
+The only required field.
 
-### Generative UI
+| Field    | Type   | Required | Set via  | Description                                                                |
+| -------- | ------ | -------- | -------- | -------------------------------------------------------------------------- |
+| `name`   | string | Yes      | UI + API | Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. See [Models](/models). |
+| `params` | object | No       | API      | Model call parameters, passed through to the provider.                     |
 
-For dashboards, comparisons, and structured data, **Generative UI** lets the agent stream interactive components — charts, tables, cards, forms — that the chat UI renders as React. It's on by default; toggle it in the composer's **Capabilities** tab. The agent embeds a small OpenUI snippet in its response; the client renders real components as tokens stream in — no arbitrary code execution, only registered components.
+`model.params` recognizes `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls` (boolean), and `reasoning_effort` (string). Extra keys are allowed and forwarded to the provider as-is.
 
-<Frame caption="A Generative UI response with a chart rendered inline in chat.">
-  <img src="/images/generative-ui.png" alt="Rendered Generative UI response with an inline bar chart comparing options" />
-</Frame>
+### `instructions`
 
-| Use case | What the agent renders |
-| --- | --- |
-| Dashboards | KPI cards, charts, comparison tables |
-| Tables | Sortable logs, resources, result sets |
-| Charts | Bar, line, pie patterns faster than prose |
-| Forms | Guided inputs for the next action |
+**Set via:** UI + API
 
-Skip it for short explanations, bullet lists, or code blocks where markdown is enough.
+Optional string. The agent's system prompt — its role, behavior, and constraints.
 
-### Dynamic sub-agents
+### `mcp_servers`
 
-For multi-step work across several sources, the agent can delegate focused subtasks to parallel **subagents** and merge only their results — keeping its own context clean. On by default. See [Subagents](/key-features/subagents) for how it works.
+Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by name:
 
-<Frame caption="The agent fans out to parallel subagents, each shown as its own trace under Agent steps.">
-  <img src="/images/subagents.png" alt="Chat UI showing three parallel subagents — MCP research, Agent governance research, A2A protocol research — under Agent steps" />
-</Frame>
+| Field                        | Default                      | Set via  | Description                                                                                                                      |
+| ---------------------------- | ---------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                       | — (required)                 | UI + API | Name of a server registered under **Settings → Connectors**.                                                                     |
+| `enable_tools`               | `["@all"]`                   | API      | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                                         |
+| `disable_tools`              | `[]`                         | API      | Tools subtracted from the enabled set.                                                                                           |
+| `preload_tools`              | `[]`                         | API      | Tools loaded eagerly into context while the rest stay deferred.                                                                  |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | API      | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
+| `preload`                    | `false`                      | UI + API | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).                                       |
 
-## Set in the agent spec
+The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.
 
-The composer covers the common setup. A few behaviors aren't in the composer yet: you set them in the [agent spec](/create-agent/agent-spec) through the [SDK](/api/overview), and the chat UI still shows them at runtime.
+### `skills`
 
-### Tool approval
+**Set via:** UI + API
 
-Some actions, like deploying, deleting data, or sending a refund, shouldn't run without a human's sign-off. **Tool approval** (human in the loop) pauses the agent before a sensitive MCP tool call, shows the tool name and arguments, and resumes only after the user approves or denies. Safe read-only tools stay autonomous.
+Optional array of name-only references to [configured skills](/skills):
 
-You set the policy **per MCP server** in the spec ([`mcp_servers`](/create-agent/agent-spec#mcp_servers)), not in the composer. The default gates write and destructive tools (anything the server doesn't mark read-only); you can also list specific tools or gate every tool. At runtime, the chat UI shows the pause with **Allow / Deny**.
+```json
+{ "skills": [{ "name": "customer-support" }] }
+```
 
-<Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
-  <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
-</Frame>
+Skill names may contain letters, numbers, `.`, `_`, and `-` (max 64 characters). Attaching skills requires `config.sandbox.enabled: true`.
 
-Use approvals for state changes, irreversible actions, production impact, external communications, or expensive operations. Skip them for safe reads (list, fetch, search). Approval doesn't replace authorization; it only decides whether a pending call should proceed.
+### `config`
 
-### Other spec settings
+Runtime behavior. Every field has a default, so `config` can be omitted entirely.
 
-A few more controls live in the spec rather than the composer: which tools are enabled or disabled per server, the iteration limit, context management (compaction and large tool-response offloading), a structured `response_format`, and seed `messages`. The [Agent Spec reference](/create-agent/agent-spec) lists every field, and its **Set via** column marks each one UI, API, or both.
+| Field                | Default                | Set via  | Description                                                                                                                        |
+| -------------------- | ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `sandbox`            | `{ "enabled": false }` | UI + API | [Sandbox](/sandbox) for code execution, files, and skills.                                                                         |
+| `generative_ui`      | `{ "enabled": true }`  | UI + API | [Generative UI](#whats-in-an-agent) (OpenUI blocks).                                                                               |
+| `ask_user_questions` | `{ "enabled": true }`  | UI + API | The [`ask_user_question`](#whats-in-an-agent) tool.                                                                                |
+| `dynamic_sub_agents` | `{ "enabled": true }`  | UI + API | [Subagents](/key-features/subagents).                                                                                              |
+| `context_management` | all enabled            | API      | [Compaction](/key-features/overview#context-compaction) and [large tool response offloading](/key-features/large-tool-responses). |
+| `iteration_limit`    | `100`                  | API      | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                      |
+
+#### `config.sandbox`
+
+| Field                        | Default | Set via  | Description                                                                                                                                                                                             |
+| ---------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                    | `false` | UI + API | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
+| `file_downloads`             | `true`  | API      | Allow clients to download files the agent produces in the sandbox.                                                                                                                                     |
+| `network_policy.auth_inject` | —       | API      | Up to one rule injecting git basic-auth credentials for exact hosts: `{ "type": "git", "match": { "hosts": ["github.com"] }, "auth_data": { "type": "basic", "username": "...", "password": "..." } }`. |
+
+#### `config.context_management`
+
+| Field                                    | Default | Set via | Description                                           |
+| ---------------------------------------- | ------- | ------- | ----------------------------------------------------- |
+| `compaction.enabled`                     | `true`  | API     | Summarize older history when context grows too large. |
+| `compaction.compaction_threshold_tokens` | `50000` | API     | Context size (tokens) that triggers compaction.       |
+| `large_tool_response.enabled`            | `true`  | API     | Offload oversized tool responses to a sandbox file.   |
+
+### `response_format`
+
+**Set via:** API
+
+Optional. Constrains the agent's final output: `{ "type": "text" }` (default), `{ "type": "json_object" }`, or `{ "type": "json_schema", "json_schema": { ... } }`.
+
+### `messages`
+
+**Set via:** API
+
+Optional array of seed messages injected at the start of every session:
+
+```json
+{ "messages": [{ "type": "user.message", "content": "Introduce yourself briefly." }] }
+```

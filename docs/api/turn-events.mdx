@@ -98,7 +98,7 @@ The result of a tool the harness executed, linked to its call by `tool_call_id`:
 
 ### `tool.approval_required`
 
-A tool call needs [human approval](/create-agent/overview#tool-approval) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
+A tool call needs [human approval](/create-agent/overview#whats-in-an-agent) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
 
 | Field        | Description                                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -106,7 +106,7 @@ A tool call needs [human approval](/create-agent/overview#tool-approval) before 
 
 ### `tool.response_required`
 
-A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#ask-user-questions)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
+A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#whats-in-an-agent)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
 
 ## Subagent threads
 

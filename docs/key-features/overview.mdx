@@ -10,9 +10,9 @@ TrueForge is more than model + tools. These harness features keep long agent run
 | --- | --- |
 | [Sandbox as a tool](/sandbox) | Isolated code/file execution without putting secrets or the agent loop inside the sandbox |
 | [Context engineering](#what-is-context-engineering) | Progressive skills, deferred tools, subagents, offloading, Code Mode, compaction |
-| [Tool approval](/create-agent/overview#tool-approval) | Pause before write/destructive MCP tools |
-| [Ask User Questions](/create-agent/overview#ask-user-questions) | Structured clarification mid-run |
-| [Generative UI](/create-agent/overview#generative-ui) | Charts, tables, and cards streamed into chat |
+| [Tool approval](/create-agent/overview#whats-in-an-agent) | Pause before write/destructive MCP tools |
+| [Ask User Questions](/create-agent/overview#whats-in-an-agent) | Structured clarification mid-run |
+| [Generative UI](/create-agent/overview#whats-in-an-agent) | Charts, tables, and cards streamed into chat |
 | [In-chat MCP OAuth](/mcp-servers#in-chat-authentication) | Connect button when a connector needs authorization |
 
 ## Sandbox as a tool
@@ -111,6 +111,40 @@ Runtime context is where most of the **context bloat problem** happens. A single
   </Card>
 </CardGroup>
 
+### Subagents — context isolation
+
+Subagents isolate heavy work. When the root agent spawns a subagent:
+
+- The subagent runs with its **own fresh context** — instructions and tools, but no shared message history.
+- It executes autonomously, makes its own tool calls, and produces a final result.
+- Only the **final result** returns to the root agent. Intermediate tool calls, large search results, and reasoning steps never enter the root's context.
+
+This is especially valuable for tasks that touch many entities or require many tool calls. For example, summarizing PRs across a 10-person team can fan out to 10 subagents in parallel — the root agent collects 10 short summaries instead of 10 sets of raw tool output. See [Subagents](/key-features/subagents).
+
+### Large result offloading
+
+Sometimes a single tool call returns far more data than the agent needs to reason about — a large JSON list, a long file, a detailed search response. Offloading keeps that data out of context:
+
+```mermaid
+flowchart LR
+    Tool[Tool executes] --> Check{Result size > threshold?}
+    Check -->|No| Full[Full result enters context]
+    Check -->|Yes| Save[Save to sandbox file]
+    Save --> Preview[Replace with file path + short preview]
+    Preview --> Continue[Agent reads parts on demand via sandbox]
+```
+
+The agent can then use sandbox tools to inspect the file, infer its schema, extract specific fields, or filter the data — all without the raw payload ever entering the conversation. See [Large Result Offloading](/key-features/large-tool-responses).
+
+### Code Mode — process tool output in code
+
+For tasks that involve **aggregating, filtering, or transforming** tool output (counts, group-bys, joins across multiple tool calls), [Code Mode](/key-features/code-mode) lets the agent run a Python script in the sandbox that calls MCP tools directly. The script processes the data in code and prints only the summary.
+
+This avoids two failure modes at once:
+
+- **Context bloat** — raw tool output never enters context, only the printed result.
+- **Hallucinated arithmetic** — counts, sums, and group-bys are computed in code, not inferred from prose.
+
 ### Context compaction
 
 When the conversation grows longer than offloading alone can manage, the harness triggers **compaction**. Compaction is enabled by default and kicks in when the active context crosses a token threshold (default **50,000 tokens**, configurable per agent).
@@ -156,11 +190,3 @@ In practice, these strategies stack. A single agent run might:
 4. Use **Code Mode** to aggregate the offloaded data into a small summary.
 5. Return the summary to the root agent — keeping the root's runtime context clean.
 6. **Compact** the root agent's history later if a long conversation crosses the threshold.
-
-## Best practices
-
-1. **Start with input context discipline.** Keep instructions focused on the agent's role; move procedures into skills; leave preload off for large MCP servers.
-2. **Let progressive disclosure do the work.** Default to deferred loading for both skills and MCP servers. Override only when a server is truly needed on every run.
-3. **Delegate heavy work to subagents.** Multi-step research or tasks with large intermediate outputs belong in subagents.
-4. **Use Code Mode for aggregation.** When the model needs to count, group, filter, or join tool output, Code Mode keeps raw data out of context entirely and avoids arithmetic hallucinations.
-5. **Watch token usage.** Every `model.message` event carries `usage` with an `input_tokens_breakdown` (harness, skills, instructions, tool definitions, messages), so you can see exactly where context is going.

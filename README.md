@@ -56,29 +56,13 @@ To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  ui[Chat UI<br/>@truefoundry/trueforge-ui]
-  code[Your code<br/>trueforge-sdk]
-  subgraph server [TrueForge server]
-    api[HTTP API]
-    loop[Agent loop]
-    api --> loop
-  end
-  db[(SQLite / Postgres)]
-  subgraph byo [Bring your own]
-    llm[Model providers]
-    mcp[MCP servers]
-    sandbox[Sandbox provider]
-  end
-
-  ui --> api
-  code --> api
-  loop --> db
-  loop --> llm
-  loop --> mcp
-  loop --> sandbox
-```
+<p align="center">
+  <picture>
+    <source srcset="./docs/assets/architecture-dark.svg" media="(prefers-color-scheme: dark)">
+    <source srcset="./docs/assets/architecture-light.svg" media="(prefers-color-scheme: light)">
+    <img src="./docs/assets/architecture-light.svg" alt="TrueForge architecture: Chat UI and SDK connect to the TrueForge server HTTP API and agent loop, which talks to SQLite or Postgres and bring-your-own models, MCP servers, and sandbox" width="920">
+  </picture>
+</p>
 
 | Mode   | Best for                    | Storage  | Extra infra      | How to run                   |
 | ------ | --------------------------- | -------- | ---------------- | ---------------------------- |
