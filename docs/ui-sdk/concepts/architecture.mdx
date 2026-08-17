@@ -6,14 +6,14 @@ description: "The pieces you compose: providers, layouts, containers, and slots.
 You can use the SDK at three levels of control. Most applications stay at the first.
 
 <Steps>
-  <Step title="Simply use TrueforgeUI">
+  <Step title="Simply use TrueForgeUI">
     One component, a `server` and a `layout`. It mounts everything it needs internally.
   </Step>
   <Step title="Supply your own layout">
     Pass a component to `layout` and arrange the exported containers yourself.
   </Step>
   <Step title="Mount the providers yourself">
-    Skip `TrueforgeUI` entirely and compose the providers directly.
+    Skip `TrueForgeUI` entirely and compose the providers directly.
   </Step>
 </Steps>
 
@@ -29,7 +29,7 @@ That replacement is what `overrides` does: name a component, supply your own, an
 
 ## Provider stack
 
-`TrueforgeUI` mounts this for you. You only need it when composing manually:
+`TrueForgeUI` mounts this for you. You only need it when composing manually:
 
 ```tsx
 <SlotsProvider overrides={overrides} theme={theme}>
@@ -46,7 +46,7 @@ That replacement is what `overrides` does: name a component, supply your own, an
 Order matters: `SlotsProvider` must be outside `TrueFoundryChatProvider`.
 
 <Warning>
-  Composing manually means you own runtime resets. `TrueforgeUI` remounts the chat runtime when the selected agent changes, a new draft starts, or the chat is cleared; a hand-rolled stack does not. Change the `key` on `TrueFoundryChatProvider` yourself at those moments, or stale messages carry over between agents.
+  Composing manually means you own runtime resets. `TrueForgeUI` remounts the chat runtime when the selected agent changes, a new draft starts, or the chat is cleared; a hand-rolled stack does not. Change the `key` on `TrueFoundryChatProvider` yourself at those moments, or stale messages carry over between agents.
 </Warning>
 
 ## Styling hooks

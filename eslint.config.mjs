@@ -47,14 +47,14 @@ export default defineConfig(
       '**/dist/**',
       // Nested package ESLint config scopes `dist/**` to that package root only;
       // example build output sits one level deeper and needs an explicit ignore.
-      'packages/trueforge-ui-sdk/example/dist/**',
+      'packages/trueforge-ui/example/dist/**',
       '**/coverage/**',
       '**/.pnpm-store/**',
       '**/.eslintcache',
       // Excluded from package tsconfigs; run via tsx/jest, not the type-aware ESLint project.
       '**/*.test.ts',
       // Fern-generated SDK: not part of any tsconfig project, and not ours to lint.
-      'packages/sdk/**',
+      'packages/trueforge-sdk/**',
     ],
   },
   {

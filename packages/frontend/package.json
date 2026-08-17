@@ -6,6 +6,9 @@
   "license": "MIT",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
     "ui:build": "pnpm --filter @truefoundry/trueforge-ui build",
@@ -24,7 +27,7 @@
     "@assistant-ui/core": "0.2.22",
     "@assistant-ui/react": "^0.14.24",
     "@assistant-ui/store": "0.2.21",
-    "@truefoundry/assistant-ui-runtime": "0.1.16",
+    "@truefoundry/assistant-ui-runtime": "0.1.18",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
     "monaco-editor": "^0.52.0",

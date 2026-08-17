@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "noEmit": true,
+    "customConditions": ["trueforge-dev"],
+    "paths": {
+      "openai/resources/chat": ["../trueforge-core/node_modules/openai/resources/chat/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*", "scripts/**/*", "tsup.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

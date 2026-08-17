@@ -7,7 +7,7 @@ Pass an `overrides` object to replace a built-in component. Your version is used
 that component appears, without you having to find each place it is rendered.
 
 ```tsx
-import { TrueforgeUI, type AssistantMessageBubbleProps } from "@truefoundry/trueforge-ui";
+import { TrueForgeUI, type AssistantMessageBubbleProps } from "@truefoundry/trueforge-ui";
 
 function MyBubble({ children, error, actionBar, className }: AssistantMessageBubbleProps) {
   return (
@@ -19,7 +19,7 @@ function MyBubble({ children, error, actionBar, className }: AssistantMessageBub
   );
 }
 
-<TrueforgeUI
+<TrueForgeUI
   server={server}
   layout="sidebar"
   overrides={{ AssistantMessageBubble: MyBubble }}
@@ -101,7 +101,7 @@ names as you type inside the `overrides` object, and hovering a name shows the c
 signature you need to match. That is the fastest way to find a slot. The groups above list the
 ones most applications touch.
 
-## Overriding outside TrueforgeUI
+## Overriding outside TrueForgeUI
 
 If you compose providers manually, pass overrides to `SlotsProvider` and keep it outside
 `TrueFoundryChatProvider`:

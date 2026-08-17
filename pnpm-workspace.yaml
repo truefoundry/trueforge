@@ -9,14 +9,14 @@ allowBuilds:
   '@swc/core': true
   better-sqlite3: true
   esbuild: true
-  # Fern-generated SDK tests (packages/sdk) run msw's postinstall.
+  # Fern-generated SDK tests (packages/trueforge-sdk) run msw's postinstall.
   msw: true
   protobufjs: true
 
 # Silence peer mismatches between trueforge-ui peers and the versions we pin.
 peerDependencyRules:
   allowedVersions:
-    '@truefoundry/assistant-ui-runtime': '0.1.16'
+    '@truefoundry/assistant-ui-runtime': '0.1.18'
 
 # One Context module for assistant-ui (avoids "requires an AuiProvider").
 overrides:

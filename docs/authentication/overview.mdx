@@ -14,7 +14,7 @@ Login in TrueForge is **optional**. Run it without auth for personal, local use,
 | **OIDC login** | Hosted or shared team deployments | Sign-in with your IdP; each person is an `admin` or a `user` |
 
 <Note>
-  Standalone / local mode ignores OIDC even if the variables are set. OIDC login applies to hosted deployments (Docker Compose or Helm).
+  Standalone / local mode ignores OIDC even if the variables are set. OIDC login applies to hosted deployments (Docker Compose or Helm). Local mode is intended for personal use on your own machine — it is not a production or internet-facing setup. Please keep it on localhost; we cannot take responsibility for data loss or unauthorized access if it is used beyond that.
 </Note>
 
 ## Option A — leave login off
@@ -129,9 +129,9 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
 
     <Tabs>
       <Tab title="Docker Compose">
-        Add the variables to `packages/server/.env` (the source Compose reads):
+        Add the variables to `packages/trueforge/.env` (the source Compose reads):
 
-        ```bash packages/server/.env
+        ```bash packages/trueforge/.env
         PUBLIC_BASE_URL=https://trueforge.myorg.com
         OIDC_ISSUER_URL=https://integrator-XXXX.okta.com/oauth2/default
         OIDC_CLIENT_ID=0oa...
@@ -205,9 +205,7 @@ Each signed-in person maps to exactly one role, decided by the role claim in the
   - **The [Agent Library](/agent-library) is shared** — agents created by anyone are visible to everyone on the instance.
 </Note>
 
-## Call the API with a token (optional)
-
-The UI stores an HttpOnly cookie after login. For the [SDK](/api/overview), send the same ID token as `Authorization: Bearer <id_token>`. Obtain the token from your IdP (or reuse a browser session) — there is no device or client-credentials flow yet. Keep ID token lifetimes short at the IdP, since the same JWT unlocks the API as either a cookie or a bearer token.
+To call the HTTP API or SDK against a server with login enabled, pass an ID token — see [Call an authenticated API](/api/overview#call-an-authenticated-api).
 
 ## Troubleshooting
 
@@ -218,7 +216,7 @@ The UI stores an HttpOnly cookie after login. For the [SDK](/api/overview), send
 | `invalid client secret` | App is SPA/public — recreate it as a **Web** (confidential) app with a client secret |
 | Blank authorize screen when requesting `groups` | Custom Authorization Server is missing the `groups` scope and/or ID-token groups claim (Okta) |
 | Login works but everyone is `role: "user"` | Groups/roles claim missing from the ID token, wrong claim name, or admin value mismatch (case-sensitive) |
-| SDK returns `401` | OIDC is on and the request has no `Authorization: Bearer` header or session cookie |
+| SDK returns `401` | OIDC is on and the request has no [ID token](/api/overview#call-an-authenticated-api) or session cookie |
 
 ## Security checklist
 

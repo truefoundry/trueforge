@@ -34,13 +34,13 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 # ---------------------------------------------------------------------------
 FROM store AS workspace
 COPY package.json .npmrc tsconfig.base.json ./
-COPY packages/harness/package.json packages/harness/package.json
-COPY packages/server/package.json packages/server/package.json
-COPY packages/sdk/package.json packages/sdk/package.json
+COPY packages/trueforge-core/package.json packages/trueforge-core/package.json
+COPY packages/trueforge/package.json packages/trueforge/package.json
+COPY packages/trueforge-sdk/package.json packages/trueforge-sdk/package.json
 COPY packages/frontend/package.json packages/frontend/package.json
-COPY packages/trueforge-ui-sdk/package.json packages/trueforge-ui-sdk/package.json
-COPY packages/harness/scripts packages/harness/scripts
-COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox/scripts
+COPY packages/trueforge-ui/package.json packages/trueforge-ui/package.json
+COPY packages/trueforge-core/scripts packages/trueforge-core/scripts
+COPY packages/trueforge-core/src/core/sandbox/scripts packages/trueforge-core/src/core/sandbox/scripts
 
 # ---------------------------------------------------------------------------
 # builder: install all deps (incl. dev) and build trueforge-core + server.
@@ -48,8 +48,8 @@ COPY packages/harness/src/core/sandbox/scripts packages/harness/src/core/sandbox
 FROM workspace AS builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter @truefoundry/trueforge...
-COPY packages/harness packages/harness
-COPY packages/server packages/server
+COPY packages/trueforge-core packages/trueforge-core
+COPY packages/trueforge packages/trueforge
 RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge build
 
 # ---------------------------------------------------------------------------
@@ -58,9 +58,9 @@ RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundr
 FROM workspace AS frontend-builder
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --frozen-lockfile --offline --filter frontend...
-COPY packages/sdk packages/sdk
+COPY packages/trueforge-sdk packages/trueforge-sdk
 RUN pnpm --filter @truefoundry/trueforge-sdk build
-COPY packages/trueforge-ui-sdk packages/trueforge-ui-sdk
+COPY packages/trueforge-ui packages/trueforge-ui
 RUN pnpm --filter @truefoundry/trueforge-ui build
 COPY packages/frontend packages/frontend
 RUN pnpm --filter frontend build
@@ -80,21 +80,21 @@ ENV NODE_ENV=production
 
 # Production dependency tree (pnpm workspace symlinks preserved).
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=prod-deps /app/packages/harness/node_modules ./packages/harness/node_modules
-COPY --from=prod-deps /app/packages/server/node_modules ./packages/server/node_modules
+COPY --from=prod-deps /app/packages/trueforge-core/node_modules ./packages/trueforge-core/node_modules
+COPY --from=prod-deps /app/packages/trueforge/node_modules ./packages/trueforge/node_modules
 
 # Built workspace dependency (@truefoundry/trueforge-core).
-COPY --from=builder /app/packages/harness/package.json ./packages/harness/package.json
-COPY --from=builder /app/packages/harness/dist ./packages/harness/dist
+COPY --from=builder /app/packages/trueforge-core/package.json ./packages/trueforge-core/package.json
+COPY --from=builder /app/packages/trueforge-core/dist ./packages/trueforge-core/dist
 
 # Built server (JS). UI is copied below from the parallel frontend stage into
 # dist/_frontend — same path as the npm tarball / `pnpm build` copy step.
-COPY --from=builder /app/packages/server/package.json ./packages/server/package.json
-COPY --from=builder /app/packages/server/dist ./packages/server/dist
+COPY --from=builder /app/packages/trueforge/package.json ./packages/trueforge/package.json
+COPY --from=builder /app/packages/trueforge/dist ./packages/trueforge/dist
 # Frontend builds in a parallel stage; place it at the same path as the npm tarball.
-COPY --from=frontend-builder /app/packages/frontend/dist ./packages/server/dist/_frontend
+COPY --from=frontend-builder /app/packages/frontend/dist ./packages/trueforge/dist/_frontend
 
-WORKDIR /app/packages/server
+WORKDIR /app/packages/trueforge
 
 EXPOSE 8790
 
