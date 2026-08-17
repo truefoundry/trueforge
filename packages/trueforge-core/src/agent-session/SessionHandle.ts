@@ -360,7 +360,9 @@ export class SessionHandle<
     signal: AbortSignal;
   }): Promise<Map<string, AgentThread>> {
     const snapshots = input.previous?.snapshot.threads;
-    const threadIds = snapshots ? Object.keys(snapshots) : [MAIN_THREAD_ID];
+    // Build root first so shared turn configuration is ready before children.
+    const ids = snapshots ? Object.keys(snapshots) : [MAIN_THREAD_ID];
+    const threadIds = [MAIN_THREAD_ID, ...ids.filter(id => id !== MAIN_THREAD_ID)];
     const map = new Map<string, AgentThread>();
     for (const threadId of threadIds) {
       const data = snapshots?.[threadId];
