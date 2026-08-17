@@ -3,6 +3,7 @@
 import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useEffect } from 'react';
 
+import { withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
@@ -70,6 +71,17 @@ export function reconcileDraftSpecPreferences({
   return update;
 }
 
+export function reconcileDraftSandbox({
+  agentSpec,
+  sandboxEnabled,
+}: {
+  agentSpec: AgentSpec;
+  sandboxEnabled: boolean | null | undefined;
+}): Partial<AgentSpec> {
+  const nextSpec = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
+  return nextSpec === agentSpec ? {} : { config: nextSpec.config };
+}
+
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
@@ -79,6 +91,7 @@ export function DraftSpecPreferenceBridge() {
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const capabilities = useServerCapabilities();
+  const sandboxEnabled = capabilities?.sandbox.enabled;
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isPlainDraft = mode.status === 'active' && mode.isMutable && mode.agentId == null && pendingSessionId == null;
 
@@ -91,6 +104,14 @@ export function DraftSpecPreferenceBridge() {
       rememberDraftSpec(agentSpec);
     }
   }, [agentSpec, isPlainDraft, rememberDraftSpec]);
+
+  useEffect(() => {
+    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null) return;
+    const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled });
+    if (Object.keys(update).length > 0) {
+      updateAgentSpec(update);
+    }
+  }, [agentSpec, isPlainDraft, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;
