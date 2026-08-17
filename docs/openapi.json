@@ -5996,7 +5996,7 @@
                 }
               }
             },
-            "description": "Caller is not the session creator, or sandbox belongs to another tenant."
+            "description": "Caller is not the session creator."
           },
           "404": {
             "content": {
