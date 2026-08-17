@@ -25,11 +25,15 @@ interface ToolResultWithInfo {
 }
 
 function categorize(result: ToolCallResult, sandbox: Sandbox | undefined): ResultCategory {
-  if (result.failure) return 'failure';
+  if (result.failure) {
+    return 'failure';
+  }
   if (!result.info) {
     throw new Error(`Unreachable`);
   }
-  if (sandbox && result.info.toolSet === sandbox) return 'sandbox';
+  if (sandbox && result.info.toolSet === sandbox) {
+    return 'sandbox';
+  }
   return 'mcp';
 }
 

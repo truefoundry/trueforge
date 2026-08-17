@@ -175,7 +175,9 @@ export class CodeModeUdsTransport implements CodeModeTransport {
     // Oversized / malformed frames only tear down this connection (and notify
     // onProtocolError). Transport is handle-scoped and does not kill the process group.
     const fail = (message: string): void => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       this.onProtocolError?.(message);
       socket.destroy();
@@ -190,7 +192,9 @@ export class CodeModeUdsTransport implements CodeModeTransport {
     });
 
     socket.on('end', () => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
       settled = true;
       void this.dispatchConnection(socket, reader).catch((error: unknown) => {
         this.onProtocolError?.(error instanceof Error ? error.message : String(error));

@@ -123,7 +123,9 @@ export class RemoteMCP implements ToolSource {
   }
 
   private async resolveHeaders(): Promise<ResolveHeadersResult> {
-    if (typeof this.headers !== 'function') return { headers: this.headers };
+    if (typeof this.headers !== 'function') {
+      return { headers: this.headers };
+    }
     return await this.headers();
   }
 
@@ -132,7 +134,9 @@ export class RemoteMCP implements ToolSource {
     // can be revoked or expire mid-request, and callers must get authRequired rather than a generic
     // upstream failure. When already connected the resolved headers are unused (connect is skipped).
     const headersResult = await this.resolveHeaders();
-    if ('authRequired' in headersResult) return { authRequired: headersResult.authRequired };
+    if ('authRequired' in headersResult) {
+      return { authRequired: headersResult.authRequired };
+    }
     return this.connectAndRun(headersResult.headers, operation, true);
   }
 
@@ -179,7 +183,9 @@ export class RemoteMCP implements ToolSource {
       return { result: { tools: this.cachedTools }, wasInitialized: undefined };
     }
     const response = await this.executeWithSessionRetry(() => this.loadTools());
-    if ('authRequired' in response) return response;
+    if ('authRequired' in response) {
+      return response;
+    }
     return { result: { tools: response.result.tools }, wasInitialized: response.wasInitialized };
   }
 
@@ -202,7 +208,9 @@ export class RemoteMCP implements ToolSource {
         },
       ),
     );
-    if ('authRequired' in response) return response;
+    if ('authRequired' in response) {
+      return response;
+    }
     return { result: response.result, wasInitialized: response.wasInitialized };
   }
 
@@ -218,7 +226,9 @@ export class RemoteMCP implements ToolSource {
   }
 
   private async connectIfNeeded(headers: Record<string, string>): Promise<MCPServerInitInfo | undefined> {
-    if (this.isConnected) return undefined;
+    if (this.isConnected) {
+      return undefined;
+    }
     if (this.connectPromise) {
       // Wait for the in-flight connect, but only its originator emits the init metadata.
       await this.connectPromise;

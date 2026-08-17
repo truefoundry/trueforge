@@ -15,7 +15,9 @@ export function encodeOffsetPageToken(offset: number): string {
 }
 
 export function decodeOffsetPageToken(token: string | undefined): number {
-  if (token === undefined || token === '') return 0;
+  if (token === undefined || token === '') {
+    return 0;
+  }
   return decodePageToken(OffsetPageCursorSchema, token).offset;
 }
 

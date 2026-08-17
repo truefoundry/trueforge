@@ -258,9 +258,13 @@ function darwinUnixSocketPaths(): string[] {
 
 function syncDarwinUnixSockets(): void {
   // No-op until initSrt: register/unregister may run from transport-only tests.
-  if (SandboxManager.getConfig() === undefined) return;
+  if (SandboxManager.getConfig() === undefined) {
+    return;
+  }
   const platform = requireActivePlatform();
-  if (platform !== 'darwin') return;
+  if (platform !== 'darwin') {
+    return;
+  }
   SandboxManager.updateConfig(buildSessionConfig(platform));
 }
 
@@ -327,7 +331,9 @@ export function isSrtInitialized(): boolean {
  * Child is spawned as a process-group leader (`detached: true` on Unix).
  */
 export function killExecTree(child: ChildProcess | undefined): void {
-  if (!child) return;
+  if (!child) {
+    return;
+  }
   const pid = child.pid;
   if (pid !== undefined && process.platform !== 'win32') {
     try {
@@ -421,8 +427,11 @@ export async function runSupervisorSession(params: {
     stdinStream.on('error', () => undefined);
     await new Promise<void>((resolve, reject) => {
       stdinStream.end(stdin, (error?: Error | null) => {
-        if (error) reject(error);
-        else resolve();
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
       });
     });
   }
@@ -453,8 +462,11 @@ export async function runSupervisorSession(params: {
       return;
     }
     const text = chunk.toString('utf8');
-    if (stream === 'stdout') stdoutText += text;
-    else stderrText += text;
+    if (stream === 'stdout') {
+      stdoutText += text;
+    } else {
+      stderrText += text;
+    }
   };
 
   ignoreStreamError(child.stdout);
@@ -473,7 +485,9 @@ export async function runSupervisorSession(params: {
     }, timeoutMs);
 
     child.on('error', error => {
-      if (closed) return;
+      if (closed) {
+        return;
+      }
       closed = true;
       clearTimeout(timer);
       SandboxManager.cleanupAfterCommand();
@@ -481,7 +495,9 @@ export async function runSupervisorSession(params: {
     });
 
     child.on('close', code => {
-      if (closed) return;
+      if (closed) {
+        return;
+      }
       closed = true;
       clearTimeout(timer);
       SandboxManager.cleanupAfterCommand();

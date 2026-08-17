@@ -60,8 +60,11 @@ function isFailedBuildState(state: Snapshot['state']): boolean {
 /** Convert Daytona https preview URLs to wss for the NATS client. */
 function httpUrlToWsUrl(url: string): string {
   const parsed = new URL(url);
-  if (parsed.protocol === 'https:') parsed.protocol = 'wss:';
-  else if (parsed.protocol === 'http:') parsed.protocol = 'ws:';
+  if (parsed.protocol === 'https:') {
+    parsed.protocol = 'wss:';
+  } else if (parsed.protocol === 'http:') {
+    parsed.protocol = 'ws:';
+  }
   return parsed.toString();
 }
 
@@ -137,7 +140,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
       const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
     }
 
     const sandbox = sandboxId
@@ -158,15 +163,21 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
   private static recoverSandboxIfStopped(sandboxId: string): Promise<boolean> {
     const existing = DaytonaSandboxProvider.inFlightRecoveries.get(sandboxId);
-    if (existing) return existing;
+    if (existing) {
+      return existing;
+    }
 
     const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
     // Cache may have been evicted by a concurrent error path; signal retry so getOrCreateSandbox rebuilds via restoreExistingSandbox.
-    if (!cached) return Promise.resolve(true);
+    if (!cached) {
+      return Promise.resolve(true);
+    }
 
     const recovery = (async () => {
       await cached.sandbox.refreshData();
-      if (cached.sandbox.state === SANDBOX_STATE_STARTED) return false;
+      if (cached.sandbox.state === SANDBOX_STATE_STARTED) {
+        return false;
+      }
       // start() covers both stopped and archived per Daytona; throws on unrecoverable states (error/destroyed).
       await cached.sandbox.start();
       return true;
@@ -183,7 +194,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       return await operation();
     } catch (originalError) {
       // TODO: Narrow to a specific Daytona error code once @daytona/sdk exposes one for "sandbox not running".
-      if (!(originalError instanceof DaytonaError)) throw originalError;
+      if (!(originalError instanceof DaytonaError)) {
+        throw originalError;
+      }
 
       let recovered: boolean;
       try {
@@ -196,7 +209,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         throw new Error('Sandbox is unavailable; recovery attempt failed.', { cause: recoveryError });
       }
 
-      if (!recovered) throw originalError;
+      if (!recovered) {
+        throw originalError;
+      }
 
       try {
         return await operation();
@@ -410,7 +425,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           return await sandbox.fs.downloadFile(params.path);
         });
       } catch (e: unknown) {
-        if (e instanceof SandboxPathIsDirectoryError || e instanceof SandboxFileTooLargeError) throw e;
+        if (e instanceof SandboxPathIsDirectoryError || e instanceof SandboxFileTooLargeError) {
+          throw e;
+        }
         if (e instanceof DaytonaError && e.statusCode === SANDBOX_NOT_FOUND_STATUS) {
           throw new SandboxFileNotFoundError(params.path);
         }

@@ -46,7 +46,9 @@ export async function convertMCPServersToTools(params: {
 
   for (let i = 0; i < allServers.length; i++) {
     const listResult = listResults[i];
-    if (!listResult) continue;
+    if (!listResult) {
+      continue;
+    }
     const { serverName, response: listResponse } = listResult;
     if (isAuthRequired(listResponse)) {
       authRequirementInfo.push(listResponse.authRequired);
@@ -63,7 +65,9 @@ export async function convertMCPServersToTools(params: {
     }
     const sortedTools = [...mcpTools.tools].sort((a, b) => (a.name > b.name ? 1 : -1));
     for (const mcpTool of sortedTools) {
-      if (!mcpTool.preload) continue;
+      if (!mcpTool.preload) {
+        continue;
+      }
       const { name: toolName } = getUniqueSanitizedToolName(mcpTool.name, registeredNames);
       registeredNames.add(toolName);
       const description = `mcp server: ${serverName}\n${mcpTool.description ?? ''}`;

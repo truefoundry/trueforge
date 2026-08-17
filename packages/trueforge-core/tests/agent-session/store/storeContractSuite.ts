@@ -701,7 +701,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: undefined,
       });
       const middleSession = all.data[1];
-      if (!middleSession) throw new Error('expected middle session in list');
+      if (!middleSession) {
+        throw new Error('expected middle session in list');
+      }
       const middleCreatedAt = middleSession.created_at;
       const bounded = await store.listSessions({
         agent_id: undefined,
