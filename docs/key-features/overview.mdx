@@ -11,7 +11,7 @@ TrueForge is more than model + tools. These harness features keep long agent run
 | [Sandbox as a tool](/sandbox) | Isolated code/file execution without putting secrets or the agent loop inside the sandbox |
 | [Context engineering](#what-is-context-engineering) | Progressive skills, deferred tools, subagents, offloading, Code Mode, compaction |
 | [Tool approval](/create-agent/overview#whats-in-an-agent) | Pause before write/destructive MCP tools |
-| [Ask User Questions](/create-agent/overview#whats-in-an-agent) | Structured clarification mid-run |
+| [Ask clarifying questions](/create-agent/overview#whats-in-an-agent) | Structured clarification mid-run |
 | [Generative UI](/create-agent/overview#whats-in-an-agent) | Charts, tables, and cards streamed into chat |
 | [In-chat MCP OAuth](/mcp-servers#in-chat-authentication) | Connect button when a connector needs authorization |
 
@@ -97,7 +97,7 @@ Runtime context is where most of the **context bloat problem** happens. A single
     Delegate focused subtasks to parallel subagents, each with its own clean context. Only the final result flows back —
     the intermediate tool calls never touch the main context.
   </Card>
-  <Card title="Large Result Offloading" icon="file-export" href="/key-features/large-tool-responses">
+  <Card title="Large Tool Responses" icon="file-export" href="/key-features/large-tool-responses">
     When a tool returns more data than fits comfortably in context, the harness writes the full output to a sandbox file
     and replaces it with a short preview and the file path.
   </Card>
@@ -134,7 +134,7 @@ flowchart LR
     Preview --> Continue[Agent reads parts on demand via sandbox]
 ```
 
-The agent can then use sandbox tools to inspect the file, infer its schema, extract specific fields, or filter the data — all without the raw payload ever entering the conversation. See [Large Result Offloading](/key-features/large-tool-responses).
+The agent can then use sandbox tools to inspect the file, infer its schema, extract specific fields, or filter the data — all without the raw payload ever entering the conversation. See [Large Tool Responses](/key-features/large-tool-responses).
 
 ### Code Mode — process tool output in code
 

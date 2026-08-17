@@ -4,7 +4,7 @@ sidebarTitle: 'Use an agent'
 description: 'Run a saved agent with the TypeScript SDK: a complete example, then recipes for streaming, approvals, questions, threads, and reconnects.'
 ---
 
-The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk). For the mental model (Agent → Session → Turn → Event → Delta), start with [SDK Overview](/api/overview); for every event field, see [Turn events](/api/turn-events).
+The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk). For the mental model (Agent → Session → Turn → Event → Delta), start with [SDK Overview](/api/overview); for every event field, see [Turn events](/api/turn-events).
 
 <Note>
 Prerequisite: a named agent in the registry, or an inline [agent spec](/create-agent/overview#create-an-agent-via-the-api) you pass when creating the session. The examples below run the **`web-research-brief`** agent from the [Quickstart](/quickstart); build it there first, or swap in your own agent name / inline spec.
@@ -15,7 +15,7 @@ Every snippet is self-contained and runnable. They all use the `client` from [In
 ## Install and connect
 
 ```bash
-npm i -s @truefoundry/trueforge-sdk
+npm i @truefoundry/trueforge-sdk
 ```
 
 ```typescript
