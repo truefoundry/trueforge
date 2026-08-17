@@ -62,3 +62,7 @@ export async function deleteToken(db: Kysely<Database>, params: { id: string; us
     .where('user_id', '=', params.userRef)
     .execute();
 }
+
+export async function deleteTokensForServer(db: Kysely<Database>, params: { id: string }): Promise<void> {
+  await db.deleteFrom('oauth_token').where('oauth_server_id', '=', params.id).execute();
+}

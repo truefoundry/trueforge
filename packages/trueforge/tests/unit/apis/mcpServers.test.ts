@@ -306,7 +306,7 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
-  it('PUT URL change re-registers DCR and keeps existing tokens', async () => {
+  it('PUT URL change re-registers DCR and clears all tokens', async () => {
     const record = await seedDcrServerWithClient();
     await tokenStore.saveToken({
       id: record.id,
@@ -314,6 +314,16 @@ describe('mcp-servers routers', () => {
       token: {
         accessToken: 'stale-for-old-url',
         refreshToken: 'stale-refresh',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+    await tokenStore.saveToken({
+      id: record.id,
+      userRef: 'other-user',
+      token: {
+        accessToken: 'stale-other-user',
+        refreshToken: 'stale-other-refresh',
         expiresAt: '2099-01-01T00:00:00.000Z',
         scope: null,
       },
@@ -373,13 +383,11 @@ describe('mcp-servers routers', () => {
         ),
       );
       expect(response.status).toBe(200);
-      // List/GET auth_status is presence-based; tokens are not cleared on re-DCR.
       expect(await response.json()).toEqual({
-        data: configured({ ...putBodyWithDcr, url: newUrl }, 'authenticated'),
+        data: configured({ ...putBodyWithDcr, url: newUrl }, 'auth_required'),
       });
-      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toMatchObject({
-        accessToken: 'stale-for-old-url',
-      });
+      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+      expect(await tokenStore.getToken({ id: record.id, userRef: 'other-user' })).toBeUndefined();
       expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
         client: { clientId: 'new-url-client' },
       });
@@ -405,7 +413,6 @@ describe('mcp-servers routers', () => {
           },
         },
       });
-      await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
     }
   });
 

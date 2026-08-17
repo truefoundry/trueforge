@@ -129,6 +129,22 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
     expect(await h.store.getToken({ id: RESOURCE_ID, userRef: OTHER_USER_REF })).toEqual(forB);
   });
 
+  it('deleteTokensForServer removes every user token for that resource only', async () => {
+    const h = getHarness();
+    await h.seedResource(RESOURCE_ID);
+    await h.seedResource(OTHER_RESOURCE_ID);
+    const other = token({ accessToken: 'access-other' });
+    await h.store.saveToken({ id: RESOURCE_ID, userRef: USER_REF, token: token({ accessToken: 'access-a' }) });
+    await h.store.saveToken({ id: RESOURCE_ID, userRef: OTHER_USER_REF, token: token({ accessToken: 'access-b' }) });
+    await h.store.saveToken({ id: OTHER_RESOURCE_ID, userRef: USER_REF, token: other });
+
+    await h.store.deleteTokensForServer({ id: RESOURCE_ID });
+
+    expect(await h.store.getToken({ id: RESOURCE_ID, userRef: USER_REF })).toBeUndefined();
+    expect(await h.store.getToken({ id: RESOURCE_ID, userRef: OTHER_USER_REF })).toBeUndefined();
+    expect(await h.store.getToken({ id: OTHER_RESOURCE_ID, userRef: USER_REF })).toEqual(other);
+  });
+
   it('savePendingAuthorization + consumePendingAuthorization round-trips, including null fields', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);

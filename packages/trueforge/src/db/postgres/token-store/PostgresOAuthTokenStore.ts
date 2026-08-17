@@ -3,7 +3,7 @@ import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken, OAuthToke
 import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpServerStore';
 import type { Database } from '../types';
 import { consumePendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
-import { deleteToken, getToken, getTokens, saveToken } from './queries/token';
+import { deleteToken, deleteTokensForServer, getToken, getTokens, saveToken } from './queries/token';
 
 export class PostgresOAuthTokenStore implements IOAuthTokenStore<Transaction<Database>> {
   constructor(private readonly db: Kysely<Database>) {}
@@ -42,5 +42,9 @@ export class PostgresOAuthTokenStore implements IOAuthTokenStore<Transaction<Dat
 
   deleteToken(params: OAuthTokenKey, transaction?: Transaction<Database>): Promise<void> {
     return deleteToken(transaction ?? this.db, params);
+  }
+
+  deleteTokensForServer(params: { id: string }, transaction?: Transaction<Database>): Promise<void> {
+    return deleteTokensForServer(transaction ?? this.db, params);
   }
 }
