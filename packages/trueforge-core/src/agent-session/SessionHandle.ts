@@ -90,14 +90,14 @@ function collectContextAppends(
   })();
 }
 
-function cancelledTurnDoneEvent(): TurnDoneEvent {
+function cancelledTurnDoneEvent(reason: CancellationReason): TurnDoneEvent {
   return {
     type: EventType.TURN_DONE,
     id: newEventId(),
     created_at: new Date().toISOString(),
     state: {
       status: 'cancelled',
-      reason: CancellationReason.CancelledForNextTurn,
+      reason,
       completed_at: new Date().toISOString(),
     },
     thread_id: null,
@@ -179,10 +179,9 @@ export class SessionHandle<
   }): Promise<TurnHandle<TTurnCustom>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
     const previous = previousTurnId
-      ? await this.store.freezeAndGetTurn({
-          session_id: this.session.session_id,
+      ? await this.freezeTurn({
           turn_id: previousTurnId,
-          turn_done_event: cancelledTurnDoneEvent(),
+          reason: CancellationReason.CancelledForNextTurn,
         })
       : undefined;
 
@@ -307,6 +306,20 @@ export class SessionHandle<
       });
       throw error;
     }
+  }
+
+  /**
+   * Conditionally cancel a running turn in this session and return the
+   * now-immutable record. Already-terminal turns are returned unchanged.
+   * Missing turn → {@link TurnNotFoundError}.
+   */
+  async freezeTurn(input: { turn_id: string; reason: CancellationReason }): Promise<TurnRecord<TTurnCustom>> {
+    return this.store.freezeAndGetTurn({
+      session_id: this.session.session_id,
+      turn_id: input.turn_id,
+      reason: input.reason,
+      turn_done_event: cancelledTurnDoneEvent(input.reason),
+    });
   }
 
   /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
