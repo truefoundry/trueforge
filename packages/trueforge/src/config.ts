@@ -18,6 +18,10 @@ import { fileURLToPath } from 'node:url';
 import envPaths from 'env-paths';
 
 const DEFAULT_PORT = 8790;
+/** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
+const DEFAULT_HOST = 'localhost';
+/** Default HTTP request body ceiling: 30 MB. */
+const DEFAULT_MAX_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
 /**
  * Package root whether this module runs as `src/config.ts` (tsx) or is bundled
  * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
@@ -112,8 +116,12 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
     return defaultValue;
   }
   const value = raw.trim().toLowerCase();
-  if (value === 'true') return true;
-  if (value === 'false') return false;
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
@@ -276,6 +284,8 @@ export interface SharedServerConfiguration {
   NODE_ENV: string | undefined;
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
+  /** HTTP bind address. Env: `HOST`. Default `localhost`; production images use `0.0.0.0`. */
+  HOST: string;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
   EXECUTOR_ID: string;
   /**
@@ -323,6 +333,10 @@ export interface SharedServerConfiguration {
    * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
+  /**
+   * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
+   */
+  MAX_REQUEST_BODY_BYTES: number;
   /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
@@ -444,11 +458,13 @@ const standalone = parseBoolean({
 });
 
 const port = parsePort(getEnv('PORT'));
+const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
 
 const shared: SharedServerConfiguration = {
   LOG_LEVEL: getEnv('LOG_LEVEL', { defaultValue: 'info' }) ?? 'info',
   NODE_ENV: getEnv('NODE_ENV'),
   PORT: port,
+  HOST: host,
   EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
@@ -472,6 +488,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
+  }),
+  MAX_REQUEST_BODY_BYTES: parsePositiveInt({
+    envKey: 'MAX_REQUEST_BODY_BYTES',
+    raw: getEnv('MAX_REQUEST_BODY_BYTES'),
+    defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',

@@ -7,7 +7,7 @@ confirmModulesPurge: false
 allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true
-  better-sqlite3: true
+  better-sqlite3: false
   esbuild: true
   # Fern-generated SDK tests (packages/trueforge-sdk) run msw's postinstall.
   msw: true

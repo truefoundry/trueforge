@@ -57,14 +57,22 @@ function createTransport(
 }
 
 export function isSessionExpiredError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  if ('code' in error && error.code === 404) return true;
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if ('code' in error && error.code === 404) {
+    return true;
+  }
   return error.message.includes('HTTP 404') || error.message.toLowerCase().includes('session');
 }
 
 function isAuthError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  if ('code' in error && error.code === 401) return true;
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if ('code' in error && error.code === 401) {
+    return true;
+  }
   return error.message.includes('HTTP 401');
 }
 
@@ -78,7 +86,9 @@ function getTransportSessionId(transport: McpTransport): string | null {
 }
 
 function toConnectError(error: unknown): McpConnectionError {
-  if (error instanceof McpConnectionError) return error;
+  if (error instanceof McpConnectionError) {
+    return error;
+  }
   if (isAuthError(error)) {
     return new McpConnectionError('upstream returned 401 Unauthorized (check x-tfy-mcp-headers credentials)', 401, {
       cause: error,
@@ -160,10 +170,14 @@ export async function connectRemoteMcp(params: {
       await client.close().catch(() => {
         /* no-op */
       });
-      if (isAuthError(error)) throw toConnectError(error);
+      if (isAuthError(error)) {
+        throw toConnectError(error);
+      }
       // A session-expired error means the transport is right but the session is stale: surface it so
       // the caller reconnects fresh instead of falling through to a different transport.
-      if (params.sessionId && isSessionExpiredError(error)) throw toConnectError(error);
+      if (params.sessionId && isSessionExpiredError(error)) {
+        throw toConnectError(error);
+      }
       failures.push({ transport: transportType, error: error instanceof Error ? error.message.trim() : String(error) });
       continue;
     }

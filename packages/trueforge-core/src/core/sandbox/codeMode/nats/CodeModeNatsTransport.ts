@@ -71,7 +71,9 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     }
     const nc = this.nc;
     this.nc = undefined;
-    if (nc === undefined) return;
+    if (nc === undefined) {
+      return;
+    }
     try {
       await withTimeout(nc.drain(), NATS_DRAIN_TIMEOUT_MS);
     } catch (e) {
@@ -163,8 +165,12 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     const carrier: Record<string, string> = {};
     const traceparent = msg.headers?.get('traceparent');
     const tracestate = msg.headers?.get('tracestate');
-    if (traceparent) carrier['traceparent'] = traceparent;
-    if (tracestate) carrier['tracestate'] = tracestate;
+    if (traceparent) {
+      carrier['traceparent'] = traceparent;
+    }
+    if (tracestate) {
+      carrier['tracestate'] = tracestate;
+    }
 
     let request: CodeModeRequest;
     try {

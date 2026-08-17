@@ -118,7 +118,9 @@ export class TurnResourceResolver<
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<Sandbox | undefined> {
-    if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) return undefined;
+    if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) {
+      return undefined;
+    }
     this.#sandbox = await this.deps.sandboxProvider({
       spec: input.spec,
       existingSandboxId: input.existing?.sandbox_id,
@@ -234,7 +236,9 @@ export class TurnResourceResolver<
    */
   protected getOrCreateToolSource(input: { id: string; create: () => Promise<ToolSource> }): Promise<ToolSource> {
     const cached = this.#sources.get(input.id);
-    if (cached) return cached;
+    if (cached) {
+      return cached;
+    }
     const made = input.create();
     this.#sources.set(input.id, made);
     return made;

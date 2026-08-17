@@ -38,8 +38,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * position carries meaning in `required`, `enum` and `anyOf`.
  */
 function canonicalise(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalise);
-  if (!isRecord(value)) return value;
+  if (Array.isArray(value)) {
+    return value.map(canonicalise);
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
   return Object.fromEntries(
     Object.keys(value)
       .sort()

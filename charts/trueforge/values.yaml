@@ -1,34 +1,28 @@
 # Default values for the trueforge chart.
 
 replicaCount: 1
-
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: ""
+  tag: "0.1.0-fd2f350"
   pullPolicy: IfNotPresent
-
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
 # overriding image.repository / subchart registries to a private registry.
 nameOverride: ""
 fullnameOverride: ""
-
 serviceAccount:
   create: true
   annotations: {}
   # If empty and create is true, a name is generated from the fullname.
   name: ""
-
 podAnnotations: {}
 podLabels: {}
 podSecurityContext: {}
 securityContext: {}
-
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
-
 # Rolling update controls (omit keys you do not want to set).
 strategy: {}
 # strategy:
@@ -42,7 +36,6 @@ service:
   port: 8790
   annotations: {}
   labels: {}
-
 # Server runtime configuration. Keys map to environment variables read in
 # packages/trueforge/src/config.ts.
 server:
@@ -57,7 +50,6 @@ server:
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
-
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
 # { valueFrom: { secretKeyRef: ... } }.
@@ -80,7 +72,6 @@ configs:
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
-
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
 # defaults no longer pull. We source pinned legacy images from the TrueFoundry
@@ -89,7 +80,6 @@ configs:
 global:
   security:
     allowInsecureImages: true
-
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
 # wired to this release automatically. See the Bitnami postgresql chart for the
@@ -115,7 +105,6 @@ postgresql:
     persistence:
       enabled: true
       size: 8Gi
-
 # --- Bundled Redis (Bitnami subchart) ------------------------------------------
 # Rendered only when redis.enabled is true. Auth is disabled (dev default) so
 # REDIS_URL is a plain redis://host:6379. Safe only while Redis stays inside
@@ -135,7 +124,6 @@ redis:
   master:
     persistence:
       enabled: false
-
 # --- External services (used when the matching bundled dependency is disabled) -
 externalPostgres:
   host: ""
@@ -149,7 +137,6 @@ externalPostgres:
   #     secretKeyRef:
   #       name: my-postgres-secret
   #       key: password
-
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
@@ -159,7 +146,6 @@ externalRedis:
   #     secretKeyRef:
   #       name: my-redis-secret
   #       key: redis-url
-
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
@@ -182,17 +168,13 @@ externalRedis:
 #                 port:
 #                   number: '{{ .Values.service.port }}'
 extraObjects: []
-
 # Init containers and sidecar containers (full container specs).
 initContainers: []
 extraContainers: []
-
 # Extra volumes / mounts on the server container (e.g. CA bundles, projected tokens).
 extraVolumes: []
 extraVolumeMounts: []
-
 resources: {}
-
 # startupProbe runs until success before liveness/readiness; sized for migrate + Redis connect.
 startupProbe:
   httpGet:
@@ -201,7 +183,6 @@ startupProbe:
   periodSeconds: 5
   timeoutSeconds: 5
   failureThreshold: 30
-
 livenessProbe:
   httpGet:
     path: /healthz
@@ -210,7 +191,6 @@ livenessProbe:
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 6
-
 readinessProbe:
   httpGet:
     path: /healthz
@@ -219,20 +199,17 @@ readinessProbe:
   periodSeconds: 10
   timeoutSeconds: 5
   failureThreshold: 6
-
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
-
 podDisruptionBudget:
   enabled: false
   # Exactly one of minAvailable or maxUnavailable is required when enabled.
   # Default keeps at least one pod available during voluntary disruptions.
   minAvailable: 1
   maxUnavailable: ""
-
 nodeSelector: {}
 tolerations: []
 affinity: {}

@@ -44,7 +44,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Tool approval (API only)" icon="user-shield">
     Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
 
-    By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as destructive, the agent pauses for approval before running it. Read-only tools run autonomously.
+    By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as **write or destructive** (the default `["@write", "@destructive"]`), the agent pauses for approval before running it. Read-only tools run autonomously.
 
     <Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
       <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
@@ -90,7 +90,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
     **Set in:** UI + API
   </Accordion>
 
-  <Accordion title="Ask user questions" icon="circle-question">
+  <Accordion title="Ask clarifying questions" icon="circle-question">
     Lets the agent pause at a decision it shouldn't guess — which environment to deploy to, which of several matches the user meant, an ambiguous required field — show a multiple-choice prompt, and resume with the chosen answer. On by default.
 
     <Frame caption="The chat UI renders the question and options as a selectable card.">

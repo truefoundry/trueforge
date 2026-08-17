@@ -26,7 +26,9 @@ import { unnestWithOrdinality, values } from '../sqlExpressions';
 import { classifyTurnFenceWriteFailure, turnRunningFence } from './turns';
 
 export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
-  if (input.events.length === 0) return;
+  if (input.events.length === 0) {
+    return;
+  }
 
   const keys = {
     session_id: input.session_id,
@@ -188,11 +190,17 @@ export async function resolveAncestorChain(
       .where('session_id', '=', sessionId)
       .where('turn_id', '=', oldestId)
       .executeTakeFirst();
-    if (!oldest) break;
+    if (!oldest) {
+      break;
+    }
     const older = oldest.ancestor_ids.filter(id => !seen.has(id));
-    if (older.length === 0) break;
+    if (older.length === 0) {
+      break;
+    }
     chain.unshift(...older);
-    for (const id of older) seen.add(id);
+    for (const id of older) {
+      seen.add(id);
+    }
     oldestId = older[0];
   }
   return chain;

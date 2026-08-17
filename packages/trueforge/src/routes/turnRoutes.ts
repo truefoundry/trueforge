@@ -224,6 +224,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Requested action cannot be performed on the session because it is no longer usable.',
     },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES).',
+    },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:

@@ -160,7 +160,9 @@ export const CreateTurnRequestSchema = z
       .describe('When true (default), stream turn events as SSE. When false, return the running turn immediately.'),
   })
   .superRefine((data, ctx) => {
-    if (!data.input) return;
+    if (!data.input) {
+      return;
+    }
     const hasUser = data.input.some(msg => 'type' in msg && msg.type === 'user.message');
     const hasApprovalOrToolResponse = data.input.some(
       msg => 'type' in msg && (msg.type === 'user.tool_approval' || msg.type === 'user.tool_response'),

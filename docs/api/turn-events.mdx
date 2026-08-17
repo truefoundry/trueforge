@@ -6,6 +6,10 @@ description: 'Every event type streamed while a turn runs — lifecycle, model o
 
 While a turn runs, the SDK streams events to your app. Each event is a JSON object; the stream also carries a **sequence number** you can use to [reconnect](/api/use-agent) after a disconnect without missing or double-processing events.
 
+<Note>
+  Field names on this page use the HTTP/JSON wire format (snake_case, e.g. `turn_id`, `source_event_id`). The TypeScript SDK returns the same fields camelCased (`turnId`, `sourceEventId`) — so a field you see here maps directly to its camelCase form in SDK code.
+</Note>
+
 Every event carries:
 
 | Field        | Description                                                                                                                                                                                                        |

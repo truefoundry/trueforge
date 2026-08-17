@@ -11,8 +11,10 @@
 
 FROM node:24-slim AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-ENV STANDALONE=false
+# HOST=0.0.0.0 so Kubernetes Service/probe traffic reaches the process.
+ENV NODE_ENV=production \
+    STANDALONE=false \
+    HOST=0.0.0.0
 
 ARG APP_VERSION
 RUN test -n "$APP_VERSION" || (echo "APP_VERSION build-arg is required" >&2 && exit 1)
