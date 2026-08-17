@@ -1,5 +1,16 @@
 # @truefoundry/trueforge
 
+## 0.1.1
+
+### Patch Changes
+
+- 69237db: Await Daytona snapshot registration on sandbox provider configure so auth failures return 422 instead of a false pending status, and keep GET status refreshes persisted.
+- f056973: Reject oversized HTTP request bodies with 413 via config-driven Hono bodyLimit (MAX_REQUEST_BODY_BYTES).
+- 9a4d1a7: Add opt-in `withRouter` URL sync for shell places (`/`, `/agents/:agentName`, `/sessions/:sessionId`, `/settings`), with path customization via `routes` and `react-router-dom` as an optional peer. Serve the app shell for client-side deep links from the TrueForge server.
+- Updated dependencies [69237db]
+- Updated dependencies [7783fc0]
+  - @truefoundry/trueforge-core@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
