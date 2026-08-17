@@ -90,14 +90,14 @@ function collectContextAppends(
   })();
 }
 
-function cancelledTurnDoneEvent(): TurnDoneEvent {
+function cancelledTurnDoneEvent(reason: CancellationReason): TurnDoneEvent {
   return {
     type: EventType.TURN_DONE,
     id: newEventId(),
     created_at: new Date().toISOString(),
     state: {
       status: 'cancelled',
-      reason: CancellationReason.CancelledForNextTurn,
+      reason,
       completed_at: new Date().toISOString(),
     },
     thread_id: null,
@@ -182,7 +182,8 @@ export class SessionHandle<
       ? await this.store.freezeAndGetTurn({
           session_id: this.session.session_id,
           turn_id: previousTurnId,
-          turn_done_event: cancelledTurnDoneEvent(),
+          reason: CancellationReason.CancelledForNextTurn,
+          turn_done_event: cancelledTurnDoneEvent(CancellationReason.CancelledForNextTurn),
         })
       : undefined;
 

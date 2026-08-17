@@ -11,7 +11,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TerminalTurnState } from '../schemas/turn';
+import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
 
 /**
  * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
@@ -107,6 +107,8 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
 export interface FreezeAndGetTurnInput {
   session_id: string;
   turn_id: string;
+  /** Written onto the turn row when the freeze actually cancels a running turn. */
+  reason: CancellationReason;
   /** Caller-built cancelled turn.done event; store persists atomically with state flip when it cancels. */
   turn_done_event: PersistedTurnEvent;
 }
@@ -279,11 +281,10 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * One tx: (a) conditionally cancel a running turn with
-   * {@link CancellationReason.CancelledForNextTurn}; (b) if it did cancel,
-   * insert the caller-built `turn_done_event` — already-terminal turns skip the
-   * event insert; (c) return the now-immutable turn record. Missing turn →
-   * {@link TurnNotFoundError}.
+   * One tx: (a) conditionally cancel a running turn with `reason`; (b) if it
+   * did cancel, insert the caller-built `turn_done_event` — already-terminal
+   * turns skip the event insert; (c) return the now-immutable turn record.
+   * Missing turn → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 

@@ -97,6 +97,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       () =>
         store.freezeAndGetTurn({
           ...keys,
+          reason: CancellationReason.ClientCancelled,
           turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.ClientCancelled)),
         }),
       () =>
@@ -1218,9 +1219,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const record = await store.freezeAndGetTurn({
         session_id: sessionId,
         turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
         turn_done_event: makeTurnDoneEvent(cancelledState),
       });
       expect(record.state.status).toBe('cancelled');
+      expect(record.state).toMatchObject({ reason: CancellationReason.CancelledForNextTurn });
       const { data } = await store.listTurnEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -1295,6 +1298,23 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       }
     });
 
+    it('cancels a running turn with the caller-supplied reason', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const cancelledState = makeCancelledTurnState(CancellationReason.ClientCancelled);
+      const record = await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.ClientCancelled,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+      expect(record.state).toMatchObject({
+        status: 'cancelled',
+        reason: CancellationReason.ClientCancelled,
+      });
+    });
+
     it('on an already-terminal turn is a plain read without duplicating turn.done', async () => {
       const store = createStore();
       await seedSession(store);
@@ -1304,6 +1324,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.freezeAndGetTurn({
         session_id: sessionId,
         turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
         turn_done_event: makeTurnDoneEvent(doneState),
       });
       const { data } = await store.listTurnEvents({
@@ -1325,11 +1346,13 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.freezeAndGetTurn({
           session_id: sessionId,
           turn_id: 'turn-1',
+          reason: CancellationReason.CancelledForNextTurn,
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
         store.freezeAndGetTurn({
           session_id: sessionId,
           turn_id: 'turn-1',
+          reason: CancellationReason.CancelledForNextTurn,
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
       ]);
@@ -1356,6 +1379,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.freezeAndGetTurn({
           session_id: sessionId,
           turn_id: 'turn-1',
+          reason: CancellationReason.CancelledForNextTurn,
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
         store.updateTurnState({

@@ -5,18 +5,22 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
+  EventType,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
+  TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import type {
-  RouteHandler as RequestReplyRouteHandler,
-  RequestReplyRouter,
+import { extractErrorLogFields, newEventId } from '@truefoundry/trueforge-core/core';
+import {
+  redisRequest,
+  RequestTimeoutError,
+  type RouteHandler as RequestReplyRouteHandler,
+  type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
-import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
-import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
+import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';
@@ -76,6 +80,7 @@ export interface SessionsRouterDeps {
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveUserContext: ResolveUserContext;
+  logger: Logger;
 }
 
 function cancelTurnOnThisExecutor(
@@ -112,17 +117,57 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
   };
 }
 
-/** A registry to abort in, durable state to read, and a way to reach peers. */
+/** A registry to abort in, durable state to read/freeze, and a way to reach peers. */
 export interface CancelTurnDeps {
   activeTurns: ActiveTurnRegistry;
-  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  sessionStore: Pick<ISessionStore, 'getTurn' | 'freezeAndGetTurn'>;
   redis?: RedisClientType | undefined;
+  logger: Pick<Logger, 'warn'>;
+}
+
+/** Freeze a running turn; missing turns are a no-op (already gone). */
+async function freezeTurn(
+  sessionStore: Pick<ISessionStore, 'freezeAndGetTurn'>,
+  input: { sessionId: string; turnId: string; reason: CancellationReason },
+): Promise<void> {
+  const completedAt = new Date().toISOString();
+  const turnDoneEvent = {
+    type: EventType.TURN_DONE,
+    id: newEventId(),
+    created_at: completedAt,
+    state: {
+      status: 'cancelled' as const,
+      reason: input.reason,
+      completed_at: completedAt,
+    },
+    thread_id: null,
+  };
+  try {
+    await sessionStore.freezeAndGetTurn({
+      session_id: input.sessionId,
+      turn_id: input.turnId,
+      reason: input.reason,
+      turn_done_event: turnDoneEvent,
+    });
+  } catch (error) {
+    if (error instanceof TurnNotFoundError) {
+      return;
+    }
+    throw error;
+  }
 }
 
 /**
  * Cancels the turn wherever it runs: locally or on the owning peer over Redis
  * request-reply. Callers state the motive; default is a plain client cancel.
- * Owner failures throw HTTPException (412 unreachable, 424 timed out).
+ *
+ * A confirmed abort (this process, or peer HTTP 200) lets TurnHandle persist
+ * the terminal state. If abort cannot be confirmed, this replica freezes the
+ * turn in the store so the session is not stuck `running`.
+ *
+ * Redis timeout and Redis/transport failures are not a clean cancellation —
+ * the owning replica may still be executing — but the turn is still frozen.
+ * Later writes from that replica lose to first-terminal-write-wins.
  */
 export async function cancelSessionTurn(
   deps: CancelTurnDeps,
@@ -141,7 +186,7 @@ export async function cancelSessionTurn(
 
   const owner = executorFromTurnId(turnId);
   // Without a Redis client there is no peer to ask, so an id naming another
-  // replica falls through to the local lookup and finds nothing.
+  // replica falls through to the local lookup and freezes if the run is gone.
   if (owner !== configuration.EXECUTOR_ID && deps.redis) {
     try {
       const reply = await redisRequest<CancelPeerBody>({
@@ -156,34 +201,30 @@ export async function cancelSessionTurn(
           pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
         },
       });
-      if (reply.status !== 200 && reply.status !== 412) {
-        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor', cause: reply });
+      if (reply.status === 200) {
+        return;
       }
     } catch (error) {
-      if (error instanceof NoResponderError) {
-        throw new HTTPException(412, {
-          message: `Executor owning the running turn is unreachable: ${owner}`,
-          cause: error,
-        });
-      }
+      const fields = {
+        sessionId,
+        turnId,
+        owner,
+        ...extractErrorLogFields(error),
+      };
       if (error instanceof RequestTimeoutError) {
-        throw new HTTPException(424, {
-          message: 'Timed out waiting for the owning executor to cancel the turn',
-          cause: error,
-        });
+        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', fields);
+      } else {
+        deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', fields);
       }
-      if (error instanceof HTTPException) {
-        throw error;
-      }
-      throw new HTTPException(500, {
-        message: `Unexpected error while cancelling the turn on the owning executor: ${owner}`,
-        cause: error,
-      });
     }
+    await freezeTurn(deps.sessionStore, { sessionId, turnId, reason });
     return;
   }
 
-  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  const aborted = cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  if (!aborted) {
+    await freezeTurn(deps.sessionStore, { sessionId, turnId, reason });
+  }
 }
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
