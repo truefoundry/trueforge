@@ -23,7 +23,7 @@ interface TurnStreamData {
 </Note>
 
 `sequenceNumber` must increase monotonically within a turn. It is what
-[`subscribeToTurn`](/ui-sdk/concepts/server-contract#agentchatserver) uses to resume — a reconnecting
+[`subscribeToTurn`](/ui-sdk/setup-custom-servers/server-contract#agentchatserver) uses to resume — a reconnecting
 client passes the last number it saw as `afterSequenceNumber`, and you replay only what follows.
 
 ```ts
@@ -222,7 +222,7 @@ interface McpAuthRequiredEvent {
 }
 ```
 
-`authUrl` is the URL the popup opens. See [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+`authUrl` is the URL the popup opens. See [MCP OAuth](/ui-sdk/setup-custom-ui/mcp-oauth).
 
 <Note>
   These events also appear in `requiredActions` on a `done` turn state. That is how a turn that
@@ -231,7 +231,7 @@ interface McpAuthRequiredEvent {
 </Note>
 
 The user's reply comes back through `createTurn` as a `user.tool_approval` or
-`user.tool_response` [input item](/ui-sdk/concepts/server-contract#turn-input), carrying the same
+`user.tool_response` [input item](/ui-sdk/setup-custom-servers/server-contract#turn-input), carrying the same
 `toolCallId`.
 
 ## Sub-agents
@@ -277,7 +277,7 @@ interface SandboxCreatedEvent {
 ```
 
 `sandboxId` is what you pass to
-[`downloadSandboxFile`](/ui-sdk/concepts/server-contract#agentchatserver) to retrieve artifacts the
+[`downloadSandboxFile`](/ui-sdk/setup-custom-servers/server-contract#agentchatserver) to retrieve artifacts the
 agent produced.
 
 `mcp.initialize` (`{ type, id, createdAt, threadId }`, plus any additional fields you attach)

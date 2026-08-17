@@ -1,0 +1,188 @@
+name: Build and prepare chart release
+
+# Prod lane: build the npm-install Dockerfile, push {appVersion}-{shortSha},
+# then open/update the chart-release bot PR (merge of that PR tags + publishes).
+#
+# Triggered manually, including by release.yml through workflow_dispatch.
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: npm version to install (empty = Chart.yaml appVersion)
+        required: false
+        type: string
+      update_app_version:
+        description: Also set Chart.yaml appVersion to app_version on the bot PR
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-image-and-chart
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: Resolve versions
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.resolve.outputs.app_version }}
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      update_app_version: ${{ steps.resolve.outputs.update_app_version }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Resolve app version and image tag
+        id: resolve
+        env:
+          INPUT_APP_VERSION: ${{ inputs.app_version }}
+          INPUT_UPDATE_APP_VERSION: ${{ inputs.update_app_version }}
+        run: |
+          set -euo pipefail
+          CHART_APP=$(yq -r '.appVersion' charts/trueforge/Chart.yaml | tr -d '"')
+          if [[ -n "${INPUT_APP_VERSION}" ]]; then
+            APP_VERSION="$INPUT_APP_VERSION"
+          else
+            APP_VERSION="$CHART_APP"
+          fi
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "null" ]]; then
+            echo "Could not resolve APP_VERSION" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$APP_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "APP_VERSION '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          IMAGE_TAG="${APP_VERSION}-${SHORT_SHA}"
+          UPDATE_APP="${INPUT_UPDATE_APP_VERSION:-false}"
+          # workflow_dispatch boolean can be the string "true"/"false"
+          if [[ "$UPDATE_APP" == "true" ]]; then
+            UPDATE_OUT=true
+          else
+            UPDATE_OUT=false
+          fi
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "update_app_version=$UPDATE_OUT" >> "$GITHUB_OUTPUT"
+          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG update_app_version=$UPDATE_OUT"
+
+  build:
+    name: Build and push server image
+    needs: [resolve]
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: trueforge
+      image_tag: ${{ needs.resolve.outputs.image_tag }}
+      image_context: .
+      dockerfile_path: Dockerfile
+      image_build_args: |
+        APP_VERSION=${{ needs.resolve.outputs.app_version }}
+      platforms: linux/amd64
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+
+  open-chart-pr:
+    name: Open chart release PR
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      PR_BRANCH: release-chart/trueforge
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Update chart metadata
+        id: chart
+        env:
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+          UPDATE_APP_VERSION: ${{ needs.resolve.outputs.update_app_version }}
+        run: |
+          set -euo pipefail
+          SEMVER='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$'
+          CURRENT=$(yq -r '.version' charts/trueforge/Chart.yaml)
+          if [[ ! "$CURRENT" =~ $SEMVER ]]; then
+            echo "Chart.yaml version '$CURRENT' on $GITHUB_REF_NAME is not semver" >&2
+            exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+          # create-pull-request rebuilds the PR branch from base plus this
+          # workspace, so a reviewer's major/minor bump on the open PR is dropped
+          # unless it is re-applied here. Only outrank the patch bump: a PR
+          # version at or below it means base already absorbed that release.
+          if git ls-remote --exit-code --heads origin "$PR_BRANCH" >/dev/null 2>&1; then
+            git fetch --depth=1 origin "$PR_BRANCH"
+            PR_VERSION=$(git show FETCH_HEAD:charts/trueforge/Chart.yaml | yq -r '.version')
+            if [[ "$PR_VERSION" =~ $SEMVER ]] &&
+              (( BASH_REMATCH[1] > MAJOR ||
+                 (BASH_REMATCH[1] == MAJOR && BASH_REMATCH[2] > MINOR) ||
+                 (BASH_REMATCH[1] == MAJOR && BASH_REMATCH[2] == MINOR && BASH_REMATCH[3] > PATCH + 1) )); then
+              echo "Keeping chart version $PR_VERSION from $PR_BRANCH (over $VERSION)"
+              VERSION="$PR_VERSION"
+            fi
+          fi
+          export VERSION IMAGE_TAG APP_VERSION
+          yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
+          yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
+          if [[ "$UPDATE_APP_VERSION" == "true" ]]; then
+            yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
+          fi
+          APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update chart-release PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.PR_BRANCH }}
+          base: main
+          commit-message: 'release(chart): ${{ steps.chart.outputs.version }}'
+          title: 'release(chart): ${{ steps.chart.outputs.version }} (image ${{ needs.resolve.outputs.image_tag }})'
+          body: |
+            ## Chart release
+
+            | Field | Value |
+            | --- | --- |
+            | Chart version | `${{ steps.chart.outputs.version }}` |
+            | appVersion | `${{ steps.chart.outputs.app_version }}` |
+            | image.tag | `${{ needs.resolve.outputs.image_tag }}` |
+
+            Merging this PR creates `charts/trueforge@${{ steps.chart.outputs.version }}`,
+            creates a GitHub Release, and publishes the OCI Helm chart.
+          add-paths: |
+            charts/trueforge/Chart.yaml
+            charts/trueforge/values.yaml

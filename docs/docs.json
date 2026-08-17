@@ -76,7 +76,6 @@
               {
                 "group": "Frontend Customisation",
                 "pages": [
-                  "ui-sdk/guides/layouts",
                   "ui-sdk/guides/layouts-and-theme",
                   "ui-sdk/guides/agent-modes",
                   "ui-sdk/setup-custom-ui/custom-theme",

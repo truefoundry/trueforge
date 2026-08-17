@@ -873,6 +873,26 @@ describe("SessionsClient", () => {
             .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(413)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnStream("session_id", {});
+        }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
+    });
+
+    test("create_turn_stream (7)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { stream: true };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(422)
             .jsonBody(rawResponseBody)
             .build();
@@ -1009,6 +1029,26 @@ describe("SessionsClient", () => {
     });
 
     test("create_turn (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { stream: false };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(413)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurn("session_id", {});
+        }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
+    });
+
+    test("create_turn (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: false };

@@ -296,8 +296,8 @@ try {
     await requestReplyExecutor.init();
   }
 
-  const server = serve({ fetch: app.fetch, port: configuration.PORT }, info => {
-    logger.info(`Agent server listening on http://localhost:${String(info.port)} (docs at /api/v1/docs)`);
+  const server = serve({ fetch: app.fetch, port: configuration.PORT, hostname: configuration.HOST }, info => {
+    logger.info(`Agent server listening on http://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`);
   });
 
   server.on('error', (error: unknown) => {

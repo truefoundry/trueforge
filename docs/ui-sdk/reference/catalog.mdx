@@ -3,7 +3,7 @@ title: "Settings catalog"
 description: "The optional catalog port behind the model, connector, skill, and sandbox settings."
 ---
 
-`catalog` is the optional fourth part of an [`AgentUIServer`](/ui-sdk/concepts/server-contract). Attach
+`catalog` is the optional fourth part of an [`AgentUIServer`](/ui-sdk/setup-custom-servers/server-contract). Attach
 it and the settings UI appears; omit it and those surfaces stay hidden.
 
 ```ts
@@ -245,7 +245,7 @@ must render either way.
 ## Widening
 
 Every catalog interface is generic over its row and request types, following the same pattern as
-[the chat and builder ports](/ui-sdk/concepts/server-contract#widening-the-types):
+[the chat and builder ports](/ui-sdk/setup-custom-servers/server-contract#widening-the-types):
 
 ```ts
 interface MyModelEntry extends ModelEntry {

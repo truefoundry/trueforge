@@ -24,7 +24,7 @@ const capabilities = useServerCapabilities();
 Returns the resolved value from your server's `getCapabilities()`, or `null` while it is still
 loading or if the call failed. Use it to gate your own chrome the same way the SDK gates its
 sandbox, skill, and settings affordances. See
-[Server contract](/ui-sdk/concepts/server-contract#capabilities).
+[Server contract](/ui-sdk/setup-custom-servers/server-contract#capabilities).
 
 ## MCP auth
 
@@ -34,7 +34,7 @@ const auth = useMCPAuth({ callbackPath: "/mcp-callback" });
 
 `MCP_AUTH_POPUP_CHANNEL` is `"truefoundry-mcp-auth-popup"` — the `BroadcastChannel` name used
 to signal completion back to the opener. Types: `McpAuthCallback`, `McpAuthPopupMessage`,
-`UseMCPAuthOptions`. See [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+`UseMCPAuthOptions`. See [MCP OAuth](/ui-sdk/setup-custom-ui/mcp-oauth).
 
 ## assistant-ui state
 
