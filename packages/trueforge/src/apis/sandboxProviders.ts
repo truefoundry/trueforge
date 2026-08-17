@@ -80,7 +80,6 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           logger: deps.logger,
           ...(locked ? { build_metadata: locked.build_metadata } : {}),
         });
-        // Awaits register-only POST (~1s). Auth failures throw here → 422 below; progress is on GET.
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );

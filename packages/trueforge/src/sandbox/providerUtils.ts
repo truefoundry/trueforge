@@ -104,11 +104,6 @@ export async function checkSnapshotStatus({
     build = await provider.getImageBuildStatus();
   }
   const next = toSandboxStatus(build);
-  // GET is a reader: it only persists terminal states (ready/failed) observed from Daytona.
-  // `pending` is transient and re-derived on every read, so never write it back.
-  if (next.status === 'pending') {
-    return next;
-  }
   const updated = await store.updateSandboxStatus({ tenant_id, ...next });
   return updated ? sandboxStatusFromRecord(updated) : next;
 }
