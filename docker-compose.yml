@@ -39,6 +39,8 @@ services:
   server:
     build:
       context: .
+      # From-source image; root Dockerfile is the npm-install prod recipe.
+      dockerfile: Dockerfile.dev
     image: truefoundry-server:latest
     ports:
       # Host 8791 avoids conflict with host `pnpm dev` on 8790.

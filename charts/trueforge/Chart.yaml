@@ -2,9 +2,8 @@ apiVersion: v2
 name: trueforge
 description: TrueForge server (API + UI) served from a single container image.
 type: application
-# version (chart) and appVersion are stamped at publish time by
-# .github/workflows/release-image-and-chart.yml (workflow_dispatch, commit SHA);
-# committed values are placeholders until that workflow runs.
+# version / appVersion are maintained on main (bot chart-release PR or human).
+# Publishing is gated by git tag charts/trueforge@<version> (must match version).
 version: 0.0.1
 appVersion: "0.0.1"
 kubeVersion: ">=1.25.0-0"
