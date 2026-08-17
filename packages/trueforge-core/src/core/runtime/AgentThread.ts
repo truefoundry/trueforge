@@ -120,7 +120,9 @@ function assertValidTransition(from: AgentThreadState, to: AgentThreadState): vo
 
 function deriveAgentThreadState(context: ContextMessage[]): AgentThreadState {
   const openToolCallIds = getOpenToolCallIds(context);
-  if (openToolCallIds.size === 0) return 'llm-call-required';
+  if (openToolCallIds.size === 0) {
+    return 'llm-call-required';
+  }
 
   const assistant = lastAssistantInContext(context);
   const decisions = scanApprovalDecisions(context);
@@ -146,15 +148,23 @@ function getOpenToolCallIds(context: ContextMessage[]): Set<string> {
   const openToolCallIds = new Set<string>();
   for (let i = context.length - 1; i >= 0; i--) {
     const msg = context[i];
-    if (msg === undefined) continue;
-    if (!isLLMContextMessage(msg)) continue;
+    if (msg === undefined) {
+      continue;
+    }
+    if (!isLLMContextMessage(msg)) {
+      continue;
+    }
     if (msg.role === 'tool') {
       resolvedToolCallIds.add(msg.tool_call_id);
       continue;
     }
     if (msg.role === 'assistant') {
-      for (const tc of msg.tool_calls ?? []) openToolCallIds.add(tc.id);
-      for (const id of resolvedToolCallIds) openToolCallIds.delete(id);
+      for (const tc of msg.tool_calls ?? []) {
+        openToolCallIds.add(tc.id);
+      }
+      for (const id of resolvedToolCallIds) {
+        openToolCallIds.delete(id);
+      }
       break;
     }
   }
@@ -312,7 +322,9 @@ function validateInputMessageTypesGivenContext(
 
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
-    if (m === undefined) continue;
+    if (m === undefined) {
+      continue;
+    }
     if (isApprovalDecisionMessage(m)) {
       validateApprovalMessage(m, pendingApprovalIds, i);
       pendingApprovalIds.delete(m.tool_call_id);
@@ -441,7 +453,9 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 // Args are only used by DeferredTool to delegate to the underlying server.
 // Defensive parse — hallucinated JSON shouldn't crash assistant-message construction.
 function tryParseToolArgs(args: string | undefined): Record<string, unknown> {
-  if (!args) return {};
+  if (!args) {
+    return {};
+  }
   try {
     const parsed: unknown = JSON.parse(args);
     return isJsonObject(parsed) ? parsed : {};
@@ -528,7 +542,9 @@ export class AgentThread {
       capabilities.map(c => c.state?.key).filter((k): k is string => typeof k === 'string'),
     );
     for (const capability of capabilities) {
-      if (!capability.state) continue;
+      if (!capability.state) {
+        continue;
+      }
       const value = claimed[capability.state.key];
       if (value !== undefined) {
         capability.state.load(value);
@@ -1318,7 +1334,9 @@ export class AgentThread {
       for (;;) {
         for (;;) {
           const sandboxCreatedEvent = this.pendingSandboxCreatedEvents.shift();
-          if (sandboxCreatedEvent === undefined) break;
+          if (sandboxCreatedEvent === undefined) {
+            break;
+          }
           yield sandboxCreatedEvent;
         }
 
@@ -1327,7 +1345,9 @@ export class AgentThread {
         switch (state) {
           case 'llm-call-required': {
             // Cancel only before network/side-effecting steps (LLM call, tool execution), never before 'user-input-required', so the required event is always emitted once the assistant message is committed.
-            if (signal?.aborted) return;
+            if (signal?.aborted) {
+              return;
+            }
             if (this.metrics.iterations >= iterationLimit) {
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
@@ -1342,7 +1362,9 @@ export class AgentThread {
             break;
           }
           case 'tool-response-required': {
-            if (signal?.aborted) return;
+            if (signal?.aborted) {
+              return;
+            }
             outcome = yield* this.stepToolResponse(toolMapping);
             break;
           }
@@ -1356,7 +1378,9 @@ export class AgentThread {
             throw new Error('unreachable');
           }
         }
-        if (outcome === 'exit') return;
+        if (outcome === 'exit') {
+          return;
+        }
       }
     } catch (error) {
       // Providers / transports often reject with plain objects; instanceof Error would
@@ -1373,7 +1397,9 @@ function assertUniqueStateKeys(capabilities: readonly AgentCapability[]): void {
   const seen = new Set<string>();
   for (const capability of capabilities) {
     const key = capability.state?.key;
-    if (!key) continue;
+    if (!key) {
+      continue;
+    }
     if (seen.has(key)) {
       throw new AgentHarnessError(
         'capability_state_error',
@@ -1389,7 +1415,9 @@ function claimCapabilityState(
   input: CapabilityState | undefined,
   logger: Logger,
 ): CapabilityState {
-  if (!input) return {};
+  if (!input) {
+    return {};
+  }
   const claimedKeys = new Set(capabilities.map(c => c.state?.key).filter((k): k is string => typeof k === 'string'));
   const claimed: CapabilityState = {};
   for (const [key, value] of Object.entries(input)) {

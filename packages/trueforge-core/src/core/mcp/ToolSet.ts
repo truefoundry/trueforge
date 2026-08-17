@@ -47,7 +47,9 @@ export class ToolSet implements IToolSet {
 
   async listTools(): Promise<ListToolsResponse> {
     const response = await this.source.listTools();
-    if (isAuthRequired(response)) return response;
+    if (isAuthRequired(response)) {
+      return response;
+    }
 
     const tools = response.result.tools;
     const missingTools = this.policy.missingEnableLiterals(tools);
@@ -68,7 +70,9 @@ export class ToolSet implements IToolSet {
     // Prime the source and surface auth-required before the annotation-based allow/approval checks
     // (which would otherwise see missing annotations and wrongly 403).
     const listed = await this.source.listTools();
-    if (isAuthRequired(listed)) return listed;
+    if (isAuthRequired(listed)) {
+      return listed;
+    }
     const annotations = findAnnotations(listed.result.tools, params.name);
 
     await this.assertToolAllowed(params.name, annotations);
@@ -123,7 +127,9 @@ export class ToolSet implements IToolSet {
 
   private async resolveAnnotations(toolName: string): Promise<ToolAnnotations | undefined> {
     const listed = await this.source.listTools();
-    if (isAuthRequired(listed)) return undefined;
+    if (isAuthRequired(listed)) {
+      return undefined;
+    }
     return findAnnotations(listed.result.tools, toolName);
   }
 }

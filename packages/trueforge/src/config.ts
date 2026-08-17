@@ -116,8 +116,12 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
     return defaultValue;
   }
   const value = raw.trim().toLowerCase();
-  if (value === 'true') return true;
-  if (value === 'false') return false;
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 

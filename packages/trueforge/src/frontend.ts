@@ -53,8 +53,12 @@ export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
   const serveCompressed = every(compress(), serveWithCacheHeaders);
 
   const serveBuild: MiddlewareHandler = async (c, next) => {
-    if (isServerPath(c.req.path)) return next();
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return next();
+    if (isServerPath(c.req.path)) {
+      return next();
+    }
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      return next();
+    }
     return serveCompressed(c, next);
   };
 

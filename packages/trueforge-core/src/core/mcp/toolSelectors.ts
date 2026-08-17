@@ -62,11 +62,15 @@ export function toolMatchesAnySelector(
   annotations: ToolAnnotations | undefined,
   selectors: readonly string[] | undefined,
 ): boolean {
-  if (!selectors?.length) return false;
+  if (!selectors?.length) {
+    return false;
+  }
 
   for (const selector of selectors) {
     if (isToolTag(selector)) {
-      if (toolMatchesTag(selector, annotations)) return true;
+      if (toolMatchesTag(selector, annotations)) {
+        return true;
+      }
     } else if (selector === toolName) {
       return true;
     }
@@ -84,7 +88,9 @@ export function toolRequiresApproval(
   annotations: ToolAnnotations | undefined,
   selectors: readonly string[] | undefined,
 ): boolean {
-  if (!selectors?.length) return false;
+  if (!selectors?.length) {
+    return false;
+  }
   return toolMatchesAnySelector(toolName, annotations, selectors);
 }
 
@@ -96,14 +102,20 @@ export function isToolAllowed(params: {
   disableSelectors: readonly string[];
 }): boolean {
   const { toolName, annotations, enableSelectors, disableSelectors } = params;
-  if (!toolMatchesAnySelector(toolName, annotations, enableSelectors)) return false;
-  if (toolMatchesAnySelector(toolName, annotations, disableSelectors)) return false;
+  if (!toolMatchesAnySelector(toolName, annotations, enableSelectors)) {
+    return false;
+  }
+  if (toolMatchesAnySelector(toolName, annotations, disableSelectors)) {
+    return false;
+  }
   return true;
 }
 
 /** Non-tag names from a selector list (for upfront validation / sandbox allow-lists). */
 export function literalToolNames(selectors: readonly string[] | undefined): string[] {
-  if (!selectors) return [];
+  if (!selectors) {
+    return [];
+  }
   return selectors.filter(s => !isToolTag(s));
 }
 

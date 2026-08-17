@@ -109,7 +109,9 @@ export class LocalSandboxProvider implements SandboxProvider {
       let shell: string | undefined;
       for (const name of SHELL_CANDIDATES) {
         const resolved = await resolveCommandOnHost({ platform, name });
-        if (resolved === undefined) continue;
+        if (resolved === undefined) {
+          continue;
+        }
         const probe = await runSupervisorSession({
           sandboxRootPath: probeRoot,
           platform,
@@ -132,7 +134,9 @@ export class LocalSandboxProvider implements SandboxProvider {
       let python: string | undefined;
       for (const name of PYTHON_CANDIDATES) {
         const resolved = await resolveCommandOnHost({ platform, name });
-        if (resolved === undefined) continue;
+        if (resolved === undefined) {
+          continue;
+        }
         const probe = await runSupervisorSession({
           sandboxRootPath: probeRoot,
           platform,
@@ -216,7 +220,9 @@ export class LocalSandboxProvider implements SandboxProvider {
   }
 
   private async ensureSrt(): Promise<void> {
-    if (this.srtInitialized) return;
+    if (this.srtInitialized) {
+      return;
+    }
     await initSrt({ platform: this.support.platform });
     this.srtInitialized = true;
   }
