@@ -5,7 +5,7 @@ description: "Presentational components and their prop types."
 
 Atoms are pure presentational components. Most publish a matching `*Props` type, and most are
 overridable slots — but neither is universal, so check
-[Slot overrides](/ui-sdk/guides/slot-overrides) for which names `overrides` accepts, and rely on your
+[Slot overrides](/ui-sdk/setup-custom-ui/slot-overrides) for which names `overrides` accepts, and rely on your
 editor for which props types exist.
 
 ## Messages and content
@@ -79,7 +79,7 @@ type ToolCallCardProps = {
 <Warning>
   `icon` is an icon **name** looked up in the icon registry, not a rendered node — it defaults
   to `"mcp-server"`. Passing an element renders nothing useful. To supply your own artwork, map
-  the name through `theme.icons`; see [Theming](/ui-sdk/guides/theming).
+  the name through `theme.icons`; see [Theming](/ui-sdk/setup-custom-ui/custom-theme).
 </Warning>
 
 Also `ToolCallContentBlock`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`,
@@ -115,5 +115,5 @@ theme and settings buttons.
 <Note>
   `ButtonProps`, `ButtonVariant`, `ButtonSize`, and `IconButtonProps` are available as types
   for typing your own components. The buttons themselves are styled through semantic tokens
-  rather than replaced — see [Theming](/ui-sdk/guides/theming).
+  rather than replaced — see [Theming](/ui-sdk/setup-custom-ui/custom-theme).
 </Note>

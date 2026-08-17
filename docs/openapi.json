@@ -5815,6 +5815,16 @@
             },
             "description": "Requested action cannot be performed on the session because it is no longer usable."
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES)."
+          },
           "422": {
             "content": {
               "application/json": {

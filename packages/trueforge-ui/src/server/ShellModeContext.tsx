@@ -88,6 +88,8 @@ type ShellModeContextValue = {
   openHistorySession: (req: { sessionId: string; agentName?: string; isMutable?: boolean }) => void;
   /** Reset current chat; no-op when idle. */
   clearChat: () => void;
+  /** Return pure Agents Library to its idle landing; no-op in other modes. */
+  openLibraryHome: () => void;
   /** Remount key for the chat runtime when binding changes. */
   runtimeKey: string;
   /**
@@ -365,6 +367,15 @@ export function ShellModeProvider({
     bumpEpoch(false);
   }, [effectiveMode, bumpEpoch]);
 
+  const openLibraryHome = useCallback(() => {
+    // Only pure Agents Library has an idle landing; other modes root via openDraft / clearChat.
+    if (!isLibraryEnabled || isComposerEnabled) return;
+    setPendingSessionId(undefined);
+    setSettingsOpen(false);
+    setMode({ status: 'idle' });
+    bumpEpoch(false);
+  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, bumpEpoch]);
+
   // Mutable remounts are driven only by mutableEpoch (library Edit / New Chat / Clear).
   // Agent id and model must not be in the key — saveAgent binds those onto the same draft.
   const runtimeKey = useMemo(() => {
@@ -393,6 +404,7 @@ export function ShellModeProvider({
       rememberDraftSpec,
       openHistorySession,
       clearChat,
+      openLibraryHome,
       runtimeKey,
       historyAgentFilter,
       setHistoryAgentFilter,
@@ -417,6 +429,7 @@ export function ShellModeProvider({
       rememberDraftSpec,
       openHistorySession,
       clearChat,
+      openLibraryHome,
       runtimeKey,
       historyAgentFilter,
       listSessionsAgentId,

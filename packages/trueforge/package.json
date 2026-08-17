@@ -15,7 +15,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "provenance": false
+    "provenance": true
   },
   "private": false,
   "type": "module",

@@ -10,38 +10,18 @@
 <p align="center">The open-source agent harness - the runtime layer that turns an LLM into a working agent</p>
 
 <p align="center">
-  <a href="https://github.com/truefoundry/trueforge/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT">
-  </a>
-  <a href="https://nodejs.org">
-    <img src="https://img.shields.io/badge/Node.js-%3E%3D22.13-green.svg" alt="Node.js >= 22.13">
-  </a>
-  <a href="https://trueforge.dev">
-    <img src="https://img.shields.io/badge/Documentation-trueforge.dev-blue.svg" alt="Documentation">
-  </a>
-  <a href="https://trueforge.dev/quickstart">
-    <img src="https://img.shields.io/badge/Quickstart-trueforge.dev/quickstart-blue.svg" alt="Quickstart">
-  </a>
-  <a href="https://trueforge.dev/api/overview">
-    <img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg" alt="SDK">
-  </a>
+  <a href="https://github.com/truefoundry/trueforge/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License: MIT"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%3E%3D22.13-green.svg?style=flat-square" alt="Node.js >= 22.13"></a>
+  <a href="https://trueforge.dev"><img src="https://img.shields.io/badge/Documentation-trueforge.dev-blue.svg?style=flat-square" alt="Documentation"></a>
+  <a href="https://trueforge.dev/quickstart"><img src="https://img.shields.io/badge/Quickstart-trueforge.dev/quickstart-blue.svg?style=flat-square" alt="Quickstart"></a>
+  <a href="https://trueforge.dev/api/overview"><img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg?style=flat-square" alt="SDK"></a>
 </p>
 <p align="center">
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge">
-    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge" alt="npm @truefoundry/trueforge">
-  </a>
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-sdk">
-    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-sdk?label=trueforge-sdk" alt="npm @truefoundry/trueforge-sdk">
-  </a>
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-ui">
-    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-ui?label=trueforge-ui" alt="npm @truefoundry/trueforge-ui">
-  </a>
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core">
-    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core" alt="npm @truefoundry/trueforge-core">
-  </a>
-  <a href="https://deepwiki.com/truefoundry/trueforge">
-    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
-  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge&style=flat-square" alt="npm @truefoundry/trueforge"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-sdk"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-sdk?label=trueforge-sdk&style=flat-square" alt="npm @truefoundry/trueforge-sdk"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-ui"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-ui?label=trueforge-ui&style=flat-square" alt="npm @truefoundry/trueforge-ui"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core&style=flat-square" alt="npm @truefoundry/trueforge-core"></a>
+  <a href="https://deepwiki.com/truefoundry/trueforge"><img src="https://deepwiki.com/badge.svg?style=flat-square" alt="Ask DeepWiki"></a>
 </p>
 
 # TrueForge

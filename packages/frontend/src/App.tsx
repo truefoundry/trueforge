@@ -150,6 +150,7 @@ export function App() {
           },
         }}
         layout="sidebar"
+        withRouter
         agentConfig={{
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,

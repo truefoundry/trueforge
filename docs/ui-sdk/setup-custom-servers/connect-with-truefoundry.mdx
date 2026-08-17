@@ -13,8 +13,8 @@ export default function App() {
       <TrueForgeUI
         server={{
           type: "truefoundry",
-          apiKey: {{API_KEY}},
-          controlPlaneURL: {{CONTROL_PLANE_URL}},
+          apiKey: import.meta.env.VITE_TFY_API_KEY,
+          controlPlaneURL: import.meta.env.VITE_TFY_CONTROL_PLANE_URL,
         }}
         layout="sidebar"
       />
