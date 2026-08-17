@@ -26,6 +26,23 @@
     <img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg" alt="SDK">
   </a>
 </p>
+<p align="center">
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge" alt="npm @truefoundry/trueforge">
+  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-sdk">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-sdk?label=trueforge-sdk" alt="npm @truefoundry/trueforge-sdk">
+  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-ui">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-ui?label=trueforge-ui" alt="npm @truefoundry/trueforge-ui">
+  </a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core">
+    <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core" alt="npm @truefoundry/trueforge-core">
+  </a>
+  <a href="https://deepwiki.com/truefoundry/trueforge">
+    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
+  </a>
+</p>
 
 # TrueForge
 
@@ -68,6 +85,8 @@ To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md
 | ------ | --------------------------- | -------- | ---------------- | ---------------------------- |
 | Local  | Personal use, trying it out | SQLite   | None             | `npx @truefoundry/trueforge` |
 | Hosted | Teams, multi-replica        | Postgres | Postgres + Redis | Docker Compose or Helm       |
+
+> **Local mode is for your machine only.** It is a convenient way to try TrueForge — not a production or internet-facing setup. There is no login by default, and data lives in a local SQLite file. Please keep it on localhost. We cannot take responsibility for data loss or unauthorized access if local mode is used beyond that. For a shared or production deployment, use hosted mode.
 
 ## Documentation
 

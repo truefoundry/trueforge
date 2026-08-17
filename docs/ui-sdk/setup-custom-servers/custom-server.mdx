@@ -92,7 +92,7 @@ export const server: AgentUIServer = {
 Declaring `sandbox` and `skill` as disabled is the honest starting point — the UI then hides those affordances instead of offering controls your backend cannot serve. Flip them on as you implement each.
 
 ```tsx title="App.tsx"
-<TrueforgeUI server={server} layout="sidebar" agentConfig={{ mode: "AgentLibrary" }} />
+<TrueForgeUI server={server} layout="sidebar" agentConfig={{ mode: "AgentLibrary" }} />
 ```
 
 ## Streaming
@@ -204,8 +204,8 @@ See [Widening the types](/ui-sdk/setup-custom-servers/server-contract#widening-t
 
 ## Attachments
 
-Attachment handling defaults to `trueFoundryAttachmentAdapter`. Override it through the `adapters` prop on `TrueforgeUI` if your backend stores uploads differently.
+Attachment handling defaults to `trueFoundryAttachmentAdapter`. Override it through the `adapters` prop on `TrueForgeUI` if your backend stores uploads differently.
 
 ```tsx
-<TrueforgeUI server={server} layout="sidebar" adapters={{ attachments: myAdapter }} />
+<TrueForgeUI server={server} layout="sidebar" adapters={{ attachments: myAdapter }} />
 ```

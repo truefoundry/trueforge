@@ -10,7 +10,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
 <Tabs>
   <Tab title="Local mode (npx)">
-    Requires [Node.js](https://nodejs.org) 22.13 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
+    Requires [Node.js](https://nodejs.org) 22 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
 
     ```bash
     npx @truefoundry/trueforge
@@ -18,13 +18,20 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     Then open [http://localhost:8790](http://localhost:8790). The defaults work out of the box — see the [FAQ](#faq) to change the port or data location.
 
+    <Warning>
+      Local (standalone) mode is meant for personal use on your own machine. It is not a production or internet-facing
+      setup — there is no login by default, and data lives in a local SQLite file. Please keep it on localhost. We
+      cannot take responsibility for data loss or unauthorized access if local mode is used beyond that. For a shared
+      deployment, use hosted mode below.
+    </Warning>
+
   </Tab>
   <Tab title="Hosted mode (Docker Compose)">
     Runs the full hosted topology on your machine: the server (UI + API), Postgres, and Redis.
 
     ```bash
     git clone https://github.com/truefoundry/trueforge && cd trueforge
-    cp packages/server/.env.example packages/server/.env
+    cp packages/trueforge/.env.example packages/trueforge/.env
     docker compose up --build
     ```
 
@@ -32,7 +39,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
     | Configuration                                         | Default                 | Description                                              |
     | ----------------------------------------------------- | ----------------------- | -------------------------------------------------------- |
-    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/server/.env`.  |
+    | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | from `.env`             | Postgres credentials, read from `packages/trueforge/.env`.  |
     | <Tooltip tip="Public origin at which users and external services reach TrueForge (e.g. https://trueforge.myorg.com). The server uses it to build MCP OAuth and OIDC login callbacks." cta="See the FAQ" href="/quickstart#faq">`PUBLIC_BASE_URL`</Tooltip> | `http://localhost:8791` | Public origin, used for MCP OAuth callbacks.             |
     | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
 
@@ -212,7 +219,7 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     PUBLIC_BASE_URL=https://trueforge.myorg.com npx @truefoundry/trueforge
     ```
 
-    In hosted mode, set it in `packages/server/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
+    In hosted mode, set it in `packages/trueforge/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
 
   </Accordion>
 </AccordionGroup>

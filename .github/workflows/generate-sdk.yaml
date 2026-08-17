@@ -6,17 +6,17 @@ on:
     branches: [main]
     # Only sources the document is built from; tests and metadata cannot change it.
     paths:
-      - 'packages/server/src/**'
-      - 'packages/server/scripts/**'
-      - 'packages/harness/src/**'
+      - 'packages/trueforge/src/**'
+      - 'packages/trueforge/scripts/**'
+      - 'packages/trueforge-core/src/**'
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'packages/server/src/**'
-      - 'packages/server/scripts/**'
-      - 'packages/harness/src/**'
+      - 'packages/trueforge/src/**'
+      - 'packages/trueforge/scripts/**'
+      - 'packages/trueforge-core/src/**'
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
 
@@ -122,7 +122,7 @@ jobs:
           # --porcelain, not `git diff`, so new files count too.
           # docs/openapi.json is a second copy of the same document (Mintlify); keep it
           # in the same commit as .github/fern/openapi or the docs site drifts.
-          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/sdk pnpm-lock.yaml)" ]; then
+          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk pnpm-lock.yaml)" ]; then
             echo "OpenAPI document and SDK are already up to date."
             exit 0
           fi
@@ -131,13 +131,13 @@ jobs:
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
 
           # Bot-authored sdk diffs need a changeset; the PR author never touches this commit.
-          # Skip packages/sdk/.fern — Fern metadata only, not a consumer-facing change.
+          # Skip packages/trueforge-sdk/.fern — Fern metadata only, not a consumer-facing change.
           # changeset:sdk-regen is a no-op if the sdk is already named in a pending file.
-          if [ -n "$(git status --porcelain -- packages/sdk ':!packages/sdk/.fern')" ]; then
+          if [ -n "$(git status --porcelain -- packages/trueforge-sdk ':!packages/trueforge-sdk/.fern')" ]; then
             pnpm changeset:sdk-regen
           fi
 
-          git add .github/fern/openapi docs/openapi.json packages/sdk pnpm-lock.yaml .changeset
+          git add .github/fern/openapi docs/openapi.json packages/trueforge-sdk pnpm-lock.yaml .changeset
           git commit -m "Regenerate OpenAPI document and TypeScript SDK"
           git push origin "HEAD:refs/heads/$BRANCH"
 

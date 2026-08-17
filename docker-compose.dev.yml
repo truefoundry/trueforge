@@ -1,12 +1,12 @@
 # Host-backed development infra. Project name keeps containers separate from
-# docker-compose.yml. Host ports match packages/server/.env defaults.
-name: harness-dev
+# docker-compose.yml. Host ports match packages/trueforge/.env defaults.
+name: trueforge-dev
 
 services:
   postgres:
     image: postgres:17
     env_file:
-      - path: packages/server/.env
+      - path: packages/trueforge/.env
         required: true
     ports:
       - '5432:5432'

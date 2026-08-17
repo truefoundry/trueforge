@@ -2,13 +2,15 @@
 #
 # openapi/openapi.json is committed by `pnpm openapi:write`, so Fern never needs the server.
 readme:
+  apiName: TrueForge
   introduction: >
-    TypeScript client for the TrueForge agent harness server: a self-hosted
+    TypeScript client for the TrueForge Agent Harness Server: a self-hosted
     runtime that executes agent turns and streams them over Server-Sent Events.
 
 
     When auth is enabled on the server, pass an ID token via the optional `token`
     client option (`Authorization: Bearer`).
+  apiReferenceLink: https://trueforge.dev/api/use-agent
   # Fern keys this lookup on the stream flag, so the string form misses and fails.
   defaultEndpoint:
     method: POST
@@ -38,7 +40,7 @@ groups:
         version: 3.87.1
         output:
           location: local-file-system
-          path: ../../packages/sdk
+          path: ../../packages/trueforge-sdk
         config:
           packageJson:
             name: '@truefoundry/trueforge-sdk'
@@ -47,13 +49,15 @@ groups:
             repository:
               type: git
               url: git+https://github.com/truefoundry/trueforge.git
-              directory: packages/sdk
-            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/sdk#readme
+              directory: packages/trueforge-sdk
+            homepage: https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme
             bugs:
               url: https://github.com/truefoundry/trueforge/issues
             publishConfig:
               access: public
               provenance: false
+            engines:
+              node: '>=22'
           allowExtraFields: true
           allowCustomFetcher: true
           enableInlineTypes: false

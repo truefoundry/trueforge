@@ -53,7 +53,7 @@ flowchart LR
   style byo stroke-dasharray: 6 4
 ```
 
-### Trueforge server
+### TrueForge server
 
 Runs the agent loop. When a user sends a message, the server:
 
@@ -98,6 +98,13 @@ The agent features are identical in both modes — only the backend around the s
 | **Storage** | SQLite | Postgres, shared by all replicas |
 | **Extra infra** | None | Postgres + Redis |
 | **Replicas** | Single process | Multiple replicas behind a load balancer. Redis peers them so streams and cancellations follow the client across replicas. |
+
+<Warning>
+  Local (standalone) mode is meant for personal use on your own machine. It is not hardened for production or shared
+  internet access — there is no login by default, and your data lives in a local SQLite file. Please keep it on
+  localhost. We cannot take responsibility for data loss or unauthorized access if local mode is used beyond that. For a
+  team or production deployment, use hosted mode with Postgres, Redis, and [login](/authentication/overview) enabled.
+</Warning>
 
 ## Start building
 

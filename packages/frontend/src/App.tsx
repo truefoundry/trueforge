@@ -1,4 +1,4 @@
-import { getErrorMessage, ThemeProvider, TrueforgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
+import { getErrorMessage, ThemeProvider, TrueForgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
 import {
   createTrueForgeClient,
   getCapabilities,
@@ -13,7 +13,7 @@ import { parseAuthErrorReason } from './authStatusSearch';
 import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
 
-/** Shared cookie/OIDC fetch for boot helpers and `<TrueforgeUI server />`. */
+/** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
 const bootClient = createTrueForgeClient({ fetch: authAwareFetch });
 
@@ -142,7 +142,7 @@ export function App() {
 
   return (
     <div className="app-root">
-      <TrueforgeUI
+      <TrueForgeUI
         server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }}
         theme={{
           brand: {

@@ -9,7 +9,7 @@ allowBuilds:
   '@swc/core': true
   better-sqlite3: true
   esbuild: true
-  # Fern-generated SDK tests (packages/sdk) run msw's postinstall.
+  # Fern-generated SDK tests (packages/trueforge-sdk) run msw's postinstall.
   msw: true
   protobufjs: true
 

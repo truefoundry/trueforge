@@ -39,44 +39,44 @@ jobs:
           # - tsconfig.base.json: shared TS settings affect package tests
           # - .github/workflows/ci.yml: this workflow's package matrix/steps change
           filters: |
-            harness:
-              - 'packages/harness/**'
+            trueforge-core:
+              - 'packages/trueforge-core/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
               - '.github/workflows/ci.yml'
-            server:
-              - 'packages/server/**'
+            trueforge:
+              - 'packages/trueforge/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
               - '.github/workflows/ci.yml'
             frontend:
               - 'packages/frontend/**'
-              # trueforge-sdk is link:../sdk (no version bump); SDK-only PRs must still run FE checks.
-              - 'packages/sdk/**'
+              # trueforge-sdk is workspace:* (no version bump); SDK-only PRs must still run FE checks.
+              - 'packages/trueforge-sdk/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
               - '.github/workflows/ci.yml'
             trueforge-ui:
-              - 'packages/trueforge-ui-sdk/**'
+              - 'packages/trueforge-ui/**'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
               - '.github/workflows/ci.yml'
             store:
-              - 'packages/server/src/db/**'
-              - 'packages/server/tests/db/**'
-              - 'packages/server/jest.store.postgres.config.cjs'
-              - 'packages/server/jest.store.sqlite.config.cjs'
-              - 'packages/server/package.json'
-              - 'packages/harness/package.json'
-              - 'packages/harness/src/agent-session/models/**'
-              - 'packages/harness/src/agent-session/schemas/**'
-              - 'packages/harness/src/agent-session/store/**'
-              - 'packages/harness/tests/agent-session/store/**'
-              - 'packages/harness/tests/agent-session/testHelpers.ts'
+              - 'packages/trueforge/src/db/**'
+              - 'packages/trueforge/tests/db/**'
+              - 'packages/trueforge/jest.store.postgres.config.cjs'
+              - 'packages/trueforge/jest.store.sqlite.config.cjs'
+              - 'packages/trueforge/package.json'
+              - 'packages/trueforge-core/package.json'
+              - 'packages/trueforge-core/src/agent-session/models/**'
+              - 'packages/trueforge-core/src/agent-session/schemas/**'
+              - 'packages/trueforge-core/src/agent-session/store/**'
+              - 'packages/trueforge-core/tests/agent-session/store/**'
+              - 'packages/trueforge-core/tests/agent-session/testHelpers.ts'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
@@ -85,15 +85,15 @@ jobs:
       - name: Build package matrix
         id: packages
         env:
-          HARNESS: ${{ steps.filter.outputs.harness }}
-          SERVER: ${{ steps.filter.outputs.server }}
+          TRUEFORGE_CORE: ${{ steps.filter.outputs['trueforge-core'] }}
+          TRUEFORGE: ${{ steps.filter.outputs.trueforge }}
           FRONTEND: ${{ steps.filter.outputs.frontend }}
           TRUEFORGE_UI: ${{ steps.filter.outputs['trueforge-ui'] }}
         run: |
           node <<'EOF' >> "$GITHUB_OUTPUT"
           const changedPackages = [];
-          if (process.env.HARNESS === 'true') changedPackages.push('harness');
-          if (process.env.SERVER === 'true') changedPackages.push('server');
+          if (process.env.TRUEFORGE_CORE === 'true') changedPackages.push('trueforge-core');
+          if (process.env.TRUEFORGE === 'true') changedPackages.push('trueforge');
           if (process.env.FRONTEND === 'true') changedPackages.push('frontend');
           if (process.env.TRUEFORGE_UI === 'true') changedPackages.push('trueforge-ui');
           console.log(`list=${JSON.stringify(changedPackages)}`);

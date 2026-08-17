@@ -1,6 +1,6 @@
 ---
 description: AgentUIServer / server-port types are defined only in assistant-ui-runtime; UI re-exports
-globs: packages/trueforge-ui-sdk/src/server/**/*,packages/trueforge-ui-sdk/src/**/*Server*,packages/trueforge-ui-sdk/src/**/*server*,packages/frontend/src/harnessServer.ts,packages/frontend/src/harnessBuilderServer.ts
+globs: packages/trueforge-ui/src/server/**/*,packages/trueforge-ui/src/**/*Server*,packages/trueforge-ui/src/**/*server*,packages/frontend/src/harnessServer.ts,packages/frontend/src/harnessBuilderServer.ts
 alwaysApply: false
 ---
 
@@ -11,7 +11,7 @@ Canonical `AgentUIServer` / chat / builder / catalog port types live only in
 
 ## Rules
 
-- [`packages/trueforge-ui-sdk/src/server/types.ts`](packages/trueforge-ui-sdk/src/server/types.ts)
+- [`packages/trueforge-ui/src/server/types.ts`](packages/trueforge-ui/src/server/types.ts)
   is the host-facing barrel: re-export only from `@truefoundry/assistant-ui-runtime`
   (prefer `/server` when avoiding root name collisions). Do **not** put hand-written
   server port/DTO interfaces there or elsewhere in this monorepo.
@@ -20,7 +20,7 @@ Canonical `AgentUIServer` / chat / builder / catalog port types live only in
 - Need a new field/method on the contract? Change runtime `server/types.ts` first,
   publish/bump, then re-export — never fork the shape in the UI SDK.
 - React wiring may stay here (`ServerContext`, `ShellModeContext`,
-  `TrueforgeServerConfig`). Those modules **import** runtime types; they do not
+  `TrueForgeServerConfig`). Those modules **import** runtime types; they do not
   redefine ports.
 - Host adapters (e.g. frontend `harnessServer`) widen via generics / intersections
   over runtime bases (`SkillMount` / `McpServerMount` stay opaque `object`).

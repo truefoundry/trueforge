@@ -44,7 +44,7 @@ description: "Common failure modes and their causes."
 
     ```tsx
     <div className="flex h-dvh min-h-0 w-full flex-1 flex-col">
-      <TrueforgeUI /* ... */ className="h-full min-h-0" />
+      <TrueForgeUI /* ... */ className="h-full min-h-0" />
     </div>
     ```
 
@@ -79,7 +79,7 @@ description: "Common failure modes and their causes."
   </Accordion>
 
   <Accordion title="Only the OAuth screen renders — no chat">
-    A `screenType=mcp-auth` query parameter is present on the URL. `TrueforgeUI` renders the OAuth completion screen exclusively in that case. Keep the callback on its own route; see [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+    A `screenType=mcp-auth` query parameter is present on the URL. `TrueForgeUI` renders the OAuth completion screen exclusively in that case. Keep the callback on its own route; see [MCP OAuth](/ui-sdk/guides/mcp-oauth).
   </Accordion>
 
   <Accordion title="Dark mode fights with the host application">
@@ -91,6 +91,6 @@ description: "Common failure modes and their causes."
   </Accordion>
 
   <Accordion title="SSR or React Server Components errors">
-    The package is ESM-only and client-only. Mount `TrueforgeUI` from a client component — in Next.js App Router, a file with `"use client"` at the top.
+    The package is ESM-only and client-only. Mount `TrueForgeUI` from a client component — in Next.js App Router, a file with `"use client"` at the top.
   </Accordion>
 </AccordionGroup>

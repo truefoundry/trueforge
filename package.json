@@ -1,5 +1,5 @@
 {
-  "name": "@truefoundry/harness-workspace",
+  "name": "@truefoundry/trueforge-workspace",
   "private": true,
   "packageManager": "pnpm@11.16.0+sha512.b767e9a98fc87aec0f42daefcd0e84941c2cdb45d73c4e1e68860fb2bdfdbe032ab592105479e5e05c237f740c8a5ffdbbb52385797ddc2296745a1bbb883e8d",
   "engines": {
@@ -39,13 +39,13 @@
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
     "test:frontend": "pnpm --filter frontend test",
-    "test:harness": "pnpm --filter @truefoundry/trueforge-core test",
-    "test:server": "pnpm --filter @truefoundry/trueforge test",
+    "test:trueforge-core": "pnpm --filter @truefoundry/trueforge-core test",
+    "test:trueforge": "pnpm --filter @truefoundry/trueforge test",
     "test:store:local": "bash scripts/test-store-local.sh",
     "test:store:postgres": "pnpm --filter @truefoundry/trueforge test:store:postgres",
     "test:store:sqlite": "pnpm --filter @truefoundry/trueforge test:store:sqlite",
     "test:trueforge-ui": "pnpm --filter @truefoundry/trueforge-ui test",
-    "test": "pnpm test:harness && pnpm test:trueforge-ui && pnpm test:server && pnpm test:frontend",
+    "test": "pnpm test:trueforge-core && pnpm test:trueforge-ui && pnpm test:trueforge && pnpm test:frontend",
     "typecheck": "pnpm --filter @truefoundry/trueforge-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/trueforge typecheck && pnpm --filter frontend typecheck && pnpm --filter @truefoundry/local-sandbox typecheck",
     "version": "node scripts/version.mjs"
   },
