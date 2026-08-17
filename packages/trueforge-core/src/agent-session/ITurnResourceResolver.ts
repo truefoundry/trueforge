@@ -7,6 +7,12 @@ import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
+/** Result of {@link ITurnResourceResolver.resolveAgentDefinition}. */
+export interface ResolvedAgentDefinition {
+  definition: AgentDefinition;
+  extraCapabilities?: AgentCapability[] | undefined;
+}
+
 /**
  * Per-run wiring contract consumed by SessionHandle.createTurn(). Implementations hold
  * per-request state (secrets, providers, caches) freely.
@@ -48,10 +54,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
-  }): Promise<{
-    definition: AgentDefinition;
-    extraCapabilities?: AgentCapability[] | undefined;
-  }>;
+  }): Promise<ResolvedAgentDefinition>;
   /**
    * Release per-run resources. Called by the harness at the end of the run:
    * by TurnHandle.stream() in its finally (AFTER the terminal state write), or by
