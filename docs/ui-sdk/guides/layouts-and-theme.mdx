@@ -12,7 +12,7 @@ The sidebar view is the default layout. You can customize the layout by passing 
     A full-page chat experience with persistent conversation history in a left sidebar. The default choice for a dedicated chat surface.
 
     ```tsx
-    <TrueforgeUI server={server} layout="sidebar" />
+    <TrueForgeUI server={server} layout="sidebar" />
     ```
 
     <Frame caption="Sidebar: full-page chat with the thread list pinned on the left.">
@@ -23,7 +23,7 @@ The sidebar view is the default layout. You can customize the layout by passing 
     Chat history is tucked into an overlay drawer and can be opened using the history icon. Ideal for smaller viewports, such as tablets and compact monitors, where screen space is limited.
 
     ```tsx
-    <TrueforgeUI server={server} layout="drawer" />
+    <TrueForgeUI server={server} layout="drawer" />
     ```
 
     <Frame caption="Drawer: the thread list collapses into an overlay for narrow viewports.">
@@ -34,7 +34,7 @@ The sidebar view is the default layout. You can customize the layout by passing 
     A chat panel pinned to the right edge, using the available space up to a maximum width of 400px.
 
     ```tsx
-    <TrueforgeUI server={server} layout="dock" />
+    <TrueForgeUI server={server} layout="dock" />
     ```
 
     <Frame caption="Dock: a compact panel pinned to the right edge, up to a 400px cap.">
@@ -45,7 +45,7 @@ The sidebar view is the default layout. You can customize the layout by passing 
     A floating chat launcher that expands into a compact chat panel when opened.
 
     ```tsx
-    <TrueforgeUI server={server} layout="widget" />
+    <TrueForgeUI server={server} layout="widget" />
     ```
 
     <Frame caption="Widget: a floating launcher that expands into a compact chat panel.">
@@ -75,7 +75,7 @@ type ThemeConfig = {
 ```
 
 ```tsx App.tsx
-<TrueforgeUI
+<TrueForgeUI
   ...
   theme={{
     preset: "trueforge",
@@ -119,7 +119,7 @@ If you want the SDK theme to follow your application’s theme, set this value t
 You can also provide separate logos for light and dark modes, allowing your branding to remain visible and optimized for each theme, as shown below:
 
 ```tsx App.tsx
-<TrueforgeUI
+<TrueForgeUI
   ...
   theme={{
     ...
@@ -152,7 +152,7 @@ function MyCustomLogo() {
   return <img src={logoUrl} alt="My custom logo" />;
 }
 
-<TrueforgeUI
+<TrueForgeUI
   ...
   overrides={{ BrandLogo: MyCustomLogo }}
 />

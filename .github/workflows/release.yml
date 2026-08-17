@@ -124,11 +124,11 @@ jobs:
       - run: pnpm build
       - run: pnpm test
 
-      # Root build copies FE into packages/server/dist/_frontend; refuse an API-only tarball.
+      # Root build copies FE into packages/trueforge/dist/_frontend; refuse an API-only tarball.
       - name: Verify packaged UI is present
         run: |
-          test -f packages/server/dist/cli.js
-          test -f packages/server/dist/_frontend/index.html
+          test -f packages/trueforge/dist/cli.js
+          test -f packages/trueforge/dist/_frontend/index.html
 
       - name: Pack packages
         id: pack

@@ -25,15 +25,15 @@ yarn add @truefoundry/trueforge-ui @truefoundry/trueforge-sdk
 
 ## Render the UI
 
-Point `TrueforgeUI` at your TrueForge server with a Bearer token:
+Point `TrueForgeUI` at your TrueForge server with a Bearer token:
 
 ```tsx App.tsx
-import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+import { TrueForgeUI } from "@truefoundry/trueforge-ui";
 
 export default function App() {
   return (
     <div style={{ height: "100dvh" }}>
-      <TrueforgeUI
+      <TrueForgeUI
         server={{
           type: "trueforge"
         }}
@@ -46,6 +46,6 @@ export default function App() {
 
 That is enough to get a full agent chat with streaming, history, and tool calls.
 
-<Frame caption="What `TrueforgeUI` renders — a full agent chat with streaming, history, and tool calls.">
-  ![The TrueforgeUI component rendering an agent chat with an agent-steps panel and a streamed response](/images/agent-composer-with-library.png)
+<Frame caption="What `TrueForgeUI` renders — a full agent chat with streaming, history, and tool calls.">
+  ![The TrueForgeUI component rendering an agent chat with an agent-steps panel and a streamed response](/images/agent-composer-with-library.png)
 </Frame>

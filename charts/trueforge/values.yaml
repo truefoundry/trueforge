@@ -44,7 +44,7 @@ service:
   labels: {}
 
 # Server runtime configuration. Keys map to environment variables read in
-# packages/server/src/config.ts.
+# packages/trueforge/src/config.ts.
 server:
   # Container port the server listens on (PORT).
   port: 8790
@@ -58,7 +58,7 @@ server:
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
 
-# Application feature config (maps to env vars in packages/server/src/config.ts).
+# Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
 # { valueFrom: { secretKeyRef: ... } }.
 configs:

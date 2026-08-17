@@ -11,12 +11,12 @@ Publishing npm does not stamp or push the chart. Publishing the image/chart does
 
 ## Published packages
 
-| Package                       | Source                      | Notes                                                           |
-| ----------------------------- | --------------------------- | --------------------------------------------------------------- |
-| `@truefoundry/trueforge-core` | `packages/harness`          | Library (`files: ["dist"]`)                                     |
-| `@truefoundry/trueforge`      | `packages/server`           | App + CLI; tarball includes embedded UI under `dist/_frontend/` |
-| `@truefoundry/trueforge-sdk`  | `packages/sdk`              | Fern-generated client — do not hand-edit                        |
-| `@truefoundry/trueforge-ui`   | `packages/trueforge-ui-sdk` | Embeddable chat UI                                              |
+| Package                       | Source                    | Notes                                                           |
+| ----------------------------- | ------------------------- | --------------------------------------------------------------- |
+| `@truefoundry/trueforge-core` | `packages/trueforge-core` | Library (`files: ["dist", "README.md"]`)                        |
+| `@truefoundry/trueforge`      | `packages/trueforge`      | App + CLI; tarball includes embedded UI under `dist/_frontend/` |
+| `@truefoundry/trueforge-sdk`  | `packages/trueforge-sdk`  | Fern-generated client — do not hand-edit                        |
+| `@truefoundry/trueforge-ui`   | `packages/trueforge-ui`   | Embeddable chat UI                                              |
 
 `packages/frontend` is not published on its own. The server build copies its output into `@truefoundry/trueforge`'s `dist/_frontend/`.
 
@@ -68,7 +68,7 @@ Do not mix stable and RC packages in one `changeset version` — exit pre only w
 
 ## Package layout (`@truefoundry/trueforge-core`)
 
-Packages publish from their package root. The core build emits CJS (`.js`), ESM (`.mjs`), and `.d.ts` under `dist/`; `package.json` `exports` point at those paths and `files: ["dist"]` limits the tarball to compiled output.
+Packages publish from their package root. The core build emits CJS (`.js`), ESM (`.mjs`), and `.d.ts` under `dist/`; `package.json` `exports` point at those paths and `files: ["dist", "README.md"]` keeps `src/` out of the tarball.
 
 - Deep imports such as `@truefoundry/trueforge-core/core/llm/LLMTypes` resolve via the package `exports` map for modern `moduleResolution` modes (`bundler`, `node16`, `nodenext`).
 - Curated barrels (`.`, `./core`, `./agent-session`) are the supported public API; deep imports are an escape hatch.
@@ -85,8 +85,8 @@ On publish, `workspace:*` becomes the **exact version** in the dependency's `pac
 ```bash
 pnpm clean && pnpm build && pnpm standalone:start
 # or pack only:
-cd packages/harness && pnpm build && pnpm pack
-cd packages/server && pnpm pack
+cd packages/trueforge-core && pnpm build && pnpm pack
+cd packages/trueforge && pnpm pack
 ```
 
 Point consumers at a tarball with a `file:` dependency (or `yalc`) until a real version is published.

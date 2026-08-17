@@ -1,4 +1,4 @@
-# Full-stack smoke test. Reads packages/server/.env for secrets and
+# Full-stack smoke test. Reads packages/trueforge/.env for secrets and
 # credentials; host ports and in-network DB/Redis targets are opinionated here
 # so they do not collide with or inherit host-dev values.
 name: trueforge
@@ -7,7 +7,7 @@ services:
   postgres:
     image: postgres:17
     env_file:
-      - path: packages/server/.env
+      - path: packages/trueforge/.env
         required: true
     # Host 5433 avoids conflict with docker-compose.dev.yml on 5432.
     ports:
@@ -50,7 +50,7 @@ services:
       PORT: 8790
       # Host-facing origin for MCP OAuth callbacks (mapped port, not container PORT).
       PUBLIC_BASE_URL: http://localhost:8791
-      # Compose network hosts — do not use packages/server/.env localhost values.
+      # Compose network hosts — do not use packages/trueforge/.env localhost values.
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       # Compose runs one replica but keeps peering on so the peered cancel path
@@ -61,7 +61,7 @@ services:
     # Secrets and Postgres credentials (POSTGRES_USER, …).
     # `environment` above overrides any colliding keys from this file.
     env_file:
-      - path: packages/server/.env
+      - path: packages/trueforge/.env
         required: true
     depends_on:
       postgres:

@@ -1,6 +1,12 @@
 {
   "$schema": "https://mintlify.com",
   "theme": "mint",
+  "redirects": [
+    { "source": "/create-agent/tool-approval", "destination": "/create-agent/overview#whats-in-an-agent" },
+    { "source": "/create-agent/ask-user-questions", "destination": "/create-agent/overview#whats-in-an-agent" },
+    { "source": "/create-agent/generative-ui", "destination": "/create-agent/overview#whats-in-an-agent" },
+    { "source": "/create-agent/agent-spec", "destination": "/create-agent/overview#create-an-agent-via-the-api" }
+  ],
   "name": "TrueForge",
   "logo": {
     "light": "/logo/light.svg",
@@ -42,19 +48,10 @@
                 "group": "Initial Setup",
                 "pages": ["harness/initial-setup", "models", "mcp-servers", "skills", "sandbox"]
               },
-              {
-                "group": "Create an Agent",
-                "pages": [
-                  "create-agent/overview",
-                  "create-agent/tool-approval",
-                  "create-agent/ask-user-questions",
-                  "create-agent/generative-ui",
-                  "create-agent/agent-spec"
-                ]
-              },
+              "create-agent/overview",
               "agent-library",
               {
-                "group": "Key Features",
+                "group": "Harness Capabilities",
                 "pages": [
                   "key-features/overview",
                   "key-features/subagents",
@@ -63,8 +60,8 @@
                   "key-features/large-tool-responses"
                 ]
               },
-              "benchmarking",
-              "authentication/overview"
+              "authentication/overview",
+              "benchmarking"
             ]
           },
           {
@@ -111,7 +108,7 @@
         "tab": "API Reference",
         "openapi": {
           "source": "./openapi.json",
-          "directory": "docs/api-reference"
+          "directory": "api-reference"
         }
       }
     ]

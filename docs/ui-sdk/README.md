@@ -19,7 +19,7 @@ index.mdx          landing page
 get-started/       installation, quickstart
 concepts/          architecture, agent modes, server contract
 guides/            layouts, theming, slots, custom server, MCP OAuth, troubleshooting
-reference/         TrueforgeUI, theme, containers, atoms, hooks, server
+reference/         TrueForgeUI, theme, containers, atoms, hooks, server
 images/            logos and screenshots
 snippets/          reusable MDX fragments
 ```

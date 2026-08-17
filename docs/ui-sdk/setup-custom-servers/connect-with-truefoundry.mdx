@@ -5,12 +5,12 @@ title: "Connect with TrueFoundry"
 The zero-config path. The SDK builds the agent UI server from your API key and control plane URL; the gateway URL is optional and resolved from the control plane when omitted.
 
 ```jsx App.tsx
-import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+import { TrueForgeUI } from "@truefoundry/trueforge-ui";
 
 export default function App() {
   return (
     <div style={{ height: "100dvh" }}>
-      <TrueforgeUI
+      <TrueForgeUI
         server={{
           type: "truefoundry",
           apiKey: {{API_KEY}},
@@ -33,7 +33,7 @@ If you need to hold the resolved `AgentUIServer` — to wrap it, log through it,
 
 ```tsx App.tsx
 import { useEffect, useState } from "react";
-import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+import { TrueForgeUI } from "@truefoundry/trueforge-ui";
 import {
   createTrueFoundryAgentUIServer,
   type TrueFoundryAgentUIServer,
@@ -55,7 +55,7 @@ export default function App() {
 
   return (
     <div style={{ height: "100dvh" }}>
-      <TrueforgeUI server={server} layout="sidebar" />
+      <TrueForgeUI server={server} layout="sidebar" />
     </div>
   );
 }
@@ -68,7 +68,7 @@ export default function App() {
 To keep TrueFoundry's hosted chat streaming but serve the builder surfaces — models, skills, connectors, and the agent library — from your own backend, compose the gateway chat port with your callbacks through `createTrueFoundryServer`. The stubs below return empty lists, which is enough to mount; fill them in as you add agent management.
 
 ```jsx App.tsx
-import { TrueforgeUI, createTrueFoundryServer } from "@truefoundry/trueforge-ui";
+import { TrueForgeUI, createTrueFoundryServer } from "@truefoundry/trueforge-ui";
 import { createTrueFoundryChatServer } from "@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter";
 
 const chatServer = createTrueFoundryChatServer({
@@ -91,7 +91,7 @@ const server = createTrueFoundryServer({
 export default function App() {
   return (
     <div style={{ height: "100dvh" }}>
-      <TrueforgeUI server={server} layout="sidebar" />
+      <TrueForgeUI server={server} layout="sidebar" />
     </div>
   );
 }

@@ -1,18 +1,18 @@
 ---
-title: "TrueforgeUI"
+title: "TrueForgeUI"
 description: "The entry component and every prop it accepts."
 ---
 
 ```tsx
-import { TrueforgeUI } from "@truefoundry/trueforge-ui";
+import { TrueForgeUI } from "@truefoundry/trueforge-ui";
 ```
 
 ## Properties
 
-<ParamField path="server" type="TrueforgeServerConfig" required>
+<ParamField path="server" type="TrueForgeServerConfig" required>
   Where the chat gets its data. Either a built-in config object or a ready `AgentUIServer`.
 
-  <Expandable title="TrueforgeServerConfig">
+  <Expandable title="TrueForgeServerConfig">
     <ParamField path="type" type='"truefoundry" | "trueforge"'>
       Omit entirely to pass an `AgentUIServer` object directly — there is no `"custom"` wrapper.
       `"trueforge"` loads the Harness adapter (`plugins/trueforge-agent-server-adapter`). See
@@ -234,7 +234,7 @@ Persisted sessions remain available through the thread list.
 ## Example
 
 ```tsx
-<TrueforgeUI
+<TrueForgeUI
   server={{ type: "truefoundry", apiKey, controlPlaneURL }}
   layout="sidebar"
   agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}

@@ -10,14 +10,14 @@ Built on:
        server={{ type: 'trueforge', baseUrl, fetch }}
          → plugins/trueforge-agent-server-adapter
               (chat + builder + settings catalogs)
-           → TrueforgeUI (layout="sidebar")
+           → TrueForgeUI (layout="sidebar")
 ```
 
 [`App.tsx`](src/App.tsx) owns product chrome only:
 
 - auth gate / welcome / logout (`authFetch`, `authSession`)
 - boot: first model → `defaultAgentSpec`, `initialSettingsOpen`
-- `<TrueforgeUI server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }} />`
+- `<TrueForgeUI server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }} />`
 
 Chat, agent library, and settings catalogs are composed inside the UI SDK plugin —
 the host does **not** call `createTrueFoundryServer` or maintain harness adapters.
@@ -54,8 +54,8 @@ session cookies.
 ### Server adapter (in the UI package)
 
 Harness ↔ `AgentUIServer` mapping lives in
-[`@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`](../trueforge-ui-sdk/src/plugins/trueforge-agent-server-adapter/).
-Hosts that need the factory outside `<TrueforgeUI />` can import
+[`@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`](../trueforge-ui/src/plugins/trueforge-agent-server-adapter/).
+Hosts that need the factory outside `<TrueForgeUI />` can import
 `createTrueForgeAgentUIServer` from that subpath.
 
 ## Production

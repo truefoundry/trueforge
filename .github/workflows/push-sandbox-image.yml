@@ -24,8 +24,8 @@ jobs:
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
       image_artifact_name: trueforge-sandbox
       image_tag: ${{ github.sha }}
-      image_context: packages/harness/scripts/sandbox
-      dockerfile_path: packages/harness/scripts/sandbox/sandbox.Dockerfile
+      image_context: packages/trueforge-core/scripts/sandbox
+      dockerfile_path: packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile
       # Dockerfile downloads linux-amd64 helm/nats binaries only.
       platforms: linux/amd64
       enable_jfrog: true
