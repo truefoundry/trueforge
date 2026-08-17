@@ -3,8 +3,21 @@ name: Build and prepare chart release
 # Prod lane: build the npm-install Dockerfile, push {appVersion}-{shortSha},
 # then open/update the chart-release bot PR (merge of that PR tags + publishes).
 #
-# Triggered manually, including by release.yml through workflow_dispatch.
+# Called from release.yml after npm publish (same commit as the publish job).
+# workflow_dispatch is for manual rebuilds. Do not use `gh workflow run --ref
+# $GITHUB_SHA`: the dispatch API only accepts a branch or tag name (HTTP 422).
 on:
+  workflow_call:
+    inputs:
+      app_version:
+        description: npm version to install (empty = Chart.yaml appVersion)
+        required: false
+        type: string
+      update_app_version:
+        description: Also set Chart.yaml appVersion to app_version on the bot PR
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       app_version:
