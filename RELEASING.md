@@ -153,7 +153,10 @@ gh workflow run build-and-prepare-chart-release.yml \
 ```
 
 You may edit chart SemVer (minor/major) on the PR before merging; the tag follows
-`Chart.yaml` `version` at merge time.
+`Chart.yaml` `version` at merge time. Each run rebuilds the `release-chart/trueforge` branch
+from `main`, but a chart `version` on the branch that outranks the patch bump is carried over,
+so a manual bump survives later image rebuilds. Other manual edits on that branch do not —
+commit them to `main` instead.
 
 ## Publish Helm chart
 
