@@ -1,13 +1,25 @@
 # Releasing
 
-This repository ships two independent release pipelines:
+This repository ships npm packages, a production container image (npm-install), a
+Helm chart, and optional from-source **dev** images.
 
-| What                      | Trigger                     | Workflow                                                                                         |
-| ------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------ |
-| npm packages              | Push to `main` (Changesets) | [`.github/workflows/release.yml`](.github/workflows/release.yml)                                 |
-| Server image + Helm chart | Manual `workflow_dispatch`  | [`.github/workflows/release-image-and-chart.yml`](.github/workflows/release-image-and-chart.yml) |
+| What                                   | Trigger                                                             | Workflow                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| npm packages                           | Push to `main` (Changesets)                                         | [`.github/workflows/release.yml`](.github/workflows/release.yml)                                                 |
+| Prod image + chart-release PR          | After `@truefoundry/trueforge` npm publish, or manual dispatch      | [`.github/workflows/build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
+| Chart tag, GitHub Release, OCI publish | Merge of `release-chart/trueforge`, or push of `charts/trueforge@*` | [`.github/workflows/release-chart.yml`](.github/workflows/release-chart.yml)                                     |
+| Dev (from-source) image                | Manual `workflow_dispatch`                                          | [`.github/workflows/build-dev-image.yml`](.github/workflows/build-dev-image.yml)                                 |
 
-Publishing npm does not stamp or push the chart. Publishing the image/chart does not publish npm.
+## Versioning
+
+| Artifact                     | Identity                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------- |
+| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` (source of truth for app bits)                                           |
+| Chart `appVersion`           | Same as a **published** npm version                                                     |
+| Prod image contents          | Root [`Dockerfile`](Dockerfile) installs `@truefoundry/trueforge@$APP_VERSION` from npm |
+| Prod image tag               | `{appVersion}-{shortSha}` (recipe/base rebuild identity)                                |
+| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                         |
+| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev) from monorepo source; tag = full commit SHA          |
 
 ## Published packages
 
@@ -46,7 +58,9 @@ There is no `v*` git-tag publish. One workflow both versions and publishes, spli
 
    **Dist-tags:** while `.changeset/pre.json` exists (`pnpm changeset pre enter rc`), publishes use the `rc` tag. After `pnpm changeset pre exit`, the next Version Packages merge publishes to `latest`. Install an RC with `npx @truefoundry/trueforge@rc` or a concrete `x.y.z-rc.N` version.
 
-4. **Update downstream pins** that depend on these packages. Prefer exact versions (no `^`) during early `0.x` churn.
+4. **If `@truefoundry/trueforge` was published**, the same workflow calls **Build and prepare chart release**: builds the prod image for that npm version and opens/updates the chart-release bot PR (see below).
+
+5. **Update downstream pins** that depend on these packages. Prefer exact versions (no `^`) during early `0.x` churn.
 
 `workflow_dispatch` on **Release** re-runs the same workflow (useful after a bot-only commit that did not re-trigger it).
 
@@ -114,27 +128,101 @@ Configure the trusted-publisher row **before** the first publish for a new packa
 
 # Server image and Helm chart
 
-A separate pipeline ships the deployable artifacts: the server container image (API + UI, built from the root `Dockerfile`) and the `charts/trueforge` Helm chart. It is driven by `.github/workflows/release-image-and-chart.yml` and runs only on manual **`workflow_dispatch`** (Actions → **Release image and Helm chart** → Run workflow).
+Three lanes share one publish path: **tag `charts/trueforge@A.B.C` → OCI chart**.
+
+```text
+npm publish @truefoundry/trueforge@X.Y.Z
+  → build Dockerfile (APP_VERSION=X.Y.Z) → push X.Y.Z-<shortSha>
+  → bot PR (appVersion + chart version + image.tag)
+  → merge PR → tag + GitHub Release → publish chart
+
+manual dispatch (rebuild / same appVersion)
+  → build + push → bot PR (chart version + image.tag)
+  → merge → tag → publish chart
+
+chart-only
+  → human PR bumps chart version
+  → human creates tag charts/trueforge@A.B.C
+  → publish chart (no image rebuild)
+```
 
 Install a published chart with:
 
 ```bash
 helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
-  --version <x.y.z>
+  --version <chart-semver>
 ```
 
-## What the workflow does
+## Dockerfiles
 
-The dispatch commit SHA is the image tag. The workflow:
+| File                               | Role                                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [`Dockerfile`](Dockerfile)         | **Prod / OSS.** `ARG APP_VERSION` (required). `npm install @truefoundry/trueforge@$APP_VERSION`.                         |
+| [`Dockerfile.dev`](Dockerfile.dev) | **Dev / smoke.** From-source monorepo build. Used by [`docker-compose.yml`](docker-compose.yml) and **Build dev image**. |
 
-1. **Builds and pushes the image** via `truefoundry/github-workflows-public/.github/workflows/build.yml@main` to the public JFrog Artifactory repository, tagged with `github.sha`.
-2. **Stamps the chart in the runner workspace** — sets `Chart.yaml` `version` to `0.0.0-<sha>` (Helm SemVer-compatible prerelease), and `appVersion` / `image.tag` to the raw SHA. Those stamps are **not** committed back to `main`.
-3. **Publishes the chart** — packages `charts/trueforge` and pushes it to the JFrog public OCI Helm repository (`oci://tfy.jfrog.io/tfy-helm`). It does not attach artifacts to a GitHub Release.
+Prod builds fail if the npm version is missing (no silent fallback to workspace source). That keeps `appVersion` honest even when `main` has already moved past the last npm release.
 
-## Per-release flow
+## Lane 1 — npm → image → chart PR
 
-1. On the commit you want to ship, run the workflow from the Actions tab (or `gh workflow run release-image-and-chart.yml`).
-2. Watch the run. The image and chart land in JFrog; the job summary prints the image URI.
+Automatic after Changesets publishes `@truefoundry/trueforge@X.Y.Z`:
+
+1. Build/push `…/trueforge:X.Y.Z-<shortSha>` with `APP_VERSION=X.Y.Z`.
+2. Open or update branch `release-chart/trueforge`: bump chart `version`, set `appVersion` to `X.Y.Z`, set `image.tag`.
+3. **Merge the PR** → [`release-chart.yml`](.github/workflows/release-chart.yml) creates the annotated tag and GitHub Release, then publishes the OCI chart in the same workflow.
+4. Human-pushed tags trigger the same workflow's publish job directly.
+
+## Lane 2 — manual image rebuild
+
+Actions → **Build and prepare chart release** (`workflow_dispatch`):
+
+- Optional `app_version` (default: current `Chart.yaml` `appVersion`).
+- Optional `update_app_version` (default false) — leave off for vuln/base rebuilds of the same npm version.
+- Builds/pushes a new `{appVersion}-{shortSha}`, opens/updates the same bot PR (chart patch bump + `image.tag`).
+
+```bash
+gh workflow run build-and-prepare-chart-release.yml
+# or pin app version:
+gh workflow run build-and-prepare-chart-release.yml -f app_version=0.1.0
+```
+
+## Lane 3 — chart only
+
+1. Human PR: bump `charts/trueforge/Chart.yaml` `version` (and any template/values changes). Leave `appVersion` / `image.tag` unless intentionally retargeting.
+2. Merge to `main`.
+3. Create the tag (and optionally GH Release) yourself:
+
+```bash
+git tag charts/trueforge@0.1.0
+git push origin charts/trueforge@0.1.0
+# or:
+gh release create charts/trueforge@0.1.0 --title "charts/trueforge@0.1.0"
+```
+
+[`release-chart.yml`](.github/workflows/release-chart.yml) validates `Chart.yaml` `version` matches the tag suffix and publishes. No image rebuild.
+
+## Bot PR conventions
+
+| Item              | Value                                                                |
+| ----------------- | -------------------------------------------------------------------- |
+| Branch            | `release-chart/trueforge` (one open PR, updated in place)            |
+| Auto-tag on merge | Only for this exact branch — ordinary merges never create chart tags |
+
+You may edit the chart SemVer on the PR (minor/major) before merging; the tag follows `Chart.yaml` `version` at merge time.
+
+## Dev / floating main
+
+For internal deploy repos that track `main` via `git-helm-repo`:
+
+1. Build a from-source image:
+
+```bash
+gh workflow run build-dev-image.yml --ref main
+```
+
+2. Image: `tfy.jfrog.io/tfy-images/trueforge:<fullSha>` (job summary prints the URI).
+3. In the **external** `truefoundry.yaml`, set `image.tag` to that SHA. Keep secrets in `secretKeyRef` / platform secrets — never plaintext client secrets in git.
+
+Optional: schedule or trigger `build-dev-image.yml` from the deploy repo (`gh workflow run`). Do not use SHA-tagged images as production chart defaults.
 
 ## Required repository configuration
 
@@ -144,7 +232,7 @@ The dispatch commit SHA is the image tag. The workflow:
 
 ## Bundled chart dependencies
 
-The chart optionally bundles Postgres and Redis (Bitnami subcharts from `oci://registry-1.docker.io/bitnamicharts`, pinned by `Chart.lock`). The workflow runs `helm dependency build` before packaging. Disable them with `postgresql.enabled=false` / `redis.enabled=false` to use external services.
+The chart optionally bundles Postgres and Redis (Bitnami subcharts from `oci://registry-1.docker.io/bitnamicharts`, pinned by `Chart.lock`). The chart publish workflow runs `helm dependency build` before packaging. Disable them with `postgresql.enabled=false` / `redis.enabled=false` to use external services.
 
 Bitnami left the charts public but moved versioned container images to `docker.io/bitnamilegacy`. `charts/trueforge/values.yaml` points the subcharts at pinned tags mirrored on JFrog and sets `global.security.allowInsecureImages: true`. Mirror once per pinned tag:
 

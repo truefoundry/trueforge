@@ -142,6 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      actions: write
       contents: write
       id-token: write
     steps:
@@ -163,6 +164,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Publish packages
+        id: publish
         uses: changesets/action/publish@v2
         with:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
@@ -170,3 +172,48 @@ jobs:
         # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT
         # set it now: provenance publicly attests the source repo and commit.
         # publishConfig.provenance is false on every public package.
+
+      - name: Detect @truefoundry/trueforge publish
+        id: trueforge
+        env:
+          PUBLISHED: ${{ steps.publish.outputs.published }}
+          PACKAGES_KEBAB: ${{ steps.publish.outputs['published-packages'] }}
+          PACKAGES_CAMEL: ${{ steps.publish.outputs.publishedPackages }}
+        run: |
+          set -euo pipefail
+          if [[ "${PUBLISHED:-}" != "true" ]]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PACKAGES="${PACKAGES_KEBAB:-${PACKAGES_CAMEL:-[]}}"
+          VERSION=$(printf '%s' "$PACKAGES" | python3 -c '
+          import json,sys
+          pkgs=json.load(sys.stdin)
+          for p in pkgs:
+            if p.get("name")=="@truefoundry/trueforge":
+              print(p["version"])
+              break
+          ')
+          if [[ -n "$VERSION" ]]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "Published @truefoundry/trueforge@$VERSION"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "@truefoundry/trueforge was not in this publish set"
+          fi
+
+      - name: Start prod image release
+        if: steps.trueforge.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.trueforge.outputs.version }}
+        run: |
+          # Pin to this publish commit so a newer main push cannot change the
+          # Dockerfile / shortSha used for the prod image tag.
+          gh workflow run build-and-prepare-chart-release.yml \
+            --ref "$GITHUB_SHA" \
+            -f app_version="$VERSION" \
+            -f update_app_version=true

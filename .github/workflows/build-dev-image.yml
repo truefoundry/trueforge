@@ -1,0 +1,54 @@
+name: Build dev image
+
+# From-source image for floating-main / external deploy repos.
+# Builds Dockerfile.dev and pushes .../trueforge:<fullSha>. No chart publish.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: build-dev-image
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and push from-source image
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: trueforge
+      image_tag: ${{ github.sha }}
+      image_context: .
+      dockerfile_path: Dockerfile.dev
+      platforms: linux/amd64
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+
+  summary:
+    name: Print image URI
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Summary
+        env:
+          IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge:${{ github.sha }}
+        run: |
+          set -euo pipefail
+          echo "Pushed image URI: $IMAGE_URI"
+          {
+            echo "### Dev image (from-source)"
+            echo "\`$IMAGE_URI\`"
+            echo ""
+            echo "Patch this SHA into your external \`truefoundry.yaml\` as \`image.tag\`."
+          } >> "$GITHUB_STEP_SUMMARY"
