@@ -2,16 +2,15 @@
  * DB-backed sessions API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
-  EventType,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields, newEventId } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
@@ -117,44 +116,13 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
   };
 }
 
-/** A registry to abort in, durable state to read/freeze, and a way to reach peers. */
+/** A registry to abort in, a session to freeze, durable state to read, and a way to reach peers. */
 export interface CancelTurnDeps {
   activeTurns: ActiveTurnRegistry;
-  sessionStore: Pick<ISessionStore, 'getTurn' | 'freezeAndGetTurn'>;
+  session: Pick<SessionHandle, 'session_id' | 'freezeTurn'>;
+  sessionStore: Pick<ISessionStore, 'getTurn'>;
   redis?: RedisClientType | undefined;
   logger: Pick<Logger, 'warn'>;
-}
-
-/** Freeze a running turn; missing turns are a no-op (already gone). */
-async function freezeTurn(
-  sessionStore: Pick<ISessionStore, 'freezeAndGetTurn'>,
-  input: { sessionId: string; turnId: string; reason: CancellationReason },
-): Promise<void> {
-  const completedAt = new Date().toISOString();
-  const turnDoneEvent = {
-    type: EventType.TURN_DONE,
-    id: newEventId(),
-    created_at: completedAt,
-    state: {
-      status: 'cancelled' as const,
-      reason: input.reason,
-      completed_at: completedAt,
-    },
-    thread_id: null,
-  };
-  try {
-    await sessionStore.freezeAndGetTurn({
-      session_id: input.sessionId,
-      turn_id: input.turnId,
-      reason: input.reason,
-      turn_done_event: turnDoneEvent,
-    });
-  } catch (error) {
-    if (error instanceof TurnNotFoundError) {
-      return;
-    }
-    throw error;
-  }
 }
 
 /**
@@ -171,9 +139,10 @@ async function freezeTurn(
  */
 export async function cancelSessionTurn(
   deps: CancelTurnDeps,
-  input: { sessionId: string; turnId: string; reason?: CancellationReason },
+  input: { turnId: string; reason?: CancellationReason },
 ): Promise<void> {
-  const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
+  const { turnId, reason = CancellationReason.ClientCancelled } = input;
+  const sessionId = deps.session.session_id;
 
   const turn = await deps.sessionStore.getTurn({
     session_id: sessionId,
@@ -217,13 +186,28 @@ export async function cancelSessionTurn(
         deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', fields);
       }
     }
-    await freezeTurn(deps.sessionStore, { sessionId, turnId, reason });
+    await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
     return;
   }
 
   const aborted = cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
   if (!aborted) {
-    await freezeTurn(deps.sessionStore, { sessionId, turnId, reason });
+    await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
+  }
+}
+
+/** Freeze a running turn; missing turns are a no-op (already gone). */
+async function freezeTurnIgnoringMissing(
+  session: Pick<SessionHandle, 'freezeTurn'>,
+  input: { turnId: string; reason: CancellationReason },
+): Promise<void> {
+  try {
+    await session.freezeTurn({ turn_id: input.turnId, reason: input.reason });
+  } catch (error) {
+    if (error instanceof TurnNotFoundError) {
+      return;
+    }
+    throw error;
   }
 }
 
@@ -368,19 +352,19 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!record) {
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const turnId = record.last_turn_id;
+    const turnId = session.record.last_turn_id;
     if (!turnId) {
       return c.json({}, 200);
     }
 
-    await cancelSessionTurn(deps, { sessionId, turnId });
+    await cancelSessionTurn({ ...deps, session }, { turnId });
     return c.json({}, 200);
   };
 
