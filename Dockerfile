@@ -1,102 +1,27 @@
 # syntax=docker/dockerfile:1
 #
-# Multi-stage build for @truefoundry/trueforge, which also serves the UI: the only image the stack needs.
+# Production image: installs published @truefoundry/trueforge from npm.
+# The app bits match the npm package exactly (not floating monorepo source).
 #
-# Lives at the repository root because the build needs the whole pnpm workspace
-# as its context: the server depends on the workspace package @truefoundry/trueforge-core.
+# Required build-arg:
+#   APP_VERSION — npm version to install, e.g. 0.1.0
 #
-# Dependency install uses pnpm fetch (lockfile-only) then install --offline so
-# the download layer stays cached when only package.json / scripts change.
-# See https://pnpm.io/cli/fetch
+# Example:
+#   docker build --build-arg APP_VERSION=0.1.0 -t trueforge:0.1.0 .
 
-FROM node:24-slim AS base
-ENV PNPM_HOME=/pnpm
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && pnpm config set store-dir /pnpm/store
+FROM node:24-slim AS runner
 WORKDIR /app
-
-# Native dependencies (for example better-sqlite3) compile in build stages.
-FROM base AS build-base
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends g++ make python3 \
-  && rm -rf /var/lib/apt/lists/*
-
-# ---------------------------------------------------------------------------
-# store: the pnpm store, from the lockfile only (stable when manifests churn).
-# ---------------------------------------------------------------------------
-FROM build-base AS store
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
-
-# ---------------------------------------------------------------------------
-# workspace: install inputs shared by every stage below — the manifests plus the
-# sources the root postinstall hook (build:gen) inlines.
-# ---------------------------------------------------------------------------
-FROM store AS workspace
-COPY package.json .npmrc tsconfig.base.json ./
-COPY packages/trueforge-core/package.json packages/trueforge-core/package.json
-COPY packages/trueforge/package.json packages/trueforge/package.json
-COPY packages/trueforge-sdk/package.json packages/trueforge-sdk/package.json
-COPY packages/frontend/package.json packages/frontend/package.json
-COPY packages/trueforge-ui/package.json packages/trueforge-ui/package.json
-COPY packages/trueforge-core/scripts packages/trueforge-core/scripts
-COPY packages/trueforge-core/src/core/sandbox/scripts packages/trueforge-core/src/core/sandbox/scripts
-
-# ---------------------------------------------------------------------------
-# builder: install all deps (incl. dev) and build trueforge-core + server.
-# ---------------------------------------------------------------------------
-FROM workspace AS builder
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --filter @truefoundry/trueforge...
-COPY packages/trueforge-core packages/trueforge-core
-COPY packages/trueforge packages/trueforge
-RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge build
-
-# ---------------------------------------------------------------------------
-# frontend-builder: build the UI the server serves (parallel to builder above).
-# ---------------------------------------------------------------------------
-FROM workspace AS frontend-builder
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --filter frontend...
-COPY packages/trueforge-sdk packages/trueforge-sdk
-RUN pnpm --filter @truefoundry/trueforge-sdk build
-COPY packages/trueforge-ui packages/trueforge-ui
-RUN pnpm --filter @truefoundry/trueforge-ui build
-COPY packages/frontend packages/frontend
-RUN pnpm --filter frontend build
-
-# ---------------------------------------------------------------------------
-# prod-deps: production dependency tree (no dev tooling), resolved offline.
-# ---------------------------------------------------------------------------
-FROM workspace AS prod-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/trueforge...
-
-# ---------------------------------------------------------------------------
-# runner: minimal image with prod node_modules + built artifacts.
-# ---------------------------------------------------------------------------
-FROM base AS runner
 ENV NODE_ENV=production
+ENV STANDALONE=false
 
-# Production dependency tree (pnpm workspace symlinks preserved).
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=prod-deps /app/packages/trueforge-core/node_modules ./packages/trueforge-core/node_modules
-COPY --from=prod-deps /app/packages/trueforge/node_modules ./packages/trueforge/node_modules
+ARG APP_VERSION
+RUN test -n "$APP_VERSION" || (echo "APP_VERSION build-arg is required" >&2 && exit 1)
 
-# Built workspace dependency (@truefoundry/trueforge-core).
-COPY --from=builder /app/packages/trueforge-core/package.json ./packages/trueforge-core/package.json
-COPY --from=builder /app/packages/trueforge-core/dist ./packages/trueforge-core/dist
-
-# Built server (JS). UI is copied below from the parallel frontend stage into
-# dist/_frontend — same path as the npm tarball / `pnpm build` copy step.
-COPY --from=builder /app/packages/trueforge/package.json ./packages/trueforge/package.json
-COPY --from=builder /app/packages/trueforge/dist ./packages/trueforge/dist
-# Frontend builds in a parallel stage; place it at the same path as the npm tarball.
-COPY --from=frontend-builder /app/packages/frontend/dist ./packages/trueforge/dist/_frontend
-
-WORKDIR /app/packages/trueforge
+# Fail closed if the version is not on the registry (no workspace fallback).
+RUN npm install --omit=dev "@truefoundry/trueforge@${APP_VERSION}" \
+  && npm cache clean --force
 
 EXPOSE 8790
 
-# Launch-only (matches root `pnpm start` / `standalone:start`). Image already contains dist.
-CMD ["node", "dist/main.js"]
+# Same entry as the from-source image / `pnpm start` (launch-only; dist is in the package).
+CMD ["node", "node_modules/@truefoundry/trueforge/dist/main.js"]

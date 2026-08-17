@@ -1,0 +1,156 @@
+name: Publish Helm chart
+
+# A chart-release PR merge creates the tag/GitHub Release and publishes the
+# chart. Human charts/trueforge@* tags use the same publish job.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  push:
+    tags:
+      - 'charts/trueforge@*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish (e.g. charts/trueforge@0.1.0)
+        required: true
+        type: string
+
+concurrency:
+  group: publish-helm-chart
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    name: Create release and publish chart
+    if: >-
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.head.ref == 'release-chart/trueforge' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CHART_DIR: charts/trueforge
+      HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
+    steps:
+      - name: Check out chart commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Resolve or create chart release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Read the chart identity from the checked-out commit.
+          VERSION=$(yq -r '.version' charts/trueforge/Chart.yaml)
+          APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
+          IMAGE_TAG=$(yq -r '.image.tag' charts/trueforge/values.yaml)
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid chart version: $VERSION" >&2
+            exit 1
+          fi
+
+          # Path A: bot chart-release PR was merged.
+          # Create the charts/trueforge@<version> tag + GitHub Release here,
+          # because GITHUB_TOKEN tag pushes do not start a separate push workflow.
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            TAG="charts/trueforge@${VERSION}"
+
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              echo "Tag $TAG already exists; refusing to move it" >&2
+              exit 1
+            fi
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Helm chart ${VERSION} (appVersion ${APP_VERSION}, image ${IMAGE_TAG})"
+            git push origin "$TAG"
+
+            # Write notes via a file so PR body cannot inject into the shell.
+            NOTES_FILE="$(mktemp)"
+            {
+              echo "Source PR: #${PR_NUMBER}"
+              echo
+              printf '%s\n' "$PR_BODY"
+            } >"$NOTES_FILE"
+            gh release create "$TAG" \
+              --target "$MERGE_SHA" \
+              --title "$TAG" \
+              --notes-file "$NOTES_FILE"
+            rm -f "$NOTES_FILE"
+          # Path B: manual retry via workflow_dispatch with an explicit tag.
+          elif [[ -n "${INPUT_TAG:-}" ]]; then
+            TAG="$INPUT_TAG"
+
+          # Path C: human pushed charts/trueforge@* themselves.
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+
+          # Every path must publish the same chart version the tag names.
+          case "$TAG" in
+            charts/trueforge@*) EXPECTED="${TAG#charts/trueforge@}" ;;
+            *) echo "Invalid chart tag: $TAG" >&2; exit 1 ;;
+          esac
+
+          ACTUAL=$(yq -r '.version' "$CHART_DIR/Chart.yaml")
+          if [[ "$ACTUAL" != "$EXPECTED" ]]; then
+            echo "Chart.yaml version '$ACTUAL' does not match tag version '$EXPECTED'" >&2
+            exit 1
+          fi
+
+          # VERSION is consumed by the package/push step below.
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Publishing chart version=$ACTUAL appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
+
+      - name: Helm registry login
+        env:
+          HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
+          HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+        run: |
+          printf '%s' "$HELM_REGISTRY_PASSWORD" \
+            | helm registry login -u "$HELM_REGISTRY_USERNAME" --password-stdin "$HELM_REGISTRY_URL"
+
+      - name: Build chart dependencies
+        run: helm dependency build "$CHART_DIR"
+
+      - name: Package and push chart
+        run: |
+          set -euo pipefail
+          CHART_NAME=$(yq -r '.name' "$CHART_DIR/Chart.yaml")
+          mkdir -p dist
+          helm package "$CHART_DIR" --destination dist
+          PACKAGE="dist/${CHART_NAME}-${VERSION}.tgz"
+          echo "Pushing $PACKAGE to oci://$HELM_CHART_REPOSITORY"
+          helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY"
+          {
+            echo "### Helm chart"
+            echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

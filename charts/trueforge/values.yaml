@@ -4,8 +4,8 @@ replicaCount: 1
 
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
-  # Tag defaults to the chart appVersion when empty; the release workflow stamps
-  # the released version here.
+  # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
+  # to {appVersion}-{shortSha} for the npm-install image already in the registry.
   tag: ""
   pullPolicy: IfNotPresent
 
