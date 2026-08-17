@@ -113,7 +113,9 @@ function threadsRecordFromMap(threads: Map<string, AgentThread>): Record<string,
   return out;
 }
 
-function threadIdsForTurn(snapshot: TurnSnapshot | undefined): string[] {
+// Current-turn thread ids. Main (`MAIN_THREAD_ID`) is always present — first turn
+// synthesizes it; later turns always carry it in the previous snapshot.
+function threadIdsForCurrentTurn(snapshot: TurnSnapshot | undefined): string[] {
   return snapshot ? Object.keys(snapshot.threads) : [MAIN_THREAD_ID];
 }
 
@@ -221,7 +223,10 @@ export class SessionHandle<
 
       // Wire Code Mode once from main toolSets before threads share the sandbox.
       const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
-      if (sandbox && mainDefinition) {
+      if (!mainDefinition) {
+        throw new Error('Unreachable: missing resolved agent definition for main thread');
+      }
+      if (sandbox) {
         sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
       }
 
@@ -378,14 +383,14 @@ export class SessionHandle<
     signal: AbortSignal;
   }): Promise<Map<string, ResolvedAgentDefinition>> {
     const snapshots = input.previous?.snapshot.threads;
-    const threadIds = threadIdsForTurn(input.previous?.snapshot);
+    const threadIds = threadIdsForCurrentTurn(input.previous?.snapshot);
     const definitionsByThreadId = new Map<string, ResolvedAgentDefinition>();
     await Promise.all(
       threadIds.map(async threadId => {
-        const data = snapshots?.[threadId];
+        const previousThreadSnapshot = snapshots?.[threadId];
         const resolved = await input.resolver.resolveAgentDefinition({
           spec: input.spec,
-          agent_info: data?.agent_info ?? undefined,
+          agent_info: previousThreadSnapshot?.agent_info ?? undefined,
           previousTurn: input.previous,
           signal: input.signal,
           tracing: input.tracing,
@@ -406,7 +411,7 @@ export class SessionHandle<
   }): Map<string, AgentThread> {
     const snapshots = input.previous?.snapshot.threads;
     const map = new Map<string, AgentThread>();
-    for (const threadId of threadIdsForTurn(input.previous?.snapshot)) {
+    for (const threadId of threadIdsForCurrentTurn(input.previous?.snapshot)) {
       const resolvedDefinition = input.definitionsByThreadId.get(threadId);
       if (!resolvedDefinition) {
         throw new Error(`Unreachable: missing resolved agent definition for thread '${threadId}'`);
@@ -415,7 +420,7 @@ export class SessionHandle<
         threadId,
         this.buildThread({
           threadId,
-          data: snapshots?.[threadId],
+          previousThreadSnapshot: snapshots?.[threadId],
           resolver: input.resolver,
           spec: input.spec,
           sandbox: input.sandbox,
@@ -429,7 +434,7 @@ export class SessionHandle<
 
   private buildThread(input: {
     threadId: string;
-    data?: AgentThreadSnapshot | undefined;
+    previousThreadSnapshot?: AgentThreadSnapshot | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
     sandbox: Sandbox | undefined;
@@ -437,7 +442,7 @@ export class SessionHandle<
     resolvedDefinition: ResolvedAgentDefinition;
   }): AgentThread {
     const { definition, extraCapabilities } = input.resolvedDefinition;
-    const isChild = Boolean(input.data?.parent);
+    const isChild = Boolean(input.previousThreadSnapshot?.parent);
     const capabilities = [
       ...builtinsFromSpec({
         spec: input.spec,
@@ -452,15 +457,15 @@ export class SessionHandle<
     return new AgentThread({
       definition,
       threadId: input.threadId,
-      title: input.data?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
+      title: input.previousThreadSnapshot?.agent_info?.name ?? (isChild ? input.threadId : 'main'),
       sandbox: input.sandbox,
-      context: input.data?.context,
-      currentContextUsage: input.data?.current_context_usage,
-      parent: input.data?.parent ?? undefined,
-      agentInfo: input.data?.agent_info ?? undefined,
-      preComputedCompletion: input.data?.completion ?? undefined,
+      context: input.previousThreadSnapshot?.context,
+      currentContextUsage: input.previousThreadSnapshot?.current_context_usage,
+      parent: input.previousThreadSnapshot?.parent ?? undefined,
+      agentInfo: input.previousThreadSnapshot?.agent_info ?? undefined,
+      preComputedCompletion: input.previousThreadSnapshot?.completion ?? undefined,
       capabilities,
-      capabilityState: input.data?.capability_state ?? undefined,
+      capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
       tracing: input.tracing,
       logger: input.resolver.logger,
     });
