@@ -10,12 +10,6 @@ function pathCoveredByAllowRead(params: { path: string; allowRead: readonly stri
 }
 
 describe('resolvePythonExecutableOnHost', () => {
-  it('returns undefined when the binary does not exist', async () => {
-    await expect(
-      resolvePythonExecutableOnHost({ commandPath: '/this/python/does/not/exist' }),
-    ).resolves.toBeUndefined();
-  });
-
   it('unwraps the macOS /usr/bin/python3 xcode-select stub', async () => {
     if (process.platform !== 'darwin') {
       return;

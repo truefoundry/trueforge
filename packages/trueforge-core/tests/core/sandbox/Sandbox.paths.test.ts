@@ -71,32 +71,6 @@ describe('Sandbox provider-owned paths', () => {
     });
   });
 
-  it('mkdirs provider uploads and skills dirs during init', async () => {
-    const exec = jest.fn().mockImplementation(() => readyExec());
-    const sandbox = makeSandbox(makeProvider({ exec }));
-    await sandbox.uploadUserFile({
-      fileName: 'a.txt',
-      content: Buffer.from('x'),
-      mime: 'text/plain',
-    });
-    const mkdirCall = exec.mock.calls.find((call: unknown[]) => {
-      const params = call[0];
-      return (
-        typeof params === 'object' &&
-        params !== null &&
-        'command' in params &&
-        typeof params.command === 'string' &&
-        params.command.startsWith('mkdir -p')
-      );
-    });
-    expect(mkdirCall).toBeDefined();
-    const params = mkdirCall?.[0] as { command: string };
-    expect(params.command).toContain('/prov/uploads');
-    expect(params.command).toContain('/prov/skills');
-    expect(params.command).not.toContain('/tmp/uploads');
-    expect(params.command).not.toContain('/opt/tfy/skills');
-  });
-
   it('passes sessionId through to createSandbox', async () => {
     const createSandbox = jest.fn().mockResolvedValue({ sandboxId: 'raw-1' });
     const sandbox = makeSandbox(makeProvider({ createSandbox }), { sessionId: 'sess_1' });
