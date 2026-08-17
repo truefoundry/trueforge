@@ -58,6 +58,12 @@ export default defineConfig(
     ],
   },
   {
+    // Require braces on every control statement, including single-line and multi-line.
+    rules: {
+      curly: ['error', 'all'],
+    },
+  },
+  {
     files: ['**/*.{js,mjs,cjs,ts}'],
     ignores: ['packages/frontend/**'],
     extends: [js.configs.recommended, tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked],

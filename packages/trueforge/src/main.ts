@@ -310,7 +310,9 @@ try {
   if (configuration.NODE_ENV !== 'development') {
     let shuttingDown = false;
     const shutdown = async (signal: NodeJS.Signals) => {
-      if (shuttingDown) return;
+      if (shuttingDown) {
+        return;
+      }
       shuttingDown = true;
       logger.info(`Received ${signal}, draining connections before shutdown`);
 

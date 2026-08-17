@@ -174,7 +174,7 @@ jobs:
           # already uses OIDC (`id-token: write`); this flag is what changesets
           # / pnpm honor (they do not accept `--provenance`).
           # publishConfig.provenance is true on every public package.
-          NPM_CONFIG_PROVENANCE: "true"
+          NPM_CONFIG_PROVENANCE: 'true'
 
       - name: Detect @truefoundry/trueforge publish
         id: trueforge

@@ -127,8 +127,12 @@ function injectTraceContextEnv(): Record<string, string> {
   const carrier: Record<string, string> = {};
   propagation.inject(context.active(), carrier);
   const env: Record<string, string> = {};
-  if (carrier['traceparent']) env['TFY_TRACEPARENT'] = carrier['traceparent'];
-  if (carrier['tracestate']) env['TFY_TRACESTATE'] = carrier['tracestate'];
+  if (carrier['traceparent']) {
+    env['TFY_TRACEPARENT'] = carrier['traceparent'];
+  }
+  if (carrier['tracestate']) {
+    env['TFY_TRACESTATE'] = carrier['tracestate'];
+  }
   return env;
 }
 
@@ -354,7 +358,9 @@ export class Sandbox extends LocalToolMCP {
 
   private buildMCPSection(builder: InstructionBuilder): void {
     const toolSetNames = this.codeExecToolSets.map(m => m.name).join(',');
-    if (!toolSetNames) return;
+    if (!toolSetNames) {
+      return;
+    }
 
     builder.addSection(
       SANDBOX_MCP_REMINDER_TAG,
@@ -657,7 +663,9 @@ export class Sandbox extends LocalToolMCP {
     this.codeModeDispatcher = undefined;
     const transport = this.codeModeTransport;
     this.codeModeTransport = undefined;
-    if (transport === undefined) return;
+    if (transport === undefined) {
+      return;
+    }
     try {
       await transport.stop();
     } catch (e) {

@@ -72,7 +72,9 @@ export class InstructionBuilder {
   /** Adds raw text (no wrapping tag) to this section. Empty strings are ignored. */
   addContent(content: string): this {
     const trimmed = content.trim();
-    if (trimmed) this.children.push(trimmed);
+    if (trimmed) {
+      this.children.push(trimmed);
+    }
     return this;
   }
 
@@ -82,7 +84,9 @@ export class InstructionBuilder {
    */
   addSection(tag: string, content: string, escapeContent = false): this {
     const trimmed = content.trim();
-    if (!trimmed) return this;
+    if (!trimmed) {
+      return this;
+    }
     const child = new InstructionBuilder(tag, escapeContent);
     child.children.push(trimmed);
     this.children.push(child);
@@ -104,11 +108,15 @@ export class InstructionBuilder {
         inner.push(child);
       } else {
         const output = child.build();
-        if (output) inner.push(output);
+        if (output) {
+          inner.push(output);
+        }
       }
     }
 
-    if (inner.length === 0) return '';
+    if (inner.length === 0) {
+      return '';
+    }
 
     const body = inner.join('\n\n');
     if (this.escapeContent) {

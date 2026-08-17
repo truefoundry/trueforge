@@ -53,8 +53,12 @@ export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
   const serveCompressed = every(compress(), serveWithCacheHeaders);
 
   const serveBuild: MiddlewareHandler = async (c, next) => {
-    if (isServerPath(c.req.path)) return next();
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return next();
+    if (isServerPath(c.req.path)) {
+      return next();
+    }
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      return next();
+    }
     return serveCompressed(c, next);
   };
 
@@ -67,9 +71,15 @@ export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
    * accept HTML keep their 404 rather than getting the shell as a fake asset.
    */
   const serveSpaFallback: MiddlewareHandler = async (c, next) => {
-    if (isServerPath(c.req.path)) return next();
-    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') return next();
-    if (c.req.header('accept')?.includes('text/html') !== true) return next();
+    if (isServerPath(c.req.path)) {
+      return next();
+    }
+    if (c.req.method !== 'GET' && c.req.method !== 'HEAD') {
+      return next();
+    }
+    if (c.req.header('accept')?.includes('text/html') !== true) {
+      return next();
+    }
 
     const response = await serveAppShell(c, next);
     if (response instanceof Response) {

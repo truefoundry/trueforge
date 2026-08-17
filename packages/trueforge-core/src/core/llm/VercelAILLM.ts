@@ -574,7 +574,9 @@ export function toFilePart(file: {
   filename?: string | undefined;
 }): FilePart | undefined {
   const { file_data, filename } = file;
-  if (!file_data) return undefined;
+  if (!file_data) {
+    return undefined;
+  }
   const mediaType = parseMimeFromDataUri(file_data) ?? 'application/octet-stream';
   return {
     type: 'file',
@@ -989,7 +991,9 @@ export function describeStreamError(raw: unknown): string {
 }
 
 export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) return raw;
+  if (raw instanceof Error) {
+    return raw;
+  }
   return new Error(describeStreamError(raw), { cause: raw });
 }
 

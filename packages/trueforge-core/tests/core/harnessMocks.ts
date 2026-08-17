@@ -81,14 +81,22 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
 
 /** Extract `mcp server: <name>` labels from an LLM tools array (public create() body). */
 export function mcpServerNamesFromTools(tools: unknown): string[] {
-  if (!Array.isArray(tools)) return [];
+  if (!Array.isArray(tools)) {
+    return [];
+  }
   const names: string[] = [];
   for (const tool of tools) {
-    if (!tool || typeof tool !== 'object' || !('function' in tool)) continue;
+    if (!tool || typeof tool !== 'object' || !('function' in tool)) {
+      continue;
+    }
     const fn = (tool as { function?: unknown }).function;
-    if (!fn || typeof fn !== 'object' || !('description' in fn)) continue;
+    if (!fn || typeof fn !== 'object' || !('description' in fn)) {
+      continue;
+    }
     const description = (fn as { description?: unknown }).description;
-    if (typeof description !== 'string') continue;
+    if (typeof description !== 'string') {
+      continue;
+    }
     const match = /^mcp server: ([^\n]+)/.exec(description);
     const serverName = match?.[1];
     if (serverName !== undefined && !names.includes(serverName)) {

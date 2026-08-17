@@ -46,7 +46,9 @@ export function isLLMContextMessage(msg: ContextMessage): msg is LLMContextMessa
 }
 
 export function isInternalSystemMessage(m: ContextMessage): boolean {
-  if (!isLLMContextMessage(m)) return false;
+  if (!isLLMContextMessage(m)) {
+    return false;
+  }
   return m.role === 'user' && typeof m.content === 'string' && m.content.startsWith(SYSTEM_TAG_START);
 }
 

@@ -1,4 +1,12 @@
+## [0.1.1] - 2026-08-17
+
 ## [0.1.0] - 2026-08-16
+
+## 0.1.1
+
+### Patch Changes
+
+- 5100c59: Regenerate SDK from updated OpenAPI spec.
 
 ## [0.1.0-rc.1] - 2026-08-14
 
