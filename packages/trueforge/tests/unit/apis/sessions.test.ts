@@ -155,7 +155,7 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(sessionStore.freezeAndGetTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Owning executor is unreachable; freezing the running turn',
+      'Failed to reach owning executor over Redis; freezing the running turn',
       expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: 'other1' }),
     );
   });
