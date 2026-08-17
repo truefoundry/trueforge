@@ -79,7 +79,7 @@ description: "Common failure modes and their causes."
   </Accordion>
 
   <Accordion title="Only the OAuth screen renders — no chat">
-    A `screenType=mcp-auth` query parameter is present on the URL. `TrueForgeUI` renders the OAuth completion screen exclusively in that case. Keep the callback on its own route; see [MCP OAuth](/ui-sdk/guides/mcp-oauth).
+    A `screenType=mcp-auth` query parameter is present on the URL. `TrueForgeUI` renders the OAuth completion screen exclusively in that case. Keep the callback on its own route; see [MCP OAuth](/ui-sdk/setup-custom-ui/mcp-oauth).
   </Accordion>
 
   <Accordion title="Dark mode fights with the host application">
@@ -87,7 +87,7 @@ description: "Common failure modes and their causes."
   </Accordion>
 
   <Accordion title="Import of Button or AskUserPrompt fails">
-    A few names are published as types only, so importing them as values fails. `Button` and `IconButton` are restyled through [theme tokens](/ui-sdk/guides/theming) rather than replaced. `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` are override-only — supply your own component typed with the published props.
+    A few names are published as types only, so importing them as values fails. `Button` and `IconButton` are restyled through [theme tokens](/ui-sdk/setup-custom-ui/custom-theme) rather than replaced. `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` are override-only — supply your own component typed with the published props.
   </Accordion>
 
   <Accordion title="SSR or React Server Components errors">
