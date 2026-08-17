@@ -39,6 +39,9 @@
   <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core">
     <img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core" alt="npm @truefoundry/trueforge-core">
   </a>
+  <a href="https://deepwiki.com/truefoundry/trueforge">
+    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
+  </a>
 </p>
 
 # TrueForge
