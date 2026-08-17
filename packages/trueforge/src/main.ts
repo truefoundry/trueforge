@@ -12,6 +12,12 @@
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  ensureLocalSandboxRootParent,
+  prepareCodeModeSocketParent,
+  removeCodeModeSocketParent,
+} from './sandbox/localLifecycle';
+import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
@@ -248,6 +254,14 @@ try {
 
   if (configuration.STANDALONE) {
     printStandaloneStartupBanner({ version: PACKAGE_VERSION, color: shouldColorize() });
+    await prepareCodeModeSocketParent({ path: configuration.CODE_MODE_SOCKET_PARENT, logger });
+    await ensureLocalSandboxRootParent(configuration.LOCAL_SANDBOX_ROOT_PARENT);
+    const { LocalSandboxProvider } = await import('./sandbox/local/provider/LocalSandboxProvider');
+    const support = await LocalSandboxProvider.isSupported();
+    setCachedLocalSandboxSupport(support);
+    if (!support.supported) {
+      logger.warn('Local sandbox fallback is unavailable', { reason: support.reason });
+    }
   } else {
     logger.info('TrueForge starting', { mode: 'distributed' });
   }
@@ -342,6 +356,11 @@ try {
       await redis?.close().catch((error: unknown) => {
         logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
       });
+      if (configuration.STANDALONE) {
+        await removeCodeModeSocketParent(configuration.CODE_MODE_SOCKET_PARENT).catch((error: unknown) => {
+          logger.warn('Error removing Code Mode socket parent during shutdown', extractErrorLogFields(error));
+        });
+      }
       await destroyDb();
       process.exit(0);
     };

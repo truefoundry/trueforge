@@ -100,6 +100,7 @@ export interface DaytonaSandboxProviderOptions {
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider {
+  readonly type = 'daytona';
   private readonly tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   private readonly imageUri: string;

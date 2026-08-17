@@ -29,8 +29,9 @@
   },
   "scripts": {
     "build:frontend-assets": "node scripts/copy-frontend.mjs",
-    "build:gen:watch": "node --watch-path=catalog/model-catalog.yaml --watch-path=catalog/mcp-catalog.yaml --watch-path=catalog/skill-catalog.yaml --watch-path=catalog/sandbox-catalog.yaml scripts/generate-catalog.mjs",
-    "build:gen": "node scripts/generate-catalog.mjs",
+    "build:gen:local-sandbox": "node scripts/generate-local-sandbox-scripts.mjs",
+    "build:gen:watch": "node --watch-path=catalog/model-catalog.yaml --watch-path=catalog/mcp-catalog.yaml --watch-path=catalog/skill-catalog.yaml --watch-path=catalog/sandbox-catalog.yaml --watch-path=src/sandbox/local/scripts scripts/generate-dev.mjs",
+    "build:gen": "pnpm run build:gen:local-sandbox && node scripts/generate-catalog.mjs",
     "build:clean": "rm -rf dist",
     "build": "pnpm run build:gen && tsc --noEmit && pnpm run build:clean && tsup && chmod +x dist/cli.js && pnpm run build:frontend-assets",
     "dev:serve": "NODE_OPTIONS='--conditions=trueforge-dev' NODE_ENV=development tsx watch --env-file=.env src/main.ts",
@@ -48,9 +49,14 @@
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
     "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
     "test": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.unit.config.cjs",
+    "test:local-contract": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.local-contract.config.cjs",
+    "smoke:local": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' jest --config jest.local-smoke.config.cjs --runInBand --forceExit tests/sandbox/local/smoke.test.ts",
+    "smoke:local:lima": "bash scripts/local-sandbox/smoke-lima.sh",
+    "probe:loopback": "pnpm exec tsx scripts/local-sandbox/probe-loopback.ts",
     "typecheck": "pnpm run build:gen && tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json"
   },
   "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.71",
     "@daytona/sdk": "^0.204.1",
     "@hono/node-server": "^2.0.11",
     "@hono/swagger-ui": "^0.2.1",

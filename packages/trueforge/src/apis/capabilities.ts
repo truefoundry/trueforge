@@ -5,6 +5,7 @@ import { isAdmin, resolveUserContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
+import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import type { SandboxBuildStatus } from '../schemas/sandboxProvider';
 import { TENANT_ID } from './sessions';
@@ -40,7 +41,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     } catch (error) {
       deps.logger.warn('Sandbox image status check failed; reporting sandbox disabled', extractErrorLogFields(error));
     }
-    const sandboxEnabled = status === 'ready';
+    const sandboxEnabled = status === 'ready' || (status === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = isAdmin(resolveUserContext(c));
     return c.json(
       {

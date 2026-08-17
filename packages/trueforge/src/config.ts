@@ -12,6 +12,7 @@
  *   `redis://localhost:6379`).
  */
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -165,6 +166,16 @@ function resolveSqlitePath(): string {
   }
   const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
   return path.join(paths.data, 'db', 'db.sqlite');
+}
+
+/** Parent for local sandbox roots. Same env-paths data dir as SQLite (`{suffix:''}`). */
+function resolveLocalSandboxRootParent(): string {
+  return path.join(envPaths(ENV_PATHS_APP_NAME, { suffix: '' }).data, 'sandboxes');
+}
+
+/** Short tmp parent for Code Mode UDS socks (≤60 bytes after realpath). */
+function resolveCodeModeSocketParent(): string {
+  return path.join(os.tmpdir(), 'tf_cms');
 }
 
 /** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
@@ -399,6 +410,16 @@ export type StandaloneServerConfiguration = SharedServerConfiguration & {
    * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db/db.sqlite`.
    */
   SQLITE_PATH: string;
+  /**
+   * Parent directory for local sandbox roots (ULID children).
+   * Derived: `{env-paths data}/sandboxes`.
+   */
+  LOCAL_SANDBOX_ROOT_PARENT: string;
+  /**
+   * Parent directory for Code Mode UDS sockets (`tf_cms` under os.tmpdir()).
+   * Caller prepares/removes this directory; must stay ≤60 bytes after realpath.
+   */
+  CODE_MODE_SOCKET_PARENT: string;
 };
 
 export type DistributedServerConfiguration = SharedServerConfiguration & {
@@ -542,6 +563,8 @@ const configuration: ServerConfiguration = standalone
       ...shared,
       STANDALONE: true,
       SQLITE_PATH: resolveSqlitePath(),
+      LOCAL_SANDBOX_ROOT_PARENT: resolveLocalSandboxRootParent(),
+      CODE_MODE_SOCKET_PARENT: resolveCodeModeSocketParent(),
     }
   : {
       ...shared,

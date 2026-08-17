@@ -11,10 +11,12 @@ import type {
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
+  SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
   shellEscape,
   validateNoPathTraversal,
 } from '@truefoundry/trueforge-core/core';
+import { existsSync, statSync } from 'node:fs';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -111,9 +113,7 @@ export class LocalSandboxProvider implements SandboxProvider {
       let shell: string | undefined;
       for (const name of SHELL_CANDIDATES) {
         const resolved = await resolveCommandOnHost({ platform, name });
-        if (resolved === undefined) {
-          continue;
-        }
+        if (resolved === undefined) continue;
         const probe = await runSupervisorSession({
           sandboxRootPath: probeRoot,
           platform,
@@ -136,9 +136,7 @@ export class LocalSandboxProvider implements SandboxProvider {
       let python: string | undefined;
       for (const name of PYTHON_CANDIDATES) {
         const resolved = await resolveCommandOnHost({ platform, name });
-        if (resolved === undefined) {
-          continue;
-        }
+        if (resolved === undefined) continue;
         const probe = await runSupervisorSession({
           sandboxRootPath: probeRoot,
           platform,
@@ -222,11 +220,16 @@ export class LocalSandboxProvider implements SandboxProvider {
   }
 
   private async ensureSrt(): Promise<void> {
-    if (this.srtInitialized) {
-      return;
-    }
+    if (this.srtInitialized) return;
     await initSrt({ platform: this.support.platform });
     this.srtInitialized = true;
+  }
+
+  /** Missing or non-directory root → recreate path in Sandbox. */
+  private ensureSandboxRoot(sandboxRootPath: string): void {
+    if (!isAbsolute(sandboxRootPath) || !existsSync(sandboxRootPath) || !statSync(sandboxRootPath).isDirectory()) {
+      throw new SandboxNotAvailableError(sandboxRootPath);
+    }
   }
 
   private resolveInSandboxRoot(sandboxRootPath: string, userPath: string): string {
@@ -286,6 +289,7 @@ export class LocalSandboxProvider implements SandboxProvider {
   }
 
   async exec(params: SandboxExecParams): Promise<ExecResult> {
+    this.ensureSandboxRoot(params.sandboxId);
     try {
       await this.ensureSrt();
       const sandboxRootPath = params.sandboxId;
@@ -312,6 +316,9 @@ export class LocalSandboxProvider implements SandboxProvider {
         response: { exitCode: session.exitCode, result },
       };
     } catch (error) {
+      if (error instanceof SandboxNotAvailableError) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       return { success: false, error: message };
     }
@@ -338,6 +345,7 @@ export class LocalSandboxProvider implements SandboxProvider {
   }
 
   async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
+    this.ensureSandboxRoot(params.sandboxId);
     await this.ensureSrt();
     const sandboxRootPath = params.sandboxId;
     const absolutePath = this.resolveInSandboxRoot(sandboxRootPath, params.path);
@@ -365,6 +373,7 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   /** Payload on stdin so large uploads stay off argv. Parent dirs must already exist. */
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
+    this.ensureSandboxRoot(params.sandboxId);
     await this.ensureSrt();
     if (params.content.length > this.fileMaxBytesForDownload) {
       throw new SandboxFileTooLargeError(params.remotePath, params.content.length, this.fileMaxBytesForDownload);

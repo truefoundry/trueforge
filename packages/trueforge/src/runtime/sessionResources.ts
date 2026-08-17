@@ -21,6 +21,8 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
+import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
+import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
@@ -205,8 +207,9 @@ export async function resolveGitSkills({
 }
 
 /**
- * Build a runtime SandboxProvider from the configured store row, or undefined
- * when no provider is configured. Builds a fresh Daytona client per call (no network I/O).
+ * Build a runtime SandboxProvider from the configured store row, or the
+ * in-memory local fallback when standalone + the cached probe is supported.
+ * Builds a fresh Daytona client per call (no network I/O).
  */
 export async function resolveSandboxProvider({
   tenant_id,
@@ -218,22 +221,34 @@ export async function resolveSandboxProvider({
   logger: Logger;
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
-  if (record === undefined) {
+  if (record !== undefined) {
+    // Clone from the snapshot that was actually built (persisted build_ref), not a name
+    // derived from the current image — otherwise an image bump breaks creation until rebuild.
+    return toDaytonaSandboxProvider({
+      manifest: record.manifest,
+      tenant_id,
+      logger,
+      build_metadata: record.build_metadata,
+    });
+  }
+  if (!configuration.STANDALONE) {
     return undefined;
   }
-  // Clone from the snapshot that was actually built (persisted build_ref), not a name
-  // derived from the current image — otherwise an image bump breaks creation until rebuild.
-  return toDaytonaSandboxProvider({
-    manifest: record.manifest,
-    tenant_id,
-    logger,
-    build_metadata: record.build_metadata,
+  const support = getCachedLocalSandboxSupport();
+  if (support?.supported !== true) {
+    return undefined;
+  }
+  return new LocalSandboxProvider({
+    sandboxRootPathParent: configuration.LOCAL_SANDBOX_ROOT_PARENT,
+    codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
+    support,
+    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
   });
 }
 
 /**
  * Builds a Sandbox for one turn from a resolved provider and git mounts.
- * `tenantName` must match the name given to DaytonaSandboxProvider (ownership check).
+ * `tenantName` is forwarded as `TFY_TENANT_NAME` for Daytona/agent env only.
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
@@ -252,8 +267,6 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    // Sandbox reads its tenant from TFY_TENANT_NAME for the ownership check
-    // against provider-created sandbox ids (`<tenant>.<uuid>`).
     execExtraEnv: { TFY_TENANT_NAME: input.tenantName },
     ...(skillMounter ? { skillMounter } : {}),
     tracing: input.tracing,
@@ -341,7 +354,7 @@ export async function validateAgentSpec({
   const hasSkills = requestedSkills.length > 0;
   if (wantsSandbox || hasSkills) {
     const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
-    if (record === undefined) {
+    if (record === undefined && !isLocalSandboxFallbackEnabled()) {
       throw new HTTPException(422, {
         message: hasSkills
           ? 'skills require a sandbox provider — configure via PUT /settings/sandbox-providers'

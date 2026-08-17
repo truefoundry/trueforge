@@ -1,7 +1,7 @@
 export abstract class SandboxError extends Error {
   /**
-   * Every sandbox failure is caused by the request itself — a bad path, another tenant's sandbox,
-   * a missing or oversized file — so each subclass carries the status a host should reply with.
+   * Every sandbox failure is caused by the request itself — a bad path, a missing
+   * or oversized file — so each subclass carries the status a host should reply with.
    * Listing the codes in use rather than `number` lets a typed route return this directly; adding
    * a subclass with a new code means widening this union and declaring it on the route.
    */
@@ -48,28 +48,12 @@ export class SandboxFileTooLargeError extends SandboxError {
   }
 }
 
-class SandboxTenantMismatchError extends SandboxError {
-  readonly statusCode = 403;
-
-  constructor(requestTenant: string) {
-    super(`Sandbox does not belong to tenant ${requestTenant}`);
-    this.name = 'SandboxTenantMismatchError';
-  }
-}
-
 class SandboxPathTraversalError extends SandboxError {
   readonly statusCode = 400;
 
   constructor(path: string) {
     super(`Path must not contain ".." segments: ${path}`);
     this.name = 'SandboxPathTraversalError';
-  }
-}
-
-export function validateSandboxOwnedByTenant(sandboxId: string, tenantName: string): void {
-  const dotIndex = sandboxId.indexOf('.');
-  if (dotIndex === -1 || sandboxId.substring(0, dotIndex) !== tenantName) {
-    throw new SandboxTenantMismatchError(tenantName);
   }
 }
 

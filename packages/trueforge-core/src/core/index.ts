@@ -166,9 +166,10 @@ export {
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
   validateNoPathTraversal,
-  validateSandboxOwnedByTenant,
 } from './sandbox/SandboxErrors';
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
+export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandboxId } from './sandbox/sandboxRef';
+export type { SandboxRefParts } from './sandbox/sandboxRef';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

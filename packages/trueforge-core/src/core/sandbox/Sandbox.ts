@@ -19,7 +19,8 @@ import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { SANDBOX_FILE_UPLOADS_DIR } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
-import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
+import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
+import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { dirname, join } from 'node:path';
 import { SKILLS_DIR } from './skills/constants';
@@ -209,7 +210,6 @@ export class Sandbox extends LocalToolMCP {
 
   private readonly provider: SandboxProvider;
   private readonly existingSandboxId?: string | undefined;
-  private readonly tenantName: string;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
   private sandboxCreationPromise?: Promise<SandboxInfo> | undefined;
@@ -241,7 +241,6 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
-    this.tenantName = options.execExtraEnv?.['TFY_TENANT_NAME'] ?? '';
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
@@ -251,9 +250,13 @@ export class Sandbox extends LocalToolMCP {
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 
     if (this.existingSandboxId) {
-      validateSandboxOwnedByTenant(this.existingSandboxId, this.tenantName);
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
     }
+  }
+
+  /** Provider-facing id (unwraps `v1:type:raw`; legacy ids pass through). */
+  private providerSandboxId(sessionId: string): string {
+    return rawSandboxId(sessionId);
   }
 
   private buildMcpServersEnvelope(): Record<string, SandboxMcpServerConfig> {
@@ -448,6 +451,13 @@ export class Sandbox extends LocalToolMCP {
     return this.existingSandboxInfo;
   }
 
+  private clearExistingSandbox(): void {
+    this.existingSandboxInfo = undefined;
+    this.sandboxCreationPromise = undefined;
+    this.sandboxInitPromise = undefined;
+    this.mcpClientInstall = undefined;
+  }
+
   private async ensureSandboxCreated(): Promise<{
     sandboxInfo: SandboxInfo;
     sandboxCreated: SandboxInfo | undefined;
@@ -455,15 +465,12 @@ export class Sandbox extends LocalToolMCP {
     if (this.existingSandboxInfo) {
       return { sandboxInfo: this.existingSandboxInfo, sandboxCreated: undefined };
     }
-    // Provider returns camelCase `{ sandboxId }`; rename to the snake_case
-    // `SandboxInfo` shape used everywhere downstream (Redis JSON, wire event,
-    // in-memory state).
+    // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
       .createSandbox()
-      .then(({ sandboxId }) => {
-        validateSandboxOwnedByTenant(sandboxId, this.tenantName);
-        return { sandbox_id: sandboxId };
-      })
+      .then(({ sandboxId }) => ({
+        sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
+      }))
       .catch((e: unknown) => {
         this.sandboxCreationPromise = undefined;
         throw e;
@@ -471,29 +478,76 @@ export class Sandbox extends LocalToolMCP {
 
     const sandboxInfo = await this.sandboxCreationPromise;
     // Concurrent callers may both await the same creation promise; only the first
-    // should report sandboxCreated. Read via a local to avoid control-flow narrowing
-    // that treats existingSandboxInfo as always undefined after the early return above.
-    const prior = this.existingSandboxInfo as SandboxInfo | undefined;
-    const isNew = prior === undefined;
+    // should report sandboxCreated. Read through a method so TS does not keep the
+    // pre-await "undefined" narrowing on the field.
+    const raced = this.peekExistingSandboxInfo();
+    if (raced !== undefined) {
+      return { sandboxInfo: raced, sandboxCreated: undefined };
+    }
     this.existingSandboxInfo = sandboxInfo;
-    return { sandboxInfo, sandboxCreated: isNew ? sandboxInfo : undefined };
+    return { sandboxInfo, sandboxCreated: sandboxInfo };
+  }
+
+  private peekExistingSandboxInfo(): SandboxInfo | undefined {
+    return this.existingSandboxInfo;
+  }
+
+  /** Same-type missing remote/local root: drop the stale id and create a new fancy id. */
+  private async recreateAfterUnavailable(): Promise<{
+    sandboxInfo: SandboxInfo;
+    sandboxCreated: SandboxInfo;
+  }> {
+    this.clearExistingSandbox();
+    const created = await this.ensureSandboxCreated();
+    if (created.sandboxCreated === undefined) {
+      throw new Error('Sandbox recreate did not create a new sandbox');
+    }
+    return { sandboxInfo: created.sandboxInfo, sandboxCreated: created.sandboxCreated };
+  }
+
+  /**
+   * Create or reattach, then init. A missing same-type sandbox throws
+   * `SandboxNotAvailableError` from the provider; reattach then recreates.
+   */
+  private async ensureReadySandbox(): Promise<{
+    sandboxInfo: SandboxInfo;
+    sandboxCreated: SandboxInfo | undefined;
+  }> {
+    const first = await this.ensureSandboxCreated();
+    try {
+      await this.ensureSandboxInitialized();
+      return first;
+    } catch (error) {
+      if (!(error instanceof SandboxNotAvailableError) || first.sandboxCreated !== undefined) {
+        throw error;
+      }
+      const recreated = await this.recreateAfterUnavailable();
+      await this.ensureSandboxInitialized();
+      return recreated;
+    }
   }
 
   private async handleExec(input: SandboxExecInput): Promise<CallToolResponse> {
-    const { sandboxInfo, sandboxCreated } = await this.ensureSandboxCreated();
-    const sandboxCreatedFlag = Boolean(sandboxCreated);
+    let sandboxInfo: SandboxInfo;
+    let sandboxCreated: SandboxInfo | undefined;
     try {
-      await this.ensureSandboxInitialized();
+      ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox());
     } catch (e) {
       this.logger.error('Sandbox initialization failed', extractErrorLogFields(e));
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
+      const fallback = this.existingSandboxInfo;
       return toolResultResponse({
         text: `Sandbox initialization failed: ${message}`,
         isError: true,
-        overrides: { sandboxCreated: sandboxCreatedFlag, sandboxInfo },
+        overrides: {
+          sandboxCreated: Boolean(fallback),
+          ...(fallback !== undefined ? { sandboxInfo: fallback } : {}),
+        },
       });
     }
-    const codeModeEnv = await this.ensureCodeModeStarted(sandboxInfo.sandbox_id);
+    const sandboxCreatedFlag = Boolean(sandboxCreated);
+    const rawId = this.providerSandboxId(sandboxInfo.sandbox_id);
+    const codeModeEnv = await this.ensureCodeModeStarted(rawId);
     const mcpClientEnv = injectMCPClientEnv({
       env: input.env,
       mcpServers: this.buildMcpServersEnvelope(),
@@ -503,31 +557,68 @@ export class Sandbox extends LocalToolMCP {
     });
     const gitAuthEnv =
       this.resolvedGitCredentialsContent !== null
-        ? buildGitCredentialHelperEnv(this.provider.getGitCredentialsPath(sandboxInfo.sandbox_id))
+        ? buildGitCredentialHelperEnv(this.provider.getGitCredentialsPath(rawId))
         : {};
     const env = { ...mcpClientEnv, ...gitAuthEnv };
 
-    const result = await this.provider.exec({
-      sandboxId: sandboxInfo.sandbox_id,
-      command: input.command,
-      cwd: input.cwd,
-      env,
-    });
+    try {
+      const result = await this.provider.exec({
+        sandboxId: rawId,
+        command: input.command,
+        cwd: input.cwd,
+        env,
+      });
 
-    return {
-      result: {
-        content: [{ type: 'text', text: JSON.stringify(result) }],
-        isError: !result.success,
-      },
-      wasInitialized: undefined,
-      sandboxCreated: sandboxCreatedFlag,
-      sandboxInfo,
-    };
+      return {
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          isError: !result.success,
+        },
+        wasInitialized: undefined,
+        sandboxCreated: sandboxCreatedFlag,
+        sandboxInfo,
+      };
+    } catch (error) {
+      if (!(error instanceof SandboxNotAvailableError) || sandboxCreated !== undefined) {
+        throw error;
+      }
+      const recreated = await this.recreateAfterUnavailable();
+      await this.ensureSandboxInitialized();
+      const recreatedRawId = this.providerSandboxId(recreated.sandboxInfo.sandbox_id);
+      const retryCodeModeEnv = await this.ensureCodeModeStarted(recreatedRawId);
+      const retryEnv = {
+        ...injectMCPClientEnv({
+          env: input.env,
+          mcpServers: this.buildMcpServersEnvelope(),
+          execExtraEnv: this.execExtraEnv,
+          codeModeEnv: retryCodeModeEnv,
+          mcpClientInstall: this.mcpClientInstall,
+        }),
+        ...(this.resolvedGitCredentialsContent !== null
+          ? buildGitCredentialHelperEnv(this.provider.getGitCredentialsPath(recreatedRawId))
+          : {}),
+      };
+      const retryResult = await this.provider.exec({
+        sandboxId: recreatedRawId,
+        command: input.command,
+        cwd: input.cwd,
+        env: retryEnv,
+      });
+      return {
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(retryResult) }],
+          isError: !retryResult.success,
+        },
+        wasInitialized: undefined,
+        sandboxCreated: true,
+        sandboxInfo: recreated.sandboxInfo,
+      };
+    }
   }
 
   async getToolResultDumpDir(): Promise<{ dir: string; sandboxCreated: SandboxInfo | undefined }> {
-    const { sandboxCreated } = await this.ensureSandboxCreated();
-    const dir = this.provider.getToolResultDumpDir(this.requiredSandboxInfo.sandbox_id).replace(/\/+$/, '');
+    const { sandboxCreated, sandboxInfo } = await this.ensureSandboxCreated();
+    const dir = this.provider.getToolResultDumpDir(this.providerSandboxId(sandboxInfo.sandbox_id)).replace(/\/+$/, '');
     return { dir, sandboxCreated };
   }
 
@@ -536,13 +627,15 @@ export class Sandbox extends LocalToolMCP {
     fileName: string;
     content: Buffer;
   }): Promise<{ filePath: string; sandboxCreated: SandboxInfo | undefined }> {
-    const { sandboxCreated } = await this.ensureSandboxCreated();
-    await this.ensureSandboxInitialized();
-    const { sandbox_id: sandboxId } = this.requiredSandboxInfo;
+    const { sandboxCreated, sandboxInfo } = await this.ensureReadySandbox();
     const fileName = params.fileName.replace(/^\/+/, '');
     const targetDir = params.targetDir.replace(/\/+$/, '');
     const filePath = `${targetDir}/${fileName}`;
-    await this.provider.uploadFile({ sandboxId, remotePath: filePath, content: params.content });
+    await this.provider.uploadFile({
+      sandboxId: this.providerSandboxId(sandboxInfo.sandbox_id),
+      remotePath: filePath,
+      content: params.content,
+    });
     return { filePath, sandboxCreated };
   }
 
@@ -591,7 +684,7 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private async writeGitCredentials(): Promise<void> {
-    const sandboxId = this.requiredSandboxInfo.sandbox_id;
+    const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
     const credentialsPath = this.provider.getGitCredentialsPath(sandboxId);
     const result = await this.provider.exec({
       sandboxId,
@@ -601,7 +694,7 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private async initSandboxEnvironment(): Promise<void> {
-    const sandboxId = this.requiredSandboxInfo.sandbox_id;
+    const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
     const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
 
     this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');

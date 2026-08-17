@@ -146,6 +146,9 @@ importers:
 
   packages/trueforge:
     dependencies:
+      '@anthropic-ai/sandbox-runtime':
+        specifier: 0.0.71
+        version: 0.0.71
       '@daytona/sdk':
         specifier: ^0.204.1
         version: 0.204.1(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)

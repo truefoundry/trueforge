@@ -65,6 +65,8 @@ export interface SandboxBuild {
 }
 
 export interface SandboxProvider {
+  /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
+  readonly type: string;
   /**
    * Ensures the release image is being built into the provider's backing store and
    * returns its current status. Idempotent: an already-built image reports `ready`;

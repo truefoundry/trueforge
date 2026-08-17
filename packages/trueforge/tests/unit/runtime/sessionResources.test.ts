@@ -8,9 +8,14 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { getModelDetails, validateAgentSpec } from '../../../src/runtime/sessionResources';
+import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 
 describe('validateAgentSpec', () => {
+  afterEach(() => {
+    setCachedLocalSandboxSupport(undefined);
+  });
+
   async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
@@ -244,5 +249,27 @@ describe('validateAgentSpec', () => {
         ...stores,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('admits sandbox.enabled when local fallback is cached and the store is empty', async () => {
+    const stores = await setup();
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: true } },
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+    expect(await stores.sandboxProviderStore.getSandboxProvider(TENANT_ID)).toBeUndefined();
   });
 });
