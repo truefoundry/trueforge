@@ -78,7 +78,8 @@
     "@assistant-ui/react": "^0.14.24",
     "@types/react": "*",
     "react": "^18 || ^19",
-    "react-dom": "^18 || ^19"
+    "react-dom": "^18 || ^19",
+    "react-router-dom": "^6 || ^7"
   },
   "peerDependenciesMeta": {
     "@assistant-ui/core": {
@@ -89,6 +90,9 @@
     },
     "@types/react": {
       "optional": true
+    },
+    "react-router-dom": {
+      "optional": true
     }
   },
   "dependencies": {
@@ -98,6 +102,7 @@
     "@openuidev/react-lang": "^0.2.9",
     "@openuidev/react-ui": "^0.13.2",
     "@truefoundry/assistant-ui-runtime": "0.1.18",
+    "@truefoundry/trueforge-sdk": "workspace:*",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
     "monaco-editor": "^0.56.0",
@@ -106,7 +111,6 @@
     "react-syntax-highlighter": "^16.1.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
-    "@truefoundry/trueforge-sdk": "workspace:*",
     "truefoundry-gateway-sdk": "^0.4.0",
     "zod": "^4.4.3"
   },
@@ -130,6 +134,7 @@
     "prettier": "^3.6.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-router-dom": "^7.18.2",
     "tailwindcss": "^4.3.2",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",

@@ -178,6 +178,8 @@ export type { ThreadGroupPart } from './containers/ToolGroupContainer.js';
 export { TrueForgeUI } from './containers/TrueForgeUI.js';
 export type {
   ChatLayout,
+  RoutePlace,
+  RoutesConfig,
   TrueForgeBuiltInServerConfig,
   TrueForgeServerConfig,
   TrueForgeUIProps,
