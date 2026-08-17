@@ -1,27 +1,27 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { withCapabilitiesSandbox } from "@/server/draftSpecPreferences.js";
+import { withCapabilitiesSandbox } from '@/server/draftSpecPreferences.js';
 
-describe("withCapabilitiesSandbox", () => {
-  it("adds sandbox config when config is missing", () => {
-    expect(withCapabilitiesSandbox({ model: { name: "model" } }, { enabled: true })).toEqual({
-      model: { name: "model" },
+describe('withCapabilitiesSandbox', () => {
+  it('adds sandbox config when config is missing', () => {
+    expect(withCapabilitiesSandbox({ model: { name: 'model' } }, { enabled: true })).toEqual({
+      model: { name: 'model' },
       config: { sandbox: { enabled: true } },
     });
   });
 
-  it("preserves other runtime config", () => {
+  it('preserves other runtime config', () => {
     expect(
       withCapabilitiesSandbox(
         {
-          model: { name: "model" },
+          model: { name: 'model' },
           config: { askUserQuestions: { enabled: false } },
         },
         { enabled: true },
       ),
     ).toEqual({
-      model: { name: "model" },
+      model: { name: 'model' },
       config: {
         askUserQuestions: { enabled: false },
         sandbox: { enabled: true },
@@ -29,20 +29,19 @@ describe("withCapabilitiesSandbox", () => {
     });
   });
 
-  it("overrides a spec-owned sandbox flag from capabilities", () => {
+  it('overrides a spec-owned sandbox flag from capabilities', () => {
     expect(
-      withCapabilitiesSandbox(
-        withCapabilitiesSandbox({ model: { name: "model" } }, { enabled: true }),
-        { enabled: false },
-      ),
+      withCapabilitiesSandbox(withCapabilitiesSandbox({ model: { name: 'model' } }, { enabled: true }), {
+        enabled: false,
+      }),
     ).toEqual({
-      model: { name: "model" },
+      model: { name: 'model' },
       config: { sandbox: { enabled: false } },
     });
   });
 
-  it("preserves the spec sandbox while capabilities are unavailable", () => {
-    const spec = withCapabilitiesSandbox({ model: { name: "model" } }, { enabled: true });
+  it('preserves the spec sandbox while capabilities are unavailable', () => {
+    const spec = withCapabilitiesSandbox({ model: { name: 'model' } }, { enabled: true });
 
     expect(withCapabilitiesSandbox(spec, undefined)).toBe(spec);
     expect(withCapabilitiesSandbox(spec, null)).toBe(spec);

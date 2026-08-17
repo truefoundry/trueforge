@@ -47,10 +47,7 @@ export function selectDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
-export function withCapabilitiesSandbox(
-  spec: AgentSpec,
-  sandbox: { enabled: boolean } | null | undefined,
-): AgentSpec {
+export function withCapabilitiesSandbox(spec: AgentSpec, sandbox: { enabled: boolean } | null | undefined): AgentSpec {
   if (sandbox == null) return spec;
   const config = {
     ...spec.config,
