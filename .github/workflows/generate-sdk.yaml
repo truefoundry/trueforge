@@ -46,7 +46,10 @@ jobs:
     steps:
       - name: Create GitHub App token
         id: app-token
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        if: >
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
@@ -63,7 +66,8 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token || github.token }}
 
-      # Fork PRs: App token is skipped; use base-repo pull refs (no fork credentials).
+      # Forks skip the writable checkout above; without this the job has no code.
+      # Use base-repo pull refs (head.sha) — cloning the fork with GITHUB_TOKEN 403s.
       - name: Check out pull request head
         if: github.event_name == 'pull_request' && steps.app-token.outcome != 'success'
         uses: actions/checkout@v4
