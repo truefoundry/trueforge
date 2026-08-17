@@ -303,7 +303,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       const message =
         isRecord(body) && typeof body['message'] === 'string'
           ? body['message']
-          : `Daytona snapshot registration failed (${response.status})`;
+          : `Daytona snapshot registration failed (${String(response.status)})`;
       throw new DaytonaError(message, response.status);
     }
     if (!isRecord(body) || typeof body['state'] !== 'string') {
