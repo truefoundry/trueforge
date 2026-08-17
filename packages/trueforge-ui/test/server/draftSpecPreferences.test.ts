@@ -40,4 +40,11 @@ describe("withCapabilitiesSandbox", () => {
       config: { sandbox: { enabled: false } },
     });
   });
+
+  it("preserves the spec sandbox while capabilities are unavailable", () => {
+    const spec = withCapabilitiesSandbox({ model: { name: "model" } }, { enabled: true });
+
+    expect(withCapabilitiesSandbox(spec, undefined)).toBe(spec);
+    expect(withCapabilitiesSandbox(spec, null)).toBe(spec);
+  });
 });

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   readDraftSpecPreferences,
+  withCapabilitiesSandbox,
 } from '@/server/draftSpecPreferences.js';
 import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
@@ -453,16 +454,17 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
   });
 
-  it('stores sandbox as disabled when capabilities are unavailable', () => {
+  it('preserves a host-seeded sandbox while capabilities are unavailable', () => {
+    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, { enabled: true });
     const { result } = renderHook(() => useShellMode(), {
-      wrapper: wrap({ mode: 'AgentComposer' }),
+      wrapper: wrap({ mode: 'AgentComposer', defaultAgentSpec: hostSeed }),
     });
 
-    act(() => result.current.rememberDraftSpec({ model: { name: 'chosen/model' } }));
+    act(() => result.current.rememberDraftSpec(hostSeed));
 
     expect(readDraftSpecPreferences()).toEqual({
       model: { name: 'chosen/model' },
-      config: { sandbox: { enabled: false } },
+      config: { sandbox: { enabled: true } },
     });
   });
 
@@ -488,6 +490,32 @@ describe('ShellModeProvider', () => {
     expect(readDraftSpecPreferences()).toEqual({
       model: { name: 'chosen/model' },
       config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('overrides a host-seeded sandbox when loaded capabilities disable it', async () => {
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: false },
+        skill: { enabled: false },
+      },
+    }));
+    const server = createMockAgentUIServer({ getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      { wrapper: wrapWithServer(server, { mode: 'AgentComposer' }) },
+    );
+    await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(false));
+    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, { enabled: true });
+
+    act(() => result.current.shell.rememberDraftSpec(hostSeed));
+
+    expect(readDraftSpecPreferences()).toEqual({
+      model: { name: 'chosen/model' },
+      config: { sandbox: { enabled: false } },
     });
   });
 

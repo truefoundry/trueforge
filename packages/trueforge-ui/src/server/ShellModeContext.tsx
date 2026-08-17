@@ -294,17 +294,15 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
+  const sandboxCapabilities = capabilities?.sandbox;
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec) => {
-      console.log('here >>>>', {agentSpec, selectedDraftSpec: selectDraftSpecPreferences(agentSpec)})
-      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), {
-        enabled: capabilities?.sandbox.enabled ?? false,
-      });
+      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), sandboxCapabilities);
       rememberedSpecRef.current = preferences;
       mutableSeedRef.current = preferences;
       writeDraftSpecPreferences(preferences);
     },
-    [capabilities?.sandbox.enabled],
+    [sandboxCapabilities],
   );
 
   const openHistorySession = useCallback(

@@ -51,9 +51,10 @@ export function withCapabilitiesSandbox(
   spec: AgentSpec,
   sandbox: { enabled: boolean } | null | undefined,
 ): AgentSpec {
+  if (sandbox == null) return spec;
   const config = {
-    ...spec.config, // Keep existing config
-    sandbox: { enabled: sandbox?.enabled ?? false },
+    ...spec.config,
+    sandbox: { enabled: sandbox.enabled },
   };
   return {
     ...spec,
