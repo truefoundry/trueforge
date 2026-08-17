@@ -1,10 +1,16 @@
 // @vitest-environment jsdom
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DRAFT_SPEC_PREFERENCES_STORAGE_KEY } from '@/server/draftSpecPreferences.js';
+import {
+  DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+  readDraftSpecPreferences,
+} from '@/server/draftSpecPreferences.js';
+import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
+import type { AgentUIServer } from '@/server/types.js';
+import { createMockAgentUIServer } from './mockServer.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   return function Wrapper({ children }: { children: ReactNode }) {
@@ -12,6 +18,16 @@ function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
         {children}
       </ShellModeProvider>
+    );
+  };
+}
+
+function wrapWithServer(server: AgentUIServer, agentConfig?: AgentConfig) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={agentConfig}>{children}</ShellModeProvider>
+      </ServerProvider>
     );
   };
 }
@@ -435,6 +451,44 @@ describe('ShellModeProvider', () => {
     });
     if (result.current.mode.status !== 'active') throw new Error('expected active mode');
     expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
+  });
+
+  it('stores sandbox as disabled when capabilities are unavailable', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentComposer' }),
+    });
+
+    act(() => result.current.rememberDraftSpec({ model: { name: 'chosen/model' } }));
+
+    expect(readDraftSpecPreferences()).toEqual({
+      model: { name: 'chosen/model' },
+      config: { sandbox: { enabled: false } },
+    });
+  });
+
+  it('stores sandbox from loaded server capabilities', async () => {
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+      },
+    }));
+    const server = createMockAgentUIServer({ getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      { wrapper: wrapWithServer(server, { mode: 'AgentComposer' }) },
+    );
+    await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(true));
+
+    act(() => result.current.shell.rememberDraftSpec({ model: { name: 'chosen/model' } }));
+
+    expect(readDraftSpecPreferences()).toEqual({
+      model: { name: 'chosen/model' },
+      config: { sandbox: { enabled: true } },
+    });
   });
 
   it('hydrates remembered preferences on first paint', () => {

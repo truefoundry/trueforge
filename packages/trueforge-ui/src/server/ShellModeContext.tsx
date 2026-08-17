@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
+  withCapabilitiesSandbox,
   writeDraftSpecPreferences,
 } from './draftSpecPreferences.js';
 import { useOptionalRefreshServerCapabilities, useServerCapabilities } from './ServerContext.js';
@@ -293,12 +294,18 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
-  const rememberDraftSpec = useCallback((agentSpec: AgentSpec) => {
-    const preferences = selectDraftSpecPreferences(agentSpec);
-    rememberedSpecRef.current = preferences;
-    mutableSeedRef.current = preferences;
-    writeDraftSpecPreferences(preferences);
-  }, []);
+  const rememberDraftSpec = useCallback(
+    (agentSpec: AgentSpec) => {
+      console.log('here >>>>', {agentSpec, selectedDraftSpec: selectDraftSpecPreferences(agentSpec)})
+      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), {
+        enabled: capabilities?.sandbox.enabled ?? false,
+      });
+      rememberedSpecRef.current = preferences;
+      mutableSeedRef.current = preferences;
+      writeDraftSpecPreferences(preferences);
+    },
+    [capabilities?.sandbox.enabled],
+  );
 
   const openHistorySession = useCallback(
     ({
