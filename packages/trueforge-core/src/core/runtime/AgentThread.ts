@@ -542,7 +542,7 @@ export class AgentThread {
       });
     }
 
-    if (this.sandbox) {
+    if (this.sandbox && !this.parent) {
       this.sandbox.configureCodeMode(this.definition.toolSets ?? []);
     }
 
