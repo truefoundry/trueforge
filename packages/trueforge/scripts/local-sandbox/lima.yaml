@@ -1,5 +1,5 @@
 # Minimal Lima guest for local-sandbox Linux SRT smoke.
-# Mounts the package root at the same absolute host path.
+# Mounts the workspace root at the same absolute host path.
 cpus: 1
 memory: '2GiB'
 disk: '20GiB'
@@ -10,7 +10,7 @@ images:
   - location: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img'
     arch: 'x86_64'
 
-# `location` is rewritten to an absolute host path by scripts/smoke-lima.sh
+# `location` is rewritten to an absolute host path by smoke-lima.sh
 mounts:
   - location: '__LOCAL_SANDBOX_ROOT__'
     writable: true

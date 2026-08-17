@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Create/start a minimal Lima VM and run `pnpm smoke:local` for Linux SRT coverage.
+# Create/start a minimal Lima VM and run `pnpm smoke:local-sandbox` for Linux SRT coverage.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# packages/trueforge/scripts/local-sandbox → workspace root (pnpm install --filter).
+ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
 INSTANCE="${LIMA_INSTANCE:-local-sandbox-poc}"
-YAML_TEMPLATE="${ROOT}/packages/trueforge/lima/local-sandbox.yaml"
+YAML_TEMPLATE="${SCRIPT_DIR}/lima.yaml"
 
 if ! command -v limactl >/dev/null 2>&1; then
   echo "limactl not found; install Lima first (e.g. brew install lima)" >&2
@@ -32,5 +34,5 @@ limactl shell "${INSTANCE}" -- bash -lc "
   set -euo pipefail
   cd $(printf '%q' "${ROOT}")
   CI=true pnpm install --no-frozen-lockfile
-  pnpm --filter @truefoundry/trueforge smoke:local
+  pnpm --filter @truefoundry/trueforge smoke:local-sandbox
 "

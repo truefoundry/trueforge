@@ -359,11 +359,6 @@ export class LocalSandboxProvider implements SandboxProvider {
       return;
     }
     await initSrt({ platform: this.support.platform });
-    this.logger.info('LocalSandboxProvider initialized SRT', {
-      rootPath: this.sandboxRootPathParent,
-      shell: this.support.shell,
-      python: this.support.python,
-    });
     this.srtInitialized = true;
   }
 
@@ -424,9 +419,17 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   async createSandbox(params?: { sessionId?: string }): Promise<{ sandboxId: string }> {
     await this.ensureSrt();
-    const sandboxId = await createSandbox(
-      join(this.sandboxRootPathParent, localSandboxSessionSegment(params?.sessionId), ulid().toLowerCase()),
+    const sandboxPath = join(
+      this.sandboxRootPathParent,
+      localSandboxSessionSegment(params?.sessionId),
+      ulid().toLowerCase(),
     );
+    const sandboxId = await createSandbox(sandboxPath);
+    this.logger.info('LocalSandboxProvider created sandbox', {
+      sandboxId,
+      shell: this.support.shell,
+      python: this.support.python,
+    });
     await mkdir(this.getToolResultDumpDir(sandboxId), { recursive: true, mode: 0o700 });
     await mkdir(this.getFileUploadsDir(sandboxId), { recursive: true, mode: 0o700 });
     await mkdir(this.getSkillsDir(sandboxId), { recursive: true, mode: 0o700 });
