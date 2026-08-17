@@ -1,6 +1,8 @@
 import { EventType } from '../../src/agent-session/schemas/events';
+import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
 import { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 
@@ -96,6 +98,34 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(missingDirect).toBeUndefined();
     expect(missingThroughSession).toBeUndefined();
     expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it('freezeTurn cancels a running turn with the given reason', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      created_by: 'user-1',
+      agent: { type: 'inline', spec: makeAgentSpec() },
+    });
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+    const frozen = await session.freezeTurn({
+      turn_id: turn.id,
+      reason: CancellationReason.ClientCancelled,
+    });
+    expect(frozen.state).toMatchObject({
+      status: 'cancelled',
+      reason: CancellationReason.ClientCancelled,
+    });
+    await expect(
+      session.freezeTurn({ turn_id: 'missing-turn', reason: CancellationReason.ClientCancelled }),
+    ).rejects.toBeInstanceOf(TurnNotFoundError);
   });
 
   it('custom value vs merge-fn', async () => {
