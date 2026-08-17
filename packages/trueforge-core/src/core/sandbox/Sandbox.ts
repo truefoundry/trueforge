@@ -262,8 +262,9 @@ export class Sandbox extends LocalToolMCP {
     if (!servers.length) {
       return;
     }
+    // Shared parent/subagent Sandbox: wire once.
     if (this.codeModeDispatcher !== undefined || this.codeModeTransport !== undefined) {
-      throw new Error('Code Mode is already configured for this Sandbox');
+      return;
     }
     this.codeExecToolSets = servers;
     this.codeModeDispatcher = new CodeModeDispatcher({ toolSets: servers, logger: this.logger });
