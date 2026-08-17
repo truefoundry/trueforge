@@ -48,8 +48,7 @@ describe('getErrorMessage', () => {
       statusCode: 400,
       body: {
         error: {
-          message:
-            '✖ must be 2–64 lowercase chars\\n  → at name\\tand also a tab',
+          message: '✖ must be 2–64 lowercase chars\\n  → at name\\tand also a tab',
         },
       },
     });
