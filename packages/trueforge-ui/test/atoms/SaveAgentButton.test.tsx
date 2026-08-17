@@ -409,4 +409,26 @@ describe('SaveAgentButton', () => {
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Agent name already exists');
   });
+
+  it('preserves decoded escapes in validation error messages', async () => {
+    renderButton({
+      saveAgent: vi.fn(async () => {
+        throw {
+          body: {
+            error: {
+              message: 'line one\\nline two\\tindented',
+            },
+          },
+        };
+      }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
+    fireEvent.change(within(dialog).getByLabelText('Agent name'), { target: { value: 'bad name' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert).toHaveClass('whitespace-pre-wrap');
+    expect(alert.textContent).toBe('line one\nline two\tindented');
+  });
 });
