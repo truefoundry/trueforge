@@ -5,7 +5,7 @@ import { withCapabilitiesSandbox } from '@/server/draftSpecPreferences.js';
 
 describe('withCapabilitiesSandbox', () => {
   it('adds sandbox config when config is missing', () => {
-    expect(withCapabilitiesSandbox({ model: { name: 'model' } }, { enabled: true })).toEqual({
+    expect(withCapabilitiesSandbox({ model: { name: 'model' } }, true)).toEqual({
       model: { name: 'model' },
       config: { sandbox: { enabled: true } },
     });
@@ -18,7 +18,7 @@ describe('withCapabilitiesSandbox', () => {
           model: { name: 'model' },
           config: { askUserQuestions: { enabled: false } },
         },
-        { enabled: true },
+        true,
       ),
     ).toEqual({
       model: { name: 'model' },
@@ -30,20 +30,22 @@ describe('withCapabilitiesSandbox', () => {
   });
 
   it('overrides a spec-owned sandbox flag from capabilities', () => {
-    expect(
-      withCapabilitiesSandbox(withCapabilitiesSandbox({ model: { name: 'model' } }, { enabled: true }), {
-        enabled: false,
-      }),
-    ).toEqual({
+    expect(withCapabilitiesSandbox(withCapabilitiesSandbox({ model: { name: 'model' } }, true), false)).toEqual({
       model: { name: 'model' },
       config: { sandbox: { enabled: false } },
     });
   });
 
   it('preserves the spec sandbox while capabilities are unavailable', () => {
-    const spec = withCapabilitiesSandbox({ model: { name: 'model' } }, { enabled: true });
+    const spec = withCapabilitiesSandbox({ model: { name: 'model' } }, true);
 
     expect(withCapabilitiesSandbox(spec, undefined)).toBe(spec);
     expect(withCapabilitiesSandbox(spec, null)).toBe(spec);
+  });
+
+  it('returns the same spec when sandbox already matches capabilities', () => {
+    const spec = withCapabilitiesSandbox({ model: { name: 'model' } }, true);
+
+    expect(withCapabilitiesSandbox(spec, true)).toBe(spec);
   });
 });

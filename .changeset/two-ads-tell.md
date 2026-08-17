@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Preserve host-seeded sandbox settings until server capabilities load.
+Keep active and remembered draft sandbox settings synchronized with server capabilities.

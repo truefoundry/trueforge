@@ -455,7 +455,7 @@ describe('ShellModeProvider', () => {
   });
 
   it('preserves a host-seeded sandbox while capabilities are unavailable', () => {
-    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, { enabled: true });
+    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, true);
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentComposer', defaultAgentSpec: hostSeed }),
     });
@@ -509,7 +509,7 @@ describe('ShellModeProvider', () => {
       { wrapper: wrapWithServer(server, { mode: 'AgentComposer' }) },
     );
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(false));
-    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, { enabled: true });
+    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, true);
 
     act(() => result.current.shell.rememberDraftSpec(hostSeed));
 

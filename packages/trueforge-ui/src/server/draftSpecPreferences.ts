@@ -47,11 +47,22 @@ export function selectDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
-export function withCapabilitiesSandbox(spec: AgentSpec, sandbox: { enabled: boolean } | null | undefined): AgentSpec {
-  if (sandbox == null) return spec;
+function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
+  if (spec.config === undefined) return undefined;
+  // `sandbox` is persisted on draft config but is not part of AgentRuntimeConfig.
+  const sandbox = Reflect.get(spec.config, 'sandbox');
+  if (!isObject(sandbox)) return undefined;
+  const enabled = Reflect.get(sandbox, 'enabled');
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
+/** Align draft `config.sandbox.enabled` with loaded server capabilities; no-op while unknown. */
+export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean | null | undefined): AgentSpec {
+  if (sandboxEnabled == null) return spec;
+  if (readSandboxEnabled(spec) === sandboxEnabled) return spec;
   const config = {
     ...spec.config,
-    sandbox: { enabled: sandbox.enabled },
+    sandbox: { enabled: sandboxEnabled },
   };
   return {
     ...spec,

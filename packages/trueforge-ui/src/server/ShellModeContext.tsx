@@ -294,15 +294,15 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
-  const sandboxCapabilities = capabilities?.sandbox;
+  const sandboxEnabled = capabilities?.sandbox.enabled;
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec) => {
-      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), sandboxCapabilities);
+      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), sandboxEnabled);
       rememberedSpecRef.current = preferences;
       mutableSeedRef.current = preferences;
       writeDraftSpecPreferences(preferences);
     },
-    [sandboxCapabilities],
+    [sandboxEnabled],
   );
 
   const openHistorySession = useCallback(
