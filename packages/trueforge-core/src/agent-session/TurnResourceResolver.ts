@@ -159,7 +159,6 @@ export class TurnResourceResolver<
    */
   async resolveAgentDefinition(input: {
     spec: AgentSpec;
-    thread_id: string;
     agent_info?: AgentInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;

@@ -35,8 +35,8 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     tracing: AgentTracing;
   }): Promise<Sandbox | undefined>;
   /**
-   * Called once per thread_id; calls for different ids may overlap (parallel
-   * sub-agent spawns), so implementations must be concurrency-safe across ids.
+   * Called once per thread (rebuild or live sub-agent spawn); calls for different
+   * threads may overlap, so implementations must be concurrency-safe.
    * `agent_info` is set for sub-agent threads. `previousTurn` is read-only:
    * branch on it, but never load state into capabilities — return blank
    * instances; the AgentThread constructor is the sole hydration path.
@@ -44,7 +44,6 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
    */
   resolveAgentDefinition(input: {
     spec: AgentSpec;
-    thread_id: string;
     agent_info?: AgentInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;

@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-core': patch
 ---
 
-Configure Code Mode only from the root AgentThread so shared subagent sandboxes do not rewire.
+Wire shared sandbox Code Mode once in SessionHandle from main toolSets before building threads.

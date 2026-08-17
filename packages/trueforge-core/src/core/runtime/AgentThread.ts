@@ -542,11 +542,6 @@ export class AgentThread {
       });
     }
 
-    // Sandbox and tool sets are shared with sub-agents; wire Code Mode once on the root thread.
-    if (this.sandbox && !this.parent) {
-      this.sandbox.configureCodeMode(this.definition.toolSets ?? []);
-    }
-
     this.instruction = this.buildInstruction(this.definition.instruction);
   }
 
