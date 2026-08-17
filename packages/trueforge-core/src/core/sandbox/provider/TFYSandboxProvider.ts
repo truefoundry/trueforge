@@ -1,7 +1,8 @@
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
-import { randomUUID } from 'crypto';
 import dedent from 'dedent';
+import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
@@ -200,10 +201,22 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   getToolResultDumpDir(sandboxId: string): string {
-    return `/tmp/${sandboxId}/tool-results`;
+    return join('/tmp', sandboxId, 'tool-results');
   }
 
   getGitCredentialsPath(sandboxId: string): string {
-    return `/tmp/${sandboxId}/.git-credentials`;
+    return join('/tmp', sandboxId, '.git-credentials');
+  }
+
+  getFileUploadsDir(sandboxId: string): string {
+    return join('/tmp', sandboxId, 'uploads');
+  }
+
+  getSkillsDir(sandboxId: string): string {
+    return join('/opt', 'tf', sandboxId, 'skills');
+  }
+
+  getGitDownloaderPath(sandboxId: string): string {
+    return join('/opt', 'tf', sandboxId, 'git_downloader.py');
   }
 }

@@ -47,8 +47,8 @@ function requireActivePlatform(): LocalSandboxPlatform {
 const COMMAND_PATH_BY_PLATFORM = {
   // On macOS, prefer Homebrew ahead of `/usr/bin` shims (those need Xcode select
   // paths that we intentionally do not allow-read).
-  darwin: '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
-  linux: '/usr/bin:/bin:/usr/sbin:/sbin',
+  darwin: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+  linux: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
 } as const satisfies Record<LocalSandboxPlatform, string>;
 
 export function commandPath(platform: LocalSandboxPlatform): string {
@@ -82,6 +82,30 @@ export async function resolveCommandOnHost(params: {
   }
 }
 
+/**
+ * Resolve the real interpreter on the host before running it under seatbelt.
+ * Apple's `/usr/bin/python3` is an xcode-select stub; python.org / Homebrew
+ * leave `sys.executable` as a PATH symlink (`/usr/local/bin/python3`).
+ */
+export async function resolvePythonExecutableOnHost(params: { commandPath: string }): Promise<string | undefined> {
+  if (!isAbsolute(params.commandPath)) {
+    return undefined;
+  }
+  try {
+    const { stdout } = await execFileAsync(params.commandPath, ['-c', 'import sys; print(sys.executable)'], {
+      encoding: 'utf8',
+      timeout: 5_000,
+    });
+    const executable = stdout.trim().split(/\r?\n/).filter(Boolean).at(-1);
+    if (executable === undefined || executable.length === 0 || !isAbsolute(executable)) {
+      return undefined;
+    }
+    return realpathSync(executable);
+  } catch {
+    return undefined;
+  }
+}
+
 export interface SessionResult {
   stdoutText: string;
   stderrText: string;
@@ -104,6 +128,7 @@ function denySharedDefaultWritePaths(): string[] {
 const ALLOW_READ_BY_PLATFORM = {
   darwin: [
     '/opt/homebrew/bin',
+    '/usr/local',
     '/usr/bin',
     '/bin',
     '/usr/sbin',

@@ -52,7 +52,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     this.logger = params.logger.child({ module: 'CodeModeNatsTransport' });
   }
 
-  getClientInstall(_params: { sandboxId: string }): CodeModeClientInstall {
+  getClientInstall(): CodeModeClientInstall {
     return {
       content: sandboxScripts.mcpClient,
       remotePath: MCP_CLIENT_PATH,

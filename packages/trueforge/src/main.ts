@@ -259,8 +259,18 @@ try {
     const { LocalSandboxProvider } = await import('./sandbox/local/provider/LocalSandboxProvider');
     const support = await LocalSandboxProvider.isSupported();
     setCachedLocalSandboxSupport(support);
-    if (!support.supported) {
-      logger.warn('Local sandbox fallback is unavailable', { reason: support.reason });
+    if (support.supported) {
+      logger.info('Local sandbox fallback is available', {
+        platform: support.platform,
+        shell: support.shell,
+        python: support.python,
+      });
+    } else {
+      logger.warn('Local sandbox fallback is unavailable', {
+        reason: support.reason,
+        ...(support.platform === undefined ? {} : { platform: support.platform }),
+        ...(support.attempts === undefined ? {} : { attempts: support.attempts }),
+      });
     }
   } else {
     logger.info('TrueForge starting', { mode: 'distributed' });

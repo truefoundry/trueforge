@@ -256,6 +256,7 @@ export function buildTurnSandbox(input: {
   gitSkills: readonly GitSkill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
+  sessionId: string;
   tracing: AgentTracing;
   tenantName: string;
 }): Sandbox {
@@ -263,6 +264,7 @@ export function buildTurnSandbox(input: {
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
+    sessionId: input.sessionId,
     fileDownloadEnabled: input.fileDownloadEnabled,
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,

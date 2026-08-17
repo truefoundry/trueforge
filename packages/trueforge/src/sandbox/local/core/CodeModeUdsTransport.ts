@@ -24,7 +24,7 @@ import { sandboxScripts } from '../sandboxScripts.gen.js';
 import { encodeJsonMessage, JsonMessageReader, MAX_MESSAGE_BYTES } from './frame.js';
 import { registerCodeModeSocketPath, unregisterCodeModeSocketPath } from './hostRun.js';
 
-const MAX_CODE_MODE_SOCKET_PARENT_BYTES = 60;
+const MAX_CODE_MODE_SOCKET_PARENT_BYTES = 63;
 const CODE_MODE_SOCKET_PARENT_MODE = 0o700;
 const CODE_MODE_SOCKET_MODE = 0o600;
 
@@ -70,7 +70,7 @@ export function assertCodeModeSocketParentPath(path: string): string {
   const bytes = Buffer.byteLength(real);
   if (bytes > MAX_CODE_MODE_SOCKET_PARENT_BYTES) {
     throw new Error(
-      `codeModeSocketParentPath must be at most ${String(MAX_CODE_MODE_SOCKET_PARENT_BYTES)} bytes (got ${String(bytes)})`,
+      `codeModeSocketParentPath (${real}) must be at most ${String(MAX_CODE_MODE_SOCKET_PARENT_BYTES)} bytes (got ${String(bytes)})`,
     );
   }
   // Owner-only parent: other accounts cannot rename/replace socks under this dir.

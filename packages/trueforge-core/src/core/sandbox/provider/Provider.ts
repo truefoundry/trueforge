@@ -75,7 +75,7 @@ export interface SandboxProvider {
   buildImage(): Promise<SandboxBuild>;
   /** Current build status of the release image. Read-only: never kicks off a build. */
   getImageBuildStatus(): Promise<SandboxBuild>;
-  createSandbox(): Promise<{ sandboxId: string }>;
+  createSandbox(params?: { sessionId?: string }): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;
@@ -83,6 +83,12 @@ export interface SandboxProvider {
   getToolResultDumpDir(sandboxId: string): string;
   /** Absolute path for the git credential-store file (per logical sandbox when sharing a pod). */
   getGitCredentialsPath(sandboxId: string): string;
+  /** Directory for user-uploaded files (absolute, or cwd-relative when the provider has no global FS). */
+  getFileUploadsDir(sandboxId: string): string;
+  /** Directory where git skills are materialized. */
+  getSkillsDir(sandboxId: string): string;
+  /** Path the git skill downloader script is written to before it runs. */
+  getGitDownloaderPath(sandboxId: string): string;
   /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
   downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;
   /** Uploads a file to the sandbox. */

@@ -17,13 +17,11 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
-import { SANDBOX_FILE_UPLOADS_DIR } from './constants';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { dirname, join } from 'node:path';
-import { SKILLS_DIR } from './skills/constants';
 import type { ISkillMounter } from './skills/ISkillMounter';
 
 /** Layout derived from install remotePath (always `…/mcp_client.py`). */
@@ -93,6 +91,8 @@ export interface SandboxStoredFile {
 export interface SandboxOptions {
   provider: SandboxProvider;
   existingSandboxId?: string | undefined;
+  /** Chat session id; local provider nests the sandbox root under this segment. */
+  sessionId?: string | undefined;
   skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
   /** Pre-resolved credential-store file content (null = clear / no git auth). */
@@ -206,10 +206,10 @@ export class Sandbox extends LocalToolMCP {
   readonly name = SANDBOX_MCP_SERVER_ID;
   readonly displayName = 'Sandbox';
   override readonly description = 'Persistent sandbox environment for code execution';
-  static readonly FILE_UPLOADS_DIR = SANDBOX_FILE_UPLOADS_DIR;
 
   private readonly provider: SandboxProvider;
   private readonly existingSandboxId?: string | undefined;
+  private readonly sessionId?: string | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
   private sandboxCreationPromise?: Promise<SandboxInfo> | undefined;
@@ -241,6 +241,7 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
+    this.sessionId = options.sessionId;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
@@ -257,6 +258,11 @@ export class Sandbox extends LocalToolMCP {
   /** Provider-facing id (unwraps `v1:type:raw`; legacy ids pass through). */
   private providerSandboxId(sessionId: string): string {
     return rawSandboxId(sessionId);
+  }
+
+  /** Raw id for prompt layout paths before create (empty when this turn has no existing sandbox). */
+  private promptSandboxId(): string {
+    return this.existingSandboxId === undefined ? '' : rawSandboxId(this.existingSandboxId);
   }
 
   private buildMcpServersEnvelope(): Record<string, SandboxMcpServerConfig> {
@@ -292,7 +298,7 @@ export class Sandbox extends LocalToolMCP {
   private renderSkillsSection(): string {
     if (this.cachedSkillsSection === undefined) {
       const skills = new InstructionBuilder('skills');
-      this.skillMounter?.instruction(skills);
+      this.skillMounter?.instruction(skills, { skillsDir: this.provider.getSkillsDir(this.promptSandboxId()) });
       this.cachedSkillsSection = skills.build();
     }
     return this.cachedSkillsSection;
@@ -322,7 +328,7 @@ export class Sandbox extends LocalToolMCP {
   private buildFileUploadsSection(builder: InstructionBuilder): void {
     builder.addSection(
       SANDBOX_FILE_UPLOADS_TAG,
-      `User-uploaded files are placed in ${Sandbox.FILE_UPLOADS_DIR}/. The Agent must not modify files in this directory. Always create a copy at a different location and work on the copy.`,
+      `User-uploaded files are placed in ${this.provider.getFileUploadsDir(this.promptSandboxId())}/. The Agent must not modify files in this directory. Always create a copy at a different location and work on the copy.`,
     );
   }
 
@@ -467,7 +473,7 @@ export class Sandbox extends LocalToolMCP {
     }
     // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
-      .createSandbox()
+      .createSandbox(this.sessionId === undefined ? undefined : { sessionId: this.sessionId })
       .then(({ sandboxId }) => ({
         sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
       }))
@@ -641,14 +647,16 @@ export class Sandbox extends LocalToolMCP {
 
   async uploadUserFile(input: { fileName: string; content: Buffer; mime: string }): Promise<SandboxStoredFile> {
     validateNoPathTraversal(input.fileName);
+    const { sandboxCreated, sandboxInfo } = await this.ensureReadySandbox();
     const result = await this.uploadFile({
-      targetDir: Sandbox.FILE_UPLOADS_DIR,
+      targetDir: this.provider.getFileUploadsDir(this.providerSandboxId(sandboxInfo.sandbox_id)),
       fileName: input.fileName,
       content: input.content,
     });
+    const created = sandboxCreated ?? result.sandboxCreated;
     return {
       filePath: result.filePath,
-      ...(result.sandboxCreated && { sandboxCreated: result.sandboxCreated }),
+      ...(created && { sandboxCreated: created }),
     };
   }
 
@@ -695,6 +703,8 @@ export class Sandbox extends LocalToolMCP {
 
   private async initSandboxEnvironment(): Promise<void> {
     const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
+    const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
+    const skillsDir = this.provider.getSkillsDir(sandboxId);
     const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
 
     this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
@@ -702,7 +712,7 @@ export class Sandbox extends LocalToolMCP {
     this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
     const install = this.mcpClientInstall;
 
-    const dirs = [shellEscape(Sandbox.FILE_UPLOADS_DIR), shellEscape(toolResultDumpDir), shellEscape(SKILLS_DIR)];
+    const dirs = [shellEscape(fileUploadsDir), shellEscape(toolResultDumpDir), shellEscape(skillsDir)];
     if (install !== undefined) {
       const { pythonPath, binDir } = mcpClientLayout(install.remotePath);
       dirs.push(shellEscape(pythonPath), shellEscape(binDir));
@@ -728,7 +738,10 @@ export class Sandbox extends LocalToolMCP {
 
     // Fold skill installation into this single init exec. The mounter returns a declarative
     // command + env + timeout; runs even when empty so its downloader can prune a reused sandbox.
-    const skillInit = this.skillMounter?.getSandboxInit();
+    const skillInit = this.skillMounter?.getSandboxInit({
+      skillsDir,
+      gitDownloaderPath: this.provider.getGitDownloaderPath(sandboxId),
+    });
     if (skillInit) {
       initSteps.push(skillInit.command);
     }
@@ -746,8 +759,8 @@ export class Sandbox extends LocalToolMCP {
 
     this.logger.info(
       install === undefined
-        ? `Sandbox initialized: skills dir ${SKILLS_DIR}`
-        : `Sandbox initialized: MCP client at ${install.remotePath}; skills dir ${SKILLS_DIR}`,
+        ? `Sandbox initialized: skills dir ${skillsDir}`
+        : `Sandbox initialized: MCP client at ${install.remotePath}; skills dir ${skillsDir}`,
     );
 
     await this.writeGitCredentials();

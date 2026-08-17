@@ -15,7 +15,7 @@ If the diff changes code that ships in a published package and does not add a ne
 Skip when:
 
 - The PR already adds `.changeset/*.md`
-- Changes are docs, `AGENTS.md`, CI/workflows, charts, docker-compose, or `packages/local-sandbox` only
+- Changes are docs, `AGENTS.md`, CI/workflows, charts, or docker-compose only
 - The PR is a Version Packages / `changeset-release/*` release PR
 
 ## CI and release wiring

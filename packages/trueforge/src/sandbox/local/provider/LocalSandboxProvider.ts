@@ -29,8 +29,10 @@ import {
   removeSandbox,
   resetSrt,
   resolveCommandOnHost,
+  resolvePythonExecutableOnHost,
   runSupervisorSession,
   type LocalSandboxPlatform,
+  type SessionResult,
 } from '../core/hostRun.js';
 import { XferFileInfoSchema, type XferFileInfo } from '../schemas/xferFileInfo.js';
 
@@ -45,9 +47,94 @@ const PYTHON_CANDIDATES = ['python3', 'python'] as const;
 
 export type { LocalSandboxPlatform };
 
+/** One shell/python candidate tried by {@link LocalSandboxProvider.isSupported}. */
+export interface LocalSandboxSupportProbeAttempt {
+  kind: 'shell' | 'python';
+  name: string;
+  resolved: string | undefined;
+  executable?: string | undefined;
+  exitCode?: number | undefined;
+  stdout?: string | undefined;
+  stderr?: string | undefined;
+  protocolError?: string | undefined;
+  timedOut?: boolean | undefined;
+}
+
 export type LocalSandboxSupportResult =
   | { supported: true; platform: LocalSandboxPlatform; shell: string; python: string }
-  | { supported: false; reason: string };
+  | {
+      supported: false;
+      reason: string;
+      platform?: LocalSandboxPlatform | undefined;
+      attempts?: readonly LocalSandboxSupportProbeAttempt[] | undefined;
+    };
+
+export function formatLocalSandboxSupportReason(params: {
+  summary: string;
+  attempts: readonly LocalSandboxSupportProbeAttempt[];
+}): string {
+  const details = params.attempts.map(formatLocalSandboxSupportAttempt).join('; ');
+  return details.length === 0 ? params.summary : `${params.summary}: ${details}`;
+}
+
+function formatLocalSandboxSupportAttempt(attempt: LocalSandboxSupportProbeAttempt): string {
+  if (attempt.resolved === undefined) {
+    return `${attempt.name}: not on sandbox PATH`;
+  }
+  const parts = [`${attempt.name}: resolved=${attempt.resolved}`];
+  if (attempt.executable !== undefined && attempt.executable !== attempt.resolved) {
+    parts.push(`executable=${attempt.executable}`);
+  }
+  if (attempt.protocolError !== undefined) {
+    parts.push(`protocolError=${attempt.protocolError}`);
+  }
+  if (attempt.exitCode !== undefined) {
+    parts.push(`exit=${String(attempt.exitCode)}`);
+  }
+  if (attempt.timedOut === true) {
+    parts.push('timedOut');
+  }
+  if (attempt.stderr !== undefined && attempt.stderr.length > 0) {
+    parts.push(`stderr=${JSON.stringify(attempt.stderr)}`);
+  }
+  if (attempt.stdout !== undefined && attempt.stdout.length > 0) {
+    parts.push(`stdout=${JSON.stringify(attempt.stdout)}`);
+  }
+  return parts.join(' ');
+}
+
+function probeAttemptFromSession(params: {
+  kind: 'shell' | 'python';
+  name: string;
+  resolved: string;
+  executable?: string | undefined;
+  session: SessionResult;
+}): LocalSandboxSupportProbeAttempt {
+  return {
+    kind: params.kind,
+    name: params.name,
+    resolved: params.resolved,
+    ...(params.executable === undefined ? {} : { executable: params.executable }),
+    exitCode: params.session.exitCode,
+    stdout: params.session.stdoutText,
+    stderr: params.session.stderrText,
+    ...(params.session.protocolError === undefined ? {} : { protocolError: params.session.protocolError }),
+    timedOut: params.session.timedOut,
+  };
+}
+
+function unsupported(params: {
+  reason: string;
+  platform?: LocalSandboxPlatform | undefined;
+  attempts?: readonly LocalSandboxSupportProbeAttempt[] | undefined;
+}): Extract<LocalSandboxSupportResult, { supported: false }> {
+  return {
+    supported: false,
+    reason: params.reason,
+    ...(params.platform === undefined ? {} : { platform: params.platform }),
+    ...(params.attempts === undefined ? {} : { attempts: params.attempts }),
+  };
+}
 
 type LocalSandboxSupported = Extract<LocalSandboxSupportResult, { supported: true }>;
 
@@ -69,6 +156,14 @@ export interface LocalSandboxProviderOptions {
 function toSandboxRelativePath(params: { sandboxRootPath: string; absolutePath: string }): string {
   const rel = relative(params.sandboxRootPath, params.absolutePath);
   return rel === '' ? '.' : rel;
+}
+
+/** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
+export function localSandboxSessionSegment(sessionId: string | undefined): string {
+  if (sessionId === undefined || sessionId.length === 0 || sessionId.includes('/') || sessionId.includes('..')) {
+    return '_';
+  }
+  return sessionId;
 }
 
 export class LocalSandboxProvider implements SandboxProvider {
@@ -93,15 +188,16 @@ export class LocalSandboxProvider implements SandboxProvider {
    */
   static async isSupported(): Promise<LocalSandboxSupportResult> {
     if (process.platform !== 'darwin' && process.platform !== 'linux') {
-      return {
-        supported: false,
+      return unsupported({
         reason: `LocalSandboxProvider supports macOS and Linux only (got ${process.platform})`,
-      };
+      });
     }
     const platform: LocalSandboxPlatform = process.platform;
 
     const alreadyInitialized = isSrtInitialized();
     let probeRoot: string | undefined;
+    const attempts: LocalSandboxSupportProbeAttempt[] = [];
+    const pythonAttempts: LocalSandboxSupportProbeAttempt[] = [];
 
     try {
       if (!alreadyInitialized) {
@@ -113,7 +209,10 @@ export class LocalSandboxProvider implements SandboxProvider {
       let shell: string | undefined;
       for (const name of SHELL_CANDIDATES) {
         const resolved = await resolveCommandOnHost({ platform, name });
-        if (resolved === undefined) continue;
+        if (resolved === undefined) {
+          attempts.push({ kind: 'shell', name, resolved: undefined });
+          continue;
+        }
         const probe = await runSupervisorSession({
           sandboxRootPath: probeRoot,
           platform,
@@ -121,47 +220,79 @@ export class LocalSandboxProvider implements SandboxProvider {
           command: 'echo shell-ok',
           timeoutMs: SUPPORT_PROBE_TIMEOUT_MS,
         });
+        const attempt = probeAttemptFromSession({ kind: 'shell', name, resolved, session: probe });
         if (probe.protocolError === undefined && probe.exitCode === 0 && probe.stdoutText.includes('shell-ok')) {
           shell = resolved;
           break;
         }
+        attempts.push(attempt);
       }
       if (shell === undefined) {
-        return {
-          supported: false,
-          reason: 'No usable shell in sandbox (bash or sh via command -v)',
-        };
+        return unsupported({
+          platform,
+          attempts,
+          reason: formatLocalSandboxSupportReason({
+            summary: 'No usable shell in sandbox (bash or sh via command -v)',
+            attempts,
+          }),
+        });
       }
 
       let python: string | undefined;
       for (const name of PYTHON_CANDIDATES) {
         const resolved = await resolveCommandOnHost({ platform, name });
-        if (resolved === undefined) continue;
+        if (resolved === undefined) {
+          pythonAttempts.push({ kind: 'python', name, resolved: undefined });
+          continue;
+        }
+        // Prefer the host-resolved interpreter so macOS stubs/symlinks are not
+        // executed under seatbelt (xcode-select, python.org /usr/local/bin).
+        const executable = (await resolvePythonExecutableOnHost({ commandPath: resolved })) ?? resolved;
         const probe = await runSupervisorSession({
           sandboxRootPath: probeRoot,
           platform,
           shell,
-          command: `${shellEscape(resolved)} -c ${shellEscape(
+          command: `${shellEscape(executable)} -c ${shellEscape(
             'import sys; raise SystemExit(0 if sys.version_info[0] == 3 else 1)',
           )}`,
           timeoutMs: SUPPORT_PROBE_TIMEOUT_MS,
         });
+        const attempt = probeAttemptFromSession({
+          kind: 'python',
+          name,
+          resolved,
+          executable,
+          session: probe,
+        });
         if (probe.protocolError === undefined && probe.exitCode === 0) {
-          python = resolved;
+          python = executable;
           break;
         }
+        pythonAttempts.push(attempt);
       }
       if (python === undefined) {
-        return {
-          supported: false,
-          reason: 'No usable Python 3 interpreter in sandbox (python3 or python via command -v)',
-        };
+        return unsupported({
+          platform,
+          attempts: pythonAttempts,
+          reason: formatLocalSandboxSupportReason({
+            summary: 'No usable Python 3 interpreter in sandbox (python3 or python via command -v)',
+            attempts: pythonAttempts,
+          }),
+        });
       }
 
       return { supported: true, platform, shell, python };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return { supported: false, reason: message };
+      const seen = [...attempts, ...pythonAttempts];
+      return unsupported({
+        platform,
+        attempts: seen.length === 0 ? undefined : seen,
+        reason:
+          seen.length === 0
+            ? message
+            : `${message}: ${formatLocalSandboxSupportReason({ summary: 'probe aborted', attempts: seen })}`,
+      });
     } finally {
       if (probeRoot !== undefined) {
         await removeSandbox(probeRoot);
@@ -220,7 +351,9 @@ export class LocalSandboxProvider implements SandboxProvider {
   }
 
   private async ensureSrt(): Promise<void> {
-    if (this.srtInitialized) return;
+    if (this.srtInitialized) {
+      return;
+    }
     await initSrt({ platform: this.support.platform });
     this.srtInitialized = true;
   }
@@ -280,11 +413,14 @@ export class LocalSandboxProvider implements SandboxProvider {
     return XferFileInfoSchema.parse(JSON.parse(result.stdoutText.trim()));
   }
 
-  async createSandbox(): Promise<{ sandboxId: string }> {
+  async createSandbox(params?: { sessionId?: string }): Promise<{ sandboxId: string }> {
     await this.ensureSrt();
-    const sandboxId = await createSandbox(join(this.sandboxRootPathParent, ulid().toLowerCase()));
-    await mkdir(join(sandboxId, 'tool-results'), { recursive: true, mode: 0o700 });
-    await mkdir(join(sandboxId, 'uploads'), { recursive: true, mode: 0o700 });
+    const sandboxId = await createSandbox(
+      join(this.sandboxRootPathParent, localSandboxSessionSegment(params?.sessionId), ulid().toLowerCase()),
+    );
+    await mkdir(this.getToolResultDumpDir(sandboxId), { recursive: true, mode: 0o700 });
+    await mkdir(this.getFileUploadsDir(sandboxId), { recursive: true, mode: 0o700 });
+    await mkdir(this.getSkillsDir(sandboxId), { recursive: true, mode: 0o700 });
     return { sandboxId };
   }
 
@@ -342,6 +478,18 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   getGitCredentialsPath(sandboxId: string): string {
     return join(sandboxId, '.git-credentials');
+  }
+
+  getFileUploadsDir(sandboxId: string): string {
+    return join(sandboxId, 'uploads');
+  }
+
+  getSkillsDir(sandboxId: string): string {
+    return join(sandboxId, 'skills');
+  }
+
+  getGitDownloaderPath(sandboxId: string): string {
+    return join(sandboxId, 'git_downloader.py');
   }
 
   async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {

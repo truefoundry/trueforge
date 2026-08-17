@@ -2,7 +2,8 @@ import type { Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import {
@@ -489,11 +490,23 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   getToolResultDumpDir(): string {
-    return '/tmp/tool-results';
+    return join('/tmp', 'tool-results');
   }
 
   getGitCredentialsPath(): string {
     // Isolated container per sandbox; absolute path so GIT_CONFIG_* needs no $HOME expansion.
-    return '/tmp/.git-credentials';
+    return join('/tmp', '.git-credentials');
+  }
+
+  getFileUploadsDir(): string {
+    return join('/tmp', 'uploads');
+  }
+
+  getSkillsDir(): string {
+    return join('/opt', 'tf', 'skills');
+  }
+
+  getGitDownloaderPath(): string {
+    return join('/opt', 'tf', 'git_downloader.py');
   }
 }

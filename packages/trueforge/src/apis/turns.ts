@@ -129,6 +129,7 @@ function createTurnResolver(deps: {
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
+  sessionId: string;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -140,6 +141,7 @@ function createTurnResolver(deps: {
     logger,
     signal,
     userRef,
+    sessionId,
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
@@ -215,6 +217,7 @@ function createTurnResolver(deps: {
         gitSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
+        sessionId,
         tracing,
         tenantName: TENANT_ID,
       });
@@ -512,6 +515,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       logger: deps.logger,
       signal: abortController.signal,
       userRef: deps.resolveUserContext(c).userRef,
+      sessionId,
     });
 
     // First turn only: derive the title from the first user message. The store
