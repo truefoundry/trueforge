@@ -1,0 +1,9 @@
+# Last matching pattern wins. Enable "Require review from Code Owners" on the
+# default branch for these rules to gate merges.
+#
+# UI packages have their own owners; everyone else falls through to `*`.
+
+* @debajyoti-truefoundry @chiragjn @heerambavi1998 @sr07asthana @bhaveshpatel640 @thesujai
+
+/packages/trueforge-ui/ @govindavashishtha @sayan-truefoundry @qaifi-tf @vinit-truefoundry
+/packages/frontend/ @govindavashishtha @sayan-truefoundry @qaifi-tf @vinit-truefoundry
