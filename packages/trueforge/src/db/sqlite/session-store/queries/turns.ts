@@ -1,6 +1,5 @@
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
-  CancellationReason,
   type TerminalTurnState,
   type TurnInputItem,
   type TurnState,
@@ -657,7 +656,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
   return await db.transaction().execute(async trx => {
     const cancelledState: TerminalTurnState = {
       status: 'cancelled',
-      reason: CancellationReason.CancelledForNextTurn,
+      reason: input.reason,
       completed_at: nowIso(),
     };
 

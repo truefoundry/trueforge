@@ -48,6 +48,7 @@ describe('public CRUD after session deletion', () => {
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
         resolveUserContext: () => LOCAL_USER_CONTEXT,
+        logger: createLogger({ silent: true }),
       }),
     );
     app.route(

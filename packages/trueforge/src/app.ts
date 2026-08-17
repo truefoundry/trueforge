@@ -272,6 +272,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveUserContext: resolveUserContext,
+        logger: deps.logger,
       }),
     ),
   );
