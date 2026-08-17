@@ -172,7 +172,7 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(sessionStore.freezeAndGetTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Timed out waiting for owning executor to cancel; freezing the running turn (not a clean cancel)',
+      'Timed out waiting for owning executor to cancel; freezing the running turn',
       expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: 'other1' }),
     );
   });
@@ -189,7 +189,7 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(sessionStore.freezeAndGetTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to reach owning executor over Redis; freezing the running turn (not a clean cancel)',
+      'Failed to reach owning executor over Redis; freezing the running turn',
       expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: 'other1', error: 'Redis connection closed' }),
     );
   });
