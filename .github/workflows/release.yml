@@ -169,9 +169,12 @@ jobs:
         with:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
           create-github-releases: true
-        # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT
-        # set it now: provenance publicly attests the source repo and commit.
-        # publishConfig.provenance is false on every public package.
+        env:
+          # Attest source repo + commit on every publish. Trusted publishing
+          # already uses OIDC (`id-token: write`); this flag is what changesets
+          # / pnpm honor (they do not accept `--provenance`).
+          # publishConfig.provenance is true on every public package.
+          NPM_CONFIG_PROVENANCE: "true"
 
       - name: Detect @truefoundry/trueforge publish
         id: trueforge

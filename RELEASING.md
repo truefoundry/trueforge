@@ -83,6 +83,10 @@ Each public package must list this repo + workflow as a trusted publisher on npm
 Do not set `NPM_TOKEN` / `_authToken` on the publish job — that disables OIDC.
 Only the **publish** job has `id-token: write`.
 
+Publish attaches npm provenance (`NPM_CONFIG_PROVENANCE` on the publish job, and
+`publishConfig.provenance: true` on every public package). That publicly attests
+the source repo and commit on npmjs.com.
+
 ## Local without publishing
 
 ```bash

@@ -18,6 +18,8 @@ import { fileURLToPath } from 'node:url';
 import envPaths from 'env-paths';
 
 const DEFAULT_PORT = 8790;
+/** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
+const DEFAULT_HOST = 'localhost';
 /**
  * Package root whether this module runs as `src/config.ts` (tsx) or is bundled
  * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
@@ -276,6 +278,8 @@ export interface SharedServerConfiguration {
   NODE_ENV: string | undefined;
   /** HTTP port the server listens on. Env: `PORT`. */
   PORT: number;
+  /** HTTP bind address. Env: `HOST`. Default `localhost`; production images use `0.0.0.0`. */
+  HOST: string;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
   EXECUTOR_ID: string;
   /**
@@ -444,11 +448,13 @@ const standalone = parseBoolean({
 });
 
 const port = parsePort(getEnv('PORT'));
+const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
 
 const shared: SharedServerConfiguration = {
   LOG_LEVEL: getEnv('LOG_LEVEL', { defaultValue: 'info' }) ?? 'info',
   NODE_ENV: getEnv('NODE_ENV'),
   PORT: port,
+  HOST: host,
   EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),

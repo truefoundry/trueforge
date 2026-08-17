@@ -55,7 +55,7 @@ groups:
               url: https://github.com/truefoundry/trueforge/issues
             publishConfig:
               access: public
-              provenance: false
+              provenance: true
             engines:
               node: '>=22'
           allowExtraFields: true
