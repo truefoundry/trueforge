@@ -20,6 +20,8 @@ import envPaths from 'env-paths';
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
 const DEFAULT_HOST = 'localhost';
+/** Default HTTP request body ceiling: 30 MB. */
+const DEFAULT_MAX_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
 /**
  * Package root whether this module runs as `src/config.ts` (tsx) or is bundled
  * into `dist/main.js` / `dist/cli.js` (`import.meta` → `dist/` → parent).
@@ -328,6 +330,10 @@ export interface SharedServerConfiguration {
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
   /**
+   * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
+   */
+  MAX_REQUEST_BODY_BYTES: number;
+  /**
    * Max seconds to wait for turn cancellation + connection drain on SIGTERM/SIGINT.
    * Env: `GRACEFUL_TIMEOUT_SECONDS`. Default 30.
    */
@@ -478,6 +484,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD',
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
+  }),
+  MAX_REQUEST_BODY_BYTES: parsePositiveInt({
+    envKey: 'MAX_REQUEST_BODY_BYTES',
+    raw: getEnv('MAX_REQUEST_BODY_BYTES'),
+    defaultValue: DEFAULT_MAX_REQUEST_BODY_BYTES,
   }),
   GRACEFUL_TIMEOUT_SECONDS: parsePositiveInt({
     envKey: 'GRACEFUL_TIMEOUT_SECONDS',
