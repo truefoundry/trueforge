@@ -32,6 +32,8 @@ export default defineConfig({
   external: [
     'react',
     'react-dom',
+    'react-router',
+    'react-router-dom',
     '@assistant-ui/react',
     '@assistant-ui/core',
     '@openuidev/react-headless',

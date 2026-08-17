@@ -64,7 +64,9 @@ export function runCodeModeTransportContractSuite(
       });
 
       expect(reply.ok).toBe(true);
-      if (!reply.ok) throw new Error('unreachable');
+      if (!reply.ok) {
+        throw new Error('unreachable');
+      }
       expect(reply.result).toBeDefined();
     });
 

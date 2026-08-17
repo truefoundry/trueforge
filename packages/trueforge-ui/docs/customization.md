@@ -73,6 +73,58 @@ Public override surface (primitives stay theme/CSS — not slots):
   `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`,
   `ResumeUnavailable`
 
+## URL routing (`withRouter`)
+
+Opt in to browser-URL sync for shell navigation. Requires `react-router-dom`
+(v6 or v7) in the host; it is an optional peer and stays out of the bundle
+unless `withRouter` is set, so dock/widget embeds and hosts that own their own
+router should leave it off (the default).
+
+```tsx
+<TrueForgeUI server={server} layout="sidebar" withRouter />
+```
+
+Places mirrored to the URL:
+
+- `/` — new chat / library landing (mode-dependent)
+- `/agents/:agentName` — immutable "Try" of a library agent
+- `/sessions/:sessionId` — a specific chat session
+- `/settings` — settings overlay (closing navigates to the chat place below it)
+
+Customize the paths (only honored when `withRouter`). Set any entry to `false`
+to keep that place overlay-only with no URL:
+
+```tsx
+<TrueForgeUI
+  server={server}
+  withRouter
+  routes={{
+    basename: '/app',
+    paths: { session: '/chats/:sessionId', settings: false },
+  }}
+/>
+```
+
+Custom `agent` / `session` templates must keep their `:param` segment, or the
+place can be written to the URL but not read back.
+
+Shell state stays the source of truth; the router mirrors it. Combining
+`withRouter` with `initialSessionId` is not supported — the URL wins.
+
+Notes on behaviour:
+
+- Only the pathname is owned; query string and hash are preserved across
+  navigation, so host state in `?…` survives switching sessions.
+- A `/sessions/:sessionId` link is resolved through `getSession` so the chat
+  opens with its own agent binding and mutability rather than as a new draft.
+- Unrecognized paths (and malformed escapes) normalize to the root place.
+- A URL naming a place the host cannot honor (e.g. `/agents/x` without the
+  agent library, or `/settings` when the settings capability is disabled) is
+  left in the address bar until the next navigation corrects it.
+
+Hosts serving the SDK must send the app shell for unknown paths (SPA
+fallback), otherwise deep links 404 before React boots.
+
 ## Custom layout
 
 Pass a React component as `layout` to own chrome; compose exported

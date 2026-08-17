@@ -57,8 +57,11 @@ async function listenHost(): Promise<{ port: number; close: () => Promise<void> 
     close: () =>
       new Promise((resolve, reject) => {
         server.close(err => {
-          if (err) reject(err);
-          else resolve();
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
         });
       }),
   };
@@ -85,7 +88,9 @@ async function runSandboxed(params: { label: string; command: string; allowedDom
     { commandId: randomUUID(), commandText: params.command },
   );
   const [argv0, ...argvRest] = wrap.argv;
-  if (argv0 === undefined) throw new Error('empty argv');
+  if (argv0 === undefined) {
+    throw new Error('empty argv');
+  }
 
   const result = await new Promise<{ code: number | null; out: string }>((resolve, reject) => {
     const child = spawn(argv0, argvRest, {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+### Minor Changes
+
+- 9a4d1a7: Add opt-in `withRouter` URL sync for shell places (`/`, `/agents/:agentName`, `/sessions/:sessionId`, `/settings`), with path customization via `routes` and `react-router-dom` as an optional peer. Serve the app shell for client-side deep links from the TrueForge server.
+
+### Patch Changes
+
+- Updated dependencies [5100c59]
+  - @truefoundry/trueforge-sdk@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
