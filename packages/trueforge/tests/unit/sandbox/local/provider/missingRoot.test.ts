@@ -2,6 +2,7 @@ import { SandboxNotAvailableError } from '@truefoundry/trueforge-core/core';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createLogger } from 'winston';
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
 describe('LocalSandboxProvider missing root', () => {
@@ -13,6 +14,7 @@ describe('LocalSandboxProvider missing root', () => {
       sandboxRootPathParent,
       codeModeSocketParentPath,
       support: { supported: true, platform: 'darwin', shell: '/bin/bash', python: '/usr/bin/python3' },
+      logger: createLogger({ silent: true }),
     });
     try {
       await expect(

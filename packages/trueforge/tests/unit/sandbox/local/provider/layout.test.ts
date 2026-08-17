@@ -1,10 +1,13 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createLogger } from 'winston';
 import {
   LocalSandboxProvider,
   localSandboxSessionSegment,
 } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
+
+const logger = createLogger({ silent: true });
 
 describe('LocalSandboxProvider layout', () => {
   let sandboxRootPathParent: string;
@@ -21,15 +24,16 @@ describe('LocalSandboxProvider layout', () => {
     await rm(sandboxRootPathParent, { recursive: true, force: true });
   });
 
-  it('uses cwd-relative uploads, skills, and git-downloader paths', () => {
+  it('nests uploads, skills, and git-downloader paths under the sandbox id', () => {
     const provider = new LocalSandboxProvider({
       sandboxRootPathParent,
       codeModeSocketParentPath,
       support: { supported: true, platform: 'darwin', shell: '/bin/bash', python: '/usr/bin/python3' },
+      logger,
     });
-    expect(provider.getFileUploadsDir('ignored')).toBe('uploads');
-    expect(provider.getSkillsDir('ignored')).toBe('skills');
-    expect(provider.getGitDownloaderPath('ignored')).toBe('git_downloader.py');
+    expect(provider.getFileUploadsDir('ignored')).toBe(join('ignored', 'uploads'));
+    expect(provider.getSkillsDir('ignored')).toBe(join('ignored', 'skills'));
+    expect(provider.getGitDownloaderPath('ignored')).toBe(join('ignored', 'git_downloader.py'));
   });
 
   it('nests the sandbox root under a safe session id segment', () => {

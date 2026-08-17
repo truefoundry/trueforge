@@ -243,6 +243,7 @@ export async function resolveSandboxProvider({
     codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
     support,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    logger,
   });
 }
 

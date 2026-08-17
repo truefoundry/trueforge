@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createLogger } from 'winston';
 import { runSandboxProviderContractSuite } from '../../../../../../trueforge-core/tests/core/sandbox/provider/sandboxProviderContractSuite';
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
@@ -21,6 +22,7 @@ describe('LocalSandboxProvider (SandboxProvider contract)', () => {
       sandboxRootPathParent,
       codeModeSocketParentPath,
       support,
+      logger: createLogger({ silent: true }),
     });
     return {
       provider,

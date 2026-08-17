@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ulid } from 'ulid';
+import { createLogger } from 'winston';
 import { CodeModeUdsTransport, installMcpFixture } from '../../../src/sandbox/local/core/CodeModeUdsTransport.js';
 import {
   commandPath,
@@ -1625,7 +1626,12 @@ async function main(): Promise<void> {
   if (!support.supported) {
     throw new Error(support.reason);
   }
-  const provider = new LocalSandboxProvider({ sandboxRootPathParent, codeModeSocketParentPath, support });
+  const provider = new LocalSandboxProvider({
+    sandboxRootPathParent,
+    codeModeSocketParentPath,
+    support,
+    logger: createLogger({ silent: true }),
+  });
   const instructions = provider.getAdditionalInstructions();
   assert.match(instructions, /sandbox shell: \S+/);
   assert.match(instructions, /Python 3 is available as: \S+/);

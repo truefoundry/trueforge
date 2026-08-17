@@ -21,6 +21,7 @@ import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { ulid } from 'ulid';
+import type { Logger } from 'winston';
 import { CodeModeUdsTransport, assertCodeModeSocketParentPath } from '../core/CodeModeUdsTransport.js';
 import {
   createSandbox,
@@ -150,6 +151,7 @@ export interface LocalSandboxProviderOptions {
   support: LocalSandboxSupportResult;
   fileMaxBytesForDownload?: number | undefined;
   defaultExecTimeoutSeconds?: number | undefined;
+  logger: Logger;
 }
 
 /** Sandbox-relative path for sandboxed commands (avoids /var vs /private/var seatbelt mismatches). */
@@ -174,6 +176,7 @@ export class LocalSandboxProvider implements SandboxProvider {
   private readonly fileMaxBytesForDownload: number;
   private readonly defaultExecTimeoutSeconds: number;
   private srtInitialized = false;
+  private readonly logger: Logger;
 
   /** Local SRT has no image build step — always ready. */
   private static readonly readyBuild: SandboxBuild = {
@@ -317,6 +320,7 @@ export class LocalSandboxProvider implements SandboxProvider {
     this.support = options.support;
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload ?? DEFAULT_FILE_MAX_BYTES;
     this.defaultExecTimeoutSeconds = options.defaultExecTimeoutSeconds ?? DEFAULT_EXEC_TIMEOUT_SECONDS;
+    this.logger = options.logger.child({ module: 'LocalSandboxProvider' });
   }
 
   private pythonC(code: string, relPath: string): string {
@@ -355,6 +359,11 @@ export class LocalSandboxProvider implements SandboxProvider {
       return;
     }
     await initSrt({ platform: this.support.platform });
+    this.logger.info('LocalSandboxProvider initialized SRT', {
+      rootPath: this.sandboxRootPathParent,
+      shell: this.support.shell,
+      python: this.support.python,
+    });
     this.srtInitialized = true;
   }
 
