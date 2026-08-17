@@ -19,9 +19,9 @@ import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicS
 import type { Sandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
-import type { ITurnResourceResolver } from './ITurnResourceResolver';
+import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
 import type { SessionRecord } from './models/SessionRecord';
-import { MAIN_THREAD_ID, type TurnRecord } from './models/TurnRecord';
+import { MAIN_THREAD_ID, type TurnRecord, type TurnSnapshot } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 import type { SessionEventItem } from './schemas/events';
 import { EventType, type TurnDoneEvent } from './schemas/events';
@@ -34,6 +34,7 @@ import { TurnHandle } from './TurnHandle';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
 const MAX_TURN_ANCESTORS = 20;
+
 function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string | null | undefined): string | null {
   if (requested === 'none') {
     return null;
@@ -110,6 +111,10 @@ function threadsRecordFromMap(threads: Map<string, AgentThread>): Record<string,
     out[id] = thread.toSnapshot();
   }
   return out;
+}
+
+function threadIdsForTurn(snapshot: TurnSnapshot | undefined): string[] {
+  return snapshot ? Object.keys(snapshot.threads) : [MAIN_THREAD_ID];
 }
 
 export class SessionHandle<
@@ -206,13 +211,27 @@ export class SessionHandle<
         tracing,
       });
 
-      const agentThreads = await this.buildThreads({
+      const definitionsByThreadId = await this.resolveAgentDefinitions({
+        previous,
+        resolver: input.resolver,
+        spec,
+        tracing,
+        signal: input.signal,
+      });
+
+      // Wire Code Mode once from main toolSets before threads share the sandbox.
+      const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
+      if (sandbox && mainDefinition) {
+        sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
+      }
+
+      const agentThreads = this.buildThreads({
         previous,
         resolver: input.resolver,
         spec,
         sandbox,
         tracing,
-        signal: input.signal,
+        definitionsByThreadId,
       });
 
       const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
@@ -351,56 +370,73 @@ export class SessionHandle<
     });
   }
 
-  private async buildThreads(input: {
+  private async resolveAgentDefinitions(input: {
+    previous: TurnRecord<TTurnCustom> | undefined;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    spec: AgentSpec;
+    tracing: AgentTracing;
+    signal: AbortSignal;
+  }): Promise<Map<string, ResolvedAgentDefinition>> {
+    const snapshots = input.previous?.snapshot.threads;
+    const threadIds = threadIdsForTurn(input.previous?.snapshot);
+    const definitionsByThreadId = new Map<string, ResolvedAgentDefinition>();
+    await Promise.all(
+      threadIds.map(async threadId => {
+        const data = snapshots?.[threadId];
+        const resolved = await input.resolver.resolveAgentDefinition({
+          spec: input.spec,
+          agent_info: data?.agent_info ?? undefined,
+          previousTurn: input.previous,
+          signal: input.signal,
+          tracing: input.tracing,
+        });
+        definitionsByThreadId.set(threadId, resolved);
+      }),
+    );
+    return definitionsByThreadId;
+  }
+
+  private buildThreads(input: {
     previous: TurnRecord<TTurnCustom> | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
     sandbox: Sandbox | undefined;
     tracing: AgentTracing;
-    signal: AbortSignal;
-  }): Promise<Map<string, AgentThread>> {
+    definitionsByThreadId: ReadonlyMap<string, ResolvedAgentDefinition>;
+  }): Map<string, AgentThread> {
     const snapshots = input.previous?.snapshot.threads;
-    // Build root first so shared turn configuration is ready before children.
-    const ids = snapshots ? Object.keys(snapshots) : [MAIN_THREAD_ID];
-    const threadIds = [MAIN_THREAD_ID, ...ids.filter(id => id !== MAIN_THREAD_ID)];
     const map = new Map<string, AgentThread>();
-    for (const threadId of threadIds) {
-      const data = snapshots?.[threadId];
+    for (const threadId of threadIdsForTurn(input.previous?.snapshot)) {
+      const resolvedDefinition = input.definitionsByThreadId.get(threadId);
+      if (!resolvedDefinition) {
+        throw new Error(`Unreachable: missing resolved agent definition for thread '${threadId}'`);
+      }
       map.set(
         threadId,
-        await this.buildThread({
+        this.buildThread({
           threadId,
-          data,
+          data: snapshots?.[threadId],
           resolver: input.resolver,
-          previous: input.previous,
           spec: input.spec,
           sandbox: input.sandbox,
           tracing: input.tracing,
-          signal: input.signal,
+          resolvedDefinition,
         }),
       );
     }
     return map;
   }
 
-  private async buildThread(input: {
+  private buildThread(input: {
     threadId: string;
     data?: AgentThreadSnapshot | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
-    previous: TurnRecord<TTurnCustom> | undefined;
     spec: AgentSpec;
     sandbox: Sandbox | undefined;
     tracing: AgentTracing;
-    signal: AbortSignal;
-  }): Promise<AgentThread> {
-    const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
-      spec: input.spec,
-      thread_id: input.threadId,
-      agent_info: input.data?.agent_info ?? undefined,
-      previousTurn: input.previous,
-      signal: input.signal,
-      tracing: input.tracing,
-    });
+    resolvedDefinition: ResolvedAgentDefinition;
+  }): AgentThread {
+    const { definition, extraCapabilities } = input.resolvedDefinition;
     const isChild = Boolean(input.data?.parent);
     const capabilities = [
       ...builtinsFromSpec({
@@ -440,7 +476,6 @@ export class SessionHandle<
     return async params => {
       const { definition, extraCapabilities } = await input.resolver.resolveAgentDefinition({
         spec: input.spec,
-        thread_id: params.threadId,
         agent_info: params.request,
         previousTurn: input.previous,
         signal: params.signal,
