@@ -13,15 +13,15 @@ sandbox image, and optional from-source **dev** images.
 
 ## Versioning
 
-| Artifact                     | Identity                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------- |
-| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                      |
-| Chart `appVersion`           | A **published** npm version                                                        |
-| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION` |
-| Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                           |
-| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                    |
+| Artifact                     | Identity                                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                                             |
+| Chart `appVersion`           | A **published** npm version                                                                               |
+| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION`                        |
+| Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                                                  |
+| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                                           |
 | Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
-| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                          |
+| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                                                 |
 
 Install a published chart:
 
