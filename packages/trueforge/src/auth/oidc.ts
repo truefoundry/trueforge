@@ -10,6 +10,7 @@ import {
   randomState,
 } from 'openid-client';
 import { getPublicBaseUrl, type OIDCConfig } from '../config';
+import { safeReturnTo } from '../utils/safeReturnTo';
 import { buildAuthorizationRequestParams } from './claims';
 import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, setAuthCookie } from './cookies';
 
@@ -68,21 +69,6 @@ export async function initOidc(oidc: OIDCConfig | undefined): Promise<Configurat
 function authCallbackUrl(): string {
   const publicBaseUrl = getPublicBaseUrl();
   return `${publicBaseUrl}${CALLBACK_PATH}`;
-}
-
-/**
- * Same-origin relative path only.
- * - starts with `/`
- * - not `//…` (open redirect)
- * - not `/api` or `/api/…`
- */
-const SAFE_RETURN_TO = /^\/(?!\/|api(?:\/|$)).*/;
-
-export function safeReturnTo(value: string | undefined): string {
-  if (value && SAFE_RETURN_TO.test(value)) {
-    return value;
-  }
-  return '/';
 }
 
 export async function buildLoginAuthorization(params: {

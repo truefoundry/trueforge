@@ -5,9 +5,10 @@ import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
 import { resolveUserContext } from '../auth/identity';
 import { authMiddleware } from '../auth/middleware';
-import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safeReturnTo } from '../auth/oidc';
+import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
+import { safeReturnTo } from '../utils/safeReturnTo';
 
 /** Login / OIDC failures land on `/?error=<reason>`. */
 function oauthErrorRedirect(reason: string): string {
