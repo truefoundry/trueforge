@@ -388,9 +388,15 @@ importers:
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
+      react-dom:
+        specifier: ^18 || ^19
+        version: 19.2.8(react@19.2.8)
       react-markdown:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.17)(react@19.2.8)(supports-color@8.1.1)
+      react-router-dom:
+        specifier: ^6 || ^7
+        version: 7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react-syntax-highlighter:
         specifier: ^16.1.1
         version: 16.1.1(react@19.2.8)
@@ -461,12 +467,6 @@ importers:
       react:
         specifier: ^19.2.4
         version: 19.2.8
-      react-dom:
-        specifier: ^19.2.4
-        version: 19.2.8(react@19.2.8)
-      react-router-dom:
-        specifier: ^7.18.2
-        version: 7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tailwindcss:
         specifier: ^4.3.2
         version: 4.3.3
