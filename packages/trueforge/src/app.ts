@@ -36,6 +36,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
+import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
@@ -84,6 +85,7 @@ const openApiDocConfig = {
       'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
     version: PACKAGE_VERSION,
   },
+  tags: OPENAPI_DOCUMENT_TAGS,
 };
 
 /** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. */

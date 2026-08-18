@@ -11,13 +11,12 @@ import {
   ListModelProvidersResponseSchema,
   PutModelProviderRequestSchema,
 } from '../schemas/modelProvider';
-
-const MODEL_PROVIDERS_TAG = 'Model Providers';
+import { OpenApiTag } from './openapiTags';
 
 export const listModelProvidersRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [MODEL_PROVIDERS_TAG],
+  tags: [OpenApiTag.MODELS],
   summary: 'List configured model providers',
   description: 'All configured providers with nested manifests.',
   'x-fern-sdk-group-name': ['settings', 'modelProviders'],
@@ -41,7 +40,7 @@ export const listModelProvidersRoute = createRoute({
 export const createModelProviderRoute = createRoute({
   method: 'post',
   path: '/',
-  tags: [MODEL_PROVIDERS_TAG],
+  tags: [OpenApiTag.MODELS],
   summary: 'Create a model provider',
   description:
     'Creates a provider (models included). Fails if `name` is already taken. Well-known types use `type` as `name` (one each); ' +
@@ -73,7 +72,7 @@ export const createModelProviderRoute = createRoute({
 export const putModelProviderRoute = createRoute({
   method: 'put',
   path: '/',
-  tags: [MODEL_PROVIDERS_TAG],
+  tags: [OpenApiTag.MODELS],
   summary: 'Create or replace a model provider',
   description:
     'Create or replace a provider (models included). Well-known types use `type` as `name` (one each); ' +

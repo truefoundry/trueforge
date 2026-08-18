@@ -8,13 +8,12 @@ import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
 import { GetModelProviderCatalogResponseSchema } from '../schemas/modelCatalog';
 import { GetSandboxProviderCatalogResponseSchema } from '../schemas/sandboxCatalog';
 import { GetSkillCatalogResponseSchema } from '../schemas/skillCatalog';
-
-const CATALOG_TAG = 'Catalog';
+import { OpenApiTag } from './openapiTags';
 
 export const listModelProviderCatalogRoute = createRoute({
   method: 'get',
   path: '/model-providers',
-  tags: [CATALOG_TAG],
+  tags: [OpenApiTag.MODELS],
   summary: 'Get the model catalog',
   description:
     'Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. ' +
@@ -36,7 +35,7 @@ export const listModelProviderCatalogRoute = createRoute({
 export const listMcpServerCatalogRoute = createRoute({
   method: 'get',
   path: '/mcp-servers',
-  tags: [CATALOG_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Get the MCP catalog',
   description: 'Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.',
   'x-fern-sdk-group-name': ['catalog', 'mcpServers'],
@@ -56,7 +55,7 @@ export const listMcpServerCatalogRoute = createRoute({
 export const listSkillCatalogRoute = createRoute({
   method: 'get',
   path: '/skills',
-  tags: [CATALOG_TAG],
+  tags: [OpenApiTag.SKILLS],
   summary: 'Get the skill catalog',
   description: 'Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.',
   'x-fern-sdk-group-name': ['catalog', 'skills'],
@@ -76,12 +75,13 @@ export const listSkillCatalogRoute = createRoute({
 export const listSandboxProviderCatalogRoute = createRoute({
   method: 'get',
   path: '/sandbox-providers',
-  tags: [CATALOG_TAG],
+  tags: [OpenApiTag.CAPABILITIES],
   summary: 'Get the sandbox provider catalog',
   description:
     'Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.',
   'x-fern-sdk-group-name': ['catalog', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'list',
+  'x-excluded': true,
   responses: {
     200: {
       content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },

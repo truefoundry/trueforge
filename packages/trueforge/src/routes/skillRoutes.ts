@@ -13,14 +13,13 @@ import {
   ListSkillsResponseSchema,
   PutSkillRequestSchema,
 } from '../schemas/skill';
-
-const SKILLS_TAG = 'Skills';
+import { OpenApiTag } from './openapiTags';
 
 /** Chat/composer read view — mounted at /api/v1/skills (not under settings). */
 export const listAvailableSkillsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [SKILLS_TAG],
+  tags: [OpenApiTag.SKILLS],
   summary: 'List skills for chat',
   description: 'Configured skills as a slim name/description list for the composer.',
   'x-fern-sdk-group-name': ['skills'],
@@ -40,7 +39,7 @@ export const listAvailableSkillsRoute = createRoute({
 export const listConfiguredSkillsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [SKILLS_TAG],
+  tags: [OpenApiTag.SKILLS],
   summary: 'List configured skills',
   description: 'All configured skills with nested manifests (settings / admin projection).',
   'x-fern-sdk-group-name': ['settings', 'skills'],
@@ -64,7 +63,7 @@ export const listConfiguredSkillsRoute = createRoute({
 export const createSkillRoute = createRoute({
   method: 'post',
   path: '/',
-  tags: [SKILLS_TAG],
+  tags: [OpenApiTag.SKILLS],
   summary: 'Create a skill',
   description: 'Creates a skill keyed by `name`. Fails if `name` is already taken.',
   'x-fern-sdk-group-name': ['settings', 'skills'],
@@ -94,7 +93,7 @@ export const createSkillRoute = createRoute({
 export const putSkillRoute = createRoute({
   method: 'put',
   path: '/',
-  tags: [SKILLS_TAG],
+  tags: [OpenApiTag.SKILLS],
   summary: 'Create or replace a skill',
   description: 'Full upsert keyed by `name`: creates the skill or replaces its entire manifest.',
   'x-fern-sdk-group-name': ['settings', 'skills'],
