@@ -25,33 +25,20 @@ TrueForge is an **open-source agent harness** with three parts: a **core server*
   <img src="/images/chat-ui.png" alt="The TrueForge chat UI showing an agent response with the agent-steps panel expanded — reasoning, Exa tool calls, and a subagent" />
 </Frame>
 
-### Key Components 
+### Key Components
 
-```mermaid
-flowchart LR
-  ui[Chat UI<br/><small>@truefoundry/trueforge-ui</small>]
-  code[Your code<br/><small>@truefoundry/trueforge-core</small>]
-  subgraph server [TrueForge server]
-    api[HTTP API]
-    loop[Agent loop]
-    api --> loop
-  end
-  db[(SQLite / Postgres)]
-  subgraph byo [Bring your own]
-    llm[Model providers]
-    mcp[MCP servers]
-    sandbox[Sandbox provider]
-  end
-
-  ui --> api
-  code --> api
-  loop --> db
-  loop --> llm
-  loop --> mcp
-  loop --> sandbox
-
-  style byo stroke-dasharray: 6 4
-```
+<Frame caption="Chat UI and SDK connect to the TrueForge server HTTP API and agent loop, which talks to SQLite or Postgres and bring-your-own models, MCP servers, and sandbox">
+  <img
+    className="block dark:hidden"
+    src="/assets/architecture-light.svg"
+    alt="TrueForge architecture: Chat UI and SDK connect to the TrueForge server HTTP API and agent loop, which talks to SQLite or Postgres and bring-your-own models, MCP servers, and sandbox"
+  />
+  <img
+    className="hidden dark:block"
+    src="/assets/architecture-dark.svg"
+    alt="TrueForge architecture: Chat UI and SDK connect to the TrueForge server HTTP API and agent loop, which talks to SQLite or Postgres and bring-your-own models, MCP servers, and sandbox"
+  />
+</Frame>
 
 ### TrueForge server
 
