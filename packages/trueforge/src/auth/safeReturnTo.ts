@@ -6,8 +6,7 @@
  */
 const SAFE_RETURN_TO = /^\/(?!\/|api(?:\/|$)).*/;
 
-/** True when `value` is a same-origin relative path safe for a post-auth redirect. */
-export function isSafeReturnTo(value: string): boolean {
+function isSafeReturnTo(value: string): boolean {
   return SAFE_RETURN_TO.test(value);
 }
 

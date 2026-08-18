@@ -10,9 +10,9 @@ import {
   randomState,
 } from 'openid-client';
 import { getPublicBaseUrl, type OIDCConfig } from '../config';
-import { safeReturnTo } from '../utils/safeReturnTo';
 import { buildAuthorizationRequestParams } from './claims';
 import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, setAuthCookie } from './cookies';
+import { safeReturnTo } from './safeReturnTo';
 
 const CALLBACK_PATH = '/api/v1/auth/callback';
 const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60;

@@ -2,6 +2,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
+import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration from '../config';
 import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
@@ -28,7 +29,6 @@ import type {
   PutMcpServerRequest,
 } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
-import { isSafeReturnTo } from '../utils/safeReturnTo';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -376,7 +376,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       return c.json(resolveMcpAuthStatus({ manifest: record.manifest }), 200);
     }
 
-    if (returnTo && !isSafeReturnTo(returnTo)) {
+    if (returnTo && safeReturnTo(returnTo) !== returnTo) {
       return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
     }
 

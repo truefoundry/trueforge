@@ -6,9 +6,9 @@ import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCoo
 import { resolveUserContext } from '../auth/identity';
 import { authMiddleware } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
+import { safeReturnTo } from '../auth/safeReturnTo';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
-import { safeReturnTo } from '../utils/safeReturnTo';
 
 /** Login / OIDC failures land on `/?error=<reason>`. */
 function oauthErrorRedirect(reason: string): string {
