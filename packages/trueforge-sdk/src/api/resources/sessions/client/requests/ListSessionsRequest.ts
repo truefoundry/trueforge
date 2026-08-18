@@ -7,7 +7,7 @@ import type * as TrueForge from "../../../../index.js";
  *     {}
  */
 export interface ListSessionsRequest {
-    /** Page size. Defaults to 10, max 100. */
+    /** Page size. Defaults to 100, max 100. */
     limit?: number;
     /** Sort sessions by `updated_at`. Defaults to "desc". */
     order?: TrueForge.ListSessionsOrder;

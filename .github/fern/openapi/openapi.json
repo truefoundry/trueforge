@@ -5177,13 +5177,13 @@
         "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 10, max 100.",
+            "description": "Page size. Defaults to 100, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 10,
-              "description": "Page size. Defaults to 10, max 100.",
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 100.",
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
@@ -5645,14 +5645,14 @@
             }
           },
           {
-            "description": "Page size. Defaults to 25, max 100.",
+            "description": "Page size. Defaults to 25, max 25.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 25,
-              "description": "Page size. Defaults to 25, max 100.",
-              "maximum": 100,
+              "description": "Page size. Defaults to 25, max 25.",
+              "maximum": 25,
               "minimum": 1,
               "type": "integer"
             }
@@ -5732,13 +5732,13 @@
             }
           },
           {
-            "description": "Page size. Defaults to 10, max 100.",
+            "description": "Page size. Defaults to 100, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 10,
-              "description": "Page size. Defaults to 10, max 100.",
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 100.",
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
@@ -6165,14 +6165,14 @@
             }
           },
           {
-            "description": "Page size. Defaults to 25, max 100.",
+            "description": "Page size. Defaults to 25, max 25.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 25,
-              "description": "Page size. Defaults to 25, max 100.",
-              "maximum": 100,
+              "description": "Page size. Defaults to 25, max 25.",
+              "maximum": 25,
               "minimum": 1,
               "type": "integer"
             }
