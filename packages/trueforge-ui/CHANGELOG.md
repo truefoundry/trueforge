@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 3113aa4: Rename the MCP servers SDK method from `deleteAuthorize` to `deleteAuthorization`.
+- 45dc6cd: Replace MCP authorize `redirect_url` with a same-origin `return_to` path to prevent open redirects after OAuth.
+- Updated dependencies [3113aa4]
+- Updated dependencies [45dc6cd]
+  - @truefoundry/trueforge-sdk@0.1.2
+
 ## 0.2.1
 
 ### Patch Changes
