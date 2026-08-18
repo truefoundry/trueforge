@@ -5,7 +5,7 @@ export interface OAuthPendingAuthorization {
   userRef: string;
   mcpServerUrl: string;
   codeVerifier: string | null;
-  redirectUrl: string | null;
+  returnTo: string | null;
 }
 
 /** Stored access token for one (MCP server, user) pair. */
@@ -32,6 +32,10 @@ export interface IOAuthTokenStore<TTransaction = never> {
   getToken(params: OAuthTokenKey, transaction?: TTransaction): Promise<OAuthToken | undefined>;
   getTokens(params: { ids: string[]; userRef: string }, transaction?: TTransaction): Promise<Map<string, OAuthToken>>;
   deleteToken(params: OAuthTokenKey, transaction?: TTransaction): Promise<void>;
+  /** Deletes every per-user token for one MCP server id (all users). */
+  deleteTokensForServer(params: { id: string }, transaction?: TTransaction): Promise<void>;
+  /** Deletes every in-flight authorization for one MCP server id (all users). */
+  deletePendingAuthorizationsForServer(params: { id: string }, transaction?: TTransaction): Promise<void>;
 }
 
 /** Authorization-server endpoints discovered and cached at registration time. */

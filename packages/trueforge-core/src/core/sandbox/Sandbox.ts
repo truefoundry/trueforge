@@ -105,7 +105,7 @@ export interface SandboxOptions {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
-  execExtraEnv?: Readonly<Record<string, string>> | undefined;
+  tenantName: string;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -146,7 +146,6 @@ function injectTraceContextEnv(): Record<string, string> {
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
   mcpServers: Record<string, SandboxMcpServerConfig>;
-  execExtraEnv?: Readonly<Record<string, string>> | undefined;
   codeModeEnv?: Record<string, string> | undefined;
   mcpClientInstall?: CodeModeClientInstall | undefined;
 }): Record<string, string> {
@@ -154,9 +153,8 @@ function injectMCPClientEnv(params: {
   const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
   const install = params.mcpClientInstall;
   const layout = install === undefined ? undefined : mcpClientLayout(install.remotePath);
-  const pathTail = params.env?.['PATH'] ?? params.execExtraEnv?.['PATH'] ?? DEFAULT_SANDBOX_PATH;
+  const pathTail = params.env?.['PATH'] ?? DEFAULT_SANDBOX_PATH;
   return {
-    ...(params.execExtraEnv ?? {}),
     ...(params.env ?? {}),
     ...(layout !== undefined && {
       PYTHONPATH: layout.pythonPath,
@@ -209,6 +207,7 @@ export class Sandbox extends LocalToolMCP {
 
   private readonly provider: SandboxProvider;
   private readonly existingSandboxId?: string | undefined;
+  private readonly tenantName: string;
   private readonly sessionId?: string | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
@@ -217,7 +216,6 @@ export class Sandbox extends LocalToolMCP {
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
   private readonly requestTimeoutSeconds: number;
-  private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
   private readonly logger: Logger;
@@ -241,16 +239,18 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
+    this.tenantName = options.tenantName;
     this.sessionId = options.sessionId;
+    this.tenantName = options.tenantName;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
-    this.execExtraEnv = options.execExtraEnv;
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 
     if (this.existingSandboxId) {
+      // validateSandboxOwnedByTenant(this.existingSandboxId, this.tenantName);
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
     }
   }
@@ -557,7 +557,6 @@ export class Sandbox extends LocalToolMCP {
     const mcpClientEnv = injectMCPClientEnv({
       env: input.env,
       mcpServers: this.buildMcpServersEnvelope(),
-      execExtraEnv: this.execExtraEnv,
       codeModeEnv,
       mcpClientInstall: this.mcpClientInstall,
     });
@@ -596,7 +595,6 @@ export class Sandbox extends LocalToolMCP {
         ...injectMCPClientEnv({
           env: input.env,
           mcpServers: this.buildMcpServersEnvelope(),
-          execExtraEnv: this.execExtraEnv,
           codeModeEnv: retryCodeModeEnv,
           mcpClientInstall: this.mcpClientInstall,
         }),

@@ -58,3 +58,10 @@ export async function consumePendingAuthorization(
     ...fromStoredOAuthPendingAuthorizationData(row.auth_data),
   };
 }
+
+export async function deletePendingAuthorizationsForServer(
+  db: Kysely<Database>,
+  params: { id: string },
+): Promise<void> {
+  await db.deleteFrom('oauth_pending_authorization').where('oauth_server_id', '=', params.id).execute();
+}

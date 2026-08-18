@@ -85,7 +85,7 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
 
         const result = await connectorCatalog.authenticateConnector({
           id: integrationId,
-          redirectURL: callbackUrl.toString(),
+          returnTo: `${callbackUrl.pathname}${callbackUrl.search}`,
         });
 
         if (

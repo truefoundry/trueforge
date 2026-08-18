@@ -58,9 +58,14 @@ function createServer(options: { catalog?: boolean; skills?: boolean; sandbox?: 
 function SettingsControls() {
   const { setSettingsOpen } = useShellMode();
   return (
-    <button type="button" onClick={() => setSettingsOpen(true)}>
-      Open settings
-    </button>
+    <>
+      <button type="button" onClick={() => setSettingsOpen(true)}>
+        Open settings
+      </button>
+      <button type="button" onClick={() => setSettingsOpen(false)}>
+        Switch to agent
+      </button>
+    </>
   );
 }
 
@@ -164,7 +169,7 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
-  it('refreshes composer catalogs when settings close', async () => {
+  async function expectCatalogsRefreshOnClose(close: () => void) {
     const getModels = vi.fn(async () => []);
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
@@ -183,13 +188,25 @@ describe('TruefoundrySettingsBuilder', () => {
     await waitFor(() => expect(getCapabilities).toHaveBeenCalled());
     const capabilitiesCallsAfterOpen = getCapabilities.mock.calls.length;
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    close();
 
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
     await waitFor(() => expect(getModels).toHaveBeenCalledOnce());
     expect(getSkills).toHaveBeenCalledOnce();
     expect(getMcp).toHaveBeenCalledOnce();
     await waitFor(() => expect(getCapabilities.mock.calls.length).toBeGreaterThan(capabilitiesCallsAfterOpen));
+  }
+
+  it('refreshes composer catalogs when settings close', async () => {
+    await expectCatalogsRefreshOnClose(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    });
+  });
+
+  it('refreshes composer catalogs when leaving settings for a chat or named agent', async () => {
+    await expectCatalogsRefreshOnClose(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Switch to agent' }));
+    });
   });
 
   it('does not reopen settings when a stale optional section is reset while closed', async () => {

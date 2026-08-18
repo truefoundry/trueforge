@@ -11,7 +11,7 @@ export const mcpOAuthCallbackRoute = createRoute({
   summary: 'OAuth callback for MCP authorization',
   description:
     'Browser redirect target for MCP server OAuth. The authorization server redirects here with `code`/`state` (or `error`). ' +
-    'Exchanges the code for tokens, then either returns JSON or redirects to the `redirect_url` supplied at authorize time. ' +
+    'Exchanges the code for tokens, then either returns JSON or redirects to the `return_to` path supplied at authorize time. ' +
     'Not called by the SDK — browsers hit this URL directly.',
   // Browser-redirect target hit directly by the authorization server, never called by SDK.
   'x-fern-ignore': true,
@@ -21,11 +21,11 @@ export const mcpOAuthCallbackRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: OAuthCallbackSuccessSchema } },
-      description: 'Token exchanged successfully and no `redirect_url` was given at authorize time.',
+      description: 'Token exchanged successfully and no `return_to` was given at authorize time.',
     },
     302: {
       description:
-        'Redirect to the `redirect_url` given at authorize time, with `isSuccess` (and `reason` when it failed) appended to its existing query params.',
+        'Redirect to the `return_to` path given at authorize time, with `isSuccess` (and `reason` when it failed) appended to its existing query params.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

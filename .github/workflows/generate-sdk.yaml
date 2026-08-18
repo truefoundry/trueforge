@@ -1,7 +1,10 @@
 name: Generate SDK
 
 # Regenerates the OpenAPI document and the SDK, and commits both to the branch.
+# Fork PRs cannot receive that commit; main regenerates after merge.
 on:
+  # Manual regen on main if the post-merge push job missed or failed.
+  workflow_dispatch:
   push:
     branches: [main]
     # Only sources the document is built from; tests and metadata cannot change it.
@@ -24,6 +27,9 @@ concurrency:
   group: generate-sdk-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   generate:
     name: Generate OpenAPI and TypeScript SDK
@@ -36,20 +42,22 @@ jobs:
     if: >
       github.actor != 'github-actions[bot]' &&
       github.actor != 'trueforge-dev-bot[bot]'
-    permissions:
-      contents: write
 
     steps:
       - name: Create GitHub App token
         id: app-token
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        if: >
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
-      # Branch tip, not the merge commit, so output can be pushed back; forks need the head repo named.
-      - name: Check out repository code
+      # Writable checkout: App token minted only for same-repo / push / dispatch.
+      - name: Check out branch
+        if: steps.app-token.outcome == 'success'
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -57,6 +65,16 @@ jobs:
           # Full history, so the gate below can diff against the base commit.
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token || github.token }}
+
+      # Forks skip the writable checkout above; without this the job has no code.
+      # Use base-repo pull refs (head.sha) — cloning the fork with GITHUB_TOKEN 403s.
+      - name: Check out pull request head
+        if: github.event_name == 'pull_request' && steps.app-token.outcome != 'success'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -105,11 +123,12 @@ jobs:
           fi
 
       # Same entrypoint as local `pnpm sdk:generate` (re-runs openapi:write; idempotent).
+      # App-token success = we can push; forks skip Fern so a flake cannot block the PR.
       - name: Generate OpenAPI document and TypeScript SDK
-        if: steps.decide.outputs.needed == 'true'
+        if: steps.decide.outputs.needed == 'true' && steps.app-token.outcome == 'success'
         run: pnpm sdk:generate
 
-      # Forks get a read-only token, so only the commit is skipped. TODO: an approval flow that can push to the fork.
+      # App-token success = writable head; forks cannot receive this commit.
       - name: Commit generated output
         if: steps.decide.outputs.needed == 'true' && steps.app-token.outcome == 'success'
         # Passed as env, never interpolated into the script, so it cannot inject shell.
@@ -144,4 +163,12 @@ jobs:
       - name: Report skipped commit on fork
         if: steps.decide.outputs.needed == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
-          echo "::notice::Generation succeeded. The commit was skipped because pull requests from forks cannot push; a maintainer will regenerate after merge."
+          set -euo pipefail
+          {
+            echo "### Fork pull request"
+            echo
+            echo "OpenAPI/SDK commits are skipped on forks (GitHub Apps cannot push to the head repo)."
+            echo "Do not hand-edit \`packages/trueforge-sdk\` or the OpenAPI documents."
+            echo "After merge, **Generate SDK** on \`main\` regenerates both (or run it manually from Actions)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::Fork PR: OpenAPI/SDK will be regenerated on main after merge. Do not hand-edit generated files."
