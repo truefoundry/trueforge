@@ -19,8 +19,7 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
-/** default === max. 512 KiB uncompressed JSON; 100 from median of 16 Cursor real examples. */
-export const PAGE_LIMIT = 100;
+export const PAGE_LIMIT = 25;
 
 /** Adds a validation issue if two entries share a name. */
 export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
