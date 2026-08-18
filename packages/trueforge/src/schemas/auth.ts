@@ -25,7 +25,7 @@ export const OAuthCallbackQuerySchema = z.object({
 });
 
 export const OAuthCallbackSuccessSchema = z.object({
-  success: z.literal(true).describe('Present when the OAuth callback completed without a redirect_url.'),
+  success: z.literal(true).describe('Present when the OAuth callback completed without a return_to.'),
 });
 
 export const MeResponseSchema = z

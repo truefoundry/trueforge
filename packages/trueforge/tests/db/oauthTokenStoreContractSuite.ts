@@ -36,7 +36,7 @@ function pending(overrides: Partial<OAuthPendingAuthorization> = {}): OAuthPendi
     userRef: USER_REF,
     mcpServerUrl: 'https://mcp.example.com/sse',
     codeVerifier: 'verifier-1',
-    redirectUrl: 'https://app.example.com/done',
+    returnTo: '/done',
     ...overrides,
   };
 }
@@ -148,7 +148,7 @@ export function runOAuthTokenStoreContractSuite(getHarness: () => OAuthTokenStor
   it('savePendingAuthorization + consumePendingAuthorization round-trips, including null fields', async () => {
     const h = getHarness();
     await h.seedResource(RESOURCE_ID);
-    const saved = pending({ codeVerifier: null, redirectUrl: null });
+    const saved = pending({ codeVerifier: null, returnTo: null });
 
     await h.store.savePendingAuthorization(saved);
 

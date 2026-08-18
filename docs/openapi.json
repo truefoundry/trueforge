@@ -4815,7 +4815,7 @@
     },
     "/api/v1/mcp-servers/oauth/callback": {
       "get": {
-        "description": "Browser redirect target for MCP server OAuth. The authorization server redirects here with `code`/`state` (or `error`). Exchanges the code for tokens, then either returns JSON or redirects to the `redirect_url` supplied at authorize time. Not called by the SDK — browsers hit this URL directly.",
+        "description": "Browser redirect target for MCP server OAuth. The authorization server redirects here with `code`/`state` (or `error`). Exchanges the code for tokens, then either returns JSON or redirects to the `return_to` path supplied at authorize time. Not called by the SDK — browsers hit this URL directly.",
         "parameters": [
           {
             "description": "Authorization code, present when the user granted consent.",
@@ -4867,7 +4867,7 @@
                 "schema": {
                   "properties": {
                     "success": {
-                      "description": "Present when the OAuth callback completed without a redirect_url.",
+                      "description": "Present when the OAuth callback completed without a return_to.",
                       "enum": [
                         true
                       ],
@@ -4881,10 +4881,10 @@
                 }
               }
             },
-            "description": "Token exchanged successfully and no `redirect_url` was given at authorize time."
+            "description": "Token exchanged successfully and no `return_to` was given at authorize time."
           },
           "302": {
-            "description": "Redirect to the `redirect_url` given at authorize time, with `isSuccess` (and `reason` when it failed) appended to its existing query params."
+            "description": "Redirect to the `return_to` path given at authorize time, with `isSuccess` (and `reason` when it failed) appended to its existing query params."
           },
           "400": {
             "content": {
@@ -4962,7 +4962,7 @@
         "x-fern-sdk-method-name": "delete_authorization"
       },
       "get": {
-        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
+        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -4976,13 +4976,12 @@
             }
           },
           {
-            "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
+            "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
             "in": "query",
-            "name": "redirect_url",
+            "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.",
-              "format": "uri",
+              "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
               "type": "string"
             }
           }
@@ -5006,7 +5005,7 @@
                 }
               }
             },
-            "description": "Invalid redirect_url."
+            "description": "Invalid return_to."
           },
           "404": {
             "content": {
