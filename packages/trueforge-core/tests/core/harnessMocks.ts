@@ -73,7 +73,7 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
-    execExtraEnv: { TFY_TENANT_NAME: tenantName },
+    tenantName,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });

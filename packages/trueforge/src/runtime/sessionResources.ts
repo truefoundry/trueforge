@@ -252,9 +252,7 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    // Sandbox reads its tenant from TFY_TENANT_NAME for the ownership check
-    // against provider-created sandbox ids (`<tenant>.<uuid>`).
-    execExtraEnv: { TFY_TENANT_NAME: input.tenantName },
+    tenantName: input.tenantName,
     ...(skillMounter ? { skillMounter } : {}),
     tracing: input.tracing,
     logger: input.logger,
