@@ -247,14 +247,14 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
         });
 
         let dcrClientToSave: OAuthClientRecord | undefined;
-        let clearTokensForServerId: string | undefined;
+        const urlChanged =
+          existing !== undefined && existing.manifest.url !== manifest.url && manifest.auth?.type === 'dcr';
         if (manifest.auth?.type === 'dcr') {
           const existingClient = existing
             ? await deps.mcpServerStore.getClient({ id: existing.id }, transaction)
             : undefined;
           // Register when: brand-new server, client was cleared (e.g. invalid_client), or MCP URL changed
           // (resource/AS may differ; reuse would keep stale oauth_server/client for the old AS).
-          const urlChanged = existing !== undefined && existing.manifest.url !== manifest.url;
           const needsDcr = existingClient === undefined || urlChanged;
           if (needsDcr) {
             dcrClientToSave = await createMcpOAuthClient({
@@ -263,10 +263,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
               redirectUri: mcpOAuthCallbackUrl(),
               clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
             });
-          }
-          // URL is the OAuth resource/audience — drop every user's tokens for this server.
-          if (urlChanged) {
-            clearTokensForServerId = existing.id;
           }
         }
 
@@ -282,8 +278,9 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
           // New DCR registration (create, missing client, or URL change): replace the shared client.
           await deps.mcpServerStore.saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
         }
-        if (clearTokensForServerId) {
-          await deps.tokenStore.deleteTokensForServer({ id: clearTokensForServerId }, transaction);
+        if (urlChanged) {
+          // URL is the OAuth resource/audience — drop every user's tokens for this server.
+          await deps.tokenStore.deleteTokensForServer({ id: saved.id }, transaction);
         }
         return saved;
       });
