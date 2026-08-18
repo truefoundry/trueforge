@@ -13,12 +13,19 @@ export interface McpOAuthRouterDeps<TTransaction> {
 
 type McpOAuthCallbackContext = Parameters<RouteHandler<typeof mcpOAuthCallbackRoute>>[0];
 
-/** Dummy base so `new URL` can parse a same-origin relative path; never used in the redirect. */
-const RETURN_TO_PARSE_BASE = 'http://localhost';
-
-/** Landing path with the outcome appended to whatever query params it already carries. */
-function callbackLandingPath(params: { returnTo: string; isSuccess: boolean; reason?: string }): string {
-  const url = new URL(params.returnTo, RETURN_TO_PARSE_BASE);
+/**
+ * Landing path with the outcome appended to whatever query params it already carries.
+ * `returnTo` is resolved against the callback request URL only so `URL` can parse the
+ * relative path; the redirect stays relative (`pathname + search`), so the browser
+ * keeps whatever origin it is already on.
+ */
+function callbackLandingPath(params: {
+  c: McpOAuthCallbackContext;
+  returnTo: string;
+  isSuccess: boolean;
+  reason?: string;
+}): string {
+  const url = new URL(params.returnTo, params.c.req.url);
   url.searchParams.set('isSuccess', String(params.isSuccess));
   if (params.reason) {
     url.searchParams.set('reason', params.reason);
@@ -34,7 +41,7 @@ function callbackLandingPath(params: { returnTo: string; isSuccess: boolean; rea
 function callbackSuccess(params: { c: McpOAuthCallbackContext; pending: OAuthPendingAuthorization }) {
   const returnTo = params.pending.returnTo;
   if (returnTo) {
-    return params.c.redirect(callbackLandingPath({ returnTo, isSuccess: true }), 302);
+    return params.c.redirect(callbackLandingPath({ c: params.c, returnTo, isSuccess: true }), 302);
   }
   return params.c.json({ success: true as const }, 200);
 }
@@ -47,7 +54,10 @@ function callbackFailure(params: {
 }) {
   const returnTo = params.pending?.returnTo;
   if (returnTo) {
-    return params.c.redirect(callbackLandingPath({ returnTo, isSuccess: false, reason: params.message }), 302);
+    return params.c.redirect(
+      callbackLandingPath({ c: params.c, returnTo, isSuccess: false, reason: params.message }),
+      302,
+    );
   }
   return params.c.json({ error: { message: params.message } }, params.jsonStatus ?? 400);
 }
