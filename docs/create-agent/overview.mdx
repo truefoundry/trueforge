@@ -159,7 +159,78 @@ Options available in the UI today: **model** (selection), **instructions**, **co
 
 ## Create an agent via the API
 
-The [SDK](/api/overview) exposes **every** option through the agent spec. Save the spec as a named agent and reference it by name, or pass it inline when you create a session. All fields are `snake_case`, and every field except `model` has a default.
+The [SDK](/api/overview) and HTTP API expose **every** option through the **agent spec**. You either save the spec as a named, reusable agent and reference it by name, or pass it inline when you open a session. All fields are `snake_case`, and every field except `model` has a default.
+
+### Save and run an agent
+
+<Steps>
+  <Step title="Connect the client">
+    ```typescript
+    import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+    const client = new TrueForge({
+      baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+      // token: process.env.TRUEFORGE_TOKEN, // ID token when OIDC login is enabled
+    });
+    ```
+
+    When [OIDC login](/authentication/overview) is on, pass an ID token; see [Get a token and connect](/api/quickstart#get-a-token-and-connect). When login is off, omit `token`.
+  </Step>
+
+  <Step title="Save the spec as a named agent">
+    `agents.create` (`POST /api/v1/agents`) stores the spec under a unique `name` and returns the agent with its server-generated `id`. The name is immutable and must be unique — a duplicate returns `409`.
+
+    ```typescript
+    const { data: agent } = await client.agents.create({
+      name: 'support-bot',
+      manifest: {
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'You help customers with orders. Always confirm before processing refunds.',
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="Open a session and run turns">
+    Reference the saved agent by name, then stream a turn. See [Use an agent](/api/use-agent) for the full loop, including approvals and questions.
+
+    ```typescript
+    const { data: session } = await client.sessions.create({ agent: { name: 'support-bot' } });
+
+    const stream = await client.sessions.createTurnStream(session.id, {
+      input: [{ type: 'user.message', content: 'Where is order ORD-2031?' }],
+    });
+    for await (const { data: event } of stream.withMetadata()) console.log(event.type);
+    ```
+  </Step>
+</Steps>
+
+**Skip saving** — pass the spec inline when you create the session, and nothing is persisted to the registry:
+
+```typescript
+const { data: session } = await client.sessions.create({
+  agent: {
+    spec: {
+      model: { name: 'anthropic/claude-sonnet-4-6' },
+      instructions: 'You are a concise research assistant.',
+    },
+  },
+});
+```
+
+**Manage saved agents** with the rest of the `agents` methods:
+
+| Method           | Endpoint                        | What it does                                                     |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `agents.create`  | `POST /api/v1/agents`           | Save a new agent under a unique `name`; returns its `id`.        |
+| `agents.list`    | `GET /api/v1/agents`            | List all configured agents.                                      |
+| `agents.get`     | `GET /api/v1/agents/{agent_id}` | Fetch one agent by its immutable `id`.                           |
+| `agents.update`  | `PUT /api/v1/agents/{agent_id}` | Replace an existing agent's manifest (the `name` can't change).  |
+| `agents.delete`  | `DELETE /api/v1/agents/{agent_id}` | Delete an agent (idempotent).                                 |
+
+### The full agent spec
+
+The `manifest` you save (or the inline `spec`) is the agent spec below — every field, with defaults.
 
 ```json A complete example
 {
