@@ -32,6 +32,7 @@ RUN apt-get update \
       && python -m pip install --no-cache-dir \
         aiohttp==3.14.1 \
         genson==1.3.0 \
+        mcp==1.29.0 \
         nats-py==2.15.0 \
         openpyxl==3.1.5 \
         pandas==3.0.5 \
