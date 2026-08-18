@@ -54,7 +54,6 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     const { definition } = await resolver.resolveAgentDefinition({
       spec,
-      thread_id: 'main',
       signal: new AbortController().signal,
       tracing: resolver.createTracing(),
     });

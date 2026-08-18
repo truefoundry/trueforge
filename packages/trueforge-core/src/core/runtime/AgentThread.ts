@@ -558,10 +558,6 @@ export class AgentThread {
       });
     }
 
-    if (this.sandbox) {
-      this.sandbox.configureCodeMode(this.definition.toolSets ?? []);
-    }
-
     this.instruction = this.buildInstruction(this.definition.instruction);
   }
 
