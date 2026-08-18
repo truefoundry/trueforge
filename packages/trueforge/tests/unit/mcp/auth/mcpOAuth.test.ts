@@ -306,7 +306,7 @@ describe('buildMcpAuthorizationUrl', () => {
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      returnTo: 'https://app.example.com/after',
+      returnTo: '/after',
     });
 
     expect(authUrl).toBeInstanceOf(URL);
@@ -325,7 +325,7 @@ describe('buildMcpAuthorizationUrl', () => {
       id: SERVER_ID,
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
-      returnTo: 'https://app.example.com/after',
+      returnTo: '/after',
     });
     expect(pending?.codeVerifier).toBeTruthy();
   });
@@ -611,7 +611,7 @@ describe('completeMcpAuthorization', () => {
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      returnTo: 'https://app.example.com/connected',
+      returnTo: '/connected',
     });
     const state = authUrl.searchParams.get('state')!;
 
@@ -628,7 +628,7 @@ describe('completeMcpAuthorization', () => {
     if (!pending) {
       throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
     }
-    expect(pending.returnTo).toBe('https://app.example.com/connected');
+    expect(pending.returnTo).toBe('/connected');
 
     const beforeMs = Date.now();
     await completeMcpAuthorization({
@@ -688,7 +688,7 @@ describe('completeMcpAuthorization', () => {
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      returnTo: 'https://app.example.com/after',
+      returnTo: '/after',
     });
     const state = authUrl.searchParams.get('state')!;
 

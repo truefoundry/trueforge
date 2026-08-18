@@ -36,7 +36,7 @@ function pending(overrides: Partial<OAuthPendingAuthorization> = {}): OAuthPendi
     userRef: USER_REF,
     mcpServerUrl: 'https://mcp.example.com/sse',
     codeVerifier: 'verifier-1',
-    returnTo: 'https://app.example.com/done',
+    returnTo: '/done',
     ...overrides,
   };
 }
