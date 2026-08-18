@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useToasterOptional } from '../containers/ToasterContainer.js';
-import { useCatalogServer } from '../server/ServerContext.js';
+import { useToasterOptional } from "../containers/ToasterContainer.js";
+import { useCatalogServer } from "../server/ServerContext.js";
 
-export const MCP_AUTH_POPUP_CHANNEL = 'truefoundry-mcp-auth-popup';
+export const MCP_AUTH_POPUP_CHANNEL = "truefoundry-mcp-auth-popup";
 
 export type McpAuthPopupMessage = {
   popupUid: string;
@@ -16,12 +16,13 @@ export type UseMCPAuthOptions = {
   callbackPath?: string;
 };
 
-const generatePopupUid = () => `mcp-oauth-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+const generatePopupUid = () =>
+  `mcp-oauth-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 const isPopupMessage = (value: unknown): value is McpAuthPopupMessage => {
-  if (typeof value !== 'object' || value === null) return false;
+  if (typeof value !== "object" || value === null) return false;
   const message = value as Partial<McpAuthPopupMessage>;
-  return typeof message.popupUid === 'string' && typeof message.isSuccess === 'boolean';
+  return typeof message.popupUid === "string" && typeof message.isSuccess === "boolean";
 };
 
 export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
@@ -59,10 +60,10 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
       };
       listenerCleanupRef.current = cleanup;
 
-      popup = window.open(authorizationEndpoint, '_blank', 'popup=true');
+      popup = window.open(authorizationEndpoint, "_blank", "popup=true");
       if (!popup) {
         clearPopupListener();
-        throw new Error('Popup blocked. Please allow pop-ups to authorize the MCP server.');
+        throw new Error("Popup blocked. Please allow pop-ups to authorize the MCP server.");
       }
 
       popup.focus();
@@ -79,26 +80,27 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
         const callbackUrl = callbackPath
           ? new URL(callbackPath, window.location.origin)
           : new URL(window.location.href);
-        callbackUrl.searchParams.set('screenType', 'mcp-auth');
-        callbackUrl.searchParams.set('integrationId', integrationId);
-        callbackUrl.searchParams.set('pUid', popupUid);
+        callbackUrl.searchParams.set("screenType", "mcp-auth");
+        callbackUrl.searchParams.set("integrationId", integrationId);
+        callbackUrl.searchParams.set("pUid", popupUid);
 
         const result = await connectorCatalog.authenticateConnector({
           id: integrationId,
-          redirectURL: callbackUrl.toString(),
+          returnTo: `${callbackUrl.pathname}${callbackUrl.search}`,
         });
 
         if (
-          ('status' in result && result.status?.toUpperCase() === 'AUTHENTICATED') ||
-          ('authenticated' in result && result.authenticated)
+          ("status" in result && result.status?.toUpperCase() === "AUTHENTICATED") ||
+          ("authenticated" in result && result.authenticated)
         ) {
           callback(true);
           return;
         }
 
-        const authorizationEndpoint = 'authorization_endpoint' in result ? result.authorization_endpoint : undefined;
+        const authorizationEndpoint =
+          "authorization_endpoint" in result ? result.authorization_endpoint : undefined;
         if (!authorizationEndpoint) {
-          throw new Error('The MCP server did not return an authorization URL.');
+          throw new Error("The MCP server did not return an authorization URL.");
         }
 
         openAuthPopup(authorizationEndpoint, callback);
