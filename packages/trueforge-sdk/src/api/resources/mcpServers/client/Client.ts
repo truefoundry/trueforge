@@ -103,7 +103,7 @@ export class McpServersClient {
     }
 
     /**
-     * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.
+     * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.
      *
      * @param {string} name - MCP server name.
      * @param {TrueForge.AuthorizeMcpServersRequest} request
@@ -133,9 +133,9 @@ export class McpServersClient {
         request: TrueForge.AuthorizeMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.McpAuthStatus>> {
-        const { redirectUrl } = request;
+        const { returnTo } = request;
         const _queryParams: Record<string, unknown> = {
-            redirect_url: redirectUrl,
+            return_to: returnTo,
         };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
