@@ -11,7 +11,7 @@ import type { IOAuthTokenStore, OAuthClientRecord, OAuthToken } from '../mcp/aut
 import {
   authorizeMcpServerRoute,
   createMcpServerRoute,
-  deleteAuthorizeMcpServerRoute,
+  deleteAuthorizationMcpServerRoute,
   getMcpServerRoute,
   listAvailableMcpServersRoute,
   listMcpServersRoute,
@@ -415,7 +415,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     }
   };
 
-  const deleteAuthorizeHandler: RouteHandler<typeof deleteAuthorizeMcpServerRoute> = async c => {
+  const deleteAuthorizationHandler: RouteHandler<typeof deleteAuthorizationMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
     const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
@@ -444,6 +444,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     );
   });
   router.openapi(authorizeMcpServerRoute, authorizeHandler);
-  router.openapi(deleteAuthorizeMcpServerRoute, deleteAuthorizeHandler);
+  router.openapi(deleteAuthorizationMcpServerRoute, deleteAuthorizationHandler);
   return router;
 }

@@ -253,13 +253,13 @@ export const authorizeMcpServerRoute = createRoute({
   },
 });
 
-export const deleteAuthorizeMcpServerRoute = createRoute({
+export const deleteAuthorizationMcpServerRoute = createRoute({
   method: 'delete',
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
   summary: 'Disconnect OAuth for an MCP server',
   'x-fern-sdk-group-name': ['mcpServers'],
-  'x-fern-sdk-method-name': 'delete_authorize',
+  'x-fern-sdk-method-name': 'delete_authorization',
   description:
     'For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status ' +
     'auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. ' +
