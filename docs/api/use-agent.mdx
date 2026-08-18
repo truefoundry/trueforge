@@ -1,7 +1,7 @@
 ---
 title: 'Use an agent'
 sidebarTitle: 'Use an agent'
-description: 'Run a saved agent with the TypeScript SDK: a complete example, then recipes for streaming, approvals, questions, threads, and reconnects.'
+description: 'Run a saved agent with the TypeScript SDK: a Quick Start, then recipes for streaming, approvals, questions, threads, and reconnects.'
 ---
 
 The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk). New here? Install and stream your first turn in the [SDK Quickstart](/api/quickstart) first. For the mental model (Agent → Session → Turn → Event → Delta), see [Concepts](/api/overview); for every event field, see the [turn events reference](#turn-events-reference) at the bottom of this page.
@@ -30,7 +30,7 @@ const client = new TrueForge({
 
 Point `baseUrl` at your running TrueForge server; `http://localhost:8790` is the Quickstart default. When [OIDC login](/authentication/overview) is enabled, pass `token` (an ID token from your IdP; see [Get a token and connect](/api/quickstart#get-a-token-and-connect)). When login is off, omit it.
 
-## A complete example
+## Quick Start
 
 The [Concepts](/api/overview) page explains the model with a conceptual `support-bot`; here is a real agent you can run. In the [Quickstart](/quickstart) you built **`web-research-brief`**, an agent with Exa web search and the web-artifacts-builder skill. Here it is from the SDK: open a session on that agent, stream one research turn, and print the brief as it arrives. It fans out to [subagents](/key-features/subagents), so you'll see their threads in the same stream. It has no approval gate, so it runs end to end without pausing; for the approval and question pauses, see [Handle pauses](#handle-pauses).
 
@@ -68,20 +68,6 @@ for await (const { data: event } of stream.withMetadata()) {
 
 That's the core loop: open a session, stream a turn, print the reply as it arrives, and read the final `turn.done`. This version writes each delta straight to stdout. The [next section](#create-and-stream-a-turn) keeps an id-keyed event index, the pattern the pause recipes build on. The rest of the page is a reference for each piece, plus the pauses (approvals, questions, MCP auth) a real agent runs into.
 
-## At a glance
-
-| Method | What it does |
-| --- | --- |
-| `sessions.create` | Open a session (by agent name or inline spec) |
-| `sessions.list` | List sessions (newest-first; filter by `agentId`) |
-| `sessions.createTurnStream` | Create a turn and stream its events (SSE) |
-| `sessions.createTurn` | Create a turn without streaming (then poll `getTurn`) |
-| `sessions.getTurn` | Fetch a turn's current `state` |
-| `sessions.listTurns` | List a session's turns (oldest-first) |
-| `sessions.subscribeToTurn` | Reconnect to a running turn's stream |
-| `sessions.listTurnEvents` | Replay a finished turn's events (already merged) |
-| `sessions.cancel` | Cancel the running turn |
-
 ## Sessions
 
 A **session** is the conversation context for one issue; it persists across turns. Persist `session.id` to resume later.
@@ -114,6 +100,37 @@ const { data: inlineSession } = await client.sessions.create({
   },
 });
 ```
+
+### Update an inline spec
+
+Only **inline** sessions can change their agent. `sessions.update` replaces `agent` with a new `{ spec }`. Named (reference) sessions reject this with `422`. An empty body is a no-op that refreshes `updatedAt`.
+
+```typescript wrap
+import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
+
+const { data: session } = await client.sessions.create({
+  agent: {
+    spec: {
+      model: { name: 'anthropic/claude-sonnet-4-6' },
+      instructions: 'You are a concise research assistant.',
+    },
+  },
+});
+
+const { data: updated } = await client.sessions.update(session.id, {
+  agent: {
+    spec: {
+      model: { name: 'anthropic/claude-sonnet-4-6' },
+      instructions: 'You are a terse research assistant. Prefer bullet lists.',
+    },
+  },
+});
+console.log(updated.agent.type); // "inline"
+```
+
+Later turns on this session use the new spec. History from earlier turns is unchanged.
 
 ### List sessions
 
@@ -458,11 +475,12 @@ for await (const { data: event, id } of stream.withMetadata()) {
 }
 
 // …after a disconnect, with session.id / turnId / lastSequenceNumber restored:
-const { data: turn } = await client.sessions.getTurn(session.id, turnId!);
+if (turnId == null) throw new Error('turn.created was never received');
+const { data: turn } = await client.sessions.getTurn(session.id, turnId);
 if (turn.state.status === 'running') {
   const resume = await client.sessions.subscribeToTurn(
     session.id,
-    turnId!,
+    turnId,
     { afterSequenceNumber: lastSequenceNumber },
     { timeoutInSeconds: 600 },
   );
@@ -477,7 +495,7 @@ if (turn.state.status === 'running') {
   }
 } else {
   // Already finished: rebuild from the stored log (deltas already merged).
-  for await (const event of await client.sessions.listTurnEvents(session.id, turnId!)) {
+  for await (const event of await client.sessions.listTurnEvents(session.id, turnId)) {
     events.set(event.id, event);
   }
 }
@@ -489,7 +507,7 @@ if (turn.state.status === 'running') {
 
 ### Subagent threads
 
-A turn stream interleaves the root agent and any parallel [subagents](/key-features/subagents), exactly what the [complete example](#a-complete-example) above does. Every event carries a `threadId`:
+A turn stream interleaves the root agent and any parallel [subagents](/key-features/subagents), exactly what the [Quick Start](#quick-start) above does. Every event carries a `threadId`:
 
 - `"main"`: the root agent.
 - A unique id: a subagent thread. [`thread.created`](#thread-created) and [`thread.done`](#thread-done) bracket its lifecycle.
@@ -586,7 +604,7 @@ Every event carries:
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `type`       | The event type — one of the types below.                                                                                                                                                                           |
 | `id`         | Unique event id (monotonic ULID — sortable by creation order).                                                                                                                                                     |
-| `created_at` | ISO 8601 timestamp.                                                                                                                                                                                                |
+| `created_at` | ISO 8601 timestamp. Optional on `model.message.delta`; required on every other event.                                                                                                                              |
 | `thread_id`  | Which execution thread emitted it: `"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events (`turn.*`, `sandbox.created`, `mcp.auth_required`). |
 
 A stream always opens with `turn.created` and closes with `turn.done`. When you list persisted session events afterwards, you get the same events with deltas pre-merged into their `model.message`.
@@ -609,8 +627,8 @@ First event on every stream.
 Last event on every stream. `state.status` is one of:
 
 - **`done`** — carries `output` (the final `model.message`, or `null` when the turn ended paused), `required_actions` (pending `tool.approval_required` / `tool.response_required` / `mcp.auth_required` events, empty when none), `completed_at`, and optional `metrics`.
-- **`cancelled`** — carries a `reason`: `client-cancelled`, `server-execution-timeout`, `cancelled-for-next-turn`, or `abandoned`.
-- **`error`** — carries a `message`.
+- **`cancelled`** — carries `reason` (`client-cancelled`, `server-execution-timeout`, `cancelled-for-next-turn`, or `abandoned`), `completed_at`, and optional `metrics`.
+- **`error`** — carries `message`, `completed_at`, and optional `metrics`.
 
 `metrics`, when present, aggregates the whole turn: `total_input_tokens`, `total_output_tokens`, `total_tokens`, `total_cache_read_tokens`, `total_cache_write_tokens`, `total_reasoning_tokens`, and `total_cost_in_usd`.
 
@@ -644,8 +662,8 @@ An assistant message — text content and/or tool calls. On a live stream the ba
 
 | Field           | Description                                                                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `content`       | Assistant text (may be empty when the message is only tool calls).                                                                                                                             |
-| `tool_calls`    | Tool invocations, each with an `id` and `function` (`name`, `arguments`).                                                                                                                      |
+| `content`       | Assistant text, or an array of `{ type: "text", text }` / `{ type: "refusal", refusal }` parts. Empty or omitted when the message is only tool calls.                                           |
+| `tool_calls`    | Tool invocations. Each has `id`, `type: "function"`, `function` (`name`, `arguments`), and `tool_info` (`mcp` or `truefoundry-system`). |
 | `finish_reason` | Why generation stopped (`stop`, `tool_calls`, ...), `null` mid-stream.                                                                                                                         |
 | `usage`         | Token usage for this model call: `input_tokens`, `output_tokens`, optional cache counters, and `input_tokens_breakdown` (`harness`, `skills`, `instructions`, `tool_definitions`, `messages`). |
 
@@ -688,12 +706,12 @@ A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#whats-in-a
 
 A [subagent](/key-features/subagents) started. Subsequent events with this `thread_id` belong to it.
 
-| Field        | Description                                                                            |
-| ------------ | -------------------------------------------------------------------------------------- |
-| `thread_id`  | The new thread's id.                                                                   |
-| `title`      | Human-readable subagent name.                                                          |
-| `parent`     | `{ thread_id, tool_call_id }` — the spawning thread and tool call.                     |
-| `agent_info` | `{ type: "dynamic", name, input }` — the generated instructions the subagent received. |
+| Field        | Description                                                                                         |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| `thread_id`  | The new thread's id.                                                                                |
+| `title`      | Human-readable subagent name.                                                                       |
+| `parent`     | `{ thread_id, tool_call_id }` — the spawning thread and tool call.                                  |
+| `agent_info` | `{ type: "dynamic", name, input, model? }` — generated instructions, plus an optional model override. |
 
 #### `thread.done`
 

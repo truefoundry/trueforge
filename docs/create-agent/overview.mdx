@@ -159,7 +159,9 @@ Options available in the UI today: **model** (selection), **instructions**, **co
 
 ## Create an agent via the API
 
-The [SDK](/api/overview) and HTTP API expose **every** option through the **agent spec**. You either save the spec as a named, reusable agent and reference it by name, or pass it inline when you open a session. All fields are `snake_case`, and every field except `model` has a default.
+The [SDK](/api/overview) and HTTP API expose **every** option through the **agent spec**. You either save the spec as a named, reusable agent and reference it by name, or pass it inline when you open a session. Every field except `model` has a default.
+
+JSON examples below use the HTTP wire (`snake_case`). TypeScript SDK snippets use camelCase (`mcpServers` ↔ `mcp_servers`, `requireApprovalForTools` ↔ `require_approval_for_tools`, `iterationLimit` ↔ `iteration_limit`).
 
 ### Save and run an agent
 
@@ -218,6 +220,8 @@ const { data: session } = await client.sessions.create({
 });
 ```
 
+**Update an inline spec** later with `sessions.update`. Only inline sessions accept this; named (reference) sessions reject it with `422`. See [Update an inline spec](/api/use-agent#update-an-inline-spec).
+
 **Manage saved agents** with the rest of the `agents` methods:
 
 | Method           | Endpoint                        | What it does                                                     |
@@ -228,11 +232,22 @@ const { data: session } = await client.sessions.create({
 | `agents.update`  | `PUT /api/v1/agents/{agent_id}` | Replace an existing agent's manifest (the `name` can't change).  |
 | `agents.delete`  | `DELETE /api/v1/agents/{agent_id}` | Delete an agent (idempotent).                                 |
 
+```typescript
+await client.agents.update(agent.id, {
+  manifest: {
+    model: { name: 'anthropic/claude-sonnet-4-6' },
+    instructions: 'You help customers with orders. Always confirm before processing refunds.',
+    mcpServers: [{ name: 'orders-api', requireApprovalForTools: ['process_refund'] }],
+  },
+});
+```
+
 ### The full agent spec
 
 The `manifest` you save (or the inline `spec`) is the agent spec below — every field, with defaults.
 
-```json A complete example
+<CodeGroup>
+```json HTTP
 {
   "model": {
     "name": "anthropic/claude-sonnet-4-6",
@@ -261,6 +276,40 @@ The `manifest` you save (or the inline `spec`) is the agent spec below — every
   }
 }
 ```
+
+```typescript SDK
+const spec = {
+  model: {
+    name: 'anthropic/claude-sonnet-4-6',
+    params: { maxTokens: 4096, temperature: 0.2 },
+  },
+  instructions: 'You help customers with orders. Always confirm before processing refunds.',
+  mcpServers: [
+    {
+      name: 'orders-api',
+      enableTools: ['@all'],
+      requireApprovalForTools: ['process_refund'],
+      preload: false,
+    },
+  ],
+  skills: [{ name: 'customer-support' }],
+  config: {
+    sandbox: { enabled: true },
+    generativeUi: { enabled: true },
+    askUserQuestions: { enabled: true },
+    dynamicSubAgents: { enabled: true },
+    contextManagement: {
+      compaction: { enabled: true },
+      largeToolResponse: { enabled: true },
+    },
+    iterationLimit: 50,
+  },
+};
+
+await client.agents.create({ name: 'support-bot', manifest: spec });
+// or: await client.sessions.create({ agent: { spec } });
+```
+</CodeGroup>
 
 The **Set via** column on each table below marks where a field is configurable today — **UI**, **API**, or both.
 
