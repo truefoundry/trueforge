@@ -148,7 +148,7 @@ export function getErrorMessage(error: unknown, fallback?: string): string {
         const trimmed = error.body.trim();
         if (trimmed !== '') return decodeErrorMessageEscapes(error.body);
       } else {
-        return decodeErrorMessageEscapes(stringifyError(error.body));
+        return stringifyError(error.body);
       }
     }
   }
@@ -157,5 +157,5 @@ export function getErrorMessage(error: unknown, fallback?: string): string {
   if (fromShape != null) return decodeErrorMessageEscapes(fromShape);
 
   if (fallback != null) return decodeErrorMessageEscapes(fallback);
-  return decodeErrorMessageEscapes(stringifyError(error));
+  return stringifyError(error);
 }
