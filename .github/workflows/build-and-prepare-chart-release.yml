@@ -112,8 +112,8 @@ jobs:
       enable_jfrog: true
       enable_public_ecr: false
     secrets:
-      artifactory_username: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
-      artifactory_password: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
 
   open-chart-pr:
     name: Open chart release PR
