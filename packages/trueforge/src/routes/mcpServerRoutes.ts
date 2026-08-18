@@ -203,10 +203,12 @@ export const listMcpServerToolsRoute = createRoute({
 });
 
 const McpAuthorizeQuerySchema = z.object({
-  redirect_url: z
-    .url()
+  return_to: z
+    .string()
     .optional()
-    .describe('Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended.'),
+    .describe(
+      'Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.',
+    ),
 });
 
 export const authorizeMcpServerRoute = createRoute({
@@ -220,7 +222,7 @@ export const authorizeMcpServerRoute = createRoute({
     'For servers without auth returns not_required, and for header credentials returns authenticated ' +
     '(no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token ' +
     'exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. ' +
-    'Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.',
+    'Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,
@@ -232,7 +234,7 @@ export const authorizeMcpServerRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid redirect_url.',
+      description: 'Invalid return_to.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -253,13 +255,13 @@ export const authorizeMcpServerRoute = createRoute({
   },
 });
 
-export const deleteAuthorizeMcpServerRoute = createRoute({
+export const deleteAuthorizationMcpServerRoute = createRoute({
   method: 'delete',
   path: '/{name}/authorize',
   tags: [MCP_SERVERS_TAG],
   summary: 'Disconnect OAuth for an MCP server',
   'x-fern-sdk-group-name': ['mcpServers'],
-  'x-fern-sdk-method-name': 'delete_authorize',
+  'x-fern-sdk-method-name': 'delete_authorization',
   description:
     'For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status ' +
     'auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. ' +

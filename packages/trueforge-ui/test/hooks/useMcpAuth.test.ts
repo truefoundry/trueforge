@@ -49,11 +49,11 @@ function getPopupUid(): string {
   const call = authenticateConnector.mock.calls.at(-1);
   if (!call) throw new Error('Expected authenticateConnector to be called');
 
-  const redirectURL = call[0].redirectURL;
-  if (!redirectURL) throw new Error('Expected authenticateConnector to receive a redirect URL');
+  const returnTo = call[0].returnTo;
+  if (!returnTo) throw new Error('Expected authenticateConnector to receive a returnTo');
 
-  const popupUid = new URL(redirectURL).searchParams.get('pUid');
-  if (!popupUid) throw new Error('Expected the redirect URL to contain a popup UID');
+  const popupUid = new URL(returnTo, window.location.origin).searchParams.get('pUid');
+  if (!popupUid) throw new Error('Expected returnTo to contain a popup UID');
   return popupUid;
 }
 
@@ -90,7 +90,7 @@ describe('useMCPAuth', () => {
 
     expect(authenticateConnector).toHaveBeenCalledWith({
       id: 'connector-1',
-      redirectURL: expect.any(String),
+      returnTo: expect.stringMatching(/^\/chat\?/),
     });
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith(true);
@@ -120,11 +120,14 @@ describe('useMCPAuth', () => {
     expect(channels[0]?.name).toBe(MCP_AUTH_POPUP_CHANNEL);
 
     const redirectCall = authenticateConnector.mock.calls[0];
-    if (!redirectCall?.[0].redirectURL) throw new Error('Expected a redirect URL');
-    const redirectURL = new URL(redirectCall[0].redirectURL);
-    expect(redirectURL.pathname).toBe('/oauth/callback');
-    expect(redirectURL.searchParams.get('screenType')).toBe('mcp-auth');
-    expect(redirectURL.searchParams.get('integrationId')).toBe('connector-2');
+    const returnTo = redirectCall?.[0].returnTo;
+    if (!returnTo) throw new Error('Expected a returnTo');
+    expect(returnTo.startsWith('/')).toBe(true);
+    expect(returnTo.includes('://')).toBe(false);
+    const returnToUrl = new URL(returnTo, window.location.origin);
+    expect(returnToUrl.pathname).toBe('/oauth/callback');
+    expect(returnToUrl.searchParams.get('screenType')).toBe('mcp-auth');
+    expect(returnToUrl.searchParams.get('integrationId')).toBe('connector-2');
 
     const channel = channels[0];
     if (!channel) throw new Error('Expected an authorization channel');

@@ -5,6 +5,6 @@
  *     {}
  */
 export interface AuthorizeMcpServersRequest {
-    /** Optional FE landing URL the OAuth callback redirects to, with `isSuccess`/`reason` appended. */
-    redirectUrl?: string;
+    /** Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended. */
+    returnTo?: string;
 }

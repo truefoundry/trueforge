@@ -5,7 +5,7 @@ export interface OAuthPendingAuthorization {
   userRef: string;
   mcpServerUrl: string;
   codeVerifier: string | null;
-  redirectUrl: string | null;
+  returnTo: string | null;
 }
 
 /** Stored access token for one (MCP server, user) pair. */

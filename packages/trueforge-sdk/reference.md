@@ -563,7 +563,7 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
-For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional redirect_url is where the OAuth callback then redirects the browser; without it the callback returns JSON.
+For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.
 </dd>
 </dl>
 </dd>
@@ -622,7 +622,7 @@ await client.mcpServers.authorize("name");
 </dl>
 </details>
 
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorize</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorization</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -649,7 +649,7 @@ For auth.type dcr, deletes the stored OAuth token and returns the server with au
 <dd>
 
 ```typescript
-await client.mcpServers.deleteAuthorize("name");
+await client.mcpServers.deleteAuthorization("name");
 
 ```
 </dd>
