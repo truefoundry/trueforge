@@ -132,8 +132,8 @@ jobs:
 
       - name: Helm registry login
         env:
-          HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_USERNAME }}
-          HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_PASSWORD }}
+          HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
+          HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
         run: |
           printf '%s' "$HELM_REGISTRY_PASSWORD" \
             | helm registry login -u "$HELM_REGISTRY_USERNAME" --password-stdin "$HELM_REGISTRY_URL"
