@@ -38,9 +38,16 @@ const TruefoundrySettingsBuilder = () => {
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
-    refreshDraftCatalog();
-    refreshServerCapabilities?.();
-  }, [refreshDraftCatalog, refreshServerCapabilities, setSettingsOpen]);
+  }, [setSettingsOpen]);
+
+  // Refresh catalogs whenever settings are closed or navigated away from.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    return () => {
+      refreshDraftCatalog();
+      refreshServerCapabilities?.();
+    };
+  }, [settingsOpen, refreshDraftCatalog, refreshServerCapabilities]);
 
   useEffect(() => {
     if (!hasSkills && section === 'skills') {
