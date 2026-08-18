@@ -279,8 +279,9 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
           await deps.mcpServerStore.saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
         }
         if (urlChanged) {
-          // URL is the OAuth resource/audience — drop every user's tokens for this server.
+          // URL is the OAuth resource/audience — drop every user's tokens and in-flight authorizes.
           await deps.tokenStore.deleteTokensForServer({ id: saved.id }, transaction);
+          await deps.tokenStore.deletePendingAuthorizationsForServer({ id: saved.id }, transaction);
         }
         return saved;
       });

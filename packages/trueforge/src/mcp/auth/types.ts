@@ -34,6 +34,8 @@ export interface IOAuthTokenStore<TTransaction = never> {
   deleteToken(params: OAuthTokenKey, transaction?: TTransaction): Promise<void>;
   /** Deletes every per-user token for one MCP server id (all users). */
   deleteTokensForServer(params: { id: string }, transaction?: TTransaction): Promise<void>;
+  /** Deletes every in-flight authorization for one MCP server id (all users). */
+  deletePendingAuthorizationsForServer(params: { id: string }, transaction?: TTransaction): Promise<void>;
 }
 
 /** Authorization-server endpoints discovered and cached at registration time. */

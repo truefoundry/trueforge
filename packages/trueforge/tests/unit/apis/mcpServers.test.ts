@@ -306,7 +306,7 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
-  it('PUT URL change re-registers DCR and clears all tokens', async () => {
+  it('PUT URL change re-registers DCR and clears tokens and pending authorizations', async () => {
     const record = await seedDcrServerWithClient();
     await tokenStore.saveToken({
       id: record.id,
@@ -327,6 +327,14 @@ describe('mcp-servers routers', () => {
         expiresAt: '2099-01-01T00:00:00.000Z',
         scope: null,
       },
+    });
+    await tokenStore.savePendingAuthorization({
+      state: 'stale-pending-state',
+      id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
+      mcpServerUrl: putBodyWithDcr.url,
+      codeVerifier: 'stale-verifier',
+      redirectUrl: null,
     });
 
     const newUrl = 'https://mcp.linear.app/v2/mcp';
@@ -388,6 +396,7 @@ describe('mcp-servers routers', () => {
       });
       expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
       expect(await tokenStore.getToken({ id: record.id, userRef: 'other-user' })).toBeUndefined();
+      expect(await tokenStore.consumePendingAuthorization({ state: 'stale-pending-state' })).toBeUndefined();
       expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
         client: { clientId: 'new-url-client' },
       });

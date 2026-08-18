@@ -63,6 +63,14 @@ export class InMemoryOAuthTokenStore implements IOAuthTokenStore {
       }
     }
   }
+
+  async deletePendingAuthorizationsForServer(params: { id: string }): Promise<void> {
+    for (const [state, entry] of this.pending) {
+      if (entry.row.id === params.id) {
+        this.pending.delete(state);
+      }
+    }
+  }
 }
 
 /** In-memory OAuth client store for tests and development without a database. */

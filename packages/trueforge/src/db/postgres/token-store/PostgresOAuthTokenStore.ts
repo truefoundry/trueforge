@@ -2,7 +2,11 @@ import type { Kysely, Transaction } from 'kysely';
 import type { IOAuthTokenStore, OAuthPendingAuthorization, OAuthToken, OAuthTokenKey } from '../../../mcp/auth/types';
 import { fromStoredOAuthToken, toStoredOAuthToken } from '../../mcpServerStore';
 import type { Database } from '../types';
-import { consumePendingAuthorization, savePendingAuthorization } from './queries/pendingAuthorization';
+import {
+  consumePendingAuthorization,
+  deletePendingAuthorizationsForServer,
+  savePendingAuthorization,
+} from './queries/pendingAuthorization';
 import { deleteToken, deleteTokensForServer, getToken, getTokens, saveToken } from './queries/token';
 
 export class PostgresOAuthTokenStore implements IOAuthTokenStore<Transaction<Database>> {
@@ -46,5 +50,9 @@ export class PostgresOAuthTokenStore implements IOAuthTokenStore<Transaction<Dat
 
   deleteTokensForServer(params: { id: string }, transaction?: Transaction<Database>): Promise<void> {
     return deleteTokensForServer(transaction ?? this.db, params);
+  }
+
+  deletePendingAuthorizationsForServer(params: { id: string }, transaction?: Transaction<Database>): Promise<void> {
+    return deletePendingAuthorizationsForServer(transaction ?? this.db, params);
   }
 }
