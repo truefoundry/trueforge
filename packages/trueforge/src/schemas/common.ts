@@ -19,7 +19,7 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
-/** TODO: budget list payload size once, then set default and max from that. */
+/** TODO: keep default === max; budget payload size once and set that value. */
 export const PAGE_LIMIT = 100;
 export const EVENTS_PAGE_LIMIT = 25;
 
