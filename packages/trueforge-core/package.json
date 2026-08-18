@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TrueForge Agent Harness library.",
   "author": "TrueFoundry",
   "license": "MIT",
