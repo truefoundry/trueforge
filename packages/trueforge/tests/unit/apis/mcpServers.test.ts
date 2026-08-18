@@ -334,7 +334,7 @@ describe('mcp-servers routers', () => {
       userRef: LOCAL_USER_CONTEXT.userRef,
       mcpServerUrl: putBodyWithDcr.url,
       codeVerifier: 'stale-verifier',
-      redirectUrl: null,
+      returnTo: null,
     });
 
     const newUrl = 'https://mcp.linear.app/v2/mcp';

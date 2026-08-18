@@ -325,7 +325,7 @@ describe('buildMcpAuthorizationUrl', () => {
       id: SERVER_ID,
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
-      redirectUrl: 'https://app.example.com/after',
+      returnTo: 'https://app.example.com/after',
     });
     expect(pending?.codeVerifier).toBeTruthy();
   });
@@ -628,7 +628,7 @@ describe('completeMcpAuthorization', () => {
     if (!pending) {
       throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
     }
-    expect(pending.redirectUrl).toBe('https://app.example.com/connected');
+    expect(pending.returnTo).toBe('https://app.example.com/connected');
 
     const beforeMs = Date.now();
     await completeMcpAuthorization({
@@ -667,7 +667,7 @@ describe('completeMcpAuthorization', () => {
           userRef: USER_REF,
           mcpServerUrl: SERVER_URL,
           codeVerifier: 'verifier-1',
-          redirectUrl: null,
+          returnTo: null,
         },
         code: 'code',
       }),

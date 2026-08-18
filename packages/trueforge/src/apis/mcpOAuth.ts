@@ -14,8 +14,8 @@ export interface McpOAuthRouterDeps<TTransaction> {
 type McpOAuthCallbackContext = Parameters<RouteHandler<typeof mcpOAuthCallbackRoute>>[0];
 
 /** Landing URL with the outcome appended to whatever query params it already carries. */
-function callbackLandingUrl(params: { redirectUrl: string; isSuccess: boolean; reason?: string }): string {
-  const url = new URL(params.redirectUrl);
+function callbackLandingUrl(params: { returnTo: string; isSuccess: boolean; reason?: string }): string {
+  const url = new URL(params.returnTo);
   url.searchParams.set('isSuccess', String(params.isSuccess));
   if (params.reason) {
     url.searchParams.set('reason', params.reason);
@@ -24,14 +24,14 @@ function callbackLandingUrl(params: { redirectUrl: string; isSuccess: boolean; r
 }
 
 /**
- * JSON is the answer whenever there is no landing URL to return to: authorize was called without
- * `redirect_url`, or the pending row that carried it is gone (TTL expired, already redeemed, unknown
+ * JSON is the answer whenever there is no landing path to return to: authorize was called without
+ * `return_to`, or the pending row that carried it is gone (TTL expired, already redeemed, unknown
  * `state`) — the OAuth callback URL is never a page we send the user to on purpose.
  */
 function callbackSuccess(params: { c: McpOAuthCallbackContext; pending: OAuthPendingAuthorization }) {
-  const redirectUrl = params.pending.redirectUrl;
-  if (redirectUrl) {
-    return params.c.redirect(callbackLandingUrl({ redirectUrl, isSuccess: true }), 302);
+  const returnTo = params.pending.returnTo;
+  if (returnTo) {
+    return params.c.redirect(callbackLandingUrl({ returnTo, isSuccess: true }), 302);
   }
   return params.c.json({ success: true as const }, 200);
 }
@@ -42,9 +42,9 @@ function callbackFailure(params: {
   message: string;
   jsonStatus?: 400 | 500;
 }) {
-  const redirectUrl = params.pending?.redirectUrl;
-  if (redirectUrl) {
-    return params.c.redirect(callbackLandingUrl({ redirectUrl, isSuccess: false, reason: params.message }), 302);
+  const returnTo = params.pending?.returnTo;
+  if (returnTo) {
+    return params.c.redirect(callbackLandingUrl({ returnTo, isSuccess: false, reason: params.message }), 302);
   }
   return params.c.json({ error: { message: params.message } }, params.jsonStatus ?? 400);
 }
@@ -54,7 +54,7 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
   const callbackHandler: RouteHandler<typeof mcpOAuthCallbackRoute> = async c => {
     const { state, code, error, error_description: errorDescription } = c.req.valid('query');
 
-    // Claimed up front: this row carries the FE landing URL every branch below returns to, and
+    // Claimed up front: this row carries the FE landing path every branch below returns to, and
     // claiming it atomically means a duplicate callback loses the race.
     const pending = await deps.tokenStore.consumePendingAuthorization({ state });
     if (!pending) {

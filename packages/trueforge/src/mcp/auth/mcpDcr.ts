@@ -232,7 +232,7 @@ export async function buildMcpAuthorizationUrl(params: {
     userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     codeVerifier: started.codeVerifier,
-    redirectUrl: params.returnTo ?? null,
+    returnTo: params.returnTo ?? null,
   });
   return started.authorizationUrl;
 }
