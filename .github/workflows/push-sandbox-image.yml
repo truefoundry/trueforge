@@ -1,20 +1,41 @@
 name: Push sandbox image
 
-# Build and push the Daytona sandbox base image to JFrog, tagged with the
-# commit SHA of the ref selected at dispatch time.
+# PR: docker build only. main/dispatch: push :<sha>, then pin SANDBOX_IMAGE_URI.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/trueforge-core/scripts/sandbox/**'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'packages/trueforge-core/scripts/sandbox/**'
 
 concurrency:
-  group: push-sandbox-image
-  cancel-in-progress: false
+  group: push-sandbox-image-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
+  verify:
+    name: Build sandbox image (no push)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          docker build \
+            --platform linux/amd64 \
+            -f packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile \
+            packages/trueforge-core/scripts/sandbox
+
   build:
     name: Build and push sandbox image
+    if: github.event_name != 'pull_request'
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
       id-token: write
@@ -39,11 +60,51 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - name: Print image URI
-        env:
+      - env:
           IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge-sandbox:${{ github.sha }}
         run: |
-          set -euo pipefail
           echo "Pushed image URI: $IMAGE_URI"
-          echo "### Sandbox image" >> "$GITHUB_STEP_SUMMARY"
           echo "\`$IMAGE_URI\`" >> "$GITHUB_STEP_SUMMARY"
+
+  pin:
+    name: Open SANDBOX_IMAGE_URI pin PR
+    if: github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge-sandbox:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write SANDBOX_IMAGE_URI
+        run: |
+          python3 <<'PY'
+          import os, re
+          from pathlib import Path
+          uri = os.environ["IMAGE_URI"]
+          if not re.fullmatch(r"[A-Za-z0-9._:/-]+", uri):
+              raise SystemExit(f"refusing IMAGE_URI: {uri!r}")
+          Path("packages/trueforge-core/src/core/sandbox/sandboxImage.ts").write_text(
+              "/** Release-owned sandbox image URI; rewritten by push-sandbox-image.yml. */\n"
+              f"export const SANDBOX_IMAGE_URI = '{uri}';\n"
+          )
+          PY
+
+      - run: bash scripts/changeset-sandbox-image.sh
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release-sandbox-image
+          base: main
+          commit-message: 'chore: pin sandbox image ${{ github.sha }}'
+          title: 'chore: pin sandbox image ${{ github.sha }}'
+          body: |
+            Pushed `${{ env.IMAGE_URI }}`. Merge so `release.yml` can publish the pin.
+            Existing tenants stay on `build_metadata`.
+          add-paths: |
+            packages/trueforge-core/src/core/sandbox/sandboxImage.ts
+            .changeset
