@@ -12,8 +12,8 @@ import {
 } from '../routes/modelProviderRoutes';
 import {
   modelProviderName,
+  type ConfiguredModelProvider,
   type CreateModelProviderRequest,
-  type ModelProvider,
   type ModelProviderManifest,
   type PutModelProviderRequest,
 } from '../schemas/modelProvider';
@@ -56,7 +56,7 @@ function resolveModelProviderManifestForWrite({
   };
 }
 
-function toWireProvider(record: ModelProviderRecord): ModelProvider {
+function toWireProvider(record: ModelProviderRecord): ConfiguredModelProvider {
   return {
     name: record.name,
     manifest: redactModelProvider(record.manifest),

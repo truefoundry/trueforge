@@ -177,13 +177,13 @@ export function modelProviderName(provider: ModelProviderManifest): ResourceName
 }
 
 /** Settings wire item: identity column plus nested manifest. */
-export const ModelProviderSchema = z
+export const ConfiguredModelProviderSchema = z
   .object({
     name: NameSchema,
     manifest: ModelProviderManifestSchema,
   })
   .strict()
-  .openapi('ModelProvider');
+  .openapi('ConfiguredModelProvider');
 
 export const CreateModelProviderRequestSchema = z
   .object({
@@ -201,13 +201,13 @@ export const PutModelProviderRequestSchema = z
 
 export const GetModelProviderResponseSchema = z
   .object({
-    data: ModelProviderSchema,
+    data: ConfiguredModelProviderSchema,
   })
   .openapi('GetModelProviderResponse');
 
 export const ListModelProvidersResponseSchema = z
   .object({
-    data: z.array(ModelProviderSchema),
+    data: z.array(ConfiguredModelProviderSchema),
   })
   .openapi('ListModelProvidersResponse');
 
@@ -221,7 +221,7 @@ export const ModelListProviderSchema = z
   .openapi('ModelListProvider');
 
 /** Read view over configured providers: FQN plus explicit provider identity for clients. */
-export const ModelSchema = z
+export const ModelReadEntrySchema = z
   .object({
     name: z
       .string()
@@ -231,17 +231,17 @@ export const ModelSchema = z
     properties: ModelPropertiesSchema,
   })
   .strict()
-  .openapi('Model');
+  .openapi('ModelReadEntry');
 
-export const ListModelsResponseSchema = z
+export const ListAvailableModelsResponseSchema = z
   .object({
-    data: z.array(ModelSchema),
+    data: z.array(ModelReadEntrySchema),
   })
-  .openapi('ListModelsResponse');
+  .openapi('ListAvailableModelsResponse');
 
 export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
-export type ModelProvider = z.infer<typeof ModelProviderSchema>;
+export type ConfiguredModelProvider = z.infer<typeof ConfiguredModelProviderSchema>;
 export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
 export type PutModelProviderRequest = z.infer<typeof PutModelProviderRequestSchema>;
 export type ModelListProvider = z.infer<typeof ModelListProviderSchema>;
-export type Model = z.infer<typeof ModelSchema>;
+export type ModelReadEntry = z.infer<typeof ModelReadEntrySchema>;

@@ -79,14 +79,14 @@ export const SandboxStatusSchema = z
   .strict();
 
 /** Settings wire item: nested manifest plus build status (no build_metadata). */
-export const SandboxProviderSchema = z
+export const ConfiguredSandboxProviderSchema = z
   .object({
     manifest: SandboxProviderManifestSchema,
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
   })
   .strict()
-  .openapi('SandboxProvider');
+  .openapi('ConfiguredSandboxProvider');
 
 export const PutSandboxProviderRequestSchema = z
   .object({
@@ -97,7 +97,7 @@ export const PutSandboxProviderRequestSchema = z
 
 export const GetSandboxProviderResponseSchema = z
   .object({
-    data: SandboxProviderSchema,
+    data: ConfiguredSandboxProviderSchema,
   })
   .openapi('GetSandboxProviderResponse');
 
@@ -107,7 +107,7 @@ export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
-export type SandboxProvider = z.infer<typeof SandboxProviderSchema>;
+export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProviderSchema>;
 export type PutSandboxProviderRequest = z.infer<typeof PutSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */

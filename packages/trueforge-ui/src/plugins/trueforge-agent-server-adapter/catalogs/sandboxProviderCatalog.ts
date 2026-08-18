@@ -31,7 +31,7 @@ function displayNameForType(type: string): string {
 }
 
 export function configFromHarness(
-  provider: TrueForgeApi.CatalogDaytonaSandboxProvider | TrueForgeApi.SandboxProviderManifest,
+  provider: TrueForgeApi.CatalogSandboxProvider | TrueForgeApi.SandboxProviderManifest,
 ): SandboxProviderConfig {
   return {
     execTimeoutMs: provider.execTimeoutMs,
@@ -41,7 +41,7 @@ export function configFromHarness(
   };
 }
 
-export function toUiCatalogEntry(provider: TrueForgeApi.CatalogDaytonaSandboxProvider): UiSandboxProviderCatalogEntry {
+export function toUiCatalogEntry(provider: TrueForgeApi.CatalogSandboxProvider): UiSandboxProviderCatalogEntry {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),

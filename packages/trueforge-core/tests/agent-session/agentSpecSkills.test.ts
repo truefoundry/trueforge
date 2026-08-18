@@ -1,7 +1,7 @@
 import { AgentSpecSchema } from '../../src/agent-session/schemas/agentSpec';
 
 describe('AgentSpecSchema skills', () => {
-  it('accepts name-only SkillNameRef entries', () => {
+  it('accepts name-only Skill entries', () => {
     const parsed = AgentSpecSchema.parse({
       model: { name: 'test-provider/test-model' },
       skills: [{ name: 'my-skill' }],

@@ -5,6 +5,7 @@ import {
   DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS,
   DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
 } from '../../core/capabilities/builtins/LargeToolResponse';
+import { AgentInputUserMessageSchema } from '../../core/events/schema';
 import { ResponseFormatSchema } from '../../core/llm/responseFormat';
 import {
   DEFAULT_DISABLE_TOOLS,
@@ -38,7 +39,7 @@ const ModelParamsSchema = z
   .openapi('ModelParams');
 
 // Opaque runtime identifier; the hosting server owns naming conventions (e.g. provider/model).
-const ModelSpecSchema = z
+const ModelSchema = z
   .object({
     name: z
       .string()
@@ -46,7 +47,7 @@ const ModelSpecSchema = z
       .describe('Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.'),
     params: ModelParamsSchema.optional(),
   })
-  .openapi('AgentSpecModel');
+  .openapi('Model');
 
 // --- MCP servers ---
 
@@ -266,7 +267,7 @@ export const RuntimeConfigSchema = z
 const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
 
 /** Name-only skill selection; mount fields come from the skill store. */
-const SkillNameRefSchema = z
+const SkillSchema = z
   .object({
     name: z
       .string()
@@ -279,33 +280,26 @@ const SkillNameRefSchema = z
       .describe('Name of a configured skill (also used as the skill directory name in the sandbox).'),
   })
   .strict()
-  .openapi('SkillNameRef');
-
-// --- Response format / messages ---
-
-const AgentSpecUserMessageSchema = z
-  .object({
-    type: z.literal('user.message').describe('Seed message type.'),
-    content: z
-      .string()
-      .min(1, 'User message content must not be empty')
-      .refine(content => content.trim().length > 0, 'User message content must not be empty')
-      .describe('Seed user message content injected at the start of every session.'),
-  })
-  .openapi('AgentSpecUserMessage');
+  .openapi('Skill');
 
 // --- Agent spec ---
 
 export const AgentSpecSchema = z
   .object({
-    model: ModelSpecSchema,
+    model: ModelSchema,
     instructions: z
       .string()
       .optional()
       .describe("Optional system prompt — the agent's role, behavior, and constraints."),
     messages: z
-      .array(AgentSpecUserMessageSchema)
+      .array(AgentInputUserMessageSchema)
       .optional()
+      .refine(
+        messages =>
+          messages === undefined ||
+          messages.every(message => typeof message.content === 'string' && message.content.trim().length > 0),
+        { message: 'User message content must not be empty' },
+      )
       .describe('Optional seed user messages injected at the start of every session.'),
     mcp_servers: z
       .array(MCPServerRequestSchema)
@@ -313,7 +307,7 @@ export const AgentSpecSchema = z
       .describe('Optional MCP servers attached by configured name.'),
     response_format: ResponseFormatSchema.optional(),
     skills: z
-      .array(SkillNameRefSchema)
+      .array(SkillSchema)
       .optional()
       .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
     // Factory must parse so nested RuntimeConfig field defaults materialize.
@@ -323,4 +317,4 @@ export const AgentSpecSchema = z
   .openapi('AgentSpec');
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
-export type SkillNameRef = z.infer<typeof SkillNameRefSchema>;
+export type Skill = z.infer<typeof SkillSchema>;

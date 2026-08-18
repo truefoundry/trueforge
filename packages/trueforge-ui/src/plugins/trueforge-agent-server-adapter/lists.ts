@@ -4,7 +4,7 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
-export async function listModels(client: TrueForge): Promise<TrueForgeApi.Model[]> {
+export async function listModels(client: TrueForge): Promise<TrueForgeApi.ModelReadEntry[]> {
   const body = await client.models.list();
   return body.data;
 }

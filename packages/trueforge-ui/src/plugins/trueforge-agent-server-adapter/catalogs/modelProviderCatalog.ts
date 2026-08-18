@@ -39,7 +39,7 @@ export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntr
   };
 }
 
-export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModelProvider {
+export function toUiModelProvider(provider: TrueForgeApi.ConfiguredModelProvider): UiModelProvider {
   const { name, manifest } = provider;
   return {
     id: name,
