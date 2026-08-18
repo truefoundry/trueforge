@@ -16,5 +16,5 @@ Closes #
 
 - [ ] `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint:ci`, and `pnpm format:check` pass locally
 - [ ] Tests added/updated where it makes sense
-- [ ] No hand-edits to generated code (`packages/trueforge-sdk`, `.github/fern/openapi/openapi.json`, `docs/openapi.json`)
+- [ ] No hand-edits to generated code (`packages/trueforge-sdk`, `.github/fern/openapi/openapi.json`, `docs/openapi.json`) — fork PRs omit SDK regen; maintainers regenerate after merge
 - [ ] Docs / `.env.example` updated if configuration or behavior changed
