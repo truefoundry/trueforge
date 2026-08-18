@@ -364,7 +364,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
-    const { redirect_url: redirectUrl } = c.req.valid('query');
+    const { return_to: redirectUrl } = c.req.valid('query');
     const userRef = deps.resolveUserContext(c).userRef;
     const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
     if (!record) {
