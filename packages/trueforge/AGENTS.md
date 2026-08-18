@@ -41,7 +41,7 @@ Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fe
 
 **Envelopes:** success `{ data: Item | Item[] }` (+ `pagination` via `fernExtensions.ts` token contract); errors `RequestErrorResponse`.
 
-**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`create_or_update`/`delete` + snake_case actions). Do not hand-edit OpenAPI or `packages/trueforge-sdk`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
+**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`create_or_update`/`delete` + snake_case actions). PUT create-or-replace MUST use `create_or_update`, never `upsert`. Do not hand-edit OpenAPI or `packages/trueforge-sdk`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
 
 **No inline object schemas:** do not nest anonymous `z.object({ … })` inside another object. Extract each nested object as a top-level named schema with a meaningful `.openapi('…')` name (e.g. `FooAuth`, `FooManifest`) so OpenAPI emits a `$ref` and other schemas can reuse it. Primitives, arrays of primitives, and `$ref`s to existing named schemas are fine inline.
 

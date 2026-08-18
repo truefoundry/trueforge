@@ -1,7 +1,7 @@
 /** Server-only turn wire schemas (SSE resume / cancel / list). Core turn schemas live in agent-session. */
 import { z } from '@hono/zod-openapi';
 import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
-import { DEFAULT_EVENTS_PAGE_LIMIT, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from './common';
+import { EVENTS_PAGE_LIMIT, PAGE_LIMIT } from './common';
 
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
@@ -41,10 +41,10 @@ export const ListTurnsRequestQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(MAX_PAGE_LIMIT)
+      .max(PAGE_LIMIT)
       .optional()
-      .default(DEFAULT_PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(DEFAULT_PAGE_LIMIT)}, max ${String(MAX_PAGE_LIMIT)}.`),
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListTurnsRequestQuery');
@@ -68,10 +68,10 @@ export const ListTurnEventsRequestQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(MAX_PAGE_LIMIT)
+      .max(EVENTS_PAGE_LIMIT)
       .optional()
-      .default(DEFAULT_EVENTS_PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(DEFAULT_EVENTS_PAGE_LIMIT)}, max ${String(MAX_PAGE_LIMIT)}.`),
+      .default(EVENTS_PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(EVENTS_PAGE_LIMIT)}, max ${String(EVENTS_PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
     order: z
       .enum(['asc', 'desc'])

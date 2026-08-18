@@ -622,7 +622,7 @@ await client.mcpServers.authorize("name");
 </dl>
 </details>
 
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorize</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">deleteAuthorization</a>(name) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -649,7 +649,7 @@ For auth.type dcr, deletes the stored OAuth token and returns the server with au
 <dd>
 
 ```typescript
-await client.mcpServers.deleteAuthorize("name");
+await client.mcpServers.deleteAuthorization("name");
 
 ```
 </dd>

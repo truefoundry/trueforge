@@ -53,7 +53,7 @@ Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fe
 
 **Envelopes:** success `{ data: Item | Item[] }` (+ `pagination` via `fernExtensions.ts` token contract); errors `RequestErrorResponse`.
 
-**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`create_or_update`/`delete` + snake_case actions). Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
+**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`create_or_update`/`delete` + snake_case actions). Flag `x-fern-sdk-method-name: upsert` — PUT create-or-replace must be `create_or_update`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
 
 **No inline object schemas:** flag anonymous `z.object({ … })` nested inside another object. Extract each nested object as a top-level named schema with a meaningful `.openapi('…')` name (e.g. `FooAuth`, `FooManifest`). Primitives, arrays of primitives, and `$ref`s to existing named schemas are fine inline.
 

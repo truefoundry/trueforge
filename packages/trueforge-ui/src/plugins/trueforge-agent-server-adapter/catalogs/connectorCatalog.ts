@@ -225,7 +225,7 @@ export function createConnectorCatalog(
       if (existing.manifest.auth?.type !== 'dcr') {
         throw new Error(`Disconnect is only supported for OAuth MCP servers`);
       }
-      const body = await client.mcpServers.deleteAuthorize(req.id);
+      const body = await client.mcpServers.deleteAuthorization(req.id);
       return toUiConnector(body.data);
     },
   };

@@ -260,16 +260,16 @@ export class McpServersClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.mcpServers.deleteAuthorize("name")
+     *     await client.mcpServers.deleteAuthorization("name")
      */
-    public deleteAuthorize(
+    public deleteAuthorization(
         name: string,
         requestOptions?: McpServersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetMcpServerResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__deleteAuthorize(name, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__deleteAuthorization(name, requestOptions));
     }
 
-    private async __deleteAuthorize(
+    private async __deleteAuthorization(
         name: string,
         requestOptions?: McpServersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetMcpServerResponse>> {

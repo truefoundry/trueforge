@@ -19,9 +19,9 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
-export const DEFAULT_PAGE_LIMIT = 10;
-export const DEFAULT_EVENTS_PAGE_LIMIT = 25;
-export const MAX_PAGE_LIMIT = 100;
+/** TODO: budget list payload size once, then set default and max from that. */
+export const PAGE_LIMIT = 100;
+export const EVENTS_PAGE_LIMIT = 25;
 
 /** Adds a validation issue if two entries share a name. */
 export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {
