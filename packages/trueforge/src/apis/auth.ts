@@ -5,7 +5,8 @@ import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
 import { resolveUserContext } from '../auth/identity';
 import { authMiddleware } from '../auth/middleware';
-import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify, safeReturnTo } from '../auth/oidc';
+import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
+import { safeReturnTo } from '../auth/safeReturnTo';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { MeResponse } from '../schemas/auth';
 

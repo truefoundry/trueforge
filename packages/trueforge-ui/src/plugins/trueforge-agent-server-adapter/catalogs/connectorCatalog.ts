@@ -216,7 +216,7 @@ export function createConnectorCatalog(
     authenticateConnector: async req => {
       const result = await client.mcpServers.authorize(
         req.id,
-        req.redirectURL === undefined ? {} : { redirectUrl: req.redirectURL },
+        req.returnTo === undefined ? {} : { returnTo: req.returnTo },
       );
       return { status: result.status, authorization_endpoint: result.authorizationUrl };
     },

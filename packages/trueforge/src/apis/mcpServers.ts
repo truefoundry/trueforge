@@ -2,11 +2,12 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
+import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration from '../config';
 import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
 import { createMcpOAuthClient, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
-import { mcpOAuthCallbackUrl, validateRedirectUris } from '../mcp/auth/mcpOAuthHelpers';
+import { mcpOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthClientRecord, OAuthToken } from '../mcp/auth/types';
 import {
   authorizeMcpServerRoute,
@@ -364,7 +365,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
-    const { redirect_url: redirectUrl } = c.req.valid('query');
+    const { return_to: returnTo } = c.req.valid('query');
     const userRef = deps.resolveUserContext(c).userRef;
     const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
     if (!record) {
@@ -375,10 +376,11 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       return c.json(resolveMcpAuthStatus({ manifest: record.manifest }), 200);
     }
 
+    if (returnTo && safeReturnTo(returnTo) !== returnTo) {
+      return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
+    }
+
     try {
-      if (redirectUrl) {
-        validateRedirectUris({ redirectUris: [redirectUrl] });
-      }
       // Reuses a usable/refreshable token when present; only builds an auth URL when needed.
       // Client is usually already registered at create/put; concurrent Connect races are harmless
       // (last saveClient wins; rare orphan AS registration).
@@ -390,7 +392,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
         mcpServerUrl: record.manifest.url,
         mcpServerName: record.name,
         clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-        ...(redirectUrl !== undefined ? { redirectUrl } : {}),
+        ...(returnTo !== undefined ? { returnTo } : {}),
       });
       const authStatus: McpAuthStatus = isMcpAuthRequired(result)
         ? { status: 'auth_required', authorization_url: result.authUrl.href }
