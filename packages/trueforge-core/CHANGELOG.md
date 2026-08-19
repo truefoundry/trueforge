@@ -1,5 +1,12 @@
 # @truefoundry/trueforge-core
 
+## 0.1.3
+
+### Patch Changes
+
+- 08700d1: Pin `mcp==1.29.0` in the sandbox image so Code Mode can import `mcp.types`.
+- c546350: Pass `tenantName` on `SandboxOptions` instead of injecting `TFY_TENANT_NAME` via exec env.
+
 ## 0.1.2
 
 ### Patch Changes
