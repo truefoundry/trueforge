@@ -19,7 +19,7 @@ export async function listSkills(client: TrueForge): Promise<TrueForgeApi.Availa
   return body.data;
 }
 
-export async function getCapabilities(client: TrueForge): Promise<TrueForgeApi.GetCapabilitiesResponseData> {
+export async function getCapabilities(client: TrueForge): Promise<TrueForgeApi.CapabilitiesData> {
   const body = await client.server.getCapabilities();
   return body.data;
 }
