@@ -70,4 +70,23 @@ describe('LocalSandboxProvider missing root', () => {
       await rm(outside, { recursive: true, force: true });
     }
   });
+
+  it('layout paths are cwd-relative (not host-absolute)', async () => {
+    const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-layout-'));
+    const provider = await makeProvider(sandboxRootPathParent);
+    try {
+      expect(provider.getToolResultDumpDir()).toBe('tool-results');
+      expect(provider.getGitCredentialsPath()).toBe('.git-credentials');
+      expect(provider.getFileUploadsDir()).toBe('uploads');
+      expect(provider.getSkillsDir()).toBe('skills');
+      expect(provider.getGitDownloaderPath()).toBe('git_downloader.py');
+      const install = provider.createCodeModeTransport().getClientInstall({
+        sandboxId: join(sandboxRootPathParent, 'x'),
+      });
+      expect(install.remotePath).toBe(join('mcp-client', 'mcp_client.py'));
+      expect(install.remotePath.startsWith('/')).toBe(false);
+    } finally {
+      await rm(sandboxRootPathParent, { recursive: true, force: true });
+    }
+  });
 });

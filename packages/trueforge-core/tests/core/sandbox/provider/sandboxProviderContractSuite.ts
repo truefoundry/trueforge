@@ -25,6 +25,19 @@ export function runSandboxProviderContractSuite(
       await fixture.dispose();
     }, 60_000);
 
+    it('exec cwd is the sandbox root so relative layout paths work', async () => {
+      const { sandboxId } = await fixture.provider.createSandbox();
+      const result = await fixture.provider.exec({
+        sandboxId,
+        command: 'pwd && mkdir -p skills && test -d skills',
+      });
+      ensureExecSuccess(result);
+      if (!result.success) {
+        throw new Error('unreachable');
+      }
+      expect(result.response.result.trim().split('\n')[0]).toBe(sandboxId);
+    });
+
     it('exec is stateful across calls in the same sandbox', async () => {
       const { sandboxId } = await fixture.provider.createSandbox();
       const write = await fixture.provider.exec({

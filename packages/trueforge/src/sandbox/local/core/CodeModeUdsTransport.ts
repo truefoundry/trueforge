@@ -55,7 +55,7 @@ export interface CodeModeUdsTransportOptions {
    */
   codeModeSocketParentPath: string;
   maxMessageBytes?: number | undefined;
-  /** Provider-owned MCP client module path (sandboxId is the sandbox root). */
+  /** Provider-owned MCP client module path (cwd-relative under the sandbox root). */
   clientRemotePath: (sandboxId: string) => string;
   /** Optional: observe inbound protocol failures (oversized / malformed). */
   onProtocolError?: ((message: string) => void) | undefined;

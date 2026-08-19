@@ -9,6 +9,7 @@ import type {
   SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import {
+  absolutizeRelativeExecEnv,
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
   SandboxNotAvailableError,
@@ -20,7 +21,7 @@ import { execFile } from 'node:child_process';
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 import { ulid } from 'ulid';
 import type { Logger } from 'winston';
@@ -199,6 +200,19 @@ function sessionFailDetail(session: SessionResult): string {
   return [session.protocolError, session.stderrText, session.stdoutText]
     .filter(part => part !== undefined && part.length > 0)
     .join(' ');
+}
+
+/**
+ * In-sandbox upload: create parent, re-open a 0555 file from a prior init, write with
+ * `/bin/cat` (jail PATH prefers Homebrew; a stale Cellar `cat` is ENOENT).
+ */
+export function localSandboxUploadCommand(remotePath: string): string {
+  const parent = dirname(remotePath);
+  return [
+    `mkdir -p ${shellEscape(parent)}`,
+    `{ chmod u+w ${shellEscape(remotePath)} 2>/dev/null || true; }`,
+    `/bin/cat > ${shellEscape(remotePath)}`,
+  ].join(' && ');
 }
 
 export class LocalSandboxProvider implements SandboxProvider {
@@ -581,9 +595,9 @@ export class LocalSandboxProvider implements SandboxProvider {
       shell: this.support.shell,
       python: this.support.python,
     });
-    await mkdir(this.getToolResultDumpDir(sandboxId), { recursive: true, mode: 0o700 });
-    await mkdir(this.getFileUploadsDir(sandboxId), { recursive: true, mode: 0o700 });
-    await mkdir(this.getSkillsDir(sandboxId), { recursive: true, mode: 0o700 });
+    await mkdir(join(sandboxId, this.getToolResultDumpDir()), { recursive: true, mode: 0o700 });
+    await mkdir(join(sandboxId, this.getFileUploadsDir()), { recursive: true, mode: 0o700 });
+    await mkdir(join(sandboxId, this.getSkillsDir()), { recursive: true, mode: 0o700 });
     await this.ensureVenv(sandboxId);
     return { sandboxId };
   }
@@ -599,13 +613,15 @@ export class LocalSandboxProvider implements SandboxProvider {
           ? sandboxRootPath
           : this.resolveInSandboxRoot(sandboxRootPath, params.cwd);
       const timeoutSeconds = params.timeoutSeconds ?? this.defaultExecTimeoutSeconds;
+      const env =
+        params.env === undefined ? undefined : absolutizeRelativeExecEnv({ root: sandboxRootPath, env: params.env });
       const session = await runSupervisorSession({
         sandboxRootPath,
         platform: this.support.platform,
         shell: this.support.shell,
         command: params.command,
         cwd,
-        ...(params.env === undefined ? {} : { env: params.env }),
+        ...(env === undefined ? {} : { env }),
         timeoutMs: timeoutSeconds * 1000,
       });
       if (session.protocolError !== undefined) {
@@ -631,32 +647,34 @@ export class LocalSandboxProvider implements SandboxProvider {
       `- Platform: ${this.support.platform}.`,
       `- Commands run under the sandbox shell: ${this.support.shell}.`,
       '- A Python virtualenv lives at .venv. `python` and `pip` on PATH are that environment; packages you `pip install` persist in this sandbox.',
+      '- uploads, skills, and tool-results live in the sandbox working directory.',
       '- ALL file creation and writes MUST stay within the sandbox working directory.',
       '- The Agent must NOT write outside the working directory (including host home and /tmp).',
     ].join('\n');
   }
 
-  // Host-absolute under the sandbox root (also the sandbox id). SRT cwd is that root.
-  //   {root}/{uploads,skills,tool-results,git_downloader.py,.git-credentials,.venv}
-  //   {root}/mcp-client/mcp_client.py
-  getToolResultDumpDir(sandboxId: string): string {
-    return join(sandboxId, 'tool-results');
+  // Cwd-relative: SRT cwd is the sandbox root. Init mkdir/ln and the agent prompt must not use
+  // host-absolute paths — those contain spaces under macOS Application Support and lose quoting.
+  //   uploads, skills, tool-results, git_downloader.py, .git-credentials, .venv
+  //   mcp-client/mcp_client.py
+  getToolResultDumpDir(): string {
+    return 'tool-results';
   }
 
-  getGitCredentialsPath(sandboxId: string): string {
-    return join(sandboxId, '.git-credentials');
+  getGitCredentialsPath(): string {
+    return '.git-credentials';
   }
 
-  getFileUploadsDir(sandboxId: string): string {
-    return join(sandboxId, 'uploads');
+  getFileUploadsDir(): string {
+    return 'uploads';
   }
 
-  getSkillsDir(sandboxId: string): string {
-    return join(sandboxId, 'skills');
+  getSkillsDir(): string {
+    return 'skills';
   }
 
-  getGitDownloaderPath(sandboxId: string): string {
-    return join(sandboxId, 'git_downloader.py');
+  getGitDownloaderPath(): string {
+    return 'git_downloader.py';
   }
 
   async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
@@ -687,7 +705,7 @@ export class LocalSandboxProvider implements SandboxProvider {
     return buf;
   }
 
-  /** Payload on stdin so large uploads stay off argv. Parent dirs must already exist. */
+  /** Payload on stdin so large uploads stay off argv. */
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
     this.ensureSandboxRoot(params.sandboxId);
     await this.ensureSrt();
@@ -702,18 +720,23 @@ export class LocalSandboxProvider implements SandboxProvider {
     const remotePath = toSandboxRelativePath({ sandboxRootPath, absolutePath });
     const result = await this.runSandboxCommand({
       sandboxRootPath,
-      command: `cat > ${shellEscape(remotePath)}`,
+      command: localSandboxUploadCommand(remotePath),
       stdin: params.content,
     });
     if (result.exitCode !== 0) {
-      throw new SandboxFileNotFoundError(params.remotePath);
+      const detail = [result.stderrText, result.stdoutText].filter(part => part.length > 0).join(' ');
+      throw new Error(
+        detail.length > 0
+          ? `upload ${params.remotePath} failed (exit ${String(result.exitCode)}): ${detail}`
+          : `upload ${params.remotePath} failed (exit ${String(result.exitCode)})`,
+      );
     }
   }
 
   createCodeModeTransport(): CodeModeTransport {
     return new CodeModeUdsTransport({
       codeModeSocketParentPath: this.codeModeSocketParentPath,
-      clientRemotePath: sandboxId => join(sandboxId, 'mcp-client', 'mcp_client.py'),
+      clientRemotePath: () => join('mcp-client', 'mcp_client.py'),
     });
   }
 

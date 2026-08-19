@@ -100,6 +100,7 @@ describe('Sandbox provider-owned paths', () => {
     expect(call?.env?.['PATH']).toBe('/usr/bin');
     expect(call?.env?.['PYTHONPATH']).toBe('mcp-client');
     const init = execCalls.find(item => item.command.includes('ln -sf'));
+    expect(init?.command).toContain("ln -sf '../mcp_client.py'");
     expect(init?.command).toContain('mcp-client/bin/mcp-client');
   });
 });

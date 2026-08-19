@@ -1652,6 +1652,18 @@ async function main(): Promise<void> {
     assert.equal(printf.response.result, 'poc-ok\n');
     console.log('ok: provider exec printf');
 
+    if (support.platform === 'darwin') {
+      const opensslCnf = await provider.exec({
+        sandboxId,
+        command: "python3 -c \"p=open('/etc/ssl/openssl.cnf'); p.read(); p.close(); print('openssl-cnf-ok')\"",
+      });
+      assert.equal(opensslCnf.success, true);
+      if (!opensslCnf.success) throw new Error('unreachable');
+      assert.equal(opensslCnf.response.exitCode, 0, opensslCnf.response.result);
+      assert.match(opensslCnf.response.result, /openssl-cnf-ok/);
+      console.log('ok: darwin can read /etc/ssl/openssl.cnf (LibreSSL symlink spelling)');
+    }
+
     await smokeCodeModeSocketParentAllow({
       sandboxRootPath: sandboxId,
       codeModeSocketParentPath,
@@ -1938,8 +1950,8 @@ async function main(): Promise<void> {
     assert.match(flood.error, /buffered output exceeded/);
     console.log(`ok: oversized stdout is terminal (${String(MAX_OUTPUT_BYTES)} byte cap)`);
 
-    assert.match(provider.getToolResultDumpDir(sandboxId), /tool-results$/);
-    assert.match(provider.getGitCredentialsPath(sandboxId), /\.git-credentials$/);
+    assert.match(provider.getToolResultDumpDir(), /tool-results$/);
+    assert.match(provider.getGitCredentialsPath(), /\.git-credentials$/);
     console.log('ok: dump/git credential paths');
 
     codeModeSandboxRootPath = await createSandbox(join(sandboxRootPathParent, `codemode-${Date.now()}`));

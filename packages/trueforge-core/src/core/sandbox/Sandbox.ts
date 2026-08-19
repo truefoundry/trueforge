@@ -21,7 +21,7 @@ import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import type { ISkillMounter } from './skills/ISkillMounter';
 
 /** Layout derived from install remotePath (always `…/mcp_client.py`). */
@@ -45,27 +45,25 @@ const NATS_REQUEST_TIMEOUT_BUFFER_SECONDS = 30;
 // Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
 export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {
   const b64 = Buffer.from(params.scriptContent, 'utf-8').toString('base64');
+  const scriptPath = shellEscape(params.scriptPath);
   return [
-    `mkdir -p "$(dirname ${params.scriptPath})"`,
-    `rm -f ${params.scriptPath}`,
-    `echo ${shellEscape(b64)} | base64 -d > ${params.scriptPath}`,
-    `chmod a-w ${params.scriptPath}`,
-    `python3 ${params.scriptPath}`,
+    `mkdir -p "$(dirname ${scriptPath})"`,
+    `rm -f ${scriptPath}`,
+    `echo ${shellEscape(b64)} | base64 -d > ${scriptPath}`,
+    `chmod a-w ${scriptPath}`,
+    `python3 ${scriptPath}`,
   ].join(' && ');
 }
 
 /** Write or clear the git credential-store file at an absolute path (no global git config mutation). */
 function buildSyncGitCredentialsCommand(credentialsContent: string | null, credentialsPath: string): string {
+  const path = shellEscape(credentialsPath);
   if (credentialsContent === null) {
-    return `rm -f ${credentialsPath}`;
+    return `rm -f ${path}`;
   }
   // Base64 avoids interpolating credentials directly into the shell command.
   const b64 = Buffer.from(credentialsContent, 'utf-8').toString('base64');
-  return (
-    `mkdir -p "$(dirname ${credentialsPath})" && ` +
-    `echo '${b64}' | base64 -d > ${credentialsPath} && ` +
-    `chmod 600 ${credentialsPath}`
-  );
+  return `mkdir -p "$(dirname ${path})" && ` + `echo '${b64}' | base64 -d > ${path} && ` + `chmod 600 ${path}`;
 }
 
 /**
@@ -710,7 +708,6 @@ export class Sandbox extends LocalToolMCP {
 
     const initSteps: string[] = [];
     if (install !== undefined) {
-      const { binLink } = mcpClientLayout(install.remotePath);
       await this.provider.uploadFile({
         sandboxId,
         remotePath: install.remotePath,
@@ -720,7 +717,10 @@ export class Sandbox extends LocalToolMCP {
       if (install.pathBinSymlink !== undefined) {
         initSteps.push(`ln -sf ${shellEscape(install.remotePath)} ${shellEscape(install.pathBinSymlink)}`);
       } else {
-        initSteps.push(`ln -sf ${shellEscape(install.remotePath)} ${shellEscape(binLink)}`);
+        // Link target is relative to binDir (`mcp-client/mcp_client.py` from `mcp-client/bin`
+        // would resolve to `mcp-client/bin/mcp-client/mcp_client.py`).
+        const { binDir, binLink } = mcpClientLayout(install.remotePath);
+        initSteps.push(`ln -sf ${shellEscape(relative(binDir, install.remotePath))} ${shellEscape(binLink)}`);
       }
     }
 

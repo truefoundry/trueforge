@@ -224,6 +224,13 @@ const ALLOW_READ_BY_PLATFORM = {
     '/private/var/select',
     '/opt/homebrew',
     '/dev',
+    // Darwin `/etc` is a symlink to `/private/etc`. SRT refuses that realpath as
+    // "outside boundary" and keeps `(subpath "/etc")`. Seatbelt still checks the
+    // resolved path, so Apple LibreSSL's fopen(`/private/etc/ssl/openssl.cnf`)
+    // needs `/private/etc` listed too. Do not use a `[/]etc/**` glob: SRT treats
+    // that as cwd-relative (`path.isAbsolute('[/]…')` is false).
+    '/etc',
+    '/private/etc',
   ],
   linux: [
     '/usr/bin',
@@ -280,8 +287,9 @@ function commandEnv(params: {
     TMP: tmp,
     TEMP: tmp,
     VIRTUAL_ENV: venvDir,
-    // Local owns PATH: venv, layout mcp-client CLI, then the platform jail PATH.
-    PATH: `${join(venvDir, 'bin')}:${join(params.sandboxRootPath, 'mcp-client', 'bin')}:${commandPath(params.platform)}`,
+    // Cwd-relative layout dirs (not host-absolute). Absolute paths under
+    // `Application Support` break PATH lookup (`mcp-client: command not found`).
+    PATH: `${join(SANDBOX_VENV_DIR, 'bin')}:mcp-client/bin:${commandPath(params.platform)}`,
   };
   return {
     ...params.extra,

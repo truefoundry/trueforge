@@ -1,8 +1,5 @@
-import {
-  absolutizeRelativeExecEnv,
-  TFYSandboxProvider,
-  withMcpClientOnPath,
-} from '../../../../src/core/sandbox/provider/TFYSandboxProvider';
+import { absolutizeRelativeExecEnv } from '../../../../src/core/sandbox/provider/execEnv';
+import { TFYSandboxProvider, withMcpClientOnPath } from '../../../../src/core/sandbox/provider/TFYSandboxProvider';
 import { makeSilentLogger } from '../../harnessMocks';
 
 describe('TFYSandboxProvider layout', () => {

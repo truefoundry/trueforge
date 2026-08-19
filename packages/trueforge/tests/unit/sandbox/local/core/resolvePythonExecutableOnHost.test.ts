@@ -40,4 +40,11 @@ describe('sandbox PATH vs allowRead', () => {
   it('does not grant host /tmp on linux (Code Mode parent is allowRead separately)', () => {
     expect(platformAllowRead('linux')).not.toContain('/tmp');
   });
+
+  it('grants /etc and /private/etc on darwin (symlink + resolved spelling)', () => {
+    expect(platformAllowRead('linux')).toContain('/etc');
+    expect(platformAllowRead('linux')).not.toContain('/private/etc');
+    expect(platformAllowRead('darwin')).toContain('/etc');
+    expect(platformAllowRead('darwin')).toContain('/private/etc');
+  });
 });

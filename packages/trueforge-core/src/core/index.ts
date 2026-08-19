@@ -144,6 +144,7 @@ export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema }
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
+export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
 export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
   ExecErrorResult,
