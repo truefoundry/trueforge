@@ -368,4 +368,33 @@ describe("ModelProvidersClient", () => {
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
+
+    test("delete (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        server.mockEndpoint().delete("/api/v1/settings/model-providers/name").respondWith().statusCode(200).build();
+
+        const response = await client.settings.modelProviders.delete("name");
+        expect(response).toEqual(undefined);
+    });
+
+    test("delete (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/settings/model-providers/name")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.delete("name");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
 });

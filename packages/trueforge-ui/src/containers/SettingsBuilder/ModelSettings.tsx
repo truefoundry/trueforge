@@ -389,10 +389,7 @@ const ModelSettings = () => {
                                 disabled={busy}
                                 className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:opacity-50"
                                 onClick={() => {
-                                  handleUpdateModels(
-                                    provider,
-                                    provider.models.filter(item => item.id !== model.id),
-                                  );
+                                  handleRemoveProvider(provider);
                                 }}
                               >
                                 <Icon name="trash" className="size-3.5" />

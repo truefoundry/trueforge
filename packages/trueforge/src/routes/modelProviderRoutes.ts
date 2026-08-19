@@ -3,7 +3,7 @@
  * Discovery catalog lives at GET /api/v1/catalogs/model-providers.
  * Handlers are registered in apis/modelProviders.ts.
  */
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateModelProviderRequestSchema,
@@ -12,6 +12,10 @@ import {
   PutModelProviderRequestSchema,
 } from '../schemas/modelProvider';
 import { OpenApiTag } from './openapiTags';
+
+const ModelProviderNameParamsSchema = z.object({
+  name: z.string().min(1).describe('Model provider name.'),
+});
 
 export const listModelProvidersRoute = createRoute({
   method: 'get',
@@ -93,6 +97,28 @@ export const putModelProviderRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
+    },
+  },
+});
+
+export const deleteModelProviderRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.MODELS],
+  summary: 'Delete a model provider',
+  description: 'Deletes a configured model provider by name.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: ModelProviderNameParamsSchema,
+  },
+  responses: {
+    204: {
+      description: 'The model provider was deleted.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Model provider not found.',
     },
   },
 });
