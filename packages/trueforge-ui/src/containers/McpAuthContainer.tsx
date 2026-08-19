@@ -3,20 +3,25 @@
 import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useTrueFoundryMcpAuth } from '@truefoundry/assistant-ui-runtime';
 
+import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
+import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 export function McpAuthContainer() {
   const McpAuthPrompt = useSlot('McpAuthPrompt');
   const { pending, resume } = useTrueFoundryMcpAuth();
   const isRunning = useThreadIsRunning();
+  const { handleAuthorize } = useMCPAuth();
+  const { refreshConnectors } = useDraftCatalog();
 
   if (!pending) return null;
 
   const handleConnect = (serverId: string) => {
-    const server = pending.mcpServers.find(s => s.id === serverId);
-    if (server?.authUrl) {
-      window.open(server.authUrl, '_blank', 'noopener,noreferrer');
-    }
+    handleAuthorize(serverId, async isSuccess => {
+      if (isSuccess) {
+        refreshConnectors();
+      }
+    });
   };
 
   return (
