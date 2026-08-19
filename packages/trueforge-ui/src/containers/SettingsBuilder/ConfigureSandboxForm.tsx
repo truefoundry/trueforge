@@ -9,6 +9,13 @@ import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
 import type { SandboxProviderConfig } from '../../server/types.js';
+import {
+  RequiredMark,
+  SETTINGS_INPUT_ERROR_CLASS_NAME,
+  SettingsFieldError,
+  useTouchedFields,
+} from './SettingsFormField.js';
+import { validateNonNegativeInteger, validatePositiveInteger, validateRequired } from './settingsFormValidation.js';
 
 export type SandboxConfigDraft = SandboxProviderConfig & {
   apiKey: string;
@@ -39,12 +46,14 @@ const EMPTY_CONFIG: SandboxProviderConfig = {
 
 const inputClassName = auiInputClass('h-11 shadow-sm');
 
-function parseNonNegInt(raw: string): number | null {
+function parseInteger(raw: string): number | null {
   if (raw.trim() === '') return null;
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return n;
+  return Number.isInteger(n) ? n : null;
 }
+
+type SandboxField = 'apiKey' | 'execTimeout' | 'autoStop' | 'autoArchive' | 'autoDelete';
+const SANDBOX_FIELDS: readonly SandboxField[] = ['apiKey', 'execTimeout', 'autoStop', 'autoArchive', 'autoDelete'];
 
 const ConfigureSandboxForm = ({
   open,
@@ -63,6 +72,7 @@ const ConfigureSandboxForm = ({
   const [autoDeleteIntervalInMinutes, setAutoDeleteIntervalInMinutes] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const { isTouched, resetTouched, touch, touchAll } = useTouchedFields<SandboxField>();
 
   const resetForm = () => {
     setExecTimeoutMs('');
@@ -71,6 +81,7 @@ const ConfigureSandboxForm = ({
     setAutoDeleteIntervalInMinutes('');
     setApiKey('');
     setAdvancedOpen(false);
+    resetTouched();
   };
 
   useEffect(() => {
@@ -82,28 +93,38 @@ const ConfigureSandboxForm = ({
     setAutoDeleteIntervalInMinutes(String(config.autoDeleteIntervalInMinutes));
     setApiKey('');
     setAdvancedOpen(false);
-  }, [open, initialConfig]);
+    resetTouched();
+  }, [open, initialConfig, resetTouched]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) resetForm();
     onOpenChange(nextOpen);
   };
 
-  const execTimeout = parseNonNegInt(execTimeoutMs);
-  const autoStop = parseNonNegInt(autoStopIntervalInMinutes);
-  const autoArchive = parseNonNegInt(autoArchiveIntervalInMinutes);
-  const autoDelete = parseNonNegInt(autoDeleteIntervalInMinutes);
+  const execTimeout = parseInteger(execTimeoutMs);
+  const autoStop = parseInteger(autoStopIntervalInMinutes);
+  const autoArchive = parseInteger(autoArchiveIntervalInMinutes);
+  const autoDelete = parseInteger(autoDeleteIntervalInMinutes);
   const trimmedKey = apiKey.trim();
-
-  const isValid =
-    (!requireApiKey || !!trimmedKey) &&
-    execTimeout != null &&
-    autoStop != null &&
-    autoArchive != null &&
-    autoDelete != null;
+  const apiKeyError = requireApiKey ? validateRequired({ value: apiKey, label: 'API key' }) : null;
+  const execTimeoutError = validatePositiveInteger({ value: execTimeoutMs, label: 'Exec timeout' });
+  const autoStopError = validateNonNegativeInteger({
+    value: autoStopIntervalInMinutes,
+    label: 'Auto-stop interval',
+  });
+  const autoArchiveError = validateNonNegativeInteger({
+    value: autoArchiveIntervalInMinutes,
+    label: 'Auto-archive interval',
+  });
+  const autoDeleteError = validateNonNegativeInteger({
+    value: autoDeleteIntervalInMinutes,
+    label: 'Auto-delete interval',
+  });
+  const isValid = !apiKeyError && !execTimeoutError && !autoStopError && !autoArchiveError && !autoDeleteError;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    touchAll(SANDBOX_FIELDS);
     if (!isValid || busy || execTimeout == null || autoStop == null || autoArchive == null || autoDelete == null) {
       return;
     }
@@ -140,11 +161,12 @@ const ConfigureSandboxForm = ({
         </span>
       }
     >
-      <form className="flex flex-col overflow-y-auto p-5 md:p-6" onSubmit={handleSubmit}>
+      <form className="flex flex-col overflow-y-auto p-5 md:p-6" noValidate onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
             <label htmlFor="sandbox-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
               API key
+              {requireApiKey ? <RequiredMark /> : null}
               {!requireApiKey ? <span className="font-normal text-text-secondary"> (optional)</span> : null}
             </label>
             <input
@@ -155,10 +177,16 @@ const ConfigureSandboxForm = ({
               onChange={event => {
                 setApiKey(event.target.value);
               }}
+              onBlur={() => touch('apiKey')}
               placeholder={requireApiKey ? 'dtn_...' : 'Leave blank to keep existing'}
               autoFocus
-              className={inputClassName}
+              aria-invalid={isTouched('apiKey') && apiKeyError ? true : undefined}
+              aria-describedby={isTouched('apiKey') && apiKeyError ? 'sandbox-api-key-error' : undefined}
+              className={cn(inputClassName, isTouched('apiKey') && apiKeyError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
+            {isTouched('apiKey') && apiKeyError ? (
+              <SettingsFieldError id="sandbox-api-key-error">{apiKeyError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <Accordion
@@ -186,15 +214,27 @@ const ConfigureSandboxForm = ({
                 <input
                   id="sandbox-exec-timeout"
                   type="number"
-                  min={0}
+                  min={1}
+                  step={1}
                   required
                   value={execTimeoutMs}
                   onChange={event => {
                     setExecTimeoutMs(event.target.value);
                   }}
+                  onBlur={() => touch('execTimeout')}
                   placeholder="300000"
-                  className={inputClassName}
+                  aria-invalid={isTouched('execTimeout') && execTimeoutError ? true : undefined}
+                  aria-describedby={
+                    isTouched('execTimeout') && execTimeoutError ? 'sandbox-exec-timeout-error' : undefined
+                  }
+                  className={cn(
+                    inputClassName,
+                    isTouched('execTimeout') && execTimeoutError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+                  )}
                 />
+                {isTouched('execTimeout') && execTimeoutError ? (
+                  <SettingsFieldError id="sandbox-exec-timeout-error">{execTimeoutError}</SettingsFieldError>
+                ) : null}
               </div>
 
               <div>
@@ -205,14 +245,24 @@ const ConfigureSandboxForm = ({
                   id="sandbox-auto-stop"
                   type="number"
                   min={0}
+                  step={1}
                   required
                   value={autoStopIntervalInMinutes}
                   onChange={event => {
                     setAutoStopIntervalInMinutes(event.target.value);
                   }}
+                  onBlur={() => touch('autoStop')}
                   placeholder="15"
-                  className={inputClassName}
+                  aria-invalid={isTouched('autoStop') && autoStopError ? true : undefined}
+                  aria-describedby={isTouched('autoStop') && autoStopError ? 'sandbox-auto-stop-error' : undefined}
+                  className={cn(
+                    inputClassName,
+                    isTouched('autoStop') && autoStopError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+                  )}
                 />
+                {isTouched('autoStop') && autoStopError ? (
+                  <SettingsFieldError id="sandbox-auto-stop-error">{autoStopError}</SettingsFieldError>
+                ) : null}
               </div>
 
               <div>
@@ -223,14 +273,26 @@ const ConfigureSandboxForm = ({
                   id="sandbox-auto-archive"
                   type="number"
                   min={0}
+                  step={1}
                   required
                   value={autoArchiveIntervalInMinutes}
                   onChange={event => {
                     setAutoArchiveIntervalInMinutes(event.target.value);
                   }}
+                  onBlur={() => touch('autoArchive')}
                   placeholder="10080"
-                  className={inputClassName}
+                  aria-invalid={isTouched('autoArchive') && autoArchiveError ? true : undefined}
+                  aria-describedby={
+                    isTouched('autoArchive') && autoArchiveError ? 'sandbox-auto-archive-error' : undefined
+                  }
+                  className={cn(
+                    inputClassName,
+                    isTouched('autoArchive') && autoArchiveError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+                  )}
                 />
+                {isTouched('autoArchive') && autoArchiveError ? (
+                  <SettingsFieldError id="sandbox-auto-archive-error">{autoArchiveError}</SettingsFieldError>
+                ) : null}
               </div>
 
               <div>
@@ -241,14 +303,26 @@ const ConfigureSandboxForm = ({
                   id="sandbox-auto-delete"
                   type="number"
                   min={0}
+                  step={1}
                   required
                   value={autoDeleteIntervalInMinutes}
                   onChange={event => {
                     setAutoDeleteIntervalInMinutes(event.target.value);
                   }}
+                  onBlur={() => touch('autoDelete')}
                   placeholder="43200"
-                  className={inputClassName}
+                  aria-invalid={isTouched('autoDelete') && autoDeleteError ? true : undefined}
+                  aria-describedby={
+                    isTouched('autoDelete') && autoDeleteError ? 'sandbox-auto-delete-error' : undefined
+                  }
+                  className={cn(
+                    inputClassName,
+                    isTouched('autoDelete') && autoDeleteError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+                  )}
                 />
+                {isTouched('autoDelete') && autoDeleteError ? (
+                  <SettingsFieldError id="sandbox-auto-delete-error">{autoDeleteError}</SettingsFieldError>
+                ) : null}
               </div>
             </AccordionDetails>
           </Accordion>

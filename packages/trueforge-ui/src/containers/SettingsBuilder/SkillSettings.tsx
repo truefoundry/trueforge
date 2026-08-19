@@ -258,6 +258,7 @@ const SkillSettings = () => {
           if (!open) setFormError(null);
         }}
         onImport={handleImport}
+        existingNames={skills.map(skill => skill.name)}
         busy={busy}
         error={formError}
       />

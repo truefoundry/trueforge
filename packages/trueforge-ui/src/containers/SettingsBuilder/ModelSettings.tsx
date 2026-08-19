@@ -43,13 +43,9 @@ const ModelSettings = () => {
   const [customProviderToEdit, setCustomProviderToEdit] = useState<ModelProviderBase | null>(null);
 
   const modelProviderIconMap = useMemo(() => {
-    return (catalog ?? []).reduce(
-      (acc, entry) => {
-        acc[entry.name] = entry.logo ?? '';
-        return acc;
-      },
-      {} as Record<string, string>,
-    );
+    const icons: Record<string, string> = {};
+    for (const entry of catalog) icons[entry.name] = entry.logo ?? '';
+    return icons;
   }, [catalog]);
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -531,6 +527,7 @@ const ModelSettings = () => {
             isEditMode={customProviderToEdit !== null}
             initialValues={customProviderInitialValues}
             onSubmit={customProviderToEdit ? handleUpdateCustomProvider : handleAddCustomProvider}
+            existingNames={configured.map(provider => provider.name)}
             reasoningEffortOptions={supportedReasoningEfforts}
             busy={busy}
             error={formError}

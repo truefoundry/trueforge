@@ -62,4 +62,37 @@ describe('AddMcpServerForm', () => {
 
     expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
   });
+
+  it('shows field-level format and duplicate errors before submitting', () => {
+    const onAdd = vi.fn(async () => undefined);
+
+    render(<AddMcpServerForm open onOpenChange={() => undefined} onAdd={onAdd} existingNames={['existing-mcp']} />);
+
+    const name = screen.getByLabelText('Name');
+    fireEvent.change(name, { target: { value: 'existing-mcp' } });
+    fireEvent.blur(name);
+    expect(screen.getByText('Connector name “existing-mcp” already exists.')).toBeInTheDocument();
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+
+    const url = screen.getByLabelText('URL');
+    fireEvent.change(url, { target: { value: 'ftp://example.com/mcp' } });
+    fireEvent.blur(url);
+    expect(screen.getByText('URL must use http:// or https://.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it('validates API-key auth fields', () => {
+    render(<AddMcpServerForm open onOpenChange={() => undefined} onAdd={vi.fn(async () => undefined)} />);
+
+    fireEvent.click(screen.getByLabelText('API Key'));
+    const apiKey = screen.getByLabelText('API key');
+    fireEvent.blur(apiKey);
+    expect(screen.getByText('API key is required.')).toBeInTheDocument();
+
+    const headerName = screen.getByLabelText(/Header name/);
+    fireEvent.change(headerName, { target: { value: 'Bad Header' } });
+    fireEvent.blur(headerName);
+    expect(screen.getByText(/standard HTTP header symbols/)).toBeInTheDocument();
+  });
 });

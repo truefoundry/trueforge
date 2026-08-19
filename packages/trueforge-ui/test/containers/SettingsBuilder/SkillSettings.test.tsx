@@ -157,7 +157,7 @@ describe('SkillSettings', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Import from GitHub/ }));
 
     fireEvent.change(screen.getByLabelText('Name'), {
-      target: { value: 'House Style' },
+      target: { value: 'house-style' },
     });
     fireEvent.change(screen.getByLabelText('Description'), {
       target: { value: 'Writing rules' },
@@ -174,7 +174,7 @@ describe('SkillSettings', () => {
     await waitFor(() => {
       expect(host.created).toEqual([
         {
-          name: 'House Style',
+          name: 'house-style',
           description: 'Writing rules',
           repoURL: 'https://github.com/org/repo',
           path: 'skills/house-style',

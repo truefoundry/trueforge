@@ -16,6 +16,8 @@ import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
 import ConnectorDetails from './ConnectorDetails.js';
+import { RequiredMark, SETTINGS_INPUT_ERROR_CLASS_NAME, SettingsFieldError } from './SettingsFormField.js';
+import { validateRequired } from './settingsFormValidation.js';
 
 type ConnectorListItem =
   { connector: ConnectorBase; isConfigured: true } | { connector: ConnectorCatalogEntry; isConfigured: false };
@@ -44,15 +46,13 @@ const ConnectorSettings = () => {
   const [connectorAwaitingKey, setConnectorAwaitingKey] = useState<ConnectorCatalogEntry | null>(null);
   const [selectedConnector, setSelectedConnector] = useState<ConnectorBase | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [apiKeyTouched, setApiKeyTouched] = useState(false);
+  const apiKeyError = validateRequired({ value: apiKey, label: 'API key or token' });
 
   const connectorIconMap = useMemo(() => {
-    return (catalog ?? []).reduce(
-      (acc, entry) => {
-        acc[entry.name] = entry.logo ?? '';
-        return acc;
-      },
-      {} as Record<string, string>,
-    );
+    const icons: Record<string, string> = {};
+    for (const entry of catalog) icons[entry.name] = entry.logo ?? '';
+    return icons;
   }, [catalog]);
 
   const refresh = useCallback(async () => {
@@ -124,6 +124,11 @@ const ConnectorSettings = () => {
     return result;
   }, [matchingConnectors]);
 
+  const configuredConnectorNames = useMemo(
+    () => connectors.ordered.filter(item => item.isConfigured).map(item => item.connector.name),
+    [connectors.ordered],
+  );
+
   const runMutation = async (fn: () => Promise<void>, setMutationError = setError) => {
     setBusy(true);
     setError(null);
@@ -141,6 +146,7 @@ const ConnectorSettings = () => {
   const closeApiKeyModal = () => {
     setConnectorAwaitingKey(null);
     setApiKey('');
+    setApiKeyTouched(false);
     setFormError(null);
   };
 
@@ -166,6 +172,7 @@ const ConnectorSettings = () => {
   const handleConnect = (entry: ConnectorCatalogEntry) => {
     if (entry.auth.type === 'header') {
       setApiKey('');
+      setApiKeyTouched(false);
       setFormError(null);
       setConnectorAwaitingKey(entry);
       return;
@@ -178,7 +185,8 @@ const ConnectorSettings = () => {
 
   const handleApiKeySubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!connectorAwaitingKey || !apiKey.trim()) return;
+    setApiKeyTouched(true);
+    if (!connectorAwaitingKey || apiKeyError) return;
 
     const entry = connectorAwaitingKey;
     setFormError(null);
@@ -475,7 +483,7 @@ const ConnectorSettings = () => {
             contentSized
             className="md:max-w-xl"
           >
-            <form onSubmit={handleApiKeySubmit}>
+            <form noValidate onSubmit={handleApiKeySubmit}>
               <div className="space-y-5 px-5 py-5">
                 <div className="flex items-center gap-3">
                   <span
@@ -496,6 +504,7 @@ const ConnectorSettings = () => {
                     className="mb-2 block text-xs font-semibold uppercase tracking-wide text-text-secondary"
                   >
                     API key / token
+                    <RequiredMark />
                   </label>
                   <input
                     id="connector-api-key"
@@ -504,11 +513,20 @@ const ConnectorSettings = () => {
                     onChange={event => {
                       setApiKey(event.target.value);
                     }}
+                    onBlur={() => setApiKeyTouched(true)}
                     placeholder={`Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}`}
                     autoFocus
                     required
-                    className={auiInputClass('h-11')}
+                    aria-invalid={apiKeyTouched && apiKeyError ? true : undefined}
+                    aria-describedby={apiKeyTouched && apiKeyError ? 'connector-api-key-error' : undefined}
+                    className={cn(
+                      auiInputClass('h-11'),
+                      apiKeyTouched && apiKeyError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+                    )}
                   />
+                  {apiKeyTouched && apiKeyError ? (
+                    <SettingsFieldError id="connector-api-key-error">{apiKeyError}</SettingsFieldError>
+                  ) : null}
                 </div>
                 {formError ? <p className="text-failure-bg text-sm">{formError}</p> : null}
               </div>
@@ -531,6 +549,7 @@ const ConnectorSettings = () => {
               if (!open) setFormError(null);
             }}
             onAdd={handleAddMcpServer}
+            existingNames={configuredConnectorNames}
             busy={busy}
             error={formError}
           />

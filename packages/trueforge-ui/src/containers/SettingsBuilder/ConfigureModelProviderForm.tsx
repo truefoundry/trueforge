@@ -8,6 +8,13 @@ import { Accordion, AccordionDetails, AccordionSummary } from '../../atoms/primi
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
+import {
+  RequiredMark,
+  SETTINGS_INPUT_ERROR_CLASS_NAME,
+  SettingsFieldError,
+  useTouchedFields,
+} from './SettingsFormField.js';
+import { validateHttpUrl, validateRequired } from './settingsFormValidation.js';
 
 export type ModelProviderKeyDraft = { apiKey: string; baseUrl: string };
 
@@ -28,6 +35,8 @@ type ConfigureModelProviderFormProps = {
 };
 
 const inputClassName = auiInputClass('h-11 shadow-sm');
+type ModelProviderField = 'apiKey' | 'baseUrl';
+const MODEL_PROVIDER_FIELDS: readonly ModelProviderField[] = ['apiKey', 'baseUrl'];
 
 const ConfigureModelProviderForm = ({
   open,
@@ -45,11 +54,13 @@ const ConfigureModelProviderForm = ({
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const { isTouched, resetTouched, touch, touchAll } = useTouchedFields<ModelProviderField>();
 
   const resetForm = () => {
     setApiKey('');
     setBaseUrl('');
     setAdvancedOpen(false);
+    resetTouched();
   };
 
   // Prefill the endpoint when the modal opens; the API key is always blank (never echoed back).
@@ -58,7 +69,8 @@ const ConfigureModelProviderForm = ({
     setApiKey('');
     setBaseUrl(initialBaseUrl);
     setAdvancedOpen(false);
-  }, [open, initialBaseUrl]);
+    resetTouched();
+  }, [open, initialBaseUrl, resetTouched]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) resetForm();
@@ -66,10 +78,13 @@ const ConfigureModelProviderForm = ({
   };
 
   const trimmedKey = apiKey.trim();
-  const isValid = !requireApiKey || !!trimmedKey;
+  const apiKeyError = requireApiKey ? validateRequired({ value: apiKey, label: 'API key' }) : null;
+  const baseUrlError = validateHttpUrl({ value: baseUrl, label: 'Base URL', required: false });
+  const isValid = !apiKeyError && !baseUrlError;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    touchAll(MODEL_PROVIDER_FIELDS);
     if (!isValid || busy) return;
     try {
       await onSave({ apiKey: trimmedKey, baseUrl: baseUrl.trim() });
@@ -82,11 +97,12 @@ const ConfigureModelProviderForm = ({
 
   return (
     <CenteredModal open={open} onOpenChange={handleOpenChange} title={title} description={description} contentSized>
-      <form className="flex flex-col overflow-y-auto p-5 md:p-6" onSubmit={handleSubmit}>
+      <form className="flex flex-col overflow-y-auto p-5 md:p-6" noValidate onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div>
             <label htmlFor="model-provider-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
               API key
+              {requireApiKey ? <RequiredMark /> : null}
               {!requireApiKey ? <span className="font-normal text-text-secondary"> (optional)</span> : null}
             </label>
             <input
@@ -97,11 +113,16 @@ const ConfigureModelProviderForm = ({
               onChange={event => {
                 setApiKey(event.target.value);
               }}
+              onBlur={() => touch('apiKey')}
               placeholder={requireApiKey ? 'Enter API key' : 'Enter a new key'}
               autoFocus
-              className={inputClassName}
+              aria-invalid={isTouched('apiKey') && apiKeyError ? true : undefined}
+              aria-describedby={isTouched('apiKey') && apiKeyError ? 'model-provider-api-key-error' : undefined}
+              className={cn(inputClassName, isTouched('apiKey') && apiKeyError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
-            {!requireApiKey ? (
+            {isTouched('apiKey') && apiKeyError ? (
+              <SettingsFieldError id="model-provider-api-key-error">{apiKeyError}</SettingsFieldError>
+            ) : !requireApiKey ? (
               <p className="mt-1.5 text-xs text-text-secondary">
                 Leave blank to keep the current key; enter a new one to replace it.
               </p>
@@ -136,10 +157,17 @@ const ConfigureModelProviderForm = ({
                 onChange={event => {
                   setBaseUrl(event.target.value);
                 }}
+                onBlur={() => touch('baseUrl')}
                 placeholder={baseUrlPlaceholder}
-                className={inputClassName}
+                aria-invalid={isTouched('baseUrl') && baseUrlError ? true : undefined}
+                aria-describedby={isTouched('baseUrl') && baseUrlError ? 'model-provider-base-url-error' : undefined}
+                className={cn(inputClassName, isTouched('baseUrl') && baseUrlError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
               />
-              <p className="text-xs text-text-secondary">Leave blank unless you use a regional or proxy endpoint.</p>
+              {isTouched('baseUrl') && baseUrlError ? (
+                <SettingsFieldError id="model-provider-base-url-error">{baseUrlError}</SettingsFieldError>
+              ) : (
+                <p className="text-xs text-text-secondary">Leave blank unless you use a regional or proxy endpoint.</p>
+              )}
             </AccordionDetails>
           </Accordion>
         </div>

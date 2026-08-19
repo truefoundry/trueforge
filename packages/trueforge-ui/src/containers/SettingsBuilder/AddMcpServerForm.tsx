@@ -2,11 +2,24 @@
 
 import { useState, type FormEvent } from 'react';
 
+import { cn } from '../../atoms/lib/cn.js';
 import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
 import type { ConnectorAuth, ConnectorAuthType } from '../../server/types.js';
+import {
+  RequiredMark,
+  SETTINGS_INPUT_ERROR_CLASS_NAME,
+  SettingsFieldError,
+  useTouchedFields,
+} from './SettingsFormField.js';
+import {
+  validateHttpHeaderName,
+  validateHttpUrl,
+  validateRequired,
+  validateResourceName,
+} from './settingsFormValidation.js';
 
 export type McpAuthType = ConnectorAuthType;
 
@@ -23,6 +36,7 @@ type AddMcpServerFormProps = {
   onAdd: (draft: AddMcpServerDraft) => void | Promise<void>;
   busy?: boolean;
   error?: string | null;
+  existingNames?: readonly string[];
 };
 
 const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
@@ -33,19 +47,24 @@ const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
 
 const inputClassName = auiInputClass('h-11 shadow-sm');
 
-const RequiredMark = () => (
-  <span className="ml-0.5 text-failure-bg" aria-hidden>
-    *
-  </span>
-);
+type AddMcpServerField = 'name' | 'description' | 'url' | 'apiKey' | 'headerName';
+const ADD_MCP_SERVER_FIELDS: readonly AddMcpServerField[] = ['name', 'description', 'url', 'apiKey', 'headerName'];
 
-const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: AddMcpServerFormProps) => {
+const AddMcpServerForm = ({
+  open,
+  onOpenChange,
+  onAdd,
+  busy = false,
+  error,
+  existingNames = [],
+}: AddMcpServerFormProps) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [description, setDescription] = useState('');
   const [authType, setAuthType] = useState<McpAuthType>('dcr');
   const [apiKey, setApiKey] = useState('');
   const [headerName, setHeaderName] = useState('');
+  const { isTouched, resetTouched, touch, touchAll } = useTouchedFields<AddMcpServerField>();
 
   const resetForm = () => {
     setName('');
@@ -54,6 +73,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
     setAuthType('dcr');
     setApiKey('');
     setHeaderName('');
+    resetTouched();
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -61,10 +81,16 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
     onOpenChange(nextOpen);
   };
 
-  const isValid = !!name.trim() && !!description.trim() && !!url.trim() && (authType !== 'header' || !!apiKey.trim());
+  const nameError = validateResourceName({ value: name, label: 'Connector name', existingNames });
+  const descriptionError = validateRequired({ value: description, label: 'Description' });
+  const urlError = validateHttpUrl({ value: url, label: 'URL' });
+  const apiKeyError = authType === 'header' ? validateRequired({ value: apiKey, label: 'API key' }) : null;
+  const headerNameError = authType === 'header' ? validateHttpHeaderName(headerName) : null;
+  const isValid = !nameError && !descriptionError && !urlError && !apiKeyError && !headerNameError;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    touchAll(ADD_MCP_SERVER_FIELDS);
     if (!isValid || busy) return;
 
     const auth: ConnectorAuth =
@@ -106,7 +132,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
         </span>
       }
     >
-      <form className="flex flex-col overflow-y-auto p-5 md:p-6" onSubmit={e => void handleSubmit(e)}>
+      <form className="flex flex-col overflow-y-auto p-5 md:p-6" noValidate onSubmit={e => void handleSubmit(e)}>
         <div className="space-y-4">
           <div>
             <label htmlFor="mcp-server-name" className="mb-1.5 block text-sm font-medium text-text-primary">
@@ -121,10 +147,16 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               onChange={event => {
                 setName(event.target.value);
               }}
+              onBlur={() => touch('name')}
               placeholder="analytics-postgres-mcp"
               autoFocus
-              className={inputClassName}
+              aria-invalid={isTouched('name') && nameError ? true : undefined}
+              aria-describedby={isTouched('name') && nameError ? 'mcp-server-name-error' : undefined}
+              className={cn(inputClassName, isTouched('name') && nameError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
+            {isTouched('name') && nameError ? (
+              <SettingsFieldError id="mcp-server-name-error">{nameError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
@@ -138,11 +170,22 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               onChange={event => {
                 setDescription(event.target.value);
               }}
+              onBlur={() => touch('description')}
               placeholder="Query analytics from Postgres"
               required
               rows={3}
-              className={auiInputClass('resize-y py-2.5 shadow-sm')}
+              aria-invalid={isTouched('description') && descriptionError ? true : undefined}
+              aria-describedby={
+                isTouched('description') && descriptionError ? 'mcp-server-description-error' : undefined
+              }
+              className={cn(
+                auiInputClass('resize-y py-2.5 shadow-sm'),
+                isTouched('description') && descriptionError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+              )}
             />
+            {isTouched('description') && descriptionError ? (
+              <SettingsFieldError id="mcp-server-description-error">{descriptionError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
@@ -158,9 +201,15 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               onChange={event => {
                 setUrl(event.target.value);
               }}
+              onBlur={() => touch('url')}
               placeholder="https://mcp.example.com/mcp"
-              className={inputClassName}
+              aria-invalid={isTouched('url') && urlError ? true : undefined}
+              aria-describedby={isTouched('url') && urlError ? 'mcp-server-url-error' : undefined}
+              className={cn(inputClassName, isTouched('url') && urlError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
+            {isTouched('url') && urlError ? (
+              <SettingsFieldError id="mcp-server-url-error">{urlError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <fieldset>
@@ -219,9 +268,15 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
                   onChange={event => {
                     setApiKey(event.target.value);
                   }}
+                  onBlur={() => touch('apiKey')}
                   placeholder="Paste the server token"
-                  className={inputClassName}
+                  aria-invalid={isTouched('apiKey') && apiKeyError ? true : undefined}
+                  aria-describedby={isTouched('apiKey') && apiKeyError ? 'mcp-server-api-key-error' : undefined}
+                  className={cn(inputClassName, isTouched('apiKey') && apiKeyError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
                 />
+                {isTouched('apiKey') && apiKeyError ? (
+                  <SettingsFieldError id="mcp-server-api-key-error">{apiKeyError}</SettingsFieldError>
+                ) : null}
               </div>
 
               <div>
@@ -235,9 +290,20 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
                   onChange={event => {
                     setHeaderName(event.target.value);
                   }}
+                  onBlur={() => touch('headerName')}
                   placeholder="Authorization"
-                  className={inputClassName}
+                  aria-invalid={isTouched('headerName') && headerNameError ? true : undefined}
+                  aria-describedby={
+                    isTouched('headerName') && headerNameError ? 'mcp-server-header-name-error' : undefined
+                  }
+                  className={cn(
+                    inputClassName,
+                    isTouched('headerName') && headerNameError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+                  )}
                 />
+                {isTouched('headerName') && headerNameError ? (
+                  <SettingsFieldError id="mcp-server-header-name-error">{headerNameError}</SettingsFieldError>
+                ) : null}
               </div>
             </>
           ) : null}

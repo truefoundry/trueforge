@@ -2,11 +2,25 @@
 
 import { useState, type SyntheticEvent } from 'react';
 
+import { cn } from '@/atoms/lib/cn.js';
 import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import { Icon } from '@/icons/Icon.js';
 import type { SkillConfigBase } from '../../server/types.js';
+import {
+  RequiredMark,
+  SETTINGS_INPUT_ERROR_CLASS_NAME,
+  SettingsFieldError,
+  useTouchedFields,
+} from './SettingsFormField.js';
+import {
+  validateGitPath,
+  validateGitRef,
+  validateGitRepositoryUrl,
+  validateRequired,
+  validateResourceName,
+} from './settingsFormValidation.js';
 
 type ImportGithubSkillFormProps = {
   open: boolean;
@@ -14,14 +28,26 @@ type ImportGithubSkillFormProps = {
   onImport: (draft: SkillConfigBase) => void | Promise<void>;
   busy?: boolean;
   error?: string | null;
+  existingNames?: readonly string[];
 };
 
-const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, error }: ImportGithubSkillFormProps) => {
+type SkillField = 'name' | 'description' | 'repoUrl' | 'path' | 'ref';
+const SKILL_FIELDS: readonly SkillField[] = ['name', 'description', 'repoUrl', 'path', 'ref'];
+
+const ImportGithubSkillForm = ({
+  open,
+  onOpenChange,
+  onImport,
+  busy = false,
+  error,
+  existingNames = [],
+}: ImportGithubSkillFormProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [repoURL, setRepoURL] = useState('');
   const [path, setPath] = useState('');
   const [ref, setRef] = useState('');
+  const { isTouched, resetTouched, touch, touchAll } = useTouchedFields<SkillField>();
 
   const reset = () => {
     setName('');
@@ -29,6 +55,7 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
     setRepoURL('');
     setPath('');
     setRef('');
+    resetTouched();
   };
 
   const close = () => {
@@ -38,7 +65,8 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
 
   const handleSubmit = async (event: SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault();
-    if (!name.trim() || !description.trim() || !repoURL.trim() || !path.trim() || !ref.trim() || busy) return;
+    touchAll(SKILL_FIELDS);
+    if (!isValid || busy) return;
 
     try {
       await onImport({
@@ -54,7 +82,13 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
     }
   };
 
-  const canImport = Boolean(name.trim() && description.trim() && repoURL.trim() && path.trim() && ref.trim()) && !busy;
+  const nameError = validateResourceName({ value: name, label: 'Skill name', existingNames });
+  const descriptionError = validateRequired({ value: description, label: 'Description' });
+  const repoUrlError = validateGitRepositoryUrl(repoURL);
+  const pathError = validateGitPath(path);
+  const refError = validateGitRef(ref);
+  const isValid = !nameError && !descriptionError && !repoUrlError && !pathError && !refError;
+  const canImport = isValid && !busy;
 
   return (
     <CenteredModal
@@ -72,11 +106,12 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
       contentSized
       className="md:max-w-2xl"
     >
-      <form onSubmit={e => void handleSubmit(e)}>
+      <form noValidate onSubmit={e => void handleSubmit(e)}>
         <div className="space-y-5 px-5 py-5 md:px-6">
           <div>
             <label htmlFor="skill-name" className="mb-2 block text-sm font-semibold text-text-primary">
               Name
+              <RequiredMark />
             </label>
             <input
               id="skill-name"
@@ -84,16 +119,23 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
               onChange={event => {
                 setName(event.target.value);
               }}
+              onBlur={() => touch('name')}
               placeholder="release-notes"
               autoFocus
               required
-              className={auiInputClass('h-11')}
+              aria-invalid={isTouched('name') && nameError ? true : undefined}
+              aria-describedby={isTouched('name') && nameError ? 'skill-name-error' : undefined}
+              className={cn(auiInputClass('h-11'), isTouched('name') && nameError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
+            {isTouched('name') && nameError ? (
+              <SettingsFieldError id="skill-name-error">{nameError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
             <label htmlFor="skill-description" className="mb-2 block text-sm font-semibold text-text-primary">
               Description
+              <RequiredMark />
             </label>
             <textarea
               id="skill-description"
@@ -101,16 +143,26 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
               onChange={event => {
                 setDescription(event.target.value);
               }}
+              onBlur={() => touch('description')}
               placeholder="Generate release notes from merged pull requests"
               required
               rows={3}
-              className={auiInputClass('resize-y py-2.5')}
+              aria-invalid={isTouched('description') && descriptionError ? true : undefined}
+              aria-describedby={isTouched('description') && descriptionError ? 'skill-description-error' : undefined}
+              className={cn(
+                auiInputClass('resize-y py-2.5'),
+                isTouched('description') && descriptionError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+              )}
             />
+            {isTouched('description') && descriptionError ? (
+              <SettingsFieldError id="skill-description-error">{descriptionError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
             <label htmlFor="skill-repo-url" className="mb-2 block text-sm font-semibold text-text-primary">
               Repository URL
+              <RequiredMark />
             </label>
             <input
               id="skill-repo-url"
@@ -119,15 +171,25 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
               onChange={event => {
                 setRepoURL(event.target.value);
               }}
+              onBlur={() => touch('repoUrl')}
               placeholder="https://github.com/org/repo"
               required
-              className={auiInputClass('h-11')}
+              aria-invalid={isTouched('repoUrl') && repoUrlError ? true : undefined}
+              aria-describedby={isTouched('repoUrl') && repoUrlError ? 'skill-repo-url-error' : undefined}
+              className={cn(
+                auiInputClass('h-11'),
+                isTouched('repoUrl') && repoUrlError && SETTINGS_INPUT_ERROR_CLASS_NAME,
+              )}
             />
+            {isTouched('repoUrl') && repoUrlError ? (
+              <SettingsFieldError id="skill-repo-url-error">{repoUrlError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
             <label htmlFor="skill-path" className="mb-2 block text-sm font-semibold text-text-primary">
               Folder containing the SKILL.md
+              <RequiredMark />
             </label>
             <input
               id="skill-path"
@@ -135,15 +197,22 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
               onChange={event => {
                 setPath(event.target.value);
               }}
+              onBlur={() => touch('path')}
               placeholder="skills/release-notes"
               required
-              className={auiInputClass('h-11')}
+              aria-invalid={isTouched('path') && pathError ? true : undefined}
+              aria-describedby={isTouched('path') && pathError ? 'skill-path-error' : undefined}
+              className={cn(auiInputClass('h-11'), isTouched('path') && pathError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
+            {isTouched('path') && pathError ? (
+              <SettingsFieldError id="skill-path-error">{pathError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
             <label htmlFor="skill-ref" className="mb-2 block text-sm font-semibold text-text-primary">
               Branch
+              <RequiredMark />
             </label>
             <input
               id="skill-ref"
@@ -151,10 +220,16 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
               onChange={event => {
                 setRef(event.target.value);
               }}
+              onBlur={() => touch('ref')}
               placeholder="main"
               required
-              className={auiInputClass('h-11')}
+              aria-invalid={isTouched('ref') && refError ? true : undefined}
+              aria-describedby={isTouched('ref') && refError ? 'skill-ref-error' : undefined}
+              className={cn(auiInputClass('h-11'), isTouched('ref') && refError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
+            {isTouched('ref') && refError ? (
+              <SettingsFieldError id="skill-ref-error">{refError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div className="space-y-3">

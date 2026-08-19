@@ -16,16 +16,18 @@ beforeAll(() => {
   };
 });
 
-function renderForm(onAdd: (draft: CustomProviderDraft) => void | Promise<void> = vi.fn(async () => undefined)) {
+function renderForm({ existingNames = [] }: { existingNames?: readonly string[] } = {}) {
+  const onAdd = vi.fn(async (_draft: CustomProviderDraft) => undefined);
   render(
     <CustomModelProviderForm
       open
       onOpenChange={() => undefined}
       onSubmit={onAdd}
+      existingNames={existingNames}
       reasoningEffortOptions={['low', 'high']}
     />,
   );
-  return onAdd as ReturnType<typeof vi.fn>;
+  return onAdd;
 }
 
 /** The always-visible required fields (typing the Model ID auto-derives the Model name). */
@@ -74,17 +76,14 @@ describe('CustomModelProviderForm', () => {
     expect(submit).toBeEnabled();
   });
 
-  it('requires the provider name but defers format validation to the server', () => {
-    renderForm();
+  it('validates the provider name format and existing names', () => {
+    renderForm({ existingNames: ['existing-provider'] });
     const name = screen.getByPlaceholderText('local-llama');
-    // A non-empty name with backend-specific format issues is not rejected client-side —
-    // the server validates format and surfaces it on submit.
-    fireEvent.change(name, { target: { value: 'Local Llama' } }); // spaces + capitals
+    fireEvent.change(name, { target: { value: 'Local Llama' } });
     fireEvent.blur(name);
-    expect(screen.queryByText(/lowercase characters/)).not.toBeInTheDocument();
-    // Emptiness is the only client-side check.
-    fireEvent.change(name, { target: { value: '' } });
-    expect(screen.getByText('Name is required.')).toBeInTheDocument();
+    expect(screen.getByText(/Provider name must be 2–64 lowercase/)).toBeInTheDocument();
+    fireEvent.change(name, { target: { value: 'existing-provider' } });
+    expect(screen.getByText('Provider name “existing-provider” already exists.')).toBeInTheDocument();
   });
 
   it('flags an invalid base URL', () => {
@@ -92,21 +91,21 @@ describe('CustomModelProviderForm', () => {
     const url = screen.getByPlaceholderText('http://localhost:11434/v1');
     fireEvent.change(url, { target: { value: 'not a url' } });
     fireEvent.blur(url);
-    expect(screen.getByText('Enter a valid URL.')).toBeInTheDocument();
+    expect(screen.getByText('Enter a valid base url.')).toBeInTheDocument();
   });
 
   it('does not prefill Context length or Max output tokens', () => {
     renderForm();
     // Advanced is expanded by default, so the limits are visible immediately.
-    expect((screen.getByPlaceholderText('128000') as HTMLInputElement).value).toBe('');
-    expect((screen.getByPlaceholderText('4096') as HTMLInputElement).value).toBe('');
+    expect(screen.getByPlaceholderText('128000')).toHaveValue(null);
+    expect(screen.getByPlaceholderText('4096')).toHaveValue(null);
   });
 
   it('requires both limits: submitting with them empty shows the error and does not submit', () => {
     const onAdd = renderForm();
     fillVisible(); // Advanced is expanded by default; the limits are visible but empty.
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' }));
-    expect(screen.getByText(/Set the model.s context window/)).toBeInTheDocument();
+    expect(screen.getByText('Context length is required.')).toBeInTheDocument();
     expect(onAdd).not.toHaveBeenCalled();
   });
 
@@ -114,7 +113,7 @@ describe('CustomModelProviderForm', () => {
     renderForm();
     fillVisible(); // model 1 visible-valid, limits still empty
     fireEvent.click(screen.getByRole('button', { name: 'Add provider' })); // reveals model 1's limit errors
-    expect(screen.getByText(/Set the model.s context window/)).toBeInTheDocument();
+    expect(screen.getByText('Context length is required.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Add model' }));
     // The freshly added (untouched) model must not inherit "required" errors from the submit attempt.
@@ -169,19 +168,17 @@ describe('CustomModelProviderForm', () => {
   it('auto-derives the Model name as a slug from the Model ID', () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText('llama3.1:70b'), { target: { value: 'llama3.1:70b' } });
-    expect((screen.getByPlaceholderText('llama-3-1-70b') as HTMLInputElement).value).toBe('llama-3-1-70b');
+    expect(screen.getByPlaceholderText('llama-3-1-70b')).toHaveValue('llama-3-1-70b');
   });
 
-  it('defers Model name format validation to the server', () => {
+  it('validates the Model name format before submission', () => {
     renderForm();
     fillVisible();
     const modelName = screen.getByPlaceholderText('llama-3-1-70b');
-    fireEvent.change(modelName, { target: { value: 'Bad Name' } }); // spaces + capitals
+    fireEvent.change(modelName, { target: { value: 'Bad Name' } });
     fireEvent.blur(modelName);
-    // No client-side format error; the server validates the slug on submit.
-    expect(screen.queryByText(/lowercase characters/)).not.toBeInTheDocument();
-    // A non-empty (if malformed) model name does not block submit client-side.
-    expect(screen.getByRole('button', { name: 'Add provider' })).toBeEnabled();
+    expect(screen.getByText(/Model name must be 2–64 lowercase/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
   });
 
   it('never errors the auto-derived Model name; the user just enters one', () => {
@@ -205,6 +202,21 @@ describe('CustomModelProviderForm', () => {
     expect(screen.queryByText('Model name is required.')).not.toBeInTheDocument();
   });
 
+  it('rejects duplicate model IDs within a provider', () => {
+    renderForm();
+    fillVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Add model' }));
+    const modelIds = screen.getAllByPlaceholderText('llama3.1:70b');
+    const secondModelId = modelIds[1];
+    if (!secondModelId) throw new Error('Expected a second model ID field');
+
+    fireEvent.change(secondModelId, { target: { value: 'llama3.1:70b' } });
+    fireEvent.blur(secondModelId);
+
+    expect(screen.getByText('Model ID “llama3.1:70b” must be unique.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add provider' })).toBeDisabled();
+  });
+
   it('submits the derived slug as the model name', async () => {
     const onAdd = renderForm();
     fillValid();
@@ -226,6 +238,7 @@ describe('CustomModelProviderForm', () => {
         open
         onOpenChange={() => undefined}
         onSubmit={onSubmit}
+        existingNames={['local-llama']}
         reasoningEffortOptions={['low', 'high']}
         initialValues={{
           name: 'local-llama',

@@ -6,6 +6,14 @@ import { cn } from '../../atoms/lib/cn.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
+import { RequiredMark, SETTINGS_INPUT_ERROR_CLASS_NAME, SettingsFieldError } from './SettingsFormField.js';
+import {
+  validateHttpUrl,
+  validatePositiveInteger,
+  validateRequired,
+  validateResourceName,
+  validateUniqueValue,
+} from './settingsFormValidation.js';
 
 export type CustomProviderDraft = {
   name: string;
@@ -33,6 +41,7 @@ type CustomModelProviderFormProps = {
   reasoningEffortOptions?: readonly string[];
   busy?: boolean;
   error?: string | null;
+  existingNames?: readonly string[];
 };
 
 type ModelRow = {
@@ -44,6 +53,7 @@ type ModelRow = {
   idTouched?: boolean;
   contextTouched?: boolean;
   maxTouched?: boolean;
+  nameTouched?: boolean;
   // Set once the user edits the model name by hand, so auto-derive from the id stops.
   nameDirty?: boolean;
   // `id` is the upstream model_id; kept last so object-shorthand stays readable.
@@ -80,7 +90,6 @@ const createModelRows = (initialValues?: CustomProviderInitialValues): ModelRow[
 // deeper fill, a subtle hairline, and a clear focus ring.
 const inputClassName =
   'h-11 w-full rounded-md border border-border/70 bg-secondary-bg px-3 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/70 focus-visible:border-focus-ring focus-visible:ring-2 focus-visible:ring-focus-ring/50';
-const inputErrorClassName = 'border-failure-bg focus-visible:border-failure-bg focus-visible:ring-failure-bg';
 
 /** Parse an optional positive integer; returns null when empty or invalid (so it's simply omitted). */
 function parsePositiveInt(raw: string): number | null {
@@ -101,16 +110,6 @@ function slugifyModelId(raw: string): string {
     .replace(/-+$/g, ''); // …then trim any separator truncation left at the end
 }
 
-const RequiredMark = () => (
-  <span className="ml-0.5 text-failure-bg" aria-hidden>
-    *
-  </span>
-);
-
-const FieldError = ({ children }: { children: ReactNode }) => (
-  <p className="mt-1 text-xs text-failure-bg">{children}</p>
-);
-
 const FieldHelp = ({ children }: { children: ReactNode }) => (
   <p className="mt-1 text-xs text-text-secondary">{children}</p>
 );
@@ -124,6 +123,7 @@ const CustomModelProviderForm = ({
   error,
   isEditMode = false,
   initialValues,
+  existingNames = [],
 }: CustomModelProviderFormProps) => {
   const [name, setName] = useState(initialValues?.name ?? '');
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl ?? '');
@@ -161,38 +161,37 @@ const CustomModelProviderForm = ({
       current.map(model => ({
         ...model,
         idTouched: true,
+        nameTouched: true,
         contextTouched: true,
         maxTouched: true,
       })),
     );
   };
 
-  // ── Validation ── Client checks stay backend-agnostic: presence only. Name *format*
-  // rules (slug pattern, length) belong to the server, which may differ per deployment;
-  // violations surface via the `error` prop on submit rather than being second-guessed here.
   const trimmedName = name.trim();
-  const nameError = trimmedName ? null : 'Name is required.';
+  const nameError = validateResourceName({
+    value: name,
+    label: 'Provider name',
+    existingNames,
+    ...(isEditMode && initialValues ? { originalName: initialValues.name } : {}),
+  });
 
   const trimmedBaseUrl = baseUrl.trim();
-  let baseUrlError: string | null = null;
-  if (!trimmedBaseUrl) {
-    baseUrlError = 'Base URL is required.';
-  } else {
-    try {
-      new URL(trimmedBaseUrl);
-    } catch {
-      baseUrlError = 'Enter a valid URL.';
-    }
-  }
-
-  const modelIdError = (model: ModelRow): string | null => (model.id.trim() ? null : 'Model ID is required.');
-  const modelNameError = (model: ModelRow): string | null => (model.name.trim() ? null : 'Model name is required.');
+  const baseUrlError = validateHttpUrl({ value: baseUrl, label: 'Base URL' });
+  const modelIds = models.map(model => model.id.trim());
+  const modelNames = models.map(model => model.name.trim());
+  const modelIdError = (model: ModelRow): string | null =>
+    validateRequired({ value: model.id, label: 'Model ID' }) ??
+    validateUniqueValue({ value: model.id, values: modelIds, label: 'Model ID' });
+  const modelNameError = (model: ModelRow): string | null =>
+    validateResourceName({ value: model.name, label: 'Model name' }) ??
+    validateUniqueValue({ value: model.name, values: modelNames, label: 'Model name' });
 
   // Both limits are required: the harness budgets a run as input + reserved output ≤ context window.
   const modelContextError = (model: ModelRow): string | null =>
-    parsePositiveInt(model.contextLength) == null ? "Set the model's context window." : null;
+    validatePositiveInteger({ value: model.contextLength, label: 'Context length' });
   const modelMaxOutputError = (model: ModelRow): string | null =>
-    parsePositiveInt(model.maxOutputTokens) == null ? 'Set the max output tokens.' : null;
+    validatePositiveInteger({ value: model.maxOutputTokens, label: 'Max output tokens' });
 
   // The Add-provider button gates on the always-visible fields. The collapsed per-model
   // limits are enforced on submit — auto-expanding and focusing the first offender.
@@ -217,7 +216,7 @@ const CustomModelProviderForm = ({
         const el = document.getElementById(`custom-provider-model-${incompleteIndex}-${field}`);
         // scrollIntoView is unimplemented in jsdom; guard the method so tests don't throw.
         el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
-        (el as HTMLInputElement | null)?.focus();
+        el?.focus();
       }, 0);
       return;
     }
@@ -261,6 +260,7 @@ const CustomModelProviderForm = ({
     >
       <form
         className="flex min-h-0 flex-1 flex-col"
+        noValidate
         onSubmit={event => {
           event.preventDefault();
           void handleSubmit();
@@ -284,14 +284,17 @@ const CustomModelProviderForm = ({
               readOnly={isEditMode}
               aria-readonly={isEditMode}
               aria-invalid={showNameError ? true : undefined}
+              aria-describedby={showNameError ? 'custom-provider-name-error' : undefined}
               className={cn(
                 inputClassName,
                 isEditMode && 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary',
-                showNameError && inputErrorClassName,
+                showNameError && SETTINGS_INPUT_ERROR_CLASS_NAME,
               )}
             />
             {isEditMode ? <FieldHelp>Provider names cannot be changed after creation.</FieldHelp> : null}
-            {showNameError ? <FieldError>{nameError}</FieldError> : null}
+            {showNameError ? (
+              <SettingsFieldError id="custom-provider-name-error">{nameError}</SettingsFieldError>
+            ) : null}
           </div>
 
           <div>
@@ -308,10 +311,11 @@ const CustomModelProviderForm = ({
               placeholder="http://localhost:11434/v1"
               autoFocus={isEditMode}
               aria-invalid={showBaseUrlError ? true : undefined}
-              className={cn(inputClassName, showBaseUrlError && inputErrorClassName)}
+              aria-describedby={showBaseUrlError ? 'custom-provider-base-url-error' : undefined}
+              className={cn(inputClassName, showBaseUrlError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
             />
             {showBaseUrlError ? (
-              <FieldError>{baseUrlError}</FieldError>
+              <SettingsFieldError id="custom-provider-base-url-error">{baseUrlError}</SettingsFieldError>
             ) : !trimmedBaseUrl ? (
               <FieldHelp>OpenAI-compatible endpoint, usually ending in /v1.</FieldHelp>
             ) : null}
@@ -348,10 +352,8 @@ const CustomModelProviderForm = ({
                 const idError = modelIdError(model);
                 const showIdError = model.idTouched && idError;
                 const nameFieldError = modelNameError(model);
-                // The Model name is auto-derived from the Model ID and is editable. Never flag an
-                // auto-derived value: if the id yields no usable name, stay silent and let the user
-                // type one. Only surface an error once they have hand-edited the name themselves.
-                const showNameFieldError = !!nameFieldError && model.nameDirty;
+                // Auto-derived names stay quiet while typing; submit still reveals an invalid or duplicate value.
+                const showNameFieldError = model.nameTouched && nameFieldError;
                 const contextError = modelContextError(model);
                 const maxError = modelMaxOutputError(model);
                 const showContextError = model.contextTouched && contextError;
@@ -385,7 +387,8 @@ const CustomModelProviderForm = ({
                           onBlur={() => updateModel(index, { idTouched: true })}
                           placeholder="llama3.1:70b"
                           aria-invalid={showIdError ? true : undefined}
-                          className={cn(inputClassName, 'font-mono', showIdError && inputErrorClassName)}
+                          aria-describedby={showIdError ? `custom-provider-model-${index}-id-error` : undefined}
+                          className={cn(inputClassName, 'font-mono', showIdError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
                         />
                       </div>
                       <div className="min-w-0">
@@ -400,9 +403,13 @@ const CustomModelProviderForm = ({
                           type="text"
                           value={model.name}
                           onChange={event => updateModel(index, { name: event.target.value, nameDirty: true })}
+                          onBlur={() => updateModel(index, { nameTouched: true })}
                           placeholder="llama-3-1-70b"
                           aria-invalid={showNameFieldError ? true : undefined}
-                          className={cn(inputClassName, showNameFieldError && inputErrorClassName)}
+                          aria-describedby={
+                            showNameFieldError ? `custom-provider-model-${index}-name-error` : undefined
+                          }
+                          className={cn(inputClassName, showNameFieldError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
                         />
                       </div>
                       <button
@@ -415,8 +422,14 @@ const CustomModelProviderForm = ({
                         <Icon name="trash" className="size-4" />
                       </button>
                     </div>
-                    {showIdError ? <FieldError>{idError}</FieldError> : null}
-                    {showNameFieldError ? <FieldError>{nameFieldError}</FieldError> : null}
+                    {showIdError ? (
+                      <SettingsFieldError id={`custom-provider-model-${index}-id-error`}>{idError}</SettingsFieldError>
+                    ) : null}
+                    {showNameFieldError ? (
+                      <SettingsFieldError id={`custom-provider-model-${index}-name-error`}>
+                        {nameFieldError}
+                      </SettingsFieldError>
+                    ) : null}
 
                     {/* Advanced (plain text toggle, no surrounding box) */}
                     <div className="mt-2">
@@ -451,16 +464,22 @@ const CustomModelProviderForm = ({
                               id={`custom-provider-model-${index}-context-length`}
                               type="number"
                               min={1}
+                              step={1}
                               inputMode="numeric"
                               value={model.contextLength}
                               onChange={event => updateModel(index, { contextLength: event.target.value })}
                               onBlur={() => updateModel(index, { contextTouched: true })}
                               placeholder={PLACEHOLDER_CONTEXT_LENGTH}
                               aria-invalid={showContextError ? true : undefined}
-                              className={cn(inputClassName, showContextError && inputErrorClassName)}
+                              aria-describedby={
+                                showContextError ? `custom-provider-model-${index}-context-error` : undefined
+                              }
+                              className={cn(inputClassName, showContextError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
                             />
                             {showContextError ? (
-                              <FieldError>{contextError}</FieldError>
+                              <SettingsFieldError id={`custom-provider-model-${index}-context-error`}>
+                                {contextError}
+                              </SettingsFieldError>
                             ) : model.contextLength.trim() === '' ? (
                               <FieldHelp>Model&apos;s total token window.</FieldHelp>
                             ) : null}
@@ -478,16 +497,22 @@ const CustomModelProviderForm = ({
                               id={`custom-provider-model-${index}-max-output-tokens`}
                               type="number"
                               min={1}
+                              step={1}
                               inputMode="numeric"
                               value={model.maxOutputTokens}
                               onChange={event => updateModel(index, { maxOutputTokens: event.target.value })}
                               onBlur={() => updateModel(index, { maxTouched: true })}
                               placeholder={PLACEHOLDER_MAX_OUTPUT_TOKENS}
                               aria-invalid={showMaxError ? true : undefined}
-                              className={cn(inputClassName, showMaxError && inputErrorClassName)}
+                              aria-describedby={
+                                showMaxError ? `custom-provider-model-${index}-max-output-error` : undefined
+                              }
+                              className={cn(inputClassName, showMaxError && SETTINGS_INPUT_ERROR_CLASS_NAME)}
                             />
                             {showMaxError ? (
-                              <FieldError>{maxError}</FieldError>
+                              <SettingsFieldError id={`custom-provider-model-${index}-max-output-error`}>
+                                {maxError}
+                              </SettingsFieldError>
                             ) : model.maxOutputTokens.trim() === '' ? (
                               <FieldHelp>Longest reply the model allows — use its real limit.</FieldHelp>
                             ) : null}
