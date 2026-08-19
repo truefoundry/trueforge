@@ -8,18 +8,18 @@
 import { createRoute } from '@hono/zod-openapi';
 import { AuthLoginQuerySchema, MeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-
-const AUTH_TAG = 'Auth';
+import { OpenApiTag } from './openapiTags';
 
 export const authLoginRoute = createRoute({
   method: 'get',
   path: '/login',
-  tags: [AUTH_TAG],
+  tags: [OpenApiTag.AUTH],
   summary: 'Start the login flow',
   description:
     'Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight ' +
     'back into the app — there is nothing to log into.',
   'x-fern-ignore': true,
+  'x-excluded': true,
   request: { query: AuthLoginQuerySchema },
   responses: {
     302: { description: 'Redirect to the IdP authorization endpoint.' },
@@ -29,12 +29,13 @@ export const authLoginRoute = createRoute({
 export const oAuthCallbackRoute = createRoute({
   method: 'get',
   path: '/callback',
-  tags: [AUTH_TAG],
+  tags: [OpenApiTag.AUTH],
   summary: 'Login callback',
   description:
     'Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. ' +
     'In local/single-binary mode, redirects straight back into the app.',
   'x-fern-ignore': true,
+  'x-excluded': true,
   request: { query: OAuthCallbackQuerySchema },
   responses: {
     302: { description: 'Redirect back into the app on success, or to /?error=<reason> on failure.' },
@@ -44,13 +45,14 @@ export const oAuthCallbackRoute = createRoute({
 export const authLogoutRoute = createRoute({
   method: 'post',
   path: '/logout',
-  tags: [AUTH_TAG],
+  tags: [OpenApiTag.AUTH],
   summary: 'Clear the local session',
   description:
     'Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary ' +
     'mode, since there is no real session to clear.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'logout',
+  'x-excluded': true,
   responses: {
     204: { description: 'Session cookie cleared.' },
   },
@@ -59,7 +61,7 @@ export const authLogoutRoute = createRoute({
 export const meRoute = createRoute({
   method: 'get',
   path: '/me',
-  tags: [AUTH_TAG],
+  tags: [OpenApiTag.AUTH],
   summary: 'Current session',
   description:
     'Returns the authenticated caller identity. When auth is enabled this requires a valid ' +

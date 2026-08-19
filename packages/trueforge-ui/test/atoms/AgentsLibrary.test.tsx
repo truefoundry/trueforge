@@ -152,8 +152,8 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('1 skills')).toBeInTheDocument();
-    expect(screen.getByLabelText('1 MCP servers')).toBeInTheDocument();
+    expect(screen.getByLabelText('Connectors: github')).toBeInTheDocument();
+    expect(screen.getByLabelText('Skills: paint')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent bare' })).toBeInTheDocument();
     expect(screen.queryByLabelText('0 skills')).not.toBeInTheDocument();
   });

@@ -126,7 +126,7 @@ describe('settings model-providers and models routers', () => {
     ({ settingsRouter, catalogRouter, modelsRouter } = await createRouters());
   });
 
-  it('GET /catalog/model-providers returns shipped presets plus a custom sentinel', async () => {
+  it('GET /catalogs/model-providers returns shipped presets plus a custom sentinel', async () => {
     const response = await catalogRouter.request('/model-providers');
     expect(response.status).toBe(200);
     const body = (await response.json()) as {

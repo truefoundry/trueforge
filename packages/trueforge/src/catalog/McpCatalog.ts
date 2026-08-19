@@ -1,6 +1,6 @@
 /**
  * Shipped MCP catalog (mcp-catalog.yaml): the discovery list of server
- * presets offered by GET /catalog/mcp-servers for the UI to copy into
+ * presets offered by GET /catalogs/mcp-servers for the UI to copy into
  * PUT /settings/mcp-servers bodies. Never consulted on writes and never
  * read by the runtime.
  *
