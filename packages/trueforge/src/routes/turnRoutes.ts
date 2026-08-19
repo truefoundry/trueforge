@@ -27,7 +27,7 @@ export const TurnIdParamsSchema = SessionIdParamsSchema.extend({
 export const listTurnsRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns',
-  tags: [OpenApiTag.SESSIONS],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List turns in a session',
   description:
     'List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.',
@@ -61,7 +61,7 @@ export const listTurnsRoute = createRoute({
 export const getTurnRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}',
-  tags: [OpenApiTag.SESSIONS],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a turn',
   description: 'Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.',
   'x-fern-sdk-group-name': ['sessions'],
@@ -88,7 +88,7 @@ export const getTurnRoute = createRoute({
 export const downloadSandboxFileRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}/download-sandbox-file',
-  tags: [OpenApiTag.SESSIONS],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Download a file from the turn sandbox',
   description:
     "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
@@ -137,7 +137,7 @@ export const downloadSandboxFileRoute = createRoute({
 export const listTurnEventsRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}/events',
-  tags: [OpenApiTag.SESSIONS],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List turn events',
   description:
     'Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.',
@@ -171,7 +171,7 @@ export const listTurnEventsRoute = createRoute({
 export const createAndExecuteTurnRoute = createRoute({
   method: 'post',
   path: '/{session_id}/turns',
-  tags: [OpenApiTag.SESSIONS],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Create and execute a turn in a session',
   description: `Create a turn within a session and execute it.
 Only the session creator (\`created_by\`) may create turns.
@@ -241,7 +241,7 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
 export const subscribeTurnRoute = createRoute({
   method: 'get',
   path: '/{session_id}/turns/{turn_id}/subscribe',
-  tags: [OpenApiTag.SESSIONS],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Subscribe to a running turn',
   description:
     'Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).',

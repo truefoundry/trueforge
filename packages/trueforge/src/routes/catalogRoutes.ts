@@ -75,13 +75,12 @@ export const listSkillCatalogRoute = createRoute({
 export const listSandboxProviderCatalogRoute = createRoute({
   method: 'get',
   path: '/sandbox-providers',
-  tags: [OpenApiTag.CAPABILITIES],
+  tags: [OpenApiTag.SANDBOXES],
   summary: 'Get the sandbox provider catalog',
   description:
     'Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.',
   'x-fern-sdk-group-name': ['catalogs', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'list',
-  'x-excluded': true,
   responses: {
     200: {
       content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },

@@ -52,6 +52,7 @@ export const authLogoutRoute = createRoute({
     'mode, since there is no real session to clear.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'logout',
+  'x-excluded': true,
   responses: {
     204: { description: 'Session cookie cleared.' },
   },
