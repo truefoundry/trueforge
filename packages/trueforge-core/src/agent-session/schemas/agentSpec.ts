@@ -151,53 +151,6 @@ const LargeToolResponseSettingsSchema = z.object({
     ),
 });
 
-const BASIC_AUTH_USERNAME_PATTERN = /^\S+$/;
-
-/** True when any hostname segment contains `*` (e.g. `*.github.com`). */
-function hostContainsWildcard(host: string): boolean {
-  return host.split('.').some(segment => segment.includes('*'));
-}
-
-const SandboxAuthInjectMatchSchema = z.object({
-  hosts: z
-    .array(
-      z
-        .string()
-        .min(1)
-        .refine(host => !hostContainsWildcard(host), {
-          message: 'Hosts must be exact hostnames without wildcards',
-        })
-        .describe('Exact hostname to match (no wildcards).'),
-    )
-    .min(1)
-    .describe('Hostnames that receive injected credentials.'),
-});
-
-const SandboxBasicAuthDataSchema = z.object({
-  type: z.literal('basic').describe('Basic auth credential type.'),
-  username: z
-    .string()
-    .regex(BASIC_AUTH_USERNAME_PATTERN, 'Username must be non-empty and contain no whitespace')
-    .describe('Basic-auth username (no whitespace).'),
-  password: z.string().min(1).describe('Basic-auth password.'),
-});
-
-const SandboxGitAuthInjectSchema = z.object({
-  type: z.literal('git').describe('Inject credentials for git HTTPS clones.'),
-  match: SandboxAuthInjectMatchSchema,
-  auth_data: SandboxBasicAuthDataSchema,
-});
-
-const SandboxNetworkPolicySchema = z
-  .object({
-    auth_inject: z
-      .array(SandboxGitAuthInjectSchema)
-      .max(1, 'At most one auth inject rule is supported (type: git)')
-      .optional()
-      .describe('Up to one rule injecting git basic-auth credentials for exact hosts.'),
-  })
-  .openapi('SandboxNetworkPolicy');
-
 const SandboxConfigSchema = z
   .object({
     enabled: z.boolean().describe('Give the agent a sandbox. Required for skills and Code Mode.'),
@@ -205,7 +158,6 @@ const SandboxConfigSchema = z
       .boolean()
       .default(true)
       .describe('Allow downloading agent-produced files via the turn download endpoint. Default: true.'),
-    network_policy: SandboxNetworkPolicySchema.optional(),
   })
   .openapi('SandboxConfig');
 
