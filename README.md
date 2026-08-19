@@ -94,6 +94,11 @@ We love contributions - bug reports, features, and docs fixes. See [CONTRIBUTING
 
 To report a security vulnerability, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
+## Talk to us
+
+- [Community Discord](https://discord.com/invite/fHeGRvakb)
+- Founder emails: [abhishek@truefoundry.com](mailto:abhishek@truefoundry.com) / [anuraag@truefoundry.com](mailto:anuraag@truefoundry.com)
+
 ## License
 
 TrueForge is released under the [MIT License](LICENSE).
