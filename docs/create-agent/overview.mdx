@@ -66,9 +66,9 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Sandbox" icon="box">
     An isolated environment for running code, files, and shell commands, separate from the server. It's **off by default** and provisioned only when the agent needs it. Required for [skills](/skills) and [Code Mode](/key-features/code-mode).
 
-    Optional extras (API): allow clients to **download files** the agent produces, and **inject git credentials** so the sandbox can clone private repos without the agent ever seeing the secret.
+    Optional extras (API): allow clients to **download files** the agent produces.
 
-    **Set in:** UI (on/off) · API (on/off + file downloads + git auth injection)
+    **Set in:** UI (on/off) · API (on/off + file downloads)
   </Accordion>
 
   <Accordion title="Generative UI" icon="chart-column">
@@ -327,7 +327,6 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | ---------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                    | `false` | UI + API | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
 | `file_downloads`             | `true`  | API      | Allow clients to download files the agent produces in the sandbox.                                                                                                                                     |
-| `network_policy.auth_inject` | —       | API      | Up to one rule injecting git basic-auth credentials for exact hosts: `{ "type": "git", "match": { "hosts": ["github.com"] }, "auth_data": { "type": "basic", "username": "...", "password": "..." } }`. |
 
 #### `config.context_management`
 

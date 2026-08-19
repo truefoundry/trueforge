@@ -14,8 +14,8 @@ There are two common patterns for combining agents with sandboxes:
 
 | Pattern | Where the agent runs | Trade-off |
 | --- | --- | --- |
-| **Agent in sandbox** | Inside the sandbox image | Secrets must live in the sandbox; updates mean rebuilding images |
-| **Sandbox as tool** | Outside, on the server | Secrets stay in the harness; sandbox is only for exec/files |
+| **Agent in sandbox** | Inside the sandbox image | Sandbox is provisioned even for the simplest request; secrets must live in the sandbox; updates mean rebuilding images |
+| **Sandbox as tool** | Outside, on the server | Sandbox is provisioned on demand when needed; secrets stay in the harness; sandbox is only for exec/files |
 
 TrueForge uses **sandbox as tool**: the agent loop and credentials stay in the harness; the sandbox only runs code, file, and shell operations.
 
@@ -51,7 +51,6 @@ The sandbox is **off by default** per agent. Turn it on in the agent builder whe
 Optional controls:
 
 - **File downloads** — let users download files the agent produces (on by default in the chat UI).
-- **Git auth inject** — inject credentials for private git hosts so the sandbox can clone repos without the agent seeing the secret.
 
 ## Lifecycle
 
@@ -63,4 +62,3 @@ Optional controls:
 
 - Model and MCP credentials stay in the harness.
 - MCP calls from [Code Mode](/key-features/code-mode) scripts are bridged back to the harness — the sandbox never holds those tokens.
-- The only credentials that enter the sandbox are ones you explicitly inject for private git clones.
