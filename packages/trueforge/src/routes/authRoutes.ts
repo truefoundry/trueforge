@@ -1,9 +1,9 @@
 /**
  * Auth route definitions (mounted at /api/v1/auth). Handlers in apis/auth.ts.
  *
- * `login`/`callback` are browser-redirect targets, never called by SDK
- * consumers — both carry `x-fern-ignore`, the same convention used for the
- * MCP OAuth callback in mcpOAuthRoutes.ts. `logout` and `me` generate normally.
+ * `login`/`callback`/`logout` are browser-session helpers, never called by SDK
+ * consumers — they carry `x-fern-ignore`, the same convention used for the
+ * MCP OAuth callback in mcpOAuthRoutes.ts. `me` generates normally.
  */
 import { createRoute } from '@hono/zod-openapi';
 import { AuthLoginQuerySchema, MeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
@@ -50,8 +50,7 @@ export const authLogoutRoute = createRoute({
   description:
     'Ends the local harness session only — does not hit the IdP end-session endpoint. A no-op in local/single-binary ' +
     'mode, since there is no real session to clear.',
-  'x-fern-sdk-group-name': ['auth'],
-  'x-fern-sdk-method-name': 'logout',
+  'x-fern-ignore': true,
   'x-excluded': true,
   responses: {
     204: { description: 'Session cookie cleared.' },
