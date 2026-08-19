@@ -7,6 +7,6 @@ export type HarnessMcpServerMount = TrueForgeApi.McpServer;
 export interface HarnessAgentSpec extends AgentSpec<TrueForgeApi.Model, HarnessSkillMount, HarnessMcpServerMount> {
   config?: TrueForgeApi.RuntimeConfig;
   instructions?: string;
-  messages?: TrueForgeApi.UserMessage[];
+  messages?: TrueForgeApi.InitialUserMessage[];
   responseFormat?: TrueForgeApi.ResponseFormat;
 }
