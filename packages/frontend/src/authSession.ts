@@ -1,9 +1,9 @@
 /**
- * Session helpers: SDK `auth.me()` / `auth.logout()` only.
+ * Session helpers: SDK `auth.me()` plus POST `/api/v1/auth/logout`.
  * Login is not on the SDK (browser redirect to `/api/v1/auth/login`).
  */
 import { TrueForge as TrueForgeClient, type TrueForge } from '@truefoundry/trueforge-sdk';
-import { createAuthAwareFetch } from './authFetch';
+import { AUTH_LOGOUT_HREF, createAuthAwareFetch } from './authFetch';
 
 const DEFAULT_BASE_URL = '/';
 
@@ -48,8 +48,11 @@ export async function isOidcConnectedSession(client: TrueForge = authClient): Pr
   return isConnected;
 }
 
-export async function logout(client: TrueForge = authClient): Promise<void> {
-  await client.auth.logout();
+export async function logout(post: typeof fetch = globalThis.fetch.bind(globalThis)): Promise<void> {
+  const response = await post(AUTH_LOGOUT_HREF, { method: 'POST', credentials: 'include' });
+  if (!response.ok) {
+    throw new Error(`Logout failed (${String(response.status)})`);
+  }
 }
 
 /**

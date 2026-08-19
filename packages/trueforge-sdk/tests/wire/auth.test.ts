@@ -5,16 +5,6 @@ import { TrueForge } from "../../src/Client";
 import { mockServerPool } from "../mock-server/MockServerPool";
 
 describe("AuthClient", () => {
-    test("logout", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        server.mockEndpoint().post("/api/v1/auth/logout").respondWith().statusCode(200).build();
-
-        const response = await client.auth.logout();
-        expect(response).toEqual(undefined);
-    });
-
     test("me (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
