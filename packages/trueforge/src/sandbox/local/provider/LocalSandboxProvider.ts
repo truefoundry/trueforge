@@ -631,8 +631,7 @@ export class LocalSandboxProvider implements SandboxProvider {
       `- Platform: ${this.support.platform}.`,
       `- Commands run under the sandbox shell: ${this.support.shell}.`,
       '- A Python virtualenv lives at .venv. `python` and `pip` on PATH are that environment; packages you `pip install` persist in this sandbox.',
-      "- The Agent's first sandbox command should be `pwd` to discover the working directory.",
-      '- ALL file creation and writes MUST stay within that working directory.',
+      '- ALL file creation and writes MUST stay within the sandbox working directory.',
       '- The Agent must NOT write outside the working directory (including host home and /tmp).',
     ].join('\n');
   }
