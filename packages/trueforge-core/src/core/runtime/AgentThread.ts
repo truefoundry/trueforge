@@ -239,12 +239,13 @@ function buildModelMessageEvent({
   id: string;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
-  const { role, tool_calls, thinking_blocks, source, ...rest } = assistantMessage;
+  const { role, tool_calls, thinking_blocks, source, content, ...rest } = assistantMessage;
   void role;
   void thinking_blocks;
   void source;
   const event: ModelMessageEvent = {
     ...rest,
+    ...(content && { content }),
     tool_calls: tool_calls?.map(toEnrichedToolCall),
     type: EventType.MODEL_MESSAGE,
     id,
