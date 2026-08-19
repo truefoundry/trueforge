@@ -1,8 +1,9 @@
 import { InstructionBuilder } from '../../../src/core/InstructionBuilder';
-import type { ExecResult, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
-import { Sandbox } from '../../../src/core/sandbox/Sandbox';
+import type { CodeModeTransport } from '../../../src/core/sandbox/codeMode/CodeModeTransport';
+import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
+import { SANDBOX_EXEC_TOOL_NAME, Sandbox } from '../../../src/core/sandbox/Sandbox';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../harnessMocks';
+import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
 
 function readyExec(): Promise<ExecResult> {
   return Promise.resolve({ success: true, response: { exitCode: 0, result: 'ok' } });
@@ -28,14 +29,10 @@ function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider
   };
 }
 
-function makeSandbox(
-  provider: SandboxProvider,
-  options: { existingSandboxId?: string; sessionId?: string } = {},
-): Sandbox {
+function makeSandbox(provider: SandboxProvider, options: { existingSandboxId?: string } = {}): Sandbox {
   return new Sandbox({
     provider,
     existingSandboxId: options.existingSandboxId,
-    sessionId: options.sessionId,
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
@@ -71,14 +68,37 @@ describe('Sandbox provider-owned paths', () => {
     });
   });
 
-  it('passes sessionId through to createSandbox', async () => {
-    const createSandbox = jest.fn().mockResolvedValue({ sandboxId: 'raw-1' });
-    const sandbox = makeSandbox(makeProvider({ createSandbox }), { sessionId: 'sess_1' });
-    await sandbox.uploadUserFile({
-      fileName: 'a.txt',
-      content: Buffer.from('x'),
-      mime: 'text/plain',
+  it('prepends layout bin to a caller PATH when there is no pathBinSymlink', async () => {
+    const execCalls: SandboxExecParams[] = [];
+    const transport: CodeModeTransport = {
+      getClientInstall: () => ({
+        content: 'print("mock")\n',
+        remotePath: 'mcp-client/mcp_client.py',
+      }),
+      start: () =>
+        Promise.resolve({
+          env: { TFY_NATS_URL: 'ws://localhost:4223', TFY_NATS_SUBJECT_PREFIX: 'sandbox.bridge.test' },
+        }),
+      stop: () => Promise.resolve(),
+    };
+    const sandbox = makeSandbox(
+      makeProvider({
+        exec: (params): Promise<ExecResult> => {
+          execCalls.push(params);
+          return readyExec();
+        },
+        uploadFile: jest.fn().mockResolvedValue(undefined),
+        createCodeModeTransport: () => transport,
+      }),
+    );
+    sandbox.configureCodeMode([makeMockIMCPServer({ name: 'github', preload: true })]);
+    await sandbox.callTool({
+      name: SANDBOX_EXEC_TOOL_NAME,
+      arguments: { intent: 'Run command', command: 'true', env: { PATH: '/usr/bin' } },
     });
-    expect(createSandbox).toHaveBeenCalledWith({ sessionId: 'sess_1' });
+    const call = execCalls.find(item => item.command === 'true');
+    expect(call?.env?.['PATH']).toBe('mcp-client/bin:/usr/bin');
+    const init = execCalls.find(item => item.command.includes('ln -sf'));
+    expect(init?.command).toContain('mcp-client/bin/mcp-client');
   });
 });

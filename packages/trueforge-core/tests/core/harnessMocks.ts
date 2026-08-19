@@ -55,7 +55,7 @@ export function makeMockIMCPServer(params: {
   };
 }
 
-export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
+export function makeStubPublicSandbox(): Sandbox {
   const provider: SandboxProvider = {
     type: 'test',
     buildImage: jest.fn(),
@@ -77,7 +77,6 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
-    tenantName,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });

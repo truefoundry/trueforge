@@ -13,6 +13,7 @@ import {
   type VercelAIProviderConfig,
 } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
@@ -211,14 +212,24 @@ export async function resolveGitSkills({
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh Daytona client per call (no network I/O).
  */
+/** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
+export function localSandboxSessionSegment(sessionId: string | undefined): string {
+  if (sessionId === undefined || sessionId.length === 0 || sessionId.includes('/') || sessionId.includes('..')) {
+    return '_';
+  }
+  return sessionId;
+}
+
 export async function resolveSandboxProvider({
   tenant_id,
   store,
   logger,
+  sessionId,
 }: {
   tenant_id: string;
   store: ISandboxProviderStore;
   logger: Logger;
+  sessionId: string;
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
@@ -239,7 +250,7 @@ export async function resolveSandboxProvider({
     return undefined;
   }
   return new LocalSandboxProvider({
-    sandboxRootPathParent: configuration.LOCAL_SANDBOX_ROOT_PARENT,
+    sandboxRootPathParent: join(configuration.LOCAL_SANDBOX_ROOT_PARENT, localSandboxSessionSegment(sessionId)),
     codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
     support,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
@@ -249,7 +260,6 @@ export async function resolveSandboxProvider({
 
 /**
  * Builds a Sandbox for one turn from a resolved provider and git mounts.
- * `tenantName` is forwarded as `TFY_TENANT_NAME` for Daytona/agent env only.
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
@@ -257,20 +267,16 @@ export function buildTurnSandbox(input: {
   gitSkills: readonly GitSkill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
-  sessionId: string;
   tracing: AgentTracing;
-  tenantName: string;
 }): Sandbox {
   const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
-    sessionId: input.sessionId,
     fileDownloadEnabled: input.fileDownloadEnabled,
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    tenantName: input.tenantName,
     ...(skillMounter ? { skillMounter } : {}),
     tracing: input.tracing,
     logger: input.logger,

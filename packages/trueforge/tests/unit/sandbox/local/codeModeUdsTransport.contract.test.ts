@@ -128,6 +128,7 @@ runCodeModeTransportContractSuite(async (): Promise<CodeModeTransportContractFix
   await mkdir(codeModeSocketParentPath, { recursive: true, mode: 0o700 });
   const transport = new CodeModeUdsTransport({
     codeModeSocketParentPath,
+    clientRemotePath: sandboxId => join(sandboxId, 'mcp-client', 'mcp_client.py'),
   });
   const dispatcher = new CodeModeDispatcher({
     toolSets: [makeDemoToolSet()],

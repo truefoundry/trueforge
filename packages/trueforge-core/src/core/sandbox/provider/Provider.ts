@@ -75,13 +75,17 @@ export interface SandboxProvider {
   buildImage(): Promise<SandboxBuild>;
   /** Current build status of the release image. Read-only: never kicks off a build. */
   getImageBuildStatus(): Promise<SandboxBuild>;
-  createSandbox(params?: { sessionId?: string }): Promise<{ sandboxId: string }>;
+  createSandbox(): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;
   /** Directory inside the sandbox where large tool responses are dumped. */
   getToolResultDumpDir(sandboxId: string): string;
-  /** Absolute path for the git credential-store file (per logical sandbox when sharing a pod). */
+  /**
+   * Git credential-store file (absolute, or cwd-relative when exec cwd is the jail).
+   * `GIT_CONFIG` `store --file` is relative to the git process cwd — providers that
+   * return a relative path must make it absolute in their own `exec`.
+   */
   getGitCredentialsPath(sandboxId: string): string;
   /** Directory for user-uploaded files (absolute, or cwd-relative when the provider has no global FS). */
   getFileUploadsDir(sandboxId: string): string;

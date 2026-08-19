@@ -36,4 +36,8 @@ describe('sandbox PATH vs allowRead', () => {
       expect(pathCoveredByAllowRead({ path: dir, allowRead })).toBe(true);
     }
   });
+
+  it('does not grant host /tmp on linux (Code Mode parent is allowRead separately)', () => {
+    expect(platformAllowRead('linux')).not.toContain('/tmp');
+  });
 });

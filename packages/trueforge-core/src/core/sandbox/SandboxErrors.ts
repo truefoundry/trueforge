@@ -48,6 +48,23 @@ export class SandboxFileTooLargeError extends SandboxError {
   }
 }
 
+class SandboxTenantMismatchError extends SandboxError {
+  readonly statusCode = 403;
+
+  constructor(requestTenant: string) {
+    super(`Sandbox does not belong to tenant ${requestTenant}`);
+    this.name = 'SandboxTenantMismatchError';
+  }
+}
+
+/** Daytona/TFY raw ids are `tenantName.<uuid>`. Fancy ids and local paths must not be passed here. */
+export function validateSandboxOwnedByTenant(params: { sandboxId: string; tenantName: string }): void {
+  const dotIndex = params.sandboxId.indexOf('.');
+  if (dotIndex === -1 || params.sandboxId.slice(0, dotIndex) !== params.tenantName) {
+    throw new SandboxTenantMismatchError(params.tenantName);
+  }
+}
+
 class SandboxPathTraversalError extends SandboxError {
   readonly statusCode = 400;
 

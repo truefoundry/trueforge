@@ -15,7 +15,7 @@ describe('LocalSandboxProvider (SandboxProvider contract)', () => {
       throw new Error(support.reason);
     }
     const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-sandbox-contract-'));
-    // Short path: macOS tmpdir ~48 bytes; keep parent ≤60 for Code Mode UDS.
+    // Short path: macOS tmpdir ~48 bytes; keep parent ≤65 for Code Mode UDS.
     const codeModeSocketParentPath = join(tmpdir(), 'cm');
     await mkdir(codeModeSocketParentPath, { recursive: true, mode: 0o700 });
     const provider = new LocalSandboxProvider({

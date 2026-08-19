@@ -4,11 +4,14 @@ import type { CodeModeDispatcher } from './CodeModeDispatcher';
 export interface CodeModeClientInstall {
   /** UTF-8 Python source (installed as mcp_client.py). */
   content: string;
-  /** Absolute path for the Python module file inside the sandbox FS. */
+  /**
+   * Path for the Python module file inside the sandbox FS.
+   * Absolute when the provider has a real FS (Daytona); cwd-relative when exec cwd is the jail (TFY, local).
+   */
   remotePath: string;
   /**
-   * Optional extra CLI symlink on the default PATH (Daytona: `/usr/local/bin/mcp-client`).
-   * Layout bin link is always `dirname(remotePath)/bin/mcp-client` (Sandbox-derived).
+   * Optional CLI symlink on a directory already on the default PATH (Daytona: `/usr/local/bin/mcp-client`).
+   * When set, Sandbox skips `dirname(remotePath)/bin/mcp-client` — the symlink is the shell CLI.
    */
   pathBinSymlink?: string | undefined;
 }

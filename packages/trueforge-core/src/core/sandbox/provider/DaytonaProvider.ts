@@ -3,7 +3,7 @@ import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import {
@@ -11,6 +11,7 @@ import {
   SandboxFileTooLargeError,
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
+  validateSandboxOwnedByTenant,
 } from '../SandboxErrors';
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
@@ -141,6 +142,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
+      validateSandboxOwnedByTenant({ sandboxId, tenantName: this.tenantName });
       const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
       if (cached) {
         return cached;
@@ -482,6 +484,10 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       },
       sandboxClientNatsUrl: `ws://localhost:${String(this.natsBridgePort)}`,
       logger: this.logger,
+      mcpClientInstall: {
+        remotePath: join('/opt', 'tfy', 'mcp-client', 'mcp_client.py'),
+        pathBinSymlink: join('/usr', 'local', 'bin', 'mcp-client'),
+      },
     });
   }
 
@@ -489,17 +495,19 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     return undefined;
   }
 
+  // Isolated container: image-absolute layout. GIT_CONFIG store --file needs an absolute path.
+  //   /opt/tf/{uploads,skills,tool-results,git_downloader.py,.git-credentials}
+  //   /opt/tfy/mcp-client/mcp_client.py  +  /usr/local/bin/mcp-client (image PATH; no layout bin)
   getToolResultDumpDir(): string {
-    return join('/tmp', 'tool-results');
+    return join('/opt', 'tf', 'tool-results');
   }
 
   getGitCredentialsPath(): string {
-    // Isolated container per sandbox; absolute path so GIT_CONFIG_* needs no $HOME expansion.
-    return join('/tmp', '.git-credentials');
+    return join('/opt', 'tf', '.git-credentials');
   }
 
   getFileUploadsDir(): string {
-    return join('/tmp', 'uploads');
+    return join('/opt', 'tf', 'uploads');
   }
 
   getSkillsDir(): string {

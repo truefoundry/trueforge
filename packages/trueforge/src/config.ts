@@ -173,7 +173,7 @@ function resolveLocalSandboxRootParent(): string {
   return path.join(envPaths(ENV_PATHS_APP_NAME, { suffix: '' }).data, 'sandboxes');
 }
 
-/** Short tmp parent for Code Mode UDS socks (≤60 bytes after realpath). */
+/** Short tmp parent for Code Mode UDS socks (≤65 bytes after realpath). */
 function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
 }
@@ -417,7 +417,7 @@ export type StandaloneServerConfiguration = SharedServerConfiguration & {
   LOCAL_SANDBOX_ROOT_PARENT: string;
   /**
    * Parent directory for Code Mode UDS sockets (`tf_cms` under os.tmpdir()).
-   * Caller prepares/removes this directory; must stay ≤60 bytes after realpath.
+   * Caller prepares/removes this directory; must stay ≤65 bytes after realpath.
    */
   CODE_MODE_SOCKET_PARENT: string;
 };

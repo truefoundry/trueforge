@@ -4,7 +4,8 @@
  *
  * Sockets live under {@link CodeModeUdsTransportOptions.codeModeSocketParentPath} as ULID names.
  * Parent must be mode 0700 (enforced) so other accounts cannot replace the sock inode before
- * connect; after listen the sock is chmod 0600. Same-UID isolation is still SRT path policy.
+ * connect; after listen the sock is chmod 0600. Same-UID isolation is still SRT path policy:
+ * hostRun grants the parent in allowRead (Linux) / allowUnixSockets (macOS), not host /tmp.
  * The caller owns that parent directory's lifetime; this transport unlinks the sock it creates.
  */
 import type {
@@ -22,9 +23,12 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { ulid } from 'ulid';
 import { sandboxScripts } from '../sandboxScripts.gen.js';
 import { encodeJsonMessage, JsonMessageReader, MAX_MESSAGE_BYTES } from './frame.js';
-import { registerCodeModeSocketPath, unregisterCodeModeSocketPath } from './hostRun.js';
 
-const MAX_CODE_MODE_SOCKET_PARENT_BYTES = 63;
+/**
+ * Max realpath bytes for the sock parent. Full path is `parent/ulid` (26-char name).
+ * 63 was too tight after macOS `/private` realpath; 65 leaves headroom under sun_path.
+ */
+export const MAX_CODE_MODE_SOCKET_PARENT_BYTES = 65;
 const CODE_MODE_SOCKET_PARENT_MODE = 0o700;
 const CODE_MODE_SOCKET_MODE = 0o600;
 
@@ -46,11 +50,13 @@ export async function installMcpFixture(sandboxRootPath: string): Promise<{ remo
 
 export interface CodeModeUdsTransportOptions {
   /**
-   * Absolute existing directory for Code Mode UDS files (≤60 bytes, mode 0700).
+   * Absolute existing directory for Code Mode UDS files (≤65 bytes after realpath, mode 0700).
    * Socket path is `join(parent, ulid)`; sock is chmod 0600 after listen.
    */
   codeModeSocketParentPath: string;
   maxMessageBytes?: number | undefined;
+  /** Provider-owned MCP client module path (sandboxId is the sandbox root). */
+  clientRemotePath: (sandboxId: string) => string;
   /** Optional: observe inbound protocol failures (oversized / malformed). */
   onProtocolError?: ((message: string) => void) | undefined;
 }
@@ -82,10 +88,42 @@ export function assertCodeModeSocketParentPath(path: string): string {
   return real;
 }
 
+/**
+ * Bind+close a ULID-named sock under `parentPath`. Surfaces ENAMETOOLONG / EINVAL
+ * that the byte-length check alone can miss (sun_path, realpath).
+ */
+export async function probeCodeModeUnixSocket(parentPath: string): Promise<{ sockPath: string }> {
+  const realParent = assertCodeModeSocketParentPath(parentPath);
+  const sockPath = join(realParent, ulid().toLowerCase());
+  await unlink(sockPath).catch(() => undefined);
+  const server = createServer();
+  try {
+    await new Promise<void>((resolveListen, reject) => {
+      server.once('error', reject);
+      server.listen(sockPath, () => {
+        server.off('error', reject);
+        resolveListen();
+      });
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`listen ${sockPath} (${String(Buffer.byteLength(sockPath))} bytes): ${message}`, { cause: error });
+  } finally {
+    await new Promise<void>(resolveClose => {
+      server.close(() => {
+        resolveClose();
+      });
+    });
+    await unlink(sockPath).catch(() => undefined);
+  }
+  return { sockPath };
+}
+
 export class CodeModeUdsTransport implements CodeModeTransport {
   private readonly codeModeSocketParentPath: string;
   private readonly maxMessageBytes: number;
   private readonly onProtocolError: ((message: string) => void) | undefined;
+  private readonly clientRemotePath: (sandboxId: string) => string;
 
   private sessionPromise: Promise<{ env: Record<string, string> }> | undefined;
   private server: Server | undefined;
@@ -97,12 +135,13 @@ export class CodeModeUdsTransport implements CodeModeTransport {
     this.codeModeSocketParentPath = assertCodeModeSocketParentPath(options.codeModeSocketParentPath);
     this.maxMessageBytes = options.maxMessageBytes ?? MAX_MESSAGE_BYTES;
     this.onProtocolError = options.onProtocolError;
+    this.clientRemotePath = options.clientRemotePath;
   }
 
   getClientInstall(params: { sandboxId: string }): CodeModeClientInstall {
     return {
       content: sandboxScripts.mcpClientLocal,
-      remotePath: localMcpClientRemotePath(params.sandboxId),
+      remotePath: this.clientRemotePath(params.sandboxId),
     };
   }
 
@@ -143,7 +182,6 @@ export class CodeModeUdsTransport implements CodeModeTransport {
       });
     }
     if (sockPath !== undefined) {
-      unregisterCodeModeSocketPath(sockPath);
       await unlink(sockPath).catch(() => undefined);
     }
   }
@@ -158,7 +196,6 @@ export class CodeModeUdsTransport implements CodeModeTransport {
 
     const sockPath = join(this.codeModeSocketParentPath, ulid().toLowerCase());
     await unlink(sockPath).catch(() => undefined);
-    registerCodeModeSocketPath(sockPath);
     const server = createServer({ allowHalfOpen: true });
     try {
       await new Promise<void>((resolveListen, reject) => {
@@ -171,7 +208,6 @@ export class CodeModeUdsTransport implements CodeModeTransport {
       // Narrow the listen→chmod window; 0700 parent already blocks other accounts from replace.
       await chmod(sockPath, CODE_MODE_SOCKET_MODE);
     } catch (error) {
-      unregisterCodeModeSocketPath(sockPath);
       server.close();
       await unlink(sockPath).catch(() => undefined);
       throw error;

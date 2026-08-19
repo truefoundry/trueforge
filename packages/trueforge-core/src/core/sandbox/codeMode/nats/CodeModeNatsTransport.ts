@@ -12,11 +12,6 @@ import type { CodeModeDispatcher } from '../CodeModeDispatcher';
 import type { CodeModeClientInstall, CodeModeTransport } from '../CodeModeTransport';
 import { CodeModeRequestSchema, type CodeModeReply, type CodeModeRequest } from '../types';
 
-/** Stable install path inside Daytona / TFY sandbox images. */
-const MCP_CLIENT_PATH = '/opt/tfy/mcp-client/mcp_client.py';
-/** Product CLI entry already on the image PATH. */
-const MCP_CLIENT_PATH_BIN_SYMLINK = '/usr/local/bin/mcp-client';
-
 // `wsconnect` from @nats-io/nats-core relies on a global WebSocket constructor; in Node we
 // provide it from `ws`. Same pattern as `src/services/NatsService.ts`.
 Object.assign(global, { WebSocket });
@@ -42,21 +37,28 @@ export class CodeModeNatsTransport implements CodeModeTransport {
   private nc: NatsConnection | undefined;
   private dispatcher: CodeModeDispatcher | undefined;
 
+  private readonly mcpClientRemotePath: string;
+  private readonly mcpClientPathBinSymlink: string | undefined;
+
   constructor(params: {
     resolveHostUrl: (sandboxId: string) => Promise<string>;
     sandboxClientNatsUrl?: string;
     logger: Logger;
+    /** Provider-owned MCP client layout (absolute or cwd-relative). */
+    mcpClientInstall: { remotePath: string; pathBinSymlink?: string | undefined };
   }) {
     this.resolveHostUrl = params.resolveHostUrl;
     this.sandboxClientNatsUrl = params.sandboxClientNatsUrl ?? `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`;
     this.logger = params.logger.child({ module: 'CodeModeNatsTransport' });
+    this.mcpClientRemotePath = params.mcpClientInstall.remotePath;
+    this.mcpClientPathBinSymlink = params.mcpClientInstall.pathBinSymlink;
   }
 
   getClientInstall(): CodeModeClientInstall {
     return {
       content: sandboxScripts.mcpClient,
-      remotePath: MCP_CLIENT_PATH,
-      pathBinSymlink: MCP_CLIENT_PATH_BIN_SYMLINK,
+      remotePath: this.mcpClientRemotePath,
+      ...(this.mcpClientPathBinSymlink === undefined ? {} : { pathBinSymlink: this.mcpClientPathBinSymlink }),
     };
   }
 

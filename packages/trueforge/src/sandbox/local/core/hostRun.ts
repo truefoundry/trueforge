@@ -35,6 +35,12 @@ export type LocalSandboxPlatform = 'darwin' | 'linux';
 
 /** Cached from {@link initSrt}; cleared by {@link resetSrt}. Used by session policy helpers after init. */
 let activePlatform: LocalSandboxPlatform | undefined;
+/** Realpath of the Code Mode UDS parent; Linux allowRead + macOS allowUnixSockets. */
+let codeModeSocketParentPath: string | undefined;
+
+function codeModeSocketParentAllow(): string[] {
+  return codeModeSocketParentPath === undefined ? [] : [codeModeSocketParentPath];
+}
 
 function requireActivePlatform(): LocalSandboxPlatform {
   if (activePlatform === undefined) {
@@ -55,6 +61,56 @@ export function commandPath(platform: LocalSandboxPlatform): string {
   return COMMAND_PATH_BY_PLATFORM[platform];
 }
 
+/** Cwd-relative venv created at local sandbox init (host `python -m venv`). */
+export const SANDBOX_VENV_DIR = '.venv';
+
+function sandboxVenvPath(sandboxRootPath: string): string {
+  return join(sandboxRootPath, SANDBOX_VENV_DIR);
+}
+
+/**
+ * HTTPS hosts the SRT proxy may reach. `*.example.com` does not match the apex.
+ * Concrete hosts plus wildcards so pip (index + wheel CDN) and git clone work.
+ */
+export const LOCAL_SANDBOX_ALLOWED_DOMAINS = [
+  'pypi.org',
+  '*.pypi.org',
+  'pythonhosted.org',
+  'files.pythonhosted.org',
+  '*.pythonhosted.org',
+  'github.com',
+  'api.github.com',
+  'codeload.github.com',
+  '*.github.com',
+  'githubusercontent.com',
+  'raw.githubusercontent.com',
+  'objects.githubusercontent.com',
+  '*.githubusercontent.com',
+] as const;
+
+function allowedNetworkDomains(): string[] {
+  return [...LOCAL_SANDBOX_ALLOWED_DOMAINS];
+}
+
+/**
+ * Host binaries SRT execs outside the wrap (same set as SandboxManager.checkDependencies).
+ * Linux: bwrap + socat + rg (deny-path scan). macOS seatbelt takes glob denies, so no rg.
+ */
+export const SRT_HOST_BINARIES_BY_PLATFORM = {
+  linux: ['bwrap', 'socat', 'rg'],
+  darwin: [],
+} as const satisfies Record<LocalSandboxPlatform, readonly string[]>;
+
+export function srtHostBinaryNames(platform: LocalSandboxPlatform): readonly string[] {
+  return SRT_HOST_BINARIES_BY_PLATFORM[platform];
+}
+
+/** SRT's own host-dep check (bwrap/socat/rg on Linux). Does not require initSrt. */
+export async function checkSrtHostDependencies(): Promise<{ errors: string[]; warnings: string[] }> {
+  const result = await SandboxManager.checkDependenciesAsync();
+  return { errors: [...result.errors], warnings: [...result.warnings] };
+}
+
 /**
  * Resolve a command name to an absolute path on the host using the sandbox PATH.
  * Uses `/bin/sh` only as a host bootstrap for `command -v` (not the sandboxed wrap shell).
@@ -62,11 +118,14 @@ export function commandPath(platform: LocalSandboxPlatform): string {
 export async function resolveCommandOnHost(params: {
   platform: LocalSandboxPlatform;
   name: string;
+  /** Defaults to the sandbox PATH for this platform. Host SRT tools use process PATH. */
+  pathEnv?: string | undefined;
 }): Promise<string | undefined> {
   if (!/^[A-Za-z0-9._+-]+$/.test(params.name)) {
     throw new Error(`invalid command name for resolveCommandOnHost: ${params.name}`);
   }
-  const pathEnv = commandPath(params.platform);
+  const pathEnv =
+    params.pathEnv !== undefined && params.pathEnv.length > 0 ? params.pathEnv : commandPath(params.platform);
   try {
     const { stdout } = await execFileAsync('/bin/sh', ['-c', `command -v -- ${params.name}`], {
       env: { PATH: pathEnv },
@@ -155,7 +214,6 @@ const ALLOW_READ_BY_PLATFORM = {
     '/dev',
     '/proc',
     '/sys',
-    '/tmp',
     SRT_VENDOR,
   ],
 } as const satisfies Record<LocalSandboxPlatform, readonly string[]>;
@@ -178,7 +236,7 @@ function filesystemPolicy(params: { sandboxRootPath: string; platform: LocalSand
     allowWrite: [params.sandboxRootPath],
     denyWrite: denySharedDefaultWritePaths(),
     denyRead: ['/'],
-    allowRead: [params.sandboxRootPath, ...codeModeSocketPaths, ...platformAllowRead(params.platform)],
+    allowRead: [params.sandboxRootPath, ...codeModeSocketParentAllow(), ...platformAllowRead(params.platform)],
   };
 }
 
@@ -190,18 +248,15 @@ function commandEnv(params: {
 }): Record<string, string> {
   const tmp = join(params.sandboxRootPath, '.tmp');
   const home = join(params.sandboxRootPath, '.home');
+  const venvDir = sandboxVenvPath(params.sandboxRootPath);
   const locked = {
     HOME: home,
     TMPDIR: tmp,
     TMP: tmp,
     TEMP: tmp,
-    // Local MCP client CLI lives at <sandbox>/mcp-client/bin (see CodeModeUdsTransport install layout).
-    PATH: (() => {
-      const base = commandPath(params.platform);
-      const ours = `${join(params.sandboxRootPath, 'mcp-client', 'bin')}:${base}`;
-      const theirs = params.extra?.['PATH'];
-      return theirs !== undefined && theirs.length > 0 ? `${ours}:${theirs}` : ours;
-    })(),
+    VIRTUAL_ENV: venvDir,
+    // Local owns PATH: venv, layout mcp-client CLI, then the platform jail PATH.
+    PATH: `${join(venvDir, 'bin')}:${join(params.sandboxRootPath, 'mcp-client', 'bin')}:${commandPath(params.platform)}`,
   };
   return {
     ...params.extra,
@@ -221,15 +276,16 @@ function sessionFilesystem(platform: LocalSandboxPlatform): {
     allowWrite,
     denyWrite: denySharedDefaultWritePaths(),
     denyRead: ['/'],
-    allowRead: platformAllowRead(platform),
+    allowRead: [...platformAllowRead(platform), ...codeModeSocketParentAllow()],
   };
 }
 
 /**
  * AF_UNIX policy is session-scoped only (wrap customConfig cannot set it).
- * - Linux: allowAllUnixSockets; pathname connect still needs FS allowRead (bwrap).
+ * - Linux: allowAllUnixSockets; pathname connect still needs FS allowRead (bwrap)
+ *   of the Code Mode socket parent (not host /tmp).
  * - macOS: allowAllUnixSockets does NOT consult allowRead for connect — use
- *   allowUnixSockets subpath, synced at sandbox create/remove.
+ *   allowUnixSockets subpath (sandbox roots + Code Mode parent).
  */
 function sessionNetwork(params: { platform: LocalSandboxPlatform; unixSockets?: string[] }):
   | {
@@ -243,7 +299,7 @@ function sessionNetwork(params: { platform: LocalSandboxPlatform; unixSockets?: 
       allowAllUnixSockets: false;
       allowUnixSockets: string[];
     } {
-  const allowedDomains: string[] = [];
+  const allowedDomains = allowedNetworkDomains();
   const deniedDomains: string[] = [];
   if (params.platform === 'linux') {
     return {
@@ -262,15 +318,13 @@ function sessionNetwork(params: { platform: LocalSandboxPlatform; unixSockets?: 
 
 /** Active sandbox roots allowed for macOS pathname UDS (seatbelt subpath). */
 const darwinUnixSocketSandboxRoots = new Set<string>();
-/** Exact Code Mode UDS paths — macOS allowUnixSockets + Linux allowRead. */
-const codeModeSocketPaths = new Set<string>();
 
 function darwinUnixSocketPaths(): string[] {
-  return [...darwinUnixSocketSandboxRoots, ...codeModeSocketPaths];
+  return [...darwinUnixSocketSandboxRoots, ...codeModeSocketParentAllow()];
 }
 
 function syncDarwinUnixSockets(): void {
-  // No-op until initSrt: register/unregister may run from transport-only tests.
+  // No-op until initSrt: create/remove sandbox may run from tests before initialize.
   if (SandboxManager.getConfig() === undefined) {
     return;
   }
@@ -281,7 +335,7 @@ function syncDarwinUnixSockets(): void {
   SandboxManager.updateConfig(buildSessionConfig(platform));
 }
 
-/** Single source for process-scoped SRT session config (init + sock register/unregister). */
+/** Single source for process-scoped SRT session config (init + sandbox create/remove). */
 function buildSessionConfig(platform: LocalSandboxPlatform): {
   network: ReturnType<typeof sessionNetwork>;
   filesystem: ReturnType<typeof sessionFilesystem>;
@@ -290,17 +344,6 @@ function buildSessionConfig(platform: LocalSandboxPlatform): {
     network: sessionNetwork({ platform, unixSockets: darwinUnixSocketPaths() }),
     filesystem: sessionFilesystem(platform),
   };
-}
-
-/** Allow sandboxed clients to connect to this exact Code Mode sock path. */
-export function registerCodeModeSocketPath(sockPath: string): void {
-  codeModeSocketPaths.add(sockPath);
-  syncDarwinUnixSockets();
-}
-
-export function unregisterCodeModeSocketPath(sockPath: string): void {
-  codeModeSocketPaths.delete(sockPath);
-  syncDarwinUnixSockets();
 }
 
 /** Create a sandbox directory at `sandboxRootPath` (also the sandbox id). */
@@ -325,13 +368,19 @@ export async function removeSandbox(sandboxRootPath: string): Promise<void> {
  * Process-scoped SRT init. Per-exec filesystem policy is applied in
  * {@link runSupervisorSession} via wrapWithSandboxArgv customConfig.
  */
-export async function initSrt(params: { platform: LocalSandboxPlatform }): Promise<void> {
+export async function initSrt(params: {
+  platform: LocalSandboxPlatform;
+  /** Dedicated Code Mode UDS parent (realpath); grant this path, not host /tmp. */
+  codeModeSocketParentPath?: string | undefined;
+}): Promise<void> {
   activePlatform = params.platform;
+  codeModeSocketParentPath =
+    params.codeModeSocketParentPath === undefined ? undefined : realpathSync(params.codeModeSocketParentPath);
   await SandboxManager.initialize(buildSessionConfig(params.platform));
 }
 
 export async function resetSrt(): Promise<void> {
-  codeModeSocketPaths.clear();
+  codeModeSocketParentPath = undefined;
   activePlatform = undefined;
   await SandboxManager.reset();
 }
@@ -401,7 +450,7 @@ export async function runSupervisorSession(params: {
     {
       filesystem: filesystemPolicy({ sandboxRootPath, platform }),
       network: {
-        allowedDomains: [],
+        allowedDomains: allowedNetworkDomains(),
         deniedDomains: [],
       },
     },

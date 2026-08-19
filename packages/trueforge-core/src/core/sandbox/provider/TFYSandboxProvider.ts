@@ -2,15 +2,21 @@ import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
 import dedent from 'dedent';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import { SandboxFileNotFoundError, SandboxFileTooLargeError, SandboxPathIsDirectoryError } from '../SandboxErrors';
+import {
+  SandboxFileNotFoundError,
+  SandboxFileTooLargeError,
+  SandboxPathIsDirectoryError,
+  validateSandboxOwnedByTenant,
+} from '../SandboxErrors';
 import {
   ensureExecSuccess,
+  shellEscape,
   type ExecResult,
   type SandboxBuild,
   type SandboxExecParams,
@@ -22,10 +28,55 @@ const DEFAULT_TIMEOUT_SECONDS = 60;
 // Buffer for network latency + response processing on top of the server-side timeout.
 const CLIENT_TIMEOUT_BUFFER_SECONDS = 5;
 
-// Wraps a value in single quotes for safe use in shell commands.
-// Inner single quotes are escaped via the standard shell idiom: ' → '\''
-function shellEscape(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
+const GIT_STORE_FILE_PREFIX = 'store --file ';
+
+const TFY_MCP_CLIENT_BIN = 'mcp-client/bin';
+
+/** Put the layout CLI first on PATH (cwd-relative; {@link absolutizeRelativeExecEnv} makes it absolute). */
+export function withMcpClientOnPath(path: string): string {
+  const rest = path.split(':').filter(part => part.length > 0 && part !== TFY_MCP_CLIENT_BIN);
+  return rest.length === 0 ? TFY_MCP_CLIENT_BIN : `${TFY_MCP_CLIENT_BIN}:${rest.join(':')}`;
+}
+
+function parsePwdAndPath(text: string): { root: string; inheritedPath: string } | undefined {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const root = lines[0];
+  if (!root?.startsWith('/')) {
+    return undefined;
+  }
+  return { root, inheritedPath: lines[1] ?? '' };
+}
+
+function resolveMaybeRelative(params: { root: string; path: string }): string {
+  return params.path.startsWith('/') ? params.path : join(params.root, params.path);
+}
+
+/** Make cwd-relative PATH / PYTHONPATH / GIT_CONFIG store --file / TFY_SKILLS_DIR usable from any cwd. */
+export function absolutizeRelativeExecEnv(params: {
+  root: string;
+  env: Record<string, string>;
+}): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params.env)) {
+    if (key === 'PATH' || key === 'PYTHONPATH') {
+      out[key] = value
+        .split(':')
+        .map(part => (part.length === 0 ? part : resolveMaybeRelative({ root: params.root, path: part })))
+        .join(':');
+      continue;
+    }
+    if (key === 'TFY_SKILLS_DIR' || key === 'VIRTUAL_ENV') {
+      out[key] = resolveMaybeRelative({ root: params.root, path: value });
+      continue;
+    }
+    if (key.startsWith('GIT_CONFIG_VALUE_') && value.startsWith(GIT_STORE_FILE_PREFIX)) {
+      const file = value.slice(GIT_STORE_FILE_PREFIX.length);
+      out[key] = `${GIT_STORE_FILE_PREFIX}${resolveMaybeRelative({ root: params.root, path: file })}`;
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
 }
 
 export interface TFYSandboxProviderOptions {
@@ -50,6 +101,8 @@ export class TFYSandboxProvider implements SandboxProvider {
   private readonly fileMaxBytesForDownload: number;
   private readonly defaultExecTimeoutSeconds: number;
   private readonly logger: Logger;
+  /** Discovered via `pwd` + `$PATH` — never a hardcoded host layout. */
+  private readonly sandboxLayouts = new Map<string, { root: string; inheritedPath: string }>();
 
   constructor(options: TFYSandboxProviderOptions) {
     this.serverUrl = options.serverUrl.replace(/\/+$/, '');
@@ -81,7 +134,43 @@ export class TFYSandboxProvider implements SandboxProvider {
     return Promise.resolve({ sandboxId });
   }
 
+  /**
+   * No extra FS jail: exec cwd is the logical sandbox root. Layout getters are cwd-relative
+   * so writes cannot escape it. `GIT_CONFIG` / PATH / PYTHONPATH must still be absolute so
+   * git and `mcp-client` work after `cd` — resolved from `pwd` / `$PATH`, not a hardcoded prefix.
+   */
   async exec(params: SandboxExecParams): Promise<ExecResult> {
+    validateSandboxOwnedByTenant({ sandboxId: params.sandboxId, tenantName: this.tenantName });
+    const { root, inheritedPath } = await this.sandboxLayout(params.sandboxId);
+    const incoming = params.env ?? {};
+    const env = absolutizeRelativeExecEnv({
+      root,
+      env: { ...incoming, PATH: withMcpClientOnPath(incoming['PATH'] ?? inheritedPath) },
+    });
+    return this.postExec({ ...params, env });
+  }
+
+  private async sandboxLayout(sandboxId: string): Promise<{ root: string; inheritedPath: string }> {
+    const cached = this.sandboxLayouts.get(sandboxId);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const result = await this.postExec({
+      sandboxId,
+      command: 'printf \'%s\\n%s\\n\' "$(pwd)" "$PATH"',
+    });
+    if (!result.success) {
+      throw new Error(`Failed to resolve sandbox working directory: ${result.error}`);
+    }
+    const parsed = parsePwdAndPath(result.response.result);
+    if (parsed === undefined) {
+      throw new Error(`sandbox pwd did not return an absolute path: ${result.response.result}`);
+    }
+    this.sandboxLayouts.set(sandboxId, parsed);
+    return parsed;
+  }
+
+  private async postExec(params: SandboxExecParams): Promise<ExecResult> {
     return context.with(suppressTracing(context.active()), async (): Promise<ExecResult> => {
       // Honor the per-call timeout (e.g. the longer skill-download timeout) for both the server-side
       // request timeout and the client abort timer; fall back to the provider default otherwise.
@@ -188,6 +277,7 @@ export class TFYSandboxProvider implements SandboxProvider {
       resolveHostUrl: () => Promise.resolve(this.natsBridgeUrl),
       sandboxClientNatsUrl: `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`,
       logger: this.logger,
+      mcpClientInstall: { remotePath: join('mcp-client', 'mcp_client.py') },
     });
   }
 
@@ -195,28 +285,32 @@ export class TFYSandboxProvider implements SandboxProvider {
     return dedent`
     SANDBOX RULES:
     - The Agent's first sandbox command should be \`pwd\` to discover the working directory.
+    - uploads, skills, and tool-results live in that working directory (not /tmp or /opt).
     - ALL file creation and writes MUST stay within that working directory.
     - The Agent must NOT write to /tmp/, ~/, or any absolute path outside the working directory.
   `;
   }
 
-  getToolResultDumpDir(sandboxId: string): string {
-    return join('/tmp', sandboxId, 'tool-results');
+  // Cwd-relative (no FS jail). exec() pwd-joins GIT_CONFIG / PATH / PYTHONPATH.
+  //   uploads, skills, tool-results, git_downloader.py, .git-credentials
+  //   mcp-client/mcp_client.py  (no /usr/local/bin symlink)
+  getToolResultDumpDir(): string {
+    return 'tool-results';
   }
 
-  getGitCredentialsPath(sandboxId: string): string {
-    return join('/tmp', sandboxId, '.git-credentials');
+  getGitCredentialsPath(): string {
+    return '.git-credentials';
   }
 
-  getFileUploadsDir(sandboxId: string): string {
-    return join('/tmp', sandboxId, 'uploads');
+  getFileUploadsDir(): string {
+    return 'uploads';
   }
 
-  getSkillsDir(sandboxId: string): string {
-    return join('/opt', 'tf', sandboxId, 'skills');
+  getSkillsDir(): string {
+    return 'skills';
   }
 
-  getGitDownloaderPath(sandboxId: string): string {
-    return join('/opt', 'tf', sandboxId, 'git_downloader.py');
+  getGitDownloaderPath(): string {
+    return 'git_downloader.py';
   }
 }

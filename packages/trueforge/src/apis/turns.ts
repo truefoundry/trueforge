@@ -182,6 +182,7 @@ function createTurnResolver(deps: {
         tenant_id: TENANT_ID,
         store: sandboxProviderStore,
         logger,
+        sessionId,
       });
       if (provider === undefined) {
         throw new HTTPException(422, {
@@ -217,9 +218,7 @@ function createTurnResolver(deps: {
         gitSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
-        sessionId,
         tracing,
-        tenantName: TENANT_ID,
       });
     },
     agent: async agentId => {
@@ -434,6 +433,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         tenant_id: TENANT_ID,
         store: deps.sandboxProviderStore,
         logger: deps.logger,
+        sessionId,
       });
       if (provider === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);

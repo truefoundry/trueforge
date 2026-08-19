@@ -166,6 +166,7 @@ export {
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
   validateNoPathTraversal,
+  validateSandboxOwnedByTenant,
 } from './sandbox/SandboxErrors';
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
 export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandboxId } from './sandbox/sandboxRef';

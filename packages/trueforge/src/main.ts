@@ -257,7 +257,9 @@ try {
     await prepareCodeModeSocketParent({ path: configuration.CODE_MODE_SOCKET_PARENT, logger });
     await ensureLocalSandboxRootParent(configuration.LOCAL_SANDBOX_ROOT_PARENT);
     const { LocalSandboxProvider } = await import('./sandbox/local/provider/LocalSandboxProvider');
-    const support = await LocalSandboxProvider.isSupported();
+    const support = await LocalSandboxProvider.isSupported({
+      codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
+    });
     setCachedLocalSandboxSupport(support);
     if (support.supported) {
       logger.info('Local sandbox fallback is available', {

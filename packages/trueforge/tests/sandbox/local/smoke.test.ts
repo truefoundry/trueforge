@@ -15,16 +15,18 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ulid } from 'ulid';
 import { createLogger } from 'winston';
-import { CodeModeUdsTransport, installMcpFixture } from '../../../src/sandbox/local/core/CodeModeUdsTransport.js';
+import {
+  CodeModeUdsTransport,
+  installMcpFixture,
+  localMcpClientRemotePath,
+} from '../../../src/sandbox/local/core/CodeModeUdsTransport.js';
 import {
   commandPath,
   createSandbox,
   MAX_OUTPUT_BYTES,
   platformAllowRead,
-  registerCodeModeSocketPath,
   removeSandbox,
   runSupervisorSession,
-  unregisterCodeModeSocketPath,
 } from '../../../src/sandbox/local/core/hostRun.js';
 import { LocalSandboxProvider } from '../../../src/sandbox/local/provider/LocalSandboxProvider.js';
 
@@ -69,91 +71,88 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Direct check: after initSrt, registerCodeModeSocketPath → updateConfig must
- * allow a sandboxed client to connect to that exact sock (and unregister revoke it).
+ * After initSrt grants the Code Mode parent, a sock under that parent is
+ * connectable; a leftover host /tmp sock outside the parent is not.
  */
-async function smokeLiveSrtUnixSocketAllowlistUpdate(params: {
+async function smokeCodeModeSocketParentAllow(params: {
   sandboxRootPath: string;
   codeModeSocketParentPath: string;
   shell: string;
   platform: 'darwin' | 'linux';
 }): Promise<void> {
   const parent = await realpath(params.codeModeSocketParentPath);
-  const sockPath = join(parent, ulid().toLowerCase());
-  await unlink(sockPath).catch(() => undefined);
+  const allowedSock = join(parent, ulid().toLowerCase());
+  const leftoverSock = join('/tmp', `tfy-srt-leak-${ulid().toLowerCase().slice(0, 10)}`);
+  await unlink(allowedSock).catch(() => undefined);
+  await unlink(leftoverSock).catch(() => undefined);
 
-  const server = createServer();
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(sockPath, () => {
-      server.off('error', reject);
-      resolve();
-    });
-  });
-  server.on('connection', socket => {
-    socket.end();
-  });
-
-  const connectCmd = [
-    "python3 - <<'PY'",
-    'import socket, sys',
-    `path = ${JSON.stringify(sockPath)}`,
-    's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)',
-    'try:',
-    '  s.connect(path)',
-    '  print("connected")',
-    'except OSError as e:',
-    '  print(type(e).__name__, e, file=sys.stderr)',
-    '  sys.exit(1)',
-    'finally:',
-    '  s.close()',
-    'PY',
-  ].join('\n');
-
-  try {
-    const before = await runSupervisorSession({
-      sandboxRootPath: params.sandboxRootPath,
-      shell: params.shell,
-      platform: params.platform,
-      command: connectCmd,
-      timeoutMs: 10_000,
-    });
-    assert.notEqual(before.exitCode, 0, 'connect must fail before register/updateConfig');
-    assert.ok(!before.stdoutText.includes('connected'));
-
-    registerCodeModeSocketPath(sockPath);
-
-    const afterRegister = await runSupervisorSession({
-      sandboxRootPath: params.sandboxRootPath,
-      shell: params.shell,
-      platform: params.platform,
-      command: connectCmd,
-      timeoutMs: 10_000,
-    });
-    assert.equal(afterRegister.exitCode, 0, afterRegister.stderrText);
-    assert.match(afterRegister.stdoutText, /connected/);
-
-    unregisterCodeModeSocketPath(sockPath);
-
-    const afterUnregister = await runSupervisorSession({
-      sandboxRootPath: params.sandboxRootPath,
-      shell: params.shell,
-      platform: params.platform,
-      command: connectCmd,
-      timeoutMs: 10_000,
-    });
-    assert.notEqual(afterUnregister.exitCode, 0, 'connect must fail after unregister/updateConfig');
-    assert.ok(!afterUnregister.stdoutText.includes('connected'));
-
-    console.log('ok: live SRT updateConfig allowlists exact Code Mode sock (register/unregister)');
-  } finally {
-    unregisterCodeModeSocketPath(sockPath);
-    await new Promise<void>(resolve => {
-      server.close(() => {
+  const listen = async (path: string): Promise<{ close: () => Promise<void> }> => {
+    const server = createServer();
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(path, () => {
+        server.off('error', reject);
         resolve();
       });
     });
-    await unlink(sockPath).catch(() => undefined);
+    server.on('connection', socket => {
+      socket.end();
+    });
+    return {
+      close: async () => {
+        await new Promise<void>(resolve => {
+          server.close(() => {
+            resolve();
+          });
+        });
+        await unlink(path).catch(() => undefined);
+      },
+    };
+  };
+
+  const connectCmd = (path: string): string =>
+    [
+      "python3 - <<'PY'",
+      'import socket, sys',
+      `path = ${JSON.stringify(path)}`,
+      's = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)',
+      'try:',
+      '  s.connect(path)',
+      '  print("connected")',
+      'except OSError as e:',
+      '  print(type(e).__name__, e, file=sys.stderr)',
+      '  sys.exit(1)',
+      'finally:',
+      '  s.close()',
+      'PY',
+    ].join('\n');
+
+  const allowed = await listen(allowedSock);
+  const leftover = await listen(leftoverSock);
+  try {
+    const ok = await runSupervisorSession({
+      sandboxRootPath: params.sandboxRootPath,
+      shell: params.shell,
+      platform: params.platform,
+      command: connectCmd(allowedSock),
+      timeoutMs: 10_000,
+    });
+    assert.equal(ok.exitCode, 0, ok.stderrText);
+    assert.match(ok.stdoutText, /connected/);
+
+    const blocked = await runSupervisorSession({
+      sandboxRootPath: params.sandboxRootPath,
+      shell: params.shell,
+      platform: params.platform,
+      command: connectCmd(leftoverSock),
+      timeoutMs: 10_000,
+    });
+    assert.notEqual(blocked.exitCode, 0, 'connect to leftover /tmp sock must fail');
+    assert.ok(!blocked.stdoutText.includes('connected'));
+    console.log('ok: SRT allows Code Mode parent UDS and denies leftover host /tmp sock');
+  } finally {
+    await allowed.close();
+    await leftover.close();
   }
 }
 
@@ -224,6 +223,7 @@ async function withCodeModeTransport(params: {
 }): Promise<void> {
   const transport = new CodeModeUdsTransport({
     codeModeSocketParentPath: params.codeModeSocketParentPath,
+    clientRemotePath: localMcpClientRemotePath,
     ...(params.maxMessageBytes === undefined ? {} : { maxMessageBytes: params.maxMessageBytes }),
     ...(params.onProtocolError === undefined ? {} : { onProtocolError: params.onProtocolError }),
   });
@@ -1634,7 +1634,7 @@ async function main(): Promise<void> {
   });
   const instructions = provider.getAdditionalInstructions();
   assert.match(instructions, /sandbox shell: \S+/);
-  assert.match(instructions, /Python 3 is available as: \S+/);
+  assert.match(instructions, /virtualenv lives at \.venv/);
   console.log('ok: getAdditionalInstructions names shell and python');
   await prepareHostProbeFiles();
   let codeModeSandboxRootPath: string | undefined;
@@ -1652,7 +1652,7 @@ async function main(): Promise<void> {
     assert.equal(printf.response.result, 'poc-ok\n');
     console.log('ok: provider exec printf');
 
-    await smokeLiveSrtUnixSocketAllowlistUpdate({
+    await smokeCodeModeSocketParentAllow({
       sandboxRootPath: sandboxId,
       codeModeSocketParentPath,
       shell: support.shell,

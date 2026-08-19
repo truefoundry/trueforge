@@ -31,9 +31,6 @@ function mcpClientLayout(remotePath: string): { pythonPath: string; binDir: stri
   return { pythonPath, binDir, binLink: join(binDir, 'mcp-client') };
 }
 
-/** Fallback PATH tail when the provider does not pass PATH (Daytona image defaults). */
-const DEFAULT_SANDBOX_PATH = '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin';
-
 export interface SandboxInfo {
   sandbox_id: string;
 }
@@ -73,7 +70,8 @@ function buildSyncGitCredentialsCommand(credentialsContent: string | null, crede
 
 /**
  * Process-scoped credential.helper via GIT_CONFIG_* (avoids shared ~/.gitconfig).
- * Required for TFY sandbox where many logical sandboxes share one pod/HOME.
+ * Path is whatever the provider returns; providers with a shared FS (TFY) make
+ * `store --file` absolute in their own `exec`.
  */
 function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, string> {
   return {
@@ -91,8 +89,6 @@ export interface SandboxStoredFile {
 export interface SandboxOptions {
   provider: SandboxProvider;
   existingSandboxId?: string | undefined;
-  /** Chat session id; local provider nests the sandbox root under this segment. */
-  sessionId?: string | undefined;
   skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
   /** Pre-resolved credential-store file content (null = clear / no git auth). */
@@ -105,7 +101,6 @@ export interface SandboxOptions {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
-  tenantName: string;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -141,7 +136,9 @@ function injectTraceContextEnv(): Record<string, string> {
 /**
  * Injects environment variables required for mcp_client.py into sandbox_exec arguments.
  * Transport-specific vars (NATS URL/prefix/timeout) come from `codeModeEnv` via transport.start().
- * PYTHONPATH / layout bin PATH come from transport.getClientInstall remotePath (Sandbox-derived).
+ * PYTHONPATH comes from transport.getClientInstall remotePath. PATH is provider-owned:
+ * Sandbox only prepends the layout bin when the caller already passed PATH and the
+ * install has no pathBinSymlink (Daytona puts the CLI on the image PATH instead).
  */
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
@@ -153,13 +150,18 @@ function injectMCPClientEnv(params: {
   const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
   const install = params.mcpClientInstall;
   const layout = install === undefined ? undefined : mcpClientLayout(install.remotePath);
-  const pathTail = params.env?.['PATH'] ?? DEFAULT_SANDBOX_PATH;
+  const existingPath = params.env?.['PATH'];
+  const prependLayoutBin =
+    layout !== undefined &&
+    install !== undefined &&
+    install.pathBinSymlink === undefined &&
+    existingPath !== undefined &&
+    existingPath.length > 0;
   return {
     ...(params.env ?? {}),
     ...(layout !== undefined && {
       PYTHONPATH: layout.pythonPath,
-      // Prepend layout bin; Daytona also keeps pathBinSymlink on /usr/local/bin.
-      PATH: `${layout.binDir}:${pathTail}`,
+      ...(prependLayoutBin ? { PATH: `${layout.binDir}:${existingPath}` } : {}),
     }),
     ...(Object.keys(params.mcpServers).length > 0 && {
       TFY_MCP_SERVERS: Buffer.from(JSON.stringify(params.mcpServers)).toString('base64'),
@@ -207,8 +209,6 @@ export class Sandbox extends LocalToolMCP {
 
   private readonly provider: SandboxProvider;
   private readonly existingSandboxId?: string | undefined;
-  private readonly tenantName: string;
-  private readonly sessionId?: string | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
   private sandboxCreationPromise?: Promise<SandboxInfo> | undefined;
@@ -239,9 +239,6 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
-    this.tenantName = options.tenantName;
-    this.sessionId = options.sessionId;
-    this.tenantName = options.tenantName;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
@@ -250,7 +247,6 @@ export class Sandbox extends LocalToolMCP {
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 
     if (this.existingSandboxId) {
-      // validateSandboxOwnedByTenant(this.existingSandboxId, this.tenantName);
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
     }
   }
@@ -473,7 +469,7 @@ export class Sandbox extends LocalToolMCP {
     }
     // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
-      .createSandbox(this.sessionId === undefined ? undefined : { sessionId: this.sessionId })
+      .createSandbox()
       .then(({ sandboxId }) => ({
         sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
       }))
@@ -713,7 +709,11 @@ export class Sandbox extends LocalToolMCP {
     const dirs = [shellEscape(fileUploadsDir), shellEscape(toolResultDumpDir), shellEscape(skillsDir)];
     if (install !== undefined) {
       const { pythonPath, binDir } = mcpClientLayout(install.remotePath);
-      dirs.push(shellEscape(pythonPath), shellEscape(binDir));
+      dirs.push(shellEscape(pythonPath));
+      // Layout bin is only for providers that put that dir on PATH (no image-PATH symlink).
+      if (install.pathBinSymlink === undefined) {
+        dirs.push(shellEscape(binDir));
+      }
     }
     ensureExecSuccess(await this.provider.exec({ sandboxId, command: `mkdir -p ${dirs.join(' ')}` }));
 
@@ -725,12 +725,11 @@ export class Sandbox extends LocalToolMCP {
         remotePath: install.remotePath,
         content: Buffer.from(install.content, 'utf-8'),
       });
-      initSteps.push(
-        `chmod 0555 ${shellEscape(install.remotePath)}`,
-        `ln -sf ${shellEscape(install.remotePath)} ${shellEscape(binLink)}`,
-      );
+      initSteps.push(`chmod 0555 ${shellEscape(install.remotePath)}`);
       if (install.pathBinSymlink !== undefined) {
         initSteps.push(`ln -sf ${shellEscape(install.remotePath)} ${shellEscape(install.pathBinSymlink)}`);
+      } else {
+        initSteps.push(`ln -sf ${shellEscape(install.remotePath)} ${shellEscape(binLink)}`);
       }
     }
 

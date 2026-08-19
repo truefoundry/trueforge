@@ -46,7 +46,6 @@ function makeSandbox(options: {
       blockDestructiveToolsInCodeMode: true,
       mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
       mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
-      tenantName: 'test-tenant',
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
     }),
@@ -96,6 +95,11 @@ describe('Code Mode timeouts', () => {
 
     expect(capturedTimeoutSeconds).toBe(150);
     expect(call.env?.['TFY_CM_REQUEST_TIMEOUT_SECONDS']).toBe('150');
+    expect(call.env?.['PATH']).toBeUndefined();
+    expect(call.env?.['PYTHONPATH']).toBe('/opt/tfy/mcp-client');
+    const init = execCalls.find(item => item.command.includes('ln -sf'));
+    expect(init?.command).toContain('/usr/local/bin/mcp-client');
+    expect(init?.command).not.toContain('/opt/tfy/mcp-client/bin/mcp-client');
   });
 
   it('leaves the exec timeout to the provider default', async () => {
