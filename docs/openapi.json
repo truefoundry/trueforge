@@ -2714,9 +2714,6 @@
             "default": true,
             "description": "Allow downloading agent-produced files via the turn download endpoint. Default: true.",
             "type": "boolean"
-          },
-          "network_policy": {
-            "$ref": "#/components/schemas/SandboxNetworkPolicy"
           }
         },
         "required": [
@@ -2760,78 +2757,6 @@
           "sandbox_id",
           "thread_id"
         ],
-        "type": "object"
-      },
-      "SandboxNetworkPolicy": {
-        "properties": {
-          "auth_inject": {
-            "description": "Up to one rule injecting git basic-auth credentials for exact hosts.",
-            "items": {
-              "properties": {
-                "auth_data": {
-                  "properties": {
-                    "password": {
-                      "description": "Basic-auth password.",
-                      "minLength": 1,
-                      "type": "string"
-                    },
-                    "type": {
-                      "description": "Basic auth credential type.",
-                      "enum": [
-                        "basic"
-                      ],
-                      "type": "string"
-                    },
-                    "username": {
-                      "description": "Basic-auth username (no whitespace).",
-                      "pattern": "^\\S+$",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "username",
-                    "password"
-                  ],
-                  "type": "object"
-                },
-                "match": {
-                  "properties": {
-                    "hosts": {
-                      "description": "Hostnames that receive injected credentials.",
-                      "items": {
-                        "description": "Exact hostname to match (no wildcards).",
-                        "minLength": 1,
-                        "type": "string"
-                      },
-                      "minItems": 1,
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "hosts"
-                  ],
-                  "type": "object"
-                },
-                "type": {
-                  "description": "Inject credentials for git HTTPS clones.",
-                  "enum": [
-                    "git"
-                  ],
-                  "type": "string"
-                }
-              },
-              "required": [
-                "type",
-                "match",
-                "auth_data"
-              ],
-              "type": "object"
-            },
-            "maxItems": 1,
-            "type": "array"
-          }
-        },
         "type": "object"
       },
       "SandboxProvider": {
