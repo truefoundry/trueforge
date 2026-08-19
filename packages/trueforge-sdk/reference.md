@@ -245,7 +245,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-**request:** `TrueForge.PutAgentRequest` 
+**request:** `TrueForge.UpdateAgentRequest` 
     
 </dd>
 </dl>
@@ -2212,7 +2212,7 @@ await client.settings.mcpServers.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutMcpServerRequest` 
+**request:** `TrueForge.settings.UpdateMcpServerRequest` 
     
 </dd>
 </dl>
@@ -2481,7 +2481,7 @@ await client.settings.modelProviders.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutModelProviderRequest` 
+**request:** `TrueForge.settings.UpdateModelProviderRequest` 
     
 </dd>
 </dl>
@@ -2611,7 +2611,7 @@ await client.settings.sandboxProviders.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutSandboxProviderRequest` 
+**request:** `TrueForge.settings.UpdateSandboxProviderRequest` 
     
 </dd>
 </dl>
@@ -2809,7 +2809,7 @@ await client.settings.skills.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutSkillRequest` 
+**request:** `TrueForge.settings.UpdateSkillRequest` 
     
 </dd>
 </dl>

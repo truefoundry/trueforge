@@ -3,40 +3,38 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { McpServerDisableToolsItem } from "./McpServerDisableToolsItem.js";
-import { McpServerEnableToolsItem } from "./McpServerEnableToolsItem.js";
-import { McpServerPreloadToolsItem } from "./McpServerPreloadToolsItem.js";
-import { McpServerRequireApprovalForToolsItem } from "./McpServerRequireApprovalForToolsItem.js";
+import { McpServerApprovalToolSelector } from "./McpServerApprovalToolSelector.js";
+import { McpServerToolSelector } from "./McpServerToolSelector.js";
 
 export const McpServer: core.serialization.ObjectSchema<serializers.McpServer.Raw, TrueForge.McpServer> =
     core.serialization.object({
         disableTools: core.serialization.property(
             "disable_tools",
-            core.serialization.list(McpServerDisableToolsItem).optional(),
+            core.serialization.list(McpServerToolSelector).optional(),
         ),
         enableTools: core.serialization.property(
             "enable_tools",
-            core.serialization.list(McpServerEnableToolsItem).optional(),
+            core.serialization.list(McpServerToolSelector).optional(),
         ),
         name: core.serialization.string(),
         preload: core.serialization.boolean().optional(),
         preloadTools: core.serialization.property(
             "preload_tools",
-            core.serialization.list(McpServerPreloadToolsItem).optional(),
+            core.serialization.list(McpServerToolSelector).optional(),
         ),
         requireApprovalForTools: core.serialization.property(
             "require_approval_for_tools",
-            core.serialization.list(McpServerRequireApprovalForToolsItem).optional(),
+            core.serialization.list(McpServerApprovalToolSelector).optional(),
         ),
     });
 
 export declare namespace McpServer {
     export interface Raw {
-        disable_tools?: McpServerDisableToolsItem.Raw[] | null;
-        enable_tools?: McpServerEnableToolsItem.Raw[] | null;
+        disable_tools?: McpServerToolSelector.Raw[] | null;
+        enable_tools?: McpServerToolSelector.Raw[] | null;
         name: string;
         preload?: boolean | null;
-        preload_tools?: McpServerPreloadToolsItem.Raw[] | null;
-        require_approval_for_tools?: McpServerRequireApprovalForToolsItem.Raw[] | null;
+        preload_tools?: McpServerToolSelector.Raw[] | null;
+        require_approval_for_tools?: McpServerApprovalToolSelector.Raw[] | null;
     }
 }

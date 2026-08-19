@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListAvailableModelsResponse {
-    data: TrueForge.ModelReadEntry[];
+    data: TrueForge.AvailableModel[];
 }

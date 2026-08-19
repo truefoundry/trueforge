@@ -3,6 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export interface ContextManagementConfig {
-    compaction?: TrueForge.ContextManagementConfigCompaction;
+    compaction?: TrueForge.CompactionConfig;
     largeToolResponse?: TrueForge.LargeToolResponseConfig;
 }

@@ -243,7 +243,7 @@ export class McpServersClient {
     /**
      * Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
      *
-     * @param {TrueForge.settings.PutMcpServerRequest} request
+     * @param {TrueForge.settings.UpdateMcpServerRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -262,14 +262,14 @@ export class McpServersClient {
      *     })
      */
     public createOrUpdate(
-        request: TrueForge.settings.PutMcpServerRequest,
+        request: TrueForge.settings.UpdateMcpServerRequest,
         requestOptions?: McpServersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetMcpServerResponse> {
         return core.HttpResponsePromise.fromPromise(this.__createOrUpdate(request, requestOptions));
     }
 
     private async __createOrUpdate(
-        request: TrueForge.settings.PutMcpServerRequest,
+        request: TrueForge.settings.UpdateMcpServerRequest,
         requestOptions?: McpServersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetMcpServerResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -290,7 +290,7 @@ export class McpServersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.settings.PutMcpServerRequest.jsonOrThrow(request, {
+                serializers.settings.UpdateMcpServerRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

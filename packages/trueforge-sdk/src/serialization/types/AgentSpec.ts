@@ -3,19 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { InitialUserMessage } from "./InitialUserMessage.js";
 import { McpServer } from "./McpServer.js";
 import { Model } from "./Model.js";
 import { ResponseFormat } from "./ResponseFormat.js";
 import { RuntimeConfig } from "./RuntimeConfig.js";
 import { Skill } from "./Skill.js";
-import { UserMessage } from "./UserMessage.js";
 
 export const AgentSpec: core.serialization.ObjectSchema<serializers.AgentSpec.Raw, TrueForge.AgentSpec> =
     core.serialization.object({
         config: RuntimeConfig.optional(),
         instructions: core.serialization.string().optional(),
         mcpServers: core.serialization.property("mcp_servers", core.serialization.list(McpServer).optional()),
-        messages: core.serialization.list(UserMessage).optional(),
+        messages: core.serialization.list(InitialUserMessage).optional(),
         model: Model,
         responseFormat: core.serialization.property("response_format", ResponseFormat.optional()),
         skills: core.serialization.list(Skill).optional(),
@@ -26,7 +26,7 @@ export declare namespace AgentSpec {
         config?: RuntimeConfig.Raw | null;
         instructions?: string | null;
         mcp_servers?: McpServer.Raw[] | null;
-        messages?: UserMessage.Raw[] | null;
+        messages?: InitialUserMessage.Raw[] | null;
         model: Model.Raw;
         response_format?: ResponseFormat.Raw | null;
         skills?: Skill.Raw[] | null;

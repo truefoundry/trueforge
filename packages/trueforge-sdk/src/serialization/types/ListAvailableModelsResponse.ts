@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelReadEntry } from "./ModelReadEntry.js";
+import { AvailableModel } from "./AvailableModel.js";
 
 export const ListAvailableModelsResponse: core.serialization.ObjectSchema<
     serializers.ListAvailableModelsResponse.Raw,
     TrueForge.ListAvailableModelsResponse
 > = core.serialization.object({
-    data: core.serialization.list(ModelReadEntry),
+    data: core.serialization.list(AvailableModel),
 });
 
 export declare namespace ListAvailableModelsResponse {
     export interface Raw {
-        data: ModelReadEntry.Raw[];
+        data: AvailableModel.Raw[];
     }
 }

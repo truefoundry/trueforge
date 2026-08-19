@@ -1,2 +1,2 @@
 export { CreateModelProviderRequest } from "./CreateModelProviderRequest.js";
-export { PutModelProviderRequest } from "./PutModelProviderRequest.js";
+export { UpdateModelProviderRequest } from "./UpdateModelProviderRequest.js";
