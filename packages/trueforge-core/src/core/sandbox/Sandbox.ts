@@ -137,8 +137,7 @@ function injectTraceContextEnv(): Record<string, string> {
  * Injects environment variables required for mcp_client.py into sandbox_exec arguments.
  * Transport-specific vars (NATS URL/prefix/timeout) come from `codeModeEnv` via transport.start().
  * PYTHONPATH comes from transport.getClientInstall remotePath. PATH is provider-owned:
- * Sandbox only prepends the layout bin when the caller already passed PATH and the
- * install has no pathBinSymlink (Daytona puts the CLI on the image PATH instead).
+ * Sandbox never writes PATH (Daytona uses the image PATH; TFY/local set it in exec).
  */
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
@@ -150,18 +149,10 @@ function injectMCPClientEnv(params: {
   const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
   const install = params.mcpClientInstall;
   const layout = install === undefined ? undefined : mcpClientLayout(install.remotePath);
-  const existingPath = params.env?.['PATH'];
-  const prependLayoutBin =
-    layout !== undefined &&
-    install !== undefined &&
-    install.pathBinSymlink === undefined &&
-    existingPath !== undefined &&
-    existingPath.length > 0;
   return {
     ...(params.env ?? {}),
     ...(layout !== undefined && {
       PYTHONPATH: layout.pythonPath,
-      ...(prependLayoutBin ? { PATH: `${layout.binDir}:${existingPath}` } : {}),
     }),
     ...(Object.keys(params.mcpServers).length > 0 && {
       TFY_MCP_SERVERS: Buffer.from(JSON.stringify(params.mcpServers)).toString('base64'),

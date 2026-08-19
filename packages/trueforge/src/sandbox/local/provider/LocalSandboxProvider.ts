@@ -17,7 +17,7 @@ import {
   validateNoPathTraversal,
 } from '@truefoundry/trueforge-core/core';
 import { execFile } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -55,7 +55,7 @@ const SUPPORT_PROBE_TIMEOUT_MS = 5_000;
 const VENV_CREATE_TIMEOUT_MS = 60_000;
 const VENV_PIP_TIMEOUT_MS = 120_000;
 /** Same pin as the Daytona image / git_downloader.py PEP 723 header. */
-const VENV_PYDANTIC_PIN = 'pydantic==2.12.5';
+const VENV_PYDANTIC_PIN = 'pydantic>=2.0.0,<3.0.0';
 
 /** Command names resolved via `command -v` (PATH from sandbox policy). */
 const SHELL_CANDIDATES = ['bash', 'sh'] as const;
@@ -173,6 +173,12 @@ export interface LocalSandboxProviderOptions {
 function toSandboxRelativePath(params: { sandboxRootPath: string; absolutePath: string }): string {
   const rel = relative(params.sandboxRootPath, params.absolutePath);
   return rel === '' ? '.' : rel;
+}
+
+/** True when `descendant` is a real path strictly inside `ancestor` (not equal, not a sibling prefix). */
+function isStrictDescendant(params: { ancestor: string; descendant: string }): boolean {
+  const rel = relative(params.ancestor, params.descendant);
+  return rel !== '' && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 function execFileErrorDetail(error: unknown): string {
@@ -399,7 +405,11 @@ export class LocalSandboxProvider implements SandboxProvider {
       throw new Error('sandboxRootPathParent must be an absolute path');
     }
     validateNoPathTraversal(options.sandboxRootPathParent);
-    this.sandboxRootPathParent = resolve(options.sandboxRootPathParent);
+    const resolvedParent = resolve(options.sandboxRootPathParent);
+    this.sandboxRootPathParent =
+      existsSync(resolvedParent) && statSync(resolvedParent).isDirectory()
+        ? realpathSync(resolvedParent)
+        : resolvedParent;
     // Same validation as CodeModeUdsTransport (absolute, exists, ≤65 bytes, realpath).
     this.codeModeSocketParentPath = assertCodeModeSocketParentPath(options.codeModeSocketParentPath);
     this.support = options.support;
@@ -450,9 +460,20 @@ export class LocalSandboxProvider implements SandboxProvider {
     this.srtInitialized = true;
   }
 
-  /** Missing or non-directory root → recreate path in Sandbox. */
+  /** Missing, non-directory, or not a child of this provider's parent → recreate path in Sandbox. */
   private ensureSandboxRoot(sandboxRootPath: string): void {
-    if (!isAbsolute(sandboxRootPath) || !existsSync(sandboxRootPath) || !statSync(sandboxRootPath).isDirectory()) {
+    if (!isAbsolute(sandboxRootPath)) {
+      throw new SandboxNotAvailableError(sandboxRootPath);
+    }
+    const resolved = resolve(sandboxRootPath);
+    if (!existsSync(resolved) || !statSync(resolved).isDirectory()) {
+      throw new SandboxNotAvailableError(sandboxRootPath);
+    }
+    const parentReal = existsSync(this.sandboxRootPathParent)
+      ? realpathSync(this.sandboxRootPathParent)
+      : this.sandboxRootPathParent;
+    const realRoot = realpathSync(resolved);
+    if (!isStrictDescendant({ ancestor: parentReal, descendant: realRoot })) {
       throw new SandboxNotAvailableError(sandboxRootPath);
     }
   }
@@ -494,7 +515,7 @@ export class LocalSandboxProvider implements SandboxProvider {
       sandboxRootPath,
       platform: this.support.platform,
       shell: this.support.shell,
-      command: `${shellEscape(relPip)} install ${shellEscape(VENV_PYDANTIC_PIN)}`,
+      command: `${shellEscape(relPip)} install --trusted-host pypi.org --trusted-host files.pythonhosted.org ${shellEscape(VENV_PYDANTIC_PIN)}`,
       timeoutMs: VENV_PIP_TIMEOUT_MS,
     });
     if (install.protocolError !== undefined || install.exitCode !== 0 || install.timedOut) {

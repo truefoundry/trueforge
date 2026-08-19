@@ -68,7 +68,7 @@ describe('Sandbox provider-owned paths', () => {
     });
   });
 
-  it('prepends layout bin to a caller PATH when there is no pathBinSymlink', async () => {
+  it('does not rewrite a caller PATH (providers own PATH)', async () => {
     const execCalls: SandboxExecParams[] = [];
     const transport: CodeModeTransport = {
       getClientInstall: () => ({
@@ -97,7 +97,8 @@ describe('Sandbox provider-owned paths', () => {
       arguments: { intent: 'Run command', command: 'true', env: { PATH: '/usr/bin' } },
     });
     const call = execCalls.find(item => item.command === 'true');
-    expect(call?.env?.['PATH']).toBe('mcp-client/bin:/usr/bin');
+    expect(call?.env?.['PATH']).toBe('/usr/bin');
+    expect(call?.env?.['PYTHONPATH']).toBe('mcp-client');
     const init = execCalls.find(item => item.command.includes('ln -sf'));
     expect(init?.command).toContain('mcp-client/bin/mcp-client');
   });

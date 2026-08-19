@@ -93,6 +93,31 @@ function allowedNetworkDomains(): string[] {
 }
 
 /**
+ * macOS seatbelt blocks mDNSResponder, so `getaddrinfo("localhost")` fails inside
+ * the sandbox. SRT injects `HTTP_PROXY=...@localhost:PORT`; rewrite to 127.0.0.1
+ * before outbound tools (pip, curl, …) run.
+ */
+export function darwinSandboxNetworkShellPreamble(): string {
+  return [
+    'if [ -n "${HTTP_PROXY:-}" ]; then export HTTP_PROXY="${HTTP_PROXY//localhost/127.0.0.1}"; fi',
+    'if [ -n "${HTTPS_PROXY:-}" ]; then export HTTPS_PROXY="${HTTPS_PROXY//localhost/127.0.0.1}"; fi',
+    'if [ -n "${http_proxy:-}" ]; then export http_proxy="${http_proxy//localhost/127.0.0.1}"; fi',
+    'if [ -n "${https_proxy:-}" ]; then export https_proxy="${https_proxy//localhost/127.0.0.1}"; fi',
+    'if [ -n "${ALL_PROXY:-}" ]; then export ALL_PROXY="${ALL_PROXY//localhost/127.0.0.1}"; fi',
+    'if [ -n "${all_proxy:-}" ]; then export all_proxy="${all_proxy//localhost/127.0.0.1}"; fi',
+    'if [ -n "${GRPC_PROXY:-}" ]; then export GRPC_PROXY="${GRPC_PROXY//localhost/127.0.0.1}"; fi',
+    'if [ -n "${grpc_proxy:-}" ]; then export grpc_proxy="${grpc_proxy//localhost/127.0.0.1}"; fi',
+  ].join('; ');
+}
+
+function wrapSandboxCommand(params: { platform: LocalSandboxPlatform; command: string }): string {
+  if (params.platform !== 'darwin') {
+    return params.command;
+  }
+  return `${darwinSandboxNetworkShellPreamble()}; ${params.command}`;
+}
+
+/**
  * Host binaries SRT execs outside the wrap (same set as SandboxManager.checkDependencies).
  * Linux: bwrap + socat + rg (deny-path scan). macOS seatbelt takes glob denies, so no rg.
  */
@@ -434,7 +459,7 @@ export async function runSupervisorSession(params: {
 }): Promise<SessionResult> {
   const {
     sandboxRootPath,
-    command,
+    command: rawCommand,
     shell,
     platform,
     cwd = sandboxRootPath,
@@ -443,6 +468,7 @@ export async function runSupervisorSession(params: {
     onChildSpawn,
     timeoutMs,
   } = params;
+  const command = wrapSandboxCommand({ platform, command: rawCommand });
 
   const wrap = await SandboxManager.wrapWithSandboxArgv(
     command,

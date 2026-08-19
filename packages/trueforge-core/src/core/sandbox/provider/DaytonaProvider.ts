@@ -400,6 +400,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        if (e instanceof SandboxNotAvailableError) {
+          throw e;
+        }
         this.logger.error('Sandbox execution error', extractErrorLogFields(e));
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
