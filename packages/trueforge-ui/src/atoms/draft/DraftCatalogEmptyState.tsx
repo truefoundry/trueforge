@@ -7,11 +7,13 @@ export function DraftCatalogEmptyState({
   loading,
   emptyLabel,
   settingsTarget,
+  settingsActionLabel,
   onOpenSettings,
 }: {
   loading: boolean;
   emptyLabel: string;
   settingsTarget: string;
+  settingsActionLabel?: string;
   onOpenSettings?: () => void;
 }) {
   if (!loading && onOpenSettings) {
@@ -24,7 +26,11 @@ export function DraftCatalogEmptyState({
         })}
         onClick={onOpenSettings}
       >
-        Please configure {settingsTarget} in the <span className="underline">settings</span>
+        {settingsActionLabel ?? (
+          <>
+            Please configure {settingsTarget} in the <span className="underline">settings</span>
+          </>
+        )}
         <Icon name="chevron-right" className="size-3" />
       </button>
     );

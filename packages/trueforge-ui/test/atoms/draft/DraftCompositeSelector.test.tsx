@@ -231,7 +231,7 @@ describe('DraftCompositeSelector', () => {
     renderSelector({ getMcp: async () => [] });
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
 
-    fireEvent.click(await screen.findByRole('button', { name: /Please configure Connectors in the settings/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage connectors' }));
 
     expect(setSettingsOpen).toHaveBeenCalledWith(true, 'connectors');
     expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
@@ -242,9 +242,10 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
-    fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage skills' }));
 
     expect(setSettingsOpen).toHaveBeenCalledWith(true, 'skills');
+    expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
   });
 
   it('explains the sandbox requirement when skills are unavailable', async () => {
@@ -280,7 +281,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
-    fireEvent.click(await screen.findByRole('button', { name: /Please configure Skills in the settings/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Manage skills' }));
 
     expect(setSettingsOpen).toHaveBeenCalledWith(true, 'skills');
   });
@@ -290,7 +291,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
 
     expect(await screen.findByText('No connectors')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage connectors' })).not.toBeInTheDocument();
   });
 
   it('does not offer connector settings when settings are disabled', async () => {
@@ -307,7 +308,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
 
     expect(await screen.findByText('No connectors')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Please configure Connectors/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage connectors' })).not.toBeInTheDocument();
   });
 
   it('does not offer skills settings when the skills settings section is unavailable', async () => {
@@ -316,7 +317,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Please configure Skills/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage skills' })).not.toBeInTheDocument();
   });
 
   it('does not offer sandbox settings when the sandbox settings section is unavailable', async () => {
@@ -335,5 +336,37 @@ describe('DraftCompositeSelector', () => {
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
+  });
+
+  it('hides the connectors CTA once a connector is configured', async () => {
+    renderSelector();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage connectors' })).not.toBeInTheDocument();
+  });
+
+  it('hides the skills CTA once a skill is configured', async () => {
+    renderSelector();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /Research/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage skills' })).not.toBeInTheDocument();
+  });
+
+  it('does not show management CTAs for a search no-match in a nonempty catalog', async () => {
+    renderSelector();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+
+    await screen.findByRole('menuitemcheckbox', { name: /GitHub/ });
+    fireEvent.change(screen.getByPlaceholderText('Search connectors...'), { target: { value: 'missing' } });
+    expect(screen.getByText('No connectors')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage connectors' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+    fireEvent.change(screen.getByPlaceholderText('Search skills...'), { target: { value: 'missing' } });
+    expect(screen.getByText('No skills')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manage skills' })).not.toBeInTheDocument();
   });
 });

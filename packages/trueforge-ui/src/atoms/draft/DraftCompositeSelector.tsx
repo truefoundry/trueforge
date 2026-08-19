@@ -521,6 +521,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     loading={loading}
                     emptyLabel="No connectors"
                     settingsTarget="Connectors"
+                    settingsActionLabel="Manage connectors"
                     onOpenSettings={
                       connectors.length === 0 && shell && canConfigureConnectors
                         ? () => openSettings('connectors')
@@ -566,6 +567,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     loading={loading}
                     emptyLabel="No skills"
                     settingsTarget={needsSandbox ? 'a Sandbox' : 'Skills'}
+                    settingsActionLabel={needsSandbox ? undefined : 'Manage skills'}
                     onOpenSettings={
                       skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
                         ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
