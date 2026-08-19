@@ -488,7 +488,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       sandboxClientNatsUrl: `ws://localhost:${String(this.natsBridgePort)}`,
       logger: this.logger,
       mcpClientInstall: {
-        remotePath: join('/opt', 'tfy', 'mcp-client', 'mcp_client.py'),
+        remotePath: join('/opt', 'tf', 'mcp-client', 'mcp_client.py'),
         pathBinSymlink: join('/usr', 'local', 'bin', 'mcp-client'),
       },
     });
