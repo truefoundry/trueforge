@@ -5644,14 +5644,14 @@
             }
           },
           {
-            "description": "Page size. Defaults to 25, max 25.",
+            "description": "Page size. Defaults to 100, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Page size. Defaults to 25, max 25.",
-              "maximum": 25,
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 100.",
+              "maximum": 100,
               "minimum": 1,
               "type": "integer"
             }
@@ -6164,14 +6164,14 @@
             }
           },
           {
-            "description": "Page size. Defaults to 25, max 25.",
+            "description": "Page size. Defaults to 100, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Page size. Defaults to 25, max 25.",
-              "maximum": 25,
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 100.",
+              "maximum": 100,
               "minimum": 1,
               "type": "integer"
             }
