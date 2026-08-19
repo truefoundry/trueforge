@@ -7,7 +7,7 @@ slug="update-sandbox-image"
 outfile=".changeset/$(date -u +%Y%m%d%H%M%S)-${slug}.md"
 cat >"$outfile" <<'EOF'
 ---
-"@truefoundry/trueforge-core": patch
+'@truefoundry/trueforge-core': patch
 ---
 
 Update SANDBOX_IMAGE_URI to the image pushed by CI.
