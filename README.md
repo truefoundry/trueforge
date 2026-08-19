@@ -52,6 +52,11 @@ Run TrueForge (local, Docker Compose, or Kubernetes), connect a model and tools,
 
 To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+# Quick local run (no Docker)
+npm create @truefoundry/trueforge@latest
+npx @truefoundry/trueforge
+
+
 ## Architecture
 
 <p align="center">
