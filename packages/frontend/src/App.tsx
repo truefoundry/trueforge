@@ -115,10 +115,11 @@ export function App() {
 
   const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
 
-  if (shouldShowAuthErrorScreen({ authError, session })) {
+  const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
+  if (authErrorReason != null) {
     return (
       <ThemeProvider>
-        <AuthErrorScreen reason={authError} />
+        <AuthErrorScreen reason={authErrorReason} />
       </ThemeProvider>
     );
   }

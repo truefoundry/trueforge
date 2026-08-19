@@ -9,15 +9,18 @@ export function parseAuthErrorReason(search: string): string | null {
   return reason;
 }
 
-/** True only for a real login failure: `?error=` present and no valid session. */
+/** Returns the error reason when the auth error screen should show; otherwise null. */
 export function shouldShowAuthErrorScreen({
   authError,
   session,
 }: {
   authError: string | null;
   session: SessionState | 'checking';
-}): boolean {
-  return authError != null && session === 'unauthenticated';
+}): string | null {
+  if (authError == null || session !== 'unauthenticated') {
+    return null;
+  }
+  return authError;
 }
 
 /** Path + search + hash with the OIDC `error` query removed. */
