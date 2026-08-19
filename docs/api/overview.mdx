@@ -1,10 +1,10 @@
 ---
-title: 'SDK Overview'
-sidebarTitle: 'Overview'
-description: 'Understand Agent, Session, Turn, Event, and Delta, then drive TrueForge with the TypeScript SDK.'
+title: 'SDK Concepts'
+sidebarTitle: 'Concepts'
+description: 'The mental model behind the SDK — Agent, Session, Turn, Event, and Delta — with one worked example.'
 ---
 
-Everything the chat UI does, you can do in code. The TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/trueforge-sdk) creates sessions, streams turns, and handles approvals. This page explains the model; [Use an agent](/api/use-agent) is the runnable cookbook, and the **API Reference** tab has the raw HTTP schemas.
+Already running? Jump to the [SDK Quickstart](/api/quickstart) to install and stream your first turn. This page is the mental model behind that code: how an [agent](#agent), a [session](#session), a [turn](#turn), an [event](#event), and a [delta](#delta) fit together. Once it clicks, [Use an agent](/api/use-agent) is the runnable cookbook, and the **API Reference** tab has the raw HTTP schemas.
 
 ## Core concepts
 
@@ -38,7 +38,7 @@ flowchart TD
 
 An **agent** is a definition, not a running process. You define it once (the model, instructions, tools, and config), and any number of conversations can use it. `support-bot` is a support assistant that looks up orders and processes refunds through an MCP server. Its [AgentSpec](/create-agent/overview#create-an-agent-via-the-api) looks like this:
 
-```json support-bot AgentSpec
+```json support-bot AgentSpec wrap
 {
   "model": {
     "name": "anthropic/claude-sonnet-4-6",
@@ -69,10 +69,10 @@ A **session** is one issue worked through with the agent. It holds the conversat
 
 Jane's follow-ups about the refund stay in `sess-7f2a9c1b`. Bob's question runs in a separate session, so the two conversations never share context.
 
-```json Session for Jane's refund issue
+```json Session for Jane's refund issue wrap
 {
   "id": "sess-7f2a9c1b",
-  "agent": { "type": "ref", "agent_id": "agent-support-bot" },
+  "agent": { "type": "reference", "id": "agt_01jc...", "name": "support-bot" },
   "title": "Refund for ORD-2031",
   "created_by": "trueforge-default",
   "created_at": "2026-06-24T10:00:00Z",
@@ -125,7 +125,7 @@ While a turn runs, the agent emits **events** on the SDK stream, one JSON object
 
 Sample payload:
 
-```json turn.done
+```json turn.done wrap
 {
   "type": "turn.done",
   "id": "01jc...",
@@ -143,7 +143,7 @@ Sample payload:
 }
 ```
 
-Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events), plus a **sequence number** used for [resuming after a disconnect](/api/use-agent). The stream always opens with `turn.created` and closes with `turn.done`. Field-level schemas for every event type are in the [turn events reference](/api/turn-events).
+Every event carries an `id` and a `thread_id` (`"main"` for the root agent, a generated id for [subagents](/key-features/subagents), or `null` for run-level events), plus a **sequence number** used for [resuming after a disconnect](/api/use-agent). The stream always opens with `turn.created` and closes with `turn.done`. Field-level schemas for every event type are in the [turn events reference](/api/use-agent#turn-events-reference).
 
 ### Delta
 
@@ -151,11 +151,11 @@ Most events arrive as a complete payload. Model output is the exception: the LLM
 
 The agent's full reply in Turn 1 is _"Your order ORD-2031 shipped on June 12. Total: $1,240.00."_ Your client receives:
 
-```json Base event (empty shell)
+```json Base event (empty shell) wrap
 { "type": "model.message", "id": "msg-a1", "thread_id": "main", "content": "" }
 ```
 
-```json Deltas (merge into msg-a1 as they arrive)
+```json Deltas (merge into msg-a1 as they arrive) wrap
 { "type": "model.message.delta", "id": "msg-a1", "thread_id": "main", "content": "Your order ORD-2031" }
 { "type": "model.message.delta", "id": "msg-a1", "thread_id": "main", "content": " shipped on June 12." }
 { "type": "model.message.delta", "id": "msg-a1", "thread_id": "main", "content": " Total: $1,240.00.", "finish_reason": "stop" }
@@ -163,7 +163,7 @@ The agent's full reply in Turn 1 is _"Your order ORD-2031 shipped on June 12. To
 
 Append each delta's `content` to the event with the matching `id` and re-render on every chunk. That's how the chat UI shows the reply word by word:
 
-```text
+```text wrap
 Your order ORD-2031
 Your order ORD-2031 shipped on June 12.
 Your order ORD-2031 shipped on June 12. Total: $1,240.00.
@@ -231,22 +231,8 @@ sequenceDiagram
 
 A separate issue (Bob's shipping question, or Jane's next problem) runs in its own session, where Turn 1 starts fresh with no refund history.
 
-## Call an authenticated API
-
-When [login is off](/authentication/overview) (the default), omit any token. The SDK talks to the server as the shared local admin.
-
-When [OIDC login](/authentication/overview) is enabled, the HTTP API requires authentication. The chat UI uses an HttpOnly cookie after sign-in; for the SDK (or any other HTTP client), send the same OIDC **ID token** as a bearer token:
-
-```typescript
-const client = new TrueForge({
-  baseUrl: 'https://trueforge.myorg.com',
-  token: process.env.TRUEFORGE_TOKEN,
-});
-```
-
-That sets `Authorization: Bearer <id_token>` on every request. Get the token from your identity provider, or reuse a browser session. There's no device-code or client-credentials flow yet, so keep ID token lifetimes short at the IdP. A missing or expired token against an OIDC-enabled server returns `401`.
-
 ## Next steps
 
-- [Use an agent](/api/use-agent) installs the SDK and walks through a runnable example plus the method recipes.
+- [SDK Quickstart](/api/quickstart) installs the SDK, connects with a token, and streams your first turn.
+- [Use an agent](/api/use-agent) is the full cookbook: streaming, approvals, questions, threads, and reconnects.
 - The **API Reference** tab has the raw HTTP endpoints and OpenAPI schemas.

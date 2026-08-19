@@ -2,6 +2,7 @@
   "$schema": "https://mintlify.com",
   "theme": "mint",
   "redirects": [
+    { "source": "/api/turn-events", "destination": "/api/use-agent#turn-events-reference" },
     { "source": "/create-agent/tool-approval", "destination": "/create-agent/overview#whats-in-an-agent" },
     { "source": "/create-agent/ask-user-questions", "destination": "/create-agent/overview#whats-in-an-agent" },
     { "source": "/create-agent/generative-ui", "destination": "/create-agent/overview#whats-in-an-agent" },
@@ -66,7 +67,7 @@
           },
           {
             "group": "SDK",
-            "pages": ["api/overview", "api/use-agent", "api/turn-events"]
+            "pages": ["api/quickstart", "api/overview", "api/use-agent"]
           },
           {
             "group": "UI Chat",
@@ -76,7 +77,6 @@
               {
                 "group": "Frontend Customisation",
                 "pages": [
-                  "ui-sdk/guides/layouts",
                   "ui-sdk/guides/layouts-and-theme",
                   "ui-sdk/guides/agent-modes",
                   "ui-sdk/setup-custom-ui/custom-theme",
@@ -116,8 +116,9 @@
   "navbar": {
     "links": [
       {
-        "type": "github",
-        "href": "https://github.com/truefoundry/trueforge"
+        "label": "GitHub",
+        "href": "https://github.com/truefoundry/trueforge",
+        "icon": "github"
       }
     ],
     "primary": {

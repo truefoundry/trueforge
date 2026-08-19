@@ -254,7 +254,7 @@ describe("ModelProvidersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
-    test("upsert (1)", async () => {
+    test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
@@ -285,7 +285,7 @@ describe("ModelProvidersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.modelProviders.upsert({
+        const response = await client.settings.modelProviders.createOrUpdate({
             manifest: {
                 auth: {
                     apiKey: "api_key",
@@ -321,7 +321,7 @@ describe("ModelProvidersClient", () => {
         });
     });
 
-    test("upsert (2)", async () => {
+    test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
@@ -346,7 +346,7 @@ describe("ModelProvidersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.modelProviders.upsert({
+            return await client.settings.modelProviders.createOrUpdate({
                 manifest: {
                     auth: {
                         apiKey: "x",

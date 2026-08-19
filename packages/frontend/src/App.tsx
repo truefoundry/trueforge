@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
-import { parseAuthErrorReason } from './authStatusSearch';
+import { parseAuthErrorReason, shouldShowAuthErrorScreen, stripAuthErrorSearch } from './authStatusSearch';
 import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
 
@@ -29,10 +29,9 @@ export function App() {
 
   // Gate boot on a non-redirecting `/me` probe: unauthenticated users see the
   // welcome screen instead of being bounced to login by the auth-aware fetch.
+  // Probe even when the URL has `?error=` — a replayed callback can leave that
+  // query on a session that is still valid.
   useEffect(() => {
-    if (authError != null) {
-      return;
-    }
     const state = { cancelled: false };
     void probeSession().then(result => {
       if (!state.cancelled) {
@@ -42,7 +41,25 @@ export function App() {
     return () => {
       state.cancelled = true;
     };
-  }, [authError]);
+  }, []);
+
+  useEffect(() => {
+    if (session !== 'authenticated') {
+      return;
+    }
+    if (parseAuthErrorReason(window.location.search) == null) {
+      return;
+    }
+    window.history.replaceState(
+      window.history.state,
+      '',
+      stripAuthErrorSearch({
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+      }),
+    );
+  }, [session]);
 
   useEffect(() => {
     if (session !== 'authenticated') {
@@ -98,10 +115,11 @@ export function App() {
 
   const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
 
-  if (authError != null) {
+  const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
+  if (authErrorReason != null) {
     return (
       <ThemeProvider>
-        <AuthErrorScreen reason={authError} />
+        <AuthErrorScreen reason={authErrorReason} />
       </ThemeProvider>
     );
   }
@@ -150,6 +168,7 @@ export function App() {
           },
         }}
         layout="sidebar"
+        withRouter
         agentConfig={{
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,

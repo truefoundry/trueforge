@@ -4,7 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import { CancellationReason, type TerminalTurnState } from '../schemas/turn';
+import type { TerminalTurnState } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
@@ -72,8 +72,12 @@ function turnKey({ session_id, turn_id }: { session_id: string; turn_id: string 
 
 /** Lexicographic session_id order — shared by listSessions sort and keyset filter. */
 function compareSessionId(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
+  if (a < b) {
+    return -1;
+  }
+  if (a > b) {
+    return 1;
+  }
   return 0;
 }
 
@@ -231,7 +235,9 @@ export class InMemorySessionStore<
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }> {
     const records: SessionRecord<TSessionCustom>[] = [];
     for (const stored of this.sessions.values()) {
-      if (stored.record.tenant_id !== input.tenant_id) continue;
+      if (stored.record.tenant_id !== input.tenant_id) {
+        continue;
+      }
       if (
         input.agent_id !== undefined &&
         (stored.record.agent.type !== 'reference' || stored.record.agent.id !== input.agent_id)
@@ -242,8 +248,12 @@ export class InMemorySessionStore<
         continue;
       }
       const createdAt = stored.record.created_at.getTime();
-      if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) continue;
-      if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) continue;
+      if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) {
+        continue;
+      }
+      if (input.end_timestamp !== undefined && createdAt > input.end_timestamp.getTime()) {
+        continue;
+      }
       records.push(stored.record);
     }
     records.sort((a, b) => {
@@ -336,7 +346,7 @@ export class InMemorySessionStore<
     if (turn.state.status === 'running') {
       const cancelledState: TerminalTurnState = {
         status: 'cancelled',
-        reason: CancellationReason.CancelledForNextTurn,
+        reason: input.reason,
         completed_at: new Date().toISOString(),
       };
       turn.state = cancelledState;
@@ -569,11 +579,17 @@ export class InMemorySessionStore<
     let oldestId = chain[0];
     while (oldestId && oldestId !== anchor.turn_id) {
       const oldest = this.turns.get(turnKey({ session_id: sessionId, turn_id: oldestId }));
-      if (!oldest) break;
+      if (!oldest) {
+        break;
+      }
       const older = oldest.ancestor_ids.filter(id => !seen.has(id));
-      if (older.length === 0) break;
+      if (older.length === 0) {
+        break;
+      }
       chain.unshift(...older);
-      for (const id of older) seen.add(id);
+      for (const id of older) {
+        seen.add(id);
+      }
       oldestId = older[0];
     }
     return chain;

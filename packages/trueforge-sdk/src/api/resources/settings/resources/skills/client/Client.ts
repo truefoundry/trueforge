@@ -238,7 +238,7 @@ export class SkillsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.settings.skills.upsert({
+     *     await client.settings.skills.createOrUpdate({
      *         manifest: {
      *             description: "description",
      *             name: "name",
@@ -248,14 +248,14 @@ export class SkillsClient {
      *         }
      *     })
      */
-    public upsert(
+    public createOrUpdate(
         request: TrueForge.settings.PutSkillRequest,
         requestOptions?: SkillsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetSkillResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__createOrUpdate(request, requestOptions));
     }
 
-    private async __upsert(
+    private async __createOrUpdate(
         request: TrueForge.settings.PutSkillRequest,
         requestOptions?: SkillsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetSkillResponse>> {

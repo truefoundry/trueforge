@@ -68,7 +68,9 @@ export class ToolSelectorPolicy {
 
   private isToolPreloaded(toolName: string, annotations: ToolAnnotations | undefined): boolean {
     // Fully-preloaded server: every allowed tool is loaded into context.
-    if (this.preload) return true;
+    if (this.preload) {
+      return true;
+    }
     // Otherwise only the tools matching `preload_tools` stay eager.
     return toolMatchesAnySelector(toolName, annotations, this.preloadTools);
   }

@@ -134,8 +134,12 @@ export class TFYSandboxProvider implements SandboxProvider {
       command: `stat -L --printf='{"size":%s,"type":"%F"}' ${shellEscape(params.path)}`,
     });
 
-    if (!result.success) throw new Error(`Failed to stat file: ${result.error}`);
-    if (result.response.exitCode !== 0) throw new SandboxFileNotFoundError(params.path);
+    if (!result.success) {
+      throw new Error(`Failed to stat file: ${result.error}`);
+    }
+    if (result.response.exitCode !== 0) {
+      throw new SandboxFileNotFoundError(params.path);
+    }
 
     const parsed = JSON.parse(result.response.result) as StatResult;
     return { size: parsed.size, isDir: parsed.type === 'directory' };
@@ -155,8 +159,12 @@ export class TFYSandboxProvider implements SandboxProvider {
       command: `base64 -w0 ${shellEscape(params.path)}`,
     });
 
-    if (!result.success) throw new Error(`Failed to download file: ${result.error}`);
-    if (result.response.exitCode !== 0) throw new SandboxFileNotFoundError(params.path);
+    if (!result.success) {
+      throw new Error(`Failed to download file: ${result.error}`);
+    }
+    if (result.response.exitCode !== 0) {
+      throw new SandboxFileNotFoundError(params.path);
+    }
 
     return Buffer.from(result.response.result.trim(), 'base64');
   }

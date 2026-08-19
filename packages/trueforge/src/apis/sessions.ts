@@ -2,21 +2,24 @@
  * DB-backed sessions API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
+  TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import type {
-  RouteHandler as RequestReplyRouteHandler,
-  RequestReplyRouter,
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import {
+  redisRequest,
+  RequestTimeoutError,
+  type RouteHandler as RequestReplyRouteHandler,
+  type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
-import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
-import { HTTPException } from 'hono/http-exception';
 import type { RedisClientType } from 'redis';
 import { ulid } from 'ulid';
+import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { ResolveUserContext } from '../auth/identity';
 import configuration from '../config';
@@ -76,6 +79,7 @@ export interface SessionsRouterDeps {
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveUserContext: ResolveUserContext;
+  logger: Logger;
 }
 
 function cancelTurnOnThisExecutor(
@@ -112,23 +116,33 @@ export function cancelSessionTurnPeerHandler(activeTurns: ActiveTurnRegistry): R
   };
 }
 
-/** A registry to abort in, durable state to read, and a way to reach peers. */
+/** A registry to abort in, a session to freeze, durable state to read, and a way to reach peers. */
 export interface CancelTurnDeps {
   activeTurns: ActiveTurnRegistry;
+  session: Pick<SessionHandle, 'session_id' | 'freezeTurn'>;
   sessionStore: Pick<ISessionStore, 'getTurn'>;
   redis?: RedisClientType | undefined;
+  logger: Pick<Logger, 'warn'>;
 }
 
 /**
  * Cancels the turn wherever it runs: locally or on the owning peer over Redis
  * request-reply. Callers state the motive; default is a plain client cancel.
- * Owner failures throw HTTPException (412 unreachable, 424 timed out).
+ *
+ * A confirmed abort (this process, or peer HTTP 200) lets TurnHandle persist
+ * the terminal state. If abort cannot be confirmed, this replica freezes the
+ * turn in the store so the session is not stuck `running`.
+ *
+ * Redis timeout and Redis/transport failures are not a clean cancellation —
+ * the owning replica may still be executing — but the turn is still frozen.
+ * Later writes from that replica lose to first-terminal-write-wins.
  */
 export async function cancelSessionTurn(
   deps: CancelTurnDeps,
-  input: { sessionId: string; turnId: string; reason?: CancellationReason },
+  input: { turnId: string; reason?: CancellationReason },
 ): Promise<void> {
-  const { sessionId, turnId, reason = CancellationReason.ClientCancelled } = input;
+  const { turnId, reason = CancellationReason.ClientCancelled } = input;
+  const sessionId = deps.session.session_id;
 
   const turn = await deps.sessionStore.getTurn({
     session_id: sessionId,
@@ -141,7 +155,7 @@ export async function cancelSessionTurn(
 
   const owner = executorFromTurnId(turnId);
   // Without a Redis client there is no peer to ask, so an id naming another
-  // replica falls through to the local lookup and finds nothing.
+  // replica falls through to the local lookup and freezes if the run is gone.
   if (owner !== configuration.EXECUTOR_ID && deps.redis) {
     try {
       const reply = await redisRequest<CancelPeerBody>({
@@ -156,34 +170,45 @@ export async function cancelSessionTurn(
           pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
         },
       });
-      if (reply.status !== 200 && reply.status !== 412) {
-        throw new HTTPException(500, { message: 'Failed to cancel turn on the owning executor', cause: reply });
+      if (reply.status === 200) {
+        return;
       }
     } catch (error) {
-      if (error instanceof NoResponderError) {
-        throw new HTTPException(412, {
-          message: `Executor owning the running turn is unreachable: ${owner}`,
-          cause: error,
-        });
-      }
+      const fields = {
+        sessionId,
+        turnId,
+        owner,
+        ...extractErrorLogFields(error),
+      };
       if (error instanceof RequestTimeoutError) {
-        throw new HTTPException(424, {
-          message: 'Timed out waiting for the owning executor to cancel the turn',
-          cause: error,
-        });
+        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', fields);
+      } else {
+        deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', fields);
       }
-      if (error instanceof HTTPException) {
-        throw error;
-      }
-      throw new HTTPException(500, {
-        message: `Unexpected error while cancelling the turn on the owning executor: ${owner}`,
-        cause: error,
-      });
     }
+    await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
     return;
   }
 
-  cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  const aborted = cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  if (!aborted) {
+    await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
+  }
+}
+
+/** Freeze a running turn; missing turns are a no-op (already gone). */
+async function freezeTurnIgnoringMissing(
+  session: Pick<SessionHandle, 'freezeTurn'>,
+  input: { turnId: string; reason: CancellationReason },
+): Promise<void> {
+  try {
+    await session.freezeTurn({ turn_id: input.turnId, reason: input.reason });
+  } catch (error) {
+    if (error instanceof TurnNotFoundError) {
+      return;
+    }
+    throw error;
+  }
 }
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
@@ -327,19 +352,19 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
-    if (!record) {
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const turnId = record.last_turn_id;
+    const turnId = session.record.last_turn_id;
     if (!turnId) {
       return c.json({}, 200);
     }
 
-    await cancelSessionTurn(deps, { sessionId, turnId });
+    await cancelSessionTurn({ ...deps, session }, { turnId });
     return c.json({}, 200);
   };
 

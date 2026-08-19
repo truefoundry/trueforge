@@ -190,7 +190,7 @@ describe("SkillsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
-    test("upsert (1)", async () => {
+    test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
@@ -219,7 +219,7 @@ describe("SkillsClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.skills.upsert({
+        const response = await client.settings.skills.createOrUpdate({
             manifest: {
                 description: "description",
                 name: "name",
@@ -243,7 +243,7 @@ describe("SkillsClient", () => {
         });
     });
 
-    test("upsert (2)", async () => {
+    test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
@@ -259,7 +259,7 @@ describe("SkillsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.skills.upsert({
+            return await client.settings.skills.createOrUpdate({
                 manifest: {
                     description: "x",
                     name: "xy",

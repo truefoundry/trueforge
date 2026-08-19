@@ -44,7 +44,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Tool approval (API only)" icon="user-shield">
     Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
 
-    By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as destructive, the agent pauses for approval before running it. Read-only tools run autonomously.
+    By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as **write or destructive** (the default `["@write", "@destructive"]`), the agent pauses for approval before running it. Read-only tools run autonomously.
 
     <Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
       <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
@@ -90,7 +90,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
     **Set in:** UI + API
   </Accordion>
 
-  <Accordion title="Ask user questions" icon="circle-question">
+  <Accordion title="Ask clarifying questions" icon="circle-question">
     Lets the agent pause at a decision it shouldn't guess — which environment to deploy to, which of several matches the user meant, an ambiguous required field — show a multiple-choice prompt, and resume with the chosen answer. On by default.
 
     <Frame caption="The chat UI renders the question and options as a selectable card.">
@@ -159,9 +159,80 @@ Options available in the UI today: **model** (selection), **instructions**, **co
 
 ## Create an agent via the API
 
-The [SDK](/api/overview) exposes **every** option through the agent spec. Save the spec as a named agent and reference it by name, or pass it inline when you create a session. All fields are `snake_case`, and every field except `model` has a default.
+The [SDK](/api/overview) and HTTP API expose **every** option through the **agent spec**. You either save the spec as a named, reusable agent and reference it by name, or pass it inline when you open a session. All fields are `snake_case`, and every field except `model` has a default.
 
-```json A complete example
+### Save and run an agent
+
+<Steps>
+  <Step title="Connect the client">
+    ```typescript
+    import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+    const client = new TrueForge({
+      baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+      // token: process.env.TRUEFORGE_TOKEN, // ID token when OIDC login is enabled
+    });
+    ```
+
+    When [OIDC login](/authentication/overview) is on, pass an ID token; see [Get a token and connect](/api/quickstart#get-a-token-and-connect). When login is off, omit `token`.
+  </Step>
+
+  <Step title="Save the spec as a named agent">
+    `agents.create` (`POST /api/v1/agents`) stores the spec under a unique `name` and returns the agent with its server-generated `id`. The name is immutable and must be unique — a duplicate returns `409`.
+
+    ```typescript
+    const { data: agent } = await client.agents.create({
+      name: 'support-bot',
+      manifest: {
+        model: { name: 'anthropic/claude-sonnet-4-6' },
+        instructions: 'You help customers with orders. Always confirm before processing refunds.',
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="Open a session and run turns">
+    Reference the saved agent by name, then stream a turn. See [Use an agent](/api/use-agent) for the full loop, including approvals and questions.
+
+    ```typescript
+    const { data: session } = await client.sessions.create({ agent: { name: 'support-bot' } });
+
+    const stream = await client.sessions.createTurnStream(session.id, {
+      input: [{ type: 'user.message', content: 'Where is order ORD-2031?' }],
+    });
+    for await (const { data: event } of stream.withMetadata()) console.log(event.type);
+    ```
+  </Step>
+</Steps>
+
+**Skip saving** — pass the spec inline when you create the session, and nothing is persisted to the registry:
+
+```typescript
+const { data: session } = await client.sessions.create({
+  agent: {
+    spec: {
+      model: { name: 'anthropic/claude-sonnet-4-6' },
+      instructions: 'You are a concise research assistant.',
+    },
+  },
+});
+```
+
+**Manage saved agents** with the rest of the `agents` methods:
+
+| Method           | Endpoint                        | What it does                                                     |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `agents.create`  | `POST /api/v1/agents`           | Save a new agent under a unique `name`; returns its `id`.        |
+| `agents.list`    | `GET /api/v1/agents`            | List all configured agents.                                      |
+| `agents.get`     | `GET /api/v1/agents/{agent_id}` | Fetch one agent by its immutable `id`.                           |
+| `agents.update`  | `PUT /api/v1/agents/{agent_id}` | Replace an existing agent's manifest (the `name` can't change).  |
+| `agents.delete`  | `DELETE /api/v1/agents/{agent_id}` | Delete an agent (idempotent).                                 |
+
+### The full agent spec
+
+The `manifest` you save (or the inline `spec`) is the agent spec below — every field, with defaults.
+
+```json
 {
   "model": {
     "name": "anthropic/claude-sonnet-4-6",

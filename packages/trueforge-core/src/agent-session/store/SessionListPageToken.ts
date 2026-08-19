@@ -24,7 +24,9 @@ export function encodeSessionListPageToken(cursor: SessionListPageCursor): strin
 }
 
 export function decodeSessionListPageToken(token: string | undefined): SessionListPageCursor | undefined {
-  if (token === undefined) return undefined;
+  if (token === undefined) {
+    return undefined;
+  }
   return decodePageToken(SessionListPageCursorSchema, token);
 }
 

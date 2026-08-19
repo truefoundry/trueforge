@@ -5,7 +5,7 @@
  *     {}
  */
 export interface ListTurnsSessionsRequest {
-    /** Page size. Defaults to 10, max 100. */
+    /** Page size. Defaults to 25, max 25. */
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;

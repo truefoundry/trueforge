@@ -3,7 +3,6 @@
  * Global fetch is stubbed; production code uses real fetch only.
  */
 import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-utils.js';
-import { McpConnectionError } from '@truefoundry/trueforge-core/core';
 import { InMemoryOAuthClientStore, InMemoryOAuthTokenStore } from '../../../../src/mcp/auth/inMemoryStores';
 import {
   buildMcpAuthorizationUrl,
@@ -13,11 +12,7 @@ import {
   isMcpAuthRequired,
   resolveMcpAuth,
 } from '../../../../src/mcp/auth/mcpDcr';
-import {
-  DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS,
-  mcpOAuthCallbackUrl,
-  validateRedirectUris,
-} from '../../../../src/mcp/auth/mcpOAuthHelpers';
+import { DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS, mcpOAuthCallbackUrl } from '../../../../src/mcp/auth/mcpOAuthHelpers';
 import type { OAuthClientRecord } from '../../../../src/mcp/auth/types';
 
 interface Stores {
@@ -311,7 +306,7 @@ describe('buildMcpAuthorizationUrl', () => {
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      redirectUrl: 'https://app.example.com/after',
+      returnTo: '/after',
     });
 
     expect(authUrl).toBeInstanceOf(URL);
@@ -330,7 +325,7 @@ describe('buildMcpAuthorizationUrl', () => {
       id: SERVER_ID,
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
-      redirectUrl: 'https://app.example.com/after',
+      returnTo: '/after',
     });
     expect(pending?.codeVerifier).toBeTruthy();
   });
@@ -616,7 +611,7 @@ describe('completeMcpAuthorization', () => {
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      redirectUrl: 'https://app.example.com/connected',
+      returnTo: '/connected',
     });
     const state = authUrl.searchParams.get('state')!;
 
@@ -633,7 +628,7 @@ describe('completeMcpAuthorization', () => {
     if (!pending) {
       throw new Error('expected buildMcpAuthorizationUrl to save a pending authorization');
     }
-    expect(pending.redirectUrl).toBe('https://app.example.com/connected');
+    expect(pending.returnTo).toBe('/connected');
 
     const beforeMs = Date.now();
     await completeMcpAuthorization({
@@ -672,7 +667,7 @@ describe('completeMcpAuthorization', () => {
           userRef: USER_REF,
           mcpServerUrl: SERVER_URL,
           codeVerifier: 'verifier-1',
-          redirectUrl: null,
+          returnTo: null,
         },
         code: 'code',
       }),
@@ -693,7 +688,7 @@ describe('completeMcpAuthorization', () => {
       userRef: USER_REF,
       mcpServerUrl: SERVER_URL,
       mcpServerName: SERVER_NAME,
-      redirectUrl: 'https://app.example.com/after',
+      returnTo: '/after',
     });
     const state = authUrl.searchParams.get('state')!;
 
@@ -723,23 +718,5 @@ describe('completeMcpAuthorization', () => {
     });
     expect(deleteClient).toHaveBeenCalledWith({ id: SERVER_ID });
     expect(await stores.mcpServerStore.getClient({ id: SERVER_ID })).toBeUndefined();
-  });
-});
-
-describe('validateRedirectUris', () => {
-  it('accepts http(s) URLs', () => {
-    expect(() =>
-      validateRedirectUris({
-        redirectUris: ['https://harness.example.com/settings', 'http://localhost:3000/cb'],
-      }),
-    ).not.toThrow();
-  });
-
-  it('rejects non-http(s) URIs', () => {
-    expect(() => validateRedirectUris({ redirectUris: ['javascript:alert(1)'] })).toThrow(/Must be a valid URL/);
-  });
-
-  it('rejects malformed URIs', () => {
-    expect(() => validateRedirectUris({ redirectUris: ['not-a-url'] })).toThrow(McpConnectionError);
   });
 });

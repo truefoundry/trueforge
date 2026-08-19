@@ -151,7 +151,7 @@ describe('mcp-servers routers', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('GET /catalog/mcp-servers returns the shipped catalog verbatim', async () => {
+  it('GET /catalogs/mcp-servers returns the shipped catalog verbatim', async () => {
     const response = await catalogRouter.request('/mcp-servers');
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string }[] };
@@ -306,7 +306,7 @@ describe('mcp-servers routers', () => {
     await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
   });
 
-  it('PUT URL change re-registers DCR and keeps existing tokens', async () => {
+  it('PUT URL change re-registers DCR and clears tokens and pending authorizations', async () => {
     const record = await seedDcrServerWithClient();
     await tokenStore.saveToken({
       id: record.id,
@@ -317,6 +317,24 @@ describe('mcp-servers routers', () => {
         expiresAt: '2099-01-01T00:00:00.000Z',
         scope: null,
       },
+    });
+    await tokenStore.saveToken({
+      id: record.id,
+      userRef: 'other-user',
+      token: {
+        accessToken: 'stale-other-user',
+        refreshToken: 'stale-other-refresh',
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+    await tokenStore.savePendingAuthorization({
+      state: 'stale-pending-state',
+      id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
+      mcpServerUrl: putBodyWithDcr.url,
+      codeVerifier: 'stale-verifier',
+      returnTo: null,
     });
 
     const newUrl = 'https://mcp.linear.app/v2/mcp';
@@ -373,13 +391,12 @@ describe('mcp-servers routers', () => {
         ),
       );
       expect(response.status).toBe(200);
-      // List/GET auth_status is presence-based; tokens are not cleared on re-DCR.
       expect(await response.json()).toEqual({
-        data: configured({ ...putBodyWithDcr, url: newUrl }, 'authenticated'),
+        data: configured({ ...putBodyWithDcr, url: newUrl }, 'auth_required'),
       });
-      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toMatchObject({
-        accessToken: 'stale-for-old-url',
-      });
+      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+      expect(await tokenStore.getToken({ id: record.id, userRef: 'other-user' })).toBeUndefined();
+      expect(await tokenStore.consumePendingAuthorization({ state: 'stale-pending-state' })).toBeUndefined();
       expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
         client: { clientId: 'new-url-client' },
       });
@@ -405,7 +422,6 @@ describe('mcp-servers routers', () => {
           },
         },
       });
-      await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
     }
   });
 
@@ -628,18 +644,36 @@ describe('mcp-servers routers', () => {
   });
 
   it('GET /{name}/authorize short-circuits non-DCR servers and 404s unknowns', async () => {
-    const noAuth = await mcpServersRouter.request('/deepwiki/authorize?redirect_url=https://example.com/callback');
+    const noAuth = await mcpServersRouter.request('/deepwiki/authorize?return_to=/settings');
     expect(noAuth.status).toBe(200);
     expect(await noAuth.json()).toEqual({ status: 'not_required' });
 
-    const headerAuth = await mcpServersRouter.request(
-      '/private-mcp/authorize?redirect_url=https://example.com/callback',
-    );
+    const headerAuth = await mcpServersRouter.request('/private-mcp/authorize?return_to=/settings');
     expect(headerAuth.status).toBe(200);
     expect(await headerAuth.json()).toEqual({ status: 'authenticated' });
 
-    const missing = await mcpServersRouter.request('/missing/authorize?redirect_url=https://example.com/callback');
+    const missing = await mcpServersRouter.request('/missing/authorize?return_to=/settings');
     expect(missing.status).toBe(404);
+  });
+
+  it('GET /{name}/authorize rejects unsafe return_to values with 400', async () => {
+    await seedDcrServerWithClient();
+
+    for (const returnTo of [
+      'https://evil.example.com/phish',
+      '//evil.example.com/phish',
+      '/api/v1/sessions',
+      '/api',
+      'relative-not-absolute',
+    ]) {
+      const response = await mcpServersRouter.request(
+        `/${putBodyWithDcr.name}/authorize?return_to=${encodeURIComponent(returnTo)}`,
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({
+        error: { message: 'Invalid return_to: must be a same-origin relative path' },
+      });
+    }
   });
 
   it('GET /{name}/authorize returns 424 when upstream DCR registration fails', async () => {
@@ -757,9 +791,7 @@ describe('mcp-servers routers', () => {
       );
       expect(put.status).toBe(200);
 
-      const authorize = await mcpServersRouter.request(
-        '/oauth-mcp/authorize?redirect_url=https://example.com/after-oauth',
-      );
+      const authorize = await mcpServersRouter.request('/oauth-mcp/authorize?return_to=/settings/after-oauth');
       expect(authorize.status).toBe(200);
       const body = (await authorize.json()) as { status: string; authorization_url?: string };
       expect(body.status).toBe('auth_required');

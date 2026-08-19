@@ -86,7 +86,9 @@ export class DeferredTool extends LocalToolMCP {
     // `hasPreloadedTools` must not hide a server from deferred discovery instructions.
     const deferredServers = servers.filter(s => !s.preload);
 
-    if (deferredServers.length === 0) return;
+    if (deferredServers.length === 0) {
+      return;
+    }
 
     const deferredList = deferredServers
       .map(s => (s.description ? `- ${s.name}: "${s.description.slice(0, MAX_DESCRIPTION_LENGTH)}"` : `- ${s.name}`))
@@ -176,7 +178,9 @@ export class DeferredTool extends LocalToolMCP {
       handler: async (input: { mcp_server: string }) => {
         try {
           const resolved = await this.resolveServerTools(input.mcp_server);
-          if (!isResolvedServerTools(resolved)) return resolved;
+          if (!isResolvedServerTools(resolved)) {
+            return resolved;
+          }
           const { server, tools, metadata } = resolved;
           return toolResultResponse({
             text: `${server.name}:\n  ${tools.map(t => t.name).join(', ')}`,
@@ -207,7 +211,9 @@ export class DeferredTool extends LocalToolMCP {
       handler: async (input: { mcp_server: string; tool_name: string }) => {
         try {
           const resolved = await this.resolveServerTools(input.mcp_server);
-          if (!isResolvedServerTools(resolved)) return resolved;
+          if (!isResolvedServerTools(resolved)) {
+            return resolved;
+          }
           const { tools, metadata } = resolved;
           const tool = tools.find(t => t.name === input.tool_name);
           if (!tool) {
@@ -255,7 +261,9 @@ export class DeferredTool extends LocalToolMCP {
       handler: async (input: { mcp_server: string; tool_name: string }) => {
         try {
           const resolved = await this.resolveServerTools(input.mcp_server);
-          if (!isResolvedServerTools(resolved)) return resolved;
+          if (!isResolvedServerTools(resolved)) {
+            return resolved;
+          }
           const { tools, metadata } = resolved;
           const tool = tools.find(t => t.name === input.tool_name);
           if (!tool) {
@@ -315,7 +323,9 @@ export class DeferredTool extends LocalToolMCP {
             return response;
           }
 
-          if (isApprovalRequiredResponse(response)) return response;
+          if (isApprovalRequiredResponse(response)) {
+            return response;
+          }
 
           if (!isCallToolResponseResult(response)) {
             throw new Error('Tool call returned an unexpected sub-agent response');

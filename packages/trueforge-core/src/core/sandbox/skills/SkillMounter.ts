@@ -39,7 +39,9 @@ export class SkillMounter implements ISkillMounter {
   }
 
   instruction(builder: InstructionBuilder): void {
-    if (this.skills.length === 0) return;
+    if (this.skills.length === 0) {
+      return;
+    }
     builder.addContent(SKILLS_PREAMBLE);
     for (const skill of this.skills) {
       builder.addSection(

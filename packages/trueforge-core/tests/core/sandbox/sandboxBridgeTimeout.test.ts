@@ -42,7 +42,7 @@ function makeSandbox(options: {
       blockDestructiveToolsInCodeMode: true,
       mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
       mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
-      execExtraEnv: { TFY_TENANT_NAME: 'test-tenant' },
+      tenantName: 'test-tenant',
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
     }),

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.changeset/
 # Fern-generated: formatted by the generator, not by this repo's config.
 packages/trueforge-sdk/
 .github/fern/openapi/

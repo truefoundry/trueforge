@@ -2,6 +2,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
+import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -75,6 +76,7 @@ describe('sessions HTTP agent binding', () => {
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
         resolveUserContext: () => LOCAL_USER_CONTEXT,
+        logger: createLogger({ silent: true }),
       }),
     );
   });

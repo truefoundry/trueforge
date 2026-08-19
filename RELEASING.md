@@ -1,25 +1,27 @@
 # Releasing
 
-This repo ships npm packages, a production container image, a Helm chart, and
-optional from-source **dev** images.
+This repo ships npm packages, a production container image, a Helm chart, a
+sandbox image, and optional from-source **dev** images.
 
-| What                                | Trigger                                                                      | Workflow                                                                                       |
-| ----------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| npm packages                        | Push to `main` (Changesets)                                                  | [`release.yml`](.github/workflows/release.yml)                                                 |
-| Prod image + chart-release PR       | After `@truefoundry/trueforge` npm publish, or manual dispatch               | [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
-| Chart tag, GitHub Release, OCI push | Merge of `release-chart/trueforge`, or push/dispatch of `charts/trueforge@*` | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
-| Dev (from-source) image             | Manual `workflow_dispatch`                                                   | [`build-dev-image.yml`](.github/workflows/build-dev-image.yml)                                 |
+| What                                | Trigger                                                                            | Workflow                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| npm packages                        | Push to `main` (Changesets)                                                        | [`release.yml`](.github/workflows/release.yml)                                                 |
+| Prod image + chart-release PR       | After `@truefoundry/trueforge` npm publish (reusable workflow), or manual dispatch | [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
+| Chart tag, GitHub Release, OCI push | Merge of `release-chart/trueforge`, or push/dispatch of `charts/trueforge@*`       | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
+| Sandbox image + pin PR              | Push to `main` when `scripts/sandbox/**` changes, or dispatch                      | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml)                           |
+| Dev (from-source) image             | Manual `workflow_dispatch`                                                         | [`build-dev-image.yml`](.github/workflows/build-dev-image.yml)                                 |
 
 ## Versioning
 
-| Artifact                     | Identity                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------- |
-| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                      |
-| Chart `appVersion`           | A **published** npm version                                                        |
-| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION` |
-| Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                           |
-| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                    |
-| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                          |
+| Artifact                     | Identity                                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                                             |
+| Chart `appVersion`           | A **published** npm version                                                                               |
+| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION`                        |
+| Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                                                  |
+| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                                           |
+| Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
+| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                                                 |
 
 Install a published chart:
 
@@ -53,9 +55,10 @@ No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does both ve
    (`pnpm run version`). Review and merge.
 3. With no pending changesets, **pack** (build/test) then **publish** via npm
    trusted publishing (OIDC; no `NPM_TOKEN`).
-4. If `@truefoundry/trueforge` was published, the publish job dispatches
-   **Build and prepare chart release** at `--ref "$GITHUB_SHA"` (pinned to the
-   publish commit, not floating `main`).
+4. If `@truefoundry/trueforge` was published, **Release** calls **Build and
+   prepare chart release** as a reusable workflow on the same commit (so a
+   newer `main` push cannot change the Dockerfile / shortSha). GitHub's
+   `workflow_dispatch` API only accepts a branch or tag name, not a SHA.
 5. Pin dependents to exact versions during early `0.x`.
 
 `workflow_dispatch` on **Release** re-runs the same workflow.
@@ -81,7 +84,11 @@ Each public package must list this repo + workflow as a trusted publisher on npm
 - No GitHub Environment name
 
 Do not set `NPM_TOKEN` / `_authToken` on the publish job — that disables OIDC.
-Only the **publish** job has `id-token: write`.
+Only the **publish** job uses npm OIDC (`id-token: write`).
+
+Publish attaches npm provenance (`NPM_CONFIG_PROVENANCE` on the publish job, and
+`publishConfig.provenance: true` on every public package). That publicly attests
+the source repo and commit on npmjs.com.
 
 ## Local without publishing
 
@@ -99,6 +106,8 @@ pnpm clean && pnpm build && pnpm standalone:start
 - **Missing `dist/_frontend/index.html`** — root `pnpm build` must build `frontend` first.
 - **SDK not regenerated on Version PR** — only when `@truefoundry/trueforge-sdk` version moved
   (`scripts/version.mjs`; needs Docker).
+- **Prod image missing after npm publish** — dispatch the chart workflow on a
+  **branch or tag** (not a SHA): `gh workflow run build-and-prepare-chart-release.yml --ref main -f app_version=X.Y.Z -f update_app_version=true`.
 
 ---
 
@@ -106,7 +115,7 @@ pnpm clean && pnpm build && pnpm standalone:start
 
 ```text
 npm publish @truefoundry/trueforge@X.Y.Z
-  → dispatch build-and-prepare-chart-release @ publish SHA
+  → call build-and-prepare-chart-release (same commit as publish)
   → build Dockerfile (APP_VERSION=X.Y.Z) → push X.Y.Z-<shortSha>
   → open/update PR on branch release-chart/trueforge
   → merge PR → tag + GH Release + OCI push (release-chart.yml)
@@ -134,7 +143,7 @@ even when `main` has moved on.
 ## Build and prepare chart release
 
 [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml)
-(`workflow_dispatch`):
+(`workflow_call` from **Release**, or manual `workflow_dispatch`):
 
 | Input                | Default                   | Meaning                                                              |
 | -------------------- | ------------------------- | -------------------------------------------------------------------- |

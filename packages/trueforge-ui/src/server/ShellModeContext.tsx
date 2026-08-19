@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
+  withCapabilitiesSandbox,
   writeDraftSpecPreferences,
 } from './draftSpecPreferences.js';
 import { useOptionalRefreshServerCapabilities, useServerCapabilities } from './ServerContext.js';
@@ -87,6 +88,8 @@ type ShellModeContextValue = {
   openHistorySession: (req: { sessionId: string; agentName?: string; isMutable?: boolean }) => void;
   /** Reset current chat; no-op when idle. */
   clearChat: () => void;
+  /** Return pure Agents Library to its idle landing; no-op in other modes. */
+  openLibraryHome: () => void;
   /** Remount key for the chat runtime when binding changes. */
   runtimeKey: string;
   /**
@@ -293,12 +296,16 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, agentSpec: mutableSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
-  const rememberDraftSpec = useCallback((agentSpec: AgentSpec) => {
-    const preferences = selectDraftSpecPreferences(agentSpec);
-    rememberedSpecRef.current = preferences;
-    mutableSeedRef.current = preferences;
-    writeDraftSpecPreferences(preferences);
-  }, []);
+  const sandboxEnabled = capabilities?.sandbox.enabled;
+  const rememberDraftSpec = useCallback(
+    (agentSpec: AgentSpec) => {
+      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), sandboxEnabled);
+      rememberedSpecRef.current = preferences;
+      mutableSeedRef.current = preferences;
+      writeDraftSpecPreferences(preferences);
+    },
+    [sandboxEnabled],
+  );
 
   const openHistorySession = useCallback(
     ({
@@ -360,6 +367,15 @@ export function ShellModeProvider({
     bumpEpoch(false);
   }, [effectiveMode, bumpEpoch]);
 
+  const openLibraryHome = useCallback(() => {
+    // Only pure Agents Library has an idle landing; other modes root via openDraft / clearChat.
+    if (!isLibraryEnabled || isComposerEnabled) return;
+    setPendingSessionId(undefined);
+    setSettingsOpen(false);
+    setMode({ status: 'idle' });
+    bumpEpoch(false);
+  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, bumpEpoch]);
+
   // Mutable remounts are driven only by mutableEpoch (library Edit / New Chat / Clear).
   // Agent id and model must not be in the key — saveAgent binds those onto the same draft.
   const runtimeKey = useMemo(() => {
@@ -388,6 +404,7 @@ export function ShellModeProvider({
       rememberDraftSpec,
       openHistorySession,
       clearChat,
+      openLibraryHome,
       runtimeKey,
       historyAgentFilter,
       setHistoryAgentFilter,
@@ -412,6 +429,7 @@ export function ShellModeProvider({
       rememberDraftSpec,
       openHistorySession,
       clearChat,
+      openLibraryHome,
       runtimeKey,
       historyAgentFilter,
       listSessionsAgentId,

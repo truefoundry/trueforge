@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # /// script
-# dependencies = ["pydantic==2.12.5", "nats-py==2.15.0"]
+# dependencies = ["mcp==1.29.0", "pydantic==2.12.5", "nats-py==2.15.0"]
 # ///
 
 import os

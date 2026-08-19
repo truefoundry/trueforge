@@ -14,7 +14,7 @@ import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
 
 const AS_ORIGIN = 'https://auth.example.com';
 const MCP_URL = 'https://mcp.example.com/sse';
-const FE_REDIRECT = 'https://app.example.com/mcp/connected';
+const FE_RETURN_TO = '/mcp/connected';
 
 const AS_METADATA = {
   issuer: AS_ORIGIN,
@@ -117,7 +117,7 @@ describe('MCP OAuth authorize + callback', () => {
   });
 
   /** Registers a dcr server and authorizes it, returning the pending authorization's `state`. */
-  async function pendingState(name: string, redirectUrl?: string): Promise<string> {
+  async function pendingState(name: string, returnTo?: string): Promise<string> {
     const put = await settingsRouter.request('/', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -134,8 +134,8 @@ describe('MCP OAuth authorize + callback', () => {
     expect(put.status).toBe(200);
 
     let query = '';
-    if (redirectUrl) {
-      query = `?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    if (returnTo) {
+      query = `?return_to=${encodeURIComponent(returnTo)}`;
     }
     const authorize = await mcpServersRouter.request(`/${name}/authorize${query}`);
     expect(authorize.status).toBe(200);
@@ -160,7 +160,7 @@ describe('MCP OAuth authorize + callback', () => {
     expect(put.status).toBe(200);
 
     const authorize = await mcpServersRouter.request(
-      `/oauth-mcp/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
+      `/oauth-mcp/authorize?return_to=${encodeURIComponent(FE_RETURN_TO)}`,
     );
     expect(authorize.status).toBe(200);
     const authorizeBody = (await authorize.json()) as { status: string; authorization_url?: string };
@@ -175,7 +175,7 @@ describe('MCP OAuth authorize + callback', () => {
 
     const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state ?? '')}&code=auth-code-1`);
     expect(callback.status).toBe(302);
-    expect(callback.headers.get('location')).toBe(`${FE_REDIRECT}?isSuccess=true`);
+    expect(callback.headers.get('location')).toBe(`${FE_RETURN_TO}?isSuccess=true`);
 
     const record = await mcpServerStore.getServer({ tenant_id: 'default', name: 'oauth-mcp' });
     expect(record).toBeDefined();
@@ -184,13 +184,13 @@ describe('MCP OAuth authorize + callback', () => {
     expect(token?.refreshToken).toBe('refresh-1');
 
     const reauthorize = await mcpServersRouter.request(
-      `/oauth-mcp/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
+      `/oauth-mcp/authorize?return_to=${encodeURIComponent(FE_RETURN_TO)}`,
     );
     expect(reauthorize.status).toBe(200);
     expect(await reauthorize.json()).toEqual({ status: 'authenticated' });
   });
 
-  it('callback returns 400 JSON when the pending row is gone, since its landing URL went with it', async () => {
+  it('callback returns 400 JSON when the pending row is gone, since its landing path went with it', async () => {
     const unknown = await oauthRouter.request('/callback?state=no-such-state&code=x');
     expect(unknown.status).toBe(400);
     expect(await unknown.json()).toEqual({ error: { message: 'Unknown or expired OAuth state' } });
@@ -202,7 +202,7 @@ describe('MCP OAuth authorize + callback', () => {
   });
 
   it('callback redirects with the failure reason when the IdP denies consent', async () => {
-    const landing = 'https://app.example.com/mcp/connected?tab=mcp';
+    const landing = '/mcp/connected?tab=mcp';
     const state = await pendingState('oauth-mcp-denied', landing);
 
     const denied = await oauthRouter.request(
@@ -212,7 +212,7 @@ describe('MCP OAuth authorize + callback', () => {
     expect(denied.headers.get('location')).toBe(`${landing}&isSuccess=false&reason=access_denied`);
   });
 
-  it('callback returns success JSON when authorize supplied no redirect_url', async () => {
+  it('callback returns success JSON when authorize supplied no return_to', async () => {
     const state = await pendingState('oauth-mcp-no-redirect');
 
     const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state)}&code=auth-code-1`);
@@ -245,7 +245,7 @@ describe('MCP OAuth authorize + callback', () => {
     expect(put.status).toBe(200);
 
     const authorizeA = await mcpServersRouter.request(
-      `/oauth-mcp-scoped/authorize?redirect_url=${encodeURIComponent(FE_REDIRECT)}`,
+      `/oauth-mcp-scoped/authorize?return_to=${encodeURIComponent(FE_RETURN_TO)}`,
     );
     expect(authorizeA.status).toBe(200);
     const authorizeABody = (await authorizeA.json()) as { authorization_url?: string };

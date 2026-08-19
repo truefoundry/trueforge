@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { AUTH_LOGIN_HREF, createAuthAwareFetch } from '../src/authFetch';
+import { AUTH_LOGIN_HREF, AUTH_LOGOUT_HREF, createAuthAwareFetch } from '../src/authFetch';
 import { parseAuthErrorReason } from '../src/authStatusSearch';
 
 describe('createAuthAwareFetch', () => {
@@ -51,8 +51,9 @@ describe('createAuthAwareFetch', () => {
     }
   });
 
-  it('exports browser auth entry path', () => {
+  it('exports browser auth entry paths', () => {
     assert.equal(AUTH_LOGIN_HREF, '/api/v1/auth/login');
+    assert.equal(AUTH_LOGOUT_HREF, '/api/v1/auth/logout');
   });
 });
 

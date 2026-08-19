@@ -383,7 +383,11 @@ function SaveAgentButtonContent({
               </div>
 
               {error ? (
-                <p ref={errorRef} role="alert" className="text-failure-bg mt-3 text-sm">
+                <p
+                  ref={errorRef}
+                  role="alert"
+                  className="text-failure-bg mt-3 text-sm wrap-break-word whitespace-pre-wrap tab-4"
+                >
                   {error}
                 </p>
               ) : null}

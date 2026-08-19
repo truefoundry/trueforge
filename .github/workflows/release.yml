@@ -141,8 +141,10 @@ jobs:
     needs: pack
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      trueforge_published: ${{ steps.trueforge.outputs.published }}
+      trueforge_version: ${{ steps.trueforge.outputs.version }}
     permissions:
-      actions: write
       contents: write
       id-token: write
     steps:
@@ -169,9 +171,12 @@ jobs:
         with:
           pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
           create-github-releases: true
-        # TODO(oss): set NPM_CONFIG_PROVENANCE once the repo is public. Do NOT
-        # set it now: provenance publicly attests the source repo and commit.
-        # publishConfig.provenance is false on every public package.
+        env:
+          # Attest source repo + commit on every publish. Trusted publishing
+          # already uses OIDC (`id-token: write`); this flag is what changesets
+          # / pnpm honor (they do not accept `--provenance`).
+          # publishConfig.provenance is true on every public package.
+          NPM_CONFIG_PROVENANCE: 'true'
 
       - name: Detect @truefoundry/trueforge publish
         id: trueforge
@@ -205,15 +210,18 @@ jobs:
             echo "@truefoundry/trueforge was not in this publish set"
           fi
 
-      - name: Start prod image release
-        if: steps.trueforge.outputs.published == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.trueforge.outputs.version }}
-        run: |
-          # Pin to this publish commit so a newer main push cannot change the
-          # Dockerfile / shortSha used for the prod image tag.
-          gh workflow run build-and-prepare-chart-release.yml \
-            --ref "$GITHUB_SHA" \
-            -f app_version="$VERSION" \
-            -f update_app_version=true
+  # Same commit as this publish run (GITHUB_SHA). A workflow_dispatch --ref SHA
+  # is rejected: the dispatch API only accepts a branch or tag name (HTTP 422).
+  build-and-prepare-chart-release:
+    name: Build and prepare chart release
+    needs: publish
+    if: needs.publish.outputs.trueforge_published == 'true'
+    uses: ./.github/workflows/build-and-prepare-chart-release.yml
+    permissions:
+      contents: write
+      id-token: write
+      pull-requests: write
+    secrets: inherit
+    with:
+      app_version: ${{ needs.publish.outputs.trueforge_version }}
+      update_app_version: true

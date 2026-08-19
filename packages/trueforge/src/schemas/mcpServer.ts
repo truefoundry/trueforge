@@ -3,8 +3,8 @@
  * document, admin/chat list projections, and auth_status. Catalog file schemas
  * live in mcpCatalog.ts.
  *
- * Auth: `header` stores shared request headers on the row (settings listTools);
- * turn execution resolves DCR tokens via resolveMcpAuth.
+ * Auth: `header` stores shared request headers on the row.
+ * Turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
 import type { OAuthToken } from '../mcp/auth/types';

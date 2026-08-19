@@ -263,7 +263,7 @@ export interface OAuthPendingAuthorizationTable {
   /** FK -> mcp_server.id, ON DELETE CASCADE */
   oauth_server_id: string;
   user_id: string;
-  /** { mcp_server_url, code_verifier, redirect_url } — same writer/lifecycle, so merged into one column */
+  /** { mcp_server_url, code_verifier, return_to } — same writer/lifecycle, so merged into one column */
   auth_data: JsonbColumn<OAuthPendingAuthorizationData>;
   created_at: string;
 }

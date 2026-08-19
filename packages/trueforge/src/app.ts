@@ -4,7 +4,8 @@ import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
-import type { Context, ErrorHandler } from 'hono';
+import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 import type { Configuration } from 'openid-client';
 import type { RedisClientType } from 'redis';
@@ -26,6 +27,7 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
+import configuration from './config';
 import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -34,11 +36,21 @@ import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
+import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
+
+/** Hono bodyLimit wrapper that returns the API error envelope on 413. */
+export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHandler {
+  return bodyLimit({
+    maxSize,
+    onError: c =>
+      c.json({ error: { message: `Request body exceeds the maximum size of ${String(maxSize)} bytes` } }, 413),
+  });
+}
 
 export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler {
   return (error, c) => {
@@ -73,6 +85,7 @@ const openApiDocConfig = {
       'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
     version: PACKAGE_VERSION,
   },
+  tags: OPENAPI_DOCUMENT_TAGS,
 };
 
 /** Registers the Bearer ID-token scheme used by {@link buildOpenApiDocument}. */
@@ -152,6 +165,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authEnabled = deps.oidcClient != null;
 
+  app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
+
   app.get('/healthz', c => c.text('OK!'));
 
   app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
@@ -175,7 +190,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
-    '/api/v1/catalog',
+    '/api/v1/catalogs',
     withAuth(
       createCatalogRouter({
         modelCatalog: deps.modelCatalog,
@@ -259,6 +274,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveUserContext: resolveUserContext,
+        logger: deps.logger,
       }),
     ),
   );

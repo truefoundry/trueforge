@@ -208,7 +208,7 @@ export async function buildMcpAuthorizationUrl(params: {
   userRef: string;
   mcpServerUrl: string;
   mcpServerName: string;
-  redirectUrl?: string;
+  returnTo?: string;
 }): Promise<URL> {
   const state = randomBytes(32).toString('base64url');
   const redirectUri = mcpOAuthCallbackUrl();
@@ -232,7 +232,7 @@ export async function buildMcpAuthorizationUrl(params: {
     userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     codeVerifier: started.codeVerifier,
-    redirectUrl: params.redirectUrl ?? null,
+    returnTo: params.returnTo ?? null,
   });
   return started.authorizationUrl;
 }
@@ -245,7 +245,7 @@ export async function resolveMcpAuth(params: {
   mcpServerUrl: string;
   mcpServerName: string;
   clientName: string;
-  redirectUrl?: string;
+  returnTo?: string;
 }): Promise<ResolveMcpAuthResult> {
   const nowMs = Date.now();
   const tokenKey = { id: params.serverId, userRef: params.userRef };
@@ -286,7 +286,7 @@ export async function resolveMcpAuth(params: {
     userRef: params.userRef,
     mcpServerUrl: params.mcpServerUrl,
     mcpServerName: params.mcpServerName,
-    ...(params.redirectUrl !== undefined ? { redirectUrl: params.redirectUrl } : {}),
+    ...(params.returnTo !== undefined ? { returnTo: params.returnTo } : {}),
   });
   return { authUrl };
 }
