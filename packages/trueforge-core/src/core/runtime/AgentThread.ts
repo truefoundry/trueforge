@@ -415,10 +415,15 @@ async function buildModelMessageDeltaEvent({
   };
 }
 
-async function buildContextAssistantMessage(
-  assistantMessage: RawAssistantMessage,
-  toolMapping: Map<string, MappedMCPTool>,
-): Promise<InternalEnrichedAssistantMessage> {
+async function enrichAssistantMessage({
+  assistantMessage,
+  toolMapping,
+  resolveUnderlyingTool,
+}: {
+  assistantMessage: RawAssistantMessage;
+  toolMapping: Map<string, MappedMCPTool>;
+  resolveUnderlyingTool: boolean;
+}): Promise<InternalEnrichedAssistantMessage> {
   // Omit tool_calls when empty; OpenAI rejects `tool_calls: []` on replay.
   if (!assistantMessage.tool_calls?.length) {
     const { tool_calls, ...rest } = assistantMessage;
@@ -439,11 +444,9 @@ async function buildContextAssistantMessage(
     const tool_info = await toolInfo.toolSet.toolCallInfo(
       {
         name: toolInfo.originalToolName,
-        arguments: tryParseToolArgs(toolCall.function.arguments),
+        ...(resolveUnderlyingTool ? { arguments: tryParseToolArgs(toolCall.function.arguments) } : {}),
       },
-      // During context persistence, we have the complete message and hence the tool arguments are available.
-      // Hence, we resolve the underlying tool to get the tool information.
-      true /* resolveUnderlyingTool */,
+      resolveUnderlyingTool,
     );
     enrichedToolCalls.push({ ...toolCall, tool_info });
   }
@@ -1067,13 +1070,21 @@ export class AgentThread {
       usage: result.value.usage,
       toolMapping,
     });
-    const assistantMessage: InternalEnrichedAssistantMessage = await buildContextAssistantMessage(
-      result.value.output,
+    const assistantMessage: InternalEnrichedAssistantMessage = await enrichAssistantMessage({
+      assistantMessage: result.value.output,
       toolMapping,
-    );
+      // During context persistence, we have the complete message and hence the tool arguments are available.
+      // Hence, we resolve the underlying tool to get the tool information.
+      resolveUnderlyingTool: true,
+    });
     const finishReason = result.value.finish_reason;
     const agentAssistantMessage = buildModelMessageEvent({
-      assistantMessage,
+      assistantMessage: await enrichAssistantMessage({
+        assistantMessage: result.value.output,
+        toolMapping,
+        // Same unresolved wrapper as SSE deltas so listTurnEvents matches a folded stream.
+        resolveUnderlyingTool: false,
+      }),
       threadId: this.threadId,
       finishReason,
       usage: modelMessageUsage,

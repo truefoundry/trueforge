@@ -118,13 +118,6 @@ export function toToolCallInfo(toolInfo: InternalToolCallInfo): ToolInfo {
 
 export function toEnrichedToolCall(toolCall: InternalEnrichedToolCall): EnrichedToolCall {
   const { tool_info, ...rest } = toolCall;
-  // Deltas attach the call_tool wrapper; listTurnEvents must not rewrite to the inner MCP tool.
-  if (tool_info.is_deferred === true) {
-    return {
-      ...rest,
-      tool_info: { type: 'truefoundry-system', name: rest.function.name },
-    };
-  }
   return { ...rest, tool_info: toToolCallInfo(tool_info) };
 }
 
