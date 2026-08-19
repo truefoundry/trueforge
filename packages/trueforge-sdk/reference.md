@@ -495,7 +495,7 @@ await client.server.getCapabilities();
 </dl>
 </details>
 
-## McpServers
+## MCP Servers
 <details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListAvailableMcpServersResponse</code></summary>
 <dl>
 <dd>

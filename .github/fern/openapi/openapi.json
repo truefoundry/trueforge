@@ -4516,6 +4516,7 @@
         "tags": [
           "Auth"
         ],
+        "x-excluded": true,
         "x-fern-ignore": true
       }
     },
@@ -4543,6 +4544,7 @@
         "tags": [
           "Auth"
         ],
+        "x-excluded": true,
         "x-fern-ignore": true
       }
     },
@@ -4558,6 +4560,7 @@
         "tags": [
           "Auth"
         ],
+        "x-excluded": true,
         "x-fern-sdk-group-name": [
           "auth"
         ],
@@ -4661,7 +4664,7 @@
         },
         "summary": "Get the MCP catalog",
         "tags": [
-          "Catalog"
+          "MCP Servers"
         ],
         "x-fern-sdk-group-name": [
           "catalogs",
@@ -4697,7 +4700,7 @@
         },
         "summary": "Get the model catalog",
         "tags": [
-          "Catalog"
+          "Models"
         ],
         "x-fern-sdk-group-name": [
           "catalogs",
@@ -4733,7 +4736,7 @@
         },
         "summary": "Get the sandbox provider catalog",
         "tags": [
-          "Catalog"
+          "Sandboxes"
         ],
         "x-fern-sdk-group-name": [
           "catalogs",
@@ -4769,7 +4772,7 @@
         },
         "summary": "Get the skill catalog",
         "tags": [
-          "Catalog"
+          "Skills"
         ],
         "x-fern-sdk-group-name": [
           "catalogs",
@@ -4909,8 +4912,9 @@
         },
         "summary": "OAuth callback for MCP authorization",
         "tags": [
-          "MCP OAuth"
+          "MCP Servers"
         ],
+        "x-excluded": true,
         "x-fern-ignore": true
       }
     },
@@ -5266,7 +5270,7 @@
         },
         "summary": "List sessions",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-pagination": {
           "cursor": "$request.page_token",
@@ -5334,7 +5338,7 @@
         },
         "summary": "Create a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -5376,7 +5380,7 @@
         },
         "summary": "Delete a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -5433,7 +5437,7 @@
         },
         "summary": "Get a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -5520,7 +5524,7 @@
         },
         "summary": "Update a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -5599,7 +5603,7 @@
         },
         "summary": "Cancel a running turn in a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -5701,7 +5705,7 @@
         },
         "summary": "List session events",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-pagination": {
           "cursor": "$request.page_token",
@@ -5798,7 +5802,7 @@
         },
         "summary": "List turns in a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-pagination": {
           "cursor": "$request.page_token",
@@ -5915,7 +5919,7 @@
         },
         "summary": "Create and execute a turn in a session",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -5996,7 +6000,7 @@
         },
         "summary": "Get a turn",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -6128,7 +6132,7 @@
         },
         "summary": "Download a file from the turn sandbox",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -6240,7 +6244,7 @@
         },
         "summary": "List turn events",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-pagination": {
           "cursor": "$request.page_token",
@@ -6349,7 +6353,7 @@
         },
         "summary": "Subscribe to a running turn",
         "tags": [
-          "Sessions"
+          "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
@@ -6611,7 +6615,7 @@
         },
         "summary": "List configured model providers",
         "tags": [
-          "Model Providers"
+          "Models"
         ],
         "x-fern-sdk-group-name": [
           "settings",
@@ -6665,7 +6669,7 @@
         },
         "summary": "Create a model provider",
         "tags": [
-          "Model Providers"
+          "Models"
         ],
         "x-fern-sdk-group-name": [
           "settings",
@@ -6709,7 +6713,7 @@
         },
         "summary": "Create or replace a model provider",
         "tags": [
-          "Model Providers"
+          "Models"
         ],
         "x-fern-sdk-group-name": [
           "settings",
@@ -6745,7 +6749,7 @@
         },
         "summary": "Get the configured sandbox provider",
         "tags": [
-          "Sandbox Providers"
+          "Sandboxes"
         ],
         "x-fern-sdk-group-name": [
           "settings",
@@ -6799,7 +6803,7 @@
         },
         "summary": "Create or replace the sandbox provider",
         "tags": [
-          "Sandbox Providers"
+          "Sandboxes"
         ],
         "x-fern-sdk-group-name": [
           "settings",
@@ -6991,6 +6995,32 @@
   "security": [
     {
       "BearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "Capabilities"
+    },
+    {
+      "name": "Models"
+    },
+    {
+      "name": "MCP Servers"
+    },
+    {
+      "name": "Skills"
+    },
+    {
+      "name": "Sandboxes"
+    },
+    {
+      "name": "Agents"
+    },
+    {
+      "name": "Agent Sessions"
     }
   ],
   "webhooks": {}
