@@ -18,9 +18,9 @@ Flag `withTransaction` callbacks that `await` `fetch`, an SDK client, Redis, or 
 
 Wire fields stay `snake_case` (also covered at repo root). New endpoints must follow this convention; renaming shipped schemas breaks `packages/trueforge-sdk`.
 
-**Paths:** plural kebab under `/api/v1/{collection}`, nested `/…/{id}/{subcollection}`, settings `/api/v1/settings/{collection}`, catalog `/api/v1/catalog/{collection}`. Ids as `{resource}_id`; name-keyed ops use `{name}` — do not mix id and name across verbs for one resource.
+**Paths:** plural kebab under `/api/v1/{collection}`, nested `/…/{id}/{subcollection}`, settings `/api/v1/settings/{collection}`, catalogs `/api/v1/catalogs/{collection}`. Ids as `{resource}_id`; name-keyed ops use `{name}` — do not mix id and name across verbs for one resource.
 
-If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plural path `/api/v1/settings/sandbox-providers` for URL consistency, but Fern methods are `get`/`upsert` returning a single object — not `list` returning an array.
+If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plural path `/api/v1/settings/sandbox-providers` for URL consistency, but Fern methods are `get`/`create_or_update` returning a single object — not `list` returning an array.
 
 **Verbs:** `GET` list/get → 200; `POST` create → **201**; `PUT` replace/upsert → 200; `DELETE` → **200** with `DeleteFooResponse` (`{}`), optional `DeleteFoosRequestQuery`; actions `POST /{id}/{action}`.
 
@@ -53,7 +53,7 @@ Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fe
 
 **Envelopes:** success `{ data: Item | Item[] }` (+ `pagination` via `fernExtensions.ts` token contract); errors `RequestErrorResponse`.
 
-**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`upsert`/`delete` + snake_case actions). Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
+**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`create_or_update`/`delete` + snake_case actions). Flag `x-fern-sdk-method-name: upsert` — PUT create-or-replace must be `create_or_update`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
 
 **No inline object schemas:** flag anonymous `z.object({ … })` nested inside another object. Extract each nested object as a top-level named schema with a meaningful `.openapi('…')` name (e.g. `FooAuth`, `FooManifest`). Primitives, arrays of primitives, and `$ref`s to existing named schemas are fine inline.
 

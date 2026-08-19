@@ -1,12 +1,13 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListAvailableModelsResponseSchema } from '../schemas/modelProvider';
+import { OpenApiTag } from './openapiTags';
 
 /** Chat/composer read view — mounted at /api/v1/models (not under settings). */
 export const listAvailableModelsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: ['Models'],
+  tags: [OpenApiTag.MODELS],
   summary: 'List models for chat',
   'x-fern-sdk-group-name': ['models'],
   'x-fern-sdk-method-name': 'list',

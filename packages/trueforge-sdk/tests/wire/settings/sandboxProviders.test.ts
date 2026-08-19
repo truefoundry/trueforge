@@ -70,7 +70,7 @@ describe("SandboxProvidersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("upsert (1)", async () => {
+    test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
@@ -107,7 +107,7 @@ describe("SandboxProvidersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.sandboxProviders.upsert({
+        const response = await client.settings.sandboxProviders.createOrUpdate({
             manifest: {
                 auth: {
                     apiKey: "api_key",
@@ -137,7 +137,7 @@ describe("SandboxProvidersClient", () => {
         });
     });
 
-    test("upsert (2)", async () => {
+    test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
@@ -162,7 +162,7 @@ describe("SandboxProvidersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.sandboxProviders.upsert({
+            return await client.settings.sandboxProviders.createOrUpdate({
                 manifest: {
                     auth: {
                         apiKey: "x",
@@ -177,7 +177,7 @@ describe("SandboxProvidersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
-    test("upsert (3)", async () => {
+    test("create_or_update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = {
@@ -202,7 +202,7 @@ describe("SandboxProvidersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.sandboxProviders.upsert({
+            return await client.settings.sandboxProviders.createOrUpdate({
                 manifest: {
                     auth: {
                         apiKey: "x",

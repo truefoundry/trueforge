@@ -122,7 +122,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
 
   return {
     getSandboxProviderCatalog: async () => {
-      const body = await client.catalog.sandboxProviders.list();
+      const body = await client.catalogs.sandboxProviders.list();
       return body.data.map(toUiCatalogEntry);
     },
     listSandboxProviders: async req => {
@@ -140,7 +140,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
       return filterUiSandboxProviders({ providers, query: req?.query });
     },
     createSandboxProvider: async req => {
-      const body = await client.settings.sandboxProviders.upsert({
+      const body = await client.settings.sandboxProviders.createOrUpdate({
         manifest: toHarnessManifest({
           type: req.type,
           apiKey: req.apiKey,
@@ -154,7 +154,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
     },
     updateSandboxProvider: async req => {
       const apiKey = await resolveApiKey(req.apiKey);
-      const body = await client.settings.sandboxProviders.upsert({
+      const body = await client.settings.sandboxProviders.createOrUpdate({
         manifest: toHarnessManifest({
           type: DAYTONA_TYPE,
           apiKey,

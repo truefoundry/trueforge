@@ -11,6 +11,7 @@ import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
+import { Tooltip } from './primitives/Tooltip.js';
 
 export type AgentsLibraryProps = {
   open: boolean;
@@ -36,6 +37,10 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
   const modelName = spec?.model.name;
   const skillsCount = spec?.skills?.length ?? 0;
   const mcpCount = spec?.mcpServers?.length ?? 0;
+  const skillNames = (spec?.skills ?? []).map(s => (s as { name?: string }).name).filter(Boolean);
+  const mcpNames = (spec?.mcpServers ?? []).map(m => (m as { name?: string }).name).filter(Boolean);
+  const connectorsTitle = mcpNames.length ? `Connectors: ${mcpNames.join(', ')}` : `${mcpCount} connectors`;
+  const skillsTitle = skillNames.length ? `Skills: ${skillNames.join(', ')}` : `${skillsCount} skills`;
 
   return (
     <div
@@ -60,14 +65,18 @@ function AgentLibraryRow({ agent, showEdit, onTry, onEdit }: AgentLibraryRowProp
               <span className="truncate">{displayModelLabel(modelName)}</span>
             </span>
           ) : null}
-          <span className="inline-flex items-center gap-1 text-xs" aria-label={`${skillsCount} skills`}>
-            <Icon name="wrench" className="size-3.5" />
-            {skillsCount}
-          </span>
-          <span className="inline-flex items-center gap-1 text-xs" aria-label={`${mcpCount} MCP servers`}>
-            <Icon name="plug" className="size-3.5" />
-            {mcpCount}
-          </span>
+          <Tooltip content={connectorsTitle}>
+            <span className="inline-flex items-center gap-1 text-xs" aria-label={connectorsTitle}>
+              <Icon name="plug" className="size-3.5" />
+              {mcpCount}
+            </span>
+          </Tooltip>
+          <Tooltip content={skillsTitle}>
+            <span className="inline-flex items-center gap-1 text-xs" aria-label={skillsTitle}>
+              <Icon name="lightbulb" className="size-3.5" />
+              {skillsCount}
+            </span>
+          </Tooltip>
         </span>
       ) : null}
       <span className="flex shrink-0 items-center gap-1.5">

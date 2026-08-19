@@ -9,40 +9,40 @@ import * as errors from "../../../../../../errors/index.js";
 import * as serializers from "../../../../../../serialization/index.js";
 import * as TrueForge from "../../../../../index.js";
 
-export declare namespace ModelProvidersClient {
+export declare namespace SkillsClient {
     export type Options = BaseClientOptions;
 
     export interface RequestOptions extends BaseRequestOptions {}
 }
 
-export class ModelProvidersClient {
-    protected readonly _options: NormalizedClientOptionsWithAuth<ModelProvidersClient.Options>;
+export class SkillsClient {
+    protected readonly _options: NormalizedClientOptionsWithAuth<SkillsClient.Options>;
 
-    constructor(options: ModelProvidersClient.Options) {
+    constructor(options: SkillsClient.Options) {
         this._options = normalizeClientOptionsWithAuth(options);
     }
 
     /**
-     * Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.
+     * Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.
      *
-     * @param {ModelProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
+     * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.catalog.modelProviders.list()
+     *     await client.catalogs.skills.list()
      */
     public list(
-        requestOptions?: ModelProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.GetModelProviderCatalogResponse> {
+        requestOptions?: SkillsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.GetSkillCatalogResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
-        requestOptions?: ModelProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.GetModelProviderCatalogResponse>> {
+        requestOptions?: SkillsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.GetSkillCatalogResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -53,7 +53,7 @@ export class ModelProvidersClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "api/v1/catalog/model-providers",
+                "api/v1/catalogs/skills",
             ),
             method: "GET",
             headers: _headers,
@@ -66,7 +66,7 @@ export class ModelProvidersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.GetModelProviderCatalogResponse.parseOrThrow(_response.body, {
+                data: serializers.GetSkillCatalogResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -99,11 +99,6 @@ export class ModelProvidersClient {
             }
         }
 
-        return handleNonStatusCodeError(
-            _response.error,
-            _response.rawResponse,
-            "GET",
-            "/api/v1/catalog/model-providers",
-        );
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/catalogs/skills");
     }
 }

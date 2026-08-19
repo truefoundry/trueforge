@@ -1,25 +1,27 @@
 # Releasing
 
-This repo ships npm packages, a production container image, a Helm chart, and
-optional from-source **dev** images.
+This repo ships npm packages, a production container image, a Helm chart, a
+sandbox image, and optional from-source **dev** images.
 
 | What                                | Trigger                                                                            | Workflow                                                                                       |
 | ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | npm packages                        | Push to `main` (Changesets)                                                        | [`release.yml`](.github/workflows/release.yml)                                                 |
 | Prod image + chart-release PR       | After `@truefoundry/trueforge` npm publish (reusable workflow), or manual dispatch | [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
 | Chart tag, GitHub Release, OCI push | Merge of `release-chart/trueforge`, or push/dispatch of `charts/trueforge@*`       | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
+| Sandbox image + pin PR              | Push to `main` when `scripts/sandbox/**` changes, or dispatch                      | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml)                           |
 | Dev (from-source) image             | Manual `workflow_dispatch`                                                         | [`build-dev-image.yml`](.github/workflows/build-dev-image.yml)                                 |
 
 ## Versioning
 
-| Artifact                     | Identity                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------- |
-| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                      |
-| Chart `appVersion`           | A **published** npm version                                                        |
-| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION` |
-| Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                           |
-| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                    |
-| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                          |
+| Artifact                     | Identity                                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                                             |
+| Chart `appVersion`           | A **published** npm version                                                                               |
+| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION`                        |
+| Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                                                  |
+| Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                                           |
+| Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
+| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                                                 |
 
 Install a published chart:
 
