@@ -22,7 +22,7 @@ import {
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
 } from '@truefoundry/trueforge-core/core';
-import { PAGE_LIMIT } from './common';
+import { EVENTS_PAGE_LIMIT } from './common';
 
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
@@ -63,10 +63,10 @@ export const ListSessionEventsRequestQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(PAGE_LIMIT)
+      .max(EVENTS_PAGE_LIMIT)
       .optional()
-      .default(PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(PAGE_LIMIT)}.`),
+      .default(EVENTS_PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(EVENTS_PAGE_LIMIT)}, max ${String(EVENTS_PAGE_LIMIT)}.`),
   })
   .openapi('ListSessionEventsRequestQuery');
 
