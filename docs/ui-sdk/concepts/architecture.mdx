@@ -25,7 +25,7 @@ Two kinds of component are exported, and the distinction determines which one yo
 
 **Atoms** are presentational. `AssistantMessageBubble`, `ComposerShell`, and `ToolCallCard` take everything they render as props and hold no runtime state. You rarely render an atom directly — instead you replace one, and the container that renders it picks up your version.
 
-That replacement is what `overrides` does: name a component, supply your own, and it is used everywhere that component appears. See [Slot overrides](/ui-sdk/guides/slot-overrides).
+That replacement is what `overrides` does: name a component, supply your own, and it is used everywhere that component appears. See [Slot overrides](/ui-sdk/setup-custom-ui/slot-overrides).
 
 ## Provider stack
 
@@ -53,4 +53,4 @@ Order matters: `SlotsProvider` must be outside `TrueFoundryChatProvider`.
 
 These class names and attributes are stable and safe to target from your own CSS: `.aui-root`, `.aui-theme-root`, `.aui-markdown`, `.aui-syntax-highlighter`, `.aui-openui`, `.aui-monaco`, plus `data-slot` attributes on individual components. Most slot values are prefixed `aui_`, but not all — `avatar`, `tool-call-card`, and `tool-group-card` are among the unprefixed ones, so inspect the element rather than assuming the prefix.
 
-For token-level changes, prefer [theming](/ui-sdk/guides/theming) over CSS overrides.
+For token-level changes, prefer [theming](/ui-sdk/setup-custom-ui/custom-theme) over CSS overrides.

@@ -17,10 +17,11 @@
   <a href="https://trueforge.dev/api/overview"><img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg?style=flat-square" alt="SDK"></a>
 </p>
 <p align="center">
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge&style=flat-square" alt="npm @truefoundry/trueforge"></a>
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-sdk"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-sdk?label=trueforge-sdk&style=flat-square" alt="npm @truefoundry/trueforge-sdk"></a>
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-ui"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-ui?label=trueforge-ui&style=flat-square" alt="npm @truefoundry/trueforge-ui"></a>
-  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core&style=flat-square" alt="npm @truefoundry/trueforge-core"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge&logo=npm&style=flat-square" alt="npm @truefoundry/trueforge"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-sdk"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-sdk?label=trueforge-sdk&logo=npm&style=flat-square" alt="npm @truefoundry/trueforge-sdk"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-ui"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-ui?label=trueforge-ui&logo=npm&style=flat-square" alt="npm @truefoundry/trueforge-ui"></a>
+  <a href="https://www.npmjs.com/package/@truefoundry/trueforge-core"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge-core?label=trueforge-core&logo=npm&style=flat-square" alt="npm @truefoundry/trueforge-core"></a>
+  <a href="https://tfy.jfrog.io/ui/packages/oci:%2F%2Ftrueforge"><img src="https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Ftruefoundry%2Ftrueforge%2Frefs%2Fheads%2Fmain%2Fcharts%2Ftrueforge%2FChart.yaml&query=%24.version&label=trueforge&logo=helm&style=flat-square" alt="helm trueforge"></a>
   <a href="https://deepwiki.com/truefoundry/trueforge"><img src="https://deepwiki.com/badge.svg?style=flat-square" alt="Ask DeepWiki"></a>
 </p>
 
@@ -89,7 +90,7 @@ We compare TrueForge against Claude Managed Agents and deepagents on the same ta
 
 ## Contributing
 
-We love contributions - bug reports, features, and docs fixes. See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
+We love contributions - bug reports, features, and docs fixes. See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md). Fork PRs should change source only; maintainers regenerate the SDK after merge.
 
 To report a security vulnerability, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 

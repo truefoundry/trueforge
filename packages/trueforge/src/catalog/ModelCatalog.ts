@@ -1,6 +1,6 @@
 /**
  * Shipped model catalog (model-catalog.yaml): the discovery list of provider
- * and model presets offered by GET /catalog/model-providers for the UI to copy
+ * and model presets offered by GET /catalogs/model-providers for the UI to copy
  * into PUT /settings/model-providers bodies. Never consulted on writes and never
  * read by the runtime.
  *

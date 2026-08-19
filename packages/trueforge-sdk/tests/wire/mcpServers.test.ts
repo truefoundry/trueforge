@@ -173,7 +173,7 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.InternalServerError);
     });
 
-    test("delete_authorize (1)", async () => {
+    test("delete_authorization (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -199,7 +199,7 @@ describe("McpServersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.mcpServers.deleteAuthorize("name");
+        const response = await client.mcpServers.deleteAuthorization("name");
         expect(response).toEqual({
             data: {
                 authStatus: {
@@ -220,7 +220,7 @@ describe("McpServersClient", () => {
         });
     });
 
-    test("delete_authorize (2)", async () => {
+    test("delete_authorization (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -235,7 +235,107 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.mcpServers.deleteAuthorize("name");
+            return await client.mcpServers.deleteAuthorization("name");
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("list_tools (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { data: [{ key: "value" }] };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/tools")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.mcpServers.listTools("name");
+        expect(response).toEqual({
+            data: [
+                {
+                    key: "value",
+                },
+            ],
+        });
+    });
+
+    test("list_tools (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/tools")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.listTools("name");
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("list_tools (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/tools")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.listTools("name");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("list_tools (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/tools")
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.listTools("name");
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
+    test("list_tools (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name/tools")
+            .respondWith()
+            .statusCode(502)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.listTools("name");
+        }).rejects.toThrow(TrueForgeTypes.BadGatewayError);
     });
 });

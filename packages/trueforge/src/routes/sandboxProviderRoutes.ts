@@ -1,6 +1,6 @@
 /**
  * Sandbox-provider admin route definitions (mounted at /api/v1/settings/sandbox-providers).
- * Discovery catalog lives at GET /api/v1/catalog/sandbox-providers.
+ * Discovery catalog lives at GET /api/v1/catalogs/sandbox-providers.
  * Handlers are registered in apis/sandboxProviders.ts.
  */
 import { createRoute } from '@hono/zod-openapi';
@@ -38,7 +38,7 @@ export const putSandboxProviderRoute = createRoute({
     'Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. ' +
     '`auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'sandboxProviders'],
-  'x-fern-sdk-method-name': 'upsert',
+  'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
       content: { 'application/json': { schema: PutSandboxProviderRequestSchema } },

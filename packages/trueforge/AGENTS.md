@@ -5,9 +5,9 @@
 
 Wire fields stay `snake_case`. New endpoints MUST follow this; renames of shipped schemas break `packages/trueforge-sdk`.
 
-**Paths:** plural kebab under `/api/v1/{collection}`, nested `/…/{id}/{subcollection}`, settings `/api/v1/settings/{collection}`, catalog `/api/v1/catalog/{collection}`. Ids as `{resource}_id`; name-keyed ops use `{name}` — do not mix id and name across verbs for one resource.
+**Paths:** plural kebab under `/api/v1/{collection}`, nested `/…/{id}/{subcollection}`, settings `/api/v1/settings/{collection}`, catalogs `/api/v1/catalogs/{collection}`. Ids as `{resource}_id`; name-keyed ops use `{name}` — do not mix id and name across verbs for one resource.
 
-If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plural path `/api/v1/settings/sandbox-providers` for URL consistency, but Fern methods are `get`/`upsert` returning a single object — not `list` returning an array.
+If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plural path `/api/v1/settings/sandbox-providers` for URL consistency, but Fern methods are `get`/`create_or_update` returning a single object — not `list` returning an array.
 
 **Verbs:** `GET` list/get → 200; `POST` create → **201**; `PUT` replace/upsert → 200; `DELETE` → **200** with `DeleteFooResponse` (`{}`), optional `DeleteFoosRequestQuery`; actions `POST /{id}/{action}`.
 
@@ -41,7 +41,7 @@ Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fe
 
 **Envelopes:** success `{ data: Item | Item[] }` (+ `pagination` via `fernExtensions.ts` token contract); errors `RequestErrorResponse`.
 
-**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`upsert`/`delete` + snake_case actions). Do not hand-edit OpenAPI or `packages/trueforge-sdk`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
+**Fern:** set `x-fern-sdk-group-name` / `x-fern-sdk-method-name` (`list`/`get`/`create`/`update`/`create_or_update`/`delete` + snake_case actions). PUT create-or-replace MUST use `create_or_update`, never `upsert`. Do not hand-edit OpenAPI or `packages/trueforge-sdk`. Schemas live in `src/schemas/` with matching `.openapi('…')` names; types via `z.infer`.
 
 **No inline object schemas:** do not nest anonymous `z.object({ … })` inside another object. Extract each nested object as a top-level named schema with a meaningful `.openapi('…')` name (e.g. `FooAuth`, `FooManifest`) so OpenAPI emits a `$ref` and other schemas can reuse it. Primitives, arrays of primitives, and `$ref`s to existing named schemas are fine inline.
 

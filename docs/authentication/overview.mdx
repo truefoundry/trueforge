@@ -205,7 +205,7 @@ Each signed-in person maps to exactly one role, decided by the role claim in the
   - **The [Agent Library](/agent-library) is shared** — agents created by anyone are visible to everyone on the instance.
 </Note>
 
-To call the HTTP API or SDK against a server with login enabled, pass an ID token — see [Call an authenticated API](/api/overview#call-an-authenticated-api).
+To call the HTTP API or SDK against a server with login enabled, pass an ID token — see [Get a token and connect](/api/quickstart#get-a-token-and-connect).
 
 ## Troubleshooting
 
@@ -216,7 +216,7 @@ To call the HTTP API or SDK against a server with login enabled, pass an ID toke
 | `invalid client secret` | App is SPA/public — recreate it as a **Web** (confidential) app with a client secret |
 | Blank authorize screen when requesting `groups` | Custom Authorization Server is missing the `groups` scope and/or ID-token groups claim (Okta) |
 | Login works but everyone is `role: "user"` | Groups/roles claim missing from the ID token, wrong claim name, or admin value mismatch (case-sensitive) |
-| SDK returns `401` | OIDC is on and the request has no [ID token](/api/overview#call-an-authenticated-api) or session cookie |
+| SDK returns `401` | OIDC is on and the request has no [ID token](/api/quickstart#get-a-token-and-connect) or session cookie |
 
 ## Security checklist
 

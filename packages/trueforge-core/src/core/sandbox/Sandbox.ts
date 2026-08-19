@@ -94,7 +94,7 @@ export interface SandboxOptions {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
-  execExtraEnv?: Readonly<Record<string, string>> | undefined;
+  tenantName: string;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -127,8 +127,12 @@ function injectTraceContextEnv(): Record<string, string> {
   const carrier: Record<string, string> = {};
   propagation.inject(context.active(), carrier);
   const env: Record<string, string> = {};
-  if (carrier['traceparent']) env['TFY_TRACEPARENT'] = carrier['traceparent'];
-  if (carrier['tracestate']) env['TFY_TRACESTATE'] = carrier['tracestate'];
+  if (carrier['traceparent']) {
+    env['TFY_TRACEPARENT'] = carrier['traceparent'];
+  }
+  if (carrier['tracestate']) {
+    env['TFY_TRACESTATE'] = carrier['tracestate'];
+  }
   return env;
 }
 
@@ -139,13 +143,11 @@ function injectTraceContextEnv(): Record<string, string> {
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
   mcpServers: Record<string, SandboxMcpServerConfig>;
-  execExtraEnv?: Readonly<Record<string, string>> | undefined;
   codeModeEnv?: Record<string, string> | undefined;
 }): Record<string, string> {
   const codeModeEnv = params.codeModeEnv ?? {};
   const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
   return {
-    ...(params.execExtraEnv ?? {}),
     ...(params.env ?? {}),
     PYTHONPATH: MCP_CLIENT_DIR,
     ...(Object.keys(params.mcpServers).length > 0 && {
@@ -203,7 +205,6 @@ export class Sandbox extends LocalToolMCP {
   private codeExecToolSets: readonly IToolSet[] = [];
   private readonly fileDownloadEnabled: boolean;
   private readonly requestTimeoutSeconds: number;
-  private readonly execExtraEnv?: Readonly<Record<string, string>> | undefined;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
   private readonly mcpClientScriptBase64: string;
@@ -226,12 +227,11 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
-    this.tenantName = options.execExtraEnv?.['TFY_TENANT_NAME'] ?? '';
+    this.tenantName = options.tenantName;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
-    this.execExtraEnv = options.execExtraEnv;
     // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
     // text are all hardcoded here, so injecting different content was never a
     // real extension point. Consumers don't see or provide them.
@@ -354,7 +354,9 @@ export class Sandbox extends LocalToolMCP {
 
   private buildMCPSection(builder: InstructionBuilder): void {
     const toolSetNames = this.codeExecToolSets.map(m => m.name).join(',');
-    if (!toolSetNames) return;
+    if (!toolSetNames) {
+      return;
+    }
 
     builder.addSection(
       SANDBOX_MCP_REMINDER_TAG,
@@ -484,7 +486,6 @@ export class Sandbox extends LocalToolMCP {
     const mcpClientEnv = injectMCPClientEnv({
       env: input.env,
       mcpServers: this.buildMcpServersEnvelope(),
-      execExtraEnv: this.execExtraEnv,
       codeModeEnv,
     });
     const gitAuthEnv =
@@ -657,7 +658,9 @@ export class Sandbox extends LocalToolMCP {
     this.codeModeDispatcher = undefined;
     const transport = this.codeModeTransport;
     this.codeModeTransport = undefined;
-    if (transport === undefined) return;
+    if (transport === undefined) {
+      return;
+    }
     try {
       await transport.stop();
     } catch (e) {

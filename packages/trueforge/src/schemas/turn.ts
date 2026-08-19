@@ -1,6 +1,7 @@
 /** Server-only turn wire schemas (SSE resume / cancel / list). Core turn schemas live in agent-session. */
 import { z } from '@hono/zod-openapi';
 import { SessionEventSchema, TokenPaginationSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
+import { EVENTS_PAGE_LIMIT, PAGE_LIMIT } from './common';
 
 export { CreateTurnRequestSchema, TurnSchema } from '@truefoundry/trueforge-core/agent-session';
 export type { Turn } from '@truefoundry/trueforge-core/agent-session';
@@ -34,19 +35,16 @@ export const CancelSessionResponseSchema = z
   .describe('Empty success body. HTTP 200 means the cancel request was accepted (or nothing was running).')
   .openapi('CancelSessionResponse');
 
-export const DEFAULT_TURNS_LIMIT = 10;
-export const TURNS_MAX_LIMIT = 100;
-
 export const ListTurnsRequestQuerySchema = z
   .object({
     limit: z.coerce
       .number()
       .int()
       .min(1)
-      .max(TURNS_MAX_LIMIT)
+      .max(PAGE_LIMIT)
       .optional()
-      .default(DEFAULT_TURNS_LIMIT)
-      .describe(`Page size. Defaults to ${String(DEFAULT_TURNS_LIMIT)}, max ${String(TURNS_MAX_LIMIT)}.`),
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListTurnsRequestQuery');
@@ -64,21 +62,16 @@ export const ListTurnsResponseSchema = z
   })
   .openapi('ListTurnsResponse');
 
-export const DEFAULT_TURN_EVENTS_LIMIT = 25;
-export const TURN_EVENTS_MAX_LIMIT = 100;
-
 export const ListTurnEventsRequestQuerySchema = z
   .object({
     limit: z.coerce
       .number()
       .int()
       .min(1)
-      .max(TURN_EVENTS_MAX_LIMIT)
+      .max(EVENTS_PAGE_LIMIT)
       .optional()
-      .default(DEFAULT_TURN_EVENTS_LIMIT)
-      .describe(
-        `Max events per response. Default ${String(DEFAULT_TURN_EVENTS_LIMIT)}, max ${String(TURN_EVENTS_MAX_LIMIT)}.`,
-      ),
+      .default(EVENTS_PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(EVENTS_PAGE_LIMIT)}, max ${String(EVENTS_PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
     order: z
       .enum(['asc', 'desc'])

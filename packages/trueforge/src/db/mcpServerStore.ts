@@ -105,7 +105,7 @@ export interface OAuthPendingAuthorizationData {
   /** MCP server URL from authorize time — needed by the shared callback for RFC 8707 `resource`. */
   mcp_server_url: string;
   code_verifier: string | null;
-  redirect_url: string | null;
+  return_to: string | null;
 }
 
 /** `oauth_token.token` JSONB. */
@@ -176,16 +176,16 @@ export function toStoredOAuthPendingAuthorizationData(
   return {
     mcp_server_url: pending.mcpServerUrl,
     code_verifier: pending.codeVerifier,
-    redirect_url: pending.redirectUrl,
+    return_to: pending.returnTo,
   };
 }
 
 export function fromStoredOAuthPendingAuthorizationData(
   stored: OAuthPendingAuthorizationData,
-): Pick<ContractOAuthPendingAuthorization, 'mcpServerUrl' | 'codeVerifier' | 'redirectUrl'> {
+): Pick<ContractOAuthPendingAuthorization, 'mcpServerUrl' | 'codeVerifier' | 'returnTo'> {
   return {
     mcpServerUrl: stored.mcp_server_url,
     codeVerifier: stored.code_verifier,
-    redirectUrl: stored.redirect_url,
+    returnTo: stored.return_to,
   };
 }

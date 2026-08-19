@@ -120,7 +120,7 @@ export class SandboxProvidersClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.settings.sandboxProviders.upsert({
+     *     await client.settings.sandboxProviders.createOrUpdate({
      *         manifest: {
      *             auth: {
      *                 apiKey: "api_key"
@@ -133,14 +133,14 @@ export class SandboxProvidersClient {
      *         }
      *     })
      */
-    public upsert(
+    public createOrUpdate(
         request: TrueForge.settings.PutSandboxProviderRequest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetSandboxProviderResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__createOrUpdate(request, requestOptions));
     }
 
-    private async __upsert(
+    private async __createOrUpdate(
         request: TrueForge.settings.PutSandboxProviderRequest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetSandboxProviderResponse>> {

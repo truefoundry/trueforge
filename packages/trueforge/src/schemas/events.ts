@@ -22,6 +22,7 @@ import {
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
 } from '@truefoundry/trueforge-core/core';
+import { EVENTS_PAGE_LIMIT } from './common';
 
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
@@ -44,9 +45,6 @@ export const TurnStreamingEventSchema = z
   ])
   .openapi('TurnStreamingEvent');
 
-/** Max events per session-events page. */
-export const SESSION_EVENTS_LIMIT = 100;
-
 export const ListSessionEventsRequestQuerySchema = z
   .object({
     page_token: z
@@ -65,12 +63,10 @@ export const ListSessionEventsRequestQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(SESSION_EVENTS_LIMIT)
+      .max(EVENTS_PAGE_LIMIT)
       .optional()
-      .default(SESSION_EVENTS_LIMIT)
-      .describe(
-        `Max events per response. Default ${String(SESSION_EVENTS_LIMIT)}, max ${String(SESSION_EVENTS_LIMIT)}.`,
-      ),
+      .default(EVENTS_PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(EVENTS_PAGE_LIMIT)}, max ${String(EVENTS_PAGE_LIMIT)}.`),
   })
   .openapi('ListSessionEventsRequestQuery');
 

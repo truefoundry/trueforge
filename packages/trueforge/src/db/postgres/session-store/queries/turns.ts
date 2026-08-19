@@ -1,6 +1,5 @@
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
-  CancellationReason,
   type TerminalTurnState,
   type TurnInputItem,
   type TurnState,
@@ -212,7 +211,9 @@ async function assembleTurnRecord(
     .where('turn_id', '=', args.turn_id)
     .executeTakeFirst();
 
-  if (!turn) return undefined;
+  if (!turn) {
+    return undefined;
+  }
 
   // LEFT JOIN LATERAL unnest so empty-context threads still appear; LEFT JOIN log
   // because a null lateral append_id (empty array) must not drop the turn_thread row.
@@ -373,7 +374,9 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         .forUpdate()
         .executeTakeFirst();
 
-      if (!locked) throw new SessionNotFoundError(input.session_id);
+      if (!locked) {
+        throw new SessionNotFoundError(input.session_id);
+      }
 
       await trx
         .updateTable('session')
@@ -431,7 +434,9 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           prevCheckpoint = first.turn_checkpoint;
 
           for (const row of prevRows) {
-            if (row.thread_id === null) continue;
+            if (row.thread_id === null) {
+              continue;
+            }
             if (row.thread_checkpoint === null || row.current_context_usage === null || row.context_ids === null) {
               throw new SessionStoreInvariantError(`previous turn_thread row for ${row.thread_id} is incomplete`);
             }
@@ -560,7 +565,9 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       // Complete per-turn capability maps (thread coverage asserted above).
       const capabilityStateRows: CapabilityStateInsertRow[] = [];
       for (const capability of input.capability_states) {
-        if (capability.capability_state === null) continue;
+        if (capability.capability_state === null) {
+          continue;
+        }
         for (const [key, state] of Object.entries(capability.capability_state)) {
           capabilityStateRows.push({
             session_id: input.session_id,
@@ -578,8 +585,12 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       }
     });
   } catch (err) {
-    if (err instanceof SessionStoreNotFoundError || err instanceof SessionStoreConflictError) throw err;
-    if (isUniqueViolation(err)) throw new TurnAlreadyExistsError(input.turn.turn_id, { cause: err });
+    if (err instanceof SessionStoreNotFoundError || err instanceof SessionStoreConflictError) {
+      throw err;
+    }
+    if (isUniqueViolation(err)) {
+      throw new TurnAlreadyExistsError(input.turn.turn_id, { cause: err });
+    }
     throw err;
   }
 }
@@ -592,7 +603,7 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
   return await db.transaction().execute(async trx => {
     const cancelledState: TerminalTurnState = {
       status: 'cancelled',
-      reason: CancellationReason.CancelledForNextTurn,
+      reason: input.reason,
       completed_at: new Date().toISOString(),
     };
 
@@ -623,7 +634,9 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
     }
 
     const record = await assembleTurnRecord(trx, input);
-    if (!record) throw new TurnNotFoundError(input.turn_id);
+    if (!record) {
+      throw new TurnNotFoundError(input.turn_id);
+    }
     return record;
   });
 }
@@ -704,7 +717,9 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
         .where('turn_id', '=', input.turn_id)
         .executeTakeFirst();
 
-      if (!existing) throw new TurnNotFoundError(input.turn_id);
+      if (!existing) {
+        throw new TurnNotFoundError(input.turn_id);
+      }
       throw new TurnNotRunningError(input.turn_id, terminalTurnState(existing.state, input.turn_id));
     }
 

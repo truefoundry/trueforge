@@ -1,6 +1,6 @@
 /**
  * Shipped sandbox catalog (sandbox-catalog.yaml): the discovery list of provider
- * presets offered by GET /catalog/sandbox-providers for the UI to copy into
+ * presets offered by GET /catalogs/sandbox-providers for the UI to copy into
  * PUT /settings/sandbox-providers bodies. Never consulted on writes and never
  * read by the runtime.
  *

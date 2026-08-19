@@ -44,7 +44,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 10, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
+                const { limit = 25, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -851,7 +851,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListTurnsSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListTurnsResponse>> => {
-                const { limit = 10, pageToken } = request;
+                const { limit = 25, pageToken } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
@@ -1082,6 +1082,17 @@ export class SessionsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 413:
+                    throw new TrueForge.ContentTooLargeError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 case 422:
                     throw new TrueForge.UnprocessableEntityError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
@@ -1125,6 +1136,7 @@ export class SessionsClient {
      * @throws {@link TrueForge.ForbiddenError}
      * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.PreconditionFailedError}
+     * @throws {@link TrueForge.ContentTooLargeError}
      * @throws {@link TrueForge.UnprocessableEntityError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -1230,6 +1242,17 @@ export class SessionsClient {
                     );
                 case 412:
                     throw new TrueForge.PreconditionFailedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 413:
+                    throw new TrueForge.ContentTooLargeError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -1414,7 +1437,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/download`,
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/turns/${core.url.encodePathParam(turn_id)}/download-sandbox-file`,
             ),
             method: "GET",
             headers: _headers,
@@ -1526,7 +1549,7 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "GET",
-            "/api/v1/sessions/{session_id}/turns/{turn_id}/download",
+            "/api/v1/sessions/{session_id}/turns/{turn_id}/download-sandbox-file",
         );
     }
 
@@ -1557,7 +1580,7 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListTurnEventsSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListTurnEventsResponse>> => {
-                const { limit = 25, pageToken, order } = request;
+                const { limit = 100, pageToken, order } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,

@@ -88,7 +88,7 @@ export const getTurnRoute = createRoute({
 
 export const downloadSandboxFileRoute = createRoute({
   method: 'get',
-  path: '/{session_id}/turns/{turn_id}/download',
+  path: '/{session_id}/turns/{turn_id}/download-sandbox-file',
   tags: [SESSIONS_TAG],
   summary: 'Download a file from the turn sandbox',
   description:
@@ -223,6 +223,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     412: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Requested action cannot be performed on the session because it is no longer usable.',
+    },
+    413: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Request body exceeds the configured maximum size (MAX_REQUEST_BODY_BYTES).',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

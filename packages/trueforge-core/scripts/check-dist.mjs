@@ -26,7 +26,9 @@ for (const modulePath of modulePaths) {
   try {
     require(`${base}.js`);
     await import(pathToFileURL(`${base}.mjs`).href);
-    if (!fs.existsSync(`${base}.d.ts`)) throw new Error('missing .d.ts');
+    if (!fs.existsSync(`${base}.d.ts`)) {
+      throw new Error('missing .d.ts');
+    }
     console.log(`ok ${modulePath}.{js,mjs,d.ts}`);
   } catch (error) {
     failures += 1;

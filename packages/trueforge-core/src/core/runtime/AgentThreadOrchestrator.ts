@@ -42,8 +42,12 @@ function agentThreadEventToTerminalFields(event: AgentThreadExecutionEvent): {
 } {
   switch (event.type) {
     case InternalEventType.AGENT_DONE: {
-      if ('parent' in event && event.parent) return {};
-      if (event.status === 'error') return {};
+      if ('parent' in event && event.parent) {
+        return {};
+      }
+      if (event.status === 'error') {
+        return {};
+      }
       return { output: event.output };
     }
     case EventType.TOOL_APPROVAL_REQUIRED:
@@ -65,7 +69,9 @@ function isUserToolApprovalOrResponseBatch(
 
 function getMainThreadId(agentThreads: Map<string, AgentThread>): string {
   for (const thread of agentThreads.values()) {
-    if (!thread.parent) return thread.threadId;
+    if (!thread.parent) {
+      return thread.threadId;
+    }
   }
   throw new Error('Unreachable: no root thread found');
 }
@@ -81,7 +87,9 @@ function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThr
   }
   return leaves.map(id => {
     const agentThread = agentThreads.get(id);
-    if (!agentThread) throw new Error('unreachable');
+    if (!agentThread) {
+      throw new Error('unreachable');
+    }
     return agentThread;
   });
 }
@@ -344,9 +352,13 @@ export class AgentThreadOrchestrator {
         return { shouldStopExecution: true };
       case InternalEventType.AGENT_DONE: {
         if (chunk.parent) {
-          if (!chunk.send_to_parent) throw new Error('unreachable');
+          if (!chunk.send_to_parent) {
+            throw new Error('unreachable');
+          }
           const parentThread = this.agentThreads.get(chunk.parent.thread_id);
-          if (!parentThread) throw new Error('unreachable: parent thread missing');
+          if (!parentThread) {
+            throw new Error('unreachable: parent thread missing');
+          }
           const subAgentToolIsOpen = parentThread.hasOpenToolCallId(chunk.parent.tool_call_id);
           if (subAgentToolIsOpen) {
             const parentToolResponse: ToolResponseEvent = {
@@ -432,7 +444,9 @@ export class AgentThreadOrchestrator {
 
     try {
       while (agentThreads.size > 0) {
-        if (shouldStopExecution) break;
+        if (shouldStopExecution) {
+          break;
+        }
 
         const activeThreads = getActiveAgentThreads(agentThreads);
 
@@ -470,8 +484,12 @@ export class AgentThreadOrchestrator {
               }
               if (chunk.type !== InternalEventType.PASSTHROUGH) {
                 const { output: outputContribution, requiredAction } = agentThreadEventToTerminalFields(chunk);
-                if (outputContribution) output = outputContribution;
-                if (requiredAction) requiredActions.push(requiredAction);
+                if (outputContribution) {
+                  output = outputContribution;
+                }
+                if (requiredAction) {
+                  requiredActions.push(requiredAction);
+                }
               }
             }
           }

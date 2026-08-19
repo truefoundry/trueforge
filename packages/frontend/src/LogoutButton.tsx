@@ -17,7 +17,9 @@ export function LogoutButton() {
     const state = { cancelled: false };
     void isOidcConnectedSession()
       .then(ok => {
-        if (!state.cancelled) setVisible(ok);
+        if (!state.cancelled) {
+          setVisible(ok);
+        }
       })
       .catch(() => {
         // Failed refetch must not clear a known-good session (e.g. transient network).
@@ -35,7 +37,9 @@ export function LogoutButton() {
   }
 
   const handleConfirm = () => {
-    if (busy) return;
+    if (busy) {
+      return;
+    }
     setBusy(true);
     void logout()
       .then(() => {
@@ -64,7 +68,9 @@ export function LogoutButton() {
       <CenteredModal
         open={confirmOpen}
         onOpenChange={next => {
-          if (!busy) setConfirmOpen(next);
+          if (!busy) {
+            setConfirmOpen(next);
+          }
         }}
         title="Log out"
         description="Sure to logout?"

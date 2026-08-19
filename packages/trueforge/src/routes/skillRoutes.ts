@@ -2,7 +2,7 @@
  * DB-backed skill route definitions.
  * Admin routes mount at /api/v1/settings/skills; the chat list mounts at
  * /api/v1/skills.
- * Discovery catalog lives at GET /api/v1/catalog/skills.
+ * Discovery catalog lives at GET /api/v1/catalogs/skills.
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -98,7 +98,7 @@ export const putSkillRoute = createRoute({
   summary: 'Create or replace a skill',
   description: 'Full upsert keyed by `name`: creates the skill or replaces its entire manifest.',
   'x-fern-sdk-group-name': ['settings', 'skills'],
-  'x-fern-sdk-method-name': 'upsert',
+  'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
       content: { 'application/json': { schema: PutSkillRequestSchema } },

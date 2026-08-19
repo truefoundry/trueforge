@@ -1,6 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
-import { getErrorMessage } from '@/utils/getErrorMessage.js';
+import { decodeErrorMessageEscapes, getErrorMessage } from '@/utils/getErrorMessage.js';
+
+describe('decodeErrorMessageEscapes', () => {
+  it('decodes common JSON/C escapes when still literal', () => {
+    expect(decodeErrorMessageEscapes('a\\nb\\tc\\rd')).toBe('a\nb\tc\nd');
+    expect(decodeErrorMessageEscapes('say \\"hi\\" and \\\\')).toBe('say "hi" and \\');
+    expect(decodeErrorMessageEscapes('bell\\b form\\f vert\\v null\\0')).toBe('bell\b form\f vert\v null\0');
+  });
+
+  it('decodes \\uXXXX and \\xHH', () => {
+    expect(decodeErrorMessageEscapes('cafe\\u00e9')).toBe('cafeé');
+    expect(decodeErrorMessageEscapes('A\\x42')).toBe('AB');
+  });
+
+  it('leaves already-decoded control characters unchanged and normalizes CR', () => {
+    expect(decodeErrorMessageEscapes('a\nb\\tstill-literal')).toBe('a\nb\\tstill-literal');
+    expect(decodeErrorMessageEscapes('a\nb\tc')).toBe('a\nb\tc');
+    expect(decodeErrorMessageEscapes('a\r\nb\rc')).toBe('a\nb\nc');
+  });
+
+  it('keeps unknown escapes intact', () => {
+    expect(decodeErrorMessageEscapes('not\\qescape')).toBe('not\\qescape');
+    expect(decodeErrorMessageEscapes('bad\\uXX')).toBe('bad\\uXX');
+  });
+});
 
 describe('getErrorMessage', () => {
   it('prefers error.message', () => {
@@ -17,6 +41,18 @@ describe('getErrorMessage', () => {
       body: { error: { message: 'Name taken' } },
     });
     expect(getErrorMessage(err)).toBe('Name taken');
+  });
+
+  it('decodes escapes in HTTP body error.message', () => {
+    const err = Object.assign(new Error('request failed'), {
+      statusCode: 400,
+      body: {
+        error: {
+          message: '✖ must be 2–64 lowercase chars\\n  → at name\\tand also a tab',
+        },
+      },
+    });
+    expect(getErrorMessage(err)).toBe('✖ must be 2–64 lowercase chars\n  → at name\tand also a tab');
   });
 
   it('stringifies a non-message HTTP body', () => {

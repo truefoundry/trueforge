@@ -75,18 +75,3 @@ export function isOAuthAccessTokenUsable(expiresAtIso: string, nowMs: number): b
   const expiresAtMs = Date.parse(expiresAtIso);
   return !Number.isNaN(expiresAtMs) && expiresAtMs > nowMs;
 }
-
-/** Validates redirect URLs parse as HTTP(S). */
-export function validateRedirectUris({ redirectUris }: { redirectUris: string[] }): void {
-  for (const redirectUri of redirectUris) {
-    let parsed: URL;
-    try {
-      parsed = new URL(redirectUri);
-    } catch (error) {
-      throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400, { cause: error });
-    }
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      throw new McpConnectionError(`Invalid redirect URI: ${redirectUri}. Must be a valid URL.`, 400);
-    }
-  }
-}

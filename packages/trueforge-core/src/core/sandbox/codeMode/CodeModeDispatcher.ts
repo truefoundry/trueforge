@@ -30,9 +30,15 @@ function isHttpClientError(error: unknown): error is { status: number } {
 }
 
 function classifyErrorSource(e: unknown): CodeModeErrorSource {
-  if (e instanceof InvalidMCPUsageError) return 'caller';
-  if (isHttpClientError(e)) return 'caller';
-  if (e instanceof McpConnectionError && e.statusCode >= 400 && e.statusCode < 500) return 'caller';
+  if (e instanceof InvalidMCPUsageError) {
+    return 'caller';
+  }
+  if (isHttpClientError(e)) {
+    return 'caller';
+  }
+  if (e instanceof McpConnectionError && e.statusCode >= 400 && e.statusCode < 500) {
+    return 'caller';
+  }
   return 'internal';
 }
 

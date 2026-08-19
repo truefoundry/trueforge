@@ -1,16 +1,15 @@
 import type { Logger } from 'winston';
-import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
+import type { ModelParams } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
-import type { ITurnResourceResolver } from './ITurnResourceResolver';
+import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
@@ -118,7 +117,9 @@ export class TurnResourceResolver<
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<Sandbox | undefined> {
-    if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) return undefined;
+    if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) {
+      return undefined;
+    }
     this.#sandbox = await this.deps.sandboxProvider({
       spec: input.spec,
       existingSandboxId: input.existing?.sandbox_id,
@@ -159,15 +160,11 @@ export class TurnResourceResolver<
    */
   async resolveAgentDefinition(input: {
     spec: AgentSpec;
-    thread_id: string;
     agent_info?: AgentInfo | undefined;
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
-  }): Promise<{
-    definition: AgentDefinition;
-    extraCapabilities?: AgentCapability[] | undefined;
-  }> {
+  }): Promise<ResolvedAgentDefinition> {
     const { spec, agent_info: agentInfo, previousTurn, signal, tracing } = input;
     const toolSets = await Promise.all(
       (spec.mcp_servers ?? []).map(async entry => {
@@ -234,7 +231,9 @@ export class TurnResourceResolver<
    */
   protected getOrCreateToolSource(input: { id: string; create: () => Promise<ToolSource> }): Promise<ToolSource> {
     const cached = this.#sources.get(input.id);
-    if (cached) return cached;
+    if (cached) {
+      return cached;
+    }
     const made = input.create();
     this.#sources.set(input.id, made);
     return made;

@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.2.2
+
+### Patch Changes
+
+- 3113aa4: Rename the MCP servers SDK method from `deleteAuthorize` to `deleteAuthorization`.
+- 45dc6cd: Replace MCP authorize `redirect_url` with a same-origin `return_to` path to prevent open redirects after OAuth.
+- Updated dependencies [3113aa4]
+- Updated dependencies [45dc6cd]
+  - @truefoundry/trueforge-sdk@0.1.2
+
+## 0.2.1
+
+### Patch Changes
+
+- c5223ad: Ship `react-dom` and `react-router-dom` as package dependencies instead of peers so consumers no longer need to install them separately.
+- 92ee970: Decode common escape sequences (`\n`, `\t`, `\r`, `\uXXXX`, …) in user-facing API error messages and render them with `whitespace-pre-wrap` so multi-line Zod validation output displays correctly.
+- 53104b1: Keep active and remembered draft sandbox settings synchronized with server capabilities.
+
+## 0.2.0
+
+### Minor Changes
+
+- 9a4d1a7: Add opt-in `withRouter` URL sync for shell places (`/`, `/agents/:agentName`, `/sessions/:sessionId`, `/settings`), with path customization via `routes` and `react-router-dom` as an optional peer. Serve the app shell for client-side deep links from the TrueForge server.
+
+### Patch Changes
+
+- Updated dependencies [5100c59]
+  - @truefoundry/trueforge-sdk@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
