@@ -290,25 +290,25 @@ export interface SharedServerConfiguration {
   EXECUTOR_ID: string;
   /**
    * Optional override for the model catalog YAML (discovery presets for
-   * GET /catalog/model-providers). When unset, the catalog inlined at build
+   * GET /catalogs/model-providers). When unset, the catalog inlined at build
    * time is used. Env: `MODEL_CATALOG_PATH`.
    */
   MODEL_CATALOG_PATH: string | undefined;
   /**
    * Optional override for the MCP catalog YAML (discovery presets for
-   * GET /catalog/mcp-servers). When unset, the catalog inlined at build
+   * GET /catalogs/mcp-servers). When unset, the catalog inlined at build
    * time is used. Env: `MCP_CATALOG_PATH`.
    */
   MCP_CATALOG_PATH: string | undefined;
   /**
    * Optional override for the skill catalog YAML (discovery presets for
-   * GET /catalog/skills). When unset, the catalog inlined at build
+   * GET /catalogs/skills). When unset, the catalog inlined at build
    * time is used. Env: `SKILL_CATALOG_PATH`.
    */
   SKILL_CATALOG_PATH: string | undefined;
   /**
    * Optional override for the sandbox catalog YAML (discovery presets for
-   * GET /catalog/sandbox-providers). When unset, the catalog inlined at build
+   * GET /catalogs/sandbox-providers). When unset, the catalog inlined at build
    * time is used. Env: `SANDBOX_CATALOG_PATH`.
    */
   SANDBOX_CATALOG_PATH: string | undefined;

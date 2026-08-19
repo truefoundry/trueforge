@@ -6,57 +6,54 @@
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M1 1 L9 5 L1 9" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </marker>
-    <filter id="shadow" x="-8%" y="-8%" width="116%" height="124%">
-      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#05090E" flood-opacity="0.06"/>
-    </filter>
   </defs>
 
   <!-- Clients -->
-  <g filter="url(#shadow)">
-    <rect x="24" y="72" width="168" height="72" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <g>
+    <rect x="24" y="72" width="168" height="72" rx="12" fill="#FFFFFF" stroke="#94A3B8"/>
     <text x="108" y="102" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#05090E">Chat UI</text>
     <text x="108" y="122" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#64748B">@truefoundry/trueforge-ui</text>
   </g>
-  <g filter="url(#shadow)">
-    <rect x="24" y="216" width="168" height="72" rx="12" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <g>
+    <rect x="24" y="216" width="168" height="72" rx="12" fill="#FFFFFF" stroke="#94A3B8"/>
     <text x="108" y="246" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#05090E">Your code</text>
     <text x="108" y="266" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#64748B">trueforge-sdk</text>
   </g>
 
   <!-- Server group -->
-  <rect x="248" y="48" width="280" height="264" rx="16" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="248" y="48" width="280" height="264" rx="16" fill="#F8FAFC" stroke="#94A3B8"/>
   <text x="388" y="78" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" letter-spacing="0.04em" fill="#6D58FB">TRUEFORGE SERVER</text>
 
-  <g filter="url(#shadow)">
-    <rect x="276" y="100" width="224" height="64" rx="12" fill="#FFFFFF" stroke="#DDD6FE"/>
+  <g>
+    <rect x="276" y="100" width="224" height="64" rx="12" fill="#FFFFFF" stroke="#6D58FB"/>
     <text x="388" y="138" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#05090E">HTTP API</text>
   </g>
-  <g filter="url(#shadow)">
-    <rect x="276" y="212" width="224" height="64" rx="12" fill="#FFFFFF" stroke="#DDD6FE"/>
+  <g>
+    <rect x="276" y="212" width="224" height="64" rx="12" fill="#FFFFFF" stroke="#6D58FB"/>
     <text x="388" y="250" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#05090E">Agent loop</text>
   </g>
 
   <!-- Storage -->
-  <g filter="url(#shadow)">
-    <ellipse cx="620" cy="180" rx="64" ry="36" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <g>
+    <ellipse cx="620" cy="180" rx="64" ry="36" fill="#FFFFFF" stroke="#94A3B8"/>
     <text x="620" y="176" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#05090E">SQLite /</text>
     <text x="620" y="194" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#05090E">Postgres</text>
   </g>
 
   <!-- BYO group -->
-  <rect x="720" y="48" width="176" height="264" rx="16" fill="#FFFFFF" stroke="#CBD5E1" stroke-dasharray="5 4"/>
+  <rect x="720" y="48" width="176" height="264" rx="16" fill="#FFFFFF" stroke="#94A3B8" stroke-dasharray="5 4"/>
   <text x="808" y="78" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="12" font-weight="600" letter-spacing="0.04em" fill="#64748B">BRING YOUR OWN</text>
 
-  <g filter="url(#shadow)">
-    <rect x="740" y="100" width="136" height="48" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <g>
+    <rect x="740" y="100" width="136" height="48" rx="10" fill="#FFFFFF" stroke="#94A3B8"/>
     <text x="808" y="129" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#05090E">Models</text>
   </g>
-  <g filter="url(#shadow)">
-    <rect x="740" y="168" width="136" height="48" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <g>
+    <rect x="740" y="168" width="136" height="48" rx="10" fill="#FFFFFF" stroke="#94A3B8"/>
     <text x="808" y="197" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#05090E">MCP servers</text>
   </g>
-  <g filter="url(#shadow)">
-    <rect x="740" y="236" width="136" height="48" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <g>
+    <rect x="740" y="236" width="136" height="48" rx="10" fill="#FFFFFF" stroke="#94A3B8"/>
     <text x="808" y="265" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#05090E">Sandbox</text>
   </g>
 

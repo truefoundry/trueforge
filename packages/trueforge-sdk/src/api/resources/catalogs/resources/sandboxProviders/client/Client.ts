@@ -32,7 +32,7 @@ export class SandboxProvidersClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.catalog.sandboxProviders.list()
+     *     await client.catalogs.sandboxProviders.list()
      */
     public list(
         requestOptions?: SandboxProvidersClient.RequestOptions,
@@ -53,7 +53,7 @@ export class SandboxProvidersClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "api/v1/catalog/sandbox-providers",
+                "api/v1/catalogs/sandbox-providers",
             ),
             method: "GET",
             headers: _headers,
@@ -103,7 +103,7 @@ export class SandboxProvidersClient {
             _response.error,
             _response.rawResponse,
             "GET",
-            "/api/v1/catalog/sandbox-providers",
+            "/api/v1/catalogs/sandbox-providers",
         );
     }
 }

@@ -3,14 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-slug="pin-sandbox-image"
+slug="update-sandbox-image"
 outfile=".changeset/$(date -u +%Y%m%d%H%M%S)-${slug}.md"
 cat >"$outfile" <<'EOF'
 ---
 "@truefoundry/trueforge-core": patch
 ---
 
-Pin SANDBOX_IMAGE_URI to the image pushed by CI.
+Update SANDBOX_IMAGE_URI to the image pushed by CI.
 EOF
 
 echo "Wrote $outfile"

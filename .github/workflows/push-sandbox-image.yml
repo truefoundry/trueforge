@@ -1,43 +1,23 @@
 name: Push sandbox image
 
-# PR: docker build only. main/dispatch: push :<sha>, then pin SANDBOX_IMAGE_URI.
+# main / dispatch: push trueforge-sandbox:<sha>, then open a PR that updates sandboxImage.json.
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'packages/trueforge-core/scripts/sandbox/**'
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - 'packages/trueforge-core/scripts/sandbox/**'
 
 concurrency:
-  # github.ref (not event_name): push and dispatch on main share a group so they
-  # cannot pin in parallel. Do not cancel an in-flight JFrog push.
-  group: push-sandbox-image-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: push-sandbox-image
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Build sandbox image (no push)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          docker build \
-            --platform linux/amd64 \
-            -f packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile \
-            packages/trueforge-core/scripts/sandbox
-
   build:
     name: Build and push sandbox image
-    if: github.event_name != 'pull_request'
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
       id-token: write
@@ -76,50 +56,53 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    env:
-      IMAGE_URI: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}/trueforge-sandbox:${{ github.sha }}
     steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
-      - name: Write SANDBOX_IMAGE_URI
+      - id: image
+        env:
+          REPO: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+          SHA: ${{ github.sha }}
+        run: echo "uri=${REPO}/trueforge-sandbox:${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Write sandboxImage.json
         id: pin-uri
+        env:
+          IMAGE_URI: ${{ steps.image.outputs.uri }}
         run: |
-          python3 <<'PY'
-          import os, re
-          from pathlib import Path
-
-          uri = os.environ["IMAGE_URI"]
-          if not re.fullmatch(r"[A-Za-z0-9._:/-]+", uri):
-              raise SystemExit(f"refusing IMAGE_URI: {uri!r}")
-
-          path = Path("packages/trueforge-core/src/core/sandbox/sandboxImage.ts")
-          text = path.read_text()
-          match = re.search(r"export const SANDBOX_IMAGE_URI = '([^']+)';", text)
-          changed = match is None or match.group(1) != uri
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-              fh.write(f"changed={'true' if changed else 'false'}\n")
-          if not changed:
-              print(f"already pinned to {uri}")
-              raise SystemExit(0)
-          path.write_text(
-              "/** Release-owned sandbox image URI; rewritten by push-sandbox-image.yml. */\n"
-              f"export const SANDBOX_IMAGE_URI = '{uri}';\n"
-          )
-          PY
+          set -euo pipefail
+          path=packages/trueforge-core/src/core/sandbox/sandboxImage.json
+          jq -n --arg uri "$IMAGE_URI" '{uri: $uri}' >"$path"
+          if git diff --quiet -- "$path"; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
 
       - if: steps.pin-uri.outputs.changed == 'true'
         run: bash scripts/changeset-sandbox-image.sh
 
       - uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # GitHub will not start new workflow runs from GITHUB_TOKEN (anti-recursion).
+          # ci.yml would never run (or sit approval-required); required checks stay
+          # pending and this pin PR cannot merge. An App token is treated as a user.
+          token: ${{ steps.app-token.outputs.token }}
           branch: release-sandbox-image
           base: main
-          commit-message: 'chore: pin sandbox image ${{ github.sha }}'
-          title: 'chore: pin sandbox image ${{ github.sha }}'
+          commit-message: 'chore: update sandbox image ${{ github.sha }}'
+          title: 'chore: update sandbox image ${{ github.sha }}'
           body: |
-            Pushed `${{ env.IMAGE_URI }}`. Merge so `release.yml` can publish the pin.
+            Pushed `${{ steps.image.outputs.uri }}`. Merge so `release.yml` can publish the pin.
             Existing tenants stay on `build_metadata`.
           add-paths: |
-            packages/trueforge-core/src/core/sandbox/sandboxImage.ts
+            packages/trueforge-core/src/core/sandbox/sandboxImage.json
             .changeset

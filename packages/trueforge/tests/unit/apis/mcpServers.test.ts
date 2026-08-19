@@ -151,7 +151,7 @@ describe('mcp-servers routers', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('GET /catalog/mcp-servers returns the shipped catalog verbatim', async () => {
+  it('GET /catalogs/mcp-servers returns the shipped catalog verbatim', async () => {
     const response = await catalogRouter.request('/mcp-servers');
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string }[] };

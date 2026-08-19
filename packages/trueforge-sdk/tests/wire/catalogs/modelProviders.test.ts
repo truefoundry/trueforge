@@ -4,40 +4,36 @@ import * as TrueForgeTypes from "../../../src/api/index";
 import { TrueForge } from "../../../src/Client";
 import { mockServerPool } from "../../mock-server/MockServerPool";
 
-describe("SandboxProvidersClient", () => {
+describe("ModelProvidersClient", () => {
     test("list (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [
-                {
-                    auto_archive_interval_in_minutes: 1,
-                    auto_delete_interval_in_minutes: 1,
-                    auto_stop_interval_in_minutes: 1,
-                    exec_timeout_ms: 1,
-                    type: "daytona",
-                },
-            ],
+            data: [{ logo: "logo", models: [{ model_id: "model_id", name: "name", properties: {} }], type: "openai" }],
         };
 
         server
             .mockEndpoint()
-            .get("/api/v1/catalog/sandbox-providers")
+            .get("/api/v1/catalogs/model-providers")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.catalog.sandboxProviders.list();
+        const response = await client.catalogs.modelProviders.list();
         expect(response).toEqual({
             data: [
                 {
-                    autoArchiveIntervalInMinutes: 1,
-                    autoDeleteIntervalInMinutes: 1,
-                    autoStopIntervalInMinutes: 1,
-                    execTimeoutMs: 1,
-                    type: "daytona",
+                    logo: "logo",
+                    models: [
+                        {
+                            modelId: "model_id",
+                            name: "name",
+                            properties: {},
+                        },
+                    ],
+                    type: "openai",
                 },
             ],
         });
@@ -51,14 +47,14 @@ describe("SandboxProvidersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/catalog/sandbox-providers")
+            .get("/api/v1/catalogs/model-providers")
             .respondWith()
             .statusCode(401)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.catalog.sandboxProviders.list();
+            return await client.catalogs.modelProviders.list();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 });
