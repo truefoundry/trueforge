@@ -1,11 +1,12 @@
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListModelsResponseSchema } from '../schemas/modelProvider';
+import { OpenApiTag } from './openapiTags';
 
 export const listModelsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: ['Models'],
+  tags: [OpenApiTag.MODELS],
   summary: 'List models',
   'x-fern-sdk-group-name': ['models'],
   'x-fern-sdk-method-name': 'list',

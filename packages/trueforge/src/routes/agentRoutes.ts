@@ -11,8 +11,7 @@ import {
   PutAgentRequestSchema,
 } from '../schemas/agent';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-
-const AGENTS_TAG = 'Agents';
+import { OpenApiTag } from './openapiTags';
 
 export const AgentIdParamsSchema = z.object({
   agent_id: z.string().min(1).max(64).describe('Immutable agent identifier.'),
@@ -21,7 +20,7 @@ export const AgentIdParamsSchema = z.object({
 export const listAgentsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [AGENTS_TAG],
+  tags: [OpenApiTag.AGENTS],
   summary: 'List agents',
   description: 'All configured agents for the tenant.',
   'x-fern-sdk-group-name': ['agents'],
@@ -41,7 +40,7 @@ export const listAgentsRoute = createRoute({
 export const createAgentRoute = createRoute({
   method: 'post',
   path: '/',
-  tags: [AGENTS_TAG],
+  tags: [OpenApiTag.AGENTS],
   summary: 'Create an agent',
   description:
     'Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.',
@@ -77,7 +76,7 @@ export const createAgentRoute = createRoute({
 export const getAgentRoute = createRoute({
   method: 'get',
   path: '/{agent_id}',
-  tags: [AGENTS_TAG],
+  tags: [OpenApiTag.AGENTS],
   summary: 'Get an agent',
   description: 'Fetch a configured agent by immutable id.',
   'x-fern-sdk-group-name': ['agents'],
@@ -100,7 +99,7 @@ export const getAgentRoute = createRoute({
 export const deleteAgentRoute = createRoute({
   method: 'delete',
   path: '/{agent_id}',
-  tags: [AGENTS_TAG],
+  tags: [OpenApiTag.AGENTS],
   summary: 'Delete an agent',
   description: 'Delete a configured agent by immutable id. Idempotent if already gone.',
   'x-fern-sdk-group-name': ['agents'],
@@ -123,7 +122,7 @@ export const deleteAgentRoute = createRoute({
 export const putAgentRoute = createRoute({
   method: 'put',
   path: '/{agent_id}',
-  tags: [AGENTS_TAG],
+  tags: [OpenApiTag.AGENTS],
   summary: 'Update an agent',
   description: 'Replaces the manifest for an existing agent keyed by immutable `agent_id`.',
   'x-fern-sdk-group-name': ['agents'],

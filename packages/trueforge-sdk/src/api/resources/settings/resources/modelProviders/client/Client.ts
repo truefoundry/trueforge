@@ -254,7 +254,7 @@ export class ModelProvidersClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.settings.modelProviders.upsert({
+     *     await client.settings.modelProviders.createOrUpdate({
      *         manifest: {
      *             auth: {
      *                 apiKey: "api_key"
@@ -268,14 +268,14 @@ export class ModelProvidersClient {
      *         }
      *     })
      */
-    public upsert(
+    public createOrUpdate(
         request: TrueForge.settings.PutModelProviderRequest,
         requestOptions?: ModelProvidersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetModelProviderResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__upsert(request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__createOrUpdate(request, requestOptions));
     }
 
-    private async __upsert(
+    private async __createOrUpdate(
         request: TrueForge.settings.PutModelProviderRequest,
         requestOptions?: ModelProvidersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetModelProviderResponse>> {

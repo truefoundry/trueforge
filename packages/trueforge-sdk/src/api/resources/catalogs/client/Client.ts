@@ -7,18 +7,18 @@ import { ModelProvidersClient } from "../resources/modelProviders/client/Client.
 import { SandboxProvidersClient } from "../resources/sandboxProviders/client/Client.js";
 import { SkillsClient } from "../resources/skills/client/Client.js";
 
-export declare namespace CatalogClient {
+export declare namespace CatalogsClient {
     export type Options = BaseClientOptions;
 }
 
-export class CatalogClient {
-    protected readonly _options: NormalizedClientOptionsWithAuth<CatalogClient.Options>;
+export class CatalogsClient {
+    protected readonly _options: NormalizedClientOptionsWithAuth<CatalogsClient.Options>;
     protected _mcpServers: McpServersClient | undefined;
     protected _modelProviders: ModelProvidersClient | undefined;
     protected _sandboxProviders: SandboxProvidersClient | undefined;
     protected _skills: SkillsClient | undefined;
 
-    constructor(options: CatalogClient.Options) {
+    constructor(options: CatalogsClient.Options) {
         this._options = normalizeClientOptionsWithAuth(options);
     }
 

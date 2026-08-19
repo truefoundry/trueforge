@@ -15,13 +15,13 @@ describe("SkillsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/catalog/skills")
+            .get("/api/v1/catalogs/skills")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.catalog.skills.list();
+        const response = await client.catalogs.skills.list();
         expect(response).toEqual({
             data: [
                 {
@@ -44,14 +44,14 @@ describe("SkillsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/catalog/skills")
+            .get("/api/v1/catalogs/skills")
             .respondWith()
             .statusCode(401)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.catalog.skills.list();
+            return await client.catalogs.skills.list();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 });

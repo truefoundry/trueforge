@@ -1,7 +1,7 @@
 /**
  * DB-backed MCP server route definitions.
- * Admin routes mount at /api/v1/settings/mcp-servers; the chat list and
- * authorize routes mount at /api/v1/mcp-servers.
+ * Admin routes mount at /api/v1/settings/mcp-servers; the chat list,
+ * tools, and authorize routes mount at /api/v1/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -13,14 +13,13 @@ import {
   McpAuthStatusSchema,
   PutMcpServerRequestSchema,
 } from '../schemas/mcpServer';
-
-const MCP_SERVERS_TAG = 'MCP Servers';
+import { OpenApiTag } from './openapiTags';
 
 /** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers for chat',
   description: 'MCP servers as a slim name/url list for the composer. No auth or auth_status.',
   'x-fern-sdk-group-name': ['mcpServers'],
@@ -40,7 +39,7 @@ export const listAvailableMcpServersRoute = createRoute({
 export const listMcpServersRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers',
   description:
     'All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.',
@@ -69,7 +68,7 @@ const McpServerNameParamsSchema = z.object({
 export const getMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Get a single MCP server by name',
   description:
     'A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.',
@@ -93,7 +92,7 @@ export const getMcpServerRoute = createRoute({
 export const createMcpServerRoute = createRoute({
   method: 'post',
   path: '/',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Create an MCP server',
   description:
     'Creates an MCP server by `name`. Fails if `name` is already taken. Runs DCR registration when `auth.type` is `dcr`. ' +
@@ -129,13 +128,13 @@ export const createMcpServerRoute = createRoute({
 export const putMcpServerRoute = createRoute({
   method: 'put',
   path: '/',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Create or replace an MCP server',
   description:
     'Create or replace by `name`. Does not start DCR or change oauth client columns. ' +
     'Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
-  'x-fern-sdk-method-name': 'upsert',
+  'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
       content: { 'application/json': { schema: PutMcpServerRequestSchema } },
@@ -170,9 +169,9 @@ const ListMcpServerToolsResponseSchema = z
 export const listMcpServerToolsRoute = createRoute({
   method: 'get',
   path: '/{name}/tools',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List tools of an MCP server',
-  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'list_tools',
   description: 'All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.',
   request: {
@@ -185,7 +184,7 @@ export const listMcpServerToolsRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Harness session login required.',
+      description: 'OIDC is configured and the request has no valid session cookie.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -214,7 +213,7 @@ const McpAuthorizeQuerySchema = z.object({
 export const authorizeMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}/authorize',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Start (or short-circuit) the auth flow for an MCP server',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
@@ -258,7 +257,7 @@ export const authorizeMcpServerRoute = createRoute({
 export const deleteAuthorizationMcpServerRoute = createRoute({
   method: 'delete',
   path: '/{name}/authorize',
-  tags: [MCP_SERVERS_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Disconnect OAuth for an MCP server',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'delete_authorization',

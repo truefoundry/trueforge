@@ -83,7 +83,7 @@ describe('harnessBuilderServer', () => {
           ],
         });
       }
-      if (url.endsWith('/api/v1/catalog/model-providers')) {
+      if (url.endsWith('/api/v1/catalogs/model-providers')) {
         return Response.json({
           data: [
             {
@@ -130,7 +130,7 @@ describe('harnessBuilderServer', () => {
           ],
         });
       }
-      if (url.endsWith('/api/v1/catalog/model-providers')) {
+      if (url.endsWith('/api/v1/catalogs/model-providers')) {
         return new Response('catalog unavailable', { status: 500 });
       }
       return new Response(`Unexpected request: ${url}`, { status: 500 });

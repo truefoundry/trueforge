@@ -1,5 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
+import { OpenApiTag } from './openapiTags';
 
 const GetCapabilitiesResponseSchema = z
   .object({
@@ -23,7 +24,7 @@ const GetCapabilitiesResponseSchema = z
 export const getCapabilitiesRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: ['Capabilities'],
+  tags: [OpenApiTag.CAPABILITIES],
   summary: 'Get server capabilities',
   'x-fern-sdk-group-name': ['server'],
   'x-fern-sdk-method-name': 'get_capabilities',

@@ -307,61 +307,15 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
     }
   };
 
-  const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
-    const { name } = c.req.valid('param');
-    const userRef = deps.resolveUserContext(c).userRef;
-    // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
-    const connection = await getMcpConnection({
-      tenant_id: TENANT_ID,
-      name,
-      store: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-      userRef,
-    });
-    if (connection === undefined) {
-      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
-    }
-    const remote = new RemoteMCP({
-      id: name,
-      name,
-      url: connection.url,
-      headers: connection.headers,
-      requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
-      connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-      logger: deps.logger,
-      signal: c.req.raw.signal,
-    });
-    try {
-      const response = await remote.listTools();
-      if (isAuthRequired(response)) {
-        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 422);
-      }
-      const data = response.result.tools.map(tool => omitUndefinedEntries({ ...tool }));
-      return c.json({ data }, 200);
-    } catch (error) {
-      if (error instanceof McpConnectionError) {
-        deps.logger.warn(`MCP tools/list failed for "${name}"`, extractErrorLogFields(error));
-        if (error.statusCode === 401) {
-          return c.json({ error: { message: error.message } }, 422);
-        }
-        return c.json({ error: { message: error.message } }, 502);
-      }
-      throw error;
-    }
-  };
-
   const router = new OpenAPIHono();
   router.openapi(listMcpServersRoute, listHandler);
   router.openapi(createMcpServerRoute, createHandler);
   router.openapi(putMcpServerRoute, putHandler);
-  // `/{name}/tools` before `/{name}` so the tools suffix is not swallowed.
-  router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(getMcpServerRoute, getHandler);
   return router;
 }
 
-/** List + authorize (mounted at /api/v1/mcp-servers). */
+/** List, tools, and authorize (mounted at /api/v1/mcp-servers). */
 export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
@@ -417,6 +371,50 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     }
   };
 
+  const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const userRef = deps.resolveUserContext(c).userRef;
+    // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
+    const connection = await getMcpConnection({
+      tenant_id: TENANT_ID,
+      name,
+      store: deps.mcpServerStore,
+      tokenStore: deps.tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+      userRef,
+    });
+    if (connection === undefined) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    const remote = new RemoteMCP({
+      id: name,
+      name,
+      url: connection.url,
+      headers: connection.headers,
+      requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
+      connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
+      logger: deps.logger,
+      signal: c.req.raw.signal,
+    });
+    try {
+      const response = await remote.listTools();
+      if (isAuthRequired(response)) {
+        return c.json({ error: { message: `MCP server "${name}" requires authentication` } }, 422);
+      }
+      const data = response.result.tools.map(tool => omitUndefinedEntries({ ...tool }));
+      return c.json({ data }, 200);
+    } catch (error) {
+      if (error instanceof McpConnectionError) {
+        deps.logger.warn(`MCP tools/list failed for "${name}"`, extractErrorLogFields(error));
+        if (error.statusCode === 401) {
+          return c.json({ error: { message: error.message } }, 422);
+        }
+        return c.json({ error: { message: error.message } }, 502);
+      }
+      throw error;
+    }
+  };
+
   const deleteAuthorizationHandler: RouteHandler<typeof deleteAuthorizationMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
@@ -445,6 +443,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       200,
     );
   });
+  router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(authorizeMcpServerRoute, authorizeHandler);
   router.openapi(deleteAuthorizationMcpServerRoute, deleteAuthorizationHandler);
   return router;

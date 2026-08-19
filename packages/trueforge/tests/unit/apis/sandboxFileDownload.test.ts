@@ -62,10 +62,10 @@ function downloadUrl({
   turnId?: string;
   path: string;
 }): string {
-  return `http://localhost/${sessionId}/turns/${turnId}/download?path=${encodeURIComponent(path)}`;
+  return `http://localhost/${sessionId}/turns/${turnId}/download-sandbox-file?path=${encodeURIComponent(path)}`;
 }
 
-describe('GET /{session_id}/turns/{turn_id}/download', () => {
+describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
   it('rejects a malformed path before touching the session', async () => {
     const { app } = await buildApp();
 

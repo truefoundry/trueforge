@@ -123,7 +123,7 @@ describe('sandboxProviders router', () => {
     });
   });
 
-  it('GET /catalog/sandbox-providers returns the shipped catalog verbatim', async () => {
+  it('GET /catalogs/sandbox-providers returns the shipped catalog verbatim', async () => {
     const response = await catalogRouter.request('/sandbox-providers');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ data: [...SandboxCatalog.load().list()] });

@@ -15,8 +15,7 @@ import {
 } from '../schemas/session';
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
-
-const SESSIONS_TAG = 'Sessions';
+import { OpenApiTag } from './openapiTags';
 
 export const SessionIdParamsSchema = z.object({
   session_id: z.string().min(1).max(64).describe('Session identifier.'),
@@ -25,7 +24,7 @@ export const SessionIdParamsSchema = z.object({
 export const createSessionRoute = createRoute({
   method: 'post',
   path: '/',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Create a session',
   description:
     'Create a session with `agent` as either `{ name }` (named registry binding) or `{ spec: AgentSpec }` (inline). Named sessions snapshot the agent name at create and resolve the live agent on each turn. Responses use `{ type: "reference", name, id }` or `{ type: "inline", spec }`.',
@@ -61,7 +60,7 @@ export const createSessionRoute = createRoute({
 export const getSessionRoute = createRoute({
   method: 'get',
   path: '/{session_id}',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a session',
   description: 'Fetch a session by ID. Only the session creator (`created_by`) may fetch it.',
   'x-fern-sdk-group-name': ['sessions'],
@@ -88,7 +87,7 @@ export const getSessionRoute = createRoute({
 export const deleteSessionRoute = createRoute({
   method: 'delete',
   path: '/{session_id}',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Delete a session',
   description:
     'Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.',
@@ -111,7 +110,7 @@ export const deleteSessionRoute = createRoute({
 export const updateSessionRoute = createRoute({
   method: 'patch',
   path: '/{session_id}',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update a session',
   description:
     'Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.',
@@ -152,7 +151,7 @@ export const updateSessionRoute = createRoute({
 export const listSessionsRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List sessions',
   description:
     "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
@@ -177,7 +176,7 @@ export const listSessionsRoute = createRoute({
 export const cancelSessionRoute = createRoute({
   method: 'post',
   path: '/{session_id}/cancel',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Cancel a running turn in a session',
   description: 'Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.',
   'x-fern-sdk-group-name': ['sessions'],
@@ -213,7 +212,7 @@ export const cancelSessionRoute = createRoute({
 export const listSessionEventsRoute = createRoute({
   method: 'get',
   path: '/{session_id}/events',
-  tags: [SESSIONS_TAG],
+  tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List session events',
   description:
     'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.',

@@ -91,7 +91,7 @@ describe('turns', () => {
       expect(await subscribeResponse.json()).toEqual(forbiddenAccess);
 
       const downloadResponse = await app.request(
-        `/s1/turns/any-turn/download?path=${encodeURIComponent('/workspace/report.pdf')}`,
+        `/s1/turns/any-turn/download-sandbox-file?path=${encodeURIComponent('/workspace/report.pdf')}`,
       );
       expect(downloadResponse.status).toBe(403);
       expect(await downloadResponse.json()).toEqual(forbiddenAccess);
