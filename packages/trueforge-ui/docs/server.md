@@ -376,13 +376,6 @@ interface RuntimeConfig {
   sandbox?: {
     enabled: boolean;
     fileDownloads?: boolean;
-    networkPolicy?: {
-      authInject?: Array<{
-        type: 'git';
-        match: { hosts: string[] };
-        authData: { type: 'basic'; username: string; password: string };
-      }>;
-    };
   };
   dynamicSubAgents?: { enabled?: boolean };
   contextManagement?: {

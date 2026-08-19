@@ -55,6 +55,8 @@ export default defineConfig(
       '**/*.test.ts',
       // Fern-generated SDK: not part of any tsconfig project, and not ours to lint.
       'packages/trueforge-sdk/**',
+      // Build-generated sources (catalogs, sandbox scripts); not in package tsconfigs.
+      '**/*.gen.ts',
     ],
   },
   {

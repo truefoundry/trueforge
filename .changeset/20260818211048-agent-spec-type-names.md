@@ -4,4 +4,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Give AgentSpec simple nested types: Model, UserMessage, and Skill. Align picker and settings type names with skills and MCP.
+Align OpenAPI type names across AgentSpec, settings, catalogs, and chat pickers: Catalog/Configured/Available resource views, AgentSpec nested Model/Skill/InitialUserMessage, Put*Request → Update*Request, MCP acronym casing, GetMeResponse, and explicit names for nested AgentSpec/capabilities schemas.
