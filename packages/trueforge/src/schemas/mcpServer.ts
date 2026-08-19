@@ -113,7 +113,7 @@ export const McpServerAuthPublicSchema = z
   .openapi('MCPServerAuthPublic');
 
 /** Chat/composer read view — public fields plus per-user auth_status. */
-export const McpServerReadEntrySchema = z
+export const AvailableMcpServerSchema = z
   .object({
     name: NameSchema,
     url: z.url().describe('URL of the remote MCP server.'),
@@ -121,10 +121,10 @@ export const McpServerReadEntrySchema = z
     auth_status: McpAuthStatusSchema,
   })
   .strict()
-  .openapi('MCPServerReadEntry');
+  .openapi('AvailableMCPServer');
 
 export const ListAvailableMcpServersResponseSchema = z
-  .object({ data: z.array(McpServerReadEntrySchema) })
+  .object({ data: z.array(AvailableMcpServerSchema) })
   .openapi('ListAvailableMCPServersResponse');
 
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
@@ -135,7 +135,7 @@ export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
 export type ConfiguredMcpServer = z.infer<typeof ConfiguredMcpServerSchema>;
 export type CreateMcpServerRequest = z.infer<typeof CreateMcpServerRequestSchema>;
 export type PutMcpServerRequest = z.infer<typeof PutMcpServerRequestSchema>;
-export type McpServerReadEntry = z.infer<typeof McpServerReadEntrySchema>;
+export type AvailableMcpServer = z.infer<typeof AvailableMcpServerSchema>;
 
 /**
  * Headers for live MCP calls against a configured server.

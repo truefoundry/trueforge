@@ -29,14 +29,14 @@ export const ModelPropertiesSchema = z
   .describe('Optional model capability metadata.')
   .openapi('ModelProperties');
 
-export const ModelEntrySchema = z
+export const ConfiguredModelSchema = z
   .object({
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
     name: NameSchema,
     properties: ModelPropertiesSchema,
   })
   .strict()
-  .openapi('ModelEntry');
+  .openapi('ConfiguredModel');
 
 /** Adds issues when two models share a `model_id` or a `name`. */
 export function refineUniqueModels(models: { model_id: string; name: string }[], ctx: z.RefinementCtx): void {
@@ -70,7 +70,7 @@ const ModelProviderAuthSchema = z
 const ModelProviderManifestBaseSchema = z
   .object({
     auth: ModelProviderAuthSchema,
-    models: z.array(ModelEntrySchema).min(1).describe('Models exposed by this provider (at least one).'),
+    models: z.array(ConfiguredModelSchema).min(1).describe('Models exposed by this provider (at least one).'),
   })
   .strict();
 
@@ -212,30 +212,30 @@ export const ListModelProvidersResponseSchema = z
   .openapi('ListModelProvidersResponse');
 
 /** Provider identity on the models list read view. */
-export const ModelListProviderSchema = z
+export const AvailableModelProviderSchema = z
   .object({
     name: z.string().min(1).describe('Configured provider resource name; matches the FQN prefix of `name`.'),
   })
   .strict()
   .describe('Owning configured provider.')
-  .openapi('ModelListProvider');
+  .openapi('AvailableModelProvider');
 
 /** Read view over configured providers: FQN plus explicit provider identity for clients. */
-export const ModelReadEntrySchema = z
+export const AvailableModelSchema = z
   .object({
     name: z
       .string()
       .describe('Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant.'),
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
-    provider: ModelListProviderSchema,
+    provider: AvailableModelProviderSchema,
     properties: ModelPropertiesSchema,
   })
   .strict()
-  .openapi('ModelReadEntry');
+  .openapi('AvailableModel');
 
 export const ListAvailableModelsResponseSchema = z
   .object({
-    data: z.array(ModelReadEntrySchema),
+    data: z.array(AvailableModelSchema),
   })
   .openapi('ListAvailableModelsResponse');
 
@@ -243,5 +243,5 @@ export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
 export type ConfiguredModelProvider = z.infer<typeof ConfiguredModelProviderSchema>;
 export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
 export type PutModelProviderRequest = z.infer<typeof PutModelProviderRequestSchema>;
-export type ModelListProvider = z.infer<typeof ModelListProviderSchema>;
-export type ModelReadEntry = z.infer<typeof ModelReadEntrySchema>;
+export type AvailableModelProvider = z.infer<typeof AvailableModelProviderSchema>;
+export type AvailableModel = z.infer<typeof AvailableModelSchema>;

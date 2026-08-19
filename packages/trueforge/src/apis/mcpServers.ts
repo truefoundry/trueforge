@@ -21,11 +21,11 @@ import {
 } from '../routes/mcpServerRoutes';
 import { getMcpConnection } from '../runtime/sessionResources';
 import type {
+  AvailableMcpServer,
   ConfiguredMcpServer,
   CreateMcpServerRequest,
   McpAuthStatus,
   McpServerManifest,
-  McpServerReadEntry,
   PutMcpServerRequest,
 } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
@@ -117,13 +117,13 @@ function toConfiguredMcpServer({
   };
 }
 
-function toMcpServerReadEntry({
+function toAvailableMcpServer({
   record,
   token,
 }: {
   record: McpServerRecord;
   token: OAuthToken | undefined;
-}): McpServerReadEntry {
+}): AvailableMcpServer {
   const authType = record.manifest.auth?.type;
   return {
     name: record.name,
@@ -438,7 +438,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
     return c.json(
       {
-        data: records.map(record => toMcpServerReadEntry({ record, token: tokens.get(record.id) })),
+        data: records.map(record => toAvailableMcpServer({ record, token: tokens.get(record.id) })),
       },
       200,
     );

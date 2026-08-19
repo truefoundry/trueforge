@@ -33,7 +33,7 @@ export function toModelSelection({
   model,
   logo,
 }: {
-  model: TrueForgeApi.ModelReadEntry;
+  model: TrueForgeApi.AvailableModel;
   logo?: string;
 }): ModelSelection {
   const efforts = model.properties.reasoningEfforts;

@@ -1,5 +1,5 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { ModelProviderManifest, ModelReadEntry } from '../../../schemas/modelProvider';
+import type { AvailableModel, ModelProviderManifest } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
@@ -121,7 +121,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirstOrThrow();
   }
 
-  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<ModelReadEntry[]> {
+  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(tenantId, transaction));
   }
 }
