@@ -245,6 +245,9 @@ function buildModelMessageEvent({
   void source;
   const event: ModelMessageEvent = {
     ...rest,
+    // Tool-only completions store content: null on context (OpenAI replay) but the
+    // SSE placeholder omits the field. Drop null/empty here so listTurnEvents JSON
+    // matches a folded stream.
     ...(content && { content }),
     tool_calls: tool_calls?.map(toEnrichedToolCall),
     type: EventType.MODEL_MESSAGE,
