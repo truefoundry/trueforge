@@ -87,7 +87,7 @@ export const getTurnRoute = createRoute({
 
 export const downloadSandboxFileRoute = createRoute({
   method: 'get',
-  path: '/{session_id}/turns/{turn_id}/download',
+  path: '/{session_id}/turns/{turn_id}/download-sandbox-file',
   tags: [OpenApiTag.SESSIONS],
   summary: 'Download a file from the turn sandbox',
   description:

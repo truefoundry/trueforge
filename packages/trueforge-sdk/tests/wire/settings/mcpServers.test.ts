@@ -220,7 +220,7 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
-    test("upsert (1)", async () => {
+    test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { description: "description", name: "name", type: "remote", url: "url" } };
@@ -247,7 +247,7 @@ describe("McpServersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.mcpServers.upsert({
+        const response = await client.settings.mcpServers.createOrUpdate({
             manifest: {
                 description: "description",
                 name: "name",
@@ -275,7 +275,7 @@ describe("McpServersClient", () => {
         });
     });
 
-    test("upsert (2)", async () => {
+    test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
@@ -291,7 +291,7 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.mcpServers.upsert({
+            return await client.settings.mcpServers.createOrUpdate({
                 manifest: {
                     description: "x",
                     name: "xy",
@@ -302,7 +302,7 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
-    test("upsert (3)", async () => {
+    test("create_or_update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
@@ -318,7 +318,7 @@ describe("McpServersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.mcpServers.upsert({
+            return await client.settings.mcpServers.createOrUpdate({
                 manifest: {
                     description: "x",
                     name: "xy",
@@ -393,105 +393,5 @@ describe("McpServersClient", () => {
         await expect(async () => {
             return await client.settings.mcpServers.get("name");
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
-    });
-
-    test("list_tools (1)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { data: [{ key: "value" }] };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/settings/mcp-servers/name/tools")
-            .respondWith()
-            .statusCode(200)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        const response = await client.settings.mcpServers.listTools("name");
-        expect(response).toEqual({
-            data: [
-                {
-                    key: "value",
-                },
-            ],
-        });
-    });
-
-    test("list_tools (2)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/settings/mcp-servers/name/tools")
-            .respondWith()
-            .statusCode(401)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.mcpServers.listTools("name");
-        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
-    });
-
-    test("list_tools (3)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/settings/mcp-servers/name/tools")
-            .respondWith()
-            .statusCode(404)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.mcpServers.listTools("name");
-        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
-    });
-
-    test("list_tools (4)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/settings/mcp-servers/name/tools")
-            .respondWith()
-            .statusCode(422)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.mcpServers.listTools("name");
-        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
-    });
-
-    test("list_tools (5)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/api/v1/settings/mcp-servers/name/tools")
-            .respondWith()
-            .statusCode(502)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.mcpServers.listTools("name");
-        }).rejects.toThrow(TrueForgeTypes.BadGatewayError);
     });
 });

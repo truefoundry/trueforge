@@ -1,5 +1,5 @@
 /**
- * Discovery catalog routes (mounted at /api/v1/catalog).
+ * Discovery catalog routes (mounted at /api/v1/catalogs).
  * Readable by any authenticated user — not under admin /settings.
  */
 import { createRoute } from '@hono/zod-openapi';
@@ -18,7 +18,7 @@ export const listModelProviderCatalogRoute = createRoute({
   description:
     'Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. ' +
     'Includes a `custom` sentinel with `supported_reasoning_efforts`.',
-  'x-fern-sdk-group-name': ['catalog', 'modelProviders'],
+  'x-fern-sdk-group-name': ['catalogs', 'modelProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
@@ -38,7 +38,7 @@ export const listMcpServerCatalogRoute = createRoute({
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Get the MCP catalog',
   description: 'Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.',
-  'x-fern-sdk-group-name': ['catalog', 'mcpServers'],
+  'x-fern-sdk-group-name': ['catalogs', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
@@ -58,7 +58,7 @@ export const listSkillCatalogRoute = createRoute({
   tags: [OpenApiTag.SKILLS],
   summary: 'Get the skill catalog',
   description: 'Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.',
-  'x-fern-sdk-group-name': ['catalog', 'skills'],
+  'x-fern-sdk-group-name': ['catalogs', 'skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
@@ -79,7 +79,7 @@ export const listSandboxProviderCatalogRoute = createRoute({
   summary: 'Get the sandbox provider catalog',
   description:
     'Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.',
-  'x-fern-sdk-group-name': ['catalog', 'sandboxProviders'],
+  'x-fern-sdk-group-name': ['catalogs', 'sandboxProviders'],
   'x-fern-sdk-method-name': 'list',
   'x-excluded': true,
   responses: {

@@ -164,7 +164,7 @@ export function createConnectorCatalog(
 
   return {
     getConnectorCatalog: async () => {
-      const body = await client.catalog.mcpServers.list();
+      const body = await client.catalogs.mcpServers.list();
       return body.data.map(toUiCatalogEntry);
     },
     getConnector: async req => {
@@ -186,7 +186,7 @@ export function createConnectorCatalog(
       );
     },
     getToolsByConnectorId: async ({ id }) => {
-      const body = await client.settings.mcpServers.listTools(id);
+      const body = await client.mcpServers.listTools(id);
       return body.data.map(toUiTool);
     },
     createConnector: async req => {
@@ -203,7 +203,7 @@ export function createConnectorCatalog(
     },
     updateConnector: async req => {
       const auth = await resolveWriteAuth({ id: req.id, auth: req.auth });
-      const body = await client.settings.mcpServers.upsert({
+      const body = await client.settings.mcpServers.createOrUpdate({
         manifest: toHarnessManifest({
           name: req.id,
           url: req.url,

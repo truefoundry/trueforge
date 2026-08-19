@@ -2,7 +2,7 @@
 
 import { AgentsClient } from "./api/resources/agents/client/Client.js";
 import { AuthClient } from "./api/resources/auth/client/Client.js";
-import { CatalogClient } from "./api/resources/catalog/client/Client.js";
+import { CatalogsClient } from "./api/resources/catalogs/client/Client.js";
 import { McpServersClient } from "./api/resources/mcpServers/client/Client.js";
 import { ModelsClient } from "./api/resources/models/client/Client.js";
 import { ServerClient } from "./api/resources/server/client/Client.js";
@@ -28,7 +28,7 @@ export class TrueForge {
     protected _models: ModelsClient | undefined;
     protected _sessions: SessionsClient | undefined;
     protected _skills: SkillsClient | undefined;
-    protected _catalog: CatalogClient | undefined;
+    protected _catalogs: CatalogsClient | undefined;
     protected _settings: SettingsClient | undefined;
 
     constructor(options: TrueForge.Options) {
@@ -63,8 +63,8 @@ export class TrueForge {
         return (this._skills ??= new SkillsClient(this._options));
     }
 
-    public get catalog(): CatalogClient {
-        return (this._catalog ??= new CatalogClient(this._options));
+    public get catalogs(): CatalogsClient {
+        return (this._catalogs ??= new CatalogsClient(this._options));
     }
 
     public get settings(): SettingsClient {

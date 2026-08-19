@@ -1,7 +1,7 @@
 /** Server session wire schemas. Core Session lives in agentSession. */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
-import { NameSchema } from './common';
+import { NameSchema, PAGE_LIMIT } from './common';
 
 /** Create arm: bind by unique registry agent name. */
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
@@ -43,9 +43,6 @@ export const UpdateSessionRequestSchema = z
 
 export type { Session } from '@truefoundry/trueforge-core/agent-session';
 
-export const DEFAULT_SESSIONS_LIMIT = 10;
-export const SESSIONS_MAX_LIMIT = 100;
-
 /** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for the store. */
 const IsoTimestampQueryParam = z.iso
   .datetime({ offset: true })
@@ -58,10 +55,10 @@ export const ListSessionsRequestQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(SESSIONS_MAX_LIMIT)
+      .max(PAGE_LIMIT)
       .optional()
-      .default(DEFAULT_SESSIONS_LIMIT)
-      .describe(`Page size. Defaults to ${String(DEFAULT_SESSIONS_LIMIT)}, max ${String(SESSIONS_MAX_LIMIT)}.`),
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(PAGE_LIMIT)}.`),
     order: z
       .enum(['asc', 'desc'])
       .optional()

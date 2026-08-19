@@ -63,7 +63,7 @@ export function createHarnessBuilderServer(
       // Catalog logos are optional UI enrichment — a catalog failure must not blank the picker.
       const [modelsBody, catalogEntries] = await Promise.all([
         client.models.list(),
-        client.catalog.modelProviders.list().then(
+        client.catalogs.modelProviders.list().then(
           body => body.data,
           () => [],
         ),

@@ -1,6 +1,6 @@
 /**
  * Shipped skill catalog (skill-catalog.yaml): the discovery list of skill
- * presets offered by GET /catalog/skills for the UI to copy into
+ * presets offered by GET /catalogs/skills for the UI to copy into
  * PUT /settings/skills bodies. Never consulted on writes and never
  * read by the runtime.
  *

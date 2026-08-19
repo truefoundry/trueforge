@@ -685,6 +685,69 @@ await client.mcpServers.deleteAuthorization("name");
 </dl>
 </details>
 
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueForge.ListMcpServerToolsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.mcpServers.listTools("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — MCP server name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `McpServersClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Models
 <details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueForge.ListModelsResponse</code></summary>
 <dl>
@@ -1804,8 +1867,8 @@ await client.skills.list();
 </dl>
 </details>
 
-## Catalog McpServers
-<details><summary><code>client.catalog.mcpServers.<a href="/src/api/resources/catalog/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.GetMcpServerCatalogResponse</code></summary>
+## Catalogs McpServers
+<details><summary><code>client.catalogs.mcpServers.<a href="/src/api/resources/catalogs/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.GetMcpServerCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -1832,7 +1895,7 @@ Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers
 <dd>
 
 ```typescript
-await client.catalog.mcpServers.list();
+await client.catalogs.mcpServers.list();
 
 ```
 </dd>
@@ -1860,8 +1923,8 @@ await client.catalog.mcpServers.list();
 </dl>
 </details>
 
-## Catalog ModelProviders
-<details><summary><code>client.catalog.modelProviders.<a href="/src/api/resources/catalog/resources/modelProviders/client/Client.ts">list</a>() -> TrueForge.GetModelProviderCatalogResponse</code></summary>
+## Catalogs ModelProviders
+<details><summary><code>client.catalogs.modelProviders.<a href="/src/api/resources/catalogs/resources/modelProviders/client/Client.ts">list</a>() -> TrueForge.GetModelProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -1888,7 +1951,7 @@ Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-p
 <dd>
 
 ```typescript
-await client.catalog.modelProviders.list();
+await client.catalogs.modelProviders.list();
 
 ```
 </dd>
@@ -1916,8 +1979,8 @@ await client.catalog.modelProviders.list();
 </dl>
 </details>
 
-## Catalog SandboxProviders
-<details><summary><code>client.catalog.sandboxProviders.<a href="/src/api/resources/catalog/resources/sandboxProviders/client/Client.ts">list</a>() -> TrueForge.GetSandboxProviderCatalogResponse</code></summary>
+## Catalogs SandboxProviders
+<details><summary><code>client.catalogs.sandboxProviders.<a href="/src/api/resources/catalogs/resources/sandboxProviders/client/Client.ts">list</a>() -> TrueForge.GetSandboxProviderCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -1944,7 +2007,7 @@ Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandb
 <dd>
 
 ```typescript
-await client.catalog.sandboxProviders.list();
+await client.catalogs.sandboxProviders.list();
 
 ```
 </dd>
@@ -1972,8 +2035,8 @@ await client.catalog.sandboxProviders.list();
 </dl>
 </details>
 
-## Catalog Skills
-<details><summary><code>client.catalog.skills.<a href="/src/api/resources/catalog/resources/skills/client/Client.ts">list</a>() -> TrueForge.GetSkillCatalogResponse</code></summary>
+## Catalogs Skills
+<details><summary><code>client.catalogs.skills.<a href="/src/api/resources/catalogs/resources/skills/client/Client.ts">list</a>() -> TrueForge.GetSkillCatalogResponse</code></summary>
 <dl>
 <dd>
 
@@ -2000,7 +2063,7 @@ Shipped skill presets (discovery-only). Copy into PUT /settings/skills to config
 <dd>
 
 ```typescript
-await client.catalog.skills.list();
+await client.catalogs.skills.list();
 
 ```
 </dd>
@@ -2154,7 +2217,7 @@ await client.settings.mcpServers.create({
 </dl>
 </details>
 
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetMcpServerResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetMcpServerResponse</code></summary>
 <dl>
 <dd>
 
@@ -2181,7 +2244,7 @@ Create or replace by `name`. Does not start DCR or change oauth client columns. 
 <dd>
 
 ```typescript
-await client.settings.mcpServers.upsert({
+await client.settings.mcpServers.createOrUpdate({
     manifest: {
         description: "description",
         name: "name",
@@ -2252,69 +2315,6 @@ A single MCP server by name, with nested auth_status (settings / admin projectio
 
 ```typescript
 await client.settings.mcpServers.get("name");
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**name:** `string` — MCP server name.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `McpServersClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">listTools</a>(name) -> TrueForge.ListMcpServerToolsResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.settings.mcpServers.listTools("name");
 
 ```
 </dd>
@@ -2481,7 +2481,7 @@ await client.settings.modelProviders.create({
 </dl>
 </details>
 
-<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetModelProviderResponse</code></summary>
+<details><summary><code>client.settings.modelProviders.<a href="/src/api/resources/settings/resources/modelProviders/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetModelProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -2508,7 +2508,7 @@ Create or replace a provider (models included). Well-known types use `type` as `
 <dd>
 
 ```typescript
-await client.settings.modelProviders.upsert({
+await client.settings.modelProviders.createOrUpdate({
     manifest: {
         auth: {
             apiKey: "api_key"
@@ -2612,7 +2612,7 @@ await client.settings.sandboxProviders.get();
 </dl>
 </details>
 
-<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetSandboxProviderResponse</code></summary>
+<details><summary><code>client.settings.sandboxProviders.<a href="/src/api/resources/settings/resources/sandboxProviders/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetSandboxProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -2639,7 +2639,7 @@ Upserts the single sandbox provider for this tenant: creates it or replaces its 
 <dd>
 
 ```typescript
-await client.settings.sandboxProviders.upsert({
+await client.settings.sandboxProviders.createOrUpdate({
     manifest: {
         auth: {
             apiKey: "api_key"
@@ -2813,7 +2813,7 @@ await client.settings.skills.create({
 </dl>
 </details>
 
-<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">upsert</a>({ ...params }) -> TrueForge.GetSkillResponse</code></summary>
+<details><summary><code>client.settings.skills.<a href="/src/api/resources/settings/resources/skills/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetSkillResponse</code></summary>
 <dl>
 <dd>
 
@@ -2840,7 +2840,7 @@ Full upsert keyed by `name`: creates the skill or replaces its entire manifest.
 <dd>
 
 ```typescript
-await client.settings.skills.upsert({
+await client.settings.skills.createOrUpdate({
     manifest: {
         description: "description",
         name: "name",

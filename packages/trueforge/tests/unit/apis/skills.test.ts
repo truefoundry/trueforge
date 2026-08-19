@@ -66,7 +66,7 @@ describe('skills routers', () => {
     });
   });
 
-  it('GET /catalog/skills returns the shipped catalog verbatim', async () => {
+  it('GET /catalogs/skills returns the shipped catalog verbatim', async () => {
     const response = await catalogRouter.request('/skills');
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { name: string }[] };

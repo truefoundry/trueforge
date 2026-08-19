@@ -1,7 +1,7 @@
 /**
  * DB-backed MCP server route definitions.
- * Admin routes mount at /api/v1/settings/mcp-servers; the chat list and
- * authorize routes mount at /api/v1/mcp-servers.
+ * Admin routes mount at /api/v1/settings/mcp-servers; the chat list,
+ * tools, and authorize routes mount at /api/v1/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -134,7 +134,7 @@ export const putMcpServerRoute = createRoute({
     'Create or replace by `name`. Does not start DCR or change oauth client columns. ' +
     'Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
-  'x-fern-sdk-method-name': 'upsert',
+  'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
       content: { 'application/json': { schema: PutMcpServerRequestSchema } },
@@ -171,7 +171,7 @@ export const listMcpServerToolsRoute = createRoute({
   path: '/{name}/tools',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List tools of an MCP server',
-  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'list_tools',
   description: 'All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.',
   request: {
@@ -184,7 +184,7 @@ export const listMcpServerToolsRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Harness session login required.',
+      description: 'OIDC is configured and the request has no valid session cookie.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

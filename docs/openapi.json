@@ -4634,7 +4634,7 @@
         "x-fern-sdk-method-name": "get_capabilities"
       }
     },
-    "/api/v1/catalog/mcp-servers": {
+    "/api/v1/catalogs/mcp-servers": {
       "get": {
         "description": "Shipped MCP server presets (discovery-only). Copy into PUT /settings/mcp-servers to configure.",
         "responses": {
@@ -4664,13 +4664,13 @@
           "Catalog"
         ],
         "x-fern-sdk-group-name": [
-          "catalog",
+          "catalogs",
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/catalog/model-providers": {
+    "/api/v1/catalogs/model-providers": {
       "get": {
         "description": "Shipped model-provider presets (discovery-only). Copy into PUT /settings/model-providers to configure. Includes a `custom` sentinel with `supported_reasoning_efforts`.",
         "responses": {
@@ -4700,13 +4700,13 @@
           "Catalog"
         ],
         "x-fern-sdk-group-name": [
-          "catalog",
+          "catalogs",
           "modelProviders"
         ],
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/catalog/sandbox-providers": {
+    "/api/v1/catalogs/sandbox-providers": {
       "get": {
         "description": "Shipped sandbox-provider presets (discovery-only). Copy into PUT /settings/sandbox-providers to configure.",
         "responses": {
@@ -4736,13 +4736,13 @@
           "Catalog"
         ],
         "x-fern-sdk-group-name": [
-          "catalog",
+          "catalogs",
           "sandboxProviders"
         ],
         "x-fern-sdk-method-name": "list"
       }
     },
-    "/api/v1/catalog/skills": {
+    "/api/v1/catalogs/skills": {
       "get": {
         "description": "Shipped skill presets (discovery-only). Copy into PUT /settings/skills to configure.",
         "responses": {
@@ -4772,7 +4772,7 @@
           "Catalog"
         ],
         "x-fern-sdk-group-name": [
-          "catalog",
+          "catalogs",
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
@@ -5058,6 +5058,84 @@
         "x-fern-sdk-method-name": "authorize"
       }
     },
+    "/api/v1/mcp-servers/{name}/tools": {
+      "get": {
+        "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMcpServerToolsResponse"
+                }
+              }
+            },
+            "description": "All tools of the MCP server."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server requires authentication (does not trigger browser OIDC login)."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The MCP server could not be reached or returned an error."
+          }
+        },
+        "summary": "List tools of an MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "list_tools"
+      }
+    },
     "/api/v1/models": {
       "get": {
         "description": "Models across all configured model providers, addressed by fully qualified name `name/model_name`.",
@@ -5098,14 +5176,14 @@
         "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 10, max 100.",
+            "description": "Page size. Defaults to 25, max 25.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 10,
-              "description": "Page size. Defaults to 10, max 100.",
-              "maximum": 100,
+              "default": 25,
+              "description": "Page size. Defaults to 25, max 25.",
+              "maximum": 25,
               "minimum": 1,
               "type": "integer"
             }
@@ -5566,13 +5644,13 @@
             }
           },
           {
-            "description": "Max events per response. Default 100, max 100.",
+            "description": "Page size. Defaults to 100, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "description": "Max events per response. Default 100, max 100.",
+              "description": "Page size. Defaults to 100, max 100.",
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
@@ -5653,14 +5731,14 @@
             }
           },
           {
-            "description": "Page size. Defaults to 10, max 100.",
+            "description": "Page size. Defaults to 25, max 25.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 10,
-              "description": "Page size. Defaults to 10, max 100.",
-              "maximum": 100,
+              "default": 25,
+              "description": "Page size. Defaults to 25, max 25.",
+              "maximum": 25,
               "minimum": 1,
               "type": "integer"
             }
@@ -5926,7 +6004,7 @@
         "x-fern-sdk-method-name": "get_turn"
       }
     },
-    "/api/v1/sessions/{session_id}/turns/{turn_id}/download": {
+    "/api/v1/sessions/{session_id}/turns/{turn_id}/download-sandbox-file": {
       "get": {
         "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
         "parameters": [
@@ -6086,13 +6164,13 @@
             }
           },
           {
-            "description": "Max events per response. Default 25, max 100.",
+            "description": "Page size. Defaults to 100, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Max events per response. Default 25, max 100.",
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 100.",
               "maximum": 100,
               "minimum": 1,
               "type": "integer"
@@ -6444,7 +6522,7 @@
           "settings",
           "mcpServers"
         ],
-        "x-fern-sdk-method-name": "upsert"
+        "x-fern-sdk-method-name": "create_or_update"
       }
     },
     "/api/v1/settings/mcp-servers/{name}": {
@@ -6494,85 +6572,6 @@
           "mcpServers"
         ],
         "x-fern-sdk-method-name": "get"
-      }
-    },
-    "/api/v1/settings/mcp-servers/{name}/tools": {
-      "get": {
-        "description": "All tools exposed by the given MCP server (non-paginated), as returned by the MCP `tools/list` call.",
-        "parameters": [
-          {
-            "description": "MCP server name.",
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "description": "MCP server name.",
-              "minLength": 1,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListMcpServerToolsResponse"
-                }
-              }
-            },
-            "description": "All tools of the MCP server."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Harness session login required."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "MCP server not found."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The MCP server requires authentication (does not trigger browser OIDC login)."
-          },
-          "502": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The MCP server could not be reached or returned an error."
-          }
-        },
-        "summary": "List tools of an MCP server",
-        "tags": [
-          "MCP Servers"
-        ],
-        "x-fern-sdk-group-name": [
-          "settings",
-          "mcpServers"
-        ],
-        "x-fern-sdk-method-name": "list_tools"
       }
     },
     "/api/v1/settings/model-providers": {
@@ -6716,7 +6715,7 @@
           "settings",
           "modelProviders"
         ],
-        "x-fern-sdk-method-name": "upsert"
+        "x-fern-sdk-method-name": "create_or_update"
       }
     },
     "/api/v1/settings/sandbox-providers": {
@@ -6806,7 +6805,7 @@
           "settings",
           "sandboxProviders"
         ],
-        "x-fern-sdk-method-name": "upsert"
+        "x-fern-sdk-method-name": "create_or_update"
       }
     },
     "/api/v1/settings/skills": {
@@ -6950,7 +6949,7 @@
           "settings",
           "skills"
         ],
-        "x-fern-sdk-method-name": "upsert"
+        "x-fern-sdk-method-name": "create_or_update"
       }
     },
     "/api/v1/skills": {
