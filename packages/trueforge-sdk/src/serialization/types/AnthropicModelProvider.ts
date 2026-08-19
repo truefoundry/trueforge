@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ModelEntry } from "./ModelEntry.js";
+import { ConfiguredModel } from "./ConfiguredModel.js";
 import { ModelProviderAuth } from "./ModelProviderAuth.js";
 
 export const AnthropicModelProvider: core.serialization.ObjectSchema<
@@ -12,7 +12,7 @@ export const AnthropicModelProvider: core.serialization.ObjectSchema<
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
-    models: core.serialization.list(ModelEntry),
+    models: core.serialization.list(ConfiguredModel),
     type: core.serialization.stringLiteral("anthropic"),
 });
 
@@ -20,7 +20,7 @@ export declare namespace AnthropicModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
-        models: ModelEntry.Raw[];
+        models: ConfiguredModel.Raw[];
         type: "anthropic";
     }
 }

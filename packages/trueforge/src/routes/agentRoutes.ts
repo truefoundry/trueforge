@@ -8,7 +8,7 @@ import {
   DeleteAgentResponseSchema,
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
-  PutAgentRequestSchema,
+  UpdateAgentRequestSchema,
 } from '../schemas/agent';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
@@ -130,7 +130,7 @@ export const putAgentRoute = createRoute({
   request: {
     params: AgentIdParamsSchema,
     body: {
-      content: { 'application/json': { schema: PutAgentRequestSchema } },
+      content: { 'application/json': { schema: UpdateAgentRequestSchema } },
       required: true,
     },
   },

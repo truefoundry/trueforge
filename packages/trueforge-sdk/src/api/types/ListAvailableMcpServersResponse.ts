@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListAvailableMcpServersResponse {
-    data: TrueForge.McpServerReadEntry[];
+    data: TrueForge.AvailableMcpServer[];
 }

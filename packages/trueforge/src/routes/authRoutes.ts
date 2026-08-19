@@ -6,7 +6,7 @@
  * MCP OAuth callback in mcpOAuthRoutes.ts. `me` generates normally.
  */
 import { createRoute } from '@hono/zod-openapi';
-import { AuthLoginQuerySchema, MeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
+import { AuthLoginQuerySchema, GetMeResponseSchema, OAuthCallbackQuerySchema } from '../schemas/auth';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
 
@@ -70,7 +70,7 @@ export const meRoute = createRoute({
   'x-fern-sdk-method-name': 'me',
   responses: {
     200: {
-      content: { 'application/json': { schema: MeResponseSchema } },
+      content: { 'application/json': { schema: GetMeResponseSchema } },
       description: 'Session type and identity for the current request.',
     },
     401: {

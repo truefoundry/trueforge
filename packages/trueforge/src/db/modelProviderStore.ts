@@ -4,7 +4,7 @@
  * Implementations: PostgresModelProviderStore and SqliteModelProviderStore.
  */
 import type { ResourceName } from '../schemas/common';
-import type { Model, ModelProviderManifest } from '../schemas/modelProvider';
+import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 
 export interface ModelProviderRecord {
   tenant_id: string;
@@ -61,11 +61,11 @@ export interface IModelProviderStore<TTransaction = never> {
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
-  listModels(tenantId: string, transaction?: TTransaction): Promise<Model[]>;
+  listModels(tenantId: string, transaction?: TTransaction): Promise<AvailableModel[]>;
 }
 
 /** Application-side flatten shared by both store implementations. */
-export function flattenProviderModels(records: ModelProviderRecord[]): Model[] {
+export function flattenProviderModels(records: ModelProviderRecord[]): AvailableModel[] {
   return records.flatMap(record =>
     record.manifest.models.map(model => ({
       name: `${record.name}/${model.name}`,

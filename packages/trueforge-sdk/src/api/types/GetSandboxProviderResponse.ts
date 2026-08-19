@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface GetSandboxProviderResponse {
-    data: TrueForge.SandboxProvider;
+    data: TrueForge.ConfiguredSandboxProvider;
 }

@@ -11,7 +11,7 @@ import {
   GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
   ListSkillsResponseSchema,
-  PutSkillRequestSchema,
+  UpdateSkillRequestSchema,
 } from '../schemas/skill';
 import { OpenApiTag } from './openapiTags';
 
@@ -100,7 +100,7 @@ export const putSkillRoute = createRoute({
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
-      content: { 'application/json': { schema: PutSkillRequestSchema } },
+      content: { 'application/json': { schema: UpdateSkillRequestSchema } },
       required: true,
     },
   },

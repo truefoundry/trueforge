@@ -8,7 +8,7 @@ import { authMiddleware, resolveAuthUser } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
-import type { MeResponse } from '../schemas/auth';
+import type { GetMeResponse } from '../schemas/auth';
 
 /** Login / OIDC failures land on `/?error=<reason>`. */
 function oauthErrorRedirect(reason: string): string {
@@ -92,7 +92,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
   gated.use('*', authMiddleware);
   gated.openapi(meRoute, c => {
     const user = resolveUserContext(c);
-    const body: MeResponse = getOidcVerify()
+    const body: GetMeResponse = getOidcVerify()
       ? { type: 'oidc-connected', email: user.userRef, role: user.role }
       : { type: 'default', email: user.userRef, role: user.role };
     return c.json(body, 200);

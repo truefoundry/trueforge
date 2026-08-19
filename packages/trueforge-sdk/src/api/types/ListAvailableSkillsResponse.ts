@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListAvailableSkillsResponse {
-    data: TrueForge.SkillReadEntry[];
+    data: TrueForge.AvailableSkill[];
 }

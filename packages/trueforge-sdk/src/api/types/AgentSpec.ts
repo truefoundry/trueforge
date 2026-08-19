@@ -11,10 +11,10 @@ export interface AgentSpec {
     instructions?: string;
     /** Optional MCP servers attached by configured name. */
     mcpServers?: TrueForge.McpServer[];
-    /** Optional seed user messages injected at the start of every session. */
-    messages?: TrueForge.AgentSpecUserMessage[];
-    model: TrueForge.AgentSpecModel;
+    /** Optional initial user messages injected at the start of every session. */
+    messages?: TrueForge.InitialUserMessage[];
+    model: TrueForge.Model;
     responseFormat?: TrueForge.ResponseFormat;
     /** Optional name-only skill references. Requires `config.sandbox.enabled: true`. */
-    skills?: TrueForge.SkillNameRef[];
+    skills?: TrueForge.Skill[];
 }

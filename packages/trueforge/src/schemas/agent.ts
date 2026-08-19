@@ -16,12 +16,12 @@ export const CreateAgentRequestSchema = z
   .openapi('CreateAgentRequest');
 
 /** PUT body: full manifest replacement. Identity is the path `agent_id`. */
-export const PutAgentRequestSchema = z
+export const UpdateAgentRequestSchema = z
   .object({
     manifest: AgentSpecSchema,
   })
   .strict()
-  .openapi('PutAgentRequest');
+  .openapi('UpdateAgentRequest');
 
 /** List/get/create/update response item: identity columns plus nested manifest. */
 export const AgentSchema = z
@@ -38,5 +38,5 @@ export const ListAgentsResponseSchema = z.object({ data: z.array(AgentSchema) })
 export const DeleteAgentResponseSchema = z.object({}).openapi('DeleteAgentResponse');
 
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
-export type PutAgentRequest = z.infer<typeof PutAgentRequestSchema>;
+export type UpdateAgentRequest = z.infer<typeof UpdateAgentRequestSchema>;
 export type Agent = z.infer<typeof AgentSchema>;

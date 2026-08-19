@@ -83,7 +83,7 @@ export function toUiConnector(server: TrueForgeApi.ConfiguredMcpServer): UiConne
   };
 }
 
-export function toUiConnectorFromReadEntry(server: TrueForgeApi.McpServerReadEntry): UiConnector {
+export function toUiConnectorFromReadEntry(server: TrueForgeApi.AvailableMcpServer): UiConnector {
   const auth: UiConnectorAuthPublic = server.auth?.type ? { type: server.auth.type } : { type: 'none' };
   return {
     id: server.name,

@@ -4,15 +4,15 @@ import type * as TrueForge from "../index.js";
 
 export interface McpServer {
     /** Tools subtracted from the enabled set. Default: none. */
-    disableTools?: TrueForge.McpServerDisableToolsItem[];
+    disableTools?: TrueForge.McpServerToolSelector[];
     /** Tools exposed to the agent: `@all`, `@read-only`, or literal tool names. Default: `["@all"]`. */
-    enableTools?: TrueForge.McpServerEnableToolsItem[];
+    enableTools?: TrueForge.McpServerToolSelector[];
     /** Name of a configured MCP server (Settings → Connectors). */
     name: string;
     /** When true, load all tool schemas upfront. Default: false (deferred discovery). */
     preload?: boolean;
     /** Tools loaded eagerly into context while the rest stay deferred. A non-empty list implies `preload: false`. */
-    preloadTools?: TrueForge.McpServerPreloadToolsItem[];
+    preloadTools?: TrueForge.McpServerToolSelector[];
     /** Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@write", "@destructive"]`. */
-    requireApprovalForTools?: TrueForge.McpServerRequireApprovalForToolsItem[];
+    requireApprovalForTools?: TrueForge.McpServerApprovalToolSelector[];
 }

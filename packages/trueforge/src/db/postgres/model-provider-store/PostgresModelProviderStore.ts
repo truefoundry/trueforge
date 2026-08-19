@@ -1,5 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
-import type { Model } from '../../../schemas/modelProvider';
+import type { AvailableModel } from '../../../schemas/modelProvider';
 import {
   flattenProviderModels,
   ModelProviderNameConflictError,
@@ -120,7 +120,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return toRecord(row);
   }
 
-  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<Model[]> {
+  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(tenantId, transaction));
   }
 }

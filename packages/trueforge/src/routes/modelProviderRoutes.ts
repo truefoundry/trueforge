@@ -9,7 +9,7 @@ import {
   CreateModelProviderRequestSchema,
   GetModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
-  PutModelProviderRequestSchema,
+  UpdateModelProviderRequestSchema,
 } from '../schemas/modelProvider';
 import { OpenApiTag } from './openapiTags';
 
@@ -81,7 +81,7 @@ export const putModelProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
-      content: { 'application/json': { schema: PutModelProviderRequestSchema } },
+      content: { 'application/json': { schema: UpdateModelProviderRequestSchema } },
       required: true,
     },
   },

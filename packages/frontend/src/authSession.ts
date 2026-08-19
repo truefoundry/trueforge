@@ -2,10 +2,8 @@
  * Session helpers: SDK `auth.me()` plus POST `/api/v1/auth/logout`.
  * Login is not on the SDK (browser redirect to `/api/v1/auth/login`).
  */
-import { TrueForge as TrueForgeClient, type TrueForge, type TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import { TrueForge as TrueForgeClient, type TrueForge } from '@truefoundry/trueforge-sdk';
 import { AUTH_LOGOUT_HREF, createAuthAwareFetch } from './authFetch';
-
-export type MeResponse = TrueForgeApi.MeResponse;
 
 const DEFAULT_BASE_URL = '/';
 

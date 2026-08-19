@@ -313,7 +313,7 @@ export class AgentsClient {
      * Replaces the manifest for an existing agent keyed by immutable `agent_id`.
      *
      * @param {string} agent_id - Immutable agent identifier.
-     * @param {TrueForge.PutAgentRequest} request
+     * @param {TrueForge.UpdateAgentRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -333,7 +333,7 @@ export class AgentsClient {
      */
     public update(
         agent_id: string,
-        request: TrueForge.PutAgentRequest,
+        request: TrueForge.UpdateAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetAgentResponse> {
         return core.HttpResponsePromise.fromPromise(this.__update(agent_id, request, requestOptions));
@@ -341,7 +341,7 @@ export class AgentsClient {
 
     private async __update(
         agent_id: string,
-        request: TrueForge.PutAgentRequest,
+        request: TrueForge.UpdateAgentRequest,
         requestOptions?: AgentsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetAgentResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -362,7 +362,7 @@ export class AgentsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.PutAgentRequest.jsonOrThrow(request, {
+                serializers.UpdateAgentRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

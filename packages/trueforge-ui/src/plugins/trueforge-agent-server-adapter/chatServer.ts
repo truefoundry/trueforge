@@ -5,7 +5,7 @@
  * `nextPageToken`), and `null` normalized to absent. Harness keys MCP mounts by
  * name and returns `null` for optional fields — the maps below bridge both.
  *
- * Skills are name refs on the wire (`SkillNameRef`).
+ * Skills are name refs on the wire (`Skill`).
  *
  * Session create takes `{ name }` or `{ spec }`; reads carry the
  * `reference`/`inline` discriminator, with reference rows already naming their
@@ -34,7 +34,7 @@ function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
   return server;
 }
 
-function toUiSkill(skill: TrueForgeApi.SkillNameRef): HarnessSkillMount {
+function toUiSkill(skill: TrueForgeApi.Skill): HarnessSkillMount {
   return { name: skill.name };
 }
 

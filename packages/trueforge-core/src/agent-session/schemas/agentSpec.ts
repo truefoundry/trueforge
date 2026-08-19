@@ -38,7 +38,7 @@ const ModelParamsSchema = z
   .openapi('ModelParams');
 
 // Opaque runtime identifier; the hosting server owns naming conventions (e.g. provider/model).
-const ModelSpecSchema = z
+const ModelSchema = z
   .object({
     name: z
       .string()
@@ -46,7 +46,7 @@ const ModelSpecSchema = z
       .describe('Model FQN: `provider/model`, e.g. `openai/gpt-5.2`.'),
     params: ModelParamsSchema.optional(),
   })
-  .openapi('AgentSpecModel');
+  .openapi('Model');
 
 // --- MCP servers ---
 
@@ -57,13 +57,14 @@ const LiteralToolSelectorSchema = z
   .refine(s => !s.startsWith('@'), { message: 'Invalid tool selector tag' });
 
 // enable_tools / disable_tools / preload_tools: @all, @read-only, or a literal name.
-const EnableToolSelectorSchema = z.union([z.enum(TOOLS_SELECTOR_TAGS), LiteralToolSelectorSchema]);
+const EnableToolSelectorSchema = z
+  .union([z.enum(TOOLS_SELECTOR_TAGS), LiteralToolSelectorSchema])
+  .openapi('MCPServerToolSelector');
 
 // require_approval_for_tools: @all, @write, @destructive, or a literal name.
-const RequireApprovalToolSelectorSchema = z.union([
-  z.enum(REQUIRE_APPROVAL_TOOLS_SELECTOR_TAGS),
-  LiteralToolSelectorSchema,
-]);
+const RequireApprovalToolSelectorSchema = z
+  .union([z.enum(REQUIRE_APPROVAL_TOOLS_SELECTOR_TAGS), LiteralToolSelectorSchema])
+  .openapi('MCPServerApprovalToolSelector');
 
 // `preload` defaults to false; use `preload_tools` to eagerly load specific tools when not fully preloading.
 // Auth headers are not part of the spec — they come from the configured MCP server store.
@@ -110,15 +111,17 @@ const MCPServerRequestSchema = z
 
 // --- Runtime config ---
 
-const CompactionSettingsSchema = z.object({
-  enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
-  compaction_threshold_tokens: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe('Context size in tokens that triggers compaction. Default: 50000.'),
-});
+const CompactionSettingsSchema = z
+  .object({
+    enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
+    compaction_threshold_tokens: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Context size in tokens that triggers compaction. Default: 50000.'),
+  })
+  .openapi('CompactionConfig');
 
 const LargeToolResponseSettingsSchema = z.object({
   enabled: z.boolean().default(true).describe('Offload oversized tool responses to a sandbox file. Default: true.'),
@@ -218,7 +221,7 @@ export const RuntimeConfigSchema = z
 const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
 
 /** Name-only skill selection; mount fields come from the skill store. */
-const SkillNameRefSchema = z
+const SkillSchema = z
   .object({
     name: z
       .string()
@@ -231,41 +234,41 @@ const SkillNameRefSchema = z
       .describe('Name of a configured skill (also used as the skill directory name in the sandbox).'),
   })
   .strict()
-  .openapi('SkillNameRef');
+  .openapi('Skill');
 
-// --- Response format / messages ---
+// --- Initial messages (string-only; turn UserMessage also allows file parts) ---
 
-const AgentSpecUserMessageSchema = z
+const InitialUserMessageSchema = z
   .object({
-    type: z.literal('user.message').describe('Seed message type.'),
+    type: z.literal('user.message').describe('Initial message type.'),
     content: z
       .string()
       .min(1, 'User message content must not be empty')
       .refine(content => content.trim().length > 0, 'User message content must not be empty')
-      .describe('Seed user message content injected at the start of every session.'),
+      .describe('Initial user message content injected at the start of every session.'),
   })
-  .openapi('AgentSpecUserMessage');
+  .openapi('InitialUserMessage');
 
 // --- Agent spec ---
 
 export const AgentSpecSchema = z
   .object({
-    model: ModelSpecSchema,
+    model: ModelSchema,
     instructions: z
       .string()
       .optional()
       .describe("Optional system prompt — the agent's role, behavior, and constraints."),
     messages: z
-      .array(AgentSpecUserMessageSchema)
+      .array(InitialUserMessageSchema)
       .optional()
-      .describe('Optional seed user messages injected at the start of every session.'),
+      .describe('Optional initial user messages injected at the start of every session.'),
     mcp_servers: z
       .array(MCPServerRequestSchema)
       .optional()
       .describe('Optional MCP servers attached by configured name.'),
     response_format: ResponseFormatSchema.optional(),
     skills: z
-      .array(SkillNameRefSchema)
+      .array(SkillSchema)
       .optional()
       .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
     // Factory must parse so nested RuntimeConfig field defaults materialize.
@@ -275,4 +278,5 @@ export const AgentSpecSchema = z
   .openapi('AgentSpec');
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
-export type SkillNameRef = z.infer<typeof SkillNameRefSchema>;
+export type Skill = z.infer<typeof SkillSchema>;
+export type InitialUserMessage = z.infer<typeof InitialUserMessageSchema>;

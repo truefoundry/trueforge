@@ -245,7 +245,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-**request:** `TrueForge.PutAgentRequest` 
+**request:** `TrueForge.UpdateAgentRequest` 
     
 </dd>
 </dl>
@@ -329,7 +329,7 @@ await client.agents.delete("agent_id");
 </details>
 
 ## Auth
-<details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">me</a>() -> TrueForge.MeResponse</code></summary>
+<details><summary><code>client.auth.<a href="/src/api/resources/auth/client/Client.ts">me</a>() -> TrueForge.GetMeResponse</code></summary>
 <dl>
 <dd>
 
@@ -694,7 +694,7 @@ await client.mcpServers.listTools("name");
 </details>
 
 ## Models
-<details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueForge.ListModelsResponse</code></summary>
+<details><summary><code>client.models.<a href="/src/api/resources/models/client/Client.ts">list</a>() -> TrueForge.ListAvailableModelsResponse</code></summary>
 <dl>
 <dd>
 
@@ -706,7 +706,7 @@ await client.mcpServers.listTools("name");
 <dl>
 <dd>
 
-Models across all configured model providers, addressed by fully qualified name `name/model_name`.
+Configured models as a slim FQN list for the composer.
 </dd>
 </dl>
 </dd>
@@ -2212,7 +2212,7 @@ await client.settings.mcpServers.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutMcpServerRequest` 
+**request:** `TrueForge.settings.UpdateMcpServerRequest` 
     
 </dd>
 </dl>
@@ -2481,7 +2481,7 @@ await client.settings.modelProviders.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutModelProviderRequest` 
+**request:** `TrueForge.settings.UpdateModelProviderRequest` 
     
 </dd>
 </dl>
@@ -2611,7 +2611,7 @@ await client.settings.sandboxProviders.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutSandboxProviderRequest` 
+**request:** `TrueForge.settings.UpdateSandboxProviderRequest` 
     
 </dd>
 </dl>
@@ -2809,7 +2809,7 @@ await client.settings.skills.createOrUpdate({
 <dl>
 <dd>
 
-**request:** `TrueForge.settings.PutSkillRequest` 
+**request:** `TrueForge.settings.UpdateSkillRequest` 
     
 </dd>
 </dl>

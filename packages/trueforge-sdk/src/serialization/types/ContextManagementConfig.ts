@@ -3,20 +3,20 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ContextManagementConfigCompaction } from "./ContextManagementConfigCompaction.js";
+import { CompactionConfig } from "./CompactionConfig.js";
 import { LargeToolResponseConfig } from "./LargeToolResponseConfig.js";
 
 export const ContextManagementConfig: core.serialization.ObjectSchema<
     serializers.ContextManagementConfig.Raw,
     TrueForge.ContextManagementConfig
 > = core.serialization.object({
-    compaction: ContextManagementConfigCompaction.optional(),
+    compaction: CompactionConfig.optional(),
     largeToolResponse: core.serialization.property("large_tool_response", LargeToolResponseConfig.optional()),
 });
 
 export declare namespace ContextManagementConfig {
     export interface Raw {
-        compaction?: ContextManagementConfigCompaction.Raw | null;
+        compaction?: CompactionConfig.Raw | null;
         large_tool_response?: LargeToolResponseConfig.Raw | null;
     }
 }

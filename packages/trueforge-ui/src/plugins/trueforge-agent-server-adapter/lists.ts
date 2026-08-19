@@ -4,22 +4,22 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
-export async function listModels(client: TrueForge): Promise<TrueForgeApi.Model[]> {
+export async function listModels(client: TrueForge): Promise<TrueForgeApi.AvailableModel[]> {
   const body = await client.models.list();
   return body.data;
 }
 
-export async function listConfiguredMcpServers(client: TrueForge): Promise<TrueForgeApi.McpServerReadEntry[]> {
+export async function listConfiguredMcpServers(client: TrueForge): Promise<TrueForgeApi.AvailableMcpServer[]> {
   const body = await client.mcpServers.list();
   return body.data;
 }
 
-export async function listSkills(client: TrueForge): Promise<TrueForgeApi.SkillReadEntry[]> {
+export async function listSkills(client: TrueForge): Promise<TrueForgeApi.AvailableSkill[]> {
   const body = await client.skills.list();
   return body.data;
 }
 
-export async function getCapabilities(client: TrueForge): Promise<TrueForgeApi.GetCapabilitiesResponseData> {
+export async function getCapabilities(client: TrueForge): Promise<TrueForgeApi.CapabilitiesData> {
   const body = await client.server.getCapabilities();
   return body.data;
 }

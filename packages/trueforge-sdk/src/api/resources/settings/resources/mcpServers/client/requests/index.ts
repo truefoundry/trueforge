@@ -1,2 +1,2 @@
 export type { CreateMcpServerRequest } from "./CreateMcpServerRequest.js";
-export type { PutMcpServerRequest } from "./PutMcpServerRequest.js";
+export type { UpdateMcpServerRequest } from "./UpdateMcpServerRequest.js";

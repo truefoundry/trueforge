@@ -4,7 +4,12 @@
  */
 import { z } from '@hono/zod-openapi';
 import { uniqueTypes } from './common';
-import { ModelEntrySchema, ModelProviderTypeSchema, ReasoningEffortSchema, refineUniqueModels } from './modelProvider';
+import {
+  ConfiguredModelSchema,
+  ModelProviderTypeSchema,
+  ReasoningEffortSchema,
+  refineUniqueModels,
+} from './modelProvider';
 
 /**
  * Catalog entry. Well-known types list model presets; `custom` is a sentinel that
@@ -14,11 +19,14 @@ export const CatalogWellKnownModelProviderTypeSchema = ModelProviderTypeSchema.e
   'CatalogWellKnownModelProviderType',
 );
 
+/** Same shape as a configured model; named for the catalog view it appears in. */
+export const CatalogModelSchema = ConfiguredModelSchema.openapi('CatalogModel');
+
 export const CatalogWellKnownModelProviderSchema = z
   .object({
     type: CatalogWellKnownModelProviderTypeSchema,
     logo: z.url().optional().describe('URL of the provider logo asset'),
-    models: z.array(ModelEntrySchema).describe('Preset models'),
+    models: z.array(CatalogModelSchema).describe('Preset models'),
   })
   .strict()
   .openapi('CatalogWellKnownModelProvider');
