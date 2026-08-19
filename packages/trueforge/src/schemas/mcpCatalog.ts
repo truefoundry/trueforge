@@ -17,7 +17,7 @@ export const CatalogMcpServerSchema = z
     auth: McpServerManifestAuthSchema.optional(),
   })
   .strict()
-  .openapi('CatalogMcpServer');
+  .openapi('CatalogMCPServer');
 
 export const McpCatalogFileSchema = z
   .object({
@@ -32,7 +32,7 @@ export const GetMcpServerCatalogResponseSchema = z
   .object({
     data: z.array(CatalogMcpServerSchema),
   })
-  .openapi('GetMcpServerCatalogResponse');
+  .openapi('GetMCPServerCatalogResponse');
 
 export type CatalogMcpServer = z.infer<typeof CatalogMcpServerSchema>;
 export type McpCatalogFile = z.infer<typeof McpCatalogFileSchema>;

@@ -11,7 +11,7 @@ import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
 /** Transport/kind of MCP server. Extend when non-remote kinds ship. */
-export const McpServerTypeSchema = z.enum(['remote']).openapi('McpServerType');
+export const McpServerTypeSchema = z.enum(['remote']).openapi('MCPServerType');
 
 const McpServerHeaderAuthSchema = z
   .object({
@@ -26,7 +26,7 @@ const McpServerHeaderAuthSchema = z
       ),
   })
   .strict()
-  .openapi('McpServerHeaderAuth');
+  .openapi('MCPServerHeaderAuth');
 
 /** OAuth Dynamic Client Registration — stub until authorize/token exchange is wired. */
 const McpServerDcrAuthSchema = z
@@ -34,12 +34,12 @@ const McpServerDcrAuthSchema = z
     type: z.literal('dcr').describe('Authenticate via OAuth Dynamic Client Registration.'),
   })
   .strict()
-  .openapi('McpServerDcrAuth');
+  .openapi('MCPServerDcrAuth');
 
 export const McpServerManifestAuthSchema = z
   .discriminatedUnion('type', [McpServerHeaderAuthSchema, McpServerDcrAuthSchema])
   .describe('Optional auth settings. Omit when the server needs no credentials.')
-  .openapi('McpServerManifestAuth');
+  .openapi('MCPServerManifestAuth');
 
 export const McpServerDescriptionSchema = z
   .string()
@@ -58,7 +58,7 @@ export const McpServerManifestObjectSchema = z
   })
   .strict();
 
-export const McpServerManifestSchema = McpServerManifestObjectSchema.openapi('McpServerManifest');
+export const McpServerManifestSchema = McpServerManifestObjectSchema.openapi('MCPServerManifest');
 
 export const McpAuthStatusSchema = z
   .object({
@@ -72,7 +72,7 @@ export const McpAuthStatusSchema = z
   })
   .strict()
   .describe('Current auth state.')
-  .openapi('McpAuthStatus');
+  .openapi('MCPAuthStatus');
 
 /** Admin/settings wire view: identity column plus nested manifest and auth_status. */
 export const ConfiguredMcpServerSchema = z
@@ -82,26 +82,26 @@ export const ConfiguredMcpServerSchema = z
     auth_status: McpAuthStatusSchema,
   })
   .strict()
-  .openapi('ConfiguredMcpServer');
+  .openapi('ConfiguredMCPServer');
 
 export const CreateMcpServerRequestSchema = z
   .object({
     manifest: McpServerManifestSchema,
   })
   .strict()
-  .openapi('CreateMcpServerRequest');
+  .openapi('CreateMCPServerRequest');
 
 export const PutMcpServerRequestSchema = z
   .object({
     manifest: McpServerManifestSchema,
   })
   .strict()
-  .openapi('PutMcpServerRequest');
+  .openapi('PutMCPServerRequest');
 
-export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMcpServerResponse');
+export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMCPServerResponse');
 export const ListMcpServersResponseSchema = z
   .object({ data: z.array(ConfiguredMcpServerSchema) })
-  .openapi('ListMcpServersResponse');
+  .openapi('ListMCPServersResponse');
 
 /** Public auth mechanism for chat/composer (no secrets). */
 export const McpServerAuthPublicSchema = z
@@ -110,7 +110,7 @@ export const McpServerAuthPublicSchema = z
     z.object({ type: z.literal('header') }).strict(),
   ])
   .describe('Auth mechanism when configured (no secrets). Omit when the server needs no credentials.')
-  .openapi('McpServerAuthPublic');
+  .openapi('MCPServerAuthPublic');
 
 /** Chat/composer read view — public fields plus per-user auth_status. */
 export const McpServerReadEntrySchema = z
@@ -121,11 +121,11 @@ export const McpServerReadEntrySchema = z
     auth_status: McpAuthStatusSchema,
   })
   .strict()
-  .openapi('McpServerReadEntry');
+  .openapi('MCPServerReadEntry');
 
 export const ListAvailableMcpServersResponseSchema = z
   .object({ data: z.array(McpServerReadEntrySchema) })
-  .openapi('ListAvailableMcpServersResponse');
+  .openapi('ListAvailableMCPServersResponse');
 
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerManifestAuth = z.infer<typeof McpServerManifestAuthSchema>;

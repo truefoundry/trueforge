@@ -164,7 +164,7 @@ const ListMcpServerToolsResponseSchema = z
       .array(z.record(z.string(), z.unknown()))
       .describe('MCP `tools/list` entries, passed through verbatim from the MCP server.'),
   })
-  .openapi('ListMcpServerToolsResponse');
+  .openapi('ListMCPServerToolsResponse');
 
 export const listMcpServerToolsRoute = createRoute({
   method: 'get',
