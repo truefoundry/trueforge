@@ -2,7 +2,6 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface ModelProvider {
-    manifest: TrueForge.ModelProviderManifest;
-    name: TrueForge.ResourceName;
+export interface ListAvailableModelsResponse {
+    data: TrueForge.ModelReadEntry[];
 }

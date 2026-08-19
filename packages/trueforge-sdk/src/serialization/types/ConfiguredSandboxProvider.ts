@@ -6,16 +6,16 @@ import type * as serializers from "../index.js";
 import { SandboxBuildStatus } from "./SandboxBuildStatus.js";
 import { SandboxProviderManifest } from "./SandboxProviderManifest.js";
 
-export const SandboxProvider: core.serialization.ObjectSchema<
-    serializers.SandboxProvider.Raw,
-    TrueForge.SandboxProvider
+export const ConfiguredSandboxProvider: core.serialization.ObjectSchema<
+    serializers.ConfiguredSandboxProvider.Raw,
+    TrueForge.ConfiguredSandboxProvider
 > = core.serialization.object({
     manifest: SandboxProviderManifest,
     status: SandboxBuildStatus,
     statusReason: core.serialization.property("status_reason", core.serialization.string().nullable()),
 });
 
-export declare namespace SandboxProvider {
+export declare namespace ConfiguredSandboxProvider {
     export interface Raw {
         manifest: SandboxProviderManifest.Raw;
         status: SandboxBuildStatus.Raw;

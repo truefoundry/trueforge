@@ -34,13 +34,13 @@ export class AuthClient {
      * @example
      *     await client.auth.me()
      */
-    public me(requestOptions?: AuthClient.RequestOptions): core.HttpResponsePromise<TrueForge.MeResponse> {
+    public me(requestOptions?: AuthClient.RequestOptions): core.HttpResponsePromise<TrueForge.GetMeResponse> {
         return core.HttpResponsePromise.fromPromise(this.__me(requestOptions));
     }
 
     private async __me(
         requestOptions?: AuthClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.MeResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetMeResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -64,7 +64,7 @@ export class AuthClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.MeResponse.parseOrThrow(_response.body, {
+                data: serializers.GetMeResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

@@ -3,10 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface Model {
-    /** Upstream, provider-specific identifier sent to the provider API. */
-    modelId: string;
-    /** Fully qualified name `provider_name/model_name`, e.g. "openai/gpt-5-6-sol". Unique within a tenant. */
+    /** Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. */
     name: string;
-    properties: TrueForge.ModelProperties;
-    provider: TrueForge.ModelListProvider;
+    params?: TrueForge.ModelParams;
 }

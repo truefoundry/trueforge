@@ -4,9 +4,11 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const MeResponseType: core.serialization.Schema<serializers.MeResponseType.Raw, TrueForge.MeResponseType> =
-    core.serialization.enum_(["default", "oidc-connected"]);
+export const GetMeResponseType: core.serialization.Schema<
+    serializers.GetMeResponseType.Raw,
+    TrueForge.GetMeResponseType
+> = core.serialization.enum_(["default", "oidc-connected"]);
 
-export declare namespace MeResponseType {
+export declare namespace GetMeResponseType {
     export type Raw = "default" | "oidc-connected";
 }

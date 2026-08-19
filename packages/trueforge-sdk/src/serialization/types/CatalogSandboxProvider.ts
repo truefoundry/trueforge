@@ -4,9 +4,9 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const CatalogDaytonaSandboxProvider: core.serialization.ObjectSchema<
-    serializers.CatalogDaytonaSandboxProvider.Raw,
-    TrueForge.CatalogDaytonaSandboxProvider
+export const CatalogSandboxProvider: core.serialization.ObjectSchema<
+    serializers.CatalogSandboxProvider.Raw,
+    TrueForge.CatalogSandboxProvider
 > = core.serialization.object({
     autoArchiveIntervalInMinutes: core.serialization.property(
         "auto_archive_interval_in_minutes",
@@ -24,7 +24,7 @@ export const CatalogDaytonaSandboxProvider: core.serialization.ObjectSchema<
     type: core.serialization.stringLiteral("daytona"),
 });
 
-export declare namespace CatalogDaytonaSandboxProvider {
+export declare namespace CatalogSandboxProvider {
     export interface Raw {
         auto_archive_interval_in_minutes: number;
         auto_delete_interval_in_minutes: number;

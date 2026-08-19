@@ -4,12 +4,13 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SkillNameRef: core.serialization.ObjectSchema<serializers.SkillNameRef.Raw, TrueForge.SkillNameRef> =
-    core.serialization.object({
+export const Skill: core.serialization.ObjectSchema<serializers.Skill.Raw, TrueForge.Skill> = core.serialization.object(
+    {
         name: core.serialization.string(),
-    });
+    },
+);
 
-export declare namespace SkillNameRef {
+export declare namespace Skill {
     export interface Raw {
         name: string;
     }

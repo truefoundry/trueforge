@@ -3,19 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { MeResponseType } from "./MeResponseType.js";
+import { GetMeResponseType } from "./GetMeResponseType.js";
 
-export const MeResponse: core.serialization.ObjectSchema<serializers.MeResponse.Raw, TrueForge.MeResponse> =
+export const GetMeResponse: core.serialization.ObjectSchema<serializers.GetMeResponse.Raw, TrueForge.GetMeResponse> =
     core.serialization.object({
         email: core.serialization.string(),
         role: core.serialization.string(),
-        type: MeResponseType,
+        type: GetMeResponseType,
     });
 
-export declare namespace MeResponse {
+export declare namespace GetMeResponse {
     export interface Raw {
         email: string;
         role: string;
-        type: MeResponseType.Raw;
+        type: GetMeResponseType.Raw;
     }
 }
