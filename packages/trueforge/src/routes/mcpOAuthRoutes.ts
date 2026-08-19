@@ -1,13 +1,12 @@
 import { createRoute } from '@hono/zod-openapi';
 import { OAuthCallbackQuerySchema, OAuthCallbackSuccessSchema } from '../schemas/auth';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-
-const MCP_OAUTH_TAG = 'MCP OAuth';
+import { OpenApiTag } from './openapiTags';
 
 export const mcpOAuthCallbackRoute = createRoute({
   method: 'get',
   path: '/callback',
-  tags: [MCP_OAUTH_TAG],
+  tags: [OpenApiTag.MCP_SERVERS],
   summary: 'OAuth callback for MCP authorization',
   description:
     'Browser redirect target for MCP server OAuth. The authorization server redirects here with `code`/`state` (or `error`). ' +
@@ -15,6 +14,7 @@ export const mcpOAuthCallbackRoute = createRoute({
     'Not called by the SDK — browsers hit this URL directly.',
   // Browser-redirect target hit directly by the authorization server, never called by SDK.
   'x-fern-ignore': true,
+  'x-excluded': true,
   request: {
     query: OAuthCallbackQuerySchema,
   },

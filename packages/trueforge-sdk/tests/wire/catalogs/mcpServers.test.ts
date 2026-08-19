@@ -24,13 +24,13 @@ describe("McpServersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/catalog/mcp-servers")
+            .get("/api/v1/catalogs/mcp-servers")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.catalog.mcpServers.list();
+        const response = await client.catalogs.mcpServers.list();
         expect(response).toEqual({
             data: [
                 {
@@ -55,14 +55,14 @@ describe("McpServersClient", () => {
 
         server
             .mockEndpoint()
-            .get("/api/v1/catalog/mcp-servers")
+            .get("/api/v1/catalogs/mcp-servers")
             .respondWith()
             .statusCode(401)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.catalog.mcpServers.list();
+            return await client.catalogs.mcpServers.list();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 });

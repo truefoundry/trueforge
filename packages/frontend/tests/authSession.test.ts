@@ -9,11 +9,7 @@ import {
   resetOidcSessionCacheForTests,
 } from '../src/authSession';
 
-function createClient(params: {
-  type?: 'default' | 'oidc-connected';
-  onLogout?: () => void;
-  meError?: Error;
-}): TrueForge {
+function createClient(params: { type?: 'default' | 'oidc-connected'; meError?: Error }): TrueForge {
   return {
     auth: {
       me: async () => {
@@ -23,9 +19,6 @@ function createClient(params: {
           email: 'user@example.com',
           role: 'user',
         };
-      },
-      logout: async () => {
-        params.onLogout?.();
       },
     },
   } as unknown as TrueForge;
@@ -48,16 +41,17 @@ describe('authSession', () => {
     assert.equal(getCachedIsOidcConnectedSession(), true);
   });
 
-  it('delegates logout to auth.logout', async () => {
-    let called = false;
-    await logout(
-      createClient({
-        onLogout: () => {
-          called = true;
-        },
-      }),
-    );
-    assert.equal(called, true);
+  it('POSTs /api/v1/auth/logout with credentials and succeeds on 204', async () => {
+    const calls: { url: string; method: string | undefined; credentials: RequestCredentials | undefined }[] = [];
+    await logout(async (input, init) => {
+      calls.push({ url: String(input), method: init?.method, credentials: init?.credentials });
+      return new Response(null, { status: 204 });
+    });
+    assert.deepEqual(calls, [{ url: '/api/v1/auth/logout', method: 'POST', credentials: 'include' }]);
+  });
+
+  it('throws when logout is not 2xx', async () => {
+    await assert.rejects(() => logout(async () => new Response(null, { status: 500 })), /Logout failed \(500\)/);
   });
 
   it('probeSession reports authenticated when me() resolves', async () => {

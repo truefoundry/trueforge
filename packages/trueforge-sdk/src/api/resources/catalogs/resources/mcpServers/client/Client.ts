@@ -32,7 +32,7 @@ export class McpServersClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.catalog.mcpServers.list()
+     *     await client.catalogs.mcpServers.list()
      */
     public list(
         requestOptions?: McpServersClient.RequestOptions,
@@ -53,7 +53,7 @@ export class McpServersClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "api/v1/catalog/mcp-servers",
+                "api/v1/catalogs/mcp-servers",
             ),
             method: "GET",
             headers: _headers,
@@ -99,6 +99,6 @@ export class McpServersClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/catalog/mcp-servers");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/catalogs/mcp-servers");
     }
 }
