@@ -192,12 +192,12 @@ export const CreateModelProviderRequestSchema = z
   .strict()
   .openapi('CreateModelProviderRequest');
 
-export const PutModelProviderRequestSchema = z
+export const UpdateModelProviderRequestSchema = z
   .object({
     manifest: ModelProviderManifestSchema,
   })
   .strict()
-  .openapi('PutModelProviderRequest');
+  .openapi('UpdateModelProviderRequest');
 
 export const GetModelProviderResponseSchema = z
   .object({
@@ -242,6 +242,6 @@ export const ListAvailableModelsResponseSchema = z
 export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
 export type ConfiguredModelProvider = z.infer<typeof ConfiguredModelProviderSchema>;
 export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
-export type PutModelProviderRequest = z.infer<typeof PutModelProviderRequestSchema>;
+export type UpdateModelProviderRequest = z.infer<typeof UpdateModelProviderRequestSchema>;
 export type AvailableModelProvider = z.infer<typeof AvailableModelProviderSchema>;
 export type AvailableModel = z.infer<typeof AvailableModelSchema>;

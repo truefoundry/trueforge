@@ -91,12 +91,12 @@ export const CreateMcpServerRequestSchema = z
   .strict()
   .openapi('CreateMCPServerRequest');
 
-export const PutMcpServerRequestSchema = z
+export const UpdateMcpServerRequestSchema = z
   .object({
     manifest: McpServerManifestSchema,
   })
   .strict()
-  .openapi('PutMCPServerRequest');
+  .openapi('UpdateMCPServerRequest');
 
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMCPServerResponse');
 export const ListMcpServersResponseSchema = z
@@ -134,7 +134,7 @@ export type McpAuthStatus = z.infer<typeof McpAuthStatusSchema>;
 export type McpServerAuthPublic = z.infer<typeof McpServerAuthPublicSchema>;
 export type ConfiguredMcpServer = z.infer<typeof ConfiguredMcpServerSchema>;
 export type CreateMcpServerRequest = z.infer<typeof CreateMcpServerRequestSchema>;
-export type PutMcpServerRequest = z.infer<typeof PutMcpServerRequestSchema>;
+export type UpdateMcpServerRequest = z.infer<typeof UpdateMcpServerRequestSchema>;
 export type AvailableMcpServer = z.infer<typeof AvailableMcpServerSchema>;
 
 /**

@@ -58,13 +58,14 @@ const LiteralToolSelectorSchema = z
   .refine(s => !s.startsWith('@'), { message: 'Invalid tool selector tag' });
 
 // enable_tools / disable_tools / preload_tools: @all, @read-only, or a literal name.
-const EnableToolSelectorSchema = z.union([z.enum(TOOLS_SELECTOR_TAGS), LiteralToolSelectorSchema]);
+const EnableToolSelectorSchema = z
+  .union([z.enum(TOOLS_SELECTOR_TAGS), LiteralToolSelectorSchema])
+  .openapi('MCPServerToolSelector');
 
 // require_approval_for_tools: @all, @write, @destructive, or a literal name.
-const RequireApprovalToolSelectorSchema = z.union([
-  z.enum(REQUIRE_APPROVAL_TOOLS_SELECTOR_TAGS),
-  LiteralToolSelectorSchema,
-]);
+const RequireApprovalToolSelectorSchema = z
+  .union([z.enum(REQUIRE_APPROVAL_TOOLS_SELECTOR_TAGS), LiteralToolSelectorSchema])
+  .openapi('MCPServerApprovalToolSelector');
 
 // `preload` defaults to false; use `preload_tools` to eagerly load specific tools when not fully preloading.
 // Auth headers are not part of the spec — they come from the configured MCP server store.
@@ -111,15 +112,17 @@ const MCPServerRequestSchema = z
 
 // --- Runtime config ---
 
-const CompactionSettingsSchema = z.object({
-  enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
-  compaction_threshold_tokens: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe('Context size in tokens that triggers compaction. Default: 50000.'),
-});
+const CompactionSettingsSchema = z
+  .object({
+    enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
+    compaction_threshold_tokens: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Context size in tokens that triggers compaction. Default: 50000.'),
+  })
+  .openapi('CompactionConfig');
 
 const LargeToolResponseSettingsSchema = z.object({
   enabled: z.boolean().default(true).describe('Offload oversized tool responses to a sandbox file. Default: true.'),
@@ -159,35 +162,41 @@ function hostContainsWildcard(host: string): boolean {
   return host.split('.').some(segment => segment.includes('*'));
 }
 
-const SandboxAuthInjectMatchSchema = z.object({
-  hosts: z
-    .array(
-      z
-        .string()
-        .min(1)
-        .refine(host => !hostContainsWildcard(host), {
-          message: 'Hosts must be exact hostnames without wildcards',
-        })
-        .describe('Exact hostname to match (no wildcards).'),
-    )
-    .min(1)
-    .describe('Hostnames that receive injected credentials.'),
-});
+const SandboxAuthInjectMatchSchema = z
+  .object({
+    hosts: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .refine(host => !hostContainsWildcard(host), {
+            message: 'Hosts must be exact hostnames without wildcards',
+          })
+          .describe('Exact hostname to match (no wildcards).'),
+      )
+      .min(1)
+      .describe('Hostnames that receive injected credentials.'),
+  })
+  .openapi('SandboxAuthInjectMatch');
 
-const SandboxBasicAuthDataSchema = z.object({
-  type: z.literal('basic').describe('Basic auth credential type.'),
-  username: z
-    .string()
-    .regex(BASIC_AUTH_USERNAME_PATTERN, 'Username must be non-empty and contain no whitespace')
-    .describe('Basic-auth username (no whitespace).'),
-  password: z.string().min(1).describe('Basic-auth password.'),
-});
+const SandboxBasicAuthDataSchema = z
+  .object({
+    type: z.literal('basic').describe('Basic auth credential type.'),
+    username: z
+      .string()
+      .regex(BASIC_AUTH_USERNAME_PATTERN, 'Username must be non-empty and contain no whitespace')
+      .describe('Basic-auth username (no whitespace).'),
+    password: z.string().min(1).describe('Basic-auth password.'),
+  })
+  .openapi('SandboxBasicAuthData');
 
-const SandboxGitAuthInjectSchema = z.object({
-  type: z.literal('git').describe('Inject credentials for git HTTPS clones.'),
-  match: SandboxAuthInjectMatchSchema,
-  auth_data: SandboxBasicAuthDataSchema,
-});
+const SandboxGitAuthInjectSchema = z
+  .object({
+    type: z.literal('git').describe('Inject credentials for git HTTPS clones.'),
+    match: SandboxAuthInjectMatchSchema,
+    auth_data: SandboxBasicAuthDataSchema,
+  })
+  .openapi('SandboxAuthInject');
 
 const SandboxNetworkPolicySchema = z
   .object({

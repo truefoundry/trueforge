@@ -15,7 +15,7 @@ import {
   type ConfiguredModelProvider,
   type CreateModelProviderRequest,
   type ModelProviderManifest,
-  type PutModelProviderRequest,
+  type UpdateModelProviderRequest,
 } from '../schemas/modelProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
@@ -90,7 +90,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
-    const body: PutModelProviderRequest = c.req.valid('json');
+    const body: UpdateModelProviderRequest = c.req.valid('json');
     const provider = body.manifest;
     const name = modelProviderName(provider);
     try {

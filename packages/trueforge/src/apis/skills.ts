@@ -7,7 +7,7 @@ import {
   listConfiguredSkillsRoute,
   putSkillRoute,
 } from '../routes/skillRoutes';
-import type { ConfiguredSkill, CreateSkillRequest, PutSkillRequest } from '../schemas/skill';
+import type { ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
 import { TENANT_ID } from './sessions';
 
 export interface SkillsRouterDeps<TTransaction> {
@@ -49,7 +49,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   };
 
   const putHandler: RouteHandler<typeof putSkillRoute> = async c => {
-    const body: PutSkillRequest = c.req.valid('json');
+    const body: UpdateSkillRequest = c.req.valid('json');
     const manifest = body.manifest;
     const record = await deps.skillStore.upsertSkill({
       tenant_id: TENANT_ID,

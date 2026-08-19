@@ -26,7 +26,7 @@ import type {
   CreateMcpServerRequest,
   McpAuthStatus,
   McpServerManifest,
-  PutMcpServerRequest,
+  UpdateMcpServerRequest,
 } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
@@ -228,7 +228,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const body: PutMcpServerRequest = c.req.valid('json');
+    const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
 
     try {

@@ -87,12 +87,12 @@ export const CreateSkillRequestSchema = z
   .strict()
   .openapi('CreateSkillRequest');
 
-export const PutSkillRequestSchema = z
+export const UpdateSkillRequestSchema = z
   .object({
     manifest: SkillManifestSchema,
   })
   .strict()
-  .openapi('PutSkillRequest');
+  .openapi('UpdateSkillRequest');
 
 export const GetSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('GetSkillResponse');
 export const ListSkillsResponseSchema = z
@@ -116,5 +116,5 @@ export type SkillType = z.infer<typeof SkillTypeSchema>;
 export type SkillManifest = z.infer<typeof SkillManifestSchema>;
 export type ConfiguredSkill = z.infer<typeof ConfiguredSkillSchema>;
 export type CreateSkillRequest = z.infer<typeof CreateSkillRequestSchema>;
-export type PutSkillRequest = z.infer<typeof PutSkillRequestSchema>;
+export type UpdateSkillRequest = z.infer<typeof UpdateSkillRequestSchema>;
 export type AvailableSkill = z.infer<typeof AvailableSkillSchema>;

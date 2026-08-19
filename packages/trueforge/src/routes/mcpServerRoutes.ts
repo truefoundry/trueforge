@@ -11,7 +11,7 @@ import {
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
   McpAuthStatusSchema,
-  PutMcpServerRequestSchema,
+  UpdateMcpServerRequestSchema,
 } from '../schemas/mcpServer';
 import { OpenApiTag } from './openapiTags';
 
@@ -137,7 +137,7 @@ export const putMcpServerRoute = createRoute({
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
-      content: { 'application/json': { schema: PutMcpServerRequestSchema } },
+      content: { 'application/json': { schema: UpdateMcpServerRequestSchema } },
       required: true,
     },
   },
