@@ -1,5 +1,16 @@
 # @truefoundry/trueforge
 
+## 0.1.3
+
+### Patch Changes
+
+- 3113aa4: Rename the MCP servers SDK method from `deleteAuthorize` to `deleteAuthorization`.
+- 45dc6cd: Replace MCP authorize `redirect_url` with a same-origin `return_to` path to prevent open redirects after OAuth.
+- c546350: Pass `tenantName` on `SandboxOptions` instead of injecting `TFY_TENANT_NAME` via exec env.
+- Updated dependencies [08700d1]
+- Updated dependencies [c546350]
+  - @truefoundry/trueforge-core@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes

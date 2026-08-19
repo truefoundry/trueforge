@@ -216,7 +216,7 @@ export function createConnectorCatalog(
     authenticateConnector: async req => {
       const result = await client.mcpServers.authorize(
         req.id,
-        req.redirectURL === undefined ? {} : { redirectUrl: req.redirectURL },
+        req.returnTo === undefined ? {} : { returnTo: req.returnTo },
       );
       return { status: result.status, authorization_endpoint: result.authorizationUrl };
     },
@@ -225,7 +225,7 @@ export function createConnectorCatalog(
       if (existing.manifest.auth?.type !== 'dcr') {
         throw new Error(`Disconnect is only supported for OAuth MCP servers`);
       }
-      const body = await client.mcpServers.deleteAuthorize(req.id);
+      const body = await client.mcpServers.deleteAuthorization(req.id);
       return toUiConnector(body.data);
     },
   };

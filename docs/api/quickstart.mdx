@@ -1,0 +1,121 @@
+---
+title: 'SDK Quickstart'
+sidebarTitle: 'Quickstart'
+description: 'Install the SDK, connect to your TrueForge server, and stream your first agent turn in a few minutes.'
+---
+
+Everything the chat UI does, you can do in code. The TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk) creates sessions, streams turns, and handles approvals. This page gets you running in three steps; the [concepts](/api/overview) and the [cookbook](/api/use-agent) — which ends with a full [event reference](/api/use-agent#turn-events-reference) — come after.
+
+<Note>
+  You need a running TrueForge server with at least one model provider configured. If you don't have one yet, start with the [Quickstart](/quickstart) — `npx @truefoundry/trueforge` gets you a local server at `http://localhost:8790`.
+</Note>
+
+## Install
+
+```bash wrap
+npm i @truefoundry/trueforge-sdk
+```
+
+## Get a token and connect
+
+Point the client at your server's `baseUrl`, and pass a `token` only when the server requires login. How you authenticate depends on whether [OIDC login](/authentication/overview) is enabled:
+
+| Server mode | Token | What to do |
+| --- | --- | --- |
+| **No login** (local `npx`, the default) | Not needed | Omit `token`. The SDK talks to the server as the shared local admin. |
+| **OIDC login** (hosted / team deployments) | Required | Send your OIDC **ID token** as a bearer token. |
+
+<Tabs>
+  <Tab title="No login (default)">
+    Local mode has no login, so you connect with just a `baseUrl`:
+<CodeGroup>
+    ```typescript wrap
+    import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+    const client = new TrueForge({
+      baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+      timeoutInSeconds: 600, // raise for long-running SSE turns (default 60s)
+    });
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="OIDC login">
+    When [OIDC login](/authentication/overview) is on, every HTTP request needs an **ID token** from your identity provider, sent as `Authorization: Bearer <id_token>`:
+
+    ```typescript wrap
+    import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+    const client = new TrueForge({
+      baseUrl: 'https://trueforge.myorg.com',
+      token: process.env.TRUEFORGE_TOKEN, // OIDC ID token
+      timeoutInSeconds: 600,
+    });
+    ```
+
+    **Where to get the ID token:**
+
+    - **From your identity provider** — run a standard OIDC Authorization Code flow against your IdP (the same one TrueForge is configured with) and read the `id_token` from the response. Most IdPs also expose a CLI or token tool for scripts and CI.
+    - **From a browser session** — after you sign in to the TrueForge UI, your IdP has already issued an ID token; reuse one from that same flow.
+
+    There's no device-code or client-credentials flow yet, so keep ID token lifetimes short at the IdP and refresh as needed. A missing or expired token against an OIDC-enabled server returns `401`.
+  </Tab>
+</Tabs>
+
+## Run your first agent
+
+Open a session, stream one turn, and print the reply as it arrives. This example passes an **inline agent spec**, so it works without saving an agent first — you only need a model provider configured on the server:
+
+```typescript wrap
+import { TrueForge } from '@truefoundry/trueforge-sdk';
+
+const client = new TrueForge({
+  baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790',
+  timeoutInSeconds: 600,
+});
+
+// Open a session with an inline agent (no saved agent needed).
+const { data: session } = await client.sessions.create({
+  agent: {
+    spec: {
+      model: { name: 'anthropic/claude-sonnet-4-6' }, // a model you configured in Settings
+      instructions: 'You are a concise, helpful assistant.',
+    },
+  },
+});
+
+// Stream one turn and print the reply token by token.
+const stream = await client.sessions.createTurnStream(session.id, {
+  input: [{ type: 'user.message', content: 'In two sentences, what is TrueForge?' }],
+});
+
+for await (const { data: event } of stream.withMetadata()) {
+  if (event.type === 'model.message.delta') process.stdout.write(event.content ?? '');
+  if (event.type === 'turn.done') console.log('\n\nstatus:', event.state.status);
+}
+```
+
+That's the whole loop: create a session, stream a turn, print each `model.message.delta`, and read the terminal `turn.done`. The stream always opens with `turn.created` and closes with `turn.done`.
+
+<Tip>
+  Prefer a saved agent? Build the **`web-research-brief`** agent in the [Quickstart](/quickstart), then reference it by name instead of an inline spec:
+
+  ```typescript wrap
+  const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
+  ```
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Concepts" icon="diagram-project" href="/api/overview">
+    The mental model behind the SDK: Agent → Session → Turn → Event → Delta.
+  </Card>
+  <Card title="Use an agent" icon="book" href="/api/use-agent">
+    The full cookbook: streaming, approvals, questions, threads, and reconnects.
+  </Card>
+  <Card title="Turn events" icon="list" href="/api/use-agent#turn-events-reference">
+    Field-level reference for every event streamed while a turn runs.
+  </Card>
+</CardGroup>
+
+The **API Reference** tab has the raw HTTP endpoints and OpenAPI schemas.
