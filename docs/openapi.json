@@ -4561,10 +4561,7 @@
           "Auth"
         ],
         "x-excluded": true,
-        "x-fern-sdk-group-name": [
-          "auth"
-        ],
-        "x-fern-sdk-method-name": "logout"
+        "x-fern-ignore": true
       }
     },
     "/api/v1/auth/me": {

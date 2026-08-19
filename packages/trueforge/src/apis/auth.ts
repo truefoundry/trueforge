@@ -4,7 +4,7 @@ import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
 import { resolveUserContext } from '../auth/identity';
-import { authMiddleware } from '../auth/middleware';
+import { authMiddleware, resolveAuthUser } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
@@ -51,6 +51,10 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
     clearAuthCookie({ context: c, name: OAUTH_STATE_COOKIE });
 
     if (pending?.state !== query.state || query.error || !query.code) {
+      // If already authenticated, redirect home instead of showing an error.
+      if (await resolveAuthUser(c)) {
+        return c.redirect('/', 302);
+      }
       // Only reflect a non-empty IdP `error_description` when the IdP returned an error.
       // No fallback to the `error` code — blank/missing descriptions use the default.
       // Our own validation failures (state mismatch / missing code) stay generic too.
@@ -70,6 +74,9 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       return c.redirect(safeReturnTo(pending.return_to), 302);
     } catch (error) {
       params.logger.error('Failed to exchange authorization code', extractErrorLogFields(error));
+      if (await resolveAuthUser(c)) {
+        return c.redirect(safeReturnTo(pending.return_to), 302);
+      }
       const reason = error instanceof Error ? error.message : 'login_failed';
       return c.redirect(oauthErrorRedirect(reason), 302);
     }
