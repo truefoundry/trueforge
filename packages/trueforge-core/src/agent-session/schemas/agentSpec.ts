@@ -5,7 +5,6 @@ import {
   DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS,
   DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
 } from '../../core/capabilities/builtins/LargeToolResponse';
-import { AgentInputUserMessageSchema } from '../../core/events/schema';
 import { ResponseFormatSchema } from '../../core/llm/responseFormat';
 import {
   DEFAULT_DISABLE_TOOLS,
@@ -291,6 +290,19 @@ const SkillSchema = z
   .strict()
   .openapi('Skill');
 
+// --- Initial messages (string-only; turn UserMessage also allows file parts) ---
+
+const InitialUserMessageSchema = z
+  .object({
+    type: z.literal('user.message').describe('Initial message type.'),
+    content: z
+      .string()
+      .min(1, 'User message content must not be empty')
+      .refine(content => content.trim().length > 0, 'User message content must not be empty')
+      .describe('Initial user message content injected at the start of every session.'),
+  })
+  .openapi('InitialUserMessage');
+
 // --- Agent spec ---
 
 export const AgentSpecSchema = z
@@ -301,15 +313,9 @@ export const AgentSpecSchema = z
       .optional()
       .describe("Optional system prompt — the agent's role, behavior, and constraints."),
     messages: z
-      .array(AgentInputUserMessageSchema)
+      .array(InitialUserMessageSchema)
       .optional()
-      .refine(
-        messages =>
-          messages === undefined ||
-          messages.every(message => typeof message.content === 'string' && message.content.trim().length > 0),
-        { message: 'User message content must not be empty' },
-      )
-      .describe('Optional seed user messages injected at the start of every session.'),
+      .describe('Optional initial user messages injected at the start of every session.'),
     mcp_servers: z
       .array(MCPServerRequestSchema)
       .optional()
@@ -327,3 +333,4 @@ export const AgentSpecSchema = z
 
 export type AgentSpec = z.infer<typeof AgentSpecSchema>;
 export type Skill = z.infer<typeof SkillSchema>;
+export type InitialUserMessage = z.infer<typeof InitialUserMessageSchema>;

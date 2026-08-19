@@ -10,7 +10,7 @@ import {
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import type { UpdateSandboxProviderRequest, SandboxProviderManifest } from '../schemas/sandboxProvider';
+import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
