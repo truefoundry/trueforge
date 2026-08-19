@@ -26,6 +26,7 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { displayChatTitle } from '../utils/chatTitle.js';
 
 /**
  * Simplified relative to the reference: renders threads in a single flat list
@@ -129,7 +130,7 @@ function ThreadListItemRow({
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
-        title={title ?? 'New Chat'}
+        title={displayChatTitle(title)}
         active={id === mainThreadId}
         agentName={agentName}
         lastMessageAt={lastMessageAt}

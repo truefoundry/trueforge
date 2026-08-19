@@ -37,11 +37,8 @@ export function useChatChromeActionsVisible(): boolean {
   return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
 }
 
-// True when the thread header has anything to show (title, Save, and/or Clear).
-// Clear alone matters for orphaned immutable history (deleted agent, no name).
+// Active chats always show a title; untitled drafts use the shared placeholder.
 export function useChatHeaderContentVisible(): boolean {
-  const namedVisible = useNamedAgentHeaderVisible();
-  const saveVisible = useSaveAgentVisible();
-  const clearVisible = useChatChromeActionsVisible();
-  return namedVisible || saveVisible || clearVisible;
+  const shell = useOptionalShellMode();
+  return shell?.mode.status === 'active';
 }

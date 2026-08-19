@@ -3,6 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { ChatTitleHeaderLabel } from '../atoms/ChatTitleHeaderLabel.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
@@ -143,8 +144,7 @@ export function SidebarLayout({ className }: { className?: string }) {
         <header
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
-            // Desktop: hide when settings/idle or the thread header has nothing to show
-            // (empty untitled draft). Mobile still needs Sessions + ShellActions.
+            // Mobile still needs Sessions + ShellActions while settings or the agent picker is open.
             (settingsOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
@@ -160,8 +160,8 @@ export function SidebarLayout({ className }: { className?: string }) {
               >
                 <Icon name="bars" />
               </button>
-              <NamedAgentHeaderLabel />
-              <span className="min-w-0 flex-1" />
+              <NamedAgentHeaderLabel className="max-w-[35%] shrink-0" />
+              {isIdle ? <span className="min-w-0 flex-1" /> : <ChatTitleHeaderLabel />}
               <ClearChatButton />
               <SaveAgentButton />
             </>

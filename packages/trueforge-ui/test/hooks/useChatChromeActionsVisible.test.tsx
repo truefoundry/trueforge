@@ -79,5 +79,6 @@ describe('useChatHeaderContentVisible', () => {
 
     expect(result.current.named).toBe(false);
     expect(result.current.clear).toBe(false);
+    expect(result.current.header).toBe(true);
   });
 });

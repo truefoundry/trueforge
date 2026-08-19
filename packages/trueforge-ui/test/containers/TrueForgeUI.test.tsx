@@ -517,6 +517,22 @@ describe('layout slot overrides', () => {
     ['dock/widget', StackChatPanel],
   ] as const;
 
+  it.each(hosts)('%s shows the untitled chat placeholder in the thread header', (_name, Layout) => {
+    const { container } = render(
+      <SlotsProvider>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <Layout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+
+    expect(container.querySelector('[data-slot="aui_chat-title"]')).toHaveTextContent('New Chat');
+  });
+
   it.each(hosts)('%s honors overrides.ClearChatButton', (_name, Layout) => {
     render(
       <SlotsProvider overrides={{ ClearChatButton: CustomClearChat }}>
