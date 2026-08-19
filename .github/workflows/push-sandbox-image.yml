@@ -13,7 +13,9 @@ on:
       - 'packages/trueforge-core/scripts/sandbox/**'
 
 concurrency:
-  group: push-sandbox-image-${{ github.event_name }}-${{ github.ref }}
+  # github.ref (not event_name): push and dispatch on main share a group so they
+  # cannot pin in parallel. Do not cancel an in-flight JFrog push.
+  group: push-sandbox-image-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -80,20 +82,33 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Write SANDBOX_IMAGE_URI
+        id: pin-uri
         run: |
           python3 <<'PY'
           import os, re
           from pathlib import Path
+
           uri = os.environ["IMAGE_URI"]
           if not re.fullmatch(r"[A-Za-z0-9._:/-]+", uri):
               raise SystemExit(f"refusing IMAGE_URI: {uri!r}")
-          Path("packages/trueforge-core/src/core/sandbox/sandboxImage.ts").write_text(
+
+          path = Path("packages/trueforge-core/src/core/sandbox/sandboxImage.ts")
+          text = path.read_text()
+          match = re.search(r"export const SANDBOX_IMAGE_URI = '([^']+)';", text)
+          changed = match is None or match.group(1) != uri
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"changed={'true' if changed else 'false'}\n")
+          if not changed:
+              print(f"already pinned to {uri}")
+              raise SystemExit(0)
+          path.write_text(
               "/** Release-owned sandbox image URI; rewritten by push-sandbox-image.yml. */\n"
               f"export const SANDBOX_IMAGE_URI = '{uri}';\n"
           )
           PY
 
-      - run: bash scripts/changeset-sandbox-image.sh
+      - if: steps.pin-uri.outputs.changed == 'true'
+        run: bash scripts/changeset-sandbox-image.sh
 
       - uses: peter-evans/create-pull-request@v7
         with:
