@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+### Patch Changes
+
+- f1c5c6b: Fall back to the pending MCP authorization URL when the UI server does not expose a catalog.
+
 ## 0.2.3
 
 ### Patch Changes
