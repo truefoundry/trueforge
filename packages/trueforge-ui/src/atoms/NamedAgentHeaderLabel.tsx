@@ -5,13 +5,16 @@ import { Icon } from '../icons/Icon.js';
 import { cn } from './lib/cn.js';
 import { Tooltip } from './primitives/Tooltip.js';
 
-/** Left-of-header title for a named agent, including its mutable edit state. */
+/** Context label for the named agent associated with the current chat. */
 export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const state = useNamedAgentHeaderState();
   if (state === null) return null;
 
   return (
-    <h1 className={cn('flex min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-text-primary', className)}>
+    <div
+      data-slot="aui_named-agent-label"
+      className={cn('flex min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-text-primary', className)}
+    >
       <Icon name="robot" className="size-3.5 shrink-0" />
       <span className="truncate" title={state.name}>
         {state.name}
@@ -24,6 +27,6 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
           </span>
         </Tooltip>
       ) : null}
-    </h1>
+    </div>
   );
 }
