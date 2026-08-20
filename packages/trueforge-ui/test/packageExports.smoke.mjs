@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { execPath } from 'node:process';
+import process, { execPath } from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 
 // Create a temporary directory to test the package exports
@@ -11,9 +11,10 @@ const tempDir = await mkdtemp(path.join(packageRoot, 'test', '.package-smoke-'))
 
 try {
   // create a tarball of the package
-  execFileSync('pnpm', ['pack', '--pack-destination', tempDir], {
+  execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['pack', '--pack-destination', tempDir], {
     cwd: packageRoot,
     stdio: 'inherit',
+    shell: process.platform === 'win32',
   });
 
   // confirm that the tarball was created
@@ -31,6 +32,7 @@ try {
   await symlink(
     path.resolve(packageRoot, '../trueforge-sdk'),
     path.join(tempDir, 'node_modules', '@truefoundry', 'trueforge-sdk'),
+    'junction',
   );
 
   // create a package.json for the consumer

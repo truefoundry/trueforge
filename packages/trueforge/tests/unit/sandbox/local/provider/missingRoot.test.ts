@@ -2,6 +2,7 @@ import { SandboxNotAvailableError } from '@truefoundry/trueforge-core/core';
 import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
 import { createLogger } from 'winston';
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
@@ -59,7 +60,7 @@ describe('LocalSandboxProvider missing root', () => {
     const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-symlink-'));
     const outside = await mkdtemp(join(tmpdir(), 'tfy-local-symlink-target-'));
     const alias = join(sandboxRootPathParent, 'alias');
-    await symlink(outside, alias);
+    await symlink(outside, alias, process.platform === 'win32' ? 'junction' : undefined);
     const provider = await makeProvider(sandboxRootPathParent);
     try {
       await expect(provider.exec({ sandboxId: alias, command: 'true' })).rejects.toBeInstanceOf(

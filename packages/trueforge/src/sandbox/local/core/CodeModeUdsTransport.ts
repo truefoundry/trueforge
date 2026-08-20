@@ -17,9 +17,10 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import { CodeModeRequestSchema, validateNoPathTraversal } from '@truefoundry/trueforge-core/core';
 import { chmodSync, existsSync, realpathSync, statSync } from 'node:fs';
-import { chmod, mkdir, rm, symlink, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, rm, symlink, unlink, writeFile, copyFile } from 'node:fs/promises';
 import { createServer, type Server, type Socket } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import process from 'node:process';
 import { ulid } from 'ulid';
 import { sandboxScripts } from '../sandboxScripts.gen.js';
 import { encodeJsonMessage, JsonMessageReader, MAX_MESSAGE_BYTES } from './frame.js';
@@ -44,7 +45,15 @@ export async function installMcpFixture(sandboxRootPath: string): Promise<{ remo
   await mkdir(dirname(binLink), { recursive: true, mode: 0o700 });
   await writeFile(remotePath, sandboxScripts.mcpClientLocal, { encoding: 'utf8', mode: 0o555 });
   await rm(binLink, { force: true });
-  await symlink(remotePath, binLink);
+  try {
+    await symlink(remotePath, binLink);
+  } catch (err) {
+    if (process.platform === 'win32') {
+      await copyFile(remotePath, binLink);
+    } else {
+      throw err;
+    }
+  }
   return { remotePath };
 }
 
@@ -80,10 +89,12 @@ export function assertCodeModeSocketParentPath(path: string): string {
     );
   }
   // Owner-only parent: other accounts cannot rename/replace socks under this dir.
-  chmodSync(real, CODE_MODE_SOCKET_PARENT_MODE);
-  const mode = statSync(real).mode & 0o777;
-  if (mode !== CODE_MODE_SOCKET_PARENT_MODE) {
-    throw new Error(`codeModeSocketParentPath must be mode 0700 after chmod (got 0o${mode.toString(8)})`);
+  if (process.platform !== 'win32') {
+    chmodSync(real, CODE_MODE_SOCKET_PARENT_MODE);
+    const mode = statSync(real).mode & 0o777;
+    if (mode !== CODE_MODE_SOCKET_PARENT_MODE) {
+      throw new Error(`codeModeSocketParentPath must be mode 0700 after chmod (got 0o${mode.toString(8)})`);
+    }
   }
   return real;
 }
