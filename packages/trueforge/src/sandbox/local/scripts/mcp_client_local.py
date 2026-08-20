@@ -177,13 +177,19 @@ async def _get_tool(server: str, tool_name: str) -> dict[str, Any] | None:
 
 def _is_destructive(tool: dict[str, Any]) -> bool:
     annotations = tool.get("annotations")
-    if annotations is None:
-        return False
     if not isinstance(annotations, dict):
+        return True
+
+    read_only = annotations.get("read_only_hint")
+    if read_only is None:
+        read_only = annotations.get("readOnlyHint")
+    if read_only is True:
         return False
-    destructive = annotations.get("destructiveHint")
-    read_only = annotations.get("readOnlyHint")
-    return bool(destructive) or (not read_only and read_only is not None)
+
+    destructive = annotations.get("destructive_hint")
+    if destructive is None:
+        destructive = annotations.get("destructiveHint")
+    return destructive is not False
 
 
 async def _ensure_non_destructive(server: str, tool_name: str) -> None:
