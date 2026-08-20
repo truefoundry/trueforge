@@ -23,7 +23,7 @@ export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } fro
 export type { AgentInputUserMessage } from './runtime/UserInputMessage';
 
 // Capability contracts
-export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
+export type { AgentCapability, CapabilityState, JsonValue, ToolSetDecorator } from './capabilities/AgentCapability';
 export type {
   AgentContextProcessorOutput,
   AgentThreadExecutionContext,
@@ -45,12 +45,19 @@ export {
   DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
   largeToolResponse,
 } from './capabilities/builtins/LargeToolResponse';
+export {
+  lifecycleHooks,
+  type LifecycleHookEvents,
+  type LifecycleHookRunner,
+  type LifecycleHookToolCall,
+  type LifecycleHookToolResult,
+} from './capabilities/builtins/LifecycleHooks';
 export { openUI } from './capabilities/builtins/OpenUI';
 
 // MCP contracts
-export type { ApprovalDecision } from './events/schema';
+export { ApprovalDecisionSchema, type ApprovalDecision } from './events/schema';
 export { ClientSideTool } from './mcp/ClientSideTool';
-export { isAuthRequired, toolResultResponse } from './mcp/IMCPServer';
+export { isAuthRequired, toolResultResponse, unwrapToolSet } from './mcp/IMCPServer';
 export type {
   AgentToolSchema,
   AuthRequiredResponse,

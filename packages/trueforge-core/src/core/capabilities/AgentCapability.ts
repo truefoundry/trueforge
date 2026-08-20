@@ -17,6 +17,31 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 /** Cross-turn capability KV map. Keys: capability.state.key; `tfy.` reserved for builtins. */
 export type CapabilityState = Record<string, JsonValue>;
 
+/**
+ * Wraps a toolset at tool-initialization time. Applied to every toolset on the
+ * thread — system meta tools, the sandbox, the deferred-tool proxy's underlying
+ * servers, and user MCP servers — in capability registration order (first
+ * decorator innermost), and to the toolsets Code Mode dispatches against.
+ * Decorators must preserve `name`/`id` (thread bookkeeping keys toolsets by
+ * name) and must expose the wrapped set via `IToolSet.unwrapped` so
+ * identity-based checks (`unwrapToolSet`) see through the wrapper.
+ */
+export type ToolSetDecorator = (toolSet: IToolSet) => IToolSet;
+
+/** Flattens the decorators of `capabilities` in registration order. */
+export function collectToolSetDecorators(capabilities: readonly AgentCapability[]): ToolSetDecorator[] {
+  return capabilities.flatMap(c => c.toolSetDecorators ?? []);
+}
+
+/**
+ * Applies decorators in order (first innermost) — the single fold shared by
+ * thread tool wiring and Code Mode dispatch, so their wrapping order can
+ * never drift apart.
+ */
+export function applyToolSetDecorators(toolSet: IToolSet, decorators: readonly ToolSetDecorator[]): IToolSet {
+  return decorators.reduce((wrapped, decorator) => decorator(wrapped), toolSet);
+}
+
 export interface AgentCapability {
   readonly systemToolSets?: readonly IToolSet[] | undefined;
   readonly preSendProcessors?: readonly PreSendContextProcessor[] | undefined;
@@ -24,6 +49,7 @@ export interface AgentCapability {
   readonly preLLMEphemeralProcessors?: readonly PreLLMEphemeralAgentContextProcessor[] | undefined;
   readonly postToolCallProcessors?: readonly PostToolCallAgentContextProcessor[] | undefined;
   readonly toolResponseProcessors?: readonly ToolResponseProcessor[] | undefined;
+  readonly toolSetDecorators?: readonly ToolSetDecorator[] | undefined;
   readonly instructionBuilders?: readonly ((builder: InstructionBuilder) => void)[] | undefined;
   /**
    * Cross-turn durable state. `key` must be unique across capabilities on a

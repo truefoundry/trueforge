@@ -39,6 +39,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
+import type { HooksFile } from './schemas/hooks';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
@@ -156,6 +157,8 @@ export interface ServerDeps<TTransaction> {
   requestReplyRouter: RequestReplyRouter;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
+  /** Lifecycle-hooks configuration loaded at startup; undefined = hooks disabled. */
+  hooks: HooksFile | undefined;
   logger: Logger;
   /** Discovered openid-client configuration; undefined when browser login is disabled. */
   oidcClient: Configuration | undefined;
@@ -292,6 +295,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         agentStore: deps.agentStore,
         eventSubscriptions: deps.eventSubscriptions,
         sandboxProviderStore: deps.sandboxProviderStore,
+        hooks: deps.hooks,
         logger: deps.logger,
         resolveUserContext: resolveUserContext,
       }),
