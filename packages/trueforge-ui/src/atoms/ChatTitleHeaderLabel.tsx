@@ -7,7 +7,10 @@ const UNTITLED_CHAT_LABEL = 'New Chat';
 
 /** Current chat title shown persistently above the conversation. */
 export function ChatTitleHeaderLabel({ className }: { className?: string }) {
-  const title = useAuiState(s => s.threadListItem.title);
+  const title = useAuiState(state => {
+    const { mainThreadId, threadItems } = state.threads;
+    return threadItems.find(item => item.id === mainThreadId)?.title;
+  });
   const displayTitle = title?.trim() || UNTITLED_CHAT_LABEL;
 
   return (
