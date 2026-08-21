@@ -81,7 +81,7 @@ function makeComponents(opts: {
 
   return {
     // Chat markdown links should open in a new tab.
-    a({ href, children, ...props }) {
+    a({ href, children, node: _node, ...props }) {
       return (
         <a {...props} href={href} target="_blank" rel="noopener noreferrer">
           {children}

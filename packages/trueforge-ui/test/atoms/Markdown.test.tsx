@@ -35,6 +35,7 @@ describe('Markdown', () => {
     expect(link).toHaveAttribute('href', 'https://example.com/docs');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).not.toHaveAttribute('node');
   });
 
   it('renders openui fenced blocks via OpenUiFenceBlock', async () => {
