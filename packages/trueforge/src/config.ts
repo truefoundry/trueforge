@@ -400,8 +400,7 @@ export interface SharedServerConfiguration {
   /**
    * Public base URL used as the origin of MCP OAuth and OIDC callbacks.
    * Optional at boot; MCP OAuth and OIDC callback construction fail if empty
-   * in distributed mode. In standalone, an empty value falls back to
-   * `http://localhost:$PORT`. Env: `PUBLIC_BASE_URL`.
+   * outside standalone development. Env: `PUBLIC_BASE_URL`.
    */
   PUBLIC_BASE_URL: string;
 }
@@ -599,17 +598,20 @@ export function isOidcConfigured(
 
 /**
  * Public origin for OAuth callbacks.
- * Prefer `PUBLIC_BASE_URL` when set; otherwise standalone falls back to
- * `http://localhost:$PORT`, and distributed throws if empty.
+ * Standalone + development → `PUBLIC_BASE_URL`; standalone → `http://localhost:$PORT`;
+ * otherwise `PUBLIC_BASE_URL` (throws if empty).
  */
 export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
-  if (config.PUBLIC_BASE_URL !== '') {
+  if (config.STANDALONE && config.NODE_ENV === 'development') {
     return config.PUBLIC_BASE_URL;
   }
   if (config.STANDALONE) {
     return `http://localhost:${String(config.PORT)}`;
   }
-  throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+  if (config.PUBLIC_BASE_URL === '') {
+    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+  }
+  return config.PUBLIC_BASE_URL;
 }
 
 export default configuration;
