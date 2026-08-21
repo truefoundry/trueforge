@@ -291,7 +291,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
 
   return (
     <ToolCallCard
-      toolName={part.toolName + 'test'}
+      toolName={part.toolName}
       expanded={expanded}
       onToggle={onToggle}
       awaiting={status === 'running'}
