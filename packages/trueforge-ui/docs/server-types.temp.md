@@ -186,14 +186,19 @@ export interface RuntimeConfig {
   };
   dynamicSubAgents?: { enabled?: boolean };
   contextManagement?: {
-    compaction?: {
-      enabled?: boolean;
-      compactionThresholdTokens?: number;
-    };
+    compaction?: CompactionConfig;
     largeToolResponse?: { enabled?: boolean };
   };
   generativeUi?: { enabled?: boolean };
   askUserQuestions?: { enabled?: boolean };
+}
+
+export interface CompactionConfig {
+  enabled?: boolean;
+  trigger?: {
+    type: 'input_tokens';
+    value: number;
+  };
 }
 
 /** Agent Definition (gateway `TruefoundryGatewayApi.AgentSpec`) */

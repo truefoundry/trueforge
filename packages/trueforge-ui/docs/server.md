@@ -305,6 +305,14 @@ interface AgentSpec {
   config?: RuntimeConfig;
 }
 
+interface CompactionConfig {
+  enabled?: boolean;
+  trigger?: {
+    type: 'input_tokens';
+    value: number;
+  };
+}
+
 interface Model {
   name: string;
   params?: ModelParams;
@@ -379,10 +387,7 @@ interface RuntimeConfig {
   };
   dynamicSubAgents?: { enabled?: boolean };
   contextManagement?: {
-    compaction?: {
-      enabled?: boolean;
-      compactionThresholdTokens?: number;
-    };
+    compaction?: CompactionConfig;
     largeToolResponse?: { enabled?: boolean };
   };
   generativeUi?: { enabled?: boolean };

@@ -31,7 +31,7 @@ export function builtinsFromSpec(input: {
     capabilities.push(
       contextCompaction({
         definition,
-        compactionThresholdTokens: config.context_management.compaction.compaction_threshold_tokens,
+        compactionThresholdTokens: config.context_management.compaction.trigger?.value,
       }),
     );
   }

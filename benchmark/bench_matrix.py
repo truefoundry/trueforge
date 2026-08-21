@@ -66,7 +66,10 @@ def run_tfy(task, prompt, cap):
             "dynamic_sub_agents": {"enabled": True},
             "sandbox": {"enabled": True},
             "context_management": {
-                "compaction": {"enabled": True, "compaction_threshold_tokens": 60000},
+                "compaction": {
+                    "enabled": True,
+                    "trigger": {"type": "input_tokens", "value": 60000},
+                },
                 "large_tool_response": {"enabled": True},
             },
             "generative_ui": {"enabled": False},
