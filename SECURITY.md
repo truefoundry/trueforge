@@ -7,7 +7,7 @@ Please do **not** report security vulnerabilities through public GitHub issues, 
 Instead, report them privately through one of these channels:
 
 - Email: **[security@truefoundry.com](mailto:security@truefoundry.com)**
-- GitHub: use [private vulnerability reporting](#) on this repository
+- GitHub: use [private vulnerability reporting](https://github.com/truefoundry/trueforge/security/advisories/new) on this repository
 
 Please include as much of the following as you can:
 

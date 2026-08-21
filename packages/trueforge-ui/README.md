@@ -19,8 +19,6 @@ Powered by [assistant-ui](https://www.assistant-ui.com/), it follows the familia
 
 Bring your own **brand, colors, layout, components, and server**—the Agent SDK wires up the rest.
 
-### Checkout the Demo [here](./example/)
-
 ---
 
 ## Table of contents
@@ -424,8 +422,6 @@ Built-in `layout` values:
 | `dock`    | Fixed-width right panel; list XOR thread stack           |
 | `widget`  | Same stack as `dock`, opened from a bottom-right FAB     |
 
-The [example app](./example/) switches between these four modes.
-
 ---
 
 ## Custom layouts
@@ -630,7 +626,7 @@ pnpm --filter @truefoundry/trueforge-ui test
 pnpm --filter @truefoundry/trueforge-ui build
 ```
 
-Local demo: see [example/](./example/). Publishing: see [RELEASING.md](../../RELEASING.md#releasing-truefoundrytrueforge-ui).
+Publishing: see [RELEASING.md](../../RELEASING.md#releasing-truefoundrytrueforge-ui).
 
 ---
 

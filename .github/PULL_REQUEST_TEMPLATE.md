@@ -14,6 +14,7 @@ Closes #
 
 ## Checklist
 
+- [ ] I have read the [contributing guidelines](https://github.com/truefoundry/trueforge/blob/main/CONTRIBUTING.md)
 - [ ] `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint:ci`, and `pnpm format:check` pass locally
 - [ ] Tests added/updated where it makes sense
 - [ ] No hand-edits to generated code (`packages/trueforge-sdk`, `.github/fern/openapi/openapi.json`, `docs/openapi.json`) — fork PRs omit SDK regen; maintainers regenerate after merge

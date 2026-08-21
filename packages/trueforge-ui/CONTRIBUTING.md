@@ -14,8 +14,6 @@ pnpm --filter @truefoundry/trueforge-ui build
 pnpm --filter @truefoundry/trueforge-ui lint
 ```
 
-Local demo: build the SDK, then follow [example/README.md](./example/README.md).
-
 - Prefer small, focused PRs.
 - Match existing patterns in `src/atoms` (presentational) and `src/containers` (runtime wiring).
 - Atoms must not import `@assistant-ui/*` or TrueFoundry runtime hooks.
