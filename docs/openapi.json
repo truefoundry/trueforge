@@ -632,8 +632,7 @@
           "zai",
           "moonshot",
           "alibaba",
-          "together",
-          "openrouter"
+          "together"
         ],
         "type": "string"
       },
@@ -2302,7 +2301,6 @@
             "google-gemini": "#/components/schemas/GoogleGeminiModelProvider",
             "moonshot": "#/components/schemas/MoonshotModelProvider",
             "openai": "#/components/schemas/OpenAIModelProvider",
-            "openrouter": "#/components/schemas/OpenRouterModelProvider",
             "together": "#/components/schemas/TogetherAIModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
@@ -2329,9 +2327,6 @@
           },
           {
             "$ref": "#/components/schemas/TogetherAIModelProvider"
-          },
-          {
-            "$ref": "#/components/schemas/OpenRouterModelProvider"
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
@@ -2398,40 +2393,6 @@
           "type": {
             "enum": [
               "openai"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "auth",
-          "models",
-          "type"
-        ],
-        "type": "object"
-      },
-      "OpenRouterModelProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/ModelProviderAuth"
-          },
-          "base_url": {
-            "default": "https://openrouter.ai/api/v1",
-            "description": "Override of the provider's default API base URL.",
-            "format": "uri",
-            "type": "string"
-          },
-          "models": {
-            "description": "Models exposed by this provider (at least one).",
-            "items": {
-              "$ref": "#/components/schemas/ConfiguredModel"
-            },
-            "minItems": 1,
-            "type": "array"
-          },
-          "type": {
-            "enum": [
-              "openrouter"
             ],
             "type": "string"
           }

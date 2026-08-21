@@ -1,6 +1,5 @@
 ---
 "@truefoundry/trueforge-core": minor
-"@truefoundry/trueforge-sdk": minor
 "@truefoundry/trueforge": minor
 "@truefoundry/trueforge-ui": minor
 ---

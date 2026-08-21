@@ -16,7 +16,6 @@ export const CatalogWellKnownModelProviderType: core.serialization.Schema<
     "moonshot",
     "alibaba",
     "together",
-    "openrouter",
 ]);
 
 export declare namespace CatalogWellKnownModelProviderType {
@@ -28,6 +27,5 @@ export declare namespace CatalogWellKnownModelProviderType {
         | "zai"
         | "moonshot"
         | "alibaba"
-        | "together"
-        | "openrouter";
+        | "together";
 }
