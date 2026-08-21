@@ -82,10 +82,18 @@ const options: ToolApprovalOption[] = [
   },
 ];
 
-function renderSubject(onSelectOption: (optionId: string, reason?: string) => void) {
+function renderSubject(
+  onSelectOption: (optionId: string, reason?: string) => void,
+  props: { toolName?: string; argsText?: string } = { toolName: 'shell' },
+) {
   return render(
     <SlotsProvider overrides={{ ToolApprovalBar: ToolApprovalBarProbe }}>
-      <ToolApprovalContainer toolName="shell" options={options} onSelectOption={onSelectOption} />
+      <ToolApprovalContainer
+        toolName={props.toolName}
+        argsText={props.argsText}
+        options={options}
+        onSelectOption={onSelectOption}
+      />
     </SlotsProvider>,
   );
 }
@@ -104,6 +112,26 @@ describe('ToolApprovalContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reject now' }));
     expect(onSelectOption).toHaveBeenNthCalledWith(1, 'allow-once');
     expect(onSelectOption).toHaveBeenNthCalledWith(2, 'reject-now');
+  });
+
+  it('shows MCP inner tool name with server when args include both fields', () => {
+    const onSelectOption = vi.fn();
+    renderSubject(onSelectOption, {
+      toolName: 'call_tool',
+      argsText: JSON.stringify({ mcp_server: 'github', tool_name: 'search' }),
+    });
+
+    expect(screen.getByTestId('approval-probe')).toHaveAttribute('data-tool-name', 'search (github)');
+  });
+
+  it('falls back to toolName when MCP fields are missing', () => {
+    const onSelectOption = vi.fn();
+    renderSubject(onSelectOption, {
+      toolName: 'shell',
+      argsText: JSON.stringify({ command: 'ls' }),
+    });
+
+    expect(screen.getByTestId('approval-probe')).toHaveAttribute('data-tool-name', 'shell');
   });
 
   it('requires, trims, and submits a denial reason with confirmation metadata', () => {

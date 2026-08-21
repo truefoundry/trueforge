@@ -19,14 +19,21 @@ export type ToolApprovalOption = {
 };
 
 type ToolApprovalContainerProps = {
+  toolName?: string;
   argsText?: string;
   options: ToolApprovalOption[];
   onSelectOption: (optionId: string, reason?: string) => void;
 };
 
-export function ToolApprovalContainer({ argsText, options, onSelectOption }: ToolApprovalContainerProps) {
+export function ToolApprovalContainer({
+  toolName = '',
+  argsText,
+  options,
+  onSelectOption,
+}: ToolApprovalContainerProps) {
   const ToolApprovalBar = useSlot('ToolApprovalBar');
   const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
+  const displayToolName = innerToolName && mcpServer ? `${innerToolName} (${mcpServer})` : toolName;
   const [selectedDenyOptionId, setSelectedDenyOptionId] = useState<string | null>(null);
   const [denialReason, setDenialReason] = useState('');
   const [showReasonError, setShowReasonError] = useState(false);
@@ -77,7 +84,7 @@ export function ToolApprovalContainer({ argsText, options, onSelectOption }: Too
 
   return (
     <ToolApprovalBar
-      toolName={`${innerToolName} (${mcpServer})`}
+      toolName={displayToolName}
       approveOptions={approveOptions.length > 0 ? approveOptions : undefined}
       denyOptions={denyOptions.length > 0 ? denyOptions : undefined}
       selectedDenyOption={selectedDenyOption}
