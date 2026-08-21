@@ -135,6 +135,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Test chart version resolution
+        run: pnpm test:chart-version
+
       - name: Format
         run: pnpm format:check
 
