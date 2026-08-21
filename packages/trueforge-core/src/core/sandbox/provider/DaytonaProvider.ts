@@ -477,13 +477,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   createCodeModeTransport(): CodeModeTransport {
     return new CodeModeNatsTransport({
-      resolveHostUrl: async (sandboxId: string) => {
+      resolveHostConnection: async (sandboxId: string) => {
         const previewUrl = await this.getPreviewUrl({
           sandboxId,
           port: this.natsBridgePort,
           expiresInSeconds: this.previewUrlExpirySeconds,
         });
-        return httpUrlToWsUrl(previewUrl);
+        return { url: httpUrlToWsUrl(previewUrl), webSocketHeaders: undefined };
       },
       sandboxClientNatsUrl: `ws://localhost:${String(this.natsBridgePort)}`,
       logger: this.logger,

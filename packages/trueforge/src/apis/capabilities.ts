@@ -6,7 +6,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { checkSandboxProviderStatus } from '../sandbox/providerUtils';
 import type { SandboxBuildStatus } from '../schemas/sandboxProvider';
 import { TENANT_ID } from './sessions';
 
@@ -29,10 +29,10 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
     // Sandbox is usable only when a provider is configured AND its image build reports ready.
-    // Refresh the persisted status (and re-activate an idle snapshot); fail closed (disabled) if it throws.
+    // Refresh the persisted image-build status; fail closed (disabled) if it throws.
     let status: SandboxBuildStatus | undefined;
     try {
-      const refreshed = await checkSnapshotStatus({
+      const refreshed = await checkSandboxProviderStatus({
         store: deps.sandboxProviderStore,
         tenant_id: TENANT_ID,
         logger: deps.logger,

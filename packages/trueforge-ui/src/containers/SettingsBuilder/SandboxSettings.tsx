@@ -18,7 +18,7 @@ import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
 
-const SNAPSHOT_STATUS_POLL_INTERVAL_MS = 10000;
+const IMAGE_BUILD_STATUS_POLL_INTERVAL_MS = 10000;
 
 const configFrom = ({
   execTimeoutMs,
@@ -36,7 +36,7 @@ const statusPresentation = (status: SandboxSnapshotSyncStatus['status']): { labe
   switch (status) {
     case 'pending':
       return {
-        label: 'Syncing image...',
+        label: 'Building image...',
         className: 'text-warning-bg',
       };
     case 'ready':
@@ -46,7 +46,7 @@ const statusPresentation = (status: SandboxSnapshotSyncStatus['status']): { labe
       };
     case 'failed':
       return {
-        label: 'Sync failed',
+        label: 'Build failed',
         className: 'text-failure-bg',
       };
     default:
@@ -108,7 +108,7 @@ const SandboxSettings = () => {
     function schedulePoll() {
       timeoutId = window.setTimeout(() => {
         void poll();
-      }, SNAPSHOT_STATUS_POLL_INTERVAL_MS);
+      }, IMAGE_BUILD_STATUS_POLL_INTERVAL_MS);
     }
 
     async function poll() {
@@ -257,7 +257,7 @@ const SandboxSettings = () => {
                     const statusIndicator = (
                       <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${status.className}`}>
                         {entry.snapshotSyncStatus.status === 'pending' ? (
-                          <Spinner size={16} aria-label="Syncing snapshot image" />
+                          <Spinner size={16} aria-label="Building sandbox image" />
                         ) : entry.snapshotSyncStatus.status === 'ready' ? (
                           <span className="size-2 rounded-full bg-success-bg" aria-hidden />
                         ) : entry.snapshotSyncStatus.status === 'failed' ? (
@@ -289,7 +289,7 @@ const SandboxSettings = () => {
                             <Tooltip content={statusReason}>
                               <button
                                 type="button"
-                                aria-label="Snapshot sync status details"
+                                aria-label="Sandbox image build status details"
                                 className="inline-flex text-text-secondary transition-colors hover:text-text-primary"
                               >
                                 <Icon name="info" className="size-4" />

@@ -5,9 +5,9 @@
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
  */
 import { z } from '@hono/zod-openapi';
-import type { DaytonaSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
+import type { DaytonaSandboxProviderOptions, E2BSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
 
-const DaytonaSandboxProviderAuthSchema = z
+export const DaytonaSandboxProviderAuthSchema = z
   .object({
     api_key: z
       .string()
@@ -20,16 +20,9 @@ const DaytonaSandboxProviderAuthSchema = z
   .describe('Daytona authentication credentials.')
   .openapi('DaytonaSandboxProviderAuth');
 
-/**
- * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
- * Left unnamed for OpenAPI so `SandboxProviderManifest` (its single-variant alias)
- * is the one emitted component and the response `manifest` field is a plain `$ref`
- * instead of an `allOf` wrapper.
- */
-export const DaytonaSandboxProviderSchema = z
+/** Canonical Daytona settings shared by configured and catalog wire variants. */
+export const DaytonaSandboxProviderConfigSchema = z
   .object({
-    type: z.literal('daytona').describe('Daytona sandbox provider.'),
-    auth: DaytonaSandboxProviderAuthSchema,
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
     auto_stop_interval_in_minutes: z
       .number()
@@ -50,11 +43,57 @@ export const DaytonaSandboxProviderSchema = z
   .strict();
 
 /**
- * Persisted jsonb: the provider config only (no build status). Single variant today —
- * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
- * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
+ * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
+ * Named independently so the manifest discriminated union emits direct component members.
  */
-export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
+export const DaytonaSandboxProviderSchema = z
+  .object({
+    type: z.literal('daytona').describe('Daytona sandbox provider.'),
+    auth: DaytonaSandboxProviderAuthSchema,
+    ...DaytonaSandboxProviderConfigSchema.shape,
+  })
+  .strict()
+  .openapi('DaytonaSandboxProvider');
+
+export const E2BSandboxProviderAuthSchema = z
+  .object({
+    api_key: z
+      .string()
+      .min(1)
+      .describe('E2B API key. Responses are redacted; on PUT, a real value sets/rotates the stored key.'),
+  })
+  .strict()
+  .describe('E2B authentication credentials.')
+  .openapi('E2BSandboxProviderAuth');
+
+/** Canonical E2B settings shared by configured and catalog wire variants. */
+export const E2BSandboxProviderConfigSchema = z
+  .object({
+    exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
+    sandbox_timeout_ms: z
+      .number()
+      .int()
+      .positive()
+      .describe('Milliseconds before E2B pauses an inactive sandbox; subsequent access resumes it.'),
+  })
+  .strict();
+
+/** E2B-backed sandbox config persisted in `sandbox_provider.manifest`. */
+export const E2BSandboxProviderSchema = z
+  .object({
+    type: z.literal('e2b').describe('E2B sandbox provider.'),
+    auth: E2BSandboxProviderAuthSchema,
+    ...E2BSandboxProviderConfigSchema.shape,
+  })
+  .strict()
+  .openapi('E2BSandboxProvider');
+
+/**
+ * Persisted jsonb: provider config only (no build status).
+ */
+export const SandboxProviderManifestSchema = z
+  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, E2BSandboxProviderSchema])
+  .openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -104,6 +143,7 @@ export const GetSandboxProviderResponseSchema = z
 /** Persisted jsonb — the provider config only (no build status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
+export type E2BSandboxProvider = z.infer<typeof E2BSandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
@@ -111,7 +151,7 @@ export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProvider
 export type UpdateSandboxProviderRequest = z.infer<typeof UpdateSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
-export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
+export function toDaytonaSandboxProviderInput(manifest: DaytonaSandboxProvider): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
@@ -123,5 +163,16 @@ export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest)
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,
     autoDeleteIntervalInMinutes: manifest.auto_delete_interval_in_minutes,
+  };
+}
+
+/** Wire/persisted snake_case → E2B provider settings. */
+export function toE2BSandboxProviderInput(manifest: E2BSandboxProvider): {
+  apiKey: string;
+} & Pick<E2BSandboxProviderOptions, 'execTimeoutMs' | 'sandboxTimeoutMs'> {
+  return {
+    apiKey: manifest.auth.api_key,
+    execTimeoutMs: manifest.exec_timeout_ms,
+    sandboxTimeoutMs: manifest.sandbox_timeout_ms,
   };
 }

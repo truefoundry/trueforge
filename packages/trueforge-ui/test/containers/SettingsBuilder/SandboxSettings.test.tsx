@@ -246,7 +246,7 @@ describe('SandboxSettings', () => {
     expect(screen.queryByText('One provider is set up. Update it or remove it to switch.')).toBeNull();
   });
 
-  it('renders pending and ready snapshot status badges', async () => {
+  it('renders pending and ready image build status badges', async () => {
     const provider: SandboxProviderBase = {
       id: 'sb-1',
       name: 'Daytona',
@@ -261,7 +261,7 @@ describe('SandboxSettings', () => {
       sandboxEntry({
         provider,
         status: 'pending',
-        statusReason: 'Snapshot build is queued',
+        statusReason: 'Image build is queued',
       }),
       sandboxEntry({
         provider: { ...provider, id: 'sb-2', name: 'Daytona ready' },
@@ -276,18 +276,18 @@ describe('SandboxSettings', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Syncing image...')).toBeTruthy();
+      expect(screen.getByText('Building image...')).toBeTruthy();
       expect(screen.getByText('Connected')).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 
-    fireEvent.mouseEnter(screen.getByLabelText('Snapshot sync status details'));
+    fireEvent.mouseEnter(screen.getByLabelText('Sandbox image build status details'));
     await waitFor(() => {
-      expect(screen.getByRole('tooltip')).toHaveTextContent('Snapshot build is queued');
+      expect(screen.getByRole('tooltip')).toHaveTextContent('Image build is queued');
     });
   });
 
-  it('polls pending snapshot status every ten seconds until it changes', async () => {
+  it('polls pending image build status every ten seconds until it changes', async () => {
     vi.useFakeTimers();
     const provider: SandboxProviderBase = {
       id: 'sb-1',
@@ -330,7 +330,7 @@ describe('SandboxSettings', () => {
     expect(host.getListCalls()).toBe(2);
   });
 
-  it('renders snapshot status badges and exposes failed status reason in a tooltip', async () => {
+  it('renders image build status badges and exposes failed status reason in a tooltip', async () => {
     const provider: SandboxProviderBase = {
       id: 'sb-1',
       name: 'Daytona',
@@ -345,7 +345,7 @@ describe('SandboxSettings', () => {
       sandboxEntry({
         provider,
         status: 'failed',
-        statusReason: 'Snapshot image could not be built',
+        statusReason: 'Sandbox image could not be built',
       }),
     ]);
     const { wrapper: Wrapper } = host;
@@ -356,13 +356,13 @@ describe('SandboxSettings', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Sync failed')).toBeTruthy();
+      expect(screen.getByText('Build failed')).toBeTruthy();
     });
     expect(screen.queryByText('Connected')).toBeNull();
 
-    fireEvent.mouseEnter(screen.getByLabelText('Snapshot sync status details'));
+    fireEvent.mouseEnter(screen.getByLabelText('Sandbox image build status details'));
     await waitFor(() => {
-      expect(screen.getByRole('tooltip')).toHaveTextContent('Snapshot image could not be built');
+      expect(screen.getByRole('tooltip')).toHaveTextContent('Sandbox image could not be built');
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
