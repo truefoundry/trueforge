@@ -99,7 +99,7 @@ function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
 
   return (
     <ToolApprovalContainer
-      toolName={part.toolName}
+      argsText={part.argsText}
       options={
         buildApprovalOptions(part.approval?.options) as import('./ToolApprovalContainer.js').ToolApprovalOption[]
       }
@@ -291,7 +291,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
 
   return (
     <ToolCallCard
-      toolName={part.toolName}
+      toolName={part.toolName + 'test'}
       expanded={expanded}
       onToggle={onToggle}
       awaiting={status === 'running'}
