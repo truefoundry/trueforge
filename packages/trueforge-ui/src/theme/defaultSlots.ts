@@ -17,6 +17,7 @@ import { ClearChatButton } from '../atoms/ClearChatButton.js';
 import { CodeEditor } from '../atoms/CodeEditor.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
+import { DeleteChatButton } from '../atoms/DeleteChatButton.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
@@ -117,6 +118,7 @@ export const defaultSlots = {
   SaveAgentButton,
   SelectAgentEmptyState,
   ClearChatButton,
+  DeleteChatButton,
   ThreadListRowSkeleton,
   ThreadListEmptyState,
   ThreadListShell,

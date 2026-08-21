@@ -21,6 +21,7 @@ const session = {
 
 const turnRequests: unknown[] = [];
 const sessionRequests: unknown[] = [];
+const deletedSessions: string[] = [];
 const subscribeRequests: (string | null)[] = [];
 
 const fetchMock: typeof fetch = async (input, init) => {
@@ -35,6 +36,10 @@ const fetchMock: typeof fetch = async (input, init) => {
       sessionRequests.push(JSON.parse(init.body));
     }
     return Response.json({ data: session });
+  }
+  if (url.endsWith('/api/v1/sessions/ses_1') && method === 'DELETE') {
+    deletedSessions.push('ses_1');
+    return new Response(null, { status: 204 });
   }
   if (url.includes('/api/v1/sessions?') || url.endsWith('/api/v1/sessions')) {
     return Response.json({ data: [session], pagination: { limit: 20, next_page_token: 'tok_2' } });
@@ -240,6 +245,18 @@ describe('createHarnessChatServer', () => {
 
     assert.equal(found.isMutable, false);
     assert.equal(found.agentName, undefined);
+  });
+
+  it('deletes sessions through the Harness SDK client', async () => {
+    deletedSessions.length = 0;
+    const server = createHarnessChatServer({ fetch: fetchMock });
+    if (server.deleteSession === undefined) {
+      throw new Error('Expected deleteSession to be implemented');
+    }
+
+    await server.deleteSession({ sessionId: 'ses_1' });
+
+    assert.deepEqual(deletedSessions, ['ses_1']);
   });
 
   it('subscribes to a turn and forwards afterSequenceNumber', async () => {

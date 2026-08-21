@@ -32,6 +32,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ComposerSendButton',
   'ComposerShell',
   'DEFAULT_AGENT_CONFIG',
+  'DeleteChatButton',
   'DraftCatalogProvider',
   'DraftComposerLeftSection',
   'DraftComposerRightSection',

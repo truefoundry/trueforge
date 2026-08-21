@@ -2,6 +2,8 @@
 
 import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
+import { useAuiState } from '../assistant-ui.js';
+import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 
 export type NamedAgentHeaderState = {
@@ -37,11 +39,21 @@ export function useChatChromeActionsVisible(): boolean {
   return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
 }
 
-// True when the thread header has anything to show (title, Save, and/or Clear).
-// Clear alone matters for orphaned immutable history (deleted agent, no name).
+export function useDeleteChatVisible(): boolean {
+  const server = useOptionalServer();
+  const shell = useOptionalShellMode();
+  const remoteId = useAuiState(s => s.threads.threadItems.find(item => item.id === s.threads.mainThreadId)?.remoteId);
+  return (
+    shell != null && shell.mode.status === 'active' && remoteId != null && typeof server?.deleteSession === 'function'
+  );
+}
+
+// True when the thread header has anything to show (title, Save, Clear, and/or Delete).
+// Clear/Delete alone matter for orphaned history (deleted agent, no name).
 export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
   const clearVisible = useChatChromeActionsVisible();
-  return namedVisible || saveVisible || clearVisible;
+  const deleteVisible = useDeleteChatVisible();
+  return namedVisible || saveVisible || clearVisible || deleteVisible;
 }
