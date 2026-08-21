@@ -45,7 +45,7 @@ Open a feature request in the issue tracker, or upvote an existing request that 
 
 ## Prerequisites
 
-- **Node.js 22.13+** (see [`.nvmrc`](.nvmrc); required by pnpm 11.16)
+- **Node.js 22.14+** (see [`.nvmrc`](.nvmrc); pnpm 11.16 needs 22.13+, and `better-sqlite3` v13 needs Node-API 10)
 - **pnpm** (version pinned via `packageManager` in [`package.json`](package.json); `corepack enable` handles it)
 - **Docker** — only needed for Postgres/Redis dev infra, the smoke test, and local SDK generation (maintainers). Fork contributors do not generate the SDK.
 

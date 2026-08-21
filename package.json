@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.16.0+sha512.b767e9a98fc87aec0f42daefcd0e84941c2cdb45d73c4e1e68860fb2bdfdbe032ab592105479e5e05c237f740c8a5ffdbbb52385797ddc2296745a1bbb883e8d",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.14.0"
   },
   "scripts": {
     "build": "pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge-sdk build && pnpm --filter @truefoundry/trueforge-ui build && pnpm --filter frontend build && pnpm --filter @truefoundry/trueforge build",
