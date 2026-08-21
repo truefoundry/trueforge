@@ -52,6 +52,31 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
       --version <x.y.z>
     ```
 
+    Find the version you want to install in the [published Helm charts](https://tfy.jfrog.io/ui/packages/oci:%2F%2Ftrueforge).
+
+    To expose TrueForge through an Istio gateway, add a `VirtualService` with
+    `extraObjects` in your values file. Replace the host and gateway with your
+    own values:
+
+    ```yaml
+    extraObjects:
+      - apiVersion: networking.istio.io/v1
+        kind: VirtualService
+        metadata:
+          name: '{{ include "trueforge.fullname" . }}'
+        spec:
+          hosts:
+            - trueforge.example.com
+          gateways:
+            - istio-system/public-gateway
+          http:
+            - route:
+                - destination:
+                    host: '{{ include "trueforge.fullname" . }}'
+                    port:
+                      number: '{{ .Values.service.port }}'
+    ```
+
     | Value                  | Default | Description                                                             |
     | ---------------------- | ------- | ------------------------------------------------------------------------ |
     | `replicaCount`         | `1`     | Number of server replicas (peered over Redis).                           |
