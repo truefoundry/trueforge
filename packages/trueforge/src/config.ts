@@ -598,14 +598,11 @@ export function isOidcConfigured(
 
 /**
  * Public origin for OAuth callbacks.
- * Standalone + development → `PUBLIC_BASE_URL`; standalone → `http://localhost:$PORT`;
- * otherwise `PUBLIC_BASE_URL` (throws if empty).
+ * Standalone (non-development) → `http://localhost:$PORT`; otherwise `PUBLIC_BASE_URL`
+ * (required in development and distributed; throws if empty).
  */
 export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
-  if (config.STANDALONE && config.NODE_ENV === 'development') {
-    return config.PUBLIC_BASE_URL;
-  }
-  if (config.STANDALONE) {
+  if (config.STANDALONE && config.NODE_ENV !== 'development') {
     return `http://localhost:${String(config.PORT)}`;
   }
   if (config.PUBLIC_BASE_URL === '') {

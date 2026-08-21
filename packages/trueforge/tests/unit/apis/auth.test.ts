@@ -28,10 +28,7 @@ jest.mock('../../../src/config', () => {
     __esModule: true,
     default: config,
     getPublicBaseUrl: (value = config) => {
-      if (value.STANDALONE && value.NODE_ENV === 'development') {
-        return value.PUBLIC_BASE_URL;
-      }
-      if (value.STANDALONE) {
+      if (value.STANDALONE && value.NODE_ENV !== 'development') {
         return `http://localhost:${String(value.PORT)}`;
       }
       if (value.PUBLIC_BASE_URL === '') {
