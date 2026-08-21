@@ -26,8 +26,15 @@ jest.mock('../../../src/config', () => {
   return {
     __esModule: true,
     default: config,
-    getPublicBaseUrl: (value = config) =>
-      value.STANDALONE ? `http://localhost:${String(value.PORT)}` : value.PUBLIC_BASE_URL,
+    getPublicBaseUrl: (value = config) => {
+      if (value.PUBLIC_BASE_URL !== '') {
+        return value.PUBLIC_BASE_URL;
+      }
+      if (value.STANDALONE) {
+        return `http://localhost:${String(value.PORT)}`;
+      }
+      throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+    },
   };
 });
 

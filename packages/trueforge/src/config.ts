@@ -397,6 +397,13 @@ export interface SharedServerConfiguration {
    * Only used when a Redis client is wired (distributed mode).
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
+  /**
+   * Public base URL used as the origin of MCP OAuth and OIDC callbacks.
+   * Optional at boot; MCP OAuth and OIDC callback construction fail if empty
+   * in distributed mode. In standalone, an empty value falls back to
+   * `http://localhost:$PORT`. Env: `PUBLIC_BASE_URL`.
+   */
+  PUBLIC_BASE_URL: string;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -428,12 +435,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `STANDALONE`. Default: true (so this branch requires an explicit `false`).
    */
   STANDALONE: false;
-  /**
-   * Public base URL of this server used as the origin of MCP OAuth and OIDC
-   * callbacks. Optional at boot; MCP OAuth and OIDC callback construction fail
-   * if empty.
-   */
-  PUBLIC_BASE_URL: string;
   /**
    * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
@@ -556,6 +557,7 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
   }),
+  PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
 };
 
 const configuration: ServerConfiguration = standalone
@@ -569,7 +571,6 @@ const configuration: ServerConfiguration = standalone
   : {
       ...shared,
       STANDALONE: false,
-      PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
       DATABASE_URL: resolvePostgresDatabaseUrl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
@@ -598,16 +599,17 @@ export function isOidcConfigured(
 
 /**
  * Public origin for OAuth callbacks.
- * Standalone → `http://localhost:$PORT`; distributed → `PUBLIC_BASE_URL` (may be `''`).
+ * Prefer `PUBLIC_BASE_URL` when set; otherwise standalone falls back to
+ * `http://localhost:$PORT`, and distributed throws if empty.
  */
 export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
+  if (config.PUBLIC_BASE_URL !== '') {
+    return config.PUBLIC_BASE_URL;
+  }
   if (config.STANDALONE) {
     return `http://localhost:${String(config.PORT)}`;
   }
-  if (config.PUBLIC_BASE_URL === '') {
-    throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
-  }
-  return config.PUBLIC_BASE_URL;
+  throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
 }
 
 export default configuration;
