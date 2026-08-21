@@ -48,12 +48,13 @@
     "test:eventsub": "jest --config jest.eventsub.config.cjs",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
     "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
+    "e2e": "tsx e2e/run.ts",
     "test": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.unit.config.cjs",
     "test:local-sandbox:contract": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.local-sandbox.contract.config.cjs",
     "smoke:local-sandbox": "pnpm run build:gen && NODE_OPTIONS='--conditions=trueforge-dev' jest --config jest.local-sandbox.smoke.config.cjs --runInBand --forceExit tests/sandbox/local/smoke.test.ts",
     "smoke:local-sandbox:lima": "bash scripts/local-sandbox/smoke-lima.sh",
     "probe:loopback": "pnpm exec tsx scripts/local-sandbox/probe-loopback.ts",
-    "typecheck": "pnpm run build:gen && tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json"
+    "typecheck": "pnpm run build:gen && tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json && tsc --noEmit -p e2e/tsconfig.json"
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.71",
@@ -79,6 +80,7 @@
   "devDependencies": {
     "@swc/core": "^1.11.0",
     "@swc/jest": "^0.2.37",
+    "@truefoundry/trueforge-sdk": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@types/jest": "^29.5.14",
     "@types/node": "^24.12.0",

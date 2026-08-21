@@ -1,0 +1,90 @@
+# Full-stack E2E contract. Same topology as docker-compose.yml (smoke); isolated
+# project name, host ports, and env_file so it does not collide with host-dev
+# (8790/5432/6379) or smoke (8791/5433/6380). Postgres has no host bind mount so
+# `scripts/e2e.sh` `down -v` discards the DB. Keep image versions and healthchecks
+# in sync with docker-compose.yml / docker-compose.dev.yml.
+name: trueforge-e2e
+
+services:
+  postgres:
+    image: postgres:17
+    env_file:
+      - path: packages/trueforge/e2e/.env
+        required: true
+    # Host 5434 avoids conflict with docker-compose.dev.yml on 5432 and smoke on 5433.
+    ports:
+      - '5434:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Shared by all server replicas: carries executor peering (cross-replica
+  # turn cancel via request-reply).
+  redis:
+    image: redis:7-alpine
+    # Host 6381 avoids conflict with docker-compose.dev.yml on 6379 and smoke on 6380.
+    ports:
+      - '6381:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Serves both the API and the UI on one port.
+  server:
+    build:
+      context: .
+      # From-source image; root Dockerfile is the npm-install prod recipe.
+      dockerfile: Dockerfile.dev
+    image: truefoundry-server:latest
+    ports:
+      # Host 8792 avoids conflict with host `pnpm dev` on 8790 and smoke on 8791.
+      - '8792:8790'
+    environment:
+      # Wins over env_file / image defaults so a host .env cannot flip this.
+      NODE_ENV: production
+      # Inside the container; host mapping above is 8792.
+      PORT: 8790
+      # Wins over env_file / Node default `localhost` (::1 vs healthcheck 127.0.0.1).
+      HOST: 0.0.0.0
+      # Host-facing origin for MCP OAuth callbacks (mapped port, not container PORT).
+      PUBLIC_BASE_URL: http://localhost:8792
+      # Compose network hosts — do not use packages/trueforge/e2e/.env localhost values.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      # Compose runs one replica but keeps peering on so the peered cancel path
+      # stays exercised. STANDALONE=false ⇒ Postgres + Redis.
+      STANDALONE: 'false'
+      REDIS_URL: redis://redis:6379
+    # Postgres credentials (POSTGRES_USER, …) and later E2E secrets.
+    # `environment` above overrides any colliding keys from this file.
+    env_file:
+      - path: packages/trueforge/e2e/.env
+        required: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Probes GET /healthz (plain text OK!); node is already in the image.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8790/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    # Above the app's default GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not
+    # cut off turn drain.
+    stop_grace_period: 35s
+    restart: unless-stopped
