@@ -128,6 +128,7 @@ describe('E2BSandboxProvider sandbox operations', () => {
       timeoutMs: 300_000,
       metadata: { trueforge_tenant_id: 'tenant-a' },
       secure: true,
+      network: { allowPublicTraffic: false },
       lifecycle: { onTimeout: 'pause', autoResume: true },
     });
   });

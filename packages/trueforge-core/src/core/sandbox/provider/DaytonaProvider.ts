@@ -6,6 +6,9 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
+import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
+import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
@@ -13,9 +16,7 @@ import {
   SandboxPathIsDirectoryError,
   validateSandboxOwnedByTenant,
 } from '../SandboxErrors';
-import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
-import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
-import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
+import { deriveSandboxImageBuildName } from './imageReference';
 import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
@@ -28,30 +29,11 @@ const BUILD_STATE_INACTIVE = 'inactive';
 const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
-const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
 const DEFAULT_DAYTONA_API_URL = 'https://app.daytona.io/api';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-/**
- * Digest portion of a container image reference (the tag/digest after the final `:`)
- * The release image is always published with an explicit digest tag
- */
-function imageDigest(image: string): string {
-  const lastSegment = image.slice(image.lastIndexOf('/') + 1);
-  const colon = lastSegment.lastIndexOf(':');
-  if (colon === -1) {
-    throw new Error(`Sandbox image reference has no tag/digest: ${image}`);
-  }
-  return lastSegment.slice(colon + 1);
-}
-
-/** Deterministic build name per image digest so every server replica converges on one build. */
-function deriveImageBuildName(digest: string): string {
-  return `${IMAGE_BUILD_NAME_PREFIX}${digest}`;
 }
 
 /** Terminal-failure build states: a build stuck here never becomes ready on its own. */
@@ -129,7 +111,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.apiUrl = options.apiUrl ?? DEFAULT_DAYTONA_API_URL;
     this.tenantName = options.tenantName;
     this.imageUri = options.sandboxImage;
-    this.buildRef = options.buildRef ?? deriveImageBuildName(imageDigest(options.sandboxImage));
+    this.buildRef = options.buildRef ?? deriveSandboxImageBuildName(options.sandboxImage);
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;

@@ -14,6 +14,9 @@ import {
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
+import { CodeModeNatsTransport, type CodeModeHostConnection } from '../codeMode/nats/CodeModeNatsTransport';
+import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
@@ -21,28 +24,12 @@ import {
   SandboxPathIsDirectoryError,
   validateSandboxTenantMetadata,
 } from '../SandboxErrors';
-import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
-import { CodeModeNatsTransport, type CodeModeHostConnection } from '../codeMode/nats/CodeModeNatsTransport';
-import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
+import { deriveSandboxImageBuildName } from './imageReference';
 import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxProvider } from './Provider';
 
 const E2B_WORKDIR = '/home/trueforge';
-const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 const TENANT_METADATA_KEY = 'trueforge_tenant_id';
 const TRAFFIC_ACCESS_TOKEN_HEADER = 'E2B-Traffic-Access-Token';
-
-function imageDigest(image: string): string {
-  const lastSegment = image.slice(image.lastIndexOf('/') + 1);
-  const colon = lastSegment.lastIndexOf(':');
-  if (colon === -1) {
-    throw new Error(`Sandbox image reference has no tag/digest: ${image}`);
-  }
-  return lastSegment.slice(colon + 1);
-}
-
-function deriveImageBuildName(image: string): string {
-  return `${IMAGE_BUILD_NAME_PREFIX}${imageDigest(image)}`;
-}
 
 function buildReason(status: TemplateBuildStatus, reason: string | undefined): string | null {
   switch (status) {
@@ -56,8 +43,8 @@ function buildReason(status: TemplateBuildStatus, reason: string | undefined): s
   }
 }
 
-function commandOutput(chunks: string[], stdout: string, stderr: string): string {
-  return chunks.length > 0 ? chunks.join('') : `${stdout}${stderr}`;
+function commandOutput(params: { chunks: string[]; stdout: string; stderr: string }): string {
+  return params.chunks.length > 0 ? params.chunks.join('') : `${params.stdout}${params.stderr}`;
 }
 
 /** Resolves the secure E2B host and its sandbox-bound upgrade credential as one value. */
@@ -108,7 +95,7 @@ export class E2BSandboxProvider implements SandboxProvider {
     this.client = options.client;
     this.tenantName = options.tenantName;
     this.imageUri = options.sandboxImage;
-    this.buildRef = options.buildRef ?? deriveImageBuildName(options.sandboxImage);
+    this.buildRef = options.buildRef ?? deriveSandboxImageBuildName(options.sandboxImage);
     this.buildId = options.buildId;
     this.templateId = options.templateId;
     this.execTimeoutMs = options.execTimeoutMs;
@@ -232,6 +219,7 @@ export class E2BSandboxProvider implements SandboxProvider {
             timeoutMs: this.sandboxTimeoutMs,
             metadata: { [TENANT_METADATA_KEY]: this.tenantName },
             secure: true,
+            network: { allowPublicTraffic: false },
             lifecycle: { onTimeout: 'pause', autoResume: true },
           })
         : await this.restoreExistingSandbox(sandboxId);
@@ -265,13 +253,19 @@ export class E2BSandboxProvider implements SandboxProvider {
         });
         return {
           success: true,
-          response: { exitCode: result.exitCode, result: commandOutput(output, result.stdout, result.stderr) },
+          response: {
+            exitCode: result.exitCode,
+            result: commandOutput({ chunks: output, stdout: result.stdout, stderr: result.stderr }),
+          },
         };
       } catch (error) {
         if (error instanceof CommandExitError) {
           return {
             success: true,
-            response: { exitCode: error.exitCode, result: commandOutput(output, error.stdout, error.stderr) },
+            response: {
+              exitCode: error.exitCode,
+              result: commandOutput({ chunks: output, stdout: error.stdout, stderr: error.stderr }),
+            },
           };
         }
         this.cachedSandboxes.delete(params.sandboxId);
