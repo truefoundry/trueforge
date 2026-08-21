@@ -8,8 +8,66 @@ describe('AgentSpec RuntimeConfig defaults', () => {
     expect(spec.config.generative_ui).toEqual({ enabled: true });
     expect(spec.config.ask_user_questions).toEqual({ enabled: true });
     expect(spec.config.dynamic_sub_agents).toEqual({ enabled: true });
-    expect(spec.config.context_management.compaction.enabled).toBe(true);
+    expect(spec.config.context_management.compaction).toEqual({ enabled: true });
     expect(spec.config.context_management.large_tool_response.enabled).toBe(true);
+  });
+
+  it('accepts an explicit input-token compaction trigger', () => {
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      config: {
+        context_management: {
+          compaction: {
+            enabled: true,
+            trigger: { type: 'input_tokens', value: 80_000 },
+          },
+        },
+      },
+    });
+
+    expect(spec.config.context_management.compaction).toEqual({
+      enabled: true,
+      trigger: { type: 'input_tokens', value: 80_000 },
+    });
+  });
+
+  it('normalizes legacy nested compaction requests without changing behavior', () => {
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      config: {
+        context_management: {
+          compaction: {
+            enabled: false,
+            compaction_threshold_tokens: 80_000,
+          },
+        },
+      },
+    });
+
+    expect(spec.config.context_management.compaction).toEqual({
+      enabled: false,
+      trigger: { type: 'input_tokens', value: 80_000 },
+    });
+  });
+
+  it('prefers the new compaction trigger when both threshold shapes are present', () => {
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      config: {
+        context_management: {
+          compaction: {
+            enabled: true,
+            compaction_threshold_tokens: 80_000,
+            trigger: { type: 'input_tokens', value: 90_000 },
+          },
+        },
+      },
+    });
+
+    expect(spec.config.context_management.compaction).toEqual({
+      enabled: true,
+      trigger: { type: 'input_tokens', value: 90_000 },
+    });
   });
 
   it('fills generative_ui when other config fields are present', () => {

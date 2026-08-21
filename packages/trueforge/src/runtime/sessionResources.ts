@@ -59,6 +59,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
+  contextLength: number | undefined;
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -92,6 +93,7 @@ export async function getModelDetails({
       headers: {},
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
+    contextLength: model.properties.context_length,
   };
 }
 

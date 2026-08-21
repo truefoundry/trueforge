@@ -111,17 +111,36 @@ const MCPServerRequestSchema = z
 
 // --- Runtime config ---
 
+const InputTokensCompactionTriggerSchema = z
+  .object({
+    type: z.literal('input_tokens').describe('Trigger compaction when the estimated input reaches a token limit.'),
+    value: z.number().int().positive().describe('Estimated input-token count that triggers compaction.'),
+  })
+  .strict()
+  .openapi('InputTokensCompactionTrigger');
+
 const CompactionSettingsSchema = z
   .object({
     enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
-    compaction_threshold_tokens: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe('Context size in tokens that triggers compaction. Default: 50000.'),
+    trigger: InputTokensCompactionTriggerSchema.optional(),
   })
+  .describe('Uses 80% of the model context length when the explicit trigger is omitted, or 50000 tokens if unknown.')
   .openapi('CompactionConfig');
+
+function normalizeLegacyCompactionThreshold(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return value;
+  }
+  const legacyThreshold = 'compaction_threshold_tokens' in value ? value.compaction_threshold_tokens : undefined;
+  const trigger = 'trigger' in value ? value.trigger : undefined;
+  if (trigger !== undefined || legacyThreshold === undefined) {
+    return value;
+  }
+  return {
+    ...value,
+    trigger: { type: 'input_tokens', value: legacyThreshold },
+  };
+}
 
 const LargeToolResponseSettingsSchema = z.object({
   enabled: z.boolean().default(true).describe('Offload oversized tool responses to a sandbox file. Default: true.'),
@@ -176,7 +195,9 @@ const LargeToolResponseConfigSchema = LargeToolResponseSettingsSchema.pick({
 
 const ContextManagementConfigSchema = z
   .object({
-    compaction: CompactionSettingsSchema.default(() => ({ enabled: true })),
+    compaction: z
+      .preprocess(normalizeLegacyCompactionThreshold, CompactionSettingsSchema)
+      .default(() => ({ enabled: true })),
     large_tool_response: LargeToolResponseConfigSchema.default(() => ({ enabled: true })),
   })
   .openapi('ContextManagementConfig');
