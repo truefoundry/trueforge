@@ -125,8 +125,16 @@ jobs:
     env:
       PR_BRANCH: release-chart/trueforge
     steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+
       - name: Check out
         uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install yq
         run: |
@@ -180,7 +188,7 @@ jobs:
       - name: Open or update chart-release PR
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           branch: ${{ env.PR_BRANCH }}
           base: main
           commit-message: 'release(chart): ${{ steps.chart.outputs.version }}'

@@ -10,7 +10,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
 <Tabs>
   <Tab title="Local mode (npx)">
-    Requires [Node.js](https://nodejs.org) 22 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
+    Requires [Node.js](https://nodejs.org) 22.14 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
 
     ```bash
     npx @truefoundry/trueforge
@@ -50,6 +50,39 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     ```bash
     helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
       --version <x.y.z>
+    ```
+
+    Find the version you want to install in the [published Helm charts](https://tfy.jfrog.io/ui/packages/oci:%2F%2Ftrueforge).
+
+    To expose TrueForge through an Istio gateway, save this `VirtualService` in
+    `values.yaml` under `extraObjects`. Replace the host and gateway with your
+    own values:
+
+    ```yaml
+    extraObjects:
+      - apiVersion: networking.istio.io/v1
+        kind: VirtualService
+        metadata:
+          name: '{{ include "trueforge.fullname" . }}'
+        spec:
+          hosts:
+            - trueforge.example.com
+          gateways:
+            - istio-system/public-gateway
+          http:
+            - route:
+                - destination:
+                    host: '{{ include "trueforge.fullname" . }}'
+                    port:
+                      name: http
+    ```
+
+    Then install the chart with the values file:
+
+    ```bash
+    helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
+      --version <x.y.z> \
+      --values values.yaml
     ```
 
     | Value                  | Default | Description                                                             |

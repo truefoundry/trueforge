@@ -20,14 +20,22 @@ jest.mock('../../../src/config', () => {
   const config = {
     STANDALONE: false as const,
     PUBLIC_BASE_URL: 'https://harness.example.com',
+    NODE_ENV: 'development',
     OIDC,
     PORT: 8790,
   };
   return {
     __esModule: true,
     default: config,
-    getPublicBaseUrl: (value = config) =>
-      value.STANDALONE ? `http://localhost:${String(value.PORT)}` : value.PUBLIC_BASE_URL,
+    getPublicBaseUrl: (value = config) => {
+      if (value.STANDALONE && value.NODE_ENV !== 'development') {
+        return `http://localhost:${String(value.PORT)}`;
+      }
+      if (value.PUBLIC_BASE_URL === '') {
+        throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+      }
+      return value.PUBLIC_BASE_URL;
+    },
   };
 });
 
