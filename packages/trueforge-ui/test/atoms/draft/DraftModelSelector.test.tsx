@@ -92,7 +92,7 @@ describe('DraftModelSelector', () => {
         .querySelector('img'),
     ).toBeNull();
 
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'anthropic' } });
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'antropic' } });
     expect(within(listbox).getAllByRole('option')).toHaveLength(1);
     expect(within(listbox).getAllByRole('group')).toHaveLength(1);
     expect(within(listbox).getByRole('option')).toHaveTextContent('claude-3.7-sonnet');

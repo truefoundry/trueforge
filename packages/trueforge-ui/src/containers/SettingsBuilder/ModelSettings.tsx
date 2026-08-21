@@ -1,5 +1,6 @@
 'use client';
 
+import fuzzysort from 'fuzzysort';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/atoms/primitives/Button.js';
@@ -35,6 +36,7 @@ const ModelSettings = () => {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [availableModelQueryByProvider, setAvailableModelQueryByProvider] = useState<Record<string, string>>({});
 
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingCatalogType, setEditingCatalogType] = useState<string | null>(null);
@@ -311,6 +313,17 @@ const ModelSettings = () => {
                     const catalogModels = catalogModelsByType.get(provider.type) ?? [];
                     const configuredIds = new Set(provider.models.map(model => model.id));
                     const availableModels = catalogModels.filter(model => !configuredIds.has(model.id));
+                    const availableModelQuery = availableModelQueryByProvider[provider.id] ?? '';
+                    const normalizedAvailableModelQuery = availableModelQuery.trim();
+                    const matchingAvailableModels = normalizedAvailableModelQuery
+                      ? fuzzysort
+                          .go(normalizedAvailableModelQuery, availableModels, {
+                            keys: [model => model.name, model => model.id],
+                            limit: 0,
+                            threshold: 0,
+                          })
+                          .map(result => result.obj)
+                      : availableModels;
                     const logoSrc = modelProviderIconMap[provider.name];
 
                     return (
@@ -402,10 +415,23 @@ const ModelSettings = () => {
 
                           {availableModels.length > 0 ? (
                             <section>
-                              <div className="border-b border-border bg-secondary-bg/40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                                Available to add · {availableModels.length}
+                              <div className="border-b border-border bg-secondary-bg/40 px-3 py-2">
+                                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                                  Available to add · {availableModels.length}
+                                </div>
+                                <SearchInput
+                                  query={availableModelQuery}
+                                  setQuery={nextQuery => {
+                                    setAvailableModelQueryByProvider(current => ({
+                                      ...current,
+                                      [provider.id]: nextQuery,
+                                    }));
+                                  }}
+                                  placeholder="Search available models"
+                                  autoFocus={false}
+                                />
                               </div>
-                              {availableModels.map(model => (
+                              {matchingAvailableModels.map(model => (
                                 <div
                                   key={model.id}
                                   className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
@@ -424,6 +450,11 @@ const ModelSettings = () => {
                                   </Button>
                                 </div>
                               ))}
+                              {matchingAvailableModels.length === 0 ? (
+                                <p className="px-3 py-4 text-center text-sm text-text-secondary">
+                                  No available models match “{availableModelQuery.trim()}”.
+                                </p>
+                              ) : null}
                             </section>
                           ) : null}
                         </div>

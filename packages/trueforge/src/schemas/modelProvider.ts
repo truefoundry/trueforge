@@ -38,6 +38,8 @@ export const ConfiguredModelSchema = z
   .strict()
   .openapi('ConfiguredModel');
 
+export type ConfiguredModel = z.infer<typeof ConfiguredModelSchema>;
+
 /** Adds issues when two models share a `model_id` or a `name`. */
 export function refineUniqueModels(models: { model_id: string; name: string }[], ctx: z.RefinementCtx): void {
   uniqueNames(models, ctx);
@@ -127,6 +129,11 @@ const TogetherAIModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://api.together.xyz/v1',
 }).openapi('TogetherAIModelProvider');
 
+const OpenRouterModelProviderSchema = wellKnownProviderSchema({
+  type: 'openrouter',
+  base_url: 'https://openrouter.ai/api/v1',
+}).openapi('OpenRouterModelProvider');
+
 const AlibabaModelProviderSchema = wellKnownProviderSchema({
   type: 'alibaba',
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
@@ -164,6 +171,7 @@ const ModelProviderBodySchema = z
     ZaiModelProviderSchema,
     MoonshotModelProviderSchema,
     TogetherAIModelProviderSchema,
+    OpenRouterModelProviderSchema,
     AlibabaModelProviderSchema,
     CustomModelProviderSchema,
   ])

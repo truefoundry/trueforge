@@ -10,6 +10,7 @@ import { FireworksModelProvider } from "./FireworksModelProvider.js";
 import { GoogleGeminiModelProvider } from "./GoogleGeminiModelProvider.js";
 import { MoonshotModelProvider } from "./MoonshotModelProvider.js";
 import { OpenAiModelProvider } from "./OpenAiModelProvider.js";
+import { OpenRouterModelProvider } from "./OpenRouterModelProvider.js";
 import { TogetherAiModelProvider } from "./TogetherAiModelProvider.js";
 import { ZaiModelProvider } from "./ZaiModelProvider.js";
 
@@ -24,6 +25,7 @@ export const ModelProviderManifest: core.serialization.Schema<
     GoogleGeminiModelProvider,
     MoonshotModelProvider,
     OpenAiModelProvider,
+    OpenRouterModelProvider,
     TogetherAiModelProvider,
     ZaiModelProvider,
 ]);
@@ -37,6 +39,7 @@ export declare namespace ModelProviderManifest {
         | GoogleGeminiModelProvider.Raw
         | MoonshotModelProvider.Raw
         | OpenAiModelProvider.Raw
+        | OpenRouterModelProvider.Raw
         | TogetherAiModelProvider.Raw
         | ZaiModelProvider.Raw;
 }
