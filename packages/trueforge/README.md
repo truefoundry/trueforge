@@ -8,7 +8,7 @@ TrueForge runs the agent loop (model calls, MCP tools, skills, sandboxing, appro
 
 ## Quick start
 
-Requires [Node.js](https://nodejs.org) 22+.
+Requires [Node.js](https://nodejs.org) 22.14+.
 
 ```bash
 npx @truefoundry/trueforge

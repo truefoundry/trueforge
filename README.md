@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/truefoundry/trueforge/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="License: MIT"></a>
-  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%3E%3D22.13-green.svg?style=flat-square" alt="Node.js >= 22.13"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-%3E%3D22.14-green.svg?style=flat-square" alt="Node.js >= 22.14"></a>
   <a href="https://trueforge.dev"><img src="https://img.shields.io/badge/Documentation-trueforge.dev-blue.svg?style=flat-square" alt="Documentation"></a>
   <a href="https://trueforge.dev/quickstart"><img src="https://img.shields.io/badge/Quickstart-trueforge.dev/quickstart-blue.svg?style=flat-square" alt="Quickstart"></a>
   <a href="https://trueforge.dev/api/overview"><img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg?style=flat-square" alt="SDK"></a>
