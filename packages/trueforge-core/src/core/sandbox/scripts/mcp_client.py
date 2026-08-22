@@ -224,8 +224,18 @@ async def _get_tool(server: str, tool_name: str) -> Tool | None:
 def _is_destructive(tool: Tool) -> bool:
     annotations = tool.annotations
     if annotations is None:
+        return True
+
+    read_only = getattr(annotations, "read_only_hint", None)
+    if read_only is None:
+        read_only = getattr(annotations, "readOnlyHint", None)
+    if read_only is True:
         return False
-    return bool(annotations.destructiveHint) or (not annotations.readOnlyHint and annotations.readOnlyHint is not None)
+
+    destructive = getattr(annotations, "destructive_hint", None)
+    if destructive is None:
+        destructive = getattr(annotations, "destructiveHint", None)
+    return destructive is not False
 
 async def _ensure_non_destructive(server: str, tool_name: str) -> None:
     tool = await _get_tool(server, tool_name)
