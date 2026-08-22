@@ -3,6 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { ChatTitleHeaderLabel } from '../atoms/ChatTitleHeaderLabel.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
@@ -70,8 +71,8 @@ export function DrawerLayout({ className }: { className?: string }) {
       <header className="flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         {!settingsOpen ? (
           <>
-            <NamedAgentHeaderLabel />
-            <span className="min-w-0 flex-1" />
+            <ChatTitleHeaderLabel />
+            <NamedAgentHeaderLabel className="max-w-[40%] shrink-0" />
             <ClearChatButton />
             <SaveAgentButton />
           </>

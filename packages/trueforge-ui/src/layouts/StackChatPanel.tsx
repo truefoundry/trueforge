@@ -3,6 +3,7 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { ChatTitleHeaderLabel } from '../atoms/ChatTitleHeaderLabel.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
@@ -75,8 +76,8 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             >
               <Icon name="clock-rotate-left" />
             </button>
-            <NamedAgentHeaderLabel />
-            <span className="min-w-0 flex-1" />
+            <ChatTitleHeaderLabel />
+            <NamedAgentHeaderLabel className="max-w-[40%] shrink-0" />
             <ClearChatButton />
             <SaveAgentButton />
             {threadHeaderEnd}

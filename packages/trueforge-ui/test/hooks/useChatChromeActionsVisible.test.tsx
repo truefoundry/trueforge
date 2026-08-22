@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   useChatChromeActionsVisible,
   useChatHeaderContentVisible,
+  useChatTitleHeaderVisible,
   useNamedAgentHeaderVisible,
   useSaveAgentVisible,
 } from '@/hooks/useChatChromeActionsVisible.js';
@@ -44,6 +45,7 @@ describe('useChatHeaderContentVisible', () => {
         return {
           shell,
           named: useNamedAgentHeaderVisible(),
+          title: useChatTitleHeaderVisible(),
           save: useSaveAgentVisible(),
           clear: useChatChromeActionsVisible(),
           header: useChatHeaderContentVisible(),
@@ -57,6 +59,7 @@ describe('useChatHeaderContentVisible', () => {
     });
 
     expect(result.current.named).toBe(false);
+    expect(result.current.title).toBe(true);
     expect(result.current.save).toBe(false);
     expect(result.current.clear).toBe(true);
     expect(result.current.header).toBe(true);
@@ -66,6 +69,7 @@ describe('useChatHeaderContentVisible', () => {
     const { result } = renderHook(
       () => ({
         named: useNamedAgentHeaderVisible(),
+        title: useChatTitleHeaderVisible(),
         save: useSaveAgentVisible(),
         clear: useChatChromeActionsVisible(),
         header: useChatHeaderContentVisible(),
@@ -78,6 +82,8 @@ describe('useChatHeaderContentVisible', () => {
     );
 
     expect(result.current.named).toBe(false);
+    expect(result.current.title).toBe(true);
     expect(result.current.clear).toBe(false);
+    expect(result.current.header).toBe(true);
   });
 });

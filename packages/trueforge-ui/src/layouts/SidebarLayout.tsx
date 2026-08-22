@@ -3,6 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { ChatTitleHeaderLabel } from '../atoms/ChatTitleHeaderLabel.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
@@ -160,8 +161,8 @@ export function SidebarLayout({ className }: { className?: string }) {
               >
                 <Icon name="bars" />
               </button>
-              <NamedAgentHeaderLabel />
-              <span className="min-w-0 flex-1" />
+              <ChatTitleHeaderLabel />
+              <NamedAgentHeaderLabel className="max-w-[40%] shrink-0" />
               <ClearChatButton />
               <SaveAgentButton />
             </>

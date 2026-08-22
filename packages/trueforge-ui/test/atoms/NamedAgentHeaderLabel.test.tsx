@@ -40,16 +40,16 @@ describe('NamedAgentHeaderLabel', () => {
         <NamedAgentHeaderLabel />
       </ShellModeProvider>,
     );
-    expect(screen.getByRole('heading', { name: 'support' })).toBeInTheDocument();
+    expect(screen.getByText('support')).toBeInTheDocument();
   });
 
   it('is hidden for unnamed draft chats', () => {
-    render(
+    const { container } = render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
         <NamedAgentHeaderLabel />
       </ShellModeProvider>,
     );
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_named-agent-label"]')).not.toBeInTheDocument();
   });
 
   it('shows an Editing label for a saved agent opened in mutable mode', () => {
@@ -64,7 +64,8 @@ describe('NamedAgentHeaderLabel', () => {
       screen.getByRole('button', { name: 'edit' }).click();
     });
 
-    expect(screen.getByRole('heading', { name: 'reviewer Editing' })).toBeInTheDocument();
+    expect(screen.getByText('reviewer')).toBeInTheDocument();
+    expect(screen.getByText('Editing')).toBeInTheDocument();
   });
 
   it('is hidden while idle, then appears after selecting a named agent', () => {
@@ -74,11 +75,11 @@ describe('NamedAgentHeaderLabel', () => {
         <NamedAgentHeaderLabel />
       </ShellModeProvider>,
     );
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.queryByText('reviewer')).not.toBeInTheDocument();
 
     act(() => {
       screen.getByRole('button', { name: 'select' }).click();
     });
-    expect(screen.getByRole('heading', { name: 'reviewer' })).toBeInTheDocument();
+    expect(screen.getByText('reviewer')).toBeInTheDocument();
   });
 });
