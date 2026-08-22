@@ -55,6 +55,7 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
   const [copied, setCopied] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
   const inFlightRef = useRef(false);
+  const applyingRef = useRef(false);
   const canApply = shell?.mode.status === 'active' && shell.mode.isMutable && agentSpec != null;
 
   useEffect(() => {
@@ -92,17 +93,24 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
   };
 
   const show = () => {
-    if (inFlightRef.current || loading || applying) return;
+    if (inFlightRef.current || applyingRef.current || loading || applying) return;
     setOpen(true);
     void generate();
   };
 
   const apply = async () => {
-    if (!canApply || agentSpecRef.current === null || remoteId == null || !hasGenerateInstructionsFromChat(server)) {
+    if (
+      !canApply ||
+      agentSpecRef.current === null ||
+      remoteId == null ||
+      !hasGenerateInstructionsFromChat(server) ||
+      applyingRef.current
+    ) {
       return;
     }
     const instructions = draft.trim();
     if (instructions.length === 0) return;
+    applyingRef.current = true;
     setApplying(true);
     setError(null);
     try {
@@ -118,6 +126,7 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
     } catch (caught) {
       setError(getErrorMessage(caught, 'Could not apply instructions to this chat'));
     } finally {
+      applyingRef.current = false;
       setApplying(false);
     }
   };

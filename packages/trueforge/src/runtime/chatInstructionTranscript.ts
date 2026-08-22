@@ -93,7 +93,10 @@ export function extractChatTranscript(events: readonly SessionEventItem[]): Chat
     const event = item.event;
     if (event.type === EventType.TURN_CREATED) {
       const input = event.input ?? [];
-      for (const part of input) {
+      // Events are newest-first; walk the turn's user items newest-first too so
+      // the final transcript reverse keeps them chronological within the turn.
+      for (let i = input.length - 1; i >= 0; i -= 1) {
+        const part = input[i];
         if (part.type !== EventType.USER_MESSAGE) {
           continue;
         }
