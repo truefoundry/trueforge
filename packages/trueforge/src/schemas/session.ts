@@ -102,6 +102,8 @@ export const ChatInstructionSourceSchema = z
   .strict()
   .openapi('ChatInstructionSource');
 
+export type ChatInstructionSource = z.infer<typeof ChatInstructionSourceSchema>;
+
 export const GeneratedSessionInstructionsSchema = z
   .object({
     instructions: z.string().min(1).describe('Suggested system instructions. Not applied until the client saves them.'),
@@ -113,6 +115,8 @@ export const GeneratedSessionInstructionsSchema = z
   })
   .strict()
   .openapi('GeneratedSessionInstructions');
+
+export type GeneratedSessionInstructions = z.infer<typeof GeneratedSessionInstructionsSchema>;
 
 export const GenerateSessionInstructionsResponseSchema = z
   .object({
