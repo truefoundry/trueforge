@@ -24,7 +24,7 @@ import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
+import { toSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
 export interface McpConnection {
@@ -210,7 +210,7 @@ export async function resolveGitSkills({
 /**
  * Build a runtime SandboxProvider from the configured store row, or the
  * in-memory local fallback when standalone + the cached probe is supported.
- * Builds a fresh Daytona client per call (no network I/O).
+ * Builds a fresh provider client per call (no network I/O).
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
 export function localSandboxSessionSegment(sessionId: string | undefined): string {
@@ -233,9 +233,7 @@ export async function resolveSandboxProvider({
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
-    // Clone from the snapshot that was actually built (persisted build_ref), not a name
-    // derived from the current image — otherwise an image bump breaks creation until rebuild.
-    return toDaytonaSandboxProvider({
+    return toSandboxProvider({
       manifest: record.manifest,
       tenant_id,
       logger,

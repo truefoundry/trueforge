@@ -5,17 +5,18 @@ import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandbox
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import {
-  checkSnapshotStatus,
-  isDaytonaAuthError,
-  toDaytonaSandboxProvider,
+  checkSandboxProviderStatus,
+  isSandboxProviderAuthError,
+  toSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
-/** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
+/** Cap the provider registration round-trip so a slow/unreachable provider cannot hold the request open. */
 const BUILD_REQUEST_TIMEOUT_MS = 3_000;
+const MAX_CONCURRENT_UPDATE_RETRIES = 3;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -30,6 +31,20 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
   };
 }
 
+function samePrebuildRecord(params: {
+  before: SandboxProviderRecord | undefined;
+  locked: SandboxProviderRecord | undefined;
+}): boolean {
+  if (params.before === undefined || params.locked === undefined) {
+    return params.before === params.locked;
+  }
+  return (
+    params.before.updated_at === params.locked.updated_at &&
+    JSON.stringify(params.before.manifest) === JSON.stringify(params.locked.manifest) &&
+    JSON.stringify(params.before.build_metadata) === JSON.stringify(params.locked.build_metadata)
+  );
+}
+
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
   const getHandler: RouteHandler<typeof getSandboxProviderRoute> = async c => {
@@ -37,8 +52,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     if (record === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
-    const status = await checkSnapshotStatus({
+    // Refresh a pending build, or perform provider-specific maintenance for a ready build.
+    const status = await checkSandboxProviderStatus({
       store: deps.sandboxProviderStore,
       tenant_id: TENANT_ID,
       logger: deps.logger,
@@ -63,38 +78,49 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       auth: {
         api_key: resolveStoredSecretValue({
           incoming: incoming.auth.api_key,
-          existing: existing?.manifest.auth.api_key,
+          existing: existing?.manifest.type === incoming.type ? existing.manifest.auth.api_key : undefined,
         }),
       },
     });
     try {
-      // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
-      const { manifest, status } = await deps.withTransaction(async transaction => {
-        const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
-        const resolved = resolveManifest(locked);
-        // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
-        // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
-        const provider = toDaytonaSandboxProvider({
+      let saved: { manifest: SandboxProviderManifest; status: ReturnType<typeof toSandboxStatus> } | undefined;
+      for (let attempt = 1; attempt <= MAX_CONCURRENT_UPDATE_RETRIES && saved === undefined; attempt++) {
+        const existing = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
+        const resolved = resolveManifest(existing);
+        const provider = toSandboxProvider({
           manifest: resolved,
           tenant_id: TENANT_ID,
           logger: deps.logger,
-          ...(locked ? { build_metadata: locked.build_metadata } : {}),
+          ...(existing?.manifest.type === resolved.type && existing.manifest.auth.api_key === resolved.auth.api_key
+            ? { build_metadata: existing.build_metadata }
+            : {}),
         });
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
-        await deps.sandboxProviderStore.upsertSandboxProvider(
-          { tenant_id: TENANT_ID, manifest: resolved, ...built },
-          transaction,
-        );
-        return { manifest: resolved, status: built };
-      });
+
+        saved = await deps.withTransaction(async transaction => {
+          const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
+          // Persist only if every stored build input still matches the preflight read.
+          if (!samePrebuildRecord({ before: existing, locked })) {
+            return undefined;
+          }
+          await deps.sandboxProviderStore.upsertSandboxProvider(
+            { tenant_id: TENANT_ID, manifest: resolved, ...built },
+            transaction,
+          );
+          return { manifest: resolved, status: built };
+        });
+      }
+      if (saved === undefined) {
+        return c.json({ error: { message: 'Sandbox provider changed concurrently; retry the update' } }, 409);
+      }
       return c.json(
         {
           data: {
-            manifest: redactSandboxProvider(manifest),
-            status: status.status,
-            status_reason: status.status_reason,
+            manifest: redactSandboxProvider(saved.manifest),
+            status: saved.status.status,
+            status_reason: saved.status.status_reason,
           },
         },
         200,
@@ -103,8 +129,9 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
-      if (isDaytonaAuthError(error)) {
-        return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
+      if (isSandboxProviderAuthError({ error, providerType: incoming.type })) {
+        const providerName = incoming.type === 'daytona' ? 'Daytona' : 'E2B';
+        return c.json({ error: { message: `${providerName} rejected the API key — check the credentials` } }, 422);
       }
       throw error;
     }

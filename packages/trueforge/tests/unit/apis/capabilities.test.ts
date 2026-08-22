@@ -1,5 +1,5 @@
 // Sandbox capability is driven by the refreshed image status; stub it so tests never touch Daytona.
-jest.mock('../../../src/sandbox/providerUtils', () => ({ checkSnapshotStatus: jest.fn() }));
+jest.mock('../../../src/sandbox/providerUtils', () => ({ checkSandboxProviderStatus: jest.fn() }));
 
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
@@ -13,10 +13,10 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
-import { checkSnapshotStatus } from '../../../src/sandbox/providerUtils';
+import { checkSandboxProviderStatus } from '../../../src/sandbox/providerUtils';
 import type { SandboxBuildStatus, SandboxStatus } from '../../../src/schemas/sandboxProvider';
 
-const mockStatus = checkSnapshotStatus as jest.Mock;
+const mockStatus = jest.mocked(checkSandboxProviderStatus);
 const silentLogger = createLogger({ silent: true });
 
 const buildWithStatus = (status: SandboxBuildStatus): SandboxStatus => ({

@@ -1,4 +1,4 @@
-import { wsconnect, type Msg, type NatsConnection } from '@nats-io/nats-core';
+import { wsconnect, type ConnectionOptions, type Msg, type NatsConnection } from '@nats-io/nats-core';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
 import { randomUUID } from 'node:crypto';
@@ -24,12 +24,46 @@ const NATS_DRAIN_TIMEOUT_MS = 5_000;
 const SANDBOX_NATS_SUBJECT_ROOT = 'sandbox.bridge';
 const SANDBOX_NATS_MCP_LEAF = 'mcp';
 
+export interface CodeModeHostConnection {
+  url: string;
+  webSocketHeaders: Record<string, string> | undefined;
+}
+
+// nats-core supports this runtime option but does not export its WebSocket factory type.
+type WebSocketFactory = (url: string) => Promise<{ socket: WebSocket; encrypted: boolean }>;
+type WebSocketConnectionOptions = ConnectionOptions & { wsFactory: WebSocketFactory | undefined };
+type CreateWebSocket = (params: { url: string; headers: Record<string, string> }) => WebSocket;
+
+function createWebSocket(params: { url: string; headers: Record<string, string> }): WebSocket {
+  return new WebSocket(params.url, { headers: params.headers });
+}
+
+/** Creates one immutable connection option set, including any provider-bound upgrade headers. */
+export function createNatsConnectionOptions(
+  connection: CodeModeHostConnection,
+  webSocketCreator: CreateWebSocket = createWebSocket,
+): WebSocketConnectionOptions {
+  const headers = connection.webSocketHeaders;
+  return {
+    servers: [connection.url],
+    timeout: NATS_CONNECT_TIMEOUT_MS,
+    wsFactory:
+      headers === undefined
+        ? undefined
+        : (socketUrl: string) =>
+            Promise.resolve().then(() => ({
+              socket: webSocketCreator({ url: socketUrl, headers }),
+              encrypted: socketUrl.startsWith('wss:'),
+            })),
+  };
+}
+
 /**
  * NATS Code Mode transport. Session cache + connection-drop invalidate live here
  * (no `whenClosed` on the public interface).
  */
 export class CodeModeNatsTransport implements CodeModeTransport {
-  private readonly resolveHostUrl: (sandboxId: string) => Promise<string>;
+  private readonly resolveHostConnection: (sandboxId: string) => Promise<CodeModeHostConnection>;
   private readonly sandboxClientNatsUrl: string;
   private readonly logger: Logger;
 
@@ -41,13 +75,13 @@ export class CodeModeNatsTransport implements CodeModeTransport {
   private readonly mcpClientPathBinSymlink: string | undefined;
 
   constructor(params: {
-    resolveHostUrl: (sandboxId: string) => Promise<string>;
+    resolveHostConnection: (sandboxId: string) => Promise<CodeModeHostConnection>;
     sandboxClientNatsUrl?: string;
     logger: Logger;
     /** Provider-owned MCP client layout (absolute or cwd-relative). */
     mcpClientInstall: { remotePath: string; pathBinSymlink?: string | undefined };
   }) {
-    this.resolveHostUrl = params.resolveHostUrl;
+    this.resolveHostConnection = params.resolveHostConnection;
     this.sandboxClientNatsUrl = params.sandboxClientNatsUrl ?? `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`;
     this.logger = params.logger.child({ module: 'CodeModeNatsTransport' });
     this.mcpClientRemotePath = params.mcpClientInstall.remotePath;
@@ -104,14 +138,14 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     sandboxId: string;
     requestTimeoutSeconds: number;
   }): Promise<{ env: Record<string, string> }> {
-    const url = await this.resolveHostUrl(params.sandboxId);
+    const hostConnection = await this.resolveHostConnection(params.sandboxId);
     const subjectPrefix = `${SANDBOX_NATS_SUBJECT_ROOT}.${randomUUID()}`;
     let lastErr: unknown;
     let nc: NatsConnection | undefined;
     for (let attempt = 1; attempt <= NATS_CONNECT_RETRIES; attempt++) {
       try {
         nc = await context.with(suppressTracing(context.active()), () =>
-          wsconnect({ servers: [url], timeout: NATS_CONNECT_TIMEOUT_MS }),
+          wsconnect(createNatsConnectionOptions(hostConnection)),
         );
         this.logger.info(`Connected to sandbox NATS (attempt ${String(attempt)})`, { subjectPrefix });
         break;

@@ -1,13 +1,13 @@
-// Stub the Daytona-touching helpers so the router never talks to Daytona: the PUT path builds via
-// toDaytonaSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError
+// Stub provider construction/status so the router never performs remote calls. Auth classification
 // and toSandboxStatus stay real so the auth-error mapping and PUT wire shape are exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
-  return { ...actual, toDaytonaSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
+  return { ...actual, toSandboxProvider: jest.fn(), checkSandboxProviderStatus: jest.fn() };
 });
 
 import { DaytonaError } from '@daytona/sdk';
-import type { SandboxBuild } from '@truefoundry/trueforge-core/core';
+import type { SandboxBuild, SandboxProvider } from '@truefoundry/trueforge-core/core';
+import { AuthenticationError } from 'e2b';
 import { createLogger } from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createSandboxProvidersRouter } from '../../../src/apis/sandboxProviders';
@@ -17,14 +17,15 @@ import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
-import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
+import type { ISandboxProviderStore, SandboxProviderRecord } from '../../../src/db/sandboxProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
-import { checkSnapshotStatus, toDaytonaSandboxProvider } from '../../../src/sandbox/providerUtils';
+import { checkSandboxProviderStatus, toSandboxProvider } from '../../../src/sandbox/providerUtils';
+import type { SandboxStatus } from '../../../src/schemas/sandboxProvider';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
-const mockProviderFactory = toDaytonaSandboxProvider as jest.Mock;
-const mockCheckStatus = checkSnapshotStatus as jest.Mock;
+const mockProviderFactory = jest.mocked(toSandboxProvider);
+const mockCheckStatus = jest.mocked(checkSandboxProviderStatus);
 const silentLogger = createLogger({ silent: true });
 
 const putBody = {
@@ -34,6 +35,13 @@ const putBody = {
   auto_stop_interval_in_minutes: 5,
   auto_archive_interval_in_minutes: 60,
   auto_delete_interval_in_minutes: 7200,
+};
+
+const e2bPutBody = {
+  type: 'e2b' as const,
+  auth: { api_key: 'e2b-test-secret' },
+  exec_timeout_ms: 60_000,
+  sandbox_timeout_ms: 300_000,
 };
 
 const IMAGE_URI = 'tfy.jfrog.io/tfy-images/truefoundry-utils-core-sandbox:029ea5ff';
@@ -46,6 +54,10 @@ const expectedStatus = {
   status: 'ready' as const,
   status_reason: null,
 };
+const readyStatus: SandboxStatus = {
+  ...expectedStatus,
+  build_metadata: readyBuild.metadata,
+};
 
 /** Wire GET/PUT response: the (redacted) manifest nested under `manifest`, plus the build status. */
 function wireResponse(manifest: Record<string, unknown>) {
@@ -57,10 +69,24 @@ const putBodyWire = wireResponse({
   auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
 });
 
-function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?: jest.Mock } = {}) {
+function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?: jest.Mock } = {}): SandboxProvider {
   return {
+    type: 'daytona',
     buildImage: overrides.buildImage ?? jest.fn().mockResolvedValue(readyBuild),
     getImageBuildStatus: overrides.getImageBuildStatus ?? jest.fn().mockResolvedValue(readyBuild),
+    createSandbox: jest.fn().mockResolvedValue({ sandboxId: 'sandbox-1' }),
+    exec: jest.fn().mockResolvedValue({ success: true, response: { exitCode: 0, result: '' } }),
+    getAdditionalInstructions: () => undefined,
+    getToolResultDumpDir: () => '/tmp/tool-results',
+    getGitCredentialsPath: () => '/tmp/.git-credentials',
+    getFileUploadsDir: () => '/tmp/uploads',
+    getSkillsDir: () => '/tmp/skills',
+    getGitDownloaderPath: () => '/tmp/git_downloader.py',
+    downloadFile: jest.fn().mockResolvedValue(Buffer.alloc(0)),
+    uploadFile: jest.fn().mockResolvedValue(undefined),
+    createCodeModeTransport: () => {
+      throw new Error('Code Mode is not used by this router test');
+    },
   };
 }
 
@@ -97,7 +123,7 @@ beforeEach(() => {
   mockProviderFactory.mockReset();
   mockProviderFactory.mockReturnValue(stubProvider());
   mockCheckStatus.mockReset();
-  mockCheckStatus.mockResolvedValue(expectedStatus);
+  mockCheckStatus.mockResolvedValue(readyStatus);
 });
 
 describe('sandboxProviders router', () => {
@@ -148,6 +174,124 @@ describe('sandboxProviders router', () => {
     expect(stored?.manifest).toEqual(putBody);
   });
 
+  it('PUT persists and returns an E2B provider manifest', async () => {
+    const { settingsRouter: router, sandboxProviderStore: store } = await createRouters();
+
+    const response = await router.request('/', putInit(e2bPutBody));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: wireResponse({
+        ...e2bPutBody,
+        auth: { api_key: toRedactedSecretValue(e2bPutBody.auth.api_key) },
+      }),
+    });
+    expect((await store.getSandboxProvider(TENANT_ID))?.manifest).toEqual(e2bPutBody);
+  });
+
+  it('rebuilds outside the transaction when stored build inputs change after preflight', async () => {
+    const firstRecord: SandboxProviderRecord = {
+      tenant_id: TENANT_ID,
+      manifest: putBody,
+      status: 'ready',
+      status_reason: null,
+      build_metadata: { build_ref: 'old-build', image_uri: IMAGE_URI },
+      created_at: '2026-08-21T00:00:00.000Z',
+      updated_at: '2026-08-21T00:00:00.000Z',
+    };
+    const secondRecord: SandboxProviderRecord = {
+      ...firstRecord,
+      build_metadata: { build_ref: 'new-build', image_uri: IMAGE_URI },
+      updated_at: '2026-08-21T00:01:00.000Z',
+    };
+    let preflightReads = 0;
+    let insideTransaction = false;
+    const buildImage = jest.fn().mockImplementation(() => {
+      expect(insideTransaction).toBe(false);
+      return Promise.resolve(readyBuild);
+    });
+    mockProviderFactory.mockReturnValue(stubProvider({ buildImage }));
+    const store: ISandboxProviderStore<symbol> = {
+      getSandboxProvider: jest.fn().mockImplementation(() => {
+        preflightReads += 1;
+        return Promise.resolve(preflightReads === 1 ? firstRecord : secondRecord);
+      }),
+      getSandboxProviderForUpdate: jest.fn().mockResolvedValue(secondRecord),
+      upsertSandboxProvider: jest.fn().mockResolvedValue(secondRecord),
+      updateSandboxStatus: jest.fn().mockResolvedValue(secondRecord),
+    };
+    const router = createSandboxProvidersRouter({
+      sandboxProviderStore: store,
+      withTransaction: async callback => {
+        insideTransaction = true;
+        try {
+          return await callback(Symbol('transaction'));
+        } finally {
+          insideTransaction = false;
+        }
+      },
+      logger: silentLogger,
+    });
+
+    const response = await router.request('/', putInit(putBody));
+
+    expect(response.status).toBe(200);
+    expect(buildImage).toHaveBeenCalledTimes(2);
+    expect(store.upsertSandboxProvider).toHaveBeenCalledTimes(1);
+    expect(mockProviderFactory.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ build_metadata: firstRecord.build_metadata }),
+    );
+    expect(mockProviderFactory.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({ build_metadata: secondRecord.build_metadata }),
+    );
+  });
+
+  it('returns 409 after repeated concurrent build-input changes', async () => {
+    const before: SandboxProviderRecord = {
+      tenant_id: TENANT_ID,
+      manifest: putBody,
+      status: 'ready',
+      status_reason: null,
+      build_metadata: { build_ref: 'old-build', image_uri: IMAGE_URI },
+      created_at: '2026-08-21T00:00:00.000Z',
+      updated_at: '2026-08-21T00:00:00.000Z',
+    };
+    const locked: SandboxProviderRecord = {
+      ...before,
+      updated_at: '2026-08-21T00:01:00.000Z',
+    };
+    let insideTransaction = false;
+    const buildImage = jest.fn().mockImplementation(() => {
+      expect(insideTransaction).toBe(false);
+      return Promise.resolve(readyBuild);
+    });
+    mockProviderFactory.mockReturnValue(stubProvider({ buildImage }));
+    const store: ISandboxProviderStore<symbol> = {
+      getSandboxProvider: jest.fn().mockResolvedValue(before),
+      getSandboxProviderForUpdate: jest.fn().mockResolvedValue(locked),
+      upsertSandboxProvider: jest.fn().mockResolvedValue(locked),
+      updateSandboxStatus: jest.fn().mockResolvedValue(locked),
+    };
+    const router = createSandboxProvidersRouter({
+      sandboxProviderStore: store,
+      withTransaction: async callback => {
+        insideTransaction = true;
+        try {
+          return await callback(Symbol('transaction'));
+        } finally {
+          insideTransaction = false;
+        }
+      },
+      logger: silentLogger,
+    });
+
+    const response = await router.request('/', putInit(putBody));
+
+    expect(response.status).toBe(409);
+    expect(buildImage).toHaveBeenCalledTimes(3);
+    expect(store.upsertSandboxProvider).not.toHaveBeenCalled();
+  });
+
   it('GET surfaces an error (500) when the status refresh throws', async () => {
     const { settingsRouter: router } = await createRouters();
     expect((await router.request('/', putInit(putBody))).status).toBe(200);
@@ -163,6 +307,19 @@ describe('sandboxProviders router', () => {
     );
     const response = await settingsRouter.request('/', putInit(putBody));
     expect(response.status).toBe(422);
+  });
+
+  it('PUT returns 422 when E2B rejects the API key', async () => {
+    mockProviderFactory.mockReturnValue(
+      stubProvider({ buildImage: jest.fn().mockRejectedValue(new AuthenticationError('unauthorized')) }),
+    );
+
+    const response = await settingsRouter.request('/', putInit(e2bPutBody));
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: { message: 'E2B rejected the API key — check the credentials' },
+    });
   });
 
   it('PUT does not persist config when the build call fails auth', async () => {

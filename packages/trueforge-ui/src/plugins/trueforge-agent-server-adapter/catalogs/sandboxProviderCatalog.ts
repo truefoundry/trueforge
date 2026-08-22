@@ -3,8 +3,8 @@
  * `/api/v1/settings/sandbox-providers` (singleton upsert, no delete).
  *
  * UI: multi-row providers with `id` / `catalogId` / `name` / flat `apiKey`.
- * Harness: one Daytona provider per tenant; catalog YAML has no name — synthetic
- * identity uses `type` (`daytona`) as id/catalogId and display name `Daytona`.
+ * Harness: one provider per tenant; catalog YAML has no name. The shared UI runtime
+ * currently models Daytona lifecycle fields, so other provider variants stay hidden.
  */
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
@@ -20,8 +20,15 @@ export type UiSandboxProvider = SandboxProviderBase;
 export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
 export type UiSandboxProviderListEntry = SandboxProviderListEntry;
 
+type HarnessSandboxProvider = TrueForgeApi.CatalogSandboxProvider | TrueForgeApi.SandboxProviderManifest;
+type HarnessDaytonaSandboxProvider = Extract<HarnessSandboxProvider, { type: 'daytona' }>;
+
 const DAYTONA_TYPE = 'daytona';
 const DAYTONA_DISPLAY_NAME = 'Daytona';
+
+export function isUiSupportedSandboxProvider(provider: { type: string }): provider is { type: 'daytona' } {
+  return provider.type === DAYTONA_TYPE;
+}
 
 function displayNameForType(type: string): string {
   if (type === DAYTONA_TYPE) {
@@ -30,9 +37,7 @@ function displayNameForType(type: string): string {
   return type;
 }
 
-export function configFromHarness(
-  provider: TrueForgeApi.CatalogSandboxProvider | TrueForgeApi.SandboxProviderManifest,
-): SandboxProviderConfig {
+export function configFromHarness(provider: HarnessDaytonaSandboxProvider): SandboxProviderConfig {
   return {
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
@@ -41,7 +46,12 @@ export function configFromHarness(
   };
 }
 
-export function toUiCatalogEntry(provider: TrueForgeApi.CatalogSandboxProvider): UiSandboxProviderCatalogEntry {
+export function toUiCatalogEntry(
+  provider: TrueForgeApi.CatalogSandboxProvider,
+): UiSandboxProviderCatalogEntry | undefined {
+  if (!isUiSupportedSandboxProvider(provider)) {
+    return undefined;
+  }
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -50,7 +60,10 @@ export function toUiCatalogEntry(provider: TrueForgeApi.CatalogSandboxProvider):
   };
 }
 
-export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManifest): UiSandboxProvider {
+export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManifest): UiSandboxProvider | undefined {
+  if (!isUiSupportedSandboxProvider(provider)) {
+    return undefined;
+  }
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
@@ -62,9 +75,13 @@ export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManife
 
 export function toUiSandboxProviderListEntry(
   response: TrueForgeApi.GetSandboxProviderResponse['data'],
-): UiSandboxProviderListEntry {
+): UiSandboxProviderListEntry | undefined {
+  const provider = toUiSandboxProvider(response.manifest);
+  if (provider === undefined) {
+    return undefined;
+  }
   return {
-    data: toUiSandboxProvider(response.manifest),
+    data: provider,
     snapshotSyncStatus: {
       status: response.status,
       ...(response.statusReason ? { statusReason: response.statusReason } : {}),
@@ -123,13 +140,17 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
   return {
     getSandboxProviderCatalog: async () => {
       const body = await client.catalogs.sandboxProviders.list();
-      return body.data.map(toUiCatalogEntry);
+      return body.data.flatMap(provider => {
+        const entry = toUiCatalogEntry(provider);
+        return entry === undefined ? [] : [entry];
+      });
     },
     listSandboxProviders: async req => {
       let providers: UiSandboxProviderListEntry[];
       try {
         const body = await client.settings.sandboxProviders.get();
-        providers = [toUiSandboxProviderListEntry(body.data)];
+        const provider = toUiSandboxProviderListEntry(body.data);
+        providers = provider === undefined ? [] : [provider];
       } catch (err) {
         if (err instanceof TrueForgeApi.NotFoundError) {
           providers = [];
@@ -150,7 +171,11 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
         }),
       });
-      return toUiSandboxProvider(body.data.manifest);
+      const provider = toUiSandboxProvider(body.data.manifest);
+      if (provider === undefined) {
+        throw new Error(`Unsupported sandbox provider type: ${body.data.manifest.type}`);
+      }
+      return provider;
     },
     updateSandboxProvider: async req => {
       const apiKey = await resolveApiKey(req.apiKey);
@@ -164,7 +189,11 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
         }),
       });
-      return toUiSandboxProvider(body.data.manifest);
+      const provider = toUiSandboxProvider(body.data.manifest);
+      if (provider === undefined) {
+        throw new Error(`Unsupported sandbox provider type: ${body.data.manifest.type}`);
+      }
+      return provider;
     },
   };
 }

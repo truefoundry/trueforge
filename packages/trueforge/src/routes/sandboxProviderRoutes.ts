@@ -53,9 +53,13 @@ export const putSandboxProviderRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The provider changed concurrently while resolving a stored credential.',
+    },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Daytona rejected the provided API key.',
+      description: 'The selected sandbox provider rejected the provided API key.',
     },
   },
 });
