@@ -64,6 +64,31 @@ describe('chatInstructionTranscript', () => {
     ]);
   });
 
+  it('keeps multiple user messages in one turn in chronological order', () => {
+    const lines = extractChatTranscript([
+      {
+        turn_id: 't1',
+        event: {
+          type: EventType.TURN_CREATED,
+          id: 'e1',
+          turn_id: 't1',
+          previous_turn_id: null,
+          input: [
+            { type: EventType.USER_MESSAGE, content: 'First preference: be terse.' },
+            { type: EventType.USER_MESSAGE, content: 'Second preference: use a changelog.' },
+          ],
+          state: { status: 'running' },
+          created_at: '2026-08-01T00:00:00.000Z',
+          thread_id: null,
+        },
+      },
+    ]);
+    expect(lines.map(line => line.text)).toEqual([
+      'First preference: be terse.',
+      'Second preference: use a changelog.',
+    ]);
+  });
+
   it('skips subagent replies', () => {
     const lines = extractChatTranscript([
       assistantMessage({
