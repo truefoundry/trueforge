@@ -27,14 +27,28 @@ export type SessionState = 'authenticated' | 'unauthenticated';
 
 /** Last successful me() OIDC check — survives remounts of host chrome. */
 let cachedIsOidcConnected: boolean | undefined;
+/** Email from the last successful me() call — survives remounts of host chrome. */
+let cachedEmail: string | undefined;
+/** Role from the last successful me() call — survives remounts of host chrome. */
+let cachedRole: string | undefined;
 
 export function getCachedIsOidcConnectedSession(): boolean | undefined {
   return cachedIsOidcConnected;
 }
 
+export function getCachedEmail(): string | undefined {
+  return cachedEmail;
+}
+
+export function getCachedRole(): string | undefined {
+  return cachedRole;
+}
+
 /** Test-only: clear the module cache between cases. */
 export function resetOidcSessionCacheForTests(): void {
   cachedIsOidcConnected = undefined;
+  cachedEmail = undefined;
+  cachedRole = undefined;
 }
 
 /**
@@ -45,6 +59,8 @@ export async function isOidcConnectedSession(client: TrueForge = authClient): Pr
   const session = await client.auth.me();
   const isConnected = session.type === 'oidc-connected';
   cachedIsOidcConnected = isConnected;
+  cachedEmail = session.email;
+  cachedRole = session.role;
   return isConnected;
 }
 
