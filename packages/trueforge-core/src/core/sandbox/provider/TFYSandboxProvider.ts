@@ -14,6 +14,7 @@ import {
   SandboxPathIsDirectoryError,
   validateSandboxOwnedByTenant,
 } from '../SandboxErrors';
+import { boundedFileStream } from './boundedFileStream';
 import { absolutizeRelativeExecEnv } from './execEnv';
 import {
   ensureExecSuccess,
@@ -21,6 +22,7 @@ import {
   type ExecResult,
   type SandboxBuild,
   type SandboxExecParams,
+  type SandboxFileDownload,
   type SandboxFileInfo,
   type SandboxProvider,
 } from './Provider';
@@ -28,6 +30,8 @@ import {
 const DEFAULT_TIMEOUT_SECONDS = 60;
 // Buffer for network latency + response processing on top of the server-side timeout.
 const CLIENT_TIMEOUT_BUFFER_SECONDS = 5;
+/** Chunk size for streamed downloads — bounds per-exec memory while amortizing round-trips. */
+const TFY_DOWNLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 
 const TFY_MCP_CLIENT_BIN = 'mcp-client/bin';
 
@@ -107,6 +111,11 @@ export class TFYSandboxProvider implements SandboxProvider {
    * git and `mcp-client` work after `cd` — resolved from `pwd` / `$PATH`, not a hardcoded prefix.
    */
   async exec(params: SandboxExecParams): Promise<ExecResult> {
+    return this.runInSandbox(params);
+  }
+
+  /** Shared exec body: tenant check, layout discovery, env absolutization, then the HTTP exec. */
+  private async runInSandbox(params: SandboxExecParams & { signal?: AbortSignal | undefined }): Promise<ExecResult> {
     validateSandboxOwnedByTenant({ sandboxId: params.sandboxId, tenantName: this.tenantName });
     const { root, inheritedPath } = await this.sandboxLayout(params.sandboxId);
     const incoming = params.env ?? {};
@@ -116,7 +125,6 @@ export class TFYSandboxProvider implements SandboxProvider {
     });
     return this.postExec({ ...params, env });
   }
-
   private async sandboxLayout(sandboxId: string): Promise<{ root: string; inheritedPath: string }> {
     const cached = this.sandboxLayouts.get(sandboxId);
     if (cached !== undefined) {
@@ -137,7 +145,7 @@ export class TFYSandboxProvider implements SandboxProvider {
     return parsed;
   }
 
-  private async postExec(params: SandboxExecParams): Promise<ExecResult> {
+  private async postExec(params: SandboxExecParams & { signal?: AbortSignal | undefined }): Promise<ExecResult> {
     return context.with(suppressTracing(context.active()), async (): Promise<ExecResult> => {
       // Honor the per-call timeout (e.g. the longer skill-download timeout) for both the server-side
       // request timeout and the client abort timer; fall back to the provider default otherwise.
@@ -155,13 +163,16 @@ export class TFYSandboxProvider implements SandboxProvider {
       const timer = setTimeout(() => {
         controller.abort();
       }, clientTimeoutMs);
+      // One composite signal so either the timeout or a caller abort stops the in-flight fetch.
+      const requestSignal =
+        params.signal === undefined ? controller.signal : AbortSignal.any([controller.signal, params.signal]);
 
       try {
         const response = await fetch(`${this.serverUrl}/exec`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-          signal: controller.signal,
+          signal: requestSignal,
         });
 
         if (!response.ok) {
@@ -173,6 +184,10 @@ export class TFYSandboxProvider implements SandboxProvider {
         const result = (await response.json()) as ExecResult;
         return result;
       } catch (e: unknown) {
+        if (params.signal?.aborted === true) {
+          this.logger.info('Sandbox exec aborted by the caller');
+          return { success: false, error: 'Sandbox exec aborted by the caller' };
+        }
         if (e instanceof Error && e.name === 'AbortError') {
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, extractErrorLogFields(e));
           return { success: false, error: `Sandbox exec timed out after ${String(timeoutSeconds)}s` };
@@ -203,7 +218,11 @@ export class TFYSandboxProvider implements SandboxProvider {
     return { size: parsed.size, isDir: parsed.type === 'directory' };
   }
 
-  async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
+  async downloadFile(params: {
+    sandboxId: string;
+    path: string;
+    signal?: AbortSignal | undefined;
+  }): Promise<SandboxFileDownload> {
     const info = await this.getFileInfo(params);
     if (info.isDir) {
       throw new SandboxPathIsDirectoryError(params.path);
@@ -212,19 +231,49 @@ export class TFYSandboxProvider implements SandboxProvider {
       throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
     }
 
-    const result = await this.exec({
-      sandboxId: params.sandboxId,
-      command: `base64 -w0 ${shellEscape(params.path)}`,
-    });
+    // The sandbox server has no file endpoint, so bytes are pulled as base64 through sequential
+    // execs over fixed byte windows (`tail -c +N | head -c M`): memory stays bounded per chunk,
+    // the client receives bytes before the whole file is read, and an abort stops further execs.
+    const { sandboxId, path, signal } = params;
+    const execWindow = (offset: number, length: number): Promise<ExecResult> =>
+      this.runInSandbox({
+        sandboxId,
+        command: `tail -c +${String(offset + 1)} ${shellEscape(path)} | head -c ${String(length)} | base64 -w0`,
+        ...(signal === undefined ? {} : { signal }),
+      });
+    let offset = 0;
+    const chunks = async function* (): AsyncGenerator<Uint8Array> {
+      while (offset < info.size) {
+        const length = Math.min(TFY_DOWNLOAD_CHUNK_BYTES, info.size - offset);
+        const result = await execWindow(offset, length);
+        if (!result.success) {
+          throw new Error(`Failed to download file: ${result.error}`);
+        }
+        if (result.response.exitCode !== 0) {
+          // First window failing means the stat target is gone (or unreadable); later failures
+          // mean the file mutated mid-download, which no HTTP status can express.
+          if (offset === 0) {
+            throw new SandboxFileNotFoundError(path);
+          }
+          throw new Error(`Sandbox file changed during download: ${path}`);
+        }
+        const decoded = Buffer.from(result.response.result.trim(), 'base64');
+        if (decoded.byteLength !== length) {
+          throw new Error(`Sandbox file changed during download: ${path}`);
+        }
+        offset += length;
+        yield decoded;
+      }
+    };
 
-    if (!result.success) {
-      throw new Error(`Failed to download file: ${result.error}`);
-    }
-    if (result.response.exitCode !== 0) {
-      throw new SandboxFileNotFoundError(params.path);
-    }
-
-    return Buffer.from(result.response.result.trim(), 'base64');
+    return {
+      size: info.size,
+      stream: boundedFileStream({
+        path,
+        maxBytes: this.fileMaxBytesForDownload,
+        chunks,
+      }),
+    };
   }
 
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {

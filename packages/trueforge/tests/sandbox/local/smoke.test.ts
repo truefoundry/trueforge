@@ -1686,10 +1686,16 @@ async function main(): Promise<void> {
       remotePath: 'uploads/hello.txt',
       content: Buffer.from('upload-ok\n'),
     });
-    const downloaded = await provider.downloadFile({
+    const download = await provider.downloadFile({
       sandboxId,
       path: 'uploads/hello.txt',
     });
+    const downloadedChunks: Uint8Array[] = [];
+    for await (const chunk of download.stream) {
+      downloadedChunks.push(chunk);
+    }
+    const downloaded = Buffer.concat(downloadedChunks.map(chunk => Buffer.from(chunk)));
+    assert.equal(download.size, 'upload-ok\n'.length);
     assert.equal(downloaded.toString('utf8'), 'upload-ok\n');
     const catUpload = await provider.exec({
       sandboxId,
@@ -1867,7 +1873,16 @@ async function main(): Promise<void> {
     let downloadLeaked = false;
     try {
       const leaked = await provider.downloadFile({ sandboxId, path: 'api-escape-dl' });
-      downloadLeaked = leaked.toString('utf8').includes('host-secret-should-not-leak');
+      const reader = leaked.stream.getReader();
+      const parts: Uint8Array[] = [];
+      while (true) {
+        const next = await reader.read();
+        if (next.done) break;
+        parts.push(next.value);
+      }
+      downloadLeaked = Buffer.concat(parts.map(part => Buffer.from(part)))
+        .toString('utf8')
+        .includes('host-secret-should-not-leak');
     } catch {
       // deny / throw is fine; host check below still runs
     }

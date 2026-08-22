@@ -445,6 +445,81 @@ export function killExecTree(child: ChildProcess | undefined): void {
   }
 }
 
+function ignoreStreamError(
+  stream:
+    | {
+        on: (event: 'error', cb: (err: Error) => void) => void;
+      }
+    | null
+    | undefined,
+): void {
+  stream?.on('error', () => undefined);
+}
+
+/** Everything needed to spawn one SRT-wrapped command; shared by buffered and streaming runs. */
+interface SandboxSpawnParams {
+  sandboxRootPath: string;
+  command: string;
+  /** Absolute shell path used to wrap the command string (from isSupported). */
+  shell: string;
+  /** Platform policy for allowRead / PATH (from isSupported). */
+  platform: LocalSandboxPlatform;
+  cwd?: string | undefined;
+  env?: Record<string, string> | undefined;
+  /** Process-group leader (Unix) so {@link killExecTree} can tear down the whole tree. */
+  detached: boolean;
+  /** Pipe stdin for the sandboxed command (e.g. upload payload); 'ignore' otherwise. */
+  pipeStdin: boolean;
+  onChildSpawn?: ((pid: number) => void) | undefined;
+}
+
+async function spawnSandboxedCommand(params: SandboxSpawnParams): Promise<ChildProcess> {
+  const command = wrapSandboxCommand({ platform: params.platform, command: params.command });
+
+  const wrap = await SandboxManager.wrapWithSandboxArgv(
+    command,
+    params.shell,
+    {
+      filesystem: filesystemPolicy({ sandboxRootPath: params.sandboxRootPath, platform: params.platform }),
+      network: {
+        allowedDomains: allowedNetworkDomains(),
+        deniedDomains: [],
+      },
+    },
+    undefined,
+    params.sandboxRootPath,
+    { commandId: randomUUID(), commandText: command },
+  );
+
+  const [argv0, ...argvRest] = wrap.argv;
+  if (argv0 === undefined) {
+    throw new Error('wrapWithSandboxArgv returned empty argv');
+  }
+
+  // Curated env only — do not spread wrap.env (it can carry ambient host secrets).
+  // Code Mode sock path (TFY_MCP_SOCK) is expected in `env` when the caller starts a transport.
+  const childEnv: NodeJS.ProcessEnv = {
+    ...commandEnv({
+      sandboxRootPath: params.sandboxRootPath,
+      platform: params.platform,
+      ...(params.env === undefined ? {} : { extra: params.env }),
+    }),
+  };
+
+  const child = spawn(argv0, argvRest, {
+    cwd: params.cwd ?? params.sandboxRootPath,
+    env: childEnv,
+    shell: false,
+    // Detached process groups break stdin forwarding for upload (`cat` via pipe) under Jest.
+    detached: params.detached && process.platform !== 'win32',
+    stdio: [params.pipeStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+  });
+  if (child.pid !== undefined) {
+    params.onChildSpawn?.(child.pid);
+  }
+  return child;
+}
+
 /**
  * Run one SRT-wrapped command. Code Mode UDS (if any) is supplied via `env.TFY_MCP_SOCK`
  * from {@link CodeModeUdsTransport.start}.
@@ -476,45 +551,18 @@ export async function runSupervisorSession(params: {
     onChildSpawn,
     timeoutMs,
   } = params;
-  const command = wrapSandboxCommand({ platform, command: rawCommand });
 
-  const wrap = await SandboxManager.wrapWithSandboxArgv(
-    command,
-    shell,
-    {
-      filesystem: filesystemPolicy({ sandboxRootPath, platform }),
-      network: {
-        allowedDomains: allowedNetworkDomains(),
-        deniedDomains: [],
-      },
-    },
-    undefined,
+  const child = await spawnSandboxedCommand({
     sandboxRootPath,
-    { commandId: randomUUID(), commandText: command },
-  );
-
-  const [argv0, ...argvRest] = wrap.argv;
-  if (argv0 === undefined) {
-    throw new Error('wrapWithSandboxArgv returned empty argv');
-  }
-
-  // Curated env only — do not spread wrap.env (it can carry ambient host secrets).
-  // Code Mode sock path (TFY_MCP_SOCK) is expected in `env` when the caller starts a transport.
-  const childEnv: NodeJS.ProcessEnv = {
-    ...commandEnv({ sandboxRootPath, platform, ...(env === undefined ? {} : { extra: env }) }),
-  };
-
-  const child = spawn(argv0, argvRest, {
+    command: rawCommand,
+    shell,
+    platform,
     cwd,
-    env: childEnv,
-    shell: false,
-    // Detached process groups break stdin forwarding for upload (`cat` via pipe) under Jest.
-    detached: stdin === undefined && process.platform !== 'win32',
-    stdio: [stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+    env,
+    detached: stdin === undefined,
+    pipeStdin: stdin !== undefined,
+    onChildSpawn,
   });
-  if (child.pid !== undefined) {
-    onChildSpawn?.(child.pid);
-  }
   if (stdin !== undefined) {
     const stdinStream = child.stdin;
     if (stdinStream === null) {
@@ -540,17 +588,6 @@ export async function runSupervisorSession(params: {
   let protocolError: string | undefined;
   let timedOut = false;
   let closed = false;
-
-  const ignoreStreamError = (
-    stream:
-      | {
-          on: (event: 'error', cb: (err: Error) => void) => void;
-        }
-      | null
-      | undefined,
-  ): void => {
-    stream?.on('error', () => undefined);
-  };
 
   const appendOutput = (stream: 'stdout' | 'stderr', chunk: Buffer): void => {
     bufferedOutput += chunk.length;
@@ -609,4 +646,139 @@ export async function runSupervisorSession(params: {
       });
     });
   });
+}
+
+/**
+ * Spawns one SRT-wrapped command whose raw stdout is consumed incrementally.
+ * Unlike {@link runSupervisorSession}, bytes are handed over as they arrive (binary-safe)
+ * instead of being buffered and utf8-decoded — sized for file downloads, where peak memory
+ * must track chunk size rather than file size.
+ *
+ * Wrap/spawn failures throw here so callers can still respond with a proper status before
+ * any byte moves downstream; consume the returned stream promptly.
+ */
+export async function startSupervisorStdoutStream(params: {
+  sandboxRootPath: string;
+  command: string;
+  shell: string;
+  platform: LocalSandboxPlatform;
+  cwd?: string;
+  env?: Record<string, string>;
+  /** Hard wall-clock limit; expiry kills the process group and fails the stream. */
+  timeoutMs: number;
+}): Promise<SupervisedStdoutStream> {
+  const child = await spawnSandboxedCommand({
+    sandboxRootPath: params.sandboxRootPath,
+    command: params.command,
+    shell: params.shell,
+    platform: params.platform,
+    cwd: params.cwd,
+    detached: true,
+    pipeStdin: false,
+  });
+
+  let stderrText = '';
+  let protocolError: string | undefined;
+  let timedOut = false;
+  let done = false;
+  const pending: Buffer[] = [];
+  let wake: (() => void) | undefined;
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    killExecTree(child);
+  }, params.timeoutMs);
+
+  const finish = (): void => {
+    done = true;
+    const w = wake;
+    wake = undefined;
+    w?.();
+  };
+
+  ignoreStreamError(child.stderr);
+  child.stderr?.on('data', (chunk: Buffer) => {
+    if (stderrText.length >= MAX_OUTPUT_BYTES) {
+      protocolError = `stderr exceeded ${String(MAX_OUTPUT_BYTES)} bytes`;
+      killExecTree(child);
+      return;
+    }
+    stderrText += chunk.toString('utf8');
+  });
+  child.on('error', () => undefined);
+  child.stdout?.on('data', (chunk: Buffer) => {
+    pending.push(chunk);
+    const w = wake;
+    wake = undefined;
+    w?.();
+  });
+  // Node emits close after error for spawned processes, so close alone drives termination.
+  const exitCodePromise = new Promise<number>(resolve => {
+    child.on('close', code => {
+      finish();
+      resolve(typeof code === 'number' ? code : timedOut ? 1 : 0);
+    });
+  });
+
+  async function* chunks(): AsyncGenerator<Buffer> {
+    try {
+      // Drain queued bytes first; block only when the queue is empty and the process runs on.
+      while (pending.length > 0 || !done) {
+        const chunk = pending.shift();
+        if (chunk !== undefined) {
+          yield chunk;
+          continue;
+        }
+        await new Promise<void>(resolveWake => {
+          wake = resolveWake;
+        });
+      }
+      const exitCode = await exitCodePromise;
+      if (protocolError !== undefined || exitCode !== 0) {
+        const detail = [protocolError, stderrText.trim()]
+          .filter(part => part !== undefined && part.length > 0)
+          .join(' ');
+        throw new SupervisorStreamError(
+          detail.length > 0 ? detail : `sandboxed command exited ${String(exitCode)}`,
+          exitCode,
+        );
+      }
+    } finally {
+      done = true;
+      clearTimeout(timer);
+      // Early consumer return lands here too; a completed process is an ESRCH no-op.
+      killExecTree(child);
+      SandboxManager.cleanupAfterCommand();
+    }
+  }
+
+  return {
+    abort: () => {
+      killExecTree(child);
+    },
+    chunks,
+  };
+}
+
+/** Failure of a streamed sandboxed command after a successful spawn (nonzero/timeout/protocol). */
+export class SupervisorStreamError extends Error {
+  readonly exitCode: number;
+
+  constructor(message: string, exitCode: number) {
+    super(message);
+    this.name = 'SupervisorStreamError';
+    this.exitCode = exitCode;
+  }
+}
+
+/** A spawned sandboxed command exposing its raw stdout for incremental consumption. */
+export interface SupervisedStdoutStream {
+  /**
+   * Yields stdout Buffers as they arrive; single consumption. Fails with
+   * {@link SupervisorStreamError} when the command ends non-zero / timed out / protocol-error.
+   * Returning early (or calling {@link SupervisedStdoutStream.abort}) kills the process group.
+   */
+  chunks(): AsyncGenerator<Buffer>;
+  /** Force-stops the underlying process group (e.g. when the HTTP client disconnects). */
+  abort: () => void;
 }

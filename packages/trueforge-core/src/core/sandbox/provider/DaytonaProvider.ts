@@ -6,6 +6,9 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
+import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
+import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
@@ -13,10 +16,15 @@ import {
   SandboxPathIsDirectoryError,
   validateSandboxOwnedByTenant,
 } from '../SandboxErrors';
-import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
-import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
-import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
+import { boundedFileStream } from './boundedFileStream';
+import type {
+  ExecResult,
+  SandboxBuild,
+  SandboxExecParams,
+  SandboxFileDownload,
+  SandboxFileInfo,
+  SandboxProvider,
+} from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 /** Another replica already registered this build name; its create is the one that counts. */
@@ -415,9 +423,15 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     return { size: details.size, isDir: details.isDir };
   }
 
-  async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
+  async downloadFile(params: {
+    sandboxId: string;
+    path: string;
+    signal?: AbortSignal | undefined;
+  }): Promise<SandboxFileDownload> {
     return context.with(suppressTracing(context.active()), async () => {
       try {
+        // Stat + stream-open happen here so domain errors (404 / dir / too large) reject the
+        // promise while the route can still answer with a JSON status instead of a broken body.
         return await this.executeWithSandboxRecovery(params.sandboxId, async () => {
           const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
 
@@ -429,7 +443,33 @@ export class DaytonaSandboxProvider implements SandboxProvider {
             throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
           }
 
-          return await sandbox.fs.downloadFile(params.path);
+          const nodeStream = await sandbox.fs.downloadFileStream(params.path);
+          if (params.signal !== undefined) {
+            params.signal.addEventListener(
+              'abort',
+              () => {
+                nodeStream.destroy(new Error(`Download of ${params.path} aborted by the client`));
+              },
+              { once: true },
+            );
+          }
+          return {
+            size: info.size,
+            stream: boundedFileStream({
+              path: params.path,
+              maxBytes: this.fileMaxBytesForDownload,
+              chunks: async function* () {
+                try {
+                  for await (const chunk of nodeStream) {
+                    yield chunk;
+                  }
+                } finally {
+                  // No-op on natural completion; stops the transfer when cancelled or errored.
+                  nodeStream.destroy();
+                }
+              },
+            }),
+          };
         });
       } catch (e: unknown) {
         if (e instanceof SandboxPathIsDirectoryError || e instanceof SandboxFileTooLargeError) {
