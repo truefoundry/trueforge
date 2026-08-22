@@ -8,6 +8,7 @@ import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
   CreateSessionRequestSchema,
+  GenerateSessionInstructionsResponseSchema,
   GetSessionResponseSchema,
   ListSessionsRequestQuerySchema,
   ListSessionsResponseSchema,
@@ -239,6 +240,43 @@ export const listSessionEventsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session not found.',
+    },
+  },
+});
+
+export const generateSessionInstructionsRoute = createRoute({
+  method: 'post',
+  path: '/{session_id}/generate-instructions',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Generate system instructions from chat history',
+  description:
+    "Draft system instructions from this session's transcript and current instructions. The suggestion is not saved. The client must show it for edit and apply it with a separate session or agent update. Short chats that do not establish behavior return 422.",
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'generate_instructions',
+  request: {
+    params: SessionIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GenerateSessionInstructionsResponseSchema } },
+      description: 'Suggested instructions and the transcript excerpts they came from.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description:
+        'The chat is too short to infer durable instructions, the named agent is missing, or the session model is not configured.',
+    },
+    502: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The model call to draft instructions failed.',
     },
   },
 });

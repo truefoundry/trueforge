@@ -10,7 +10,7 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, VercelAILLM } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
@@ -32,14 +32,25 @@ import {
   cancelSessionRoute,
   createSessionRoute,
   deleteSessionRoute,
+  generateSessionInstructionsRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import {
+  assertTranscriptHasInstructionSignal,
+  extractChatTranscript,
+  InsufficientChatSignalError,
+} from '../runtime/chatInstructionTranscript';
+import {
+  draftInstructionsFromChat,
+  loadInstructionTranscriptEvents,
+  resolveSessionAgentSpec,
+} from '../runtime/generateSessionInstructions';
 import { executorFromTurnId } from '../runtime/peeringIds';
-import { validateAgentSpec } from '../runtime/sessionResources';
+import { getModelDetails, validateAgentSpec } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
@@ -396,6 +407,63 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
+  const generateSessionInstructionsHandler: RouteHandler<typeof generateSessionInstructionsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+
+    const spec = await resolveSessionAgentSpec({
+      agent: session.record.agent,
+      getAgentById: id => deps.agentStore.getAgent({ tenant_id: TENANT_ID, id }),
+    });
+    if (spec === undefined) {
+      return c.json({ error: { message: `Agent not found for session: ${sessionId}` } }, 422);
+    }
+
+    const events = await loadInstructionTranscriptEvents(session);
+    try {
+      assertTranscriptHasInstructionSignal(extractChatTranscript(events));
+    } catch (error) {
+      if (error instanceof InsufficientChatSignalError) {
+        return c.json({ error: { message: error.message } }, 422);
+      }
+      throw error;
+    }
+
+    const { providerConfig } = await getModelDetails({
+      tenant_id: TENANT_ID,
+      name: spec.model.name,
+      store: deps.modelProviderStore,
+    });
+
+    try {
+      const data = await draftInstructionsFromChat({
+        events,
+        currentInstructions: spec.instructions,
+        llm: new VercelAILLM({
+          providerConfig,
+          logger: deps.logger,
+          signal: c.req.raw.signal,
+        }),
+      });
+      return c.json({ data }, 200);
+    } catch (error) {
+      if (error instanceof InsufficientChatSignalError) {
+        return c.json({ error: { message: error.message } }, 422);
+      }
+      deps.logger.warn('Failed to generate session instructions', {
+        sessionId,
+        ...extractErrorLogFields(error),
+      });
+      return c.json({ error: { message: 'Failed to generate instructions from this chat' } }, 502);
+    }
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
@@ -404,6 +472,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  router.openapi(generateSessionInstructionsRoute, generateSessionInstructionsHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

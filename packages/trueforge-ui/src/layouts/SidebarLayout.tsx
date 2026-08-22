@@ -28,6 +28,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const BrandLogo = useSlot('BrandLogo');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const ClearChatButton = useSlot('ClearChatButton');
+  const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [collapsed, setCollapsed] = useState(desktopCollapsed);
@@ -163,6 +164,7 @@ export function SidebarLayout({ className }: { className?: string }) {
               <NamedAgentHeaderLabel />
               <span className="min-w-0 flex-1" />
               <ClearChatButton />
+              <GenerateInstructionsButton />
               <SaveAgentButton />
             </>
           ) : (
