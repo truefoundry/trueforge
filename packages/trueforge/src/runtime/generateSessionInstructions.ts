@@ -18,8 +18,6 @@ import {
   sourcesFromTranscript,
 } from './chatInstructionTranscript';
 
-export type { GeneratedSessionInstructions };
-
 function textFromLlmContent(content: unknown): string {
   if (typeof content === 'string') {
     return content;
