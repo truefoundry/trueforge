@@ -165,6 +165,10 @@ describe('sessions HTTP agent binding', () => {
     expect(cancelForbidden.status).toBe(403);
     expect(await cancelForbidden.json()).toEqual(forbiddenBody);
 
+    const generateForbidden = await app.request('/other-user-session/generate-instructions', { method: 'POST' });
+    expect(generateForbidden.status).toBe(403);
+    expect(await generateForbidden.json()).toEqual(forbiddenBody);
+
     const eventsForbidden = await app.request('/other-user-session/events');
     expect(eventsForbidden.status).toBe(403);
     expect(await eventsForbidden.json()).toEqual(forbiddenBody);
@@ -213,5 +217,16 @@ describe('sessions HTTP agent binding', () => {
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
     const both = await app.request('/', jsonInit('POST', { agent: { name: 'named-agent', ...inlineSpec } }));
     expect(both.status).toBe(400);
+  });
+
+  it('rejects generate-instructions on an empty chat without calling a model', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    const generated = await app.request(`/${data.id}/generate-instructions`, { method: 'POST' });
+    expect(generated.status).toBe(422);
+    const body = (await generated.json()) as { error: { message: string } };
+    expect(body.error.message).toMatch(/too short/i);
   });
 });

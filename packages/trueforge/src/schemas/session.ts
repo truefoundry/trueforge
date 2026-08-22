@@ -92,3 +92,34 @@ export const ListSessionsResponseSchema = z
     pagination: TokenPaginationSchema,
   })
   .openapi('ListSessionsResponse');
+
+export const ChatInstructionSourceSchema = z
+  .object({
+    turn_id: z.string().min(1).describe('Turn that contributed this excerpt.'),
+    role: z.enum(['user', 'assistant']).describe('Speaker of the excerpt.'),
+    excerpt: z.string().min(1).describe('Short quote from the transcript used as evidence.'),
+  })
+  .strict()
+  .openapi('ChatInstructionSource');
+
+export type ChatInstructionSource = z.infer<typeof ChatInstructionSourceSchema>;
+
+export const GeneratedSessionInstructionsSchema = z
+  .object({
+    instructions: z.string().min(1).describe('Suggested system instructions. Not applied until the client saves them.'),
+    current_instructions: z
+      .string()
+      .nullable()
+      .describe('Instructions currently on the session or named agent, if any.'),
+    sources: z.array(ChatInstructionSourceSchema).describe('Transcript excerpts the suggestion was inferred from.'),
+  })
+  .strict()
+  .openapi('GeneratedSessionInstructions');
+
+export type GeneratedSessionInstructions = z.infer<typeof GeneratedSessionInstructionsSchema>;
+
+export const GenerateSessionInstructionsResponseSchema = z
+  .object({
+    data: GeneratedSessionInstructionsSchema,
+  })
+  .openapi('GenerateSessionInstructionsResponse');

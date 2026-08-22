@@ -31,6 +31,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const isIdle = shell?.mode.status === 'idle';
@@ -78,6 +79,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
+            <GenerateInstructionsButton />
             <SaveAgentButton />
             {threadHeaderEnd}
           </header>
