@@ -152,4 +152,31 @@ describe('GenerateInstructionsButton', () => {
     expect(screen.queryByRole('button', { name: /Apply to this chat/i })).toBeDisabled();
     expect(adoptAgentSpec).not.toHaveBeenCalled();
   });
+
+  it('starts only one generate if From chat is clicked twice', async () => {
+    let resolveGenerate: (value: {
+      instructions: string;
+      currentInstructions: string;
+      sources: Array<{ turnId: string; role: 'user' | 'assistant'; excerpt: string }>;
+    }) => void = () => undefined;
+    generateInstructionsFromChat.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveGenerate = resolve;
+        }),
+    );
+    renderButton();
+    const button = screen.getByRole('button', { name: /From chat/i });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(generateInstructionsFromChat).toHaveBeenCalledTimes(1);
+    resolveGenerate({
+      instructions: 'Only one draft.',
+      currentInstructions: 'Be helpful.',
+      sources: [],
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText('Suggested instructions')).toHaveValue('Only one draft.');
+    });
+  });
 });
