@@ -57,6 +57,20 @@ describe('resolveCompactionThresholdTokens', () => {
     ).toBe(102_400);
   });
 
+  it.each([
+    { modelParams: { max_tokens: 128_000 }, name: 'max_tokens equal to the context length' },
+    { modelParams: { max_completion_tokens: 200_000 }, name: 'max_completion_tokens above the context length' },
+    { modelParams: { max_tokens: 127_999.5 }, name: 'max_tokens leaving less than one whole input token' },
+  ])('falls back to the 80% threshold when $name leaves no input budget', ({ modelParams }) => {
+    expect(
+      resolveCompactionThresholdTokens({
+        configuredThresholdTokens: undefined,
+        modelContextLength: 128_000,
+        modelParams,
+      }),
+    ).toBe(102_400);
+  });
+
   it('falls back to 50K when the model context length is unknown', () => {
     expect(
       resolveCompactionThresholdTokens({
