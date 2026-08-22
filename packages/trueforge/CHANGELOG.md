@@ -1,5 +1,12 @@
 # @truefoundry/trueforge
 
+## 0.1.5
+
+### Patch Changes
+
+- 5ccac3d: Update /healthz to return JSON status and package version
+- fba6129: Require Node.js 22.14+ (`better-sqlite3` v13 is built for Node-API 10 and SIGSEGVs on 22.13 and below).
+
 ## 0.1.4
 
 ### Patch Changes
