@@ -145,7 +145,7 @@ export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sand
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
-export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
+export { SANDBOX_EXEC_ABORTED_ERROR, ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
   ExecErrorResult,
   ExecResult,

@@ -196,6 +196,7 @@ export interface SessionResult {
   exitCode: number;
   protocolError: string | undefined;
   timedOut: boolean;
+  aborted: boolean;
   /** Process-group leader pid of the sandboxed command (Unix). */
   childPid: number | undefined;
 }
@@ -464,6 +465,7 @@ export async function runSupervisorSession(params: {
   onChildSpawn?: (pid: number) => void;
   /** Hard wall-clock limit for the sandboxed command; caller must choose deliberately. */
   timeoutMs: number;
+  signal?: AbortSignal | undefined;
 }): Promise<SessionResult> {
   const {
     sandboxRootPath,
@@ -475,6 +477,7 @@ export async function runSupervisorSession(params: {
     stdin,
     onChildSpawn,
     timeoutMs,
+    signal,
   } = params;
   const command = wrapSandboxCommand({ platform, command: rawCommand });
 
@@ -539,6 +542,7 @@ export async function runSupervisorSession(params: {
   let bufferedOutput = 0;
   let protocolError: string | undefined;
   let timedOut = false;
+  let aborted = false;
   let closed = false;
 
   const ignoreStreamError = (
@@ -581,14 +585,27 @@ export async function runSupervisorSession(params: {
       timedOut = true;
       killExecTree(child);
     }, timeoutMs);
+    const abortExec = (): void => {
+      aborted = true;
+      killExecTree(child);
+    };
+    if (signal?.aborted === true) {
+      abortExec();
+    } else {
+      signal?.addEventListener('abort', abortExec, { once: true });
+    }
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', abortExec);
+      SandboxManager.cleanupAfterCommand();
+    };
 
     child.on('error', error => {
       if (closed) {
         return;
       }
       closed = true;
-      clearTimeout(timer);
-      SandboxManager.cleanupAfterCommand();
+      cleanup();
       reject(error);
     });
 
@@ -597,14 +614,14 @@ export async function runSupervisorSession(params: {
         return;
       }
       closed = true;
-      clearTimeout(timer);
-      SandboxManager.cleanupAfterCommand();
+      cleanup();
       resolve({
         stdoutText,
         stderrText,
-        exitCode: typeof code === 'number' ? code : timedOut ? 1 : 0,
+        exitCode: typeof code === 'number' ? code : timedOut || aborted ? 1 : 0,
         protocolError,
         timedOut,
+        aborted,
         childPid: child.pid,
       });
     });

@@ -267,12 +267,14 @@ export function buildTurnSandbox(input: {
   gitSkills: readonly GitSkill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
+  signal: AbortSignal;
   tracing: AgentTracing;
 }): Sandbox {
   const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
+    signal: input.signal,
     fileDownloadEnabled: input.fileDownloadEnabled,
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,

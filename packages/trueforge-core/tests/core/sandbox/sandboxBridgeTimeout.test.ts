@@ -9,6 +9,7 @@ const AGENT_COMMAND = 'echo hello';
 function makeSandbox(options: {
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
+  signal?: AbortSignal | undefined;
   transport?: CodeModeTransport;
 }): {
   sandbox: Sandbox;
@@ -46,6 +47,7 @@ function makeSandbox(options: {
       blockDestructiveToolsInCodeMode: true,
       mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
       mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
+      signal: options.signal,
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
     }),
@@ -112,5 +114,23 @@ describe('Code Mode timeouts', () => {
 
     expect(call.env?.['TFY_CM_REQUEST_TIMEOUT_SECONDS']).toBeUndefined();
     expect(call.timeoutSeconds).toBeUndefined();
+  });
+
+  it('passes the turn signal only to the user exec command', async () => {
+    const controller = new AbortController();
+    const { sandbox, execCalls } = makeSandbox({
+      mcpRequestTimeoutMs: 90_000,
+      mcpConnectTimeoutMs: 30_000,
+      signal: controller.signal,
+    });
+
+    const call = await execAgentCommand(sandbox, execCalls);
+
+    expect(call.signal).toBe(controller.signal);
+    const setupCalls = execCalls.filter(item => item.command !== AGENT_COMMAND);
+    expect(setupCalls.length).toBeGreaterThan(0);
+    for (const setupCall of setupCalls) {
+      expect(setupCall.signal).toBeUndefined();
+    }
   });
 });

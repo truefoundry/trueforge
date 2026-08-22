@@ -177,7 +177,7 @@ function createTurnResolver(deps: {
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
+    sandboxProvider: async ({ spec, existingSandboxId, signal, tracing }) => {
       const provider = await resolveSandboxProvider({
         tenant_id: TENANT_ID,
         store: sandboxProviderStore,
@@ -218,6 +218,7 @@ function createTurnResolver(deps: {
         gitSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
+        signal,
         tracing,
       });
     },
