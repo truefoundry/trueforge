@@ -1,10 +1,23 @@
 import { basename, isAbsolute, join } from 'node:path';
-import type { SandboxProvider } from '../../../../src/core/sandbox/provider/Provider';
+import { SandboxFileNotFoundError, SandboxPathIsDirectoryError } from '../../../../src/core/sandbox/SandboxErrors';
+import type { SandboxFileDownload, SandboxProvider } from '../../../../src/core/sandbox/provider/Provider';
 import { ensureExecSuccess } from '../../../../src/core/sandbox/provider/Provider';
 
 export interface SandboxProviderContractFixture {
   provider: SandboxProvider;
   dispose: () => Promise<void>;
+}
+
+/** Drains a download stream into one Buffer so callers can assert on exact bytes. */
+export async function collectDownload(download: SandboxFileDownload): Promise<Buffer> {
+  const reader = download.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let next = await reader.read();
+  while (!next.done) {
+    chunks.push(next.value);
+    next = await reader.read();
+  }
+  return Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
 }
 
 /**
@@ -135,19 +148,41 @@ export function runSandboxProviderContractSuite(
       }
     });
 
-    it('upload then download round-trips bytes', async () => {
+    it('upload then download round-trips bytes incrementally', async () => {
       const { sandboxId } = await fixture.provider.createSandbox();
-      const payload = Buffer.from('upload-download-contract\n', 'utf8');
+      // Large enough that the transport must deliver several chunks (progressive delivery).
+      const payload = Buffer.alloc(1024 * 1024);
+      for (let index = 0; index < payload.length; index += 1) {
+        payload[index] = index % 251;
+      }
       await fixture.provider.uploadFile({
         sandboxId,
         remotePath: 'roundtrip.bin',
         content: payload,
       });
-      const downloaded = await fixture.provider.downloadFile({
+      const download = await fixture.provider.downloadFile({
         sandboxId,
         path: 'roundtrip.bin',
       });
-      expect(Buffer.compare(downloaded, payload)).toBe(0);
+      expect(download.size).toBe(payload.length);
+      const collected = await collectDownload(download);
+      expect(Buffer.compare(collected, payload)).toBe(0);
+    });
+
+    it('download reports missing files with SandboxFileNotFoundError', async () => {
+      const { sandboxId } = await fixture.provider.createSandbox();
+      await expect(fixture.provider.downloadFile({ sandboxId, path: 'no-such-file.bin' })).rejects.toBeInstanceOf(
+        SandboxFileNotFoundError,
+      );
+    });
+
+    it('download rejects directories with SandboxPathIsDirectoryError', async () => {
+      const { sandboxId } = await fixture.provider.createSandbox();
+      const mkdir = await fixture.provider.exec({ sandboxId, command: 'mkdir -p a-directory' });
+      ensureExecSuccess(mkdir);
+      await expect(fixture.provider.downloadFile({ sandboxId, path: 'a-directory' })).rejects.toBeInstanceOf(
+        SandboxPathIsDirectoryError,
+      );
     });
   });
 }

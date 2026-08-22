@@ -142,6 +142,7 @@ export type { CodeModeLogger } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';
 export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema } from './sandbox/codeMode/types';
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
+export { boundedFileStream } from './sandbox/provider/boundedFileStream';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
@@ -154,6 +155,7 @@ export type {
   SandboxBuildMetadata,
   SandboxBuildStatus,
   SandboxExecParams,
+  SandboxFileDownload,
   SandboxInit,
   SandboxProvider,
 } from './sandbox/provider/Provider';
