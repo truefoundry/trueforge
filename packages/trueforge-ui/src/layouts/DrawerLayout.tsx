@@ -20,6 +20,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const DeleteChatButton = useSlot('DeleteChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [threadsOpen, setThreadsOpen] = useState(false);
@@ -73,6 +74,7 @@ export function DrawerLayout({ className }: { className?: string }) {
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
+            <DeleteChatButton />
             <SaveAgentButton />
           </>
         ) : (

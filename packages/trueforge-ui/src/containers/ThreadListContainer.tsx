@@ -8,12 +8,14 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from 'react';
 
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
+import { confirmDeleteChat } from '../atoms/DeleteChatButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
+import { themePortalRoot } from '../atoms/lib/themePortalRoot.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
@@ -45,8 +47,20 @@ const deleteItemClass =
 function ThreadListItemDeleteMenu() {
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
+  const [portalContainer, setPortalContainer] = useState<HTMLElement>();
   const [sheetOpen, setSheetOpen] = useState(false);
   const useSheet = isMobile || compact;
+  const setTriggerElement = useCallback((element: HTMLButtonElement | null) => {
+    setPortalContainer(element === null ? undefined : themePortalRoot(element));
+  }, []);
+  const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (confirmDeleteChat()) {
+      setSheetOpen(false);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   const moreButtonClass = auiButtonClass({
     variant: 'ghost',
@@ -71,7 +85,7 @@ function ThreadListItemDeleteMenu() {
         {sheetOpen ? (
           <BottomSheet open onOpenChange={setSheetOpen} aria-label="Session actions">
             <div className="flex flex-col gap-1 p-2" role="menu">
-              <ThreadListItemPrimitive.Delete className={deleteItemClass} onClick={() => setSheetOpen(false)}>
+              <ThreadListItemPrimitive.Delete className={deleteItemClass} onClick={handleDeleteClick}>
                 <Icon name="trash" className="size-3.5" />
                 Delete
               </ThreadListItemPrimitive.Delete>
@@ -85,6 +99,7 @@ function ThreadListItemDeleteMenu() {
   return (
     <ThreadListItemMorePrimitive.Root sharedFocusGroup>
       <ThreadListItemMorePrimitive.Trigger
+        ref={setTriggerElement}
         aria-label="Session actions"
         title="Session actions"
         className={moreButtonClass}
@@ -92,11 +107,12 @@ function ThreadListItemDeleteMenu() {
         <Icon name="ellipsis" className="size-3.5" />
       </ThreadListItemMorePrimitive.Trigger>
       <ThreadListItemMorePrimitive.Content
+        portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
+        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
       >
-        <ThreadListItemPrimitive.Delete asChild>
+        <ThreadListItemPrimitive.Delete asChild onClick={handleDeleteClick}>
           <ThreadListItemMorePrimitive.Item className={deleteItemClass}>
             <Icon name="trash" className="size-3.5" />
             Delete
