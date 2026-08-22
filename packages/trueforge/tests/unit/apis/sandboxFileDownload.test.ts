@@ -45,6 +45,7 @@ async function buildApp() {
       agentStore: new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      hooks: undefined,
       logger: createLogger({ silent: true }),
       resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),

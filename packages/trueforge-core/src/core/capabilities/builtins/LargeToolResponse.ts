@@ -2,6 +2,7 @@ import dedent from 'dedent';
 import type { Logger } from 'winston';
 import { estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
+import { unwrapToolSet } from '../../mcp/IMCPServer';
 import type { Sandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
 import { extractErrorLogFields } from '../../util/errorLogFields';
@@ -31,7 +32,10 @@ function categorize(result: ToolCallResult, sandbox: Sandbox | undefined): Resul
   if (!result.info) {
     throw new Error(`Unreachable`);
   }
-  if (sandbox && result.info.toolSet === sandbox) {
+  // Unwrap decorators (e.g. lifecycle hooks) so the identity check still
+  // recognizes the Sandbox instance; a merely sandbox-NAMED MCP server must
+  // stay 'mcp' (pinned by sandboxObjectIdentity.test.ts).
+  if (sandbox && unwrapToolSet(result.info.toolSet) === sandbox) {
     return 'sandbox';
   }
   return 'mcp';

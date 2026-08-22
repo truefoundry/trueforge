@@ -18,10 +18,12 @@ import {
   extractErrorLogFields,
   isAgentInputUserMessage,
   isFileContentPart,
+  lifecycleHooks,
   McpConnectionError,
   rawSandboxId,
   SandboxError,
   VercelAILLM,
+  type AgentInputUserMessage,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -34,6 +36,7 @@ import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import { CommandHookRunner } from '../hooks/CommandHookRunner';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
@@ -55,6 +58,7 @@ import {
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import type { HooksFile } from '../schemas/hooks';
 import { TENANT_ID } from './sessions';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -111,6 +115,8 @@ export interface TurnsRouterDeps {
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   sandboxProviderStore: ISandboxProviderStore;
+  /** Lifecycle-hooks configuration loaded at startup; undefined = hooks disabled. */
+  hooks: HooksFile | undefined;
   logger: Logger;
   resolveUserContext: ResolveUserContext;
 }
@@ -130,6 +136,7 @@ function createTurnResolver(deps: {
   signal: AbortSignal;
   userRef: string;
   sessionId: string;
+  hookRunner: CommandHookRunner | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -142,6 +149,7 @@ function createTurnResolver(deps: {
     signal,
     userRef,
     sessionId,
+    hookRunner,
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
@@ -228,6 +236,18 @@ function createTurnResolver(deps: {
       }
       return record.manifest;
     },
+    extraCapabilities:
+      hookRunner === undefined
+        ? undefined
+        : [
+            lifecycleHooks({
+              runner: hookRunner,
+              events: {
+                preToolUse: hookRunner.hasHooksFor('pre_tool_use'),
+                postToolUse: hookRunner.hasHooksFor('post_tool_use'),
+              },
+            }),
+          ],
     logger,
   });
 }
@@ -245,19 +265,47 @@ export function deriveSessionTitle(input: TurnInputItem[] | undefined): string |
     return undefined;
   }
 
-  const text =
-    typeof firstUserMessage.content === 'string'
-      ? firstUserMessage.content
-      : firstUserMessage.content
-          .filter(part => !isFileContentPart(part))
-          .map(part => part.text)
-          .join(' ');
-
-  const trimmed = text.trim();
+  const trimmed = userMessageText(firstUserMessage).trim();
   if (!trimmed) {
     return undefined;
   }
   return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
+}
+
+function userMessageText(message: AgentInputUserMessage): string {
+  return typeof message.content === 'string'
+    ? message.content
+    : message.content
+        .filter(part => !isFileContentPart(part))
+        .map(part => part.text)
+        .join(' ');
+}
+
+/**
+ * Full prompt text for the user_prompt_submit hook: every user message AND
+ * every client-side tool answer (user.tool_response — e.g. the reply to an
+ * ask_user_question) in the batch, joined. Both are free text the user feeds
+ * into model context, so both pass the gate; a batch whose user messages are
+ * file/image-only yields '' and the hook still fires (the raw items in the
+ * payload carry the parts). Undefined only for approval-only turns, which
+ * carry no user text and skip the hook.
+ */
+export function promptTextFromInput(input: TurnInputItem[]): string | undefined {
+  const texts: string[] = [];
+  let hasUserText = false;
+  for (const item of input) {
+    if (isAgentInputUserMessage(item)) {
+      hasUserText = true;
+      texts.push(userMessageText(item).trim());
+    } else if (item.type === EventType.USER_TOOL_RESPONSE) {
+      hasUserText = true;
+      texts.push(item.content.trim());
+    }
+  }
+  if (!hasUserText) {
+    return undefined;
+  }
+  return texts.filter(text => text !== '').join('\n');
 }
 
 /**
@@ -303,9 +351,10 @@ export async function drainTurnEvents(input: {
   turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
+  hookRunner: CommandHookRunner | undefined;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, hookRunner, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       // Dual-write before any client sink so subscribers can resume after disconnect.
@@ -313,6 +362,12 @@ export async function drainTurnEvents(input: {
         streamTTLSeconds: streamTTLSecondsFor(event),
       });
       await onEvent?.(event, sequenceNumber);
+      // After the dual-write: the terminal event is durable before hooks
+      // observe it. Unawaited: an observational hook must not hold the SSE
+      // stream open (entries × timeout_ms) after turn.done was delivered.
+      if (event.type === EventType.TURN_DONE && hookRunner?.hasHooksFor('turn_done')) {
+        void hookRunner.turnDone({ status: event.state.status });
+      }
     }
   } catch (error) {
     if (error instanceof SessionStoreNotFoundError) {
@@ -504,6 +559,24 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
+    // Minted before the resolver so hook payloads can carry the turn identity.
+    const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
+    const hookRunner =
+      deps.hooks === undefined
+        ? undefined
+        : new CommandHookRunner({ config: deps.hooks, sessionId, turnId, logger: deps.logger });
+
+    if (hookRunner?.hasHooksFor('user_prompt_submit') && body.input !== undefined) {
+      const prompt = promptTextFromInput(body.input);
+      if (prompt !== undefined) {
+        const decision = await hookRunner.userPromptSubmit({ prompt, items: body.input });
+        if (decision.status === 'deny') {
+          const reason = decision.reason?.trim() ? decision.reason : 'no reason provided';
+          return c.json({ error: { message: `Prompt blocked by user_prompt_submit hook: ${reason}` } }, 403);
+        }
+      }
+    }
+
     const abortController = new AbortController();
     const resolver = createTurnResolver({
       mcpServerStore: deps.mcpServerStore,
@@ -516,6 +589,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       signal: abortController.signal,
       userRef: deps.resolveUserContext(c).userRef,
       sessionId,
+      hookRunner,
     });
 
     // First turn only: derive the title from the first user message. The store
@@ -525,7 +599,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     let turn;
     try {
       turn = await session.createTurn({
-        turn_id: mintPeeredTurnId(configuration.EXECUTOR_ID),
+        turn_id: turnId,
         input: body.input,
         previous_turn_id: body.previous_turn_id,
         signal: abortController.signal,
@@ -575,6 +649,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       turnId: turn.id,
       maxExecutionTimer,
       logger: deps.logger,
+      hookRunner,
     };
 
     // Non-stream: same unawaited drain scheduling as Hono streamSSE's run(cb).

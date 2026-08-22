@@ -114,6 +114,24 @@ export interface IToolSet {
   // Existing synchronous Code Mode allow-list. Optional implementations fall
   // back to the current unrestricted envelope; callTool still enforces policy.
   getAllowedToolNamesForSandbox?(): string[] | undefined;
+
+  // Decorator seam: a wrapper exposes the toolset it wraps so identity-based
+  // checks (see unwrapToolSet) see through decoration. Non-wrappers omit it.
+  readonly unwrapped?: IToolSet | undefined;
+}
+
+/**
+ * Follows the {@link IToolSet.unwrapped} chain to the innermost toolset.
+ * Identity comparisons against known instances (e.g. the Sandbox in
+ * LargeToolResponse's categorization, pinned by sandboxObjectIdentity.test.ts)
+ * must compare the unwrapped toolset, or any decorator would silently break them.
+ */
+export function unwrapToolSet(toolSet: IToolSet): IToolSet {
+  let current = toolSet;
+  while (current.unwrapped) {
+    current = current.unwrapped;
+  }
+  return current;
 }
 
 /** Policy-free tool provider; a {@link ToolSet} wraps it to layer per-agent selector policy on top. */

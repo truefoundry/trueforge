@@ -7,13 +7,14 @@
  * {@link initSrt} — the same platform captured by LocalSandboxProvider.isSupported.
  */
 import { getDefaultWritePaths, SandboxManager } from '@anthropic-ai/sandbox-runtime';
-import { execFile, spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
+import { killProcessTree } from '../../../utils/killProcessTree';
 
 const execFileAsync = promisify(execFile);
 
@@ -424,28 +425,6 @@ export function isSrtInitialized(): boolean {
 }
 
 /**
- * Tear down the sandboxed exec and every process in its group.
- * Child is spawned as a process-group leader (`detached: true` on Unix).
- */
-export function killExecTree(child: ChildProcess | undefined): void {
-  if (!child) {
-    return;
-  }
-  const pid = child.pid;
-  if (pid !== undefined && process.platform !== 'win32') {
-    try {
-      process.kill(-pid, 'SIGKILL');
-      return;
-    } catch {
-      // ESRCH if the group is already gone — fall through.
-    }
-  }
-  if (!child.killed) {
-    child.kill('SIGKILL');
-  }
-}
-
-/**
  * Run one SRT-wrapped command. Code Mode UDS (if any) is supplied via `env.TFY_MCP_SOCK`
  * from {@link CodeModeUdsTransport.start}.
  */
@@ -518,7 +497,7 @@ export async function runSupervisorSession(params: {
   if (stdin !== undefined) {
     const stdinStream = child.stdin;
     if (stdinStream === null) {
-      killExecTree(child);
+      killProcessTree(child);
       SandboxManager.cleanupAfterCommand();
       throw new Error('stdin unavailable for sandboxed command');
     }
@@ -556,7 +535,7 @@ export async function runSupervisorSession(params: {
     bufferedOutput += chunk.length;
     if (bufferedOutput > MAX_OUTPUT_BYTES) {
       protocolError = `buffered output exceeded ${String(MAX_OUTPUT_BYTES)} bytes`;
-      killExecTree(child);
+      killProcessTree(child);
       return;
     }
     const text = chunk.toString('utf8');
@@ -579,7 +558,7 @@ export async function runSupervisorSession(params: {
   return await new Promise<SessionResult>((resolve, reject) => {
     const timer = setTimeout(() => {
       timedOut = true;
-      killExecTree(child);
+      killProcessTree(child);
     }, timeoutMs);
 
     child.on('error', error => {

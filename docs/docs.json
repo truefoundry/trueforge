@@ -58,7 +58,8 @@
                   "key-features/subagents",
                   "key-features/deferred-tool-loading",
                   "key-features/code-mode",
-                  "key-features/large-tool-responses"
+                  "key-features/large-tool-responses",
+                  "key-features/hooks"
                 ]
               },
               "authentication/overview",

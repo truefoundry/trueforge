@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import { parse } from 'yaml';
 import type { z } from 'zod';
+import { formatZodIssues } from '../utils/formatZodIssues';
 
 /** Parses and validates YAML text. `label` is used in error messages. */
 export function parseYamlString<T>(raw: string, schema: z.ZodType<T>, label: string): T {
@@ -20,10 +21,7 @@ export function parseYamlString<T>(raw: string, schema: z.ZodType<T>, label: str
 
   const result = schema.safeParse(document);
   if (!result.success) {
-    const issues = result.error.issues
-      .map(issue => `  - ${issue.path.length > 0 ? issue.path.join('.') : '(root)'}: ${issue.message}`)
-      .join('\n');
-    throw new Error(`Invalid config in ${label}:\n${issues}`);
+    throw new Error(`Invalid config in ${label}:\n${formatZodIssues(result.error)}`);
   }
   return result.data;
 }
