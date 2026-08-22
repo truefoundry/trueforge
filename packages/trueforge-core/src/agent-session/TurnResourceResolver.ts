@@ -61,6 +61,7 @@ export class TurnResourceResolver<
       llm: (model: string) => Promise<{
         modelClient: ILLM;
         defaultModelParams: ModelParams;
+        contextLength?: number | undefined;
       }>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:
@@ -200,6 +201,7 @@ export class TurnResourceResolver<
     return {
       definition: {
         modelClient: resolvedModel.modelClient,
+        contextLength: resolvedModel.contextLength,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
         instruction: agentInfo ? undefined : spec.instructions,

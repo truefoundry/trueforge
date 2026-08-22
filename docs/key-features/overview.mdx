@@ -147,13 +147,13 @@ This avoids two failure modes at once:
 
 ### Context compaction
 
-When the conversation grows longer than offloading alone can manage, the harness triggers **compaction**. Compaction is enabled by default and kicks in when the active context crosses a token threshold (default **50,000 tokens**, configurable per agent).
+When the conversation grows longer than offloading alone can manage, the harness triggers **compaction**. Compaction is enabled by default and runs at 80% of the model's context length. If that length is unavailable, the harness falls back to 50,000 input tokens. An agent can also set an explicit input-token threshold.
 
 An LLM generates a structured summary of the conversation so far — the original intent, key decisions, files and artifacts, errors and fixes, and next steps — and that summary replaces the older message history in the agent's working context, freeing tokens for continued reasoning.
 
 ```mermaid
 flowchart TD
-    Trigger[Active context exceeds<br/>compaction_threshold_tokens] --> Compact[Compaction]
+    Trigger[Estimated input reaches<br/>the compaction trigger] --> Compact[Compaction]
     Compact --> Summary[Structured summary:<br/>intent, decisions, artifacts, next steps]
     Summary --> Working[Working context = summary<br/>+ continuation instruction]
     Working --> Next[Agent continues the task]
@@ -173,7 +173,10 @@ Configuration:
     "context_management": {
       "compaction": {
         "enabled": true,
-        "compaction_threshold_tokens": 50000
+        "trigger": {
+          "type": "input_tokens",
+          "value": 80000
+        }
       }
     }
   }

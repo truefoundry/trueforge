@@ -37,7 +37,10 @@ export function makeAgentSpec(
       dynamic_sub_agents?: { enabled?: boolean };
       generative_ui?: { enabled?: boolean };
       context_management?: {
-        compaction?: { enabled?: boolean; compaction_threshold_tokens?: number };
+        compaction?: {
+          enabled?: boolean;
+          trigger?: { type: 'input_tokens'; value: number };
+        };
         large_tool_response?: { enabled?: boolean };
       };
     };
@@ -51,11 +54,12 @@ export function makeAgentSpec(
       ask_user_questions: { enabled: false },
       dynamic_sub_agents: { enabled: false },
       generative_ui: { enabled: false },
+      ...overrides.config,
       context_management: {
         compaction: { enabled: false },
         large_tool_response: { enabled: false },
+        ...overrides.config?.context_management,
       },
-      ...overrides.config,
     },
   });
 }
@@ -90,7 +94,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
-    llm: () => Promise.resolve({ modelClient: llm, defaultModelParams: {} }),
+    llm: () => Promise.resolve({ modelClient: llm, defaultModelParams: {}, contextLength: undefined }),
     mcp: name => {
       return Promise.reject(new Error(`unexpected mcp lookup: ${name}`));
     },
