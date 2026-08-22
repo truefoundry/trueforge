@@ -167,7 +167,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
 
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
-  app.get('/healthz', c => c.text('OK!'));
+  app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
 
   app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
   app.route(

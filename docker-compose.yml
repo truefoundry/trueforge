@@ -70,7 +70,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Probes GET /healthz (plain text OK!); node is already in the image.
+    # Probes GET /healthz; node is already in the image.
     healthcheck:
       test:
         [
