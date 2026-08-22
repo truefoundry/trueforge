@@ -5,8 +5,6 @@
 import { EventType, MAIN_THREAD_ID, type SessionEventItem } from '@truefoundry/trueforge-core/agent-session';
 import type { ChatInstructionSource } from '../schemas/session';
 
-export type { ChatInstructionSource };
-
 export const INSUFFICIENT_SIGNAL_TOKEN = 'INSUFFICIENT_SIGNAL';
 
 /** Below this, the chat is greetings and small talk, not durable behavior. */
