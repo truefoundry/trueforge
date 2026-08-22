@@ -3,6 +3,9 @@
  * system instructions. Kept free of I/O so short-chat rejection is deterministic.
  */
 import { EventType, MAIN_THREAD_ID, type SessionEventItem } from '@truefoundry/trueforge-core/agent-session';
+import type { ChatInstructionSource } from '../schemas/session';
+
+export type { ChatInstructionSource };
 
 export const INSUFFICIENT_SIGNAL_TOKEN = 'INSUFFICIENT_SIGNAL';
 
@@ -21,12 +24,6 @@ export interface ChatInstructionLine {
   turn_id: string;
   role: ChatInstructionRole;
   text: string;
-}
-
-export interface ChatInstructionSource {
-  turn_id: string;
-  role: ChatInstructionRole;
-  excerpt: string;
 }
 
 export class InsufficientChatSignalError extends Error {

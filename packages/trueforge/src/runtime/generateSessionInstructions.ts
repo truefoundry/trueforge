@@ -9,20 +9,16 @@ import type {
   TokenPagination,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { ILLM } from '@truefoundry/trueforge-core/core';
+import type { GeneratedSessionInstructions } from '../schemas/session';
 import {
   assertTranscriptHasInstructionSignal,
   buildInstructionGenerationPrompt,
   extractChatTranscript,
   parseGeneratedInstructions,
   sourcesFromTranscript,
-  type ChatInstructionSource,
 } from './chatInstructionTranscript';
 
-export interface GeneratedSessionInstructions {
-  instructions: string;
-  current_instructions: string | null;
-  sources: ChatInstructionSource[];
-}
+export type { GeneratedSessionInstructions };
 
 function textFromLlmContent(content: unknown): string {
   if (typeof content === 'string') {
