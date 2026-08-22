@@ -80,6 +80,37 @@ describe('validateAgentSpec', () => {
     });
   });
 
+  it('adds OpenRouter app-attribution headers to model requests', async () => {
+    const stores = await setup();
+    await stores.modelProviderStore.upsertProvider({
+      tenant_id: TENANT_ID,
+      name: 'openrouter',
+      manifest: {
+        type: 'openrouter',
+        base_url: 'https://openrouter.ai/api/v1',
+        auth: { api_key: 'sk-or-test' },
+        models: [{ model_id: '~openai/gpt-latest', name: 'gpt-latest', properties: {} }],
+      },
+    });
+
+    await expect(
+      getModelDetails({
+        tenant_id: TENANT_ID,
+        name: 'openrouter/gpt-latest',
+        store: stores.modelProviderStore,
+      }),
+    ).resolves.toMatchObject({
+      providerConfig: {
+        provider: { type: 'openrouter', name: 'openrouter' },
+        baseUrl: 'https://openrouter.ai/api/v1',
+        headers: {
+          'HTTP-Referer': 'https://trueforge.dev',
+          'X-OpenRouter-Title': 'TrueForge',
+        },
+      },
+    });
+  });
+
   it('rejects malformed model FQN with 422', async () => {
     const stores = await setup();
     await expect(

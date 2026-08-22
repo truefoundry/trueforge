@@ -22,6 +22,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
+import { OPENROUTER_REQUEST_HEADERS } from '../openRouter';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
@@ -89,7 +90,7 @@ export async function getModelDetails({
       baseUrl: base_url,
       // Custom providers may omit auth; adapters still require a string.
       apiKey: provider.manifest.auth?.api_key ?? '',
-      headers: {},
+      headers: type === 'openrouter' ? OPENROUTER_REQUEST_HEADERS : {},
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
   };

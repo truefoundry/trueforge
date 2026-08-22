@@ -104,7 +104,9 @@ async function createRouters(): Promise<{
       resolveUserContext: () => LOCAL_USER_CONTEXT,
     }),
     catalogRouter: createCatalogRouter({
-      modelCatalog: ModelCatalog.load(),
+      modelCatalog: ModelCatalog.load({
+        listOpenRouterModels: async () => [],
+      }),
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),

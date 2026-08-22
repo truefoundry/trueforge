@@ -1,5 +1,7 @@
 'use client';
 
+import fuzzysort from 'fuzzysort';
+
 import { Icon } from '../../icons/Icon.js';
 import type { ModelSelection } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
@@ -75,14 +77,15 @@ export function DraftModelCatalogPanel({
   listboxId: string;
   showHeading?: boolean;
 }) {
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim();
   const filtered = needle
-    ? models.filter(
-        model =>
-          model.name.toLowerCase().includes(needle) ||
-          model.id.toLowerCase().includes(needle) ||
-          model.provider.name.toLowerCase().includes(needle),
-      )
+    ? fuzzysort
+        .go(needle, models, {
+          keys: [model => model.name, model => model.id, model => model.provider.name],
+          limit: 0,
+          threshold: 0,
+        })
+        .map(result => result.obj)
     : models;
   const sections = groupModelsByProvider(filtered);
 

@@ -20,7 +20,8 @@ export interface CatalogRouterDeps {
 }
 
 export function createCatalogRouter(deps: CatalogRouterDeps) {
-  const listModelProvidersHandler: RouteHandler<typeof listModelProviderCatalogRoute> = c => {
+  const listModelProvidersHandler: RouteHandler<typeof listModelProviderCatalogRoute> = async c => {
+    await deps.modelCatalog.sync();
     const loadedProvidersCatalog = deps.modelCatalog.list();
     // make a copy of the loaded providers catalog and add the custom provider sentinel
     const providersCatalog: CatalogModelProvider[] = [...loadedProvidersCatalog];
