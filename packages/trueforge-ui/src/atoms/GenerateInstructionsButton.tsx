@@ -54,6 +54,7 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const inFlightRef = useRef(false);
   const canApply = shell?.mode.status === 'active' && shell.mode.isMutable && agentSpec != null;
 
   useEffect(() => {
@@ -71,7 +72,8 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
   };
 
   const generate = async () => {
-    if (!hasGenerateInstructionsFromChat(server) || remoteId == null) return;
+    if (!hasGenerateInstructionsFromChat(server) || remoteId == null || inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     setCopied(false);
@@ -84,11 +86,13 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
       setSources([]);
       setError(getErrorMessage(caught, 'Could not generate instructions from this chat'));
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   };
 
   const show = () => {
+    if (inFlightRef.current || loading || applying) return;
     setOpen(true);
     void generate();
   };
@@ -128,7 +132,7 @@ function GenerateInstructionsButtonContent({ disabled, className }: { disabled: 
     <>
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || loading || applying || open}
         className={auiButtonClass({ variant: 'ghost', size: 'sm', className })}
         onClick={show}
       >
