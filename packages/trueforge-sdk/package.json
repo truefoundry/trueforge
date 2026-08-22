@@ -231,7 +231,7 @@
         "lint:fix": "biome lint --fix --unsafe --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
         "check": "biome check --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
         "check:fix": "biome check --fix --unsafe --skip-parse-errors --no-errors-on-unmatched --max-diagnostics=none",
-        "build": "pnpm build:cjs && pnpm build:esm",
+        "build": "node -e \"const fs = require('fs'); fs.rmSync('dist', { recursive: true, force: true })\" && pnpm build:cjs && pnpm build:esm",
         "build:cjs": "tsc --project ./tsconfig.cjs.json",
         "build:esm": "tsc --project ./tsconfig.esm.json && node scripts/rename-to-esm-files.js dist/esm",
         "test": "vitest",

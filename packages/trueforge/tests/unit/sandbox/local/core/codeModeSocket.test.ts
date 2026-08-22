@@ -1,6 +1,8 @@
 import { realpathSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import process from 'node:process';
 import {
   MAX_CODE_MODE_SOCKET_PARENT_BYTES,
   assertCodeModeSocketParentPath,
@@ -9,7 +11,7 @@ import {
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
 async function mkdirWithRealpathBytes(bytes: number): Promise<string> {
-  const prefix = '/tmp';
+  const prefix = process.platform === 'win32' ? tmpdir() : '/tmp';
   const realPrefix = realpathSync(prefix);
   const nameLen = bytes - Buffer.byteLength(realPrefix) - 1;
   if (nameLen < 1) {
@@ -26,6 +28,9 @@ async function mkdirWithRealpathBytes(bytes: number): Promise<string> {
 
 describe('Code Mode UDS parent length', () => {
   it('allows a 65-byte realpath parent and listens', async () => {
+    if (process.platform === 'win32') {
+      return;
+    }
     const dir = await mkdirWithRealpathBytes(MAX_CODE_MODE_SOCKET_PARENT_BYTES);
     try {
       expect(assertCodeModeSocketParentPath(dir)).toBe(realpathSync(dir));
@@ -37,6 +42,9 @@ describe('Code Mode UDS parent length', () => {
   });
 
   it('rejects a 66-byte realpath parent', async () => {
+    if (process.platform === 'win32') {
+      return;
+    }
     const dir = await mkdirWithRealpathBytes(MAX_CODE_MODE_SOCKET_PARENT_BYTES + 1);
     try {
       expect(() => assertCodeModeSocketParentPath(dir)).toThrow(/at most 65 bytes/);
