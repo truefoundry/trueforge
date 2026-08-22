@@ -29,9 +29,12 @@ export function resolveCompactionThresholdTokens(input: {
       Number.isFinite(configuredMaxOutputTokens) &&
       configuredMaxOutputTokens >= 0
     ) {
-      const inputBudget = Math.max(0, Math.floor(input.modelContextLength - configuredMaxOutputTokens));
-      return Math.min(ratioThreshold, inputBudget);
+      const inputBudget = Math.floor(input.modelContextLength - configuredMaxOutputTokens);
+      if (inputBudget > 0) {
+        return Math.min(ratioThreshold, inputBudget);
+      }
     }
+    // An unusable output reservation must not turn compaction into an always-on loop.
     return ratioThreshold;
   }
   return DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS;
