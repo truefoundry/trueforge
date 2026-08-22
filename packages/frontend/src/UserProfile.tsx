@@ -85,7 +85,6 @@ export function UserProfile() {
         <span className="harness-user-avatar" aria-hidden="true">
           {email ? initialFor(email) : <Icon name="user" />}
         </span>
-        {email ? <span className="harness-user-email">{email}</span> : null}
       </button>
 
       <CenteredModal open={profileOpen} onOpenChange={setProfileOpen} title="Account" aria-label="Account" contentSized>
