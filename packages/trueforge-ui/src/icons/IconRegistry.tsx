@@ -53,6 +53,7 @@ import {
   Terminal,
   Trash2,
   TriangleAlert,
+  User,
   Wrench,
   X,
 } from 'lucide-react';
@@ -168,6 +169,7 @@ const defaults: Record<string, IconEntry> = {
   compress: Minimize2,
   'external-link': ExternalLink,
   github: Github,
+  user: User,
 };
 
 for (const [name, icon] of Object.entries(defaults)) {

@@ -1,0 +1,180 @@
+/* Account trigger row in the shell footer, its profile modal, and the logout confirm dialog. */
+
+.harness-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 12rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem 0 0.25rem;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.harness-user-trigger:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.harness-user-trigger:active {
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+.harness-user-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.harness-user-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.harness-user-avatar-lg {
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 1.125rem;
+}
+
+.harness-user-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.harness-user-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.harness-user-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.harness-user-modal-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.harness-user-modal-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.harness-user-modal-role {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.harness-user-modal-actions {
+  padding: 0.5rem;
+}
+
+.harness-user-logout-row {
+  --harness-danger-ink: color-mix(in srgb, var(--color-red-500) 78%, black);
+
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  padding: 0.625rem 0.75rem;
+  color: var(--harness-danger-ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.harness-user-logout-icon {
+  display: inline-flex;
+}
+
+.harness-user-logout-row:hover {
+  background: color-mix(in srgb, var(--failure-bg) 12%, transparent);
+}
+
+.harness-user-logout-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+/* Confirm dialog footer for the logout flow (rendered inside CenteredModal). */
+
+.harness-logout-confirm {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+
+.harness-logout-cancel,
+.harness-logout-submit {
+  flex: 1 1 0;
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  padding: 0 1rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.harness-logout-cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.harness-logout-cancel:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.harness-logout-submit {
+  border: 0;
+  background: var(--failure-bg);
+  color: var(--failure-text);
+}
+
+.harness-logout-submit:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.harness-logout-cancel:disabled,
+.harness-logout-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}

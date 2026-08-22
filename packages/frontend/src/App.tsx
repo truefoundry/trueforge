@@ -11,7 +11,7 @@ import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
 import { parseAuthErrorReason, shouldShowAuthErrorScreen, stripAuthErrorSearch } from './authStatusSearch';
 import { GetStartedScreen } from './GetStartedScreen';
-import { LogoutButton } from './LogoutButton';
+import { UserProfile } from './UserProfile';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
@@ -113,7 +113,7 @@ export function App() {
     };
   }, [session]);
 
-  const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
+  const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: UserProfile }), []);
 
   const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
   if (authErrorReason != null) {
