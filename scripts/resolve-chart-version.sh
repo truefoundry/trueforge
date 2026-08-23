@@ -15,9 +15,16 @@ fi
 MAJOR=${BASH_REMATCH[1]}
 MINOR=${BASH_REMATCH[2]}
 PATCH=${BASH_REMATCH[3]}
+CURRENT_PRERELEASE=${BASH_REMATCH[4]:-}
 SELECTED_MAJOR=$MAJOR
 SELECTED_MINOR=$MINOR
-SELECTED_PATCH=$((PATCH + 1))
+SELECTED_PATCH=$PATCH
+
+# A stable chart starts the next patch. A prerelease chart is already on its
+# target core, so subsequent RCs and the stable release keep that core.
+if [[ -z "$CURRENT_PRERELEASE" ]]; then
+  SELECTED_PATCH=$((PATCH + 1))
+fi
 
 if [[ ! "$APP_VERSION" =~ $SEMVER ]]; then
   echo "App version '$APP_VERSION' is not semver" >&2
@@ -46,19 +53,26 @@ if [[ -n "$PR_VERSION" && "$PR_VERSION" =~ $SEMVER ]]; then
   fi
 fi
 
-# Chart and app versions have independent numeric cores but share the release lane.
-SELECTED_PRERELEASE=$APP_PRERELEASE
-PRERELEASE_COUNTER='^-([0-9A-Za-z-]+)\.([0-9]+)$'
-if [[ "$PR_CORE_SELECTED" == true && -n "$APP_PRERELEASE" && "$APP_PRERELEASE" =~ $PRERELEASE_COUNTER ]]; then
-  APP_TAG=${BASH_REMATCH[1]}
-  APP_COUNTER=${BASH_REMATCH[2]}
-  if [[ "$PR_PRERELEASE" =~ $PRERELEASE_COUNTER ]]; then
-    PR_TAG=${BASH_REMATCH[1]}
-    PR_COUNTER=${BASH_REMATCH[2]}
-    if [[ "$PR_TAG" == "$APP_TAG" ]] && ((PR_COUNTER > APP_COUNTER)); then
-      SELECTED_PRERELEASE=$PR_PRERELEASE
+# The app version only selects stable or prerelease mode. Chart RC counters are
+# derived from chart versions and advance independently from the app's suffix.
+SELECTED_PRERELEASE=""
+if [[ -n "$APP_PRERELEASE" ]]; then
+  RC_COUNTER='^-rc\.([0-9]+)$'
+  HIGHEST_RC=-1
+
+  if ((MAJOR == SELECTED_MAJOR && MINOR == SELECTED_MINOR && PATCH == SELECTED_PATCH)) &&
+    [[ "$CURRENT_PRERELEASE" =~ $RC_COUNTER ]]; then
+    HIGHEST_RC=${BASH_REMATCH[1]}
+  fi
+
+  if [[ "$PR_CORE_SELECTED" == true && "$PR_PRERELEASE" =~ $RC_COUNTER ]]; then
+    PR_COUNTER=${BASH_REMATCH[1]}
+    if ((PR_COUNTER > HIGHEST_RC)); then
+      HIGHEST_RC=$PR_COUNTER
     fi
   fi
+
+  SELECTED_PRERELEASE="-rc.$((HIGHEST_RC + 1))"
 fi
 
 VERSION="${SELECTED_MAJOR}.${SELECTED_MINOR}.${SELECTED_PATCH}${SELECTED_PRERELEASE}"

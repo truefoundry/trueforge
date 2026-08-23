@@ -159,7 +159,7 @@ jobs:
             git fetch --depth=1 origin "$PR_BRANCH"
             PR_VERSION=$(git show FETCH_HEAD:charts/trueforge/Chart.yaml | yq -r '.version')
           fi
-          VERSION=$(scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION" "$PR_VERSION")
+          VERSION=$(bash scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION" "$PR_VERSION")
           if [[ -n "$PR_VERSION" && "$VERSION" == "$PR_VERSION" ]]; then
             echo "Keeping chart version $PR_VERSION from $PR_BRANCH"
           fi
