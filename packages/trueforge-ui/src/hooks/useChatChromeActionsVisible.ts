@@ -2,6 +2,8 @@
 
 import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
+import { useAuiState } from '../assistant-ui.js';
+import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 
 export type NamedAgentHeaderState = {
@@ -31,17 +33,30 @@ export function useSaveAgentVisible(): boolean {
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
-// Clear chat: only on immutable (named / saved) sessions — same gate as the agent title.
+// Keep the actions menu beside Save Agent instead of dropping it in composer mode.
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
-  return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
+  return shell != null && shell.mode.status === 'active';
 }
 
-// True when the thread header has anything to show (title, Save, and/or Clear).
-// Clear alone matters for orphaned immutable history (deleted agent, no name).
+export type DeleteChatState = {
+  visible: boolean;
+  enabled: boolean;
+};
+
+export function useDeleteChatState(): DeleteChatState {
+  const server = useOptionalServer();
+  const shell = useOptionalShellMode();
+  const remoteId = useAuiState(s => s.threadListItem.remoteId);
+  const visible = shell != null && shell.mode.status === 'active' && typeof server?.deleteSession === 'function';
+  return { visible, enabled: visible && remoteId != null };
+}
+
+// Sidebar desktop chrome uses this aggregate to avoid hiding a header with usable actions.
 export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
   const clearVisible = useChatChromeActionsVisible();
-  return namedVisible || saveVisible || clearVisible;
+  const deleteState = useDeleteChatState();
+  return namedVisible || saveVisible || clearVisible || deleteState.visible;
 }

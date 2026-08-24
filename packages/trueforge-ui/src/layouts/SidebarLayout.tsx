@@ -162,8 +162,8 @@ export function SidebarLayout({ className }: { className?: string }) {
               </button>
               <NamedAgentHeaderLabel />
               <span className="min-w-0 flex-1" />
-              <ClearChatButton />
               <SaveAgentButton />
+              <ClearChatButton />
             </>
           ) : (
             <span className="min-w-0 flex-1" />

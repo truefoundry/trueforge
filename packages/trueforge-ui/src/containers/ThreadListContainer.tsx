@@ -8,12 +8,13 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
+import { themePortalRoot } from '../atoms/lib/themePortalRoot.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
@@ -40,13 +41,17 @@ export type ThreadListContainerProps = {
 };
 
 const deleteItemClass =
-  'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-[var(--failure-bg,#ef4444)] outline-none transition-colors hover:bg-[rgb(239_68_68_/_0.12)] focus:bg-[rgb(239_68_68_/_0.12)] data-[highlighted]:bg-[rgb(239_68_68_/_0.12)] data-[highlighted]:text-[var(--failure-bg,#ef4444)]';
+  'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-failure-bg outline-none transition-colors hover:bg-failure-bg/12 hover:text-failure-bg focus:bg-failure-bg/12 focus:text-failure-bg data-[highlighted]:bg-failure-bg/12 data-[highlighted]:text-failure-bg';
 
 function ThreadListItemDeleteMenu() {
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement>();
   const useSheet = isMobile || compact;
+  const setTriggerElement = useCallback((element: HTMLButtonElement | null) => {
+    setPortalContainer(element === null ? undefined : themePortalRoot(element));
+  }, []);
 
   const moreButtonClass = auiButtonClass({
     variant: 'ghost',
@@ -85,6 +90,7 @@ function ThreadListItemDeleteMenu() {
   return (
     <ThreadListItemMorePrimitive.Root sharedFocusGroup>
       <ThreadListItemMorePrimitive.Trigger
+        ref={setTriggerElement}
         aria-label="Session actions"
         title="Session actions"
         className={moreButtonClass}
@@ -92,9 +98,10 @@ function ThreadListItemDeleteMenu() {
         <Icon name="ellipsis" className="size-3.5" />
       </ThreadListItemMorePrimitive.Trigger>
       <ThreadListItemMorePrimitive.Content
+        portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-[var(--border,#e4e4e7)] bg-[var(--card-bg,#ffffff)] p-1 text-[var(--text-primary,#09090b)] shadow-md"
+        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
       >
         <ThreadListItemPrimitive.Delete asChild>
           <ThreadListItemMorePrimitive.Item className={deleteItemClass}>

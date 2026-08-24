@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  AssistantRuntimeProvider,
+  useExternalStoreRuntime,
+  type ExternalStoreThreadListAdapter,
+  type ThreadMessageLike,
+} from '@assistant-ui/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ClearChatButton } from '@/atoms/ClearChatButton.js';
 import { SelectAgentEmptyState } from '@/atoms/SelectAgentEmptyState.js';
@@ -26,7 +33,28 @@ function mockServer() {
   });
 }
 
+function ThreadListRuntimeHarness({
+  threadList,
+  children,
+}: {
+  threadList: ExternalStoreThreadListAdapter;
+  children: ReactNode;
+}) {
+  const runtime = useExternalStoreRuntime<ThreadMessageLike>({
+    messages: [],
+    convertMessage: message => message,
+    onNew: async () => {},
+    adapters: { threadList },
+  });
+
+  return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+}
+
 describe('ClearChatButton', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('is hidden while idle', () => {
     render(
       <SlotsProvider>
@@ -37,10 +65,10 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chat actions' })).not.toBeInTheDocument();
   });
 
-  it('is visible on an empty named agent chat', () => {
+  it('shows Clear chat in the actions menu for an empty named agent chat', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
@@ -50,10 +78,11 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Chat actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Clear chat' })).toBeInTheDocument();
   });
 
-  it('is hidden on mutable sessions', () => {
+  it('shows Clear chat on mutable sessions', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
@@ -63,7 +92,26 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Chat actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Clear chat' })).toBeInTheDocument();
+  });
+
+  it('shows disabled Delete chat until a mutable session is persisted', () => {
+    render(
+      <SlotsProvider>
+        <ServerProvider server={createMockAgentUIServer({ deleteSession: async () => {} })}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+            <RuntimeHarness messages={startedMessages}>
+              <ClearChatButton />
+            </RuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Clear chat' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'Delete chat' })).toBeDisabled();
   });
 
   it('calls clearChat when clicked after a chat has started', () => {
@@ -76,8 +124,46 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chat actions' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clear chat' }));
+  });
+
+  it('groups Clear and Delete chat for a persisted mutable session', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const onDelete = vi.fn(async () => {});
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={createMockAgentUIServer({ deleteSession: async () => {} })}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+            <ThreadListRuntimeHarness
+              threadList={{
+                threadId: 'thread-1',
+                threads: [
+                  {
+                    status: 'regular',
+                    id: 'thread-1',
+                    remoteId: 'session-1',
+                    title: 'Current session',
+                  },
+                ],
+                onDelete,
+              }}
+            >
+              <ClearChatButton />
+            </ThreadListRuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chat actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Clear chat' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete chat' }));
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalledWith('thread-1');
+    });
   });
 });
 

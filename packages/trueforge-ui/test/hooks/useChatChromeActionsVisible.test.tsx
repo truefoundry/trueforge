@@ -62,7 +62,7 @@ describe('useChatHeaderContentVisible', () => {
     expect(result.current.header).toBe(true);
   });
 
-  it('hides Clear on mutable sessions even after chat has started', () => {
+  it('shows the header actions on mutable sessions', () => {
     const { result } = renderHook(
       () => ({
         named: useNamedAgentHeaderVisible(),
@@ -78,6 +78,7 @@ describe('useChatHeaderContentVisible', () => {
     );
 
     expect(result.current.named).toBe(false);
-    expect(result.current.clear).toBe(false);
+    expect(result.current.clear).toBe(true);
+    expect(result.current.header).toBe(true);
   });
 });
