@@ -114,7 +114,7 @@ describe('agents router', () => {
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
-  it('POST preserves legacy nested compaction settings', async () => {
+  it('POST rejects legacy nested compaction settings', async () => {
     const created = await router.request(
       '/',
       jsonInit('POST', {
@@ -133,12 +133,7 @@ describe('agents router', () => {
       }),
     );
 
-    expect(created.status).toBe(201);
-    const createdJson = (await created.json()) as { data: WireAgent };
-    expect(createdJson.data.manifest.config?.context_management?.compaction).toEqual({
-      enabled: false,
-      trigger: { type: 'input_tokens', value: 70_000 },
-    });
+    expect(created.status).toBe(400);
   });
 
   it('GET and PUT return 404 for unknown ids', async () => {

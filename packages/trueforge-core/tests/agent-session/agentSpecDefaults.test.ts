@@ -31,43 +31,30 @@ describe('AgentSpec RuntimeConfig defaults', () => {
     });
   });
 
-  it('normalizes legacy nested compaction requests without changing behavior', () => {
-    const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
-      config: {
-        context_management: {
-          compaction: {
-            enabled: false,
-            compaction_threshold_tokens: 80_000,
+  it.each([
+    {
+      name: 'by itself',
+      compaction: { enabled: false, compaction_threshold_tokens: 80_000 },
+    },
+    {
+      name: 'alongside the new trigger',
+      compaction: {
+        enabled: true,
+        compaction_threshold_tokens: 80_000,
+        trigger: { type: 'input_tokens', value: 90_000 },
+      },
+    },
+  ])('rejects the legacy compaction threshold $name', ({ compaction }) => {
+    expect(
+      AgentSpecSchema.safeParse({
+        model: { name: 'provider/model' },
+        config: {
+          context_management: {
+            compaction,
           },
         },
-      },
-    });
-
-    expect(spec.config.context_management.compaction).toEqual({
-      enabled: false,
-      trigger: { type: 'input_tokens', value: 80_000 },
-    });
-  });
-
-  it('prefers the new compaction trigger when both threshold shapes are present', () => {
-    const spec = AgentSpecSchema.parse({
-      model: { name: 'provider/model' },
-      config: {
-        context_management: {
-          compaction: {
-            enabled: true,
-            compaction_threshold_tokens: 80_000,
-            trigger: { type: 'input_tokens', value: 90_000 },
-          },
-        },
-      },
-    });
-
-    expect(spec.config.context_management.compaction).toEqual({
-      enabled: true,
-      trigger: { type: 'input_tokens', value: 90_000 },
-    });
+      }),
+    ).toMatchObject({ success: false });
   });
 
   it('fills generative_ui when other config fields are present', () => {

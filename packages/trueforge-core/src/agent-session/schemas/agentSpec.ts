@@ -124,23 +124,9 @@ const CompactionSettingsSchema = z
     enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
     trigger: InputTokensCompactionTriggerSchema.optional(),
   })
+  .strict()
   .describe('Uses 80% of the model context length when the explicit trigger is omitted, or 50000 tokens if unknown.')
   .openapi('CompactionConfig');
-
-function normalizeLegacyCompactionThreshold(value: unknown): unknown {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return value;
-  }
-  const legacyThreshold = 'compaction_threshold_tokens' in value ? value.compaction_threshold_tokens : undefined;
-  const trigger = 'trigger' in value ? value.trigger : undefined;
-  if (trigger !== undefined || legacyThreshold === undefined) {
-    return value;
-  }
-  return {
-    ...value,
-    trigger: { type: 'input_tokens', value: legacyThreshold },
-  };
-}
 
 const LargeToolResponseSettingsSchema = z.object({
   enabled: z.boolean().default(true).describe('Offload oversized tool responses to a sandbox file. Default: true.'),
@@ -195,9 +181,7 @@ const LargeToolResponseConfigSchema = LargeToolResponseSettingsSchema.pick({
 
 const ContextManagementConfigSchema = z
   .object({
-    compaction: z
-      .preprocess(normalizeLegacyCompactionThreshold, CompactionSettingsSchema)
-      .default(() => ({ enabled: true })),
+    compaction: CompactionSettingsSchema.default(() => ({ enabled: true })),
     large_tool_response: LargeToolResponseConfigSchema.default(() => ({ enabled: true })),
   })
   .openapi('ContextManagementConfig');
