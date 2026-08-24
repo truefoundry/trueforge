@@ -7,7 +7,7 @@ import type { ChatInstructionSource } from '../schemas/session';
 
 export const INSUFFICIENT_SIGNAL_TOKEN = 'INSUFFICIENT_SIGNAL';
 
-/** Below this, the chat is greetings and small talk, not durable behavior. */
+/** Below this much *user* text, the chat is greetings and small talk, not durable behavior. */
 export const MIN_TRANSCRIPT_CHARS = 80;
 const MAX_TRANSCRIPT_CHARS = 12_000;
 const MAX_SOURCES = 8;
@@ -138,9 +138,9 @@ export function sourcesFromTranscript(lines: readonly ChatInstructionLine[]): Ch
 }
 
 export function assertTranscriptHasInstructionSignal(lines: readonly ChatInstructionLine[]): void {
-  const userCount = lines.filter(line => line.role === 'user').length;
-  const totalChars = lines.reduce((sum, line) => sum + line.text.length, 0);
-  if (userCount === 0 || totalChars < MIN_TRANSCRIPT_CHARS) {
+  const userLines = lines.filter(line => line.role === 'user');
+  const userChars = userLines.reduce((sum, line) => sum + line.text.length, 0);
+  if (userLines.length === 0 || userChars < MIN_TRANSCRIPT_CHARS) {
     throw new InsufficientChatSignalError(
       'This chat is too short to infer durable system instructions. Continue the conversation, or write the instructions yourself.',
     );

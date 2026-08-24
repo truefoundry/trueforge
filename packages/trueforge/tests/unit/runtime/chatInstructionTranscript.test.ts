@@ -120,6 +120,17 @@ describe('chatInstructionTranscript', () => {
     expect(() => assertTranscriptHasInstructionSignal(lines)).toThrow(InsufficientChatSignalError);
   });
 
+  it('does not let a long assistant reply pad a short user greeting past the gate', () => {
+    const canned =
+      'I am a helpful assistant. I can write code, summarize documents, and answer questions about your project in as much detail as you would like.';
+    const lines = extractChatTranscript([
+      assistantMessage({ turnId: 't1', text: canned, eventId: 'e2' }),
+      userTurn({ turnId: 't1', text: 'hi', eventId: 'e1' }),
+    ]);
+    expect(canned.length).toBeGreaterThan(80);
+    expect(() => assertTranscriptHasInstructionSignal(lines)).toThrow(InsufficientChatSignalError);
+  });
+
   it('accepts a long user preference even without an assistant reply', () => {
     const lines = extractChatTranscript([
       userTurn({

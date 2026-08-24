@@ -82,6 +82,44 @@ describe('draftInstructionsFromChat', () => {
     ).rejects.toBeInstanceOf(InsufficientChatSignalError);
     expect(createNonStream).not.toHaveBeenCalled();
   });
+
+  it('does not call the model when only the assistant side is long', async () => {
+    const llm = llmThatReturns('should not run');
+    const createNonStream = jest.spyOn(llm, 'createNonStream');
+    await expect(
+      draftInstructionsFromChat({
+        events: [
+          {
+            turn_id: 't1',
+            event: {
+              type: EventType.MODEL_MESSAGE,
+              id: 'e2',
+              thread_id: MAIN_THREAD_ID,
+              created_at: '2026-08-01T00:00:01.000Z',
+              content:
+                'Sure, I can help with that. I am a helpful assistant and I will write as much as you want about any topic you pick.',
+            },
+          },
+          {
+            turn_id: 't1',
+            event: {
+              type: EventType.TURN_CREATED,
+              id: 'e1',
+              turn_id: 't1',
+              previous_turn_id: null,
+              input: [{ type: EventType.USER_MESSAGE, content: 'hey' }],
+              state: { status: 'running' },
+              created_at: '2026-08-01T00:00:00.000Z',
+              thread_id: null,
+            },
+          },
+        ],
+        currentInstructions: undefined,
+        llm,
+      }),
+    ).rejects.toBeInstanceOf(InsufficientChatSignalError);
+    expect(createNonStream).not.toHaveBeenCalled();
+  });
 });
 
 describe('resolveSessionAgentSpec', () => {
