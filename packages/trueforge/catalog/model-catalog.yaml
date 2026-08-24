@@ -231,6 +231,15 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: glm-5.3
+        name: glm-5-3
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
+            - max
   - type: moonshot
     logo: https://assets.production.truefoundry.com/moonshot.png
     models:
