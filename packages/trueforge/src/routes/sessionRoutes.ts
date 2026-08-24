@@ -90,7 +90,7 @@ export const deleteSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Delete a session',
   description:
-    'Hard-delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone; recovery requires an external backup.',
+    'Hard-delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'delete',
   request: {
