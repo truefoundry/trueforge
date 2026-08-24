@@ -52,13 +52,15 @@ It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (
 
 ## Getting started
 
-Run TrueForge (local, Docker Compose, or Kubernetes), connect a model and tools, and build your first reusable agent in the [Quickstart](https://trueforge.dev/quickstart).
+### Quickstart with `npx`
+
+```
+npx @truefoundry/trueforge
+```
+
+Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, or Kubernetes). Connect models, tools, skills and build your first reusable agent.
 
 To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-# Quick local run (no Docker)
-npx @truefoundry/trueforge
-
 
 ## Architecture
 
