@@ -77,8 +77,8 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             </button>
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
-            <SaveAgentButton />
             <ClearChatButton />
+            <SaveAgentButton />
             {threadHeaderEnd}
           </header>
           <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>

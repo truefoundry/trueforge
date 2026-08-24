@@ -72,8 +72,8 @@ export function DrawerLayout({ className }: { className?: string }) {
           <>
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
-            <SaveAgentButton />
             <ClearChatButton />
+            <SaveAgentButton />
           </>
         ) : (
           <span className="min-w-0 flex-1" />

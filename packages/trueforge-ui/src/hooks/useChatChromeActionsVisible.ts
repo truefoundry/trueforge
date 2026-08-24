@@ -2,8 +2,6 @@
 
 import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
-import { useAuiState } from '../assistant-ui.js';
-import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 
 export type NamedAgentHeaderState = {
@@ -33,26 +31,17 @@ export function useSaveAgentVisible(): boolean {
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
-// Preserve the existing Clear Chat visibility for immutable (named/saved) sessions.
+// Clear chat: only on immutable (named / saved) sessions — same gate as the agent title.
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
   return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
 }
 
-export function useDeleteChatVisible(): boolean {
-  const server = useOptionalServer();
-  const shell = useOptionalShellMode();
-  const remoteId = useAuiState(s => s.threadListItem.remoteId);
-  return (
-    shell != null && shell.mode.status === 'active' && remoteId != null && typeof server?.deleteSession === 'function'
-  );
-}
-
-// Sidebar desktop chrome uses this aggregate to avoid hiding a header with usable actions.
+// True when the thread header has anything to show (title, Save, and/or Clear).
+// Clear alone matters for orphaned immutable history (deleted agent, no name).
 export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
   const clearVisible = useChatChromeActionsVisible();
-  const deleteVisible = useDeleteChatVisible();
-  return namedVisible || saveVisible || clearVisible || deleteVisible;
+  return namedVisible || saveVisible || clearVisible;
 }

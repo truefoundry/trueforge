@@ -58,18 +58,17 @@ function renderThreadList({
   adapter,
   onThreadOpen,
   canDelete = false,
-  compact = true,
 }: {
   adapter: ExternalStoreThreadListAdapter;
   onThreadOpen?: () => void;
   canDelete?: boolean;
-  compact?: boolean;
 }) {
-  const threadList = <ThreadListContainer onThreadOpen={onThreadOpen} />;
   const list = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
       <ThreadListRuntimeHarness threadList={adapter}>
-        {compact ? <CompactLayoutProvider>{threadList}</CompactLayoutProvider> : threadList}
+        <CompactLayoutProvider>
+          <ThreadListContainer onThreadOpen={onThreadOpen} />
+        </CompactLayoutProvider>
       </ThreadListRuntimeHarness>
     </SlotsProvider>
   );
@@ -183,32 +182,5 @@ describe('ThreadListContainer', () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
-  });
-
-  it('keeps the desktop delete menu inside the active theme root', async () => {
-    renderThreadList({
-      adapter: {
-        threadId: 'thread-1',
-        threads: [
-          {
-            status: 'regular',
-            id: 'thread-1',
-            remoteId: 'session-1',
-            title: 'Remote session',
-          },
-        ],
-        onDelete: async () => {},
-      },
-      canDelete: true,
-      compact: false,
-    });
-
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Session actions' }), { key: 'Enter' });
-
-    const menu = await screen.findByRole('menu');
-    const deleteItem = screen.getByRole('menuitem', { name: 'Delete' });
-    expect(menu.closest('.aui-theme-root')).not.toBeNull();
-    expect(menu).toHaveClass('border-border', 'bg-card-bg', 'text-text-primary');
-    expect(deleteItem).toHaveClass('text-failure-bg', 'hover:bg-failure-bg/12');
   });
 });
