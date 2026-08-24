@@ -139,22 +139,6 @@ describe('TrueForgeUI', () => {
     });
   });
 
-  it('shows Clear and Delete chat in the composer header menu', async () => {
-    render(
-      <TrueForgeUI
-        server={createMockAgentUIServer({ deleteSession: async () => {} })}
-        agentConfig={{ mode: 'AgentComposer' }}
-        layout="sidebar"
-      />,
-    );
-
-    const trigger = await screen.findByRole('button', { name: 'Chat actions' });
-    fireEvent.click(trigger);
-
-    expect(screen.getByRole('menuitem', { name: 'Clear chat' })).toBeEnabled();
-    expect(screen.getByRole('menuitem', { name: 'Delete chat' })).toBeDisabled();
-  });
-
   it('refetches composer data when starting a new chat', async () => {
     const getCapabilities = vi
       .fn()

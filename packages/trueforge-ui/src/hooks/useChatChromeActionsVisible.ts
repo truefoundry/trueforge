@@ -33,23 +33,19 @@ export function useSaveAgentVisible(): boolean {
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
-// Keep the actions menu beside Save Agent instead of dropping it in composer mode.
+// Preserve the existing Clear Chat visibility for immutable (named/saved) sessions.
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
-  return shell != null && shell.mode.status === 'active';
+  return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
 }
 
-export type DeleteChatState = {
-  visible: boolean;
-  enabled: boolean;
-};
-
-export function useDeleteChatState(): DeleteChatState {
+export function useDeleteChatVisible(): boolean {
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
-  const visible = shell != null && shell.mode.status === 'active' && typeof server?.deleteSession === 'function';
-  return { visible, enabled: visible && remoteId != null };
+  return (
+    shell != null && shell.mode.status === 'active' && remoteId != null && typeof server?.deleteSession === 'function'
+  );
 }
 
 // Sidebar desktop chrome uses this aggregate to avoid hiding a header with usable actions.
@@ -57,6 +53,6 @@ export function useChatHeaderContentVisible(): boolean {
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
   const clearVisible = useChatChromeActionsVisible();
-  const deleteState = useDeleteChatState();
-  return namedVisible || saveVisible || clearVisible || deleteState.visible;
+  const deleteVisible = useDeleteChatVisible();
+  return namedVisible || saveVisible || clearVisible || deleteVisible;
 }

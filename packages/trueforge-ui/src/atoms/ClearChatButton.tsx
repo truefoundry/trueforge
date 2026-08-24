@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
-import { useChatChromeActionsVisible, useDeleteChatState } from '../hooks/useChatChromeActionsVisible.js';
+import { useChatChromeActionsVisible, useDeleteChatVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -16,16 +16,14 @@ export function ClearChatButton() {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const clearVisible = useChatChromeActionsVisible();
-  const deleteState = useDeleteChatState();
+  const deleteVisible = useDeleteChatVisible();
+  const showClear = clearVisible || deleteVisible;
   const [deleting, setDeleting] = useState(false);
 
-  if ((!clearVisible && !deleteState.visible) || shell == null) return null;
+  if (!showClear || shell == null) return null;
 
-  const handleDelete = (event: MouseEvent<HTMLButtonElement>) => {
-    if (!deleteState.enabled || deleting || !window.confirm(DELETE_CHAT_CONFIRM_MESSAGE)) {
-      event.stopPropagation();
-      return;
-    }
+  const handleDelete = () => {
+    if (deleting || !window.confirm(DELETE_CHAT_CONFIRM_MESSAGE)) return;
     setDeleting(true);
     void Promise.resolve(aui.threads().item('main').delete())
       .catch(() => undefined)
@@ -45,16 +43,14 @@ export function ClearChatButton() {
         </button>
       }
     >
-      {clearVisible ? (
-        <DropdownMenuItem onClick={() => shell.clearChat()}>
-          <Icon name="broom" size="0.875rem" />
-          Clear chat
-        </DropdownMenuItem>
-      ) : null}
-      {clearVisible && deleteState.visible ? <DropdownMenuSeparator /> : null}
-      {deleteState.visible ? (
+      <DropdownMenuItem onClick={() => shell.clearChat()}>
+        <Icon name="broom" size="0.875rem" />
+        Clear chat
+      </DropdownMenuItem>
+      {deleteVisible ? <DropdownMenuSeparator /> : null}
+      {deleteVisible ? (
         <DropdownMenuItem
-          disabled={!deleteState.enabled || deleting}
+          disabled={deleting}
           className="text-failure-bg hover:bg-failure-bg/12 hover:text-failure-bg focus:bg-failure-bg/12 focus:text-failure-bg"
           onClick={handleDelete}
         >
