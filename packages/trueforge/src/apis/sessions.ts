@@ -425,7 +425,19 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Agent not found for session: ${sessionId}` } }, 422);
     }
 
-    const events = await loadInstructionTranscriptEvents(session);
+    let events;
+    try {
+      events = await loadInstructionTranscriptEvents(session);
+    } catch (error) {
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      throw error;
+    }
+
     try {
       assertTranscriptHasInstructionSignal(extractChatTranscript(events));
     } catch (error) {
