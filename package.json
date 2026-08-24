@@ -31,8 +31,6 @@
     "sdk:generate": "bash scripts/generate-sdk.sh",
     "smoke:down": "docker compose down",
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
-    "prestandalone:dev:no-watch": "pnpm --filter @truefoundry/trueforge migrate:legacy-sqlite-path",
-    "prestandalone:dev": "pnpm --filter @truefoundry/trueforge migrate:legacy-sqlite-path",
     "standalone:dev:no-watch": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge --filter frontend dev:no-watch",
     "standalone:dev": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge-core --filter @truefoundry/trueforge --filter frontend dev",
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
