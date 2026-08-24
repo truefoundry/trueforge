@@ -7,7 +7,7 @@ import {
 } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
@@ -24,10 +24,6 @@ beforeAll(() => {
     this.removeAttribute('open');
     this.dispatchEvent(new Event('close'));
   };
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
 });
 
 function ThreadListRuntimeHarness({
@@ -151,7 +147,6 @@ describe('ThreadListContainer', () => {
   });
 
   it('exposes delete only for remote sessions and delegates deletion to the runtime', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const onDelete = vi.fn(async () => {});
 
     renderThreadList({
@@ -182,42 +177,10 @@ describe('ThreadListContainer', () => {
       throw new Error('Expected session actions button');
     }
     fireEvent.click(actionButton);
-    const menu = screen.getByRole('menu');
-    expect(menu.closest('.aui-theme-root')).not.toBeNull();
-
-    const deleteButton = screen.getByRole('button', { name: 'Delete' });
-    expect(deleteButton).toHaveClass('text-failure-bg');
-    fireEvent.click(deleteButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
-  });
-
-  it('keeps the remote session when delete confirmation is cancelled', () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const onDelete = vi.fn(async () => {});
-
-    renderThreadList({
-      adapter: {
-        threadId: 'thread-1',
-        threads: [
-          {
-            status: 'regular',
-            id: 'thread-1',
-            remoteId: 'session-1',
-            title: 'Remote session',
-          },
-        ],
-        onDelete,
-      },
-      canDelete: true,
-    });
-
-    const actionButton = screen.getByRole('button', { name: 'Session actions' });
-    fireEvent.click(actionButton);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-
-    expect(onDelete).not.toHaveBeenCalled();
   });
 });

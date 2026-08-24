@@ -8,14 +8,12 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
-import { confirmDeleteChat } from '../atoms/DeleteChatButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
-import { themePortalRoot } from '../atoms/lib/themePortalRoot.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
@@ -42,25 +40,13 @@ export type ThreadListContainerProps = {
 };
 
 const deleteItemClass =
-  'flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none text-failure-bg hover:bg-ghost-button-hover hover:text-failure-bg focus:bg-ghost-button-hover focus:text-failure-bg data-[highlighted]:bg-ghost-button-hover data-[highlighted]:text-failure-bg';
+  'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-[var(--failure-bg,#ef4444)] outline-none transition-colors hover:bg-[rgb(239_68_68_/_0.12)] focus:bg-[rgb(239_68_68_/_0.12)] data-[highlighted]:bg-[rgb(239_68_68_/_0.12)] data-[highlighted]:text-[var(--failure-bg,#ef4444)]';
 
 function ThreadListItemDeleteMenu() {
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
-  const [portalContainer, setPortalContainer] = useState<HTMLElement>();
   const [sheetOpen, setSheetOpen] = useState(false);
   const useSheet = isMobile || compact;
-  const setTriggerElement = useCallback((element: HTMLButtonElement | null) => {
-    setPortalContainer(element === null ? undefined : themePortalRoot(element));
-  }, []);
-  const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
-    if (confirmDeleteChat()) {
-      setSheetOpen(false);
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-  };
 
   const moreButtonClass = auiButtonClass({
     variant: 'ghost',
@@ -85,7 +71,7 @@ function ThreadListItemDeleteMenu() {
         {sheetOpen ? (
           <BottomSheet open onOpenChange={setSheetOpen} aria-label="Session actions">
             <div className="flex flex-col gap-1 p-2" role="menu">
-              <ThreadListItemPrimitive.Delete className={deleteItemClass} onClick={handleDeleteClick}>
+              <ThreadListItemPrimitive.Delete className={deleteItemClass} onClick={() => setSheetOpen(false)}>
                 <Icon name="trash" className="size-3.5" />
                 Delete
               </ThreadListItemPrimitive.Delete>
@@ -99,7 +85,6 @@ function ThreadListItemDeleteMenu() {
   return (
     <ThreadListItemMorePrimitive.Root sharedFocusGroup>
       <ThreadListItemMorePrimitive.Trigger
-        ref={setTriggerElement}
         aria-label="Session actions"
         title="Session actions"
         className={moreButtonClass}
@@ -107,12 +92,11 @@ function ThreadListItemDeleteMenu() {
         <Icon name="ellipsis" className="size-3.5" />
       </ThreadListItemMorePrimitive.Trigger>
       <ThreadListItemMorePrimitive.Content
-        portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
+        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-[var(--border,#e4e4e7)] bg-[var(--card-bg,#ffffff)] p-1 text-[var(--text-primary,#09090b)] shadow-md"
       >
-        <ThreadListItemPrimitive.Delete asChild onClick={handleDeleteClick}>
+        <ThreadListItemPrimitive.Delete asChild>
           <ThreadListItemMorePrimitive.Item className={deleteItemClass}>
             <Icon name="trash" className="size-3.5" />
             Delete

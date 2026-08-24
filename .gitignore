@@ -1,6 +1,5 @@
 node_modules/
 dist/
-.venv/
 *.tgz
 .DS_Store
 *.log

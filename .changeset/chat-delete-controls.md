@@ -2,4 +2,4 @@
 "@truefoundry/trueforge-ui": patch
 ---
 
-Add delete controls for remote chat sessions.
+Wire remote chat session deletion and improve the history delete action styling.
