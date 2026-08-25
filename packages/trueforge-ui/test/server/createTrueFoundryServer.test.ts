@@ -57,6 +57,7 @@ describe('createTrueFoundryServer', () => {
     expect(server.listSessions).toBe(chatServer.listSessions);
     expect(server.catalog).toBeUndefined();
     expect(server.sessions).toBe(sessions);
+    expect(server.deleteAgent).toBeUndefined();
 
     await expect(server.getCapabilities()).resolves.toEqual(capabilities);
     await expect(server.getModels()).resolves.toHaveLength(1);
@@ -71,6 +72,30 @@ describe('createTrueFoundryServer', () => {
       intent: 'create',
     });
     expect(saveAgent).toHaveBeenCalled();
+  });
+
+  it('attaches and delegates the optional deleteAgent callback', async () => {
+    const chatServer = createMockAgentUIServer();
+    const deleteAgent = vi.fn(async () => {});
+    const server = createTrueFoundryServer({
+      chatServer,
+      getCapabilities: async () => ({
+        data: { sandbox: { enabled: false }, skill: { enabled: false } },
+      }),
+      getModels: async () => [],
+      getSkills: async () => [],
+      getMcp: async () => [],
+      searchAgents: async () => [],
+      saveAgent: async () => ({}),
+      deleteAgent,
+    });
+
+    if (server.deleteAgent === undefined) {
+      throw new Error('Expected deleteAgent to be attached');
+    }
+    await server.deleteAgent({ agentName: 'writer' });
+
+    expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
   });
 
   it('attaches optional catalog when provided', async () => {

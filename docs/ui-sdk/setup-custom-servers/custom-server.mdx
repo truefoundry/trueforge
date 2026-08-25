@@ -167,7 +167,7 @@ Spreading `nextPageToken` in only when present keeps the result valid under `exa
 
 <AccordionGroup>
   <Accordion title="deleteSession / deleteAgent">
-    In a hand-written `AgentUIServer` like the one above, omitting these leaves the corresponding affordances unavailable rather than broken. (This differs from the [`createTrueFoundryServer` composition helper](/ui-sdk/setup-custom-servers/connect-with-truefoundry#truefoundry-chat-your-own-builder), where an omitted `deleteAgent` throws when called.)
+    Omitting these leaves the corresponding affordances unavailable rather than broken, including when using the [`createTrueFoundryServer` composition helper](/ui-sdk/setup-custom-servers/connect-with-truefoundry#truefoundry-chat-your-own-builder).
   </Accordion>
 
   <Accordion title="downloadSandboxFile">

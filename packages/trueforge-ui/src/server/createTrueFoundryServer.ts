@@ -81,13 +81,7 @@ export function createTrueFoundryServer<
     getMcp: opts.getMcp,
     searchAgents: opts.searchAgents,
     saveAgent: opts.saveAgent,
-    deleteAgent: async req => {
-      if (opts.deleteAgent) {
-        await opts.deleteAgent(req);
-        return;
-      }
-      throw new Error('deleteAgent is host-owned. Pass deleteAgent to createTrueFoundryServer.');
-    },
+    ...(opts.deleteAgent !== undefined ? { deleteAgent: opts.deleteAgent } : {}),
   };
 
   const server: TrueFoundryServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog, TCapabilities, TSessions> = {

@@ -279,12 +279,7 @@ export function createTrueFoundryServer<
     getMcp: opts.getMcp,
     searchAgents: opts.searchAgents,
     saveAgent: opts.saveAgent,
-    async deleteAgent(req: { agentName: string }) {
-      if (!opts.deleteAgent) {
-        throw new Error('deleteAgent is host-owned. Pass deleteAgent to createTrueFoundryServer.');
-      }
-      await opts.deleteAgent(req);
-    },
+    ...(opts.deleteAgent !== undefined ? { deleteAgent: opts.deleteAgent } : {}),
 
     getGatewayClients: () => ({ client, privateClient }),
   };

@@ -232,6 +232,95 @@ describe('AgentsLibrary', () => {
     expect(screen.queryByRole('button', { name: 'Edit agent writer' })).not.toBeInTheDocument();
   });
 
+  it('hides Delete when the server does not support deleting agents', async () => {
+    const server = mockServer([{ name: 'writer', agentId: 'writer-id' }]);
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Try agent writer' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Delete agent writer' })).not.toBeInTheDocument();
+  });
+
+  it('confirms deletion, calls the server port, and refreshes the library', async () => {
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce([{ name: 'writer', agentId: 'writer-id' }])
+      .mockResolvedValueOnce([]);
+    const deleteAgent = vi.fn(async () => {});
+    const server = createMockAgentUIServer({ searchAgents, deleteAgent });
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Delete agent writer' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete agent writer' }));
+
+    expect(screen.getByRole('dialog', { name: 'Delete writer?' })).toBeInTheDocument();
+    expect(screen.getByText('Existing chats will stay in your history.', { exact: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
+
+    await waitFor(() => {
+      expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
+      expect(searchAgents).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.queryByRole('button', { name: 'Delete agent writer' })).not.toBeInTheDocument();
+  });
+
+  it('allows cancellation and keeps a failed deletion available for retry', async () => {
+    const deleteAgent = vi.fn(async () => {
+      throw new Error('Delete request failed');
+    });
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [{ name: 'writer', agentId: 'writer-id' }]),
+      deleteAgent,
+    });
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentsLibrary open onOpenChange={() => undefined} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Delete agent writer' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete agent writer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete agent writer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Delete request failed');
+    });
+    expect(screen.getByRole('dialog', { name: 'Delete writer?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete agent writer' })).toBeInTheDocument();
+  });
+
   it('shows create-one guidance when there are no agents yet', async () => {
     const server = mockServer([]);
 

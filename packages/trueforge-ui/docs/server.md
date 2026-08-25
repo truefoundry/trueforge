@@ -567,13 +567,14 @@ const server = createTrueFoundryServer({
 
 ### Catalog — complete for this UI
 
-| UI call                     | Required response fields                                   |
-| --------------------------- | ---------------------------------------------------------- |
-| `getModels()`               | `name`, `provider`, `apiModel`, `modelId`                  |
-| `getSkills()`               | `id`, `name`; `fqn?`, `description?`                       |
-| `getMcp()`                  | `id`, `name`; `description?`                               |
-| `searchAgents(req?)`        | `name`; optional display fields on `AgentLibraryEntry`     |
-| `saveAgent` / `deleteAgent` | On port; **not called by UI yet** (optional until Save UI) |
+| UI call              | Required response fields                                  |
+| -------------------- | --------------------------------------------------------- |
+| `getModels()`        | `name`, `provider`, `apiModel`, `modelId`                 |
+| `getSkills()`        | `id`, `name`; `fqn?`, `description?`                      |
+| `getMcp()`           | `id`, `name`; `description?`                              |
+| `searchAgents(req?)` | `name`; optional display fields on `AgentLibraryEntry`    |
+| `saveAgent`          | Called by the Save Agent flow                             |
+| `deleteAgent`        | Called from the Agents Library when the method is present |
 
 ### Chat — method list complete; standalone BYO is not
 
@@ -593,8 +594,7 @@ const server = createTrueFoundryServer({
 enabled.
 
 **On the port but unused by this UI today:**
-`listOwnedSessions`, non-stream `createTurn`, `deleteSession`,
-`saveAgent`, `deleteAgent`.
+`listOwnedSessions`, non-stream `createTurn`.
 
 ### v1 BYO guidance
 

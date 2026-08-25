@@ -11,8 +11,8 @@ createTrueFoundryServer(options: CreateTrueFoundryServerOptions): TrueFoundrySer
 
 Options: `{ chatServer, getCapabilities, getModels, getSkills, getMcp, searchAgents, saveAgent, deleteAgent?, catalog? }`.
 Combines a chat server with your agent-management callbacks into a complete `AgentUIServer`.
-`deleteAgent` and `catalog` are the only optional entries; if you omit `deleteAgent`, calling it
-throws.
+`deleteAgent` and `catalog` are the only optional entries; if you omit `deleteAgent`, the Agents
+Library hides its delete controls.
 
 ## Context
 
