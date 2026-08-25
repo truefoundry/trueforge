@@ -205,12 +205,17 @@ extraObjects:
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
 | `podDisruptionBudget.enabled` | `false`                       | Enable a PodDisruptionBudget (`minAvailable` defaults to `1`). |
+| `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
+| `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | `{}`                                | Container resource requests/limits.   |
 
 Also available (defaults inert): `strategy`, `priorityClassName`,
 `topologySpreadConstraints`, `initContainers`, `extraContainers`,
 `extraVolumes`, `extraVolumeMounts`, `service.annotations`, `service.labels`,
 `startupProbe`.
+
+The server container mounts an `emptyDir` at `/tmp` by default so the image can
+run with `readOnlyRootFilesystem: true`.
 
 ## Production checklist
 
