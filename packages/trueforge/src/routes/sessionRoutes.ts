@@ -261,13 +261,17 @@ export const generateSessionInstructionsRoute = createRoute({
       content: { 'application/json': { schema: GenerateSessionInstructionsResponseSchema } },
       description: 'Suggested instructions and the transcript excerpts they came from.',
     },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The session event log could not be read because of a conflicting store state.',
+    },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session not found.',
+      description: 'Session or referenced turn not found.',
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
