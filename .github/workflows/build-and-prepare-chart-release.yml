@@ -149,31 +149,19 @@ jobs:
           UPDATE_APP_VERSION: ${{ needs.resolve.outputs.update_app_version }}
         run: |
           set -euo pipefail
-          SEMVER='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$'
           CURRENT=$(yq -r '.version' charts/trueforge/Chart.yaml)
-          if [[ ! "$CURRENT" =~ $SEMVER ]]; then
-            echo "Chart.yaml version '$CURRENT' on $GITHUB_REF_NAME is not semver" >&2
-            exit 1
-          fi
-          MAJOR="${BASH_REMATCH[1]}"
-          MINOR="${BASH_REMATCH[2]}"
-          PATCH="${BASH_REMATCH[3]}"
-          VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          PR_VERSION=""
 
           # create-pull-request rebuilds the PR branch from base plus this
           # workspace, so a reviewer's major/minor bump on the open PR is dropped
-          # unless it is re-applied here. Only outrank the patch bump: a PR
-          # version at or below it means base already absorbed that release.
+          # unless it is re-applied here.
           if git ls-remote --exit-code --heads origin "$PR_BRANCH" >/dev/null 2>&1; then
             git fetch --depth=1 origin "$PR_BRANCH"
             PR_VERSION=$(git show FETCH_HEAD:charts/trueforge/Chart.yaml | yq -r '.version')
-            if [[ "$PR_VERSION" =~ $SEMVER ]] &&
-              (( BASH_REMATCH[1] > MAJOR ||
-                 (BASH_REMATCH[1] == MAJOR && BASH_REMATCH[2] > MINOR) ||
-                 (BASH_REMATCH[1] == MAJOR && BASH_REMATCH[2] == MINOR && BASH_REMATCH[3] > PATCH + 1) )); then
-              echo "Keeping chart version $PR_VERSION from $PR_BRANCH (over $VERSION)"
-              VERSION="$PR_VERSION"
-            fi
+          fi
+          VERSION=$(bash scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION" "$PR_VERSION")
+          if [[ -n "$PR_VERSION" && "$VERSION" == "$PR_VERSION" ]]; then
+            echo "Keeping chart version $PR_VERSION from $PR_BRANCH"
           fi
           export VERSION IMAGE_TAG APP_VERSION
           yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml

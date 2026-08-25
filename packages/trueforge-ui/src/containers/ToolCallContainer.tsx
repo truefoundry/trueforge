@@ -100,6 +100,7 @@ function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   return (
     <ToolApprovalContainer
       toolName={part.toolName}
+      argsText={part.argsText}
       options={
         buildApprovalOptions(part.approval?.options) as import('./ToolApprovalContainer.js').ToolApprovalOption[]
       }

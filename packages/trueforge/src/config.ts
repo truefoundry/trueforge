@@ -159,18 +159,17 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
  * Absolute SQLite file path for standalone mode.
  * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db/db.sqlite`.
  */
-function resolveSqlitePath(): string {
+function resolveSqlitePath(appDataDir: string): string {
   const override = getEnv('SQLITE_PATH');
   if (override !== undefined && override.trim() !== '') {
     return path.resolve(override);
   }
-  const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
-  return path.join(paths.data, 'db', 'db.sqlite');
+  return path.join(appDataDir, 'db', 'db.sqlite');
 }
 
 /** Parent for local sandbox roots. Same env-paths data dir as SQLite (`{suffix:''}`). */
-function resolveLocalSandboxRootParent(): string {
-  return path.join(envPaths(ENV_PATHS_APP_NAME, { suffix: '' }).data, 'sandboxes');
+function resolveLocalSandboxRootParent(appDataDir: string): string {
+  return path.join(appDataDir, 'sandboxes');
 }
 
 /** Short tmp parent for Code Mode UDS socks (≤65 bytes after realpath). */
@@ -478,6 +477,9 @@ const standalone = parseBoolean({
   defaultValue: true,
 });
 
+const appDataDirSuffix = getEnv('APP_DATA_DIR_SUFFIX', { defaultValue: '' }) ?? '';
+const appDataDir = envPaths(ENV_PATHS_APP_NAME, { suffix: appDataDirSuffix }).data;
+
 const port = parsePort(getEnv('PORT'));
 const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
 
@@ -563,8 +565,8 @@ const configuration: ServerConfiguration = standalone
   ? {
       ...shared,
       STANDALONE: true,
-      SQLITE_PATH: resolveSqlitePath(),
-      LOCAL_SANDBOX_ROOT_PARENT: resolveLocalSandboxRootParent(),
+      SQLITE_PATH: resolveSqlitePath(appDataDir),
+      LOCAL_SANDBOX_ROOT_PARENT: resolveLocalSandboxRootParent(appDataDir),
       CODE_MODE_SOCKET_PARENT: resolveCodeModeSocketParent(),
     }
   : {
