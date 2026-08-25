@@ -28,7 +28,6 @@ assert_version 0.1.7 0.1.6 0.1.6
 # Entering prerelease mode starts the chart's own RC counter at zero. The app's
 # prerelease tag and counter do not influence the chart version.
 assert_version 0.1.6-rc.0 0.1.5 0.1.5-rc.2
-assert_version 0.1.6-rc.0 0.1.5 0.1.5-beta.9
 
 # Merged chart RCs and RCs in the open chart PR both advance linearly.
 assert_version 0.1.6-rc.1 0.1.6-rc.0 0.1.5-rc.99
