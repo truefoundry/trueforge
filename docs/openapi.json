@@ -883,6 +883,10 @@
         "properties": {},
         "type": "object"
       },
+      "DeleteModelProviderResponse": {
+        "properties": {},
+        "type": "object"
+      },
       "DynamicSubAgentsConfig": {
         "default": {
           "enabled": true
@@ -6739,7 +6743,14 @@
           }
         ],
         "responses": {
-          "204": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteModelProviderResponse"
+                }
+              }
+            },
             "description": "The model provider was deleted."
           },
           "404": {

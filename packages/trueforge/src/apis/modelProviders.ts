@@ -77,7 +77,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       return c.json({ error: { message: `Model provider "${name}" not found` } }, 404);
     }
 
-    return c.body(null, 204);
+    return c.json({}, 200);
   };
 
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {

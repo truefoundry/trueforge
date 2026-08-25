@@ -100,4 +100,57 @@ describe('ModelSettings custom provider editing', () => {
       models: customProvider.models,
     });
   });
+
+  it('removes only the selected model when clicking model trash icon without deleting provider', async () => {
+    const multiModelProvider: ModelProviderBase = {
+      id: 'openai',
+      type: 'openai',
+      name: 'OpenAI',
+      models: [
+        { id: 'gpt-4.1', name: 'gpt-4-1' },
+        { id: 'gpt-5-mini', name: 'gpt-5-mini' },
+      ],
+    };
+    const updateModelProvider = vi.fn(async () => multiModelProvider);
+    const deleteModelProvider = vi.fn(async () => {});
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        modelCatalog: {
+          getModelProviderCatalog: async () => [
+            {
+              type: 'openai',
+              name: 'OpenAI',
+              models: [
+                { id: 'gpt-4.1', name: 'gpt-4-1' },
+                { id: 'gpt-5-mini', name: 'gpt-5-mini' },
+              ],
+            },
+          ],
+          listModelProviders: async () => [multiModelProvider],
+          createModelProvider: vi.fn(),
+          updateModelProvider,
+          deleteModelProvider,
+        },
+      }),
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ModelSettings />
+      </ServerProvider>,
+    );
+
+    const removeModelButton = await screen.findByRole('button', { name: 'Remove gpt-4-1' });
+    fireEvent.click(removeModelButton);
+
+    await waitFor(() => expect(updateModelProvider).toHaveBeenCalledTimes(1));
+    expect(updateModelProvider).toHaveBeenCalledWith({
+      id: 'openai',
+      type: 'openai',
+      name: 'OpenAI',
+      apiKey: '',
+      models: [{ id: 'gpt-5-mini', name: 'gpt-5-mini' }],
+    });
+    expect(deleteModelProvider).not.toHaveBeenCalled();
+  });
 });

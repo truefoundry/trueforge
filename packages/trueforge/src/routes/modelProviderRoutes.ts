@@ -7,6 +7,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateModelProviderRequestSchema,
+  DeleteModelProviderResponseSchema,
   GetModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
   PutModelProviderRequestSchema,
@@ -113,7 +114,8 @@ export const deleteModelProviderRoute = createRoute({
     params: ModelProviderNameParamsSchema,
   },
   responses: {
-    204: {
+    200: {
+      content: { 'application/json': { schema: DeleteModelProviderResponseSchema } },
       description: 'The model provider was deleted.',
     },
     404: {
