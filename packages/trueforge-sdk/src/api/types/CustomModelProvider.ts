@@ -7,7 +7,7 @@ export interface CustomModelProvider {
     /** Base URL of the provider's API. */
     baseUrl: string;
     /** Models exposed by this provider (at least one). */
-    models: TrueForge.ModelEntry[];
+    models: TrueForge.ConfiguredModel[];
     name: TrueForge.ResourceName;
     type: "custom";
 }

@@ -1,1 +1,1 @@
-export { PutSandboxProviderRequest } from "./PutSandboxProviderRequest.js";
+export { UpdateSandboxProviderRequest } from "./UpdateSandboxProviderRequest.js";

@@ -31,12 +31,12 @@ If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plura
 | `GET /foos`             | `ListFoosRequestQuery` (if any)     | `ListFoosResponse`                        |
 | `POST /foos`            | `CreateFooRequest`                  | `GetFooResponse` (or `CreateFooResponse`) |
 | `GET /foos/{foo_id}`    | —                                   | `GetFooResponse`                          |
-| `PUT` upsert/replace    | `PutFooRequest`                     | `GetFooResponse` (or `PutFooResponse`)    |
+| `PUT` upsert/replace    | `UpdateFooRequest`                  | `GetFooResponse` (or `UpdateFooResponse`) |
 | `DELETE /foos/{foo_id}` | `DeleteFoosRequestQuery` (optional) | `DeleteFooResponse` (`{}`)                |
 
 Prefer reusing `GetFooResponse` when create/update return the same item.
 
-**Request body vs manifest:** `FooManifest` is only the persisted jsonb document. Flag create/put bodies that flatten manifest fields onto the request root or alias the request schema to `FooManifest`. They must be `CreateFooRequest` / `PutFooRequest` with an explicit wrapper:
+**Request body vs manifest:** `FooManifest` is only the persisted jsonb document. Flag create/update bodies that flatten manifest fields onto the request root or alias the request schema to `FooManifest`. They must be `CreateFooRequest` / `UpdateFooRequest` with an explicit wrapper:
 
 ```ts
 {
@@ -47,7 +47,7 @@ Prefer reusing `GetFooResponse` when create/update return the same item.
 
 Session/turn-style creates that are not a stored manifest keep a flat `Create*Request` without a `manifest` key.
 
-Settings list → `ListFoosResponse`; chat → `ListAvailableFoosResponse`; catalog → `ListCatalogFoosResponse` / item `CatalogFoo`.
+Settings list → `ListFoosResponse`; chat → `ListAvailableFoosResponse`. Catalogs are a single `GET /api/v1/catalogs/{collection}` of the whole blob → `GetFooCatalogResponse` / item `CatalogFoo` (not a `ListCatalog*` list endpoint).
 
 Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fern `list_bars`, `create_bar`, …
 

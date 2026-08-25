@@ -10,7 +10,7 @@ import {
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import type { PutSandboxProviderRequest, SandboxProviderManifest } from '../schemas/sandboxProvider';
+import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -56,7 +56,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
   };
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
-    const body: PutSandboxProviderRequest = c.req.valid('json');
+    const body: UpdateSandboxProviderRequest = c.req.valid('json');
     const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,

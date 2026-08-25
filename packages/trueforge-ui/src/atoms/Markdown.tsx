@@ -80,6 +80,14 @@ function makeComponents(opts: {
   } = opts;
 
   return {
+    // Chat markdown links should open in a new tab.
+    a({ href, children, node: _node, ...props }) {
+      return (
+        <a {...props} href={href} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      );
+    },
     // Strip default <pre> wrapper — each block renderer provides its own container.
     pre({ children }: { children?: ReactNode }) {
       return <>{children}</>;

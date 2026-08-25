@@ -6,16 +6,46 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md). 
 
 ## Ways to contribute
 
+> [!Important]
+> Please only submit pull requests if you have received approval from a maintainer.
+> While we value good intentions, we require approvals for community code contributions to ensure we use everyone's time effectively.
+
 - **Report bugs** — open an issue with steps to reproduce, expected vs actual behavior, and your environment.
-- **Suggest features** — open an issue describing the problem you're trying to solve, not only the solution.
 - **Improve docs** — typo fixes and clarifications are always welcome.
-- **Fix bugs / build features** — for anything non-trivial, please open an issue first so we can discuss the approach before you invest time.
+- **Fix bugs / build features** — for anything non-trivial, please open an issue first so we can discuss the approach before you invest time
 
 For security vulnerabilities, do **not** open a public issue — see [SECURITY.md](SECURITY.md).
 
+### Why we require approvals for community code contributions
+
+Effective changes to TrueForge require architectural context, an understanding of system-level constraints, and visibility into the project's roadmap. Community pull requests often focus on issues that are lower priority, affect a small number of users, or need substantial changes to fit the broader system. Reviewing and iterating on those changes can take more time than implementing a fix directly, diverting attention from higher-priority work.
+
+Community expertise is most valuable when shared through detailed bug reports, reproduction steps, logs, root-cause analysis, and design discussions in issues. Understanding the problem, identifying the right solution, and prioritizing the work are typically the hard parts; implementation is comparatively straightforward with coding assistants.
+
+For these reasons, we focus community contributions on issue reports, analysis, and feedback, over larger code changes.
+
+> [!Note]
+> If you would still like to contribute code, we keep a dedicated set of issues marked as [help-wanted](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22) that are well scoped.
+
+### Reporting bugs
+
+Before opening a new issue, search the issue tracker to see whether the problem has already been reported. If it has, add any new information to the existing issue.
+
+When reporting a bug, include as much relevant detail as possible:
+
+- Clear, detailed steps to reproduce the problem.
+- Expected and actual behavior.
+- Your TrueForge version, operating system, and other relevant environment details.
+- Logs, error messages, or other diagnostic information, with sensitive information removed.
+- Root-cause analysis, technical observations, or potential approaches to a fix, if available.
+
+### Requesting features
+
+Open a feature request in the issue tracker, or upvote an existing request that describes the same need. Explain your use case, the behavior you would like, and why it would improve your workflow.
+
 ## Prerequisites
 
-- **Node.js 22.13+** (see [`.nvmrc`](.nvmrc); required by pnpm 11.16)
+- **Node.js 22.14+** (see [`.nvmrc`](.nvmrc); pnpm 11.16 needs 22.13+, and `better-sqlite3` v13 needs Node-API 10)
 - **pnpm** (version pinned via `packageManager` in [`package.json`](package.json); `corepack enable` handles it)
 - **Docker** — only needed for Postgres/Redis dev infra, the smoke test, and local SDK generation (maintainers). Fork contributors do not generate the SDK.
 
@@ -113,6 +143,7 @@ See [`packages/trueforge/.env.example`](packages/trueforge/.env.example) for eve
 - `PORT` — API port (default `8790`)
 - `FRONTEND_PORT` — Vite UI port in dev (default `3000`); see [`packages/frontend/README.md`](packages/frontend/README.md)
 - `VITE_SERVER_URL` — point the Vite proxy at a different API
+- `PUBLIC_BASE_URL` — public origin for MCP OAuth / OIDC callbacks. Required for `pnpm standalone:dev` / `pnpm dev` and for distributed mode (e.g. `http://localhost:3000` for Vite). Non-development standalone falls back to `http://localhost:$PORT`.
 - `FRONTEND_DIR` — directory of a built UI for the server to serve
 - `SQLITE_PATH` — SQLite file location in standalone mode
 - `REDIS_URL` / `POSTGRES_*` — used when `STANDALONE=false`

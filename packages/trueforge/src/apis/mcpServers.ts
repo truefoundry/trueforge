@@ -21,12 +21,12 @@ import {
 } from '../routes/mcpServerRoutes';
 import { getMcpConnection } from '../runtime/sessionResources';
 import type {
+  AvailableMcpServer,
   ConfiguredMcpServer,
   CreateMcpServerRequest,
   McpAuthStatus,
   McpServerManifest,
-  McpServerReadEntry,
-  PutMcpServerRequest,
+  UpdateMcpServerRequest,
 } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
@@ -117,13 +117,13 @@ function toConfiguredMcpServer({
   };
 }
 
-function toMcpServerReadEntry({
+function toAvailableMcpServer({
   record,
   token,
 }: {
   record: McpServerRecord;
   token: OAuthToken | undefined;
-}): McpServerReadEntry {
+}): AvailableMcpServer {
   const authType = record.manifest.auth?.type;
   return {
     name: record.name,
@@ -228,7 +228,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const body: PutMcpServerRequest = c.req.valid('json');
+    const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
 
     try {
@@ -438,7 +438,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
     return c.json(
       {
-        data: records.map(record => toMcpServerReadEntry({ record, token: tokens.get(record.id) })),
+        data: records.map(record => toAvailableMcpServer({ record, token: tokens.get(record.id) })),
       },
       200,
     );

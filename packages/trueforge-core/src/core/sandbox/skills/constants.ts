@@ -1,11 +1,8 @@
 // Skill prompt constants and helpers: how skills are described to the agent in the system prompt.
 
-// Directory inside the sandbox where every skill (whatever its origin) is materialized.
-export const SKILLS_DIR = '/opt/tfy/skills';
-
 // On-disk directory a skill is materialized into, keyed by its (unique) name.
-export function getSkillPath(skillName: string): string {
-  return `${SKILLS_DIR}/${skillName}`;
+export function getSkillPath(params: { skillsDir: string; skillName: string }): string {
+  return `${params.skillsDir.replace(/\/+$/, '')}/${params.skillName}`;
 }
 
 export const SKILLS_PREAMBLE = [

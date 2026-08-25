@@ -20,14 +20,22 @@ jest.mock('../../../src/config', () => {
   const config = {
     STANDALONE: false as const,
     PUBLIC_BASE_URL: 'https://harness.example.com',
+    NODE_ENV: 'development',
     OIDC,
     PORT: 8790,
   };
   return {
     __esModule: true,
     default: config,
-    getPublicBaseUrl: (value = config) =>
-      value.STANDALONE ? `http://localhost:${String(value.PORT)}` : value.PUBLIC_BASE_URL,
+    getPublicBaseUrl: (value = config) => {
+      if (value.STANDALONE && value.NODE_ENV !== 'development') {
+        return `http://localhost:${String(value.PORT)}`;
+      }
+      if (value.PUBLIC_BASE_URL === '') {
+        throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
+      }
+      return value.PUBLIC_BASE_URL;
+    },
   };
 });
 
@@ -301,6 +309,54 @@ describe('auth router (auth enabled)', () => {
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/?error=login_failed');
+  });
+
+  it('GET /callback replays home when already authenticated and the state cookie is spent', async () => {
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient, logger }).request('/callback?code=abc&state=spent', {
+      redirect: 'manual',
+      headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/');
+  });
+
+  it('GET /callback replays home when already authenticated even if the IdP returned an error', async () => {
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient, logger }).request(
+      '/callback?state=any&error=access_denied&error_description=user%20cancelled',
+      {
+        redirect: 'manual',
+        headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+      },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/');
+  });
+
+  it('GET /callback keeps the existing session when code exchange fails', async () => {
+    const token = await createIdToken();
+    const router = createAuthRouter({ oidcClient, logger });
+    const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
+    const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
+    const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
+    const state = authorizationUrl.searchParams.get('state') ?? '';
+
+    const fetchStub = globalThis.fetch;
+    const failingFetch: typeof fetch = async (input, init) => {
+      if (String(input) === `${ISSUER}/token` && init?.method === 'POST') {
+        return new Response('invalid_grant', { status: 400 });
+      }
+      return fetchStub(input, init);
+    };
+    globalThis.fetch = failingFetch;
+
+    const res = await router.request(`/callback?code=abc&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
+      redirect: 'manual',
+      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}; ${ID_TOKEN_COOKIE}=${token}` },
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/sessions/abc123');
   });
 
   it('POST /logout clears id_token even when no cookie is present', async () => {

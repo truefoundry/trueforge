@@ -1,2 +1,2 @@
 export type { CreateAgentRequest } from "./CreateAgentRequest.js";
-export type { PutAgentRequest } from "./PutAgentRequest.js";
+export type { UpdateAgentRequest } from "./UpdateAgentRequest.js";

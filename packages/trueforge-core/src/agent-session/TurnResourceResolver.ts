@@ -205,10 +205,7 @@ export class TurnResourceResolver<
         instruction: agentInfo ? undefined : spec.instructions,
         messages: agentInfo
           ? [{ role: 'user' as const, content: agentInfo.input }]
-          : spec.messages?.map(m => ({
-              role: 'user' as const,
-              content: m.content,
-            })),
+          : spec.messages?.map(m => ({ role: 'user' as const, content: m.content })),
         modelParams: {
           ...resolvedModel.defaultModelParams,
           ...spec.model.params,

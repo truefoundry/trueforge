@@ -17,6 +17,7 @@ function makeSandbox(options: {
   const execCalls: SandboxExecParams[] = [];
   const transport = options.transport;
   const provider: SandboxProvider = {
+    type: 'test',
     buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
     getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
     createSandbox: () => Promise.resolve({ sandboxId: 'test-tenant.sandbox-1' }),
@@ -27,6 +28,9 @@ function makeSandbox(options: {
     getAdditionalInstructions: () => undefined,
     getToolResultDumpDir: () => '/tmp/tool-results',
     getGitCredentialsPath: () => '/tmp/.git-credentials',
+    getFileUploadsDir: () => '/tmp/uploads',
+    getSkillsDir: () => '/opt/tfy/skills',
+    getGitDownloaderPath: () => '/opt/tfy/git_downloader.py',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
     createCodeModeTransport: () => {
@@ -42,7 +46,6 @@ function makeSandbox(options: {
       blockDestructiveToolsInCodeMode: true,
       mcpRequestTimeoutMs: options.mcpRequestTimeoutMs,
       mcpConnectTimeoutMs: options.mcpConnectTimeoutMs,
-      tenantName: 'test-tenant',
       logger: makeSilentLogger(),
       tracing: NOOP_AGENT_TRACING,
     }),
@@ -64,6 +67,11 @@ describe('Code Mode timeouts', () => {
   it('derives the Code Mode wait from MCP request + connect plus a buffer', async () => {
     let capturedTimeoutSeconds: number | undefined;
     const transport: CodeModeTransport = {
+      getClientInstall: () => ({
+        content: '#!/usr/bin/env python3\nprint("mock")\n',
+        remotePath: '/opt/tfy/mcp-client/mcp_client.py',
+        pathBinSymlink: '/usr/local/bin/mcp-client',
+      }),
       start: params => {
         capturedTimeoutSeconds = params.requestTimeoutSeconds;
         return Promise.resolve({
@@ -87,6 +95,11 @@ describe('Code Mode timeouts', () => {
 
     expect(capturedTimeoutSeconds).toBe(150);
     expect(call.env?.['TFY_CM_REQUEST_TIMEOUT_SECONDS']).toBe('150');
+    expect(call.env?.['PATH']).toBeUndefined();
+    expect(call.env?.['PYTHONPATH']).toBe('/opt/tfy/mcp-client');
+    const init = execCalls.find(item => item.command.includes('ln -sf'));
+    expect(init?.command).toContain('/usr/local/bin/mcp-client');
+    expect(init?.command).not.toContain('/opt/tfy/mcp-client/bin/mcp-client');
   });
 
   it('leaves the exec timeout to the provider default', async () => {

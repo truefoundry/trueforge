@@ -55,8 +55,9 @@ export function makeMockIMCPServer(params: {
   };
 }
 
-export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
+export function makeStubPublicSandbox(): Sandbox {
   const provider: SandboxProvider = {
+    type: 'test',
     buildImage: jest.fn(),
     getImageBuildStatus: jest.fn(),
     createSandbox: jest.fn(),
@@ -64,6 +65,9 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
     getAdditionalInstructions: () => undefined,
     getToolResultDumpDir: () => '/tmp/tool-results',
     getGitCredentialsPath: () => '/tmp/.git-credentials',
+    getFileUploadsDir: () => '/tmp/uploads',
+    getSkillsDir: () => '/opt/tfy/skills',
+    getGitDownloaderPath: () => '/opt/tfy/git_downloader.py',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
     createCodeModeTransport: jest.fn(),
@@ -73,7 +77,6 @@ export function makeStubPublicSandbox(tenantName = 'test-tenant'): Sandbox {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
-    tenantName,
     logger: makeSilentLogger(),
     tracing: NOOP_AGENT_TRACING,
   });

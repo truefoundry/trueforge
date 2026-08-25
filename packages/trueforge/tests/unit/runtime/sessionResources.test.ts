@@ -7,10 +7,26 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
-import { getModelDetails, validateAgentSpec } from '../../../src/runtime/sessionResources';
+import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
+import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 
+describe('localSandboxSessionSegment', () => {
+  it('keeps a single-segment session id and rejects missing or unsafe values', () => {
+    expect(localSandboxSessionSegment('sess_1')).toBe('sess_1');
+    expect(localSandboxSessionSegment(undefined)).toBe('_');
+    expect(localSandboxSessionSegment('')).toBe('_');
+    expect(localSandboxSessionSegment('a/b')).toBe('_');
+    expect(localSandboxSessionSegment('..')).toBe('_');
+    expect(localSandboxSessionSegment('foo..bar')).toBe('_');
+  });
+});
+
 describe('validateAgentSpec', () => {
+  afterEach(() => {
+    setCachedLocalSandboxSupport(undefined);
+  });
+
   async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
@@ -244,5 +260,27 @@ describe('validateAgentSpec', () => {
         ...stores,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('admits sandbox.enabled when local fallback is cached and the store is empty', async () => {
+    const stores = await setup();
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { sandbox: { enabled: true } },
+        }),
+        tenant_id: TENANT_ID,
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+    expect(await stores.sandboxProviderStore.getSandboxProvider(TENANT_ID)).toBeUndefined();
   });
 });

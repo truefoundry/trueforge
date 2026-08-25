@@ -65,6 +65,8 @@ export interface SandboxBuild {
 }
 
 export interface SandboxProvider {
+  /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
+  readonly type: string;
   /**
    * Ensures the release image is being built into the provider's backing store and
    * returns its current status. Idempotent: an already-built image reports `ready`;
@@ -79,8 +81,18 @@ export interface SandboxProvider {
   getAdditionalInstructions(): string | undefined;
   /** Directory inside the sandbox where large tool responses are dumped. */
   getToolResultDumpDir(sandboxId: string): string;
-  /** Absolute path for the git credential-store file (per logical sandbox when sharing a pod). */
+  /**
+   * Git credential-store file (absolute, or cwd-relative when exec cwd is the jail).
+   * `GIT_CONFIG` `store --file` is relative to the git process cwd — providers that
+   * return a relative path must make it absolute in their own `exec`.
+   */
   getGitCredentialsPath(sandboxId: string): string;
+  /** Directory for user-uploaded files (absolute, or cwd-relative when the provider has no global FS). */
+  getFileUploadsDir(sandboxId: string): string;
+  /** Directory where git skills are materialized. */
+  getSkillsDir(sandboxId: string): string;
+  /** Path the git skill downloader script is written to before it runs. */
+  getGitDownloaderPath(sandboxId: string): string;
   /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
   downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;
   /** Uploads a file to the sandbox. */

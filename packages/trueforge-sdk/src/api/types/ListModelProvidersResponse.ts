@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListModelProvidersResponse {
-    data: TrueForge.ModelProvider[];
+    data: TrueForge.ConfiguredModelProvider[];
 }

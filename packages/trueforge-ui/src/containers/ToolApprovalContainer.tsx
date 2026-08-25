@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { ApprovalOption } from '../atoms/ToolApprovalBar.js';
 
+import { parseMcpToolArgs } from '@/utils/toolCallParsing.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 export type ToolApprovalOption = {
@@ -19,12 +20,20 @@ export type ToolApprovalOption = {
 
 type ToolApprovalContainerProps = {
   toolName?: string;
+  argsText?: string;
   options: ToolApprovalOption[];
   onSelectOption: (optionId: string, reason?: string) => void;
 };
 
-export function ToolApprovalContainer({ toolName = '', options, onSelectOption }: ToolApprovalContainerProps) {
+export function ToolApprovalContainer({
+  toolName = '',
+  argsText,
+  options,
+  onSelectOption,
+}: ToolApprovalContainerProps) {
   const ToolApprovalBar = useSlot('ToolApprovalBar');
+  const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
+  const displayToolName = innerToolName && mcpServer ? `${innerToolName} (${mcpServer})` : toolName;
   const [selectedDenyOptionId, setSelectedDenyOptionId] = useState<string | null>(null);
   const [denialReason, setDenialReason] = useState('');
   const [showReasonError, setShowReasonError] = useState(false);
@@ -75,7 +84,7 @@ export function ToolApprovalContainer({ toolName = '', options, onSelectOption }
 
   return (
     <ToolApprovalBar
-      toolName={toolName}
+      toolName={displayToolName}
       approveOptions={approveOptions.length > 0 ? approveOptions : undefined}
       denyOptions={denyOptions.length > 0 ? denyOptions : undefined}
       selectedDenyOption={selectedDenyOption}

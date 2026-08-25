@@ -41,6 +41,8 @@ export default defineConfig([
       ...migrationEntries('postgres'),
       ...migrationEntries('sqlite'),
     },
+    // SRT vendor helpers must resolve from node_modules at runtime (createRequire).
+    external: ['@anthropic-ai/sandbox-runtime'],
   },
   {
     ...shared,

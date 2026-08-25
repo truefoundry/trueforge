@@ -29,7 +29,13 @@ export function modelProviderLogosByName(
 }
 
 /** Map harness model rows onto the UI picker shape (nested provider + properties + optional logo). */
-export function toModelSelection({ model, logo }: { model: TrueForgeApi.Model; logo?: string }): ModelSelection {
+export function toModelSelection({
+  model,
+  logo,
+}: {
+  model: TrueForgeApi.AvailableModel;
+  logo?: string;
+}): ModelSelection {
   const efforts = model.properties.reasoningEfforts;
   return {
     id: model.modelId,

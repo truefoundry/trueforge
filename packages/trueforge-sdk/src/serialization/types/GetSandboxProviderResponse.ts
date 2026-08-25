@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SandboxProvider } from "./SandboxProvider.js";
+import { ConfiguredSandboxProvider } from "./ConfiguredSandboxProvider.js";
 
 export const GetSandboxProviderResponse: core.serialization.ObjectSchema<
     serializers.GetSandboxProviderResponse.Raw,
     TrueForge.GetSandboxProviderResponse
 > = core.serialization.object({
-    data: SandboxProvider,
+    data: ConfiguredSandboxProvider,
 });
 
 export declare namespace GetSandboxProviderResponse {
     export interface Raw {
-        data: SandboxProvider.Raw;
+        data: ConfiguredSandboxProvider.Raw;
     }
 }

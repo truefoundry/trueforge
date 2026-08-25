@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.4
+
+### Patch Changes
+
+- f1c5c6b: Fall back to the pending MCP authorization URL when the UI server does not expose a catalog.
+
+## 0.2.3
+
+### Patch Changes
+
+- abd9e38: Agents Library rows: show connectors before skills, use the composer's lightbulb icon for skills, and reveal the connector/skill names in a tooltip on hover.
+- cc49d4a: Rename catalog, sandbox-file download, and MCP tools paths; Fern upsert becomes create_or_update. Sessions and turns default and max 25; session and turn event lists default and max 100.
+- d7a640f: Align OpenAPI type names across AgentSpec, settings, catalogs, and chat pickers: Catalog/Configured/Available resource views, AgentSpec nested Model/Skill/InitialUserMessage, Put*Request → Update*Request, MCP acronym casing, GetMeResponse, and explicit names for nested AgentSpec/capabilities schemas.
+- 7e2e02c: Refresh composer catalogs whenever settings close, including navigating to a chat or named agent.
+- Updated dependencies [cc49d4a]
+  - @truefoundry/trueforge-sdk@0.1.3
+
+## 0.2.3-rc.0
+
+### Patch Changes
+
+- abd9e38: Agents Library rows: show connectors before skills, use the composer's lightbulb icon for skills, and reveal the connector/skill names in a tooltip on hover.
+- cc49d4a: Rename catalog, sandbox-file download, and MCP tools paths; Fern upsert becomes create_or_update. Sessions and turns default and max 25; session and turn event lists default and max 100.
+- d7a640f: Align OpenAPI type names across AgentSpec, settings, catalogs, and chat pickers: Catalog/Configured/Available resource views, AgentSpec nested Model/Skill/InitialUserMessage, Put*Request → Update*Request, MCP acronym casing, GetMeResponse, and explicit names for nested AgentSpec/capabilities schemas.
+- 7e2e02c: Refresh composer catalogs whenever settings close, including navigating to a chat or named agent.
+- Updated dependencies [cc49d4a]
+  - @truefoundry/trueforge-sdk@0.1.3-rc.0
+
 ## 0.2.2
 
 ### Patch Changes

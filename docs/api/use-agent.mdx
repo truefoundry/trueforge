@@ -1,7 +1,7 @@
 ---
 title: 'Use an agent'
 sidebarTitle: 'Use an agent'
-description: 'Run a saved agent with the TypeScript SDK: a complete example, then recipes for streaming, approvals, questions, threads, and reconnects.'
+description: 'Run a saved agent with the TypeScript SDK: a Quick Start, then recipes for streaming, approvals, questions, threads, and reconnects.'
 ---
 
 The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk). New here? Install and stream your first turn in the [SDK Quickstart](/api/quickstart) first. For the mental model (Agent → Session → Turn → Event → Delta), see [Concepts](/api/overview); for every event field, see the [turn events reference](#turn-events-reference) at the bottom of this page.
@@ -30,7 +30,7 @@ const client = new TrueForge({
 
 Point `baseUrl` at your running TrueForge server; `http://localhost:8790` is the Quickstart default. When [OIDC login](/authentication/overview) is enabled, pass `token` (an ID token from your IdP; see [Get a token and connect](/api/quickstart#get-a-token-and-connect)). When login is off, omit it.
 
-## A complete example
+## Quick Start
 
 The [Concepts](/api/overview) page explains the model with a conceptual `support-bot`; here is a real agent you can run. In the [Quickstart](/quickstart) you built **`web-research-brief`**, an agent with Exa web search and the web-artifacts-builder skill. Here it is from the SDK: open a session on that agent, stream one research turn, and print the brief as it arrives. It fans out to [subagents](/key-features/subagents), so you'll see their threads in the same stream. It has no approval gate, so it runs end to end without pausing; for the approval and question pauses, see [Handle pauses](#handle-pauses).
 
@@ -67,20 +67,6 @@ for await (const { data: event } of stream.withMetadata()) {
 ```
 
 That's the core loop: open a session, stream a turn, print the reply as it arrives, and read the final `turn.done`. This version writes each delta straight to stdout. The [next section](#create-and-stream-a-turn) keeps an id-keyed event index, the pattern the pause recipes build on. The rest of the page is a reference for each piece, plus the pauses (approvals, questions, MCP auth) a real agent runs into.
-
-## At a glance
-
-| Method | What it does |
-| --- | --- |
-| `sessions.create` | Open a session (by agent name or inline spec) |
-| `sessions.list` | List sessions (newest-first; filter by `agentId`) |
-| `sessions.createTurnStream` | Create a turn and stream its events (SSE) |
-| `sessions.createTurn` | Create a turn without streaming (then poll `getTurn`) |
-| `sessions.getTurn` | Fetch a turn's current `state` |
-| `sessions.listTurns` | List a session's turns (oldest-first) |
-| `sessions.subscribeToTurn` | Reconnect to a running turn's stream |
-| `sessions.listTurnEvents` | Replay a finished turn's events (already merged) |
-| `sessions.cancel` | Cancel the running turn |
 
 ## Sessions
 
@@ -489,7 +475,7 @@ if (turn.state.status === 'running') {
 
 ### Subagent threads
 
-A turn stream interleaves the root agent and any parallel [subagents](/key-features/subagents), exactly what the [complete example](#a-complete-example) above does. Every event carries a `threadId`:
+A turn stream interleaves the root agent and any parallel [subagents](/key-features/subagents), exactly what the [Quick Start](#quick-start) above does. Every event carries a `threadId`:
 
 - `"main"`: the root agent.
 - A unique id: a subagent thread. [`thread.created`](#thread-created) and [`thread.done`](#thread-done) bracket its lifecycle.

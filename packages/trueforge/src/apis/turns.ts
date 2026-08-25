@@ -14,12 +14,13 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import {
   AgentHarnessError,
+  existingSandboxIdForProvider,
   extractErrorLogFields,
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
+  rawSandboxId,
   SandboxError,
-  validateSandboxOwnedByTenant,
   VercelAILLM,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
@@ -128,6 +129,7 @@ function createTurnResolver(deps: {
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
+  sessionId: string;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -139,6 +141,7 @@ function createTurnResolver(deps: {
     logger,
     signal,
     userRef,
+    sessionId,
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
@@ -179,16 +182,21 @@ function createTurnResolver(deps: {
         tenant_id: TENANT_ID,
         store: sandboxProviderStore,
         logger,
+        sessionId,
       });
       if (provider === undefined) {
         throw new HTTPException(422, {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      // A fresh sandbox is cloned from the release snapshot, so the build must be ready first.
-      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot,
-      // so reuse skips this gate entirely.
-      if (existingSandboxId === undefined) {
+      const carriedSandboxId = existingSandboxIdForProvider({
+        existingSandboxId,
+        currentProviderType: provider.type,
+      });
+      // A fresh Daytona sandbox is cloned from the release snapshot, so the build must be ready first.
+      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot.
+      // Local fallback has no image build.
+      if (carriedSandboxId === undefined && provider.type !== 'local') {
         const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id: TENANT_ID, logger });
         if (status?.status !== 'ready') {
           throw new HTTPException(422, {
@@ -209,9 +217,8 @@ function createTurnResolver(deps: {
         logger,
         gitSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
-        existingSandboxId,
+        existingSandboxId: carriedSandboxId,
         tracing,
-        tenantName: TENANT_ID,
       });
     },
     agent: async agentId => {
@@ -426,14 +433,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         tenant_id: TENANT_ID,
         store: deps.sandboxProviderStore,
         logger: deps.logger,
+        sessionId,
       });
       if (provider === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
       }
 
-      validateSandboxOwnedByTenant(sandboxId, TENANT_ID);
       // TODO: stream the body instead of buffering the whole file in memory.
-      const content = await provider.downloadFile({ sandboxId, path });
+      const content = await provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),
@@ -508,6 +515,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       logger: deps.logger,
       signal: abortController.signal,
       userRef: deps.resolveUserContext(c).userRef,
+      sessionId,
     });
 
     // First turn only: derive the title from the first user message. The store

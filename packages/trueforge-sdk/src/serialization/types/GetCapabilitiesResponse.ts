@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { GetCapabilitiesResponseData } from "./GetCapabilitiesResponseData.js";
+import { CapabilitiesData } from "./CapabilitiesData.js";
 
 export const GetCapabilitiesResponse: core.serialization.ObjectSchema<
     serializers.GetCapabilitiesResponse.Raw,
     TrueForge.GetCapabilitiesResponse
 > = core.serialization.object({
-    data: GetCapabilitiesResponseData,
+    data: CapabilitiesData,
 });
 
 export declare namespace GetCapabilitiesResponse {
     export interface Raw {
-        data: GetCapabilitiesResponseData.Raw;
+        data: CapabilitiesData.Raw;
     }
 }

@@ -1,2 +1,2 @@
 export { CreateMcpServerRequest } from "./CreateMcpServerRequest.js";
-export { PutMcpServerRequest } from "./PutMcpServerRequest.js";
+export { UpdateMcpServerRequest } from "./UpdateMcpServerRequest.js";

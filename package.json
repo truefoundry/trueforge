@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@11.16.0+sha512.b767e9a98fc87aec0f42daefcd0e84941c2cdb45d73c4e1e68860fb2bdfdbe032ab592105479e5e05c237f740c8a5ffdbbb52385797ddc2296745a1bbb883e8d",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.14.0"
   },
   "scripts": {
     "build": "pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge-sdk build && pnpm --filter @truefoundry/trueforge-ui build && pnpm --filter frontend build && pnpm --filter @truefoundry/trueforge build",
@@ -31,22 +31,24 @@
     "sdk:generate": "bash scripts/generate-sdk.sh",
     "smoke:down": "docker compose down",
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
-    "prestandalone:dev:no-watch": "pnpm --filter @truefoundry/trueforge migrate:legacy-sqlite-path",
-    "prestandalone:dev": "pnpm --filter @truefoundry/trueforge migrate:legacy-sqlite-path",
     "standalone:dev:no-watch": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge --filter frontend dev:no-watch",
     "standalone:dev": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge-core --filter @truefoundry/trueforge --filter frontend dev",
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
     "test:frontend": "pnpm --filter frontend test",
+    "test:chart-version": "bash tests/scripts/resolve-chart-version.test.sh",
     "test:trueforge-core": "pnpm --filter @truefoundry/trueforge-core test",
     "test:trueforge": "pnpm --filter @truefoundry/trueforge test",
+    "test:local-sandbox:contract": "pnpm --filter @truefoundry/trueforge test:local-sandbox:contract",
+    "smoke:local-sandbox": "pnpm --filter @truefoundry/trueforge smoke:local-sandbox",
+    "smoke:local-sandbox:lima": "pnpm --filter @truefoundry/trueforge smoke:local-sandbox:lima",
     "test:store:local": "bash scripts/test-store-local.sh",
     "test:store:postgres": "pnpm --filter @truefoundry/trueforge test:store:postgres",
     "test:store:sqlite": "pnpm --filter @truefoundry/trueforge test:store:sqlite",
     "test:trueforge-ui": "pnpm --filter @truefoundry/trueforge-ui test",
     "test": "pnpm test:trueforge-core && pnpm test:trueforge-ui && pnpm test:trueforge && pnpm test:frontend",
-    "typecheck": "pnpm --filter @truefoundry/trueforge-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/trueforge typecheck && pnpm --filter frontend typecheck && pnpm --filter @truefoundry/local-sandbox typecheck",
+    "typecheck": "pnpm --filter @truefoundry/trueforge-core typecheck && pnpm --filter @truefoundry/trueforge-ui typecheck && pnpm --filter @truefoundry/trueforge typecheck && pnpm --filter frontend typecheck",
     "version": "node scripts/version.mjs"
   },
   "devDependencies": {

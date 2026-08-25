@@ -23,7 +23,7 @@ export class ModelsClient {
     }
 
     /**
-     * Models across all configured model providers, addressed by fully qualified name `name/model_name`.
+     * Configured models as a slim FQN list for the composer.
      *
      * @param {ModelsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -34,13 +34,15 @@ export class ModelsClient {
      * @example
      *     await client.models.list()
      */
-    public list(requestOptions?: ModelsClient.RequestOptions): core.HttpResponsePromise<TrueForge.ListModelsResponse> {
+    public list(
+        requestOptions?: ModelsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.ListAvailableModelsResponse> {
         return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
     }
 
     private async __list(
         requestOptions?: ModelsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.ListModelsResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.ListAvailableModelsResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -64,7 +66,7 @@ export class ModelsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ListModelsResponse.parseOrThrow(_response.body, {
+                data: serializers.ListAvailableModelsResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

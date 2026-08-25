@@ -13,6 +13,7 @@ import {
   type VercelAIProviderConfig,
 } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
@@ -21,6 +22,8 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
+import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
+import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
@@ -205,35 +208,58 @@ export async function resolveGitSkills({
 }
 
 /**
- * Build a runtime SandboxProvider from the configured store row, or undefined
- * when no provider is configured. Builds a fresh Daytona client per call (no network I/O).
+ * Build a runtime SandboxProvider from the configured store row, or the
+ * in-memory local fallback when standalone + the cached probe is supported.
+ * Builds a fresh Daytona client per call (no network I/O).
  */
+/** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
+export function localSandboxSessionSegment(sessionId: string | undefined): string {
+  if (sessionId === undefined || sessionId.length === 0 || sessionId.includes('/') || sessionId.includes('..')) {
+    return '_';
+  }
+  return sessionId;
+}
+
 export async function resolveSandboxProvider({
   tenant_id,
   store,
   logger,
+  sessionId,
 }: {
   tenant_id: string;
   store: ISandboxProviderStore;
   logger: Logger;
+  sessionId: string;
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
-  if (record === undefined) {
+  if (record !== undefined) {
+    // Clone from the snapshot that was actually built (persisted build_ref), not a name
+    // derived from the current image — otherwise an image bump breaks creation until rebuild.
+    return toDaytonaSandboxProvider({
+      manifest: record.manifest,
+      tenant_id,
+      logger,
+      build_metadata: record.build_metadata,
+    });
+  }
+  if (!configuration.STANDALONE) {
     return undefined;
   }
-  // Clone from the snapshot that was actually built (persisted build_ref), not a name
-  // derived from the current image — otherwise an image bump breaks creation until rebuild.
-  return toDaytonaSandboxProvider({
-    manifest: record.manifest,
-    tenant_id,
+  const support = getCachedLocalSandboxSupport();
+  if (support?.supported !== true) {
+    return undefined;
+  }
+  return new LocalSandboxProvider({
+    sandboxRootPathParent: join(configuration.LOCAL_SANDBOX_ROOT_PARENT, localSandboxSessionSegment(sessionId)),
+    codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
+    support,
+    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
-    build_metadata: record.build_metadata,
   });
 }
 
 /**
  * Builds a Sandbox for one turn from a resolved provider and git mounts.
- * `tenantName` must match the name given to DaytonaSandboxProvider (ownership check).
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
@@ -242,7 +268,6 @@ export function buildTurnSandbox(input: {
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
-  tenantName: string;
 }): Sandbox {
   const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
   return new Sandbox({
@@ -252,7 +277,6 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    tenantName: input.tenantName,
     ...(skillMounter ? { skillMounter } : {}),
     tracing: input.tracing,
     logger: input.logger,
@@ -339,7 +363,7 @@ export async function validateAgentSpec({
   const hasSkills = requestedSkills.length > 0;
   if (wantsSandbox || hasSkills) {
     const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
-    if (record === undefined) {
+    if (record === undefined && !isLocalSandboxFallbackEnabled()) {
       throw new HTTPException(422, {
         message: hasSkills
           ? 'skills require a sandbox provider — configure via PUT /settings/sandbox-providers'

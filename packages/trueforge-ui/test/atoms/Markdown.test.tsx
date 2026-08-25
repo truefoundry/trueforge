@@ -29,6 +29,15 @@ describe('Markdown', () => {
     expect(strong.closest('.markdown-body')).toBeTruthy();
   });
 
+  it('opens links in a new tab', () => {
+    render(<Markdown content="See [docs](https://example.com/docs) for details." />);
+    const link = screen.getByRole('link', { name: 'docs' });
+    expect(link).toHaveAttribute('href', 'https://example.com/docs');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(link).not.toHaveAttribute('node');
+  });
+
   it('renders openui fenced blocks via OpenUiFenceBlock', async () => {
     render(<Markdown content={'```openui\nCard() { title: "Sales" }\n```'} />);
     await waitFor(() => {

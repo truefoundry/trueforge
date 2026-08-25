@@ -4,7 +4,7 @@
  */
 
 export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSchema } from './schemas/agentSpec';
-export type { AgentSpec, SkillNameRef } from './schemas/agentSpec';
+export type { AgentSpec, Skill } from './schemas/agentSpec';
 
 export {
   CancellationReason,

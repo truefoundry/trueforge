@@ -111,7 +111,7 @@ export class SandboxProvidersClient {
     /**
      * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
-     * @param {TrueForge.settings.PutSandboxProviderRequest} request
+     * @param {TrueForge.settings.UpdateSandboxProviderRequest} request
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -134,14 +134,14 @@ export class SandboxProvidersClient {
      *     })
      */
     public createOrUpdate(
-        request: TrueForge.settings.PutSandboxProviderRequest,
+        request: TrueForge.settings.UpdateSandboxProviderRequest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetSandboxProviderResponse> {
         return core.HttpResponsePromise.fromPromise(this.__createOrUpdate(request, requestOptions));
     }
 
     private async __createOrUpdate(
-        request: TrueForge.settings.PutSandboxProviderRequest,
+        request: TrueForge.settings.UpdateSandboxProviderRequest,
         requestOptions?: SandboxProvidersClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetSandboxProviderResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
@@ -162,7 +162,7 @@ export class SandboxProvidersClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.settings.PutSandboxProviderRequest.jsonOrThrow(request, {
+                serializers.settings.UpdateSandboxProviderRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

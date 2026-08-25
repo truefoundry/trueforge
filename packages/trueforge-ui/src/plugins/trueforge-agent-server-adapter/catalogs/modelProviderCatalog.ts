@@ -23,7 +23,7 @@ export type UiModelEntry = ModelEntry & {
 export type UiModelProvider = ModelProviderBase<UiModelEntry>;
 export type UiModelProviderCatalogEntry = ModelProviderCatalogEntry<UiModelEntry>;
 
-export function toUiModelEntry(model: TrueForgeApi.ModelEntry): UiModelEntry {
+export function toUiModelEntry(model: TrueForgeApi.ConfiguredModel): UiModelEntry {
   return {
     id: model.modelId,
     name: model.name,
@@ -31,7 +31,7 @@ export function toUiModelEntry(model: TrueForgeApi.ModelEntry): UiModelEntry {
   };
 }
 
-export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntry {
+export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ConfiguredModel {
   return {
     modelId: model.id,
     name: model.name,
@@ -39,7 +39,7 @@ export function toHarnessModelEntry(model: UiModelEntry): TrueForgeApi.ModelEntr
   };
 }
 
-export function toUiModelProvider(provider: TrueForgeApi.ModelProvider): UiModelProvider {
+export function toUiModelProvider(provider: TrueForgeApi.ConfiguredModelProvider): UiModelProvider {
   const { name, manifest } = provider;
   return {
     id: name,

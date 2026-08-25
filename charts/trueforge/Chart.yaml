@@ -4,8 +4,8 @@ description: TrueForge server (API + UI) served from a single container image.
 type: application
 # version / appVersion are maintained on main (bot chart-release PR or human).
 # Publishing is gated by git tag charts/trueforge@<version> (must match version).
-version: 0.1.3
-appVersion: "0.1.3"
+version: 0.1.5
+appVersion: "0.1.4"
 kubeVersion: ">=1.25.0-0"
 home: https://truefoundry.com
 sources:

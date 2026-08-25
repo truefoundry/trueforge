@@ -125,7 +125,7 @@ export function ToolApprovalBar({
                   disabled={interactionsLocked}
                   onClick={() => onSelect(option.id)}
                 >
-                  {option.variant === 'primary' && <Icon name="check" size="0.75em" className="mr-1" />}
+                  {option.variant === 'primary' && <Icon name="check" size="0.75rem" />}
                   {option.label}
                 </Button>
               ))}

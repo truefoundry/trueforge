@@ -45,9 +45,6 @@ export default defineConfig(
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
-      // Nested package ESLint config scopes `dist/**` to that package root only;
-      // example build output sits one level deeper and needs an explicit ignore.
-      'packages/trueforge-ui/example/dist/**',
       '**/coverage/**',
       '**/.pnpm-store/**',
       '**/.eslintcache',
@@ -55,6 +52,8 @@ export default defineConfig(
       '**/*.test.ts',
       // Fern-generated SDK: not part of any tsconfig project, and not ours to lint.
       'packages/trueforge-sdk/**',
+      // Build-generated sources (catalogs, sandbox scripts); not in package tsconfigs.
+      '**/*.gen.ts',
     ],
   },
   {

@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface GetCapabilitiesResponse {
-    data: TrueForge.GetCapabilitiesResponseData;
+    data: TrueForge.CapabilitiesData;
 }

@@ -2,7 +2,8 @@ import type { Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
+import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import {
@@ -10,6 +11,7 @@ import {
   SandboxFileTooLargeError,
   SandboxNotAvailableError,
   SandboxPathIsDirectoryError,
+  validateSandboxOwnedByTenant,
 } from '../SandboxErrors';
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
@@ -100,6 +102,7 @@ export interface DaytonaSandboxProviderOptions {
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider {
+  readonly type = 'daytona';
   private readonly tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   private readonly imageUri: string;
@@ -139,6 +142,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
+      validateSandboxOwnedByTenant({ sandboxId, tenantName: this.tenantName });
       const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
       if (cached) {
         return cached;
@@ -396,6 +400,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        if (e instanceof SandboxNotAvailableError) {
+          throw e;
+        }
         this.logger.error('Sandbox execution error', extractErrorLogFields(e));
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
@@ -480,6 +487,10 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       },
       sandboxClientNatsUrl: `ws://localhost:${String(this.natsBridgePort)}`,
       logger: this.logger,
+      mcpClientInstall: {
+        remotePath: join('/opt', 'tf', 'mcp-client', 'mcp_client.py'),
+        pathBinSymlink: join('/usr', 'local', 'bin', 'mcp-client'),
+      },
     });
   }
 
@@ -487,12 +498,26 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     return undefined;
   }
 
+  // Isolated container: image-absolute layout. GIT_CONFIG store --file needs an absolute path.
+  //   /opt/tf/{uploads,skills,tool-results,git_downloader.py,.git-credentials}
+  //   /opt/tfy/mcp-client/mcp_client.py  +  /usr/local/bin/mcp-client (image PATH; no layout bin)
   getToolResultDumpDir(): string {
-    return '/tmp/tool-results';
+    return join('/opt', 'tf', 'tool-results');
   }
 
   getGitCredentialsPath(): string {
-    // Isolated container per sandbox; absolute path so GIT_CONFIG_* needs no $HOME expansion.
-    return '/tmp/.git-credentials';
+    return join('/opt', 'tf', '.git-credentials');
+  }
+
+  getFileUploadsDir(): string {
+    return join('/opt', 'tf', 'uploads');
+  }
+
+  getSkillsDir(): string {
+    return join('/opt', 'tf', 'skills');
+  }
+
+  getGitDownloaderPath(): string {
+    return join('/opt', 'tf', 'git_downloader.py');
   }
 }

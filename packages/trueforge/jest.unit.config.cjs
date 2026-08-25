@@ -39,4 +39,6 @@ module.exports = {
   maxWorkers: '50%',
   roots: ['<rootDir>/tests/unit'],
   testMatch: ['<rootDir>/tests/unit/**/*.test.ts'],
+  // SRT contract suites need a real host sandbox; run via `pnpm test:local-sandbox:contract`.
+  testPathIgnorePatterns: ['contract\\.test\\.ts$'],
 };

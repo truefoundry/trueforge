@@ -18,15 +18,15 @@ If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plura
 | `GET /foos`             | `ListFoosRequestQuery` (if any)     | `ListFoosResponse`                        |
 | `POST /foos`            | `CreateFooRequest`                  | `GetFooResponse` (or `CreateFooResponse`) |
 | `GET /foos/{foo_id}`    | —                                   | `GetFooResponse`                          |
-| `PUT` upsert/replace    | `PutFooRequest`                     | `GetFooResponse` (or `PutFooResponse`)    |
+| `PUT` upsert/replace    | `UpdateFooRequest`                  | `GetFooResponse` (or `UpdateFooResponse`) |
 | `DELETE /foos/{foo_id}` | `DeleteFoosRequestQuery` (optional) | `DeleteFooResponse` (`{}`)                |
 
-Prefer reusing `GetFooResponse` when create/update return the same item.
+Prefer reusing `GetFooResponse` when create/update return the same item. `GET /auth/me` is `GetMeResponse`. Acronyms in OpenAPI names stay uppercase (`MCPServer`, not `McpServer`).
 
-**Request body vs manifest:** `FooManifest` is only the persisted jsonb document. Create/put OpenAPI bodies MUST be `CreateFooRequest` / `PutFooRequest` with an explicit wrapper — never flatten manifest fields onto the request root and never alias the request schema to `FooManifest`:
+**Request body vs manifest:** `FooManifest` is only the persisted jsonb document. Create/update OpenAPI bodies MUST be `CreateFooRequest` / `UpdateFooRequest` with an explicit wrapper — never flatten manifest fields onto the request root and never alias the request schema to `FooManifest`:
 
 ```ts
-// CreateFooRequest / PutFooRequest
+// CreateFooRequest / UpdateFooRequest
 {
   manifest: FooManifest; // stored document only
   dry_run?: boolean;     // operation-level fields live beside manifest
@@ -35,7 +35,7 @@ Prefer reusing `GetFooResponse` when create/update return the same item.
 
 Session/turn-style creates that are not a stored manifest keep a flat `Create*Request` without a `manifest` key.
 
-Settings list → `ListFoosResponse`; chat → `ListAvailableFoosResponse`; catalog → `ListCatalogFoosResponse` / item `CatalogFoo`.
+Settings list → `ListFoosResponse`; chat → `ListAvailableFoosResponse`. Catalogs are a single `GET /api/v1/catalogs/{collection}` of the whole blob → `GetFooCatalogResponse` / item `CatalogFoo` (not a `ListCatalog*` list endpoint).
 
 Nested child `Bar`: `ListBarsResponse`, `CreateBarRequest`, `GetBarResponse`; Fern `list_bars`, `create_bar`, …
 

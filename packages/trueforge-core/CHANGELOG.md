@@ -1,5 +1,27 @@
 # @truefoundry/trueforge-core
 
+## 0.1.4
+
+### Patch Changes
+
+- 42eee39: Enable a standalone in-memory local sandbox fallback (no settings row), persist fancy `v1:type:raw` sandbox ids, drop tenant-prefix ownership checks, keep TFY sandbox writes cwd-relative (no `/opt` / `/usr/local`), let each sandbox provider own PATH (no hardcoded Daytona tail in Sandbox), and grant only the Code Mode socket parent in SRT (not host `/tmp`).
+- d7a640f: Align OpenAPI type names across AgentSpec, settings, catalogs, and chat pickers: Catalog/Configured/Available resource views, AgentSpec nested Model/Skill/InitialUserMessage, Put*Request → Update*Request, MCP acronym casing, GetMeResponse, and explicit names for nested AgentSpec/capabilities schemas.
+- 7ae5376: Update SANDBOX_IMAGE_URI to the image pushed by CI.
+- 889caca: Persist `model.message` with omitted null content and deferred `call_tool` wrapper `tool_info`, matching the live stream.
+- 2ca7fb2: Remove unused `config.sandbox.network_policy` (git auth inject) from the public AgentSpec.
+- 43d780e: Load SANDBOX_IMAGE_URI from sandboxImage.json so CI can rewrite the pin.
+
+## 0.1.4-rc.0
+
+### Patch Changes
+
+- 42eee39: Enable a standalone in-memory local sandbox fallback (no settings row), persist fancy `v1:type:raw` sandbox ids, drop tenant-prefix ownership checks, keep TFY sandbox writes cwd-relative (no `/opt` / `/usr/local`), let each sandbox provider own PATH (no hardcoded Daytona tail in Sandbox), and grant only the Code Mode socket parent in SRT (not host `/tmp`).
+- d7a640f: Align OpenAPI type names across AgentSpec, settings, catalogs, and chat pickers: Catalog/Configured/Available resource views, AgentSpec nested Model/Skill/InitialUserMessage, Put*Request → Update*Request, MCP acronym casing, GetMeResponse, and explicit names for nested AgentSpec/capabilities schemas.
+- 7ae5376: Update SANDBOX_IMAGE_URI to the image pushed by CI.
+- 889caca: Persist `model.message` with omitted null content and deferred `call_tool` wrapper `tool_info`, matching the live stream.
+- 2ca7fb2: Remove unused `config.sandbox.network_policy` (git auth inject) from the public AgentSpec.
+- 43d780e: Load SANDBOX_IMAGE_URI from sandboxImage.json so CI can rewrite the pin.
+
 ## 0.1.3
 
 ### Patch Changes

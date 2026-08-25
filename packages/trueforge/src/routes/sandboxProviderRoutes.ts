@@ -5,7 +5,7 @@
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import { GetSandboxProviderResponseSchema, PutSandboxProviderRequestSchema } from '../schemas/sandboxProvider';
+import { GetSandboxProviderResponseSchema, UpdateSandboxProviderRequestSchema } from '../schemas/sandboxProvider';
 import { OpenApiTag } from './openapiTags';
 
 export const getSandboxProviderRoute = createRoute({
@@ -40,7 +40,7 @@ export const putSandboxProviderRoute = createRoute({
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
     body: {
-      content: { 'application/json': { schema: PutSandboxProviderRequestSchema } },
+      content: { 'application/json': { schema: UpdateSandboxProviderRequestSchema } },
       required: true,
     },
   },

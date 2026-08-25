@@ -109,7 +109,7 @@ export const downloadSandboxFileRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator, or sandbox belongs to another tenant.',
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

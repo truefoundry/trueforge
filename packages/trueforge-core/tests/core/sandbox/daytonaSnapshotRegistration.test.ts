@@ -1,5 +1,6 @@
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { DaytonaSandboxProvider } from '../../../src/core/sandbox/provider/DaytonaProvider';
+import { SandboxNotAvailableError } from '../../../src/core/sandbox/SandboxErrors';
 import { makeSilentLogger } from '../harnessMocks';
 
 const NOT_FOUND_STATUS = 404;
@@ -76,5 +77,29 @@ describe('DaytonaSandboxProvider register-only snapshot create', () => {
       message: 'Access denied',
       statusCode: FORBIDDEN_STATUS,
     });
+  });
+});
+
+describe('DaytonaSandboxProvider exec', () => {
+  it('rethrows SandboxNotAvailableError when the sandbox is gone', async () => {
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    jest.spyOn(client, 'get').mockRejectedValue(new DaytonaError('not found', NOT_FOUND_STATUS));
+    const provider = new DaytonaSandboxProvider({
+      client,
+      apiKey: 'dtn-test',
+      apiUrl: API_URL,
+      tenantName: 'test-tenant',
+      sandboxImage: 'registry.example.com/sandbox:029ea5ff',
+      timeoutMs: 1000,
+      autoStopIntervalInMinutes: 5,
+      autoArchiveIntervalInMinutes: 60,
+      autoDeleteIntervalInMinutes: 7200,
+      fileMaxBytesForDownload: 1024,
+      logger: makeSilentLogger(),
+    });
+
+    await expect(provider.exec({ sandboxId: 'test-tenant.gone', command: 'true' })).rejects.toBeInstanceOf(
+      SandboxNotAvailableError,
+    );
   });
 });

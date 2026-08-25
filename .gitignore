@@ -14,6 +14,7 @@ packages/trueforge/src/catalog/modelCatalog.gen.ts
 packages/trueforge/src/catalog/mcpCatalog.gen.ts
 packages/trueforge/src/catalog/skillCatalog.gen.ts
 packages/trueforge/src/catalog/sandboxCatalog.gen.ts
+packages/trueforge/src/sandbox/local/sandboxScripts.gen.ts
 data/
 # Helm subchart deps are fetched via `helm dependency build` (pinned by the
 # committed Chart.lock); the downloaded .tgz/dirs are not committed.

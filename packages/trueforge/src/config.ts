@@ -12,6 +12,7 @@
  *   `redis://localhost:6379`).
  */
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -158,13 +159,22 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
  * Absolute SQLite file path for standalone mode.
  * Env: `SQLITE_PATH` (optional). Default: `{env-paths data}/db/db.sqlite`.
  */
-function resolveSqlitePath(): string {
+function resolveSqlitePath(appDataDir: string): string {
   const override = getEnv('SQLITE_PATH');
   if (override !== undefined && override.trim() !== '') {
     return path.resolve(override);
   }
-  const paths = envPaths(ENV_PATHS_APP_NAME, { suffix: '' });
-  return path.join(paths.data, 'db', 'db.sqlite');
+  return path.join(appDataDir, 'db', 'db.sqlite');
+}
+
+/** Parent for local sandbox roots. Same env-paths data dir as SQLite (`{suffix:''}`). */
+function resolveLocalSandboxRootParent(appDataDir: string): string {
+  return path.join(appDataDir, 'sandboxes');
+}
+
+/** Short tmp parent for Code Mode UDS socks (≤65 bytes after realpath). */
+function resolveCodeModeSocketParent(): string {
+  return path.join(os.tmpdir(), 'tf_cms');
 }
 
 /** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
@@ -386,6 +396,12 @@ export interface SharedServerConfiguration {
    * Only used when a Redis client is wired (distributed mode).
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
+  /**
+   * Public base URL used as the origin of MCP OAuth and OIDC callbacks.
+   * Optional at boot; MCP OAuth and OIDC callback construction fail if empty
+   * outside standalone development. Env: `PUBLIC_BASE_URL`.
+   */
+  PUBLIC_BASE_URL: string;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -399,6 +415,16 @@ export type StandaloneServerConfiguration = SharedServerConfiguration & {
    * Env: `SQLITE_PATH` (optional). Default: env-paths data dir + `db/db.sqlite`.
    */
   SQLITE_PATH: string;
+  /**
+   * Parent directory for local sandbox roots (ULID children).
+   * Derived: `{env-paths data}/sandboxes`.
+   */
+  LOCAL_SANDBOX_ROOT_PARENT: string;
+  /**
+   * Parent directory for Code Mode UDS sockets (`tf_cms` under os.tmpdir()).
+   * Caller prepares/removes this directory; must stay ≤65 bytes after realpath.
+   */
+  CODE_MODE_SOCKET_PARENT: string;
 };
 
 export type DistributedServerConfiguration = SharedServerConfiguration & {
@@ -407,12 +433,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `STANDALONE`. Default: true (so this branch requires an explicit `false`).
    */
   STANDALONE: false;
-  /**
-   * Public base URL of this server used as the origin of MCP OAuth and OIDC
-   * callbacks. Optional at boot; MCP OAuth and OIDC callback construction fail
-   * if empty.
-   */
-  PUBLIC_BASE_URL: string;
   /**
    * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
@@ -456,6 +476,9 @@ const standalone = parseBoolean({
   raw: getEnv('STANDALONE'),
   defaultValue: true,
 });
+
+const appDataDirSuffix = getEnv('APP_DATA_DIR_SUFFIX', { defaultValue: '' }) ?? '';
+const appDataDir = envPaths(ENV_PATHS_APP_NAME, { suffix: appDataDirSuffix }).data;
 
 const port = parsePort(getEnv('PORT'));
 const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
@@ -535,18 +558,20 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
   }),
+  PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
 };
 
 const configuration: ServerConfiguration = standalone
   ? {
       ...shared,
       STANDALONE: true,
-      SQLITE_PATH: resolveSqlitePath(),
+      SQLITE_PATH: resolveSqlitePath(appDataDir),
+      LOCAL_SANDBOX_ROOT_PARENT: resolveLocalSandboxRootParent(appDataDir),
+      CODE_MODE_SOCKET_PARENT: resolveCodeModeSocketParent(),
     }
   : {
       ...shared,
       STANDALONE: false,
-      PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
       DATABASE_URL: resolvePostgresDatabaseUrl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
@@ -575,10 +600,11 @@ export function isOidcConfigured(
 
 /**
  * Public origin for OAuth callbacks.
- * Standalone → `http://localhost:$PORT`; distributed → `PUBLIC_BASE_URL` (may be `''`).
+ * Standalone (non-development) → `http://localhost:$PORT`; otherwise `PUBLIC_BASE_URL`
+ * (required in development and distributed; throws if empty).
  */
 export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
-  if (config.STANDALONE) {
+  if (config.STANDALONE && config.NODE_ENV !== 'development') {
     return `http://localhost:${String(config.PORT)}`;
   }
   if (config.PUBLIC_BASE_URL === '') {

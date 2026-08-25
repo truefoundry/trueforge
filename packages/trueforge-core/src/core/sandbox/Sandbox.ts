@@ -16,14 +16,20 @@ import {
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
-import type { CodeModeTransport } from './codeMode/CodeModeTransport';
-import { SANDBOX_FILE_UPLOADS_DIR } from './constants';
+import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
-import { validateNoPathTraversal, validateSandboxOwnedByTenant } from './SandboxErrors';
-import { sandboxScripts } from './sandboxScripts.gen';
+import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
+import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
-import { SKILLS_DIR } from './skills/constants';
+import { dirname, join, relative } from 'node:path';
 import type { ISkillMounter } from './skills/ISkillMounter';
+
+/** Layout derived from install remotePath (always `…/mcp_client.py`). */
+function mcpClientLayout(remotePath: string): { pythonPath: string; binDir: string; binLink: string } {
+  const pythonPath = dirname(remotePath);
+  const binDir = join(pythonPath, 'bin');
+  return { pythonPath, binDir, binLink: join(binDir, 'mcp-client') };
+}
 
 export interface SandboxInfo {
   sandbox_id: string;
@@ -39,32 +45,31 @@ const NATS_REQUEST_TIMEOUT_BUFFER_SECONDS = 30;
 // Write a script (base64-encoded, never interpolated raw) to a path and run it. Skill mounters reuse it.
 export function buildWriteAndRunScriptCommand(params: { scriptPath: string; scriptContent: string }): string {
   const b64 = Buffer.from(params.scriptContent, 'utf-8').toString('base64');
+  const scriptPath = shellEscape(params.scriptPath);
   return [
-    `mkdir -p "$(dirname ${params.scriptPath})"`,
-    `rm -f ${params.scriptPath}`,
-    `echo ${shellEscape(b64)} | base64 -d > ${params.scriptPath}`,
-    `chmod a-w ${params.scriptPath}`,
-    `python3 ${params.scriptPath}`,
+    `mkdir -p "$(dirname ${scriptPath})"`,
+    `rm -f ${scriptPath}`,
+    `echo ${shellEscape(b64)} | base64 -d > ${scriptPath}`,
+    `chmod a-w ${scriptPath}`,
+    `python3 ${scriptPath}`,
   ].join(' && ');
 }
 
 /** Write or clear the git credential-store file at an absolute path (no global git config mutation). */
 function buildSyncGitCredentialsCommand(credentialsContent: string | null, credentialsPath: string): string {
+  const path = shellEscape(credentialsPath);
   if (credentialsContent === null) {
-    return `rm -f ${credentialsPath}`;
+    return `rm -f ${path}`;
   }
   // Base64 avoids interpolating credentials directly into the shell command.
   const b64 = Buffer.from(credentialsContent, 'utf-8').toString('base64');
-  return (
-    `mkdir -p "$(dirname ${credentialsPath})" && ` +
-    `echo '${b64}' | base64 -d > ${credentialsPath} && ` +
-    `chmod 600 ${credentialsPath}`
-  );
+  return `mkdir -p "$(dirname ${path})" && ` + `echo '${b64}' | base64 -d > ${path} && ` + `chmod 600 ${path}`;
 }
 
 /**
  * Process-scoped credential.helper via GIT_CONFIG_* (avoids shared ~/.gitconfig).
- * Required for TFY sandbox where many logical sandboxes share one pod/HOME.
+ * Path is whatever the provider returns; providers with a shared FS (TFY) make
+ * `store --file` absolute in their own `exec`.
  */
 function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, string> {
   return {
@@ -94,7 +99,6 @@ export interface SandboxOptions {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
-  tenantName: string;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -104,15 +108,6 @@ const SANDBOX_MCP_REMINDER_TAG = 'sandbox-mcp-code-mode';
 const SANDBOX_FILE_OUTPUT_TAG = 'sandbox-file-output';
 export const SANDBOX_SCHEMA_INFER_TAG = 'sandbox-schema-infer';
 const SANDBOX_FILE_UPLOADS_TAG = 'sandbox-file-uploads';
-
-// Stable directory inside the sandbox where the MCP client library is uploaded.
-// MCP client upload dir. Two lookup channels:
-//   - Python imports → PYTHONPATH points here (set by injectMCPClientEnv).
-//   - Shell `mcp-client` → symlinked into MCP_CLIENT_BIN_SYMLINK (on default PATH);
-//     basename drops `.py` so the agent doesn't reflexively prefix with `python`.
-const MCP_CLIENT_DIR = '/opt/tfy/mcp-client';
-const MCP_CLIENT_PATH = `${MCP_CLIENT_DIR}/mcp_client.py`;
-const MCP_CLIENT_BIN_SYMLINK = '/usr/local/bin/mcp-client';
 
 // Per-server config sent to mcp_client.py via TFY_MCP_SERVERS.
 interface SandboxMcpServerConfig {
@@ -139,17 +134,24 @@ function injectTraceContextEnv(): Record<string, string> {
 /**
  * Injects environment variables required for mcp_client.py into sandbox_exec arguments.
  * Transport-specific vars (NATS URL/prefix/timeout) come from `codeModeEnv` via transport.start().
+ * PYTHONPATH comes from transport.getClientInstall remotePath. PATH is provider-owned:
+ * Sandbox never writes PATH (Daytona uses the image PATH; TFY/local set it in exec).
  */
 function injectMCPClientEnv(params: {
   env?: Record<string, string> | undefined;
   mcpServers: Record<string, SandboxMcpServerConfig>;
   codeModeEnv?: Record<string, string> | undefined;
+  mcpClientInstall?: CodeModeClientInstall | undefined;
 }): Record<string, string> {
   const codeModeEnv = params.codeModeEnv ?? {};
   const hasCodeModeTransport = Object.keys(codeModeEnv).length > 0;
+  const install = params.mcpClientInstall;
+  const layout = install === undefined ? undefined : mcpClientLayout(install.remotePath);
   return {
     ...(params.env ?? {}),
-    PYTHONPATH: MCP_CLIENT_DIR,
+    ...(layout !== undefined && {
+      PYTHONPATH: layout.pythonPath,
+    }),
     ...(Object.keys(params.mcpServers).length > 0 && {
       TFY_MCP_SERVERS: Buffer.from(JSON.stringify(params.mcpServers)).toString('base64'),
     }),
@@ -193,11 +195,9 @@ export class Sandbox extends LocalToolMCP {
   readonly name = SANDBOX_MCP_SERVER_ID;
   readonly displayName = 'Sandbox';
   override readonly description = 'Persistent sandbox environment for code execution';
-  static readonly FILE_UPLOADS_DIR = SANDBOX_FILE_UPLOADS_DIR;
 
   private readonly provider: SandboxProvider;
   private readonly existingSandboxId?: string | undefined;
-  private readonly tenantName: string;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
   private sandboxCreationPromise?: Promise<SandboxInfo> | undefined;
@@ -207,12 +207,13 @@ export class Sandbox extends LocalToolMCP {
   private readonly requestTimeoutSeconds: number;
   private readonly skillMounter?: ISkillMounter | undefined;
   private cachedSkillsSection?: string | undefined;
-  private readonly mcpClientScriptBase64: string;
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
   private codeModeDispatcher: CodeModeDispatcher | undefined;
   private codeModeTransport: CodeModeTransport | undefined;
+  /** Cached from transport.getClientInstall after sandbox init (when Code Mode is configured). */
+  private mcpClientInstall: CodeModeClientInstall | undefined;
 
   private tools = [
     defineTool({
@@ -227,22 +228,26 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
-    this.tenantName = options.tenantName;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
-    // Scripts are internal to Sandbox: the upload paths, env contract, and prompt
-    // text are all hardcoded here, so injecting different content was never a
-    // real extension point. Consumers don't see or provide them.
-    this.mcpClientScriptBase64 = Buffer.from(sandboxScripts.mcpClient, 'utf-8').toString('base64');
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
 
     if (this.existingSandboxId) {
-      validateSandboxOwnedByTenant(this.existingSandboxId, this.tenantName);
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
     }
+  }
+
+  /** Provider-facing id (unwraps `v1:type:raw`; legacy ids pass through). */
+  private providerSandboxId(sessionId: string): string {
+    return rawSandboxId(sessionId);
+  }
+
+  /** Raw id for prompt layout paths before create (empty when this turn has no existing sandbox). */
+  private promptSandboxId(): string {
+    return this.existingSandboxId === undefined ? '' : rawSandboxId(this.existingSandboxId);
   }
 
   private buildMcpServersEnvelope(): Record<string, SandboxMcpServerConfig> {
@@ -278,7 +283,7 @@ export class Sandbox extends LocalToolMCP {
   private renderSkillsSection(): string {
     if (this.cachedSkillsSection === undefined) {
       const skills = new InstructionBuilder('skills');
-      this.skillMounter?.instruction(skills);
+      this.skillMounter?.instruction(skills, { skillsDir: this.provider.getSkillsDir(this.promptSandboxId()) });
       this.cachedSkillsSection = skills.build();
     }
     return this.cachedSkillsSection;
@@ -308,7 +313,7 @@ export class Sandbox extends LocalToolMCP {
   private buildFileUploadsSection(builder: InstructionBuilder): void {
     builder.addSection(
       SANDBOX_FILE_UPLOADS_TAG,
-      `User-uploaded files are placed in ${Sandbox.FILE_UPLOADS_DIR}/. The Agent must not modify files in this directory. Always create a copy at a different location and work on the copy.`,
+      `User-uploaded files are placed in ${this.provider.getFileUploadsDir(this.promptSandboxId())}/. The Agent must not modify files in this directory. Always create a copy at a different location and work on the copy.`,
     );
   }
 
@@ -437,6 +442,13 @@ export class Sandbox extends LocalToolMCP {
     return this.existingSandboxInfo;
   }
 
+  private clearExistingSandbox(): void {
+    this.existingSandboxInfo = undefined;
+    this.sandboxCreationPromise = undefined;
+    this.sandboxInitPromise = undefined;
+    this.mcpClientInstall = undefined;
+  }
+
   private async ensureSandboxCreated(): Promise<{
     sandboxInfo: SandboxInfo;
     sandboxCreated: SandboxInfo | undefined;
@@ -444,15 +456,12 @@ export class Sandbox extends LocalToolMCP {
     if (this.existingSandboxInfo) {
       return { sandboxInfo: this.existingSandboxInfo, sandboxCreated: undefined };
     }
-    // Provider returns camelCase `{ sandboxId }`; rename to the snake_case
-    // `SandboxInfo` shape used everywhere downstream (Redis JSON, wire event,
-    // in-memory state).
+    // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
       .createSandbox()
-      .then(({ sandboxId }) => {
-        validateSandboxOwnedByTenant(sandboxId, this.tenantName);
-        return { sandbox_id: sandboxId };
-      })
+      .then(({ sandboxId }) => ({
+        sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
+      }))
       .catch((e: unknown) => {
         this.sandboxCreationPromise = undefined;
         throw e;
@@ -460,61 +469,145 @@ export class Sandbox extends LocalToolMCP {
 
     const sandboxInfo = await this.sandboxCreationPromise;
     // Concurrent callers may both await the same creation promise; only the first
-    // should report sandboxCreated. Read via a local to avoid control-flow narrowing
-    // that treats existingSandboxInfo as always undefined after the early return above.
-    const prior = this.existingSandboxInfo as SandboxInfo | undefined;
-    const isNew = prior === undefined;
+    // should report sandboxCreated. Read through a method so TS does not keep the
+    // pre-await "undefined" narrowing on the field.
+    const raced = this.peekExistingSandboxInfo();
+    if (raced !== undefined) {
+      return { sandboxInfo: raced, sandboxCreated: undefined };
+    }
     this.existingSandboxInfo = sandboxInfo;
-    return { sandboxInfo, sandboxCreated: isNew ? sandboxInfo : undefined };
+    return { sandboxInfo, sandboxCreated: sandboxInfo };
+  }
+
+  private peekExistingSandboxInfo(): SandboxInfo | undefined {
+    return this.existingSandboxInfo;
+  }
+
+  /** Same-type missing remote/local root: drop the stale id and create a new fancy id. */
+  private async recreateAfterUnavailable(): Promise<{
+    sandboxInfo: SandboxInfo;
+    sandboxCreated: SandboxInfo;
+  }> {
+    this.clearExistingSandbox();
+    const created = await this.ensureSandboxCreated();
+    if (created.sandboxCreated === undefined) {
+      throw new Error('Sandbox recreate did not create a new sandbox');
+    }
+    return { sandboxInfo: created.sandboxInfo, sandboxCreated: created.sandboxCreated };
+  }
+
+  /**
+   * Create or reattach, then init. A missing same-type sandbox throws
+   * `SandboxNotAvailableError` from the provider; reattach then recreates.
+   */
+  private async ensureReadySandbox(): Promise<{
+    sandboxInfo: SandboxInfo;
+    sandboxCreated: SandboxInfo | undefined;
+  }> {
+    const first = await this.ensureSandboxCreated();
+    try {
+      await this.ensureSandboxInitialized();
+      return first;
+    } catch (error) {
+      if (!(error instanceof SandboxNotAvailableError) || first.sandboxCreated !== undefined) {
+        throw error;
+      }
+      const recreated = await this.recreateAfterUnavailable();
+      await this.ensureSandboxInitialized();
+      return recreated;
+    }
   }
 
   private async handleExec(input: SandboxExecInput): Promise<CallToolResponse> {
-    const { sandboxInfo, sandboxCreated } = await this.ensureSandboxCreated();
-    const sandboxCreatedFlag = Boolean(sandboxCreated);
+    let sandboxInfo: SandboxInfo;
+    let sandboxCreated: SandboxInfo | undefined;
     try {
-      await this.ensureSandboxInitialized();
+      ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox());
     } catch (e) {
       this.logger.error('Sandbox initialization failed', extractErrorLogFields(e));
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
+      const fallback = this.existingSandboxInfo;
       return toolResultResponse({
         text: `Sandbox initialization failed: ${message}`,
         isError: true,
-        overrides: { sandboxCreated: sandboxCreatedFlag, sandboxInfo },
+        overrides: {
+          sandboxCreated: Boolean(fallback),
+          ...(fallback !== undefined ? { sandboxInfo: fallback } : {}),
+        },
       });
     }
-    const codeModeEnv = await this.ensureCodeModeStarted(sandboxInfo.sandbox_id);
+    const sandboxCreatedFlag = Boolean(sandboxCreated);
+    const rawId = this.providerSandboxId(sandboxInfo.sandbox_id);
+    const codeModeEnv = await this.ensureCodeModeStarted(rawId);
     const mcpClientEnv = injectMCPClientEnv({
       env: input.env,
       mcpServers: this.buildMcpServersEnvelope(),
       codeModeEnv,
+      mcpClientInstall: this.mcpClientInstall,
     });
     const gitAuthEnv =
       this.resolvedGitCredentialsContent !== null
-        ? buildGitCredentialHelperEnv(this.provider.getGitCredentialsPath(sandboxInfo.sandbox_id))
+        ? buildGitCredentialHelperEnv(this.provider.getGitCredentialsPath(rawId))
         : {};
     const env = { ...mcpClientEnv, ...gitAuthEnv };
 
-    const result = await this.provider.exec({
-      sandboxId: sandboxInfo.sandbox_id,
-      command: input.command,
-      cwd: input.cwd,
-      env,
-    });
+    try {
+      const result = await this.provider.exec({
+        sandboxId: rawId,
+        command: input.command,
+        cwd: input.cwd,
+        env,
+      });
 
-    return {
-      result: {
-        content: [{ type: 'text', text: JSON.stringify(result) }],
-        isError: !result.success,
-      },
-      wasInitialized: undefined,
-      sandboxCreated: sandboxCreatedFlag,
-      sandboxInfo,
-    };
+      return {
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          isError: !result.success,
+        },
+        wasInitialized: undefined,
+        sandboxCreated: sandboxCreatedFlag,
+        sandboxInfo,
+      };
+    } catch (error) {
+      if (!(error instanceof SandboxNotAvailableError) || sandboxCreated !== undefined) {
+        throw error;
+      }
+      const recreated = await this.recreateAfterUnavailable();
+      await this.ensureSandboxInitialized();
+      const recreatedRawId = this.providerSandboxId(recreated.sandboxInfo.sandbox_id);
+      const retryCodeModeEnv = await this.ensureCodeModeStarted(recreatedRawId);
+      const retryEnv = {
+        ...injectMCPClientEnv({
+          env: input.env,
+          mcpServers: this.buildMcpServersEnvelope(),
+          codeModeEnv: retryCodeModeEnv,
+          mcpClientInstall: this.mcpClientInstall,
+        }),
+        ...(this.resolvedGitCredentialsContent !== null
+          ? buildGitCredentialHelperEnv(this.provider.getGitCredentialsPath(recreatedRawId))
+          : {}),
+      };
+      const retryResult = await this.provider.exec({
+        sandboxId: recreatedRawId,
+        command: input.command,
+        cwd: input.cwd,
+        env: retryEnv,
+      });
+      return {
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(retryResult) }],
+          isError: !retryResult.success,
+        },
+        wasInitialized: undefined,
+        sandboxCreated: true,
+        sandboxInfo: recreated.sandboxInfo,
+      };
+    }
   }
 
   async getToolResultDumpDir(): Promise<{ dir: string; sandboxCreated: SandboxInfo | undefined }> {
-    const { sandboxCreated } = await this.ensureSandboxCreated();
-    const dir = this.provider.getToolResultDumpDir(this.requiredSandboxInfo.sandbox_id).replace(/\/+$/, '');
+    const { sandboxCreated, sandboxInfo } = await this.ensureSandboxCreated();
+    const dir = this.provider.getToolResultDumpDir(this.providerSandboxId(sandboxInfo.sandbox_id)).replace(/\/+$/, '');
     return { dir, sandboxCreated };
   }
 
@@ -523,26 +616,30 @@ export class Sandbox extends LocalToolMCP {
     fileName: string;
     content: Buffer;
   }): Promise<{ filePath: string; sandboxCreated: SandboxInfo | undefined }> {
-    const { sandboxCreated } = await this.ensureSandboxCreated();
-    await this.ensureSandboxInitialized();
-    const { sandbox_id: sandboxId } = this.requiredSandboxInfo;
+    const { sandboxCreated, sandboxInfo } = await this.ensureReadySandbox();
     const fileName = params.fileName.replace(/^\/+/, '');
     const targetDir = params.targetDir.replace(/\/+$/, '');
     const filePath = `${targetDir}/${fileName}`;
-    await this.provider.uploadFile({ sandboxId, remotePath: filePath, content: params.content });
+    await this.provider.uploadFile({
+      sandboxId: this.providerSandboxId(sandboxInfo.sandbox_id),
+      remotePath: filePath,
+      content: params.content,
+    });
     return { filePath, sandboxCreated };
   }
 
   async uploadUserFile(input: { fileName: string; content: Buffer; mime: string }): Promise<SandboxStoredFile> {
     validateNoPathTraversal(input.fileName);
+    const { sandboxCreated, sandboxInfo } = await this.ensureReadySandbox();
     const result = await this.uploadFile({
-      targetDir: Sandbox.FILE_UPLOADS_DIR,
+      targetDir: this.provider.getFileUploadsDir(this.providerSandboxId(sandboxInfo.sandbox_id)),
       fileName: input.fileName,
       content: input.content,
     });
+    const created = sandboxCreated ?? result.sandboxCreated;
     return {
       filePath: result.filePath,
-      ...(result.sandboxCreated && { sandboxCreated: result.sandboxCreated }),
+      ...(created && { sandboxCreated: created }),
     };
   }
 
@@ -578,7 +675,7 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private async writeGitCredentials(): Promise<void> {
-    const sandboxId = this.requiredSandboxInfo.sandbox_id;
+    const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
     const credentialsPath = this.provider.getGitCredentialsPath(sandboxId);
     const result = await this.provider.exec({
       sandboxId,
@@ -588,36 +685,70 @@ export class Sandbox extends LocalToolMCP {
   }
 
   private async initSandboxEnvironment(): Promise<void> {
-    const toolResultDumpDir = this.provider.getToolResultDumpDir(this.requiredSandboxInfo.sandbox_id);
+    const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
+    const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
+    const skillsDir = this.provider.getSkillsDir(sandboxId);
+    const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
 
     this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
 
-    const initSteps = [
-      `mkdir -p ${MCP_CLIENT_DIR} ${Sandbox.FILE_UPLOADS_DIR} ${toolResultDumpDir} ${SKILLS_DIR}`,
-      `rm -f ${MCP_CLIENT_PATH}`,
-      `echo '${this.mcpClientScriptBase64}' | base64 -d > ${MCP_CLIENT_PATH}`,
-      // Make executable + symlink onto PATH so `mcp-client` runs by name.
-      `chmod 0555 ${MCP_CLIENT_PATH}`,
-      `ln -sf ${MCP_CLIENT_PATH} ${MCP_CLIENT_BIN_SYMLINK}`,
-    ];
+    this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
+    const install = this.mcpClientInstall;
+
+    const dirs = [shellEscape(fileUploadsDir), shellEscape(toolResultDumpDir), shellEscape(skillsDir)];
+    if (install !== undefined) {
+      const { pythonPath, binDir } = mcpClientLayout(install.remotePath);
+      dirs.push(shellEscape(pythonPath));
+      // Layout bin is only for providers that put that dir on PATH (no image-PATH symlink).
+      if (install.pathBinSymlink === undefined) {
+        dirs.push(shellEscape(binDir));
+      }
+    }
+    ensureExecSuccess(await this.provider.exec({ sandboxId, command: `mkdir -p ${dirs.join(' ')}` }));
+
+    const initSteps: string[] = [];
+    if (install !== undefined) {
+      await this.provider.uploadFile({
+        sandboxId,
+        remotePath: install.remotePath,
+        content: Buffer.from(install.content, 'utf-8'),
+      });
+      initSteps.push(`chmod 0555 ${shellEscape(install.remotePath)}`);
+      if (install.pathBinSymlink !== undefined) {
+        initSteps.push(`ln -sf ${shellEscape(install.remotePath)} ${shellEscape(install.pathBinSymlink)}`);
+      } else {
+        // Link target is relative to binDir (`mcp-client/mcp_client.py` from `mcp-client/bin`
+        // would resolve to `mcp-client/bin/mcp-client/mcp_client.py`).
+        const { binDir, binLink } = mcpClientLayout(install.remotePath);
+        initSteps.push(`ln -sf ${shellEscape(relative(binDir, install.remotePath))} ${shellEscape(binLink)}`);
+      }
+    }
 
     // Fold skill installation into this single init exec. The mounter returns a declarative
     // command + env + timeout; runs even when empty so its downloader can prune a reused sandbox.
-    const skillInit = this.skillMounter?.getSandboxInit();
+    const skillInit = this.skillMounter?.getSandboxInit({
+      skillsDir,
+      gitDownloaderPath: this.provider.getGitDownloaderPath(sandboxId),
+    });
     if (skillInit) {
       initSteps.push(skillInit.command);
     }
 
-    const script = initSteps.join(' && ');
-    const result = await this.provider.exec({
-      sandboxId: this.requiredSandboxInfo.sandbox_id,
-      command: script,
-      env: skillInit?.env,
-      timeoutSeconds: skillInit?.timeoutSeconds,
-    });
-    ensureExecSuccess(result);
+    if (initSteps.length > 0) {
+      ensureExecSuccess(
+        await this.provider.exec({
+          sandboxId,
+          command: initSteps.join(' && '),
+          env: skillInit?.env,
+          timeoutSeconds: skillInit?.timeoutSeconds,
+        }),
+      );
+    }
+
     this.logger.info(
-      `Sandbox initialized: MCP client at ${MCP_CLIENT_PATH} (symlinked to ${MCP_CLIENT_BIN_SYMLINK}); skills dir ${SKILLS_DIR}`,
+      install === undefined
+        ? `Sandbox initialized: skills dir ${skillsDir}`
+        : `Sandbox initialized: MCP client at ${install.remotePath}; skills dir ${skillsDir}`,
     );
 
     await this.writeGitCredentials();

@@ -12,6 +12,7 @@ import type { OIDCConfig } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
+import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import { checkSnapshotStatus } from '../../../src/sandbox/providerUtils';
 import type { SandboxBuildStatus, SandboxStatus } from '../../../src/schemas/sandboxProvider';
 
@@ -55,6 +56,11 @@ describe('capabilities routers', () => {
   beforeEach(() => {
     mockStatus.mockReset();
     mockStatus.mockResolvedValue(undefined);
+    setCachedLocalSandboxSupport(undefined);
+  });
+
+  afterEach(() => {
+    setCachedLocalSandboxSupport(undefined);
   });
 
   function makeRouter(): OpenAPIHono {
@@ -82,6 +88,28 @@ describe('capabilities routers', () => {
           enabled: false,
           reason: 'Skills run in a sandbox, which is not configured.',
         },
+        settings: { enabled: true },
+      },
+    });
+  });
+
+  it('reports sandbox + skill enabled when local fallback is cached and no image status exists', async () => {
+    disableOidcAuth();
+    mockStatus.mockResolvedValue(undefined);
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    const router = makeRouter();
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
         settings: { enabled: true },
       },
     });

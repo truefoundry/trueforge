@@ -6,6 +6,6 @@ export interface CatalogWellKnownModelProvider {
     /** URL of the provider logo asset */
     logo?: string;
     /** Preset models */
-    models: TrueForge.ModelEntry[];
+    models: TrueForge.CatalogModel[];
     type: TrueForge.CatalogWellKnownModelProviderType;
 }
