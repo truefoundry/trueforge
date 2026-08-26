@@ -55,7 +55,7 @@ importers:
         specifier: 0.2.22
         version: 0.2.22(@assistant-ui/store@0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(react@19.2.8))(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@assistant-ui/react':
-        specifier: ^0.14.29
+        specifier: ^0.14.24
         version: 0.14.29(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(use-sync-external-store@1.6.0(react@19.2.8))
       '@assistant-ui/store':
         specifier: 0.2.21
@@ -70,23 +70,23 @@ importers:
         specifier: workspace:*
         version: link:../trueforge-ui
       monaco-editor:
-        specifier: ^0.52.2
+        specifier: ^0.52.0
         version: 0.52.2
       react:
-        specifier: ^19.2.8
+        specifier: ^19.2.4
         version: 19.2.8
       react-dom:
-        specifier: ^19.2.8
+        specifier: ^19.2.4
         version: 19.2.8(react@19.2.8)
       react-router-dom:
         specifier: ^7.18.2
         version: 7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
       '@types/react':
-        specifier: ^19.2.18
+        specifier: ^19.2.17
         version: 19.2.18
       '@types/react-dom':
-        specifier: ^19.2.5
+        specifier: ^19.2.2
         version: 19.2.5(@types/react@19.2.18)
       '@vitejs/plugin-react':
         specifier: ^4.7.0
@@ -95,19 +95,19 @@ importers:
         specifier: 4.3.3
         version: 4.3.3
       tsx:
-        specifier: ^4.23.12
+        specifier: ^4.16.2
         version: 4.23.12
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vite:
-        specifier: ^6.4.3
+        specifier: ^6.3.5
         version: 6.4.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.0)(tsx@4.23.12)(yaml@2.9.0)
       vite-plugin-compression2:
         specifier: ^2.5.3
         version: 2.5.3(rollup@4.63.0)
       vite-plugin-monaco-editor-esm:
-        specifier: ^2.0.3
+        specifier: ^2.0.2
         version: 2.0.3(monaco-editor@0.52.2)
 
   packages/trueforge:
@@ -328,16 +328,16 @@ importers:
         specifier: 0.2.22
         version: 0.2.22(@assistant-ui/store@0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(react@19.2.8))(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@assistant-ui/react':
-        specifier: ^0.14.29
+        specifier: ^0.14.24
         version: 0.14.29(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(use-sync-external-store@1.6.0(react@19.2.8))
       '@openuidev/react-headless':
-        specifier: ^0.9.12
+        specifier: ^0.9.4
         version: 0.9.12(ai@7.0.82(zod@4.4.3))(react@19.2.8)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@openuidev/react-lang':
-        specifier: ^0.2.15
+        specifier: ^0.2.9
         version: 0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.4.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.4.3)
       '@openuidev/react-ui':
-        specifier: ^0.13.9
+        specifier: ^0.13.2
         version: 0.13.9(@openuidev/react-headless@0.9.12(ai@7.0.82(zod@4.4.3))(react@19.2.8)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))))(@openuidev/react-lang@0.2.15(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.4.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.4.3))(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(zod@4.4.3)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/assistant-ui-runtime':
         specifier: 0.1.21
@@ -364,7 +364,7 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
       react-router-dom:
-        specifier: ^7.18.2
+        specifier: ^6 || ^7
         version: 7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react-syntax-highlighter:
         specifier: ^16.1.1
@@ -383,76 +383,76 @@ importers:
         version: 4.4.3
     devDependencies:
       '@eslint/js':
-        specifier: ^9.39.5
+        specifier: ^9.39.0
         version: 9.39.5
       '@tailwindcss/cli':
-        specifier: ^4.3.3
+        specifier: ^4.3.2
         version: 4.3.3
       '@testing-library/dom':
-        specifier: ^10.4.1
+        specifier: ^10.0.0
         version: 10.4.1
       '@testing-library/jest-dom':
-        specifier: ^6.10.0
+        specifier: ^6.6.3
         version: 6.10.0(@testing-library/dom@10.4.1)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@types/node':
-        specifier: ^20.19.43
+        specifier: ^20
         version: 20.19.43
       '@types/react':
-        specifier: ^19.2.18
+        specifier: ^19.2.17
         version: 19.2.18
       '@types/react-dom':
-        specifier: ^19.2.5
+        specifier: ^19.2.0
         version: 19.2.5(@types/react@19.2.18)
       '@types/react-syntax-highlighter':
         specifier: ^15.5.13
         version: 15.5.13
       '@vitest/coverage-v8':
-        specifier: ^4.1.11
+        specifier: ^4.1.10
         version: 4.1.11(vitest@4.1.11)
       esbuild-plugin-svgr:
         specifier: 3.1.1
         version: 3.1.1(esbuild@0.25.12)(supports-color@8.1.1)(typescript@5.9.3)
       eslint:
-        specifier: ^9.39.5
+        specifier: ^9.39.0
         version: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
       eslint-plugin-react-hooks:
-        specifier: ^7.1.1
+        specifier: ^7.0.0
         version: 7.1.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)
       github-markdown-css:
         specifier: ^5.9.0
         version: 5.9.0
       globals:
-        specifier: ^16.5.0
+        specifier: ^16.4.0
         version: 16.5.0
       jsdom:
         specifier: ^24.1.3
         version: 24.1.3(supports-color@8.1.1)
       prettier:
-        specifier: ^3.9.6
+        specifier: ^3.6.2
         version: 3.9.6
       react:
-        specifier: ^19.2.8
+        specifier: ^19.2.4
         version: 19.2.8
       tailwindcss:
-        specifier: ^4.3.3
+        specifier: ^4.3.2
         version: 4.3.3
       tsup:
-        specifier: ^8.5.1
+        specifier: ^8.5.0
         version: 8.5.1(@swc/core@1.16.1)(jiti@2.7.0)(postcss@8.5.26)(supports-color@8.1.1)(tsx@4.23.12)(typescript@5.9.3)(yaml@2.9.0)
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       typescript-eslint:
-        specifier: ^8.68.0
+        specifier: ^8.46.0
         version: 8.68.0(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       vite-plugin-svgr:
         specifier: ^5.2.0
         version: 5.2.0(rollup@4.63.0)(supports-color@8.1.1)(typescript@5.9.3)(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.0)(tsx@4.23.12)(yaml@2.9.0))
       vitest:
-        specifier: ^4.1.11
+        specifier: ^4.1.9
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@20.19.43)(@vitest/coverage-v8@4.1.11)(jsdom@24.1.3(supports-color@8.1.1))(msw@2.11.2(@types/node@20.19.43)(typescript@5.9.3))(vite@6.4.3(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.51.0)(tsx@4.23.12)(yaml@2.9.0))
 
 packages:
