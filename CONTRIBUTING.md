@@ -24,8 +24,10 @@ Community expertise is most valuable when shared through detailed bug reports, r
 
 For these reasons, we focus community contributions on issue reports, analysis, and feedback, over larger code changes.
 
-> [!Note]
-> If you would still like to contribute code, we keep a dedicated set of issues marked as [help-wanted](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22) that are well scoped.
+| Label                                                                                                                      | Meaning                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [`help-wanted`](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22) | Well-scoped issue where community contributions are welcome.                                    |
+| `needs-maintainer-approval`                                                                                                | Proposal is still awaiting maintainer review; contributors should not start implementation yet. |
 
 ### Reporting bugs
 
