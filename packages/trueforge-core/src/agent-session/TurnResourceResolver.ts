@@ -4,7 +4,7 @@ import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { ModelParams, ModelProperties } from '../core/runtime/AgentDefinition';
+import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -61,7 +61,7 @@ export class TurnResourceResolver<
       llm: (model: string) => Promise<{
         modelClient: ILLM;
         defaultModelParams: ModelParams;
-        modelProperties?: ModelProperties | undefined;
+        modelProperties?: AgentDefinition['modelProperties'];
       }>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:

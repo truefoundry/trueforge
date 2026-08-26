@@ -5,10 +5,10 @@ import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
   SkillMounter,
+  type AgentDefinition,
   type AgentTracing,
   type GitSkill,
   type ModelParams,
-  type ModelProperties,
   type RemoteMcpHeaders,
   type SandboxProvider,
   type VercelAIProviderConfig,
@@ -60,7 +60,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
-  modelProperties: ModelProperties;
+  modelProperties: AgentDefinition['modelProperties'];
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
