@@ -24,7 +24,7 @@ services:
   # Shared by all server replicas: carries executor peering (cross-replica
   # turn cancel via request-reply).
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     # Host 6380 avoids conflict with docker-compose.dev.yml on 6379.
     ports:
       - '6380:6379'
