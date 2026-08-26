@@ -5,7 +5,7 @@ minimumReleaseAge: 0
 trustLockfile: true
 confirmModulesPurge: false
 allowBuilds:
-  '@openuidev/lang-core': set this to true or false
+  '@openuidev/lang-core': true
   '@parcel/watcher': true
   '@swc/core': true
   better-sqlite3: false
