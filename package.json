@@ -52,17 +52,17 @@
     "version": "node scripts/version.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.0",
-    "@eslint-react/eslint-plugin": "^5.18.0",
+    "@changesets/cli": "^3.0.1",
+    "@eslint-react/eslint-plugin": "^5.18.6",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.7.0",
+    "eslint": "^10.9.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "prettier": "^3.5.3",
-    "prettier-plugin-organize-imports": "^4.0.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-organize-imports": "^4.3.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.65.0"
+    "typescript-eslint": "^8.68.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,md}": "prettier --write --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc"
