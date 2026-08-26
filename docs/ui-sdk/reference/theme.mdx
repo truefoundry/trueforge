@@ -20,6 +20,7 @@ description: "Theme provider, hooks, presets, brand, and slots."
 | `useThemeMode()` | Resolved `"light" \| "dark"`. Reads the mode published by `SlotsProvider`, so it returns `"light"` when no `SlotsProvider` is above it — even in dark mode. |
 | `useBrand()` | The active `BrandConfig`. |
 | `useBrandName()` | The configured name; `undefined` for unnamed custom branding; or `"TrueForge"` when no custom image is configured. Safe outside a provider. |
+| `resolveBrandChrome(brand)` | `{ expandedVariant, collapsedVariant, showTitle }` from `brand.mode`. Prefer this over re-deriving field combinations. |
 | `useThemeIcons()` | The `IconMap` from `theme.icons`. |
 | `useContentClassNames()` | `theme.classNames`; throws outside a provider. |
 | `useOptionalContentClassNames()` | Same, but returns `{}` outside a provider instead of throwing — no null check needed. |
@@ -35,8 +36,8 @@ description: "Theme provider, hooks, presets, brand, and slots."
 
 ## Types
 
-`ThemeConfig`, `ThemeMode`, `ThemePreset`, `SemanticTokens`, `BrandConfig`, `BrandImage`, `BrandLogoConfig`,
-`ContentClassNames`, `IconMap`, `ThemeIconProps`, `IconProps`, `LayoutProp`, `AtomSlots`,
+`ThemeConfig`, `ThemeMode`, `ThemePreset`, `SemanticTokens`, `BrandConfig`, `BrandMode`, `BrandImage`, `BrandLogoConfig`,
+`BrandChrome`, `ContentClassNames`, `IconMap`, `ThemeIconProps`, `IconProps`, `LayoutProp`, `AtomSlots`,
 `SlotOverrides`.
 
 ```ts

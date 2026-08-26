@@ -79,31 +79,45 @@ export type BrandLogoConfig = {
 
 export type BrandImage = string | BrandLogoConfig;
 
-/**
- * Product branding. `icon` is the square mark used in compact surfaces. `logo`
- * is an optional wider mark used in expanded chrome and falls back to `icon`.
- */
-type BrandMetadata = {
-  /** Optional display name and accessible label. Omit for icon-only branding. */
-  name?: string;
-  /** Wraps configured brand images in a same-tab link. */
-  href?: string;
-};
+/** Chrome look for `theme.brand`. Omit `brand` entirely for the default TrueForge marks. */
+export type BrandMode = 'icon-title' | 'icon-only' | 'logo';
 
-export type BrandConfig = BrandMetadata &
-  (
-    | {
-        /** Square image URL, or per-mode sources. Omit to keep the default mark. */
-        icon?: BrandImage;
-        logo?: never;
-      }
-    | {
-        /** Square image URL, or per-mode sources, used when compact. */
-        icon: BrandImage;
-        /** Wider image URL, or per-mode sources, used when expanded. */
-        logo: BrandImage;
-      }
-  );
+/**
+ * Product branding. Set `mode`, then pass the fields that mode requires.
+ * `name` always labels the mark (`alt` / `aria-label`).
+ */
+export type BrandConfig =
+  | {
+      mode: 'icon-title';
+      /** Accessible label and visible title beside the square mark in expanded chrome. */
+      name: string;
+      /** Square image, or per-mode sources. Omit to keep the default mark. */
+      icon?: BrandImage;
+      logo?: never;
+      /** Wraps configured brand images in a same-tab link. */
+      href?: string;
+    }
+  | {
+      mode: 'icon-only';
+      /** Accessible label only — no title text in expanded chrome. */
+      name: string;
+      /** Square image, or per-mode sources. */
+      icon: BrandImage;
+      logo?: never;
+      /** Wraps configured brand images in a same-tab link. */
+      href?: string;
+    }
+  | {
+      mode: 'logo';
+      /** Accessible label only — wide logo replaces the text title in expanded chrome. */
+      name: string;
+      /** Square image, or per-mode sources, used when compact. */
+      icon: BrandImage;
+      /** Wider image, or per-mode sources, used when expanded. */
+      logo: BrandImage;
+      /** Wraps configured brand images in a same-tab link. */
+      href?: string;
+    };
 
 export type ContentClassNames = {
   markdown?: string;

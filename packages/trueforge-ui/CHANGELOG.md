@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Minor Changes
+
+- **`brand.mode`** — explicit chrome look. Set `mode`, then pass the fields it requires.
+  `name` always labels the mark (`alt` / `aria-label`):
+  - **`'icon-title'`** — `name` + optional `icon` (title shown in expanded chrome)
+  - **`'icon-only'`** — `name` + `icon` (alt kept, no title text)
+  - **`'logo'`** — `name` + `icon` + `logo` (wordmark in expanded chrome; `name` is alt only)
+  - **Default** — omit `brand` for the TrueForge wordmark / square mark
+- **`resolveBrandChrome()`** — maps `brand.mode` to
+  `{ expandedVariant, collapsedVariant, showTitle }`. `SidebarLayout` uses it; custom
+  layouts should too.
+
+### Changed
+
+- **`BrandConfig`** — discriminated on `mode` (`BrandMode`). Removed `showTitle` from
+  config; visible title follows the mode.
+
 ## 0.2.4
 
 ### Patch Changes

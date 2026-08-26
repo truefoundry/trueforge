@@ -65,13 +65,12 @@ Choose from four built-in themes - Claude, ChatGPT, Gemini, and TrueForge, or cr
 ```ts
 type BrandImage = string | { src?: string; light?: string; dark?: string };
 
-type BrandConfig = {
-  name?: string;
-  href?: string;
-} & (
-  | { icon?: BrandImage; logo?: never }
-  | { icon: BrandImage; logo: BrandImage }
-);
+type BrandMode = "icon-title" | "icon-only" | "logo";
+
+type BrandConfig =
+  | { mode: "icon-title"; name: string; icon?: BrandImage; logo?: never; href?: string }
+  | { mode: "icon-only"; name: string; icon: BrandImage; logo?: never; href?: string }
+  | { mode: "logo"; name: string; icon: BrandImage; logo: BrandImage; href?: string };
 
 type ThemeConfig = {
   preset?: "trueforge" | "claude" | "chatgpt" | "gemini"; // default "trueforge"
@@ -81,6 +80,15 @@ type ThemeConfig = {
 };
 ```
 
+Set `brand.mode`, then pass the fields that mode requires. `name` always labels the mark.
+
+| Look | `mode` | Required | Expanded | Collapsed |
+| --- | --- | --- | --- | --- |
+| Default | omit `brand` | — | TrueForge wordmark | TrueForge square |
+| Icon + title | `"icon-title"` | `name` (+ optional `icon`) | square + title | square |
+| Icon only | `"icon-only"` | `name`, `icon` | square | square |
+| Wide logo | `"logo"` | `name`, `icon`, `logo` | wide logo | square |
+
 ```tsx App.tsx
 <TrueForgeUI
   ...
@@ -88,6 +96,7 @@ type ThemeConfig = {
     preset: "trueforge",
     mode: "system",
     brand: {
+      mode: "logo",
       name: "Acme",
       icon: "/icon.svg",
       logo: "/wordmark.svg",
@@ -96,10 +105,10 @@ type ThemeConfig = {
 />
 ```
 
-`icon` is the square asset used in collapsed and compact surfaces. `logo` is an optional
-wider asset used in expanded chrome and requires `icon` as its compact fallback. Omit
-`name` and `logo` for icon-only branding. When `brand` is omitted, expanded chrome uses
-the built-in TrueForge wordmark and compact surfaces use the built-in square mark.
+`icon` is the square asset used in collapsed and compact surfaces. `logo` is the wider
+asset used when `mode` is `"logo"` and requires `icon` as its compact fallback. When
+`brand` is omitted, expanded chrome uses the built-in TrueForge wordmark and compact
+surfaces use the built-in square mark.
 
 The `chatgpt`, `claude`, and `gemini` themes are shown below:
 
@@ -137,6 +146,7 @@ You can also provide separate logos for light and dark modes, allowing your bran
   theme={{
     ...
     brand: {
+      mode: "logo",
       name: "Acme",
       icon: {
         light: "/icon/light.svg",
@@ -157,8 +167,8 @@ The icon and logo sources are selected based on the resolved theme mode. When mo
 * Provide both light and dark to use a different image for each mode.
 * Provide only one of light or dark to use the same image in both modes.
 * Use src for a mode-independent image.
-* `name` labels configured images and appears beside `icon` when no wide `logo` is set.
-* Omit `name` for icon-only branding.
+* Set `brand.mode` first (`icon-title` | `icon-only` | `logo`); `name` is required and always labels images.
+* Visible title text only appears for `mode: "icon-title"`.
 * Set the brand-level `href` to make configured images clickable.
 
 For more advanced use cases, such as rendering an inline SVG or an animated logo, override the BrandLogo slot instead of passing a React node through the theme object.

@@ -133,20 +133,25 @@ import { TrueForgeUI } from "@truefoundry/trueforge-ui";
     </ParamField>
     <ParamField path="brand" type="BrandConfig">
       Optional. Omit it to use the built-in TrueForge wordmark in expanded chrome and
-      square mark in compact surfaces.
+      square mark in compact surfaces. When set, choose `mode` first, then pass the
+      fields that mode requires.
 
       <Expandable title="BrandConfig">
+        <ParamField path="mode" type='"icon-title" | "icon-only" | "logo"'>
+          Chrome look. `icon-title` shows `name` beside the square mark; `icon-only`
+          and `logo` keep `name` for alt only.
+        </ParamField>
         <ParamField path="name" type="string">
-          Optional display name and accessible image label. It appears beside the square
-          icon in expanded chrome when no wide logo is configured. Omit it for icon-only
-          branding.
+          Required. Accessible image label (`alt` / `aria-label`). Also shown as title
+          text beside the square icon when `mode` is `icon-title`.
         </ParamField>
         <ParamField path="icon" type="string | BrandLogoConfig">
-          Square image used in collapsed and compact surfaces. A logo configuration
-          requires this compact fallback.
+          Square image used in collapsed and compact surfaces. Optional for
+          `icon-title` (default mark); required for `icon-only` and `logo`.
         </ParamField>
         <ParamField path="logo" type="string | BrandLogoConfig">
-          Optional wider image used in expanded chrome. Falls back to `icon`.
+          Wider image used when `mode` is `logo`. Falls back to `icon` in
+          `BrandLogo` if needed. Required for `mode: "logo"`.
         </ParamField>
         <ParamField path="href" type="string">
           Wraps configured brand images in a same-tab link.
@@ -247,7 +252,7 @@ Persisted sessions remain available through the thread list.
   agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}
   theme={{
     preset: "claude",
-    brand: { name: "Acme", icon: "/icon.svg", logo: "/wordmark.svg" },
+    brand: { mode: "logo", name: "Acme", icon: "/icon.svg", logo: "/wordmark.svg" },
   }}
   overrides={{ ClearChatButton: MyClearButton }}
   className="h-full min-h-0"

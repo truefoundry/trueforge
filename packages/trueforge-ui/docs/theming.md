@@ -190,27 +190,24 @@ type BrandImage = string | BrandLogoConfig;
  * Images only: to render a component, override the `BrandLogo` slot instead, so
  * brand marks follow the same replacement path as every other atom.
  *
- * `icon` is the square mark for compact surfaces. `logo` is the optional wider
- * mark for expanded chrome and falls back to `icon`.
+ * Set `mode`, then pass the fields that mode requires:
+ * - omit `brand`: TrueForge wordmark / square mark
+ * - `icon-title`: `name` + optional `icon`
+ * - `icon-only`: `name` + `icon`
+ * - `logo`: `name` + `icon` + `logo`
  */
-type BrandMetadata = {
-  /** Optional display name and accessible label. Omit for icon-only branding. */
-  name?: string;
-  /** Wraps configured brand images in a same-tab link. */
-  href?: string;
-};
+type BrandMode = "icon-title" | "icon-only" | "logo";
 
-type BrandConfig = BrandMetadata &
-  (
-    | { icon?: BrandImage; logo?: never }
-    | { icon: BrandImage; logo: BrandImage }
-  );
+type BrandConfig =
+  | { mode: "icon-title"; name: string; icon?: BrandImage; logo?: never; href?: string }
+  | { mode: "icon-only"; name: string; icon: BrandImage; logo?: never; href?: string }
+  | { mode: "logo"; name: string; icon: BrandImage; logo: BrandImage; href?: string };
 
 type ThemeConfig = {
   preset?: ThemePreset; // default: "trueforge"
   mode?: ThemeMode; // omit = uncontrolled (useTheme().setTheme)
   tokens?: Partial<SemanticTokens>;
-  brand?: BrandConfig; // square icon + optional wide logo and display name
+  brand?: BrandConfig; // set brand.mode, then required fields
   className?: string; // applied on .aui-root (or theme root)
   icons?: IconMap; // full/partial UI icon replace + SVG transforms
   /** Per-surface className hooks for content renderers */
@@ -275,6 +272,7 @@ function MyLayout({ className }: { className?: string }) {
     mode: 'dark',
     tokens: { primaryButtonBg: '#…', fontFamily: '"My Font", system-ui' },
     brand: {
+      mode: 'logo',
       name: 'Acme Agent',
       icon: { light: '/acme-icon.svg', dark: '/acme-icon-dark.svg' },
       logo: { light: '/acme-wordmark.svg', dark: '/acme-wordmark-dark.svg' },
@@ -333,22 +331,26 @@ as `children`.
 1. All product marks render through `<BrandLogo />` — one component, never
    hard-coded TFY assets in layouts or atoms. Layouts resolve it via `useSlot`, so
    a host override reaches every call site.
-2. `BrandLogo` renders `icon` for compact surfaces. With `variant="logo"`, it
+2. Hosts pick chrome with `brand.mode` (`icon-title` | `icon-only` | `logo`).
+   Layout chrome uses `resolveBrandChrome(brand)` for expanded/collapsed mark
+   variant and whether to show the text title. Custom layouts should call the
+   same helper instead of re-deriving fields.
+3. `BrandLogo` renders `icon` for compact surfaces. With `variant="logo"`, it
    renders the optional wider logo and falls back to the square icon.
-3. `theme.brand` carries **image sources only** (URL or `{ src, light, dark }`).
+4. `theme.brand` carries **image sources only** (URL or `{ src, light, dark }`).
    Component-valued marks go through the `BrandLogo` slot, so brand replacement
    uses the same mechanism as every other atom instead of a second node-shaped
    escape hatch in the theme config.
-4. `theme.brand.name` is optional. When present, it labels configured images and
-   appears beside the square icon in expanded chrome when no wide logo is set.
-   Omitting it enables icon-only branding.
-5. Omitting `brand` keeps the default TrueForge wordmark in expanded chrome and
+5. `theme.brand.name` is required with every mode and always labels configured
+   images. Visible title text only appears for `mode: 'icon-title'`. For
+   `icon-only` and `logo`, `name` is alt-only.
+6. Omitting `brand` keeps the default TrueForge wordmark in expanded chrome and
    the square mark when collapsed. `href` wraps configured images in a same-tab
    link.
-6. `{ light, dark }` sources resolve against the provider's mode, so a host mark
-   tracks light/dark without a custom component. A single configured mode covers
-   both, so `{ light }` alone never renders a missing image; a config with no
-   usable source falls back to the default mark rather than an empty `<img>`.
+7. `{ light, dark }` sources resolve against the provider's theme mode, so a host
+   mark tracks light/dark without a custom component. A single configured source
+   covers both, so `{ light }` alone never renders a missing image; a config with
+   no usable source falls back to the default mark rather than an empty `<img>`.
 
 ## Icon system
 
@@ -382,7 +384,7 @@ compose path), for example:
 - `Thread` / `ThreadContainer`
 - `ThreadListContainer`
 - `Composer` pieces / slot-backed atoms as needed
-- Brand helpers (`BrandLogo`, `useBrandName`) and `useTheme`
+- Brand helpers (`BrandLogo`, `resolveBrandChrome`, `useBrandName`) and `useTheme`
 
 The shell still wraps the custom layout with theme + slots + chat provider;
 only the chrome tree is replaced. Equivalent to skipping built-in layouts

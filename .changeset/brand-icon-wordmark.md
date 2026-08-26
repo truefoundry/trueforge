@@ -3,4 +3,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Support icon-only branding, square icons with display names, and optional wide logos that fall back to the square icon in compact chrome. The default expanded mark is the TrueForge wordmark.
+Add `brand.mode` (`icon-title` | `icon-only` | `logo`) so hosts pick chrome look first; `name` always labels the mark, and `resolveBrandChrome` maps mode to layout chrome.

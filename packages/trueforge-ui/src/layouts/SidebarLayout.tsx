@@ -13,7 +13,7 @@ import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { useBrandName } from '../theme/brand.js';
+import { resolveBrandChrome, useBrandName } from '../theme/brand.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useBrand } from '../theme/ThemeProvider.js';
 
@@ -27,7 +27,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const brand = useBrand();
   const brandName = useBrandName();
-  const hasWideLogo = brand.logo != null || (brand.icon == null && brand.name == null);
+  const chrome = resolveBrandChrome(brand);
   const BrandLogo = useSlot('BrandLogo');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const ClearChatButton = useSlot('ClearChatButton');
@@ -97,10 +97,13 @@ export function SidebarLayout({ className }: { className?: string }) {
         >
           <div className={cn('flex min-w-0 items-center text-text-primary', collapsed ? 'justify-center' : 'gap-2')}>
             <BrandLogo
-              variant={collapsed || !hasWideLogo ? 'icon' : 'logo'}
-              className={cn('h-5 max-w-40 shrink-0 object-contain', (collapsed || !hasWideLogo) && 'w-5')}
+              variant={collapsed ? chrome.collapsedVariant : chrome.expandedVariant}
+              className={cn(
+                'h-5 max-w-40 shrink-0 object-contain',
+                (collapsed || chrome.expandedVariant === 'icon') && 'w-5',
+              )}
             />
-            {!collapsed && !hasWideLogo && brandName != null ? (
+            {!collapsed && chrome.showTitle && brandName != null ? (
               <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
             ) : null}
           </div>
@@ -223,8 +226,11 @@ export function SidebarLayout({ className }: { className?: string }) {
             tabIndex={-1}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-text-primary">
-              <BrandLogo variant="logo" className={cn('h-5 max-w-40 shrink-0 object-contain', !hasWideLogo && 'w-5')} />
-              {!hasWideLogo && brandName != null ? (
+              <BrandLogo
+                variant={chrome.expandedVariant}
+                className={cn('h-5 max-w-40 shrink-0 object-contain', chrome.expandedVariant === 'icon' && 'w-5')}
+              />
+              {chrome.showTitle && brandName != null ? (
                 <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
               ) : null}
             </div>

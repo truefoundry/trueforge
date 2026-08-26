@@ -803,6 +803,7 @@ export function App() {
       theme={{
         preset: 'chatgpt',
         brand: {
+          mode: 'logo',
           name: 'MyCo',
           icon: { src: '/myco-icon.svg' },
           logo: { src: '/myco-wordmark.svg' },

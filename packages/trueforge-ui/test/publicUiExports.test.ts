@@ -110,6 +110,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'libraryAgentId',
   'mergeAgentSpec',
   'preloadMarkdownOpenUI',
+  'resolveBrandChrome',
   'resolvePresetTokens',
   'shellIsMutable',
   'threadHasPendingMcpAuth',

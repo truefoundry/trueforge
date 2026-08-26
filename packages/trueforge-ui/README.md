@@ -207,7 +207,7 @@ export default function App() {
   }}
   theme={{
     preset: 'claude',
-    brand: { name: 'Acme', icon: '/icon.svg' },
+    brand: { mode: 'icon-title', name: 'Acme', icon: '/icon.svg' },
   }}
   overrides={{/* slot overrides */}}
   className="h-full"
@@ -319,7 +319,15 @@ package). Host CSS on `.aui-markdown` / `.aui-syntax-highlighter` / `.aui-openui
 
 ## Brand / logo
 
-**Base layouts** — pass a square `icon` and optional display `name`. Omit `name` for icon-only branding:
+Set `brand.mode`, then pass the fields that mode requires. `name` always labels the
+mark (`alt` / `aria-label`).
+
+| Look         | `mode`         | Required                   | Expanded chrome           | Collapsed / compact |
+| ------------ | -------------- | -------------------------- | ------------------------- | ------------------- |
+| Default      | omit `brand`   | —                          | TrueForge wordmark        | TrueForge square    |
+| Icon + title | `'icon-title'` | `name` (+ optional `icon`) | square + title text       | square              |
+| Icon only    | `'icon-only'`  | `name`, `icon`             | square (no title text)    | square              |
+| Wide logo    | `'logo'`       | `name`, `icon`, `logo`     | wide logo (no title text) | square              |
 
 ```tsx
 <TrueForgeUI
@@ -327,6 +335,7 @@ package). Host CSS on `.aui-markdown` / `.aui-syntax-highlighter` / `.aui-openui
   layout="sidebar"
   theme={{
     brand: {
+      mode: 'icon-title',
       name: 'Acme',
       icon: '/brand/icon.svg',
     },
@@ -334,8 +343,20 @@ package). Host CSS on `.aui-markdown` / `.aui-syntax-highlighter` / `.aui-openui
 />
 ```
 
-Add a wider `logo` for expanded chrome. A square `icon` is required with it because collapsed
-chrome, the welcome screen, and the widget button continue to use the square asset:
+Icon-only chrome (`name` kept for alt):
+
+```tsx
+theme={{
+  brand: {
+    mode: 'icon-only',
+    name: 'Acme',
+    icon: '/brand/icon.svg',
+  },
+}}
+```
+
+Wide logo for expanded chrome. A square `icon` is required because collapsed chrome,
+the welcome screen, and the widget button continue to use the square asset:
 
 ```tsx
 <TrueForgeUI
@@ -343,6 +364,7 @@ chrome, the welcome screen, and the widget button continue to use the square ass
   layout="sidebar"
   theme={{
     brand: {
+      mode: 'logo',
       name: 'Acme',
       icon: '/brand/icon.svg',
       logo: '/brand/wordmark.svg',
@@ -353,8 +375,8 @@ chrome, the welcome screen, and the widget button continue to use the square ass
 ```
 
 Both `icon` and `logo` accept `{ src, light, dark }`. The SDK picks the source matching the
-resolved mode; setting only one mode uses it for both. `href` wraps configured images in a
-same-tab link. When `name` is omitted, images are decorative.
+resolved theme mode; setting only one light/dark source uses it for both. `href` wraps
+configured images in a same-tab link.
 
 **Component marks** — `theme.brand` takes image URLs only. To render an inline SVG or a custom
 component, override the `BrandLogo` slot, the same way you replace any other atom:
@@ -364,8 +386,9 @@ component, override the `BrandLogo` slot, the same way you replace any other ato
 ```
 
 **Custom layouts** — import `BrandLogo` and use `variant="icon"` for compact surfaces or
-`variant="logo"` for expanded chrome. The logo variant falls back to the square icon. Pair it
-with `useBrandName()` when you also want the optional name as text (see [Custom layouts](#custom-layouts)).
+`variant="logo"` for expanded chrome. Prefer `resolveBrandChrome(useBrand())` so expanded
+vs collapsed choices match the base layouts. Pair with `useBrandName()` when chrome should
+show the title text (see [Custom layouts](#custom-layouts)).
 
 > _Screenshot: external brand mark rendered in the base layout header._
 
@@ -591,6 +614,7 @@ See [docs/server.md](./docs/server.md) for the full method list and BYO guidance
 | `TrueForgeServerConfig`                                            | Type       | `server` prop: `truefoundry` / `trueforge` / `AgentUIServer` |
 | `createTrueFoundryServer`                                          | Function   | Compose chat + builder into `AgentUIServer`                  |
 | `Thread`, `ThreadListContainer`, `BrandLogo`                       | Components | Layout primitives for custom layouts                         |
+| `resolveBrandChrome`, `useBrandName`, `useBrand`                   | Helpers    | Brand chrome look + name for custom layouts                  |
 | Composer / message / tool atoms                                    | Components | Overridable, themeable building blocks                       |
 | `SlotsProvider`, `useSlot`, `useTheme`                             | API        | Overrides + theme mode                                       |
 | `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`           | Types      | Resolved server contract                                     |
