@@ -205,12 +205,18 @@ extraObjects:
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
 | `podDisruptionBudget.enabled` | `false`                       | Enable a PodDisruptionBudget (`minAvailable` defaults to `1`). |
-| `resources`           | `{}`                                | Container resource requests/limits.   |
+| `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
+| `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
+| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Container CPU, memory, and ephemeral-storage requests/limits. |
 
 Also available (defaults inert): `strategy`, `priorityClassName`,
 `topologySpreadConstraints`, `initContainers`, `extraContainers`,
 `extraVolumes`, `extraVolumeMounts`, `service.annotations`, `service.labels`,
 `startupProbe`.
+
+The server container mounts an `emptyDir` at `/tmp` by default so the image can
+run with `readOnlyRootFilesystem: true`. When set, `resources.limits.ephemeral-storage`
+also sets the `/tmp` `emptyDir.sizeLimit`.
 
 ## Production checklist
 
@@ -220,6 +226,6 @@ Also available (defaults inert): `strategy`, `priorityClassName`,
 - Set `server.publicBaseUrl` to the real public origin before using MCP OAuth or OIDC.
 - Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.
-- Set container `resources` (especially CPU requests) before enabling HPA.
+- Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
 - Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).

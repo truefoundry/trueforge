@@ -19,8 +19,19 @@ serviceAccount:
   name: ""
 podAnnotations: {}
 podLabels: {}
-podSecurityContext: {}
-securityContext: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
 # Rolling update controls (omit keys you do not want to set).
@@ -174,7 +185,15 @@ extraContainers: []
 # Extra volumes / mounts on the server container (e.g. CA bundles, projected tokens).
 extraVolumes: []
 extraVolumeMounts: []
-resources: {}
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+    ephemeral-storage: 256Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
+    ephemeral-storage: 512Mi
 # startupProbe runs until success before liveness/readiness; sized for migrate + Redis connect.
 startupProbe:
   httpGet:

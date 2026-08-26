@@ -91,7 +91,11 @@ COPY --from=frontend-builder /app/packages/frontend/dist ./packages/trueforge/di
 
 WORKDIR /app/packages/trueforge
 
+RUN groupadd --gid 10001 trueforge \
+  && useradd --uid 10001 --gid trueforge trueforge
+
 EXPOSE 8790
 
 # Launch-only (matches root `pnpm start` / `standalone:start`). Image already contains dist.
+USER 10001:10001
 CMD ["node", "dist/main.js"]
