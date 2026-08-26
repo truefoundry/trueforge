@@ -9,7 +9,7 @@
 # Example:
 #   docker build --build-arg APP_VERSION=0.1.0 -t trueforge:0.1.0 .
 
-FROM node:24-slim AS runner
+FROM node:25-slim AS runner
 WORKDIR /app
 # HOST=0.0.0.0 so Kubernetes Service/probe traffic reaches the process.
 ENV NODE_ENV=production \

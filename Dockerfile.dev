@@ -10,7 +10,7 @@
 # the download layer stays cached when only package.json / scripts change.
 # See https://pnpm.io/cli/fetch
 
-FROM node:24-slim AS base
+FROM node:25-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && pnpm config set store-dir /pnpm/store
