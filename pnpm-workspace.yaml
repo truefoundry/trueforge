@@ -5,6 +5,7 @@ minimumReleaseAge: 0
 trustLockfile: true
 confirmModulesPurge: false
 allowBuilds:
+  '@openrouter/sdk': false
   '@parcel/watcher': true
   '@swc/core': true
   better-sqlite3: false

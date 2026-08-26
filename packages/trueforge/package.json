@@ -61,6 +61,7 @@
     "@hono/swagger-ui": "^0.2.1",
     "@hono/zod-openapi": "^1.5.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@openrouter/sdk": "^1.2.51",
     "@truefoundry/trueforge-core": "workspace:*",
     "better-sqlite3": "^13.0.2",
     "env-paths": "^4.0.0",

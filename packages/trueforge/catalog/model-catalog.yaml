@@ -366,3 +366,25 @@ providers:
           reasoning_efforts:
             - high
             - max
+  - type: openrouter
+    logo: https://assets.production.truefoundry.com/openrouter.svg
+    models:
+      - model_id: ~openai/gpt-latest
+        name: openai-gpt-latest
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+      - model_id: openrouter/auto
+        name: auto
+        properties:
+          context_length: 2000000
+      - model_id: anthropic/claude-sonnet-4.6
+        name: claude-sonnet-4-6
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+      - model_id: google/gemini-3.1-pro-preview
+        name: gemini-3-1-pro-preview
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
