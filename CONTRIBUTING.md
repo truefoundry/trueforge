@@ -7,7 +7,7 @@ By participating you agree to follow our [Code of Conduct](CODE_OF_CONDUCT.md). 
 ## Ways to contribute
 
 > [!Important]
-> Please only submit pull requests if you have received approval from a maintainer.
+> Please only submit pull requests for an issue when you have received approval from a maintainer.
 > While we value good intentions, we require approvals for community code contributions to ensure we use everyone's time effectively.
 
 - **Report bugs** — open an issue with steps to reproduce, expected vs actual behavior, and your environment.
@@ -18,16 +18,24 @@ For security vulnerabilities, do **not** open a public issue — see [SECURITY.m
 
 ### Why we require approvals for community code contributions
 
+> [!Tip]
+> Every new issue by default is labelled with [needs-maintainer-attention](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3Aneeds-maintainer-attention). A maintainer will review the issue and discuss the next steps. Please don't remove this label while creating the issue.
+
 Effective changes to TrueForge require architectural context, an understanding of system-level constraints, and visibility into the project's roadmap. Community pull requests often focus on issues that are lower priority, affect a small number of users, or need substantial changes to fit the broader system. Reviewing and iterating on those changes can take more time than implementing a fix directly, diverting attention from higher-priority work.
 
 Community expertise is most valuable when shared through detailed bug reports, reproduction steps, logs, root-cause analysis, and design discussions in issues. Understanding the problem, identifying the right solution, and prioritizing the work are typically the hard parts; implementation is comparatively straightforward with coding assistants.
 
 For these reasons, we focus community contributions on issue reports, analysis, and feedback, over larger code changes.
 
-| Label                                                                                                                      | Meaning                                                                                         |
-| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [`help-wanted`](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22) | Well-scoped issue where community contributions are welcome.                                    |
-| `needs-maintainer-approval`                                                                                                | Proposal is still awaiting maintainer review; contributors should not start implementation yet. |
+> [!Note]
+> If you would still like to contribute code, we keep a dedicated set of issues marked as [help-wanted](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22) that are well scoped.
+
+### Issue labels
+
+| Label                                                                                                                                          | Meaning                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [help-wanted](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)                       | Well-scoped issue where community contributions are welcome.             |
+| [needs-maintainer-attention](https://github.com/truefoundry/trueforge/issues?q=is%3Aissue%20state%3Aopen%20label%3Aneeds-maintainer-attention) | Issue needs discussion with maintainers before implementation can start. |
 
 ### Reporting bugs
 
