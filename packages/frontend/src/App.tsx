@@ -162,11 +162,6 @@ export function App() {
     <div className="app-root">
       <TrueForgeUI
         server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }}
-        theme={{
-          brand: {
-            name: 'TrueForge',
-          },
-        }}
         layout="sidebar"
         withRouter
         agentConfig={{

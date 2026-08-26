@@ -23,6 +23,7 @@ jobs:
       pull-requests: read
     outputs:
       packages: ${{ steps.packages.outputs.list }}
+      chart: ${{ steps.filter.outputs.chart }}
       store: ${{ steps.filter.outputs.store }}
 
     steps:
@@ -80,6 +81,12 @@ jobs:
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
+              - '.github/workflows/ci.yml'
+            chart:
+              - 'charts/trueforge/**'
+              - 'Dockerfile'
+              - 'Dockerfile.dev'
+              - 'package.json'
               - '.github/workflows/ci.yml'
 
       - name: Build package matrix
@@ -179,6 +186,36 @@ jobs:
       - name: Test
         run: pnpm "test:${{ matrix.package }}"
 
+  chart-checks:
+    name: Helm Chart
+    needs: detect-changes
+    if: needs.detect-changes.outputs.chart == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Build chart dependencies
+        run: pnpm chart:deps
+
+      - name: Lint chart
+        run: pnpm chart:lint
+
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
     name: Store Tests
@@ -233,6 +270,7 @@ jobs:
       - detect-changes
       - typecheck-and-build
       - package-checks
+      - chart-checks
       - store-tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -242,11 +280,13 @@ jobs:
           DETECT_CHANGES: ${{ needs.detect-changes.result }}
           TYPECHECK_AND_BUILD: ${{ needs.typecheck-and-build.result }}
           PACKAGE_CHECKS: ${{ needs.package-checks.result }}
+          CHART_CHECKS: ${{ needs.chart-checks.result }}
           STORE_TESTS: ${{ needs.store-tests.result }}
         run: |
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
-          echo "detect-changes=$DETECT_CHANGES typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS store-tests=$STORE_TESTS"
+          echo "detect-changes=$DETECT_CHANGES typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS store-tests=$STORE_TESTS"
           [ "$DETECT_CHANGES" = success ] || exit 1
           [ "$TYPECHECK_AND_BUILD" = success ] || exit 1
           ok "$PACKAGE_CHECKS" || exit 1
+          ok "$CHART_CHECKS" || exit 1
           ok "$STORE_TESTS" || exit 1

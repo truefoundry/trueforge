@@ -55,7 +55,7 @@ It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (
 ### Quickstart with `npx`
 
 ```
-npx @truefoundry/trueforge
+npx @truefoundry/trueforge@latest
 ```
 
 Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, or Kubernetes). Connect models, tools, skills and build your first reusable agent.

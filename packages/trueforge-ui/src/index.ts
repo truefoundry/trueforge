@@ -158,6 +158,7 @@ export {
 } from './containers/AttachmentsContainer.js';
 export { ComposerContainer } from './containers/ComposerContainer.js';
 export type { ComposerContainerProps } from './containers/ComposerContainer.js';
+export { CustomActionContainer } from './containers/CustomActionContainer.js';
 export { HistoryLoaderContainer } from './containers/HistoryLoaderContainer.js';
 export { McpAuthContainer } from './containers/McpAuthContainer.js';
 export { default as PostMcpOauthScreen } from './containers/McpOauthContainer/PostMcpOauthScreen.js';
@@ -228,6 +229,11 @@ export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
 export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueFoundryServer } from './server/createTrueFoundryServer.js';
 export type { CreateTrueFoundryServerOptions, TrueFoundryServer } from './server/createTrueFoundryServer.js';
+export {
+  CustomActionRenderersProvider,
+  useOptionalCustomActionRenderers,
+} from './server/CustomActionRenderersContext.js';
+export type { CustomActionRendererProps, CustomActionRenderers } from './server/CustomActionRenderersContext.js';
 export {
   ServerProvider,
   useCatalogServer,

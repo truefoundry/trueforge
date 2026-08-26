@@ -181,8 +181,9 @@ def _is_destructive(tool: dict[str, Any]) -> bool:
         return False
     if not isinstance(annotations, dict):
         return False
-    destructive = annotations.get("destructiveHint")
-    read_only = annotations.get("readOnlyHint")
+
+    read_only = annotations.get("read_only_hint", annotations.get("readOnlyHint"))
+    destructive = annotations.get("destructive_hint", annotations.get("destructiveHint"))
     return bool(destructive) or (not read_only and read_only is not None)
 
 
