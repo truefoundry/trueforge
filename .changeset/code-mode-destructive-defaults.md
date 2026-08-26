@@ -3,4 +3,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Fail closed when Code Mode receives MCP tools with missing or incomplete annotations, and accept both MCP Python SDK hint casings.
+Prefer MCP Python SDK 2.0 snake_case tool annotation fields, with camelCase fallback for older SDKs, without changing destructive-tool detection behavior.
