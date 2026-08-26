@@ -22,6 +22,8 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 // Survives ChatProvider remounts when openDraft / selectAgent bumps runtimeKey.
 let desktopCollapsed = false;
 
+const brandLogoClassName = 'h-5 max-w-40 shrink-0 object-contain';
+
 export function SidebarLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
@@ -98,10 +100,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           <div className={cn('flex min-w-0 items-center text-text-primary', collapsed ? 'justify-center' : 'gap-2')}>
             <BrandLogo
               variant={collapsed ? chrome.collapsedVariant : chrome.expandedVariant}
-              className={cn(
-                'h-5 max-w-40 shrink-0 object-contain',
-                (collapsed || chrome.expandedVariant === 'icon') && 'w-5',
-              )}
+              className={cn(brandLogoClassName, (collapsed || chrome.expandedVariant === 'icon') && 'w-5')}
             />
             {!collapsed && chrome.showTitle && brandName != null ? (
               <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
@@ -228,7 +227,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-text-primary">
               <BrandLogo
                 variant={chrome.expandedVariant}
-                className={cn('h-5 max-w-40 shrink-0 object-contain', chrome.expandedVariant === 'icon' && 'w-5')}
+                className={cn(brandLogoClassName, chrome.expandedVariant === 'icon' && 'w-5')}
               />
               {chrome.showTitle && brandName != null ? (
                 <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
