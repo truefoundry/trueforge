@@ -74,8 +74,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\" \"test/**/*.{ts,tsx}\" \"*.md\" \"docs/**/*.md\" --config ../../.prettierrc"
   },
   "peerDependencies": {
-    "@assistant-ui/core": "^0.2.22",
-    "@assistant-ui/react": "^0.14.24",
+    "@assistant-ui/core": "^0.3.15",
+    "@assistant-ui/react": "^0.15.16",
     "@types/react": "*",
     "react": "^18 || ^19",
     "react-dom": "^18 || ^19"
@@ -92,11 +92,11 @@
     }
   },
   "dependencies": {
-    "@assistant-ui/core": "^0.2.22",
-    "@assistant-ui/react": "^0.14.24",
-    "@openuidev/react-headless": "^0.9.4",
-    "@openuidev/react-lang": "^0.2.9",
-    "@openuidev/react-ui": "^0.13.2",
+    "@assistant-ui/core": "^0.3.15",
+    "@assistant-ui/react": "^0.15.16",
+    "@openuidev/react-headless": "^0.9.11",
+    "@openuidev/react-lang": "^0.2.14",
+    "@openuidev/react-ui": "^0.13.8",
     "@truefoundry/assistant-ui-runtime": "0.1.21",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "clsx": "^2.1.1",
@@ -108,7 +108,7 @@
     "react-syntax-highlighter": "^16.1.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
-    "truefoundry-gateway-sdk": "^0.4.0",
+    "truefoundry-gateway-sdk": "^0.4.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -118,10 +118,10 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@types/react-syntax-highlighter": "^15.5.13",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "esbuild-plugin-svgr": "3.1.1",
     "eslint": "^9.39.0",
     "eslint-plugin-react-hooks": "^7.0.0",
@@ -133,8 +133,8 @@
     "tailwindcss": "^4.3.2",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.0",
+    "typescript-eslint": "^8.67.0",
     "vite-plugin-svgr": "^5.2.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }
