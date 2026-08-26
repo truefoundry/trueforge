@@ -52,7 +52,7 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
       # Writable checkout: App token minted only for same-repo / push / dispatch.
