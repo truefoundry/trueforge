@@ -71,8 +71,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # runner: minimal image with prod node_modules + built artifacts.
 # ---------------------------------------------------------------------------
 FROM base AS runner
-ENV NODE_ENV=production \
-    HOME=/tmp
+ENV NODE_ENV=production
 
 # Production dependency tree (pnpm workspace symlinks preserved).
 COPY --from=prod-deps /app/node_modules ./node_modules
@@ -93,7 +92,7 @@ COPY --from=frontend-builder /app/packages/frontend/dist ./packages/trueforge/di
 WORKDIR /app/packages/trueforge
 
 RUN groupadd --gid 10001 trueforge \
-  && useradd --uid 10001 --gid trueforge --home-dir /tmp --no-create-home --shell /usr/sbin/nologin trueforge
+  && useradd --uid 10001 --gid trueforge trueforge
 
 EXPOSE 8790
 

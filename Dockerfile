@@ -14,8 +14,7 @@ WORKDIR /app
 # HOST=0.0.0.0 so Kubernetes Service/probe traffic reaches the process.
 ENV NODE_ENV=production \
     STANDALONE=false \
-    HOST=0.0.0.0 \
-    HOME=/tmp
+    HOST=0.0.0.0
 
 ARG APP_VERSION
 RUN test -n "$APP_VERSION" || (echo "APP_VERSION build-arg is required" >&2 && exit 1)
@@ -25,7 +24,7 @@ RUN npm install --omit=dev "@truefoundry/trueforge@${APP_VERSION}" \
   && npm cache clean --force
 
 RUN groupadd --gid 10001 trueforge \
-  && useradd --uid 10001 --gid trueforge --home-dir /tmp --no-create-home --shell /usr/sbin/nologin trueforge
+  && useradd --uid 10001 --gid trueforge --shell /usr/sbin/nologin trueforge
 
 EXPOSE 8790
 

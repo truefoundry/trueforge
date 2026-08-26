@@ -84,9 +84,16 @@ spec:
         {{- with .Values.extraContainers }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- $resources := default dict .Values.resources }}
+      {{- $limits := default dict (index $resources "limits") }}
       volumes:
         - name: tmp
+          {{- with index $limits "ephemeral-storage" }}
+          emptyDir:
+            sizeLimit: {{ . | quote }}
+          {{- else }}
           emptyDir: {}
+          {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
