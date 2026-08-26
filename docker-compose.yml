@@ -50,6 +50,8 @@ services:
       NODE_ENV: production
       # Inside the container; host mapping above is 8791.
       PORT: 8790
+      # Bind to all interfaces so healthcheck probe can reach the server.
+      HOST: 0.0.0.0
       # Host-facing origin for MCP OAuth callbacks (mapped port, not container PORT).
       PUBLIC_BASE_URL: http://localhost:8791
       # Compose network hosts — do not use packages/trueforge/.env localhost values.

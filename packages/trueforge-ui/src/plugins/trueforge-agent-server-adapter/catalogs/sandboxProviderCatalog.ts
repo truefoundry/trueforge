@@ -3,8 +3,8 @@
  * `/api/v1/settings/sandbox-providers` (singleton upsert, no delete).
  *
  * UI: multi-row providers with `id` / `catalogId` / `name` / flat `apiKey`.
- * Harness: one Daytona provider per tenant; catalog YAML has no name — synthetic
- * identity uses `type` (`daytona`) as id/catalogId and display name `Daytona`.
+ * Harness: one provider per tenant; catalog YAML has no name — synthetic identity
+ * uses `type` as id/catalogId and a provider-specific display name.
  */
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
@@ -21,18 +21,30 @@ export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
 export type UiSandboxProviderListEntry = SandboxProviderListEntry;
 
 const DAYTONA_TYPE = 'daytona';
-const DAYTONA_DISPLAY_NAME = 'Daytona';
+const OPENSANDBOX_TYPE = 'opensandbox';
 
 function displayNameForType(type: string): string {
-  if (type === DAYTONA_TYPE) {
-    return DAYTONA_DISPLAY_NAME;
-  }
-  return type;
+  return type === DAYTONA_TYPE ? 'Daytona' : type === OPENSANDBOX_TYPE ? 'OpenSandbox' : type;
 }
+
+type UiSandboxConfig = SandboxProviderConfig & {
+  domain?: string;
+  protocol?: 'http' | 'https';
+};
 
 export function configFromHarness(
   provider: TrueForgeApi.CatalogSandboxProvider | TrueForgeApi.SandboxProviderManifest,
-): SandboxProviderConfig {
+): UiSandboxConfig {
+  if (provider.type === OPENSANDBOX_TYPE) {
+    return {
+      execTimeoutMs: provider.execTimeoutMs,
+      autoStopIntervalInMinutes: 0,
+      autoArchiveIntervalInMinutes: 0,
+      autoDeleteIntervalInMinutes: 0,
+      domain: provider.domain,
+      protocol: provider.protocol ?? 'https',
+    };
+  }
   return {
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
@@ -94,8 +106,22 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
+    domain?: string;
+    protocol?: 'http' | 'https';
   } & SandboxProviderConfig,
 ): TrueForgeApi.SandboxProviderManifest {
+  if (req.type === OPENSANDBOX_TYPE) {
+    if (req.domain === undefined || req.domain.trim() === '') {
+      throw new Error('OpenSandbox domain is required');
+    }
+    return {
+      type: OPENSANDBOX_TYPE,
+      execTimeoutMs: req.execTimeoutMs,
+      domain: req.domain,
+      protocol: req.protocol ?? 'https',
+      auth: { apiKey: req.apiKey },
+    };
+  }
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);
   }
@@ -118,6 +144,11 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
     }
     const existing = await client.settings.sandboxProviders.get();
     return existing.data.manifest.auth.apiKey;
+  }
+
+  async function resolveExistingManifest(): Promise<TrueForgeApi.SandboxProviderManifest> {
+    const existing = await client.settings.sandboxProviders.get();
+    return existing.data.manifest;
   }
 
   return {
@@ -148,20 +179,50 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
           autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
+          ...('domain' in req && typeof req.domain === 'string' ? { domain: req.domain } : {}),
+          ...('protocol' in req && (req.protocol === 'http' || req.protocol === 'https')
+            ? { protocol: req.protocol }
+            : {}),
         }),
       });
       return toUiSandboxProvider(body.data.manifest);
     },
     updateSandboxProvider: async req => {
+      const existingManifest = await resolveExistingManifest();
       const apiKey = await resolveApiKey(req.apiKey);
       const body = await client.settings.sandboxProviders.createOrUpdate({
         manifest: toHarnessManifest({
-          type: DAYTONA_TYPE,
+          type: existingManifest.type,
           apiKey,
           execTimeoutMs: req.execTimeoutMs,
-          autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
-          autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
-          autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
+          autoStopIntervalInMinutes:
+            'autoStopIntervalInMinutes' in req
+              ? req.autoStopIntervalInMinutes
+              : 'autoStopIntervalInMinutes' in existingManifest
+                ? existingManifest.autoStopIntervalInMinutes
+                : 0,
+          autoArchiveIntervalInMinutes:
+            'autoArchiveIntervalInMinutes' in req
+              ? req.autoArchiveIntervalInMinutes
+              : 'autoArchiveIntervalInMinutes' in existingManifest
+                ? existingManifest.autoArchiveIntervalInMinutes
+                : 0,
+          autoDeleteIntervalInMinutes:
+            'autoDeleteIntervalInMinutes' in req
+              ? req.autoDeleteIntervalInMinutes
+              : 'autoDeleteIntervalInMinutes' in existingManifest
+                ? existingManifest.autoDeleteIntervalInMinutes
+                : 0,
+          ...('domain' in req && typeof req.domain === 'string'
+            ? { domain: req.domain }
+            : 'domain' in existingManifest
+              ? { domain: existingManifest.domain }
+              : {}),
+          ...('protocol' in req && (req.protocol === 'http' || req.protocol === 'https')
+            ? { protocol: req.protocol }
+            : 'protocol' in existingManifest
+              ? { protocol: existingManifest.protocol }
+              : {}),
         }),
       });
       return toUiSandboxProvider(body.data.manifest);

@@ -221,6 +221,11 @@ async def _get_tool(server: str, tool_name: str) -> Tool | None:
     return None
 
 
+async def list_tools(server: str) -> list[str]:
+    """Return names from the MCP protocol tools/list operation for a server."""
+    return [tool.name for tool in await _get_tools(server)]
+
+
 def _is_destructive(tool: Tool) -> bool:
     annotations = tool.annotations
     if annotations is None:
@@ -285,12 +290,15 @@ async def call_tool(server: str, tool: str, body: dict[str, Any]) -> Any:
     return _project_call_tool_result(server, tool, result)
 
 
-_USAGE = "mcp_client.py call-tool <server> <tool> <args-json>"
+_USAGE = "mcp_client.py {list-tools|call-tool} ..."
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mcp_client.py", usage=_USAGE)
     sub = parser.add_subparsers(dest="cmd", required=True)
+
+    list_tools_p = sub.add_parser("list-tools", help="Discover tools through MCP tools/list")
+    list_tools_p.add_argument("server")
 
     call_tool_p = sub.add_parser("call-tool", help="Invoke an MCP tool")
     call_tool_p.add_argument("server")
@@ -305,7 +313,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 async def _main() -> None:
     args = _build_arg_parser().parse_args()
     try:
-        if args.cmd == "call-tool":
+        if args.cmd == "list-tools":
+            print(json.dumps(await list_tools(args.server)))
+        elif args.cmd == "call-tool":
             result = await call_tool(args.server, args.tool, args.args_json)
             print(json.dumps(result, default=str))
     except RuntimeError as e:

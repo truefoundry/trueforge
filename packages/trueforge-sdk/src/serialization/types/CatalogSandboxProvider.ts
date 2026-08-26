@@ -3,33 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { CatalogSandboxProviderAutoArchiveIntervalInMinutes } from "./CatalogSandboxProviderAutoArchiveIntervalInMinutes.js";
+import { CatalogSandboxProviderDomain } from "./CatalogSandboxProviderDomain.js";
 
-export const CatalogSandboxProvider: core.serialization.ObjectSchema<
+export const CatalogSandboxProvider: core.serialization.Schema<
     serializers.CatalogSandboxProvider.Raw,
     TrueForge.CatalogSandboxProvider
-> = core.serialization.object({
-    autoArchiveIntervalInMinutes: core.serialization.property(
-        "auto_archive_interval_in_minutes",
-        core.serialization.number(),
-    ),
-    autoDeleteIntervalInMinutes: core.serialization.property(
-        "auto_delete_interval_in_minutes",
-        core.serialization.number(),
-    ),
-    autoStopIntervalInMinutes: core.serialization.property(
-        "auto_stop_interval_in_minutes",
-        core.serialization.number(),
-    ),
-    execTimeoutMs: core.serialization.property("exec_timeout_ms", core.serialization.number()),
-    type: core.serialization.stringLiteral("daytona"),
-});
+> = core.serialization.undiscriminatedUnion([
+    CatalogSandboxProviderAutoArchiveIntervalInMinutes,
+    CatalogSandboxProviderDomain,
+]);
 
 export declare namespace CatalogSandboxProvider {
-    export interface Raw {
-        auto_archive_interval_in_minutes: number;
-        auto_delete_interval_in_minutes: number;
-        auto_stop_interval_in_minutes: number;
-        exec_timeout_ms: number;
-        type: "daytona";
-    }
+    export type Raw = CatalogSandboxProviderAutoArchiveIntervalInMinutes.Raw | CatalogSandboxProviderDomain.Raw;
 }

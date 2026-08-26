@@ -35,7 +35,15 @@ export function runSandboxProviderContractSuite(
       if (!result.success) {
         throw new Error('unreachable');
       }
-      expect(result.response.result.trim().split('\n')[0]).toBe(sandboxId);
+      const cwd = result.response.result.trim().split('\n')[0];
+      if (isAbsolute(sandboxId)) {
+        // Path-id backends (Local): the sandbox root IS the sandboxId itself.
+        expect(cwd).toBe(sandboxId);
+      } else {
+        // Opaque-id backends (Daytona, OpenSandbox): sandboxId isn't a filesystem path,
+        // so just confirm exec has a stable, non-empty default cwd.
+        expect(cwd).not.toBe('');
+      }
     });
 
     it('exec is stateful across calls in the same sandbox', async () => {

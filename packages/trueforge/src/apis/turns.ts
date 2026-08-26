@@ -193,8 +193,8 @@ function createTurnResolver(deps: {
         existingSandboxId,
         currentProviderType: provider.type,
       });
-      // A fresh Daytona sandbox is cloned from the release snapshot, so the build must be ready first.
-      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot.
+      // A fresh remote sandbox is cloned from the release snapshot, so the build must be ready first.
+      // Restoring an existing remote sandbox never needs to create a new snapshot.
       // Local fallback has no image build.
       if (carriedSandboxId === undefined && provider.type !== 'local') {
         const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id: TENANT_ID, logger });

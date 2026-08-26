@@ -1,11 +1,18 @@
-/** Daytona provider construction + persisted build-status refresh (see checkSnapshotStatus). */
+/** Sandbox-provider construction + persisted build-status refresh (see checkSnapshotStatus). */
 import { Daytona, DaytonaError } from '@daytona/sdk';
-import { DaytonaSandboxProvider, SANDBOX_IMAGE_URI, type SandboxBuild } from '@truefoundry/trueforge-core/core';
+import {
+  DaytonaSandboxProvider,
+  OpenSandboxProvider,
+  SANDBOX_IMAGE_URI,
+  type SandboxBuild,
+  type SandboxProvider,
+} from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
+  toOpenSandboxProviderInput,
   type SandboxBuildMetadata,
   type SandboxProviderManifest,
   type SandboxStatus,
@@ -14,6 +21,10 @@ import {
 /** Daytona rejected the credentials (401 unauthorized / 403 forbidden); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403);
+}
+
+export function isOpenSandboxAuthError(error: unknown): boolean {
+  return error instanceof Error && 'statusCode' in error && (error.statusCode === 401 || error.statusCode === 403);
 }
 
 /**
@@ -30,7 +41,7 @@ export function toDaytonaSandboxProvider({
   logger,
   build_metadata,
 }: {
-  manifest: SandboxProviderManifest;
+  manifest: Extract<SandboxProviderManifest, { type: 'daytona' }>;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
@@ -45,6 +56,57 @@ export function toDaytonaSandboxProvider({
     buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
+  });
+}
+
+function toOpenSandboxProvider({
+  manifest,
+  tenant_id,
+  logger,
+  build_metadata,
+}: {
+  manifest: Extract<SandboxProviderManifest, { type: 'opensandbox' }>;
+  tenant_id: string;
+  logger: Logger;
+  build_metadata?: SandboxBuildMetadata | null;
+}): OpenSandboxProvider {
+  const settings = toOpenSandboxProviderInput(manifest);
+  return new OpenSandboxProvider({
+    ...settings,
+    tenantName: tenant_id,
+    sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
+    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    platform: { os: 'linux', arch: 'amd64' },
+    entrypoint: ['/usr/bin/supervisord', '-n'],
+    logger,
+  });
+}
+
+/** Builds the concrete runtime provider selected by the stored manifest discriminator. */
+export function toSandboxProvider({
+  manifest,
+  tenant_id,
+  logger,
+  build_metadata,
+}: {
+  manifest: SandboxProviderManifest;
+  tenant_id: string;
+  logger: Logger;
+  build_metadata?: SandboxBuildMetadata | null;
+}): SandboxProvider {
+  if (manifest.type === 'daytona') {
+    return toDaytonaSandboxProvider({
+      manifest,
+      tenant_id,
+      logger,
+      ...(build_metadata !== undefined ? { build_metadata } : {}),
+    });
+  }
+  return toOpenSandboxProvider({
+    manifest,
+    tenant_id,
+    logger,
+    ...(build_metadata !== undefined ? { build_metadata } : {}),
   });
 }
 
@@ -90,7 +152,7 @@ export async function checkSnapshotStatus({
     return persisted;
   }
 
-  const provider = toDaytonaSandboxProvider({
+  const provider = toSandboxProvider({
     manifest: record.manifest,
     tenant_id,
     logger,

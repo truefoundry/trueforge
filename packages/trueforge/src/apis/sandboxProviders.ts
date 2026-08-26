@@ -7,7 +7,8 @@ import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sand
 import {
   checkSnapshotStatus,
   isDaytonaAuthError,
-  toDaytonaSandboxProvider,
+  isOpenSandboxAuthError,
+  toSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
@@ -15,7 +16,9 @@ import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretVal
 import { TENANT_ID } from './sessions';
 
 /** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
-const BUILD_REQUEST_TIMEOUT_MS = 3_000;
+const DAYTONA_BUILD_REQUEST_TIMEOUT_MS = 3_000;
+/** OpenSandbox may start a local Docker container and snapshot it before returning. */
+const OPENSANDBOX_BUILD_REQUEST_TIMEOUT_MS = 150_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -68,21 +71,21 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       },
     });
     try {
-      // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
+      // NOTE: provider build I/O runs inside the transaction for now; the design is being revisited.
       const { manifest, status } = await deps.withTransaction(async transaction => {
         const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
         const resolved = resolveManifest(locked);
         // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
         // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
-        const provider = toDaytonaSandboxProvider({
+        const provider = toSandboxProvider({
           manifest: resolved,
           tenant_id: TENANT_ID,
           logger: deps.logger,
           ...(locked ? { build_metadata: locked.build_metadata } : {}),
         });
-        const built = toSandboxStatus(
-          await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
-        );
+        const buildTimeoutMs =
+          resolved.type === 'opensandbox' ? OPENSANDBOX_BUILD_REQUEST_TIMEOUT_MS : DAYTONA_BUILD_REQUEST_TIMEOUT_MS;
+        const built = toSandboxStatus(await withTimeout(provider.buildImage(), buildTimeoutMs, 'sandbox buildImage'));
         await deps.sandboxProviderStore.upsertSandboxProvider(
           { tenant_id: TENANT_ID, manifest: resolved, ...built },
           transaction,
@@ -103,8 +106,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
-      if (isDaytonaAuthError(error)) {
-        return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
+      if (isDaytonaAuthError(error) || isOpenSandboxAuthError(error)) {
+        return c.json({ error: { message: 'Sandbox provider rejected the API key — check the credentials' } }, 422);
       }
       throw error;
     }

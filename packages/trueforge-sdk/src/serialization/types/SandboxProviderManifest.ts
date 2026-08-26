@@ -3,36 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { DaytonaSandboxProviderAuth } from "./DaytonaSandboxProviderAuth.js";
+import { SandboxProviderManifestAutoArchiveIntervalInMinutes } from "./SandboxProviderManifestAutoArchiveIntervalInMinutes.js";
+import { SandboxProviderManifestDomain } from "./SandboxProviderManifestDomain.js";
 
-export const SandboxProviderManifest: core.serialization.ObjectSchema<
+export const SandboxProviderManifest: core.serialization.Schema<
     serializers.SandboxProviderManifest.Raw,
     TrueForge.SandboxProviderManifest
-> = core.serialization.object({
-    auth: DaytonaSandboxProviderAuth,
-    autoArchiveIntervalInMinutes: core.serialization.property(
-        "auto_archive_interval_in_minutes",
-        core.serialization.number(),
-    ),
-    autoDeleteIntervalInMinutes: core.serialization.property(
-        "auto_delete_interval_in_minutes",
-        core.serialization.number(),
-    ),
-    autoStopIntervalInMinutes: core.serialization.property(
-        "auto_stop_interval_in_minutes",
-        core.serialization.number(),
-    ),
-    execTimeoutMs: core.serialization.property("exec_timeout_ms", core.serialization.number()),
-    type: core.serialization.stringLiteral("daytona"),
-});
+> = core.serialization.undiscriminatedUnion([
+    SandboxProviderManifestAutoArchiveIntervalInMinutes,
+    SandboxProviderManifestDomain,
+]);
 
 export declare namespace SandboxProviderManifest {
-    export interface Raw {
-        auth: DaytonaSandboxProviderAuth.Raw;
-        auto_archive_interval_in_minutes: number;
-        auto_delete_interval_in_minutes: number;
-        auto_stop_interval_in_minutes: number;
-        exec_timeout_ms: number;
-        type: "daytona";
-    }
+    export type Raw = SandboxProviderManifestAutoArchiveIntervalInMinutes.Raw | SandboxProviderManifestDomain.Raw;
 }

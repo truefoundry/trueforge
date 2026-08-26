@@ -370,11 +370,14 @@ export class Sandbox extends LocalToolMCP {
         Tool and functions are same.
         Tool and MCP tools are same.
 
-        Use \`from mcp_client import call_tool\` in code, or \`mcp-client\` in shell — both work from any directory with no setup.
+        Use \`from mcp_client import list_tools, call_tool\` in code, or \`mcp-client list-tools\` / \`mcp-client call-tool\` in shell — both work from any directory with no setup.
+
+        MCP discovery in Code Mode MUST use \`list_tools(server)\` (or \`mcp-client list-tools server\`). This performs the MCP protocol \`tools/list\` operation; \`list_tools\` is not a remote tool and MUST NOT be passed to \`call_tool\`.
 
         For deferred MCP servers, the Agent MUST:
         1. Discover tools via ${LIST_TOOLS_NAME} from ${DEFERRED_TOOLS_SERVER_ID}. Never call ${GET_TOOL_OUTPUT_SCHEMA_NAME}.
         2. Discover inputSchema, outputSchema via ${GET_TOOL_INFO_NAME} for the selected tools.
+        The deferred-tools helpers are agent-side helpers only. Never pass ${LIST_TOOLS_NAME} as the tool name to ${GET_TOOL_OUTPUT_SCHEMA_NAME} or \`call_tool\`.
 
         For non-deferred MCP servers, the Agent MUST:
         1. Discover outputSchema via ${GET_TOOL_OUTPUT_SCHEMA_NAME} for the selected tools.

@@ -12,6 +12,8 @@ import type { SandboxProviderConfig } from '../../server/types.js';
 
 export type SandboxConfigDraft = SandboxProviderConfig & {
   apiKey: string;
+  domain?: string;
+  protocol?: 'http' | 'https';
 };
 
 type ConfigureSandboxFormProps = {
@@ -19,6 +21,7 @@ type ConfigureSandboxFormProps = {
   onOpenChange: (open: boolean) => void;
   onSave: (draft: SandboxConfigDraft) => void | Promise<void>;
   title: string;
+  providerType: string;
   description?: string;
   /** Prefills config fields; apiKey is never autofilled. */
   initialConfig?: SandboxProviderConfig | null;
@@ -51,6 +54,7 @@ const ConfigureSandboxForm = ({
   onOpenChange,
   onSave,
   title,
+  providerType,
   description,
   initialConfig = null,
   requireApiKey = true,
@@ -62,6 +66,8 @@ const ConfigureSandboxForm = ({
   const [autoArchiveIntervalInMinutes, setAutoArchiveIntervalInMinutes] = useState('');
   const [autoDeleteIntervalInMinutes, setAutoDeleteIntervalInMinutes] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [domain, setDomain] = useState('');
+  const [protocol, setProtocol] = useState<'http' | 'https'>('https');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const resetForm = () => {
@@ -70,6 +76,8 @@ const ConfigureSandboxForm = ({
     setAutoArchiveIntervalInMinutes('');
     setAutoDeleteIntervalInMinutes('');
     setApiKey('');
+    setDomain('');
+    setProtocol('https');
     setAdvancedOpen(false);
   };
 
@@ -81,6 +89,8 @@ const ConfigureSandboxForm = ({
     setAutoArchiveIntervalInMinutes(String(config.autoArchiveIntervalInMinutes));
     setAutoDeleteIntervalInMinutes(String(config.autoDeleteIntervalInMinutes));
     setApiKey('');
+    setDomain('domain' in config && typeof config.domain === 'string' ? config.domain : '');
+    setProtocol('protocol' in config && config.protocol === 'http' ? 'http' : 'https');
     setAdvancedOpen(false);
   }, [open, initialConfig]);
 
@@ -94,17 +104,23 @@ const ConfigureSandboxForm = ({
   const autoArchive = parseNonNegInt(autoArchiveIntervalInMinutes);
   const autoDelete = parseNonNegInt(autoDeleteIntervalInMinutes);
   const trimmedKey = apiKey.trim();
+  const trimmedDomain = domain.trim();
+  const isOpenSandbox = providerType === 'opensandbox';
 
   const isValid =
     (!requireApiKey || !!trimmedKey) &&
     execTimeout != null &&
-    autoStop != null &&
-    autoArchive != null &&
-    autoDelete != null;
+    (isOpenSandbox || (autoStop != null && autoArchive != null && autoDelete != null)) &&
+    (!isOpenSandbox || trimmedDomain !== '');
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isValid || busy || execTimeout == null || autoStop == null || autoArchive == null || autoDelete == null) {
+    if (
+      !isValid ||
+      busy ||
+      execTimeout == null ||
+      (!isOpenSandbox && (autoStop == null || autoArchive == null || autoDelete == null))
+    ) {
       return;
     }
 
@@ -112,10 +128,11 @@ const ConfigureSandboxForm = ({
       await onSave({
         // Snapshot/image is release-owned; the field is retained only for the external type.
         execTimeoutMs: execTimeout,
-        autoStopIntervalInMinutes: autoStop,
-        autoArchiveIntervalInMinutes: autoArchive,
-        autoDeleteIntervalInMinutes: autoDelete,
+        autoStopIntervalInMinutes: autoStop ?? 0,
+        autoArchiveIntervalInMinutes: autoArchive ?? 0,
+        autoDeleteIntervalInMinutes: autoDelete ?? 0,
         apiKey: trimmedKey,
+        ...(isOpenSandbox ? { domain: trimmedDomain, protocol } : {}),
       });
       resetForm();
       onOpenChange(false);
@@ -155,7 +172,13 @@ const ConfigureSandboxForm = ({
               onChange={event => {
                 setApiKey(event.target.value);
               }}
-              placeholder={requireApiKey ? 'dtn_...' : 'Leave blank to keep existing'}
+              placeholder={
+                requireApiKey
+                  ? isOpenSandbox
+                    ? 'Enter OpenSandbox API key'
+                    : 'dtn_...'
+                  : 'Leave blank to keep existing'
+              }
               autoFocus
               className={inputClassName}
             />
@@ -179,6 +202,38 @@ const ConfigureSandboxForm = ({
               </span>
             </AccordionSummary>
             <AccordionDetails className="space-y-4 border-t border-border px-3 pb-3 pt-4">
+              {isOpenSandbox ? (
+                <>
+                  <div>
+                    <label htmlFor="sandbox-domain" className="mb-1.5 block text-sm font-medium text-text-primary">
+                      API domain
+                    </label>
+                    <input
+                      id="sandbox-domain"
+                      type="text"
+                      required
+                      value={domain}
+                      onChange={event => setDomain(event.target.value)}
+                      placeholder="api.opensandbox.io"
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="sandbox-protocol" className="mb-1.5 block text-sm font-medium text-text-primary">
+                      Protocol
+                    </label>
+                    <select
+                      id="sandbox-protocol"
+                      value={protocol}
+                      onChange={event => setProtocol(event.target.value === 'http' ? 'http' : 'https')}
+                      className={inputClassName}
+                    >
+                      <option value="https">HTTPS</option>
+                      <option value="http">HTTP</option>
+                    </select>
+                  </div>
+                </>
+              ) : null}
               <div>
                 <label htmlFor="sandbox-exec-timeout" className="mb-1.5 block text-sm font-medium text-text-primary">
                   Exec timeout (ms)
@@ -197,59 +252,65 @@ const ConfigureSandboxForm = ({
                 />
               </div>
 
-              <div>
-                <label htmlFor="sandbox-auto-stop" className="mb-1.5 block text-sm font-medium text-text-primary">
-                  Auto-stop interval (minutes)
-                </label>
-                <input
-                  id="sandbox-auto-stop"
-                  type="number"
-                  min={0}
-                  required
-                  value={autoStopIntervalInMinutes}
-                  onChange={event => {
-                    setAutoStopIntervalInMinutes(event.target.value);
-                  }}
-                  placeholder="15"
-                  className={inputClassName}
-                />
-              </div>
+              {!isOpenSandbox ? (
+                <div>
+                  <label htmlFor="sandbox-auto-stop" className="mb-1.5 block text-sm font-medium text-text-primary">
+                    Auto-stop interval (minutes)
+                  </label>
+                  <input
+                    id="sandbox-auto-stop"
+                    type="number"
+                    min={0}
+                    required
+                    value={autoStopIntervalInMinutes}
+                    onChange={event => {
+                      setAutoStopIntervalInMinutes(event.target.value);
+                    }}
+                    placeholder="15"
+                    className={inputClassName}
+                  />
+                </div>
+              ) : null}
 
-              <div>
-                <label htmlFor="sandbox-auto-archive" className="mb-1.5 block text-sm font-medium text-text-primary">
-                  Auto-archive interval (minutes)
-                </label>
-                <input
-                  id="sandbox-auto-archive"
-                  type="number"
-                  min={0}
-                  required
-                  value={autoArchiveIntervalInMinutes}
-                  onChange={event => {
-                    setAutoArchiveIntervalInMinutes(event.target.value);
-                  }}
-                  placeholder="10080"
-                  className={inputClassName}
-                />
-              </div>
+              {!isOpenSandbox ? (
+                <div>
+                  <label htmlFor="sandbox-auto-archive" className="mb-1.5 block text-sm font-medium text-text-primary">
+                    Auto-archive interval (minutes)
+                  </label>
+                  <input
+                    id="sandbox-auto-archive"
+                    type="number"
+                    min={0}
+                    required
+                    value={autoArchiveIntervalInMinutes}
+                    onChange={event => {
+                      setAutoArchiveIntervalInMinutes(event.target.value);
+                    }}
+                    placeholder="10080"
+                    className={inputClassName}
+                  />
+                </div>
+              ) : null}
 
-              <div>
-                <label htmlFor="sandbox-auto-delete" className="mb-1.5 block text-sm font-medium text-text-primary">
-                  Auto-delete interval (minutes)
-                </label>
-                <input
-                  id="sandbox-auto-delete"
-                  type="number"
-                  min={0}
-                  required
-                  value={autoDeleteIntervalInMinutes}
-                  onChange={event => {
-                    setAutoDeleteIntervalInMinutes(event.target.value);
-                  }}
-                  placeholder="43200"
-                  className={inputClassName}
-                />
-              </div>
+              {!isOpenSandbox ? (
+                <div>
+                  <label htmlFor="sandbox-auto-delete" className="mb-1.5 block text-sm font-medium text-text-primary">
+                    Auto-delete interval (minutes)
+                  </label>
+                  <input
+                    id="sandbox-auto-delete"
+                    type="number"
+                    min={0}
+                    required
+                    value={autoDeleteIntervalInMinutes}
+                    onChange={event => {
+                      setAutoDeleteIntervalInMinutes(event.target.value);
+                    }}
+                    placeholder="43200"
+                    className={inputClassName}
+                  />
+                </div>
+              ) : null}
             </AccordionDetails>
           </Accordion>
         </div>

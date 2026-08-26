@@ -7,3 +7,7 @@ providers:
     auto_stop_interval_in_minutes: 5
     auto_archive_interval_in_minutes: 60
     auto_delete_interval_in_minutes: 7200
+  - type: opensandbox
+    domain: api.opensandbox.io
+    protocol: https
+    exec_timeout_ms: 60000

@@ -25,6 +25,18 @@ describe('sandboxProviderCatalog mappers', () => {
     auth: { apiKey: 'dtn_secret' },
   };
 
+  const openSandboxCatalog = {
+    type: 'opensandbox' as const,
+    execTimeoutMs: 60000,
+    domain: 'api.opensandbox.io',
+    protocol: 'https' as const,
+  };
+
+  const openSandboxConfigured = {
+    ...openSandboxCatalog,
+    auth: { apiKey: 'osb_secret' },
+  };
+
   function configuredResponse({
     status,
     statusReason,
@@ -68,6 +80,32 @@ describe('sandboxProviderCatalog mappers', () => {
     assert.equal('apiKey' in toUiSandboxProvider(harnessConfigured), false);
   });
 
+  it('preserves OpenSandbox endpoint settings while using zero compatibility lifecycle values', () => {
+    assert.deepEqual(toUiCatalogEntry(openSandboxCatalog), {
+      id: 'opensandbox',
+      name: 'OpenSandbox',
+      type: 'opensandbox',
+      execTimeoutMs: 60000,
+      autoStopIntervalInMinutes: 0,
+      autoArchiveIntervalInMinutes: 0,
+      autoDeleteIntervalInMinutes: 0,
+      domain: 'api.opensandbox.io',
+      protocol: 'https',
+    });
+    assert.deepEqual(toUiSandboxProvider(openSandboxConfigured), {
+      id: 'opensandbox',
+      name: 'OpenSandbox',
+      catalogId: 'opensandbox',
+      isConnected: true,
+      execTimeoutMs: 60000,
+      autoStopIntervalInMinutes: 0,
+      autoArchiveIntervalInMinutes: 0,
+      autoDeleteIntervalInMinutes: 0,
+      domain: 'api.opensandbox.io',
+      protocol: 'https',
+    });
+  });
+
   it('wraps configured providers with snapshot sync status', () => {
     for (const status of [
       TrueForgeApi.SandboxBuildStatus.Pending,
@@ -107,6 +145,22 @@ describe('sandboxProviderCatalog mappers', () => {
         ...configFromHarness(harnessCatalog),
       }),
       harnessConfigured,
+    );
+  });
+
+  it('round-trips OpenSandbox domain and protocol into the harness manifest', () => {
+    assert.deepEqual(
+      toHarnessManifest({
+        type: 'opensandbox',
+        apiKey: 'osb_secret',
+        execTimeoutMs: 60000,
+        autoStopIntervalInMinutes: 0,
+        autoArchiveIntervalInMinutes: 0,
+        autoDeleteIntervalInMinutes: 0,
+        domain: 'api.opensandbox.io',
+        protocol: 'https',
+      }),
+      openSandboxConfigured,
     );
   });
 

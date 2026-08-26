@@ -5,7 +5,7 @@
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
  */
 import { z } from '@hono/zod-openapi';
-import type { DaytonaSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
+import type { DaytonaSandboxProviderOptions, OpenSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
 
 const DaytonaSandboxProviderAuthSchema = z
   .object({
@@ -22,9 +22,8 @@ const DaytonaSandboxProviderAuthSchema = z
 
 /**
  * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
- * Left unnamed for OpenAPI so `SandboxProviderManifest` (its single-variant alias)
- * is the one emitted component and the response `manifest` field is a plain `$ref`
- * instead of an `allOf` wrapper.
+ * Left unnamed for OpenAPI so `SandboxProviderManifest` is the emitted union component
+ * used by the response `manifest` field.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
@@ -49,12 +48,36 @@ export const DaytonaSandboxProviderSchema = z
   })
   .strict();
 
+const OpenSandboxProviderAuthSchema = z
+  .object({
+    api_key: z
+      .string()
+      .min(1)
+      .describe(
+        'OpenSandbox API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.',
+      ),
+  })
+  .strict()
+  .describe('OpenSandbox authentication credentials.')
+  .openapi('OpenSandboxProviderAuth');
+
+/** OpenSandbox-backed sandbox provider configuration. */
+export const OpenSandboxProviderSchema = z
+  .object({
+    type: z.literal('opensandbox').describe('OpenSandbox sandbox provider.'),
+    auth: OpenSandboxProviderAuthSchema,
+    domain: z.string().min(1).describe('OpenSandbox API host, optionally including a port, without a URL scheme.'),
+    protocol: z.enum(['http', 'https']).default('https').describe('Protocol used to reach the OpenSandbox API.'),
+    exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
+  })
+  .strict();
+
 /**
- * Persisted jsonb: the provider config only (no build status). Single variant today —
- * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
- * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
+ * Persisted jsonb: the provider configuration only (no build status).
  */
-export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
+export const SandboxProviderManifestSchema = z
+  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, OpenSandboxProviderSchema])
+  .openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -104,6 +127,7 @@ export const GetSandboxProviderResponseSchema = z
 /** Persisted jsonb — the provider config only (no build status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
+export type OpenSandboxProvider = z.infer<typeof OpenSandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
@@ -111,7 +135,7 @@ export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProvider
 export type UpdateSandboxProviderRequest = z.infer<typeof UpdateSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
-export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
+export function toDaytonaSandboxProviderInput(manifest: DaytonaSandboxProvider): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
@@ -123,5 +147,17 @@ export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest)
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,
     autoDeleteIntervalInMinutes: manifest.auto_delete_interval_in_minutes,
+  };
+}
+
+/** Wire/persisted snake_case → OpenSandbox client credentials + provider settings. */
+export function toOpenSandboxProviderInput(
+  manifest: OpenSandboxProvider,
+): Pick<OpenSandboxProviderOptions, 'apiKey' | 'domain' | 'protocol' | 'timeoutMs'> {
+  return {
+    apiKey: manifest.auth.api_key,
+    domain: manifest.domain,
+    protocol: manifest.protocol,
+    timeoutMs: manifest.exec_timeout_ms,
   };
 }

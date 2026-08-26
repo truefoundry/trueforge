@@ -20,16 +20,15 @@ import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandbo
 
 const SNAPSHOT_STATUS_POLL_INTERVAL_MS = 10000;
 
-const configFrom = ({
-  execTimeoutMs,
-  autoStopIntervalInMinutes,
-  autoArchiveIntervalInMinutes,
-  autoDeleteIntervalInMinutes,
-}: SandboxProviderConfig): SandboxProviderConfig => ({
-  execTimeoutMs,
-  autoStopIntervalInMinutes,
-  autoArchiveIntervalInMinutes,
-  autoDeleteIntervalInMinutes,
+type ProviderConfigWithEndpoint = SandboxProviderConfig & { domain?: string; protocol?: 'http' | 'https' };
+
+const configFrom = (provider: ProviderConfigWithEndpoint): ProviderConfigWithEndpoint => ({
+  execTimeoutMs: provider.execTimeoutMs,
+  ...(provider.domain !== undefined ? { domain: provider.domain } : {}),
+  ...(provider.protocol !== undefined ? { protocol: provider.protocol } : {}),
+  autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
+  autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
+  autoDeleteIntervalInMinutes: provider.autoDeleteIntervalInMinutes,
 });
 
 const statusPresentation = (status: SandboxSnapshotSyncStatus['status']): { label: string; className: string } => {
@@ -176,6 +175,7 @@ const SandboxSettings = () => {
         name: createEntry.name,
         type: createEntry.type,
         ...configFrom(draft),
+        ...('domain' in draft ? { domain: draft.domain, protocol: draft.protocol } : {}),
         apiKey: draft.apiKey,
       });
     }, setFormError);
@@ -192,6 +192,7 @@ const SandboxSettings = () => {
       await sandboxCatalog.updateSandboxProvider({
         id: updateProvider.id,
         ...configFrom(draft),
+        ...('domain' in draft ? { domain: draft.domain, protocol: draft.protocol } : {}),
         ...(draft.apiKey ? { apiKey: draft.apiKey } : {}),
       });
     }, setFormError);
@@ -414,6 +415,13 @@ const SandboxSettings = () => {
             : 'Configure this sandbox provider. API key is never stored in the catalog.'
         }
         initialConfig={formInitialConfig}
+        providerType={
+          updateProvider !== null && 'domain' in updateProvider
+            ? 'opensandbox'
+            : updateProvider !== null
+              ? 'daytona'
+              : (createEntry?.type ?? 'daytona')
+        }
         requireApiKey={!isUpdate}
         busy={busy}
         error={formError}

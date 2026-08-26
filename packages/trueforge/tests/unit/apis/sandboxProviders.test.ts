@@ -1,9 +1,9 @@
-// Stub the Daytona-touching helpers so the router never talks to Daytona: the PUT path builds via
-// toDaytonaSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError
+// Stub the provider factory so the router never talks to a remote sandbox service: the PUT path builds via
+// toSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError
 // and toSandboxStatus stay real so the auth-error mapping and PUT wire shape are exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
-  return { ...actual, toDaytonaSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
+  return { ...actual, toSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
 });
 
 import { DaytonaError } from '@daytona/sdk';
@@ -20,20 +20,28 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
-import { checkSnapshotStatus, toDaytonaSandboxProvider } from '../../../src/sandbox/providerUtils';
+import { checkSnapshotStatus, toSandboxProvider } from '../../../src/sandbox/providerUtils';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
-const mockProviderFactory = toDaytonaSandboxProvider as jest.Mock;
+const mockProviderFactory = toSandboxProvider as jest.Mock;
 const mockCheckStatus = checkSnapshotStatus as jest.Mock;
 const silentLogger = createLogger({ silent: true });
 
-const putBody = {
+const daytonaPutBody = {
   type: 'daytona' as const,
   auth: { api_key: 'dtn-test-secret' },
   exec_timeout_ms: 60000,
   auto_stop_interval_in_minutes: 5,
   auto_archive_interval_in_minutes: 60,
   auto_delete_interval_in_minutes: 7200,
+};
+
+const openSandboxPutBody = {
+  type: 'opensandbox' as const,
+  auth: { api_key: 'osb-test-secret' },
+  domain: 'localhost:8080',
+  protocol: 'http' as const,
+  exec_timeout_ms: 60000,
 };
 
 const IMAGE_URI = 'tfy.jfrog.io/tfy-images/truefoundry-utils-core-sandbox:029ea5ff';
@@ -53,8 +61,8 @@ function wireResponse(manifest: Record<string, unknown>) {
 }
 
 const putBodyWire = wireResponse({
-  ...putBody,
-  auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+  ...daytonaPutBody,
+  auth: { api_key: toRedactedSecretValue(daytonaPutBody.auth.api_key) },
 });
 
 function stubProvider(overrides: { buildImage?: jest.Mock; getImageBuildStatus?: jest.Mock } = {}) {
@@ -136,7 +144,7 @@ describe('sandboxProviders router', () => {
   });
 
   it('PUT builds the image + upserts, GET returns redacted auth plus live image status', async () => {
-    const put = await settingsRouter.request('/', putInit(putBody));
+    const put = await settingsRouter.request('/', putInit(daytonaPutBody));
     expect(put.status).toBe(200);
     expect(await put.json()).toEqual({ data: putBodyWire });
 
@@ -145,12 +153,12 @@ describe('sandboxProviders router', () => {
     expect(await get.json()).toEqual({ data: putBodyWire });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest).toEqual(putBody);
+    expect(stored?.manifest).toEqual(daytonaPutBody);
   });
 
   it('GET surfaces an error (500) when the status refresh throws', async () => {
     const { settingsRouter: router } = await createRouters();
-    expect((await router.request('/', putInit(putBody))).status).toBe(200);
+    expect((await router.request('/', putInit(daytonaPutBody))).status).toBe(200);
 
     mockCheckStatus.mockRejectedValue(new DaytonaError('unreachable', 500));
     const get = await router.request('/');
@@ -161,7 +169,7 @@ describe('sandboxProviders router', () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('unauthorized', 401)) }),
     );
-    const response = await settingsRouter.request('/', putInit(putBody));
+    const response = await settingsRouter.request('/', putInit(daytonaPutBody));
     expect(response.status).toBe(422);
   });
 
@@ -170,20 +178,32 @@ describe('sandboxProviders router', () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('forbidden', 403)) }),
     );
-    expect((await router.request('/', putInit(putBody))).status).toBe(422);
+    expect((await router.request('/', putInit(daytonaPutBody))).status).toBe(422);
     expect((await router.request('/')).status).toBe(404);
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
-    const { auth: _auth, ...withoutAuth } = putBody;
+    const { auth: _auth, ...withoutAuth } = daytonaPutBody;
     const missingAuth = await settingsRouter.request('/', putInit(withoutAuth));
     expect(missingAuth.status).toBe(400);
 
-    const badType = await settingsRouter.request('/', putInit({ ...putBody, type: 'unknown' }));
+    const badType = await settingsRouter.request('/', putInit({ ...daytonaPutBody, type: 'unknown' }));
     expect(badType.status).toBe(400);
 
-    const withSnapshotName = await settingsRouter.request('/', putInit({ ...putBody, snapshot_name: 'legacy' }));
+    const withSnapshotName = await settingsRouter.request('/', putInit({ ...daytonaPutBody, snapshot_name: 'legacy' }));
     expect(withSnapshotName.status).toBe(400);
+  });
+
+  it('PUT accepts an opensandbox manifest through the real wire schema', async () => {
+    const { settingsRouter } = await createRouters();
+    const response = await settingsRouter.request('/', putInit(openSandboxPutBody));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: wireResponse({
+        ...openSandboxPutBody,
+        auth: { api_key: toRedactedSecretValue(openSandboxPutBody.auth.api_key) },
+      }),
+    });
   });
 });
 
@@ -193,8 +213,8 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     const response = await settingsRouter.request(
       '/',
       putInit({
-        ...putBody,
-        auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+        ...daytonaPutBody,
+        auth: { api_key: toRedactedSecretValue(daytonaPutBody.auth.api_key) },
       }),
     );
     expect(response.status).toBe(400);
@@ -203,45 +223,45 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
 
   it('PUT with a redacted api_key keeps the stored secret', async () => {
     const { settingsRouter, sandboxProviderStore } = await createRouters();
-    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect((await settingsRouter.request('/', putInit(daytonaPutBody))).status).toBe(200);
 
     const redactedKeep = {
-      ...putBody,
+      ...daytonaPutBody,
       exec_timeout_ms: 120000,
-      auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+      auth: { api_key: toRedactedSecretValue(daytonaPutBody.auth.api_key) },
     };
     const update = await settingsRouter.request('/', putInit(redactedKeep));
     expect(update.status).toBe(200);
     expect(await update.json()).toEqual({ data: wireResponse(redactedKeep) });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest).toEqual({ ...putBody, exec_timeout_ms: 120000 });
+    expect(stored?.manifest).toEqual({ ...daytonaPutBody, exec_timeout_ms: 120000 });
   });
 
   it('PUT with a different redacted api_key still keeps the stored secret', async () => {
     const { settingsRouter, sandboxProviderStore } = await createRouters();
-    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect((await settingsRouter.request('/', putInit(daytonaPutBody))).status).toBe(200);
 
     const keep = {
-      ...putBody,
+      ...daytonaPutBody,
       auth: { api_key: 'oth-***REDACTED***-xxx' },
     };
     const response = await settingsRouter.request('/', putInit(keep));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: wireResponse({ ...keep, auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) } }),
+      data: wireResponse({ ...keep, auth: { api_key: toRedactedSecretValue(daytonaPutBody.auth.api_key) } }),
     });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest).toEqual(putBody);
+    expect(stored?.manifest).toEqual(daytonaPutBody);
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
     const { settingsRouter, sandboxProviderStore } = await createRouters();
-    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect((await settingsRouter.request('/', putInit(daytonaPutBody))).status).toBe(200);
 
     const rotatedKey = 'dtn-rotated-key';
-    const rotated = { ...putBody, auth: { api_key: rotatedKey } };
+    const rotated = { ...daytonaPutBody, auth: { api_key: rotatedKey } };
     const update = await settingsRouter.request('/', putInit(rotated));
     expect(update.status).toBe(200);
     expect(await update.json()).toEqual({
@@ -254,11 +274,11 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
 
   it('PUT update reuses persisted build_metadata (no image upgrade on re-save)', async () => {
     const { settingsRouter } = await createRouters();
-    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect((await settingsRouter.request('/', putInit(daytonaPutBody))).status).toBe(200);
     expect(mockProviderFactory.mock.calls[0]?.[0]).not.toHaveProperty('build_metadata');
 
     mockProviderFactory.mockClear();
-    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+    expect((await settingsRouter.request('/', putInit(daytonaPutBody))).status).toBe(200);
     expect(mockProviderFactory).toHaveBeenCalledWith(
       expect.objectContaining({
         build_metadata: readyBuild.metadata,

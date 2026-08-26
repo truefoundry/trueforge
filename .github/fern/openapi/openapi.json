@@ -517,44 +517,85 @@
         ]
       },
       "CatalogSandboxProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "auto_archive_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_delete_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_stop_interval_in_minutes": {
-            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "exec_timeout_ms": {
-            "description": "Default sandbox command exec timeout in milliseconds.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "type": {
-            "description": "Daytona sandbox provider.",
-            "enum": [
-              "daytona"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "auto_archive_interval_in_minutes": {
+                "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "auto_delete_interval_in_minutes": {
+                "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "auto_stop_interval_in_minutes": {
+                "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "exec_timeout_ms": {
+                "description": "Default sandbox command exec timeout in milliseconds.",
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "description": "Daytona sandbox provider.",
+                "enum": [
+                  "daytona"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "exec_timeout_ms",
+              "auto_stop_interval_in_minutes",
+              "auto_archive_interval_in_minutes",
+              "auto_delete_interval_in_minutes"
             ],
-            "type": "string"
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "domain": {
+                "description": "OpenSandbox API host, optionally including a port, without a URL scheme.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "exec_timeout_ms": {
+                "description": "Default sandbox command exec timeout in milliseconds.",
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "protocol": {
+                "default": "https",
+                "description": "Protocol used to reach the OpenSandbox API.",
+                "enum": [
+                  "http",
+                  "https"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "OpenSandbox sandbox provider.",
+                "enum": [
+                  "opensandbox"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "domain",
+              "exec_timeout_ms"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "type",
-          "exec_timeout_ms",
-          "auto_stop_interval_in_minutes",
-          "auto_archive_interval_in_minutes",
-          "auto_delete_interval_in_minutes"
-        ],
-        "type": "object"
+        ]
       },
       "CatalogSkill": {
         "additionalProperties": false,
@@ -2404,6 +2445,21 @@
         ],
         "type": "object"
       },
+      "OpenSandboxProviderAuth": {
+        "additionalProperties": false,
+        "description": "OpenSandbox authentication credentials.",
+        "properties": {
+          "api_key": {
+            "description": "OpenSandbox API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
+        ],
+        "type": "object"
+      },
       "PreviousTurnIdInput": {
         "anyOf": [
           {
@@ -2733,48 +2789,93 @@
         "type": "object"
       },
       "SandboxProviderManifest": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
-          },
-          "auto_archive_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_delete_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_stop_interval_in_minutes": {
-            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "exec_timeout_ms": {
-            "description": "Default sandbox command exec timeout in milliseconds.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "type": {
-            "description": "Daytona sandbox provider.",
-            "enum": [
-              "daytona"
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "auth": {
+                "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
+              },
+              "auto_archive_interval_in_minutes": {
+                "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "auto_delete_interval_in_minutes": {
+                "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "auto_stop_interval_in_minutes": {
+                "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "exec_timeout_ms": {
+                "description": "Default sandbox command exec timeout in milliseconds.",
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "description": "Daytona sandbox provider.",
+                "enum": [
+                  "daytona"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "auth",
+              "exec_timeout_ms",
+              "auto_stop_interval_in_minutes",
+              "auto_archive_interval_in_minutes",
+              "auto_delete_interval_in_minutes"
             ],
-            "type": "string"
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "auth": {
+                "$ref": "#/components/schemas/OpenSandboxProviderAuth"
+              },
+              "domain": {
+                "description": "OpenSandbox API host, optionally including a port, without a URL scheme.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "exec_timeout_ms": {
+                "description": "Default sandbox command exec timeout in milliseconds.",
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              "protocol": {
+                "default": "https",
+                "description": "Protocol used to reach the OpenSandbox API.",
+                "enum": [
+                  "http",
+                  "https"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "OpenSandbox sandbox provider.",
+                "enum": [
+                  "opensandbox"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "auth",
+              "domain",
+              "exec_timeout_ms"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "type",
-          "auth",
-          "exec_timeout_ms",
-          "auto_stop_interval_in_minutes",
-          "auto_archive_interval_in_minutes",
-          "auto_delete_interval_in_minutes"
-        ],
-        "type": "object"
+        ]
       },
       "Session": {
         "properties": {
@@ -6739,7 +6840,7 @@
                 }
               }
             },
-            "description": "Daytona rejected the provided API key."
+            "description": "The sandbox provider rejected the provided API key."
           }
         },
         "summary": "Create or replace the sandbox provider",
