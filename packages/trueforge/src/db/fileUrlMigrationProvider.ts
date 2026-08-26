@@ -18,7 +18,10 @@ export class FileUrlMigrationProvider implements MigrationProvider {
       }
 
       const fullPath = path.join(this.migrationFolder, file);
-      const migration = (await import(pathToFileURL(fullPath).href)) as Migration;
+
+      const specifier = process.platform === 'win32' ? pathToFileURL(fullPath).href : fullPath;
+
+      const migration = (await import(specifier)) as Migration;
       const key = file.substring(0, file.lastIndexOf('.'));
       migrations[key] = migration;
     }
