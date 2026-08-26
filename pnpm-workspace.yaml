@@ -8,6 +8,8 @@ allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true
   better-sqlite3: false
+  # Windows-only optional dependency pulled by electron-builder; unused by the macOS DMG workflow.
+  electron-winstaller: false
   esbuild: true
   # Fern-generated SDK tests (packages/trueforge-sdk) run msw's postinstall.
   msw: true

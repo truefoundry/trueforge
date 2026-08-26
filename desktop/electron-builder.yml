@@ -1,0 +1,24 @@
+appId: dev.trueforge.desktop
+productName: TrueForge
+asar: true
+npmRebuild: false
+
+directories:
+  output: desktop/release
+
+files:
+  - desktop/main.mjs
+  - package.json
+
+extraMetadata:
+  name: trueforge-desktop
+  main: desktop/main.mjs
+
+mac:
+  category: public.app-category.developer-tools
+  identity: null
+  # The DMG is written by desktop/dmg.mjs; electron-builder only produces the app bundle.
+  target:
+    - dir
+
+artifactName: ${productName}-${version}-${arch}.${ext}
