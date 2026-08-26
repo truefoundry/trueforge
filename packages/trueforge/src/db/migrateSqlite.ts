@@ -1,9 +1,9 @@
-import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import type { Kysely } from 'kysely';
-import { FileMigrationProvider, Migrator } from 'kysely/migration';
+import { Migrator } from 'kysely/migration';
 
+import { FileUrlMigrationProvider } from './fileUrlMigrationProvider';
 import type { Database } from './sqlite/types';
 
 /**
@@ -19,11 +19,7 @@ import type { Database } from './sqlite/types';
 export async function migrateSqliteToLatest(db: Kysely<Database>): Promise<void> {
   const migrator = new Migrator({
     db,
-    provider: new FileMigrationProvider({
-      fs,
-      path,
-      migrationFolder: path.join(import.meta.dirname, 'sqlite', 'migrations'),
-    }),
+    provider: new FileUrlMigrationProvider(path.join(import.meta.dirname, 'sqlite', 'migrations')),
   });
 
   const { error, results } = await migrator.migrateToLatest();
