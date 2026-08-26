@@ -8,7 +8,7 @@ import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTe
 describe('TurnResourceResolver.resolveAgentSpec', () => {
   it('fails closed when deps.agent is not wired for a named lookup', async () => {
     const resolver = new TurnResourceResolver({
-      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {}, contextLength: undefined }),
+      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {} }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
@@ -35,7 +35,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       tracing: resolver.createTracing(),
     });
 
-    expect(definition.contextLength).toBeUndefined();
+    expect(definition.modelProperties).toBeUndefined();
   });
 
   it.each([
@@ -57,7 +57,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
         Promise.resolve({
           modelClient: makeMockILLM(),
           defaultModelParams: resolvedModelParams,
-          contextLength: 128_000,
+          modelProperties: { contextLength: 128_000 },
         }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
@@ -78,7 +78,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     });
 
     expect(definition.modelParams?.['max_tokens']).toBe(expected);
-    expect(definition.contextLength).toBe(128_000);
+    expect(definition.modelProperties?.contextLength).toBe(128_000);
   });
 });
 

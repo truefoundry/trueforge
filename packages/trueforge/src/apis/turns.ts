@@ -145,7 +145,7 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const { providerConfig, defaultModelParams, contextLength } = await getModelDetails({
+      const { providerConfig, defaultModelParams, modelProperties } = await getModelDetails({
         tenant_id: TENANT_ID,
         name,
         store: modelProviderStore,
@@ -157,7 +157,7 @@ function createTurnResolver(deps: {
           signal,
         }),
         defaultModelParams,
-        contextLength,
+        modelProperties,
       };
     },
     mcp: async name => {

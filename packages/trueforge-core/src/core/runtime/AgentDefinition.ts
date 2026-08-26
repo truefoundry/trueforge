@@ -5,6 +5,11 @@ import type { IToolSet } from '../mcp/IMCPServer';
 
 export type ModelParams = Record<string, unknown>;
 
+export interface ModelProperties {
+  /** Maximum combined input/output context for the resolved model, when known. */
+  contextLength: number | undefined;
+}
+
 /**
  * Static definition of an agent. Represents the authored configuration,
  * not the execution state. Inherited by sub-agent definitions.
@@ -14,8 +19,7 @@ export type ModelParams = Record<string, unknown>;
  */
 export interface AgentDefinition {
   modelClient: ILLM;
-  /** Maximum combined input/output context for the resolved model, when known. */
-  contextLength?: number | undefined;
+  modelProperties?: ModelProperties | undefined;
   instruction?: string | undefined;
   messages?: readonly LLMUserMessage[] | undefined;
   modelParams?: ModelParams | undefined;

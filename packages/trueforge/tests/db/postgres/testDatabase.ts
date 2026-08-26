@@ -6,7 +6,7 @@ import type { Kysely } from 'kysely';
 import { Pool } from 'pg';
 import { ulid } from 'ulid';
 
-import { migrateToLatest } from '../../../src/db/migratePostgres';
+import { migrateTo, migrateToLatest } from '../../../src/db/migratePostgres';
 import { createDb } from '../../../src/db/postgres/client';
 import type { Database } from '../../../src/db/postgres/types';
 
@@ -51,7 +51,9 @@ async function dropDatabase(adminUrl: string, databaseName: string): Promise<voi
   }
 }
 
-export async function createPostgresTestDatabase(): Promise<PostgresTestDatabase | undefined> {
+export async function createPostgresTestDatabase(
+  targetMigrationName?: string,
+): Promise<PostgresTestDatabase | undefined> {
   const adminUrl = resolveAdminUrl();
   if (adminUrl === undefined) {
     return undefined;
@@ -75,7 +77,11 @@ export async function createPostgresTestDatabase(): Promise<PostgresTestDatabase
     idleInTransactionSessionTimeoutMs: 60_000,
   });
   try {
-    await migrateToLatest(db);
+    if (targetMigrationName === undefined) {
+      await migrateToLatest(db);
+    } else {
+      await migrateTo(db, targetMigrationName);
+    }
   } catch (error) {
     await db.destroy();
     await dropDatabase(adminUrl, databaseName);

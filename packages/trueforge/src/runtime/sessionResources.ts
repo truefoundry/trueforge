@@ -8,6 +8,7 @@ import {
   type AgentTracing,
   type GitSkill,
   type ModelParams,
+  type ModelProperties,
   type RemoteMcpHeaders,
   type SandboxProvider,
   type VercelAIProviderConfig,
@@ -59,7 +60,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
-  contextLength: number | undefined;
+  modelProperties: ModelProperties;
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -93,7 +94,7 @@ export async function getModelDetails({
       headers: {},
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
-    contextLength: model.properties.context_length,
+    modelProperties: { contextLength: model.properties.context_length },
   };
 }
 

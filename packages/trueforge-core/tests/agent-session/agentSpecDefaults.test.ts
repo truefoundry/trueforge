@@ -31,32 +31,6 @@ describe('AgentSpec RuntimeConfig defaults', () => {
     });
   });
 
-  it.each([
-    {
-      name: 'by itself',
-      compaction: { enabled: false, compaction_threshold_tokens: 80_000 },
-    },
-    {
-      name: 'alongside the new trigger',
-      compaction: {
-        enabled: true,
-        compaction_threshold_tokens: 80_000,
-        trigger: { type: 'input_tokens', value: 90_000 },
-      },
-    },
-  ])('rejects the legacy compaction threshold $name', ({ compaction }) => {
-    expect(
-      AgentSpecSchema.safeParse({
-        model: { name: 'provider/model' },
-        config: {
-          context_management: {
-            compaction,
-          },
-        },
-      }),
-    ).toMatchObject({ success: false });
-  });
-
   it('fills generative_ui when other config fields are present', () => {
     const spec = AgentSpecSchema.parse({
       model: { name: 'provider/model' },

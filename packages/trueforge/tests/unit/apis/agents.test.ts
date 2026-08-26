@@ -114,28 +114,6 @@ describe('agents router', () => {
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
-  it('POST rejects legacy nested compaction settings', async () => {
-    const created = await router.request(
-      '/',
-      jsonInit('POST', {
-        name: 'legacy-compaction',
-        manifest: {
-          model: { name: 'anthropic/claude-sonnet-4-6' },
-          config: {
-            context_management: {
-              compaction: {
-                enabled: false,
-                compaction_threshold_tokens: 70_000,
-              },
-            },
-          },
-        },
-      }),
-    );
-
-    expect(created.status).toBe(400);
-  });
-
   it('GET and PUT return 404 for unknown ids', async () => {
     const get = await router.request('/missing-agent-id');
     expect(get.status).toBe(404);

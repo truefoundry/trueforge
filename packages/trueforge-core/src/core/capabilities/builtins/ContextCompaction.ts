@@ -255,7 +255,7 @@ export function contextCompaction(options: {
 }): AgentCapability {
   const threshold = resolveCompactionThresholdTokens({
     configuredThresholdTokens: options.compactionThresholdTokens ?? options.settings?.compactionThresholdTokens,
-    modelContextLength: options.definition.contextLength,
+    modelContextLength: options.definition.modelProperties?.contextLength,
     modelParams: options.definition.modelParams,
   });
   return {

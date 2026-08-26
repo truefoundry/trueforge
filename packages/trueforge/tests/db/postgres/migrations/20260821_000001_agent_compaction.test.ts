@@ -5,12 +5,13 @@ import { createPostgresTestDatabase, type PostgresTestDatabase } from '../testDa
 
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
 const LARGE_THRESHOLD = 3_000_000_000;
+const PREVIOUS_MIGRATION = '20260818_000001_mcp_pending_auth_return_to';
 
 describePg('Postgres agent compaction migration', () => {
   let env: PostgresTestDatabase | undefined;
 
   beforeAll(async () => {
-    env = await createPostgresTestDatabase();
+    env = await createPostgresTestDatabase(PREVIOUS_MIGRATION);
     if (env === undefined) {
       throw new Error('Postgres test environment unavailable despite globalSetup probe');
     }

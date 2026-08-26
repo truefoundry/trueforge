@@ -5,7 +5,8 @@ import { type Kysely, sql } from 'kysely';
  * Mirrors db/postgres/migrations/20260821_000001_agent_compaction.ts.
  */
 export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
-  await sql`
+  await db.transaction().execute(async transaction => {
+    await sql`
     UPDATE agent
     SET manifest = jsonb_set(
       jsonb_remove(manifest, '$.config.context_management.compaction.compaction_threshold_tokens'),
@@ -21,8 +22,8 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
       )
     )
     WHERE json_extract(manifest, '$.config.context_management.compaction.compaction_threshold_tokens') IS NOT NULL
-  `.execute(db);
-  await sql`
+  `.execute(transaction);
+    await sql`
     UPDATE session
     SET agent_spec = jsonb_set(
       jsonb_remove(agent_spec, '$.config.context_management.compaction.compaction_threshold_tokens'),
@@ -38,12 +39,14 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
       )
     )
     WHERE json_extract(agent_spec, '$.config.context_management.compaction.compaction_threshold_tokens') IS NOT NULL
-  `.execute(db);
+  `.execute(transaction);
+  });
 }
 
 /** Restore the legacy token threshold for rollback compatibility. */
 export async function down<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
-  await sql`
+  await db.transaction().execute(async transaction => {
+    await sql`
     UPDATE agent
     SET manifest = jsonb_set(
       jsonb_remove(manifest, '$.config.context_management.compaction.trigger'),
@@ -52,8 +55,8 @@ export async function down<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
     )
     WHERE json_extract(manifest, '$.config.context_management.compaction.trigger.type') = 'input_tokens'
       AND json_extract(manifest, '$.config.context_management.compaction.trigger.value') IS NOT NULL
-  `.execute(db);
-  await sql`
+  `.execute(transaction);
+    await sql`
     UPDATE session
     SET agent_spec = jsonb_set(
       jsonb_remove(agent_spec, '$.config.context_management.compaction.trigger'),
@@ -62,5 +65,6 @@ export async function down<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
     )
     WHERE json_extract(agent_spec, '$.config.context_management.compaction.trigger.type') = 'input_tokens'
       AND json_extract(agent_spec, '$.config.context_management.compaction.trigger.value') IS NOT NULL
-  `.execute(db);
+  `.execute(transaction);
+  });
 }

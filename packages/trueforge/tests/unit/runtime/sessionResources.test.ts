@@ -77,7 +77,7 @@ describe('validateAgentSpec', () => {
         name: 'test-provider/test-model',
       },
       defaultModelParams: { max_tokens: 4096 },
-      contextLength: 128000,
+      modelProperties: { contextLength: 128000 },
     });
   });
 
