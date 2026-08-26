@@ -241,7 +241,7 @@ export class TFYSandboxProvider implements SandboxProvider {
   // The TFY sandbox exposes a static, cluster-internal NATS WebSocket URL (no signed URLs).
   createCodeModeTransport(): CodeModeTransport {
     return new CodeModeNatsTransport({
-      resolveHostUrl: () => Promise.resolve(this.natsBridgeUrl),
+      resolveHostConnection: () => Promise.resolve({ url: this.natsBridgeUrl, webSocketHeaders: undefined }),
       sandboxClientNatsUrl: `ws://localhost:${String(DEFAULT_SANDBOX_NATS_WS_PORT)}`,
       logger: this.logger,
       mcpClientInstall: { remotePath: join('mcp-client', 'mcp_client.py') },

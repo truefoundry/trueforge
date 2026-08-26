@@ -144,6 +144,8 @@ export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema }
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
+export { E2BSandboxProvider, isE2BAuthError } from './sandbox/provider/E2BProvider';
+export type { E2BSandboxProviderOptions } from './sandbox/provider/E2BProvider';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
 export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
@@ -168,6 +170,7 @@ export {
   SandboxPathIsDirectoryError,
   validateNoPathTraversal,
   validateSandboxOwnedByTenant,
+  validateSandboxTenantMetadata,
 } from './sandbox/SandboxErrors';
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
 export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandboxId } from './sandbox/sandboxRef';

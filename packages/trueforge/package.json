@@ -64,6 +64,7 @@
     "@truefoundry/trueforge-core": "workspace:*",
     "better-sqlite3": "^13.0.2",
     "env-paths": "^4.0.0",
+    "e2b": "^2.44.1",
     "hono": "^4.12.34",
     "jose": "^6.2.8",
     "kysely": "^0.29.4",

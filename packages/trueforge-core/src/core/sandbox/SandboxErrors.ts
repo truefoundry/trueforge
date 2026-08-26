@@ -11,8 +11,8 @@ export abstract class SandboxError extends Error {
 export class SandboxFileNotFoundError extends SandboxError {
   readonly statusCode = 404;
 
-  constructor(path: string) {
-    super(`File not found: ${path}`);
+  constructor(path: string, options?: ErrorOptions) {
+    super(`File not found: ${path}`, options);
     this.name = 'SandboxFileNotFoundError';
   }
 }
@@ -20,8 +20,8 @@ export class SandboxFileNotFoundError extends SandboxError {
 export class SandboxNotAvailableError extends SandboxError {
   readonly statusCode = 410;
 
-  constructor(sandboxId: string) {
-    super(`Sandbox '${sandboxId}' no longer exists — it may have been auto-deleted`);
+  constructor(sandboxId: string, options?: ErrorOptions) {
+    super(`Sandbox '${sandboxId}' no longer exists — it may have been auto-deleted`, options);
     this.name = 'SandboxNotAvailableError';
   }
 }
@@ -61,6 +61,16 @@ class SandboxTenantMismatchError extends SandboxError {
 export function validateSandboxOwnedByTenant(params: { sandboxId: string; tenantName: string }): void {
   const dotIndex = params.sandboxId.indexOf('.');
   if (dotIndex === -1 || params.sandboxId.slice(0, dotIndex) !== params.tenantName) {
+    throw new SandboxTenantMismatchError(params.tenantName);
+  }
+}
+
+/** E2B ids are opaque, so ownership is proven by server-side metadata instead of the id shape. */
+export function validateSandboxTenantMetadata(params: {
+  ownerTenantName: string | undefined;
+  tenantName: string;
+}): void {
+  if (params.ownerTenantName !== params.tenantName) {
     throw new SandboxTenantMismatchError(params.tenantName);
   }
 }

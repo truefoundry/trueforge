@@ -5,6 +5,7 @@ import { describe, it } from 'vitest';
 import {
   configFromHarness,
   filterUiSandboxProviders,
+  isUiSupportedSandboxProvider,
   toHarnessManifest,
   toUiCatalogEntry,
   toUiSandboxProvider,
@@ -12,6 +13,13 @@ import {
 } from '@/plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 
 describe('sandboxProviderCatalog mappers', () => {
+  function required<T>(value: T | undefined): T {
+    if (value === undefined) {
+      throw new Error('Expected a supported sandbox provider');
+    }
+    return value;
+  }
+
   const harnessCatalog = {
     type: 'daytona' as const,
     execTimeoutMs: 60000,
@@ -24,6 +32,11 @@ describe('sandboxProviderCatalog mappers', () => {
     ...harnessCatalog,
     auth: { apiKey: 'dtn_secret' },
   };
+
+  it('hides providers whose lifecycle settings the shared UI contract cannot model', () => {
+    assert.equal(isUiSupportedSandboxProvider({ type: 'daytona' }), true);
+    assert.equal(isUiSupportedSandboxProvider({ type: 'e2b' }), false);
+  });
 
   function configuredResponse({
     status,
@@ -39,8 +52,6 @@ describe('sandboxProviderCatalog mappers', () => {
     };
   }
 
-  // Snapshot/image is release-owned now; mappers emit an empty snapshotName only to satisfy
-  // the external SandboxProviderConfig type, and toHarnessManifest omits it entirely.
   it('stamps catalog identity from type and strips auth', () => {
     assert.deepEqual(toUiCatalogEntry(harnessCatalog), {
       id: 'daytona',
@@ -54,7 +65,8 @@ describe('sandboxProviderCatalog mappers', () => {
   });
 
   it('maps configured provider without embedding apiKey', () => {
-    assert.deepEqual(toUiSandboxProvider(harnessConfigured), {
+    const provider = required(toUiSandboxProvider(harnessConfigured));
+    assert.deepEqual(provider, {
       id: 'daytona',
       name: 'Daytona',
       catalogId: 'daytona',
@@ -64,18 +76,18 @@ describe('sandboxProviderCatalog mappers', () => {
       autoArchiveIntervalInMinutes: 60,
       autoDeleteIntervalInMinutes: 7200,
     });
-    assert.equal('auth' in toUiSandboxProvider(harnessConfigured), false);
-    assert.equal('apiKey' in toUiSandboxProvider(harnessConfigured), false);
+    assert.equal('auth' in provider, false);
+    assert.equal('apiKey' in provider, false);
   });
 
-  it('wraps configured providers with snapshot sync status', () => {
+  it('wraps configured providers with image build status', () => {
     for (const status of [
       TrueForgeApi.SandboxBuildStatus.Pending,
       TrueForgeApi.SandboxBuildStatus.Ready,
       TrueForgeApi.SandboxBuildStatus.Failed,
     ]) {
-      const statusReason = status === TrueForgeApi.SandboxBuildStatus.Failed ? 'Snapshot build failed' : null;
-      const entry = toUiSandboxProviderListEntry(configuredResponse({ status, statusReason }));
+      const statusReason = status === TrueForgeApi.SandboxBuildStatus.Failed ? 'Image build failed' : null;
+      const entry = required(toUiSandboxProviderListEntry(configuredResponse({ status, statusReason })));
 
       assert.equal(entry.snapshotSyncStatus.status, status);
       assert.deepEqual(entry.data, toUiSandboxProvider(harnessConfigured));
@@ -88,18 +100,20 @@ describe('sandboxProviderCatalog mappers', () => {
   });
 
   it('filters wrapped providers by provider identity', () => {
-    const provider = toUiSandboxProviderListEntry(
-      configuredResponse({
-        status: TrueForgeApi.SandboxBuildStatus.Ready,
-        statusReason: null,
-      }),
+    const provider = required(
+      toUiSandboxProviderListEntry(
+        configuredResponse({
+          status: TrueForgeApi.SandboxBuildStatus.Ready,
+          statusReason: null,
+        }),
+      ),
     );
 
     assert.deepEqual(filterUiSandboxProviders({ providers: [provider], query: ' DAYT ' }), [provider]);
     assert.deepEqual(filterUiSandboxProviders({ providers: [provider], query: 'missing' }), []);
   });
 
-  it('round-trips config fields into harness upsert body without a snapshot name', () => {
+  it('round-trips config fields into the harness upsert body', () => {
     assert.deepEqual(
       toHarnessManifest({
         type: 'daytona',

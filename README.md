@@ -43,7 +43,7 @@ Building an agent is easy. Running one well is not - you need streaming, session
 - **Any model provider** - OpenAI, Anthropic, Google Gemini, and other catalog providers, or any OpenAI-compatible endpoint.
 - **MCP tools** - remote MCP servers with header auth or OAuth, including in-chat authorization.
 - **Skills** - git-backed `SKILL.md` instruction packs, loaded on demand in the sandbox.
-- **Sandbox as a tool** - isolated code/file execution (Daytona today; more providers planned), provisioned only when needed. Secrets stay in the harness.
+- **Sandbox as a tool** - isolated code/file execution with Daytona or API-configured E2B, provisioned only when needed. Secrets stay in the harness.
 - **Human checkpoints** - tool approval, ask-user-questions, and Generative UI in chat.
 - **Context engineering** - subagents, deferred tool loading, Code Mode, large-result offloading, and compaction.
 - **Chat UI + SDK** - use the bundled UI, automate with `@truefoundry/trueforge-sdk`, or embed `@truefoundry/trueforge-ui`.

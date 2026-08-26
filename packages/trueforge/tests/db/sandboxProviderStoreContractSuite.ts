@@ -3,7 +3,11 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import type { ISandboxProviderStore, UpsertSandboxProviderInput } from '../../src/db/sandboxProviderStore';
-import type { SandboxBuildMetadata, SandboxProviderManifest } from '../../src/schemas/sandboxProvider';
+import type {
+  DaytonaSandboxProvider,
+  E2BSandboxProvider,
+  SandboxBuildMetadata,
+} from '../../src/schemas/sandboxProvider';
 
 const TENANT = 'default';
 
@@ -12,7 +16,7 @@ const BUILD_METADATA: SandboxBuildMetadata = {
   image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff',
 };
 
-function manifest(overrides: Partial<SandboxProviderManifest> = {}): SandboxProviderManifest {
+function manifest(overrides: Partial<DaytonaSandboxProvider> = {}): DaytonaSandboxProvider {
   return {
     type: 'daytona',
     auth: { api_key: 'dtn-test' },
@@ -20,6 +24,16 @@ function manifest(overrides: Partial<SandboxProviderManifest> = {}): SandboxProv
     auto_stop_interval_in_minutes: 5,
     auto_archive_interval_in_minutes: 60,
     auto_delete_interval_in_minutes: 7200,
+    ...overrides,
+  };
+}
+
+function e2bManifest(overrides: Partial<E2BSandboxProvider> = {}): E2BSandboxProvider {
+  return {
+    type: 'e2b',
+    auth: { api_key: 'e2b-test' },
+    exec_timeout_ms: 60_000,
+    sandbox_timeout_ms: 300_000,
     ...overrides,
   };
 }
@@ -71,6 +85,16 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
     expect(updated.manifest).toEqual(replacement);
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
+  });
+
+  it('round-trips an E2B manifest without a migration-specific representation', async () => {
+    const store = getStore();
+    const manifest = e2bManifest();
+
+    const created = await store.upsertSandboxProvider(upsertInput({ manifest }));
+
+    expect(created.manifest).toEqual(manifest);
+    expect((await store.getSandboxProvider(TENANT))?.manifest).toEqual(manifest);
   });
 
   it('upsert is scoped to a single tenant', async () => {
