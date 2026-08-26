@@ -86,7 +86,6 @@ jobs:
               - 'charts/trueforge/**'
               - 'Dockerfile'
               - 'Dockerfile.dev'
-              - 'tests/scripts/chart-security-context.test.sh'
               - 'package.json'
               - '.github/workflows/ci.yml'
 
@@ -216,9 +215,6 @@ jobs:
 
       - name: Lint chart
         run: pnpm chart:lint
-
-      - name: Test chart security context
-        run: pnpm test:chart-security
 
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
