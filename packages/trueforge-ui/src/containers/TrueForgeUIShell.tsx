@@ -9,6 +9,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
+import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
@@ -45,6 +46,11 @@ export type TrueForgeUIProps = {
   agentConfig?: AgentConfig;
   /** Open settings on first paint only (host boot with no models configured). */
   initialSettingsOpen?: boolean;
+  /**
+   * Host UI for pending client-side tools, keyed by tool name.
+   * When a pending tool matches, the composer mounts that component instead of Ask User.
+   */
+  customActionRenderers?: CustomActionRenderers;
   /**
    * Sync shell navigation to the browser URL via react-router (opt-in).
    * Requires `react-router-dom` in the host. Leave off for dock/widget embeds
@@ -214,6 +220,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     initialSettingsOpen = false,
     server: serverConfig,
     onError,
+    customActionRenderers,
     resolvedRoutes,
     routes: _routes,
     ...providerRest
@@ -244,27 +251,29 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
 
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
-      <ServerProvider server={server}>
-        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-          {resolvedRoutes != null ? (
-            <Suspense fallback={null}>
-              <ShellRouteSync
-                routes={resolvedRoutes}
-                activeRemoteId={activeRemoteId}
-                initialSettingsOpen={initialSettingsOpen}
-              />
-            </Suspense>
-          ) : null}
-          <ChatProviderFromShell
-            server={server}
-            onError={onError}
-            onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
-            {...providerRest}
-          >
-            {layoutTree}
-          </ChatProviderFromShell>
-        </ShellModeProvider>
-      </ServerProvider>
+      <CustomActionRenderersProvider renderers={customActionRenderers}>
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+            {resolvedRoutes != null ? (
+              <Suspense fallback={null}>
+                <ShellRouteSync
+                  routes={resolvedRoutes}
+                  activeRemoteId={activeRemoteId}
+                  initialSettingsOpen={initialSettingsOpen}
+                />
+              </Suspense>
+            ) : null}
+            <ChatProviderFromShell
+              server={server}
+              onError={onError}
+              onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+              {...providerRest}
+            >
+              {layoutTree}
+            </ChatProviderFromShell>
+          </ShellModeProvider>
+        </ServerProvider>
+      </CustomActionRenderersProvider>
     </SlotsProvider>
   );
 }

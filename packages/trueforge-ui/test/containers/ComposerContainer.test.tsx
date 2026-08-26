@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ComposerContainer } from '@/containers/ComposerContainer.js';
 import { ComposerBusyProvider } from '@/hooks/useComposerBusyState.js';
+import {
+  CustomActionRenderersProvider,
+  type CustomActionRendererProps,
+} from '@/server/CustomActionRenderersContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
@@ -13,11 +17,32 @@ const agentSpecState: { agentSpec: { model: { name: string } } | undefined } = {
   agentSpec: { model: { name: 'test/model' } },
 };
 
+const toolResponsesState = vi.hoisted(() => ({
+  pending: [] as Array<{ toolCallId: string; toolName?: string; args?: Record<string, unknown> }>,
+  respond: vi.fn(),
+}));
+
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryCancel: () => vi.fn(),
-  useTrueFoundryToolResponses: () => ({ pending: [] }),
+  useTrueFoundryToolResponses: () => toolResponsesState,
   useTrueFoundryAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
 }));
+
+vi.mock('@assistant-ui/core/react', async importOriginal => {
+  const actual = await importOriginal<typeof import('@assistant-ui/core/react')>();
+  return {
+    ...actual,
+    useThreadIsRunning: () => false,
+  };
+});
+
+function SecretSelectProbe({ onSubmit }: CustomActionRendererProps) {
+  return (
+    <button type="button" onClick={() => onSubmit('chosen-secret')}>
+      Secret selector
+    </button>
+  );
+}
 
 function renderComposer(onNew?: (message: AppendMessage) => Promise<void>) {
   return render(
@@ -32,6 +57,8 @@ function renderComposer(onNew?: (message: AppendMessage) => Promise<void>) {
 describe('ComposerContainer', () => {
   beforeEach(() => {
     agentSpecState.agentSpec = { model: { name: 'test/model' } };
+    toolResponsesState.pending = [];
+    toolResponsesState.respond = vi.fn();
   });
   it('wraps the composer in an attachment dropzone by default', () => {
     renderComposer();
@@ -140,5 +167,28 @@ describe('ComposerContainer', () => {
 
     expect(screen.getByText('Custom left')).toBeInTheDocument();
     expect(screen.getByText('Custom right')).toBeInTheDocument();
+  });
+
+  it('mounts a registered custom action renderer instead of the composer', () => {
+    toolResponsesState.pending = [{ toolCallId: 'tc-1', toolName: 'secret_select', args: { secrets: ['a'] } }];
+
+    render(
+      <CustomActionRenderersProvider renderers={{ secret_select: SecretSelectProbe }}>
+        <RuntimeHarness messages={[]}>
+          <ComposerBusyProvider>
+            <ComposerContainer />
+          </ComposerBusyProvider>
+        </RuntimeHarness>
+      </CustomActionRenderersProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Secret selector' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Message input' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Secret selector' }));
+    expect(toolResponsesState.respond).toHaveBeenCalledWith({
+      toolCallId: 'tc-1',
+      content: 'chosen-secret',
+    });
   });
 });
