@@ -752,19 +752,19 @@
         "type": "object"
       },
       "CompactionConfig": {
+        "additionalProperties": false,
         "default": {
           "enabled": true
         },
+        "description": "Uses 80% of the model context length when the explicit trigger is omitted, or 50000 tokens if unknown.",
         "properties": {
-          "compaction_threshold_tokens": {
-            "description": "Context size in tokens that triggers compaction. Default: 50000.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
           "enabled": {
             "default": true,
             "description": "Summarize older history when context grows too large. Default: true.",
             "type": "boolean"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/InputTokensCompactionTrigger"
           }
         },
         "type": "object"
@@ -1373,6 +1373,28 @@
         "required": [
           "type",
           "content"
+        ],
+        "type": "object"
+      },
+      "InputTokensCompactionTrigger": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Trigger compaction when the estimated input reaches a token limit.",
+            "enum": [
+              "input_tokens"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "Estimated input-token count that triggers compaction.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "value"
         ],
         "type": "object"
       },

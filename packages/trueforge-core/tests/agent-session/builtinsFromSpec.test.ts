@@ -33,6 +33,29 @@ function hasOpenUITool(capabilities: ReturnType<typeof builtinsFromSpec>): boole
   return capabilities.some(cap => cap.systemToolSets?.some(ts => ts.name === OPENUI_SERVER_ID));
 }
 
+function hasCompactionProcessor(capabilities: ReturnType<typeof builtinsFromSpec>): boolean {
+  return capabilities.some(cap => (cap.preLLMProcessors?.length ?? 0) > 0);
+}
+
+describe('builtinsFromSpec compaction', () => {
+  it('enables compaction by default', () => {
+    const capabilities = runBuiltins({
+      spec: AgentSpecSchema.parse({ model: { name: 'provider/model' } }),
+    });
+    expect(hasCompactionProcessor(capabilities)).toBe(true);
+  });
+
+  it('disables compaction from the context-management Agent Spec setting', () => {
+    const capabilities = runBuiltins({
+      spec: AgentSpecSchema.parse({
+        model: { name: 'provider/model' },
+        config: { context_management: { compaction: { enabled: false } } },
+      }),
+    });
+    expect(hasCompactionProcessor(capabilities)).toBe(false);
+  });
+});
+
 describe('builtinsFromSpec generative_ui', () => {
   it('enables OpenUI with preload false when generative_ui is omitted', () => {
     const capabilities = runBuiltins({

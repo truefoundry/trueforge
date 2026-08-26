@@ -11,6 +11,34 @@ import type {
 } from '../AgentContextProcessor';
 
 export const DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS = 50 * 1000;
+export const DEFAULT_CONTEXT_COMPACTION_RATIO = 0.8;
+
+export function resolveCompactionThresholdTokens(input: {
+  configuredThresholdTokens: number | undefined;
+  modelContextLength: number | undefined;
+  modelParams: AgentDefinition['modelParams'];
+}): number {
+  if (input.configuredThresholdTokens !== undefined) {
+    return input.configuredThresholdTokens;
+  }
+  if (input.modelContextLength !== undefined) {
+    const ratioThreshold = Math.floor(input.modelContextLength * DEFAULT_CONTEXT_COMPACTION_RATIO);
+    const configuredMaxOutputTokens = input.modelParams?.['max_completion_tokens'] ?? input.modelParams?.['max_tokens'];
+    if (
+      typeof configuredMaxOutputTokens === 'number' &&
+      Number.isFinite(configuredMaxOutputTokens) &&
+      configuredMaxOutputTokens >= 0
+    ) {
+      const inputBudget = Math.floor(input.modelContextLength - configuredMaxOutputTokens);
+      if (inputBudget > 0) {
+        return Math.min(ratioThreshold, inputBudget);
+      }
+    }
+    // An unusable output reservation must not turn compaction into an always-on loop.
+    return ratioThreshold;
+  }
+  return DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS;
+}
 
 // https://platform.openai.com/tokenizer
 const PROMPT_TOKENS = 931;
@@ -225,10 +253,11 @@ export function contextCompaction(options: {
   settings?: ContextCompactionSettings | undefined;
   compactionThresholdTokens?: number | undefined;
 }): AgentCapability {
-  const threshold =
-    options.compactionThresholdTokens ??
-    options.settings?.compactionThresholdTokens ??
-    DEFAULT_CONTEXT_COMPACTION_THRESHOLD_TOKENS;
+  const threshold = resolveCompactionThresholdTokens({
+    configuredThresholdTokens: options.compactionThresholdTokens ?? options.settings?.compactionThresholdTokens,
+    modelContextLength: options.definition.modelProperties?.contextLength,
+    modelParams: options.definition.modelParams,
+  });
   return {
     preLLMProcessors: [
       new ContextCompaction({

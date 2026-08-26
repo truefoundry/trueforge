@@ -3,21 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { InputTokensCompactionTrigger } from "./InputTokensCompactionTrigger.js";
 
 export const CompactionConfig: core.serialization.ObjectSchema<
     serializers.CompactionConfig.Raw,
     TrueForge.CompactionConfig
 > = core.serialization.object({
-    compactionThresholdTokens: core.serialization.property(
-        "compaction_threshold_tokens",
-        core.serialization.number().optional(),
-    ),
     enabled: core.serialization.boolean().optional(),
+    trigger: InputTokensCompactionTrigger.optional(),
 });
 
 export declare namespace CompactionConfig {
     export interface Raw {
-        compaction_threshold_tokens?: number | null;
         enabled?: boolean | null;
+        trigger?: InputTokensCompactionTrigger.Raw | null;
     }
 }

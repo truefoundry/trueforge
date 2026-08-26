@@ -23,6 +23,14 @@ const modelProvider = {
 const manifest = {
   model: { name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'Be helpful.',
+  config: {
+    context_management: {
+      compaction: {
+        enabled: true,
+        trigger: { type: 'input_tokens', value: 80_000 },
+      },
+    },
+  },
 };
 
 const writeBody = {
@@ -40,7 +48,15 @@ const updateBody = {
 type WireAgent = {
   id: string;
   name: string;
-  manifest: { model: { name: string }; instructions?: string };
+  manifest: {
+    model: { name: string };
+    instructions?: string;
+    config?: {
+      context_management?: {
+        compaction?: { enabled: boolean; trigger?: { type: 'input_tokens'; value: number } };
+      };
+    };
+  };
 };
 
 function jsonInit(method: string, body: unknown): RequestInit {
@@ -79,6 +95,14 @@ describe('agents router', () => {
       manifest: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
+        config: {
+          context_management: {
+            compaction: {
+              enabled: true,
+              trigger: { type: 'input_tokens', value: 80_000 },
+            },
+          },
+        },
       },
     });
 

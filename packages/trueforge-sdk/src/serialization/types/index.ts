@@ -64,6 +64,7 @@ export * from "./GetSkillResponse.js";
 export * from "./GetTurnResponse.js";
 export * from "./GoogleGeminiModelProvider.js";
 export * from "./InitialUserMessage.js";
+export * from "./InputTokensCompactionTrigger.js";
 export * from "./LargeToolResponseConfig.js";
 export * from "./ListAgentsResponse.js";
 export * from "./ListAvailableMcpServersResponse.js";
