@@ -22,11 +22,8 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
-import type {
-  ScheduleManifest,
-  ScheduleRunStatus,
-  ScheduleStatus,
-} from '../../schemas/schedule';
+import type { ScheduleManifest, ScheduleStatus } from '../../schemas/schedule';
+import type { ScheduleRunStatus } from '../scheduleStore';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -398,7 +395,7 @@ export interface ScheduleTable {
  * One row per fire, pending or historical.
  * PRIMARY KEY (id)
  * WITH (fillfactor = 85); two or three small bounded updates per row
- *   (scheduled -> running -> terminal)
+ *   (scheduled -> triggered -> terminal)
  * UNIQUE (tenant_id, schedule_id, name) — the fire slot, so a duplicated dispatch
  *   cannot double-insert
  * CREATE INDEX schedule_run_due_idx ON schedule_run (scheduled_for)
@@ -423,7 +420,7 @@ export interface ScheduleRunTable {
   status: ScheduleRunStatus;
   /** `UserContext.userRef` of who triggered the run */
   triggered_by: string;
-  /** set on the guarded `scheduled -> running` transition */
+  /** set on the guarded `scheduled -> triggered` transition */
   started_at: Date | null;
   created_at: Date;
   updated_at: Date;

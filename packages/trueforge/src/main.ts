@@ -52,6 +52,7 @@ import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import type { IAgentStore } from './db/agentStore';
+import type { IScheduleStore } from './db/scheduleStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -77,6 +78,7 @@ interface ServerPersistence<TTransaction> {
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
+  scheduleStore: IScheduleStore<TTransaction>;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
 }
@@ -99,6 +101,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
+      import('./db/sqlite/schedule-store/SqliteScheduleStore'),
     ]),
   ]);
   const [
@@ -109,6 +112,7 @@ async function createStandalonePersistence(options: {
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
     { SqliteAgentStore },
+    { SqliteScheduleStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -125,6 +129,7 @@ async function createStandalonePersistence(options: {
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     agentStore: new SqliteAgentStore(db),
+    scheduleStore: new SqliteScheduleStore(db),
     destroyDb: () => db.destroy(),
     redis: undefined,
   };
@@ -157,6 +162,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
+      import('./db/postgres/schedule-store/PostgresScheduleStore'),
     ]),
   ]);
   const [
@@ -167,6 +173,7 @@ async function createDistributedPersistence(options: {
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
     { PostgresAgentStore },
+    { PostgresScheduleStore },
   ] = postgresStores;
 
   const db = createDb({
@@ -188,6 +195,7 @@ async function createDistributedPersistence(options: {
     skillStore: new PostgresSkillStore(db),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
     agentStore: new PostgresAgentStore(db),
+    scheduleStore: new PostgresScheduleStore(db),
     destroyDb: () => db.destroy(),
     redis: await connectRedis({ url: redisUrl, logger }),
   };
@@ -204,6 +212,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     skillStore,
     sandboxProviderStore,
     agentStore,
+    scheduleStore,
     destroyDb,
     redis,
   } = persistence;
@@ -232,6 +241,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     skillStore,
     sandboxProviderStore,
     agentStore,
+    scheduleStore,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,

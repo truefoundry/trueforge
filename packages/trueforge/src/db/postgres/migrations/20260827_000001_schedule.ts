@@ -56,7 +56,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   // A run row takes two or three small bounded updates in its life
-  // (scheduled -> running -> terminal); leave HOT headroom for them.
+  // (scheduled -> triggered -> terminal); leave HOT headroom for them.
   await sql`ALTER TABLE schedule_run SET (fillfactor = 85)`.execute(db);
 
   await db.schema

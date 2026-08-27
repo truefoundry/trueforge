@@ -26,15 +26,19 @@ export const SCHEDULE_MIN_INTERVAL_SECONDS = 3600;
  */
 export const SCHEDULE_MAX_LATENESS_SECONDS = 3600;
 
+/** Cron expression cannot produce a valid upcoming fire, or violates schedule policy. */
+export class InvalidCronError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'InvalidCronError';
+  }
+}
+
 /** `paused` stops firing and drops the pending run row; in-flight runs continue. */
 export const ScheduleStatusSchema = z.enum(['active', 'paused']).openapi('ScheduleStatus');
 
 /**
  * Standard 5-field cron (minute hour day-of-month month day-of-week).
- *
- * Structural check only. Parsing, next-fire computation, and the
- * `SCHEDULE_MIN_INTERVAL_SECONDS` floor need a cron parser and live in the API
- * layer — a regex cannot tell that a five-minute expression is too frequent.
  */
 const CRON_FIELD = String.raw`[\d*,\-/]+`;
 export const CronExpressionSchema = z
@@ -132,7 +136,7 @@ export const GetScheduleResponseSchema = z.object({ data: ConfiguredScheduleSche
 export const ListSchedulesResponseSchema = z
   .object({ data: z.array(ConfiguredScheduleSchema) })
   .openapi('ListSchedulesResponse');
-
+export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteScheduleResponse');
 
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;
 export type ScheduleManifest = z.infer<typeof ScheduleManifestSchema>;

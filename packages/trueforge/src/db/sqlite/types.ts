@@ -25,11 +25,8 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
-import type {
-  ScheduleManifest,
-  ScheduleRunStatus,
-  ScheduleStatus,
-} from '../../schemas/schedule';
+import type { ScheduleManifest, ScheduleStatus } from '../../schemas/schedule';
+import type { ScheduleRunStatus } from '../scheduleStore';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -260,7 +257,7 @@ export interface ScheduleRunTable {
   status: ScheduleRunStatus;
   /** `UserContext.userRef` of who triggered the run */
   triggered_by: string;
-  /** set on the guarded `scheduled -> running` transition */
+  /** set on the guarded `scheduled -> triggered` transition */
   started_at: string | null;
   created_at: string;
   updated_at: string;

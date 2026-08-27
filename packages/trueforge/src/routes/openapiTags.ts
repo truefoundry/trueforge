@@ -7,6 +7,7 @@ export enum OpenApiTag {
   SKILLS = 'Skills',
   SANDBOXES = 'Sandboxes',
   AGENTS = 'Agents',
+  SCHEDULES = 'Schedules',
   AGENT_SESSIONS = 'Agent Sessions',
 }
 
@@ -19,5 +20,6 @@ export const OPENAPI_DOCUMENT_TAGS: { name: OpenApiTag }[] = [
   { name: OpenApiTag.SKILLS },
   { name: OpenApiTag.SANDBOXES },
   { name: OpenApiTag.AGENTS },
+  { name: OpenApiTag.SCHEDULES },
   { name: OpenApiTag.AGENT_SESSIONS },
 ];
