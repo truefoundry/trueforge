@@ -55,7 +55,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('schedule_id', 'text', col => col.notNull().references('schedule.id').onDelete('cascade'))
     .addColumn('name', 'text', col => col.notNull())
     .addColumn('scheduled_for', 'timestamptz', col => col.notNull())
-    .addColumn('status', 'text', col => col.notNull())
+    .addColumn('status', sql`varchar(16)`, col => col.notNull())
     .addColumn('triggered_by', 'text', col => col.notNull())
     .addColumn('triggered_at', 'timestamptz')
     .addColumn('created_at', 'timestamptz', col => col.notNull())

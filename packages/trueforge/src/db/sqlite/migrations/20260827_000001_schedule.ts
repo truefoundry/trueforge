@@ -40,7 +40,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         schedule_id TEXT NOT NULL REFERENCES schedule (id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         scheduled_for TEXT NOT NULL,
-        status TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (length(status) <= 16),
         triggered_by TEXT NOT NULL,
         triggered_at TEXT,
         created_at TEXT NOT NULL,

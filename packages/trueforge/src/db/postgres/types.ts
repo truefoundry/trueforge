@@ -407,6 +407,7 @@ export interface ScheduleRunTable {
   /** the fire slot: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
   scheduled_for: Date;
+  /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
   status: ScheduleRunStatus;
   /** `UserContext.userRef` of who triggered the run */
   triggered_by: string;
