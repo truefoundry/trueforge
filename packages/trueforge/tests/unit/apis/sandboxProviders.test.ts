@@ -1,9 +1,9 @@
 // Stub the Daytona-touching helpers so the router never talks to Daytona: the PUT path builds via
-// toDaytonaSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError
+// toSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError
 // and toSandboxStatus stay real so the auth-error mapping and PUT wire shape are exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
-  return { ...actual, toDaytonaSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
+  return { ...actual, toSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
 });
 
 import { DaytonaError } from '@daytona/sdk';
@@ -20,10 +20,10 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
-import { checkSnapshotStatus, toDaytonaSandboxProvider } from '../../../src/sandbox/providerUtils';
+import { checkSnapshotStatus, toSandboxProvider } from '../../../src/sandbox/providerUtils';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
-const mockProviderFactory = toDaytonaSandboxProvider as jest.Mock;
+const mockProviderFactory = toSandboxProvider as jest.Mock;
 const mockCheckStatus = checkSnapshotStatus as jest.Mock;
 const silentLogger = createLogger({ silent: true });
 
@@ -249,7 +249,11 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
+    // The manifest is a discriminated union now and only daytona carries auth.
+    if (stored?.manifest.type !== 'daytona') {
+      throw new Error('expected a stored daytona manifest');
+    }
+    expect(stored.manifest.auth.api_key).toBe(rotatedKey);
   });
 
   it('PUT update reuses persisted build_metadata (no image upgrade on re-save)', async () => {

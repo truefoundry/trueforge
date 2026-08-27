@@ -22,9 +22,8 @@ const DaytonaSandboxProviderAuthSchema = z
 
 /**
  * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
- * Left unnamed for OpenAPI so `SandboxProviderManifest` (its single-variant alias)
- * is the one emitted component and the response `manifest` field is a plain `$ref`
- * instead of an `allOf` wrapper.
+ * Named for OpenAPI because `SandboxProviderManifest` is now a discriminated union
+ * and each variant needs its own emitted component.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
@@ -47,14 +46,45 @@ export const DaytonaSandboxProviderSchema = z
       .nonnegative()
       .describe('Minutes before Daytona auto-deletes the sandbox (0 disables).'),
   })
-  .strict();
+  .strict()
+  .openapi('DaytonaSandboxProvider');
 
 /**
- * Persisted jsonb: the provider config only (no build status). Single variant today —
- * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
- * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
+ * Container-backed sandbox provider config. Unlike Daytona there are no
+ * credentials: the runtime is a local socket, so authorization is whatever the
+ * host grants the server process.
+ *
+ * A GPU is opt-in. Attaching one to a sandbox that does not need it wastes a
+ * scarce device and slows container start, so the default is no GPU.
  */
-export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
+export const DockerSandboxProviderSchema = z
+  .object({
+    type: z.literal('docker').describe('Container-backed sandbox provider (Docker or Podman).'),
+    image: z.string().min(1).describe('Image the sandbox runs. Must provide a POSIX shell and python3.'),
+    exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
+    docker_binary: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Container CLI to invoke. Defaults to `docker`; set to `podman` or an absolute path.'),
+    gpus: z.string().min(1).optional().describe('Value passed to `--gpus`, e.g. `all` or `device=0`. Omit for no GPU.'),
+    extra_run_args: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Additional `docker run` arguments, e.g. a read-only host mount of a CUDA toolkit so the image can stay small. Never passed through a shell.',
+      ),
+  })
+  .strict()
+  .openapi('DockerSandboxProvider');
+
+/**
+ * Persisted jsonb: the provider config only (no build status). Discriminated on
+ * `type`; every variant is emitted as its own OpenAPI component.
+ */
+export const SandboxProviderManifestSchema = z
+  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, DockerSandboxProviderSchema])
+  .openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -104,14 +134,19 @@ export const GetSandboxProviderResponseSchema = z
 /** Persisted jsonb — the provider config only (no build status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
+export type DockerSandboxProvider = z.infer<typeof DockerSandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
 export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProviderSchema>;
 export type UpdateSandboxProviderRequest = z.infer<typeof UpdateSandboxProviderRequestSchema>;
 
-/** Wire/persisted snake_case → Daytona client credentials + provider settings. */
-export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
+/**
+ * Wire/persisted snake_case → Daytona client credentials + provider settings.
+ * Takes the narrowed variant, not the union: the caller has already discriminated
+ * on `type`, and accepting the union here would push an unchecked cast inward.
+ */
+export function toDaytonaSandboxProviderInput(manifest: DaytonaSandboxProvider): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
@@ -123,5 +158,24 @@ export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest)
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,
     autoDeleteIntervalInMinutes: manifest.auto_delete_interval_in_minutes,
+  };
+}
+
+/** Wire/persisted snake_case → container provider constructor options. */
+export function toDockerSandboxProviderInput(manifest: DockerSandboxProvider): {
+  image: string;
+  execTimeoutSeconds: number;
+  dockerBinary?: string;
+  gpus?: string;
+  extraRunArgs?: readonly string[];
+} {
+  return {
+    image: manifest.image,
+    // The wire field is milliseconds for symmetry with Daytona; the provider
+    // takes seconds because that is what `docker exec` timeouts are reasoned in.
+    execTimeoutSeconds: Math.max(1, Math.round(manifest.exec_timeout_ms / 1000)),
+    ...(manifest.docker_binary === undefined ? {} : { dockerBinary: manifest.docker_binary }),
+    ...(manifest.gpus === undefined ? {} : { gpus: manifest.gpus }),
+    ...(manifest.extra_run_args === undefined ? {} : { extraRunArgs: manifest.extra_run_args }),
   };
 }

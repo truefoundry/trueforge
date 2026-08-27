@@ -7,3 +7,10 @@ providers:
     auto_stop_interval_in_minutes: 5
     auto_archive_interval_in_minutes: 60
     auto_delete_interval_in_minutes: 7200
+  - type: docker
+    # The image must provide python3 and pydantic: the sandbox bootstrap runs a
+    # Python script to materialise git-backed skills, and without them
+    # initialisation fails with "python3: not found" while the session still
+    # starts, which makes the failure easy to miss.
+    image: python:3.12-slim
+    exec_timeout_ms: 600000

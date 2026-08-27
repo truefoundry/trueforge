@@ -1,15 +1,24 @@
-/** Daytona provider construction + persisted build-status refresh (see checkSnapshotStatus). */
+/** Sandbox provider construction + persisted build-status refresh (see checkSnapshotStatus). */
 import { Daytona, DaytonaError } from '@daytona/sdk';
-import { DaytonaSandboxProvider, SANDBOX_IMAGE_URI, type SandboxBuild } from '@truefoundry/trueforge-core/core';
+import {
+  DaytonaSandboxProvider,
+  SANDBOX_IMAGE_URI,
+  type SandboxBuild,
+  type SandboxProvider,
+} from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
+  toDockerSandboxProviderInput,
+  type DaytonaSandboxProvider as DaytonaSandboxProviderManifest,
+  type DockerSandboxProvider as DockerSandboxProviderManifest,
   type SandboxBuildMetadata,
   type SandboxProviderManifest,
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
+import { DockerSandboxProvider } from './docker/provider/DockerSandboxProvider';
 
 /** Daytona rejected the credentials (401 unauthorized / 403 forbidden); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
@@ -30,7 +39,7 @@ export function toDaytonaSandboxProvider({
   logger,
   build_metadata,
 }: {
-  manifest: SandboxProviderManifest;
+  manifest: DaytonaSandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
@@ -46,6 +55,52 @@ export function toDaytonaSandboxProvider({
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });
+}
+
+function toDockerSandboxProvider({
+  manifest,
+  logger,
+}: {
+  manifest: DockerSandboxProviderManifest;
+  logger: Logger;
+}): DockerSandboxProvider {
+  return new DockerSandboxProvider({
+    ...toDockerSandboxProviderInput(manifest),
+    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    logger,
+  });
+}
+
+/**
+ * Builds the runtime provider for a stored manifest, whichever backend it names.
+ * No network or socket I/O until a method is called.
+ *
+ * `build_metadata` is Daytona-specific (it pins a built snapshot); the container
+ * backend has no equivalent because the image tag in the manifest already
+ * identifies exactly what runs.
+ */
+export function toSandboxProvider({
+  manifest,
+  tenant_id,
+  logger,
+  build_metadata,
+}: {
+  manifest: SandboxProviderManifest;
+  tenant_id: string;
+  logger: Logger;
+  build_metadata?: SandboxBuildMetadata | null;
+}): SandboxProvider {
+  switch (manifest.type) {
+    case 'daytona':
+      return toDaytonaSandboxProvider({
+        manifest,
+        tenant_id,
+        logger,
+        ...(build_metadata === undefined ? {} : { build_metadata }),
+      });
+    case 'docker':
+      return toDockerSandboxProvider({ manifest, logger });
+  }
 }
 
 /** Maps a core `SandboxBuild` onto the persisted/wire status shape (metadata passes through). */
@@ -90,7 +145,7 @@ export async function checkSnapshotStatus({
     return persisted;
   }
 
-  const provider = toDaytonaSandboxProvider({
+  const provider = toSandboxProvider({
     manifest: record.manifest,
     tenant_id,
     logger,
