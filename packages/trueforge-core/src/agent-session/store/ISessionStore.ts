@@ -262,7 +262,8 @@ export interface ISessionStore<
    * row or leave `last_turn_id` pointing at a turn that was never created.
    * The implementation supplies the mechanism (session lock, row lock/tx, …).
    *
-   * Also bumps `session.last_activity_timestamp_ms` in that same atomic unit.
+   * Also bumps `session.last_activity_timestamp_ms` and increments
+   * `session.metrics.total_turns` in that same atomic unit.
    *
    * Fork semantics for `turn.previous_turn_id`:
    * - `null` — new root turn (no parent); always allowed.
@@ -282,9 +283,10 @@ export interface ISessionStore<
 
   /**
    * One tx: (a) conditionally cancel a running turn with `reason`; (b) if it
-   * did cancel, insert the caller-built `turn_done_event` — already-terminal
-   * turns skip the event insert; (c) return the now-immutable turn record.
-   * Missing turn → {@link TurnNotFoundError}.
+   * did cancel, insert the caller-built `turn_done_event` and add cost plus
+   * `completed_at − created_at` into `session.metrics` — already-terminal
+   * turns skip the event insert and the metrics fold; (c) return the now-immutable
+   * turn record. Missing turn → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
@@ -297,7 +299,9 @@ export interface ISessionStore<
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Writes the terminal state and `turn_done_event` atomically. Store contract —
+   * Writes the terminal state and `turn_done_event` atomically, and adds
+   * `metrics.total_cost_in_usd` plus `completed_at − created_at` into
+   * `session.metrics` in that same unit. Store contract —
    * **first terminal write wins**:
    * - Allowed: `running` → `done` | `cancelled` | `error`.
    * - Rejected with **409** (or equivalent conflict): any write when status is already

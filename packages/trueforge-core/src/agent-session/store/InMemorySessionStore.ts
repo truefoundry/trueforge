@@ -337,6 +337,7 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
+    stored.record.metrics.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date();
     if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
@@ -360,6 +361,7 @@ export class InMemorySessionStore<
       if (list) {
         list.push(deepCopy(input.turn_done_event));
       }
+      this.addTerminalSessionMetrics(input.session_id, turn.created_at, cancelledState);
     }
 
     return deepCopy(turn);
@@ -402,6 +404,7 @@ export class InMemorySessionStore<
     if (list) {
       list.push(deepCopy(input.turn_done_event));
     }
+    this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
@@ -413,6 +416,17 @@ export class InMemorySessionStore<
     }
     list.push(...deepCopy(input.events));
     return;
+  }
+
+  /** Cost from turn metrics; duration is completed_at − created_at, floored at 0. */
+  private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
+    const stored = this.sessions.get(sessionKey(sessionId));
+    if (!stored) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
+    stored.record.metrics.total_cost_in_usd += state.metrics?.total_cost_in_usd ?? 0;
+    stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
   private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
