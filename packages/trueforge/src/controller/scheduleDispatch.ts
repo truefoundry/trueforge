@@ -106,10 +106,12 @@ async function finishScheduledRun<TTransaction>(params: {
  * pending rows from doubling: the schedule is re-read INSIDE the finish
  * transaction, and `schedule_run_pending_uq` index rejects a second `scheduled` row.
  *
- * - **pause**: drops the pending run in its own transaction. 
- *   If pause commits first, the run is abandoned — correct.
- *   If dispatch commits first, the run ires and pause deletes the pending row dispatch just added,
- *  so firing stops from the next tick. So we see at most one extra run.
+ * - **pause**: drops the pending run in its own transaction, and stops the advance.
+ *   It never cancels a row that still exists: whatever pause did not delete is
+ *   executed (or recorded `missed`) so history has no unexplained gap.
+ *   If pause commits first, the row is gone and there is nothing to run.
+ *   If dispatch commits first, the run fires and pause deletes the pending row
+ *   dispatch just added, so firing stops from the next tick — at most one extra run.
  * - **resume **: no race condition; resume just adds a run.
  * - **cron expression change**: deletes the pending run and inserts a fresh one from the new cron.
  *   If put commits first, the pending run is replaced; finish does not insert again.
@@ -142,9 +144,15 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         tenant_id: run.tenant_id,
         id: run.schedule_id,
       });
-      // Pause drops the pending run; delete cascades it. A leftover findScheduledRuns
-      // row is left alone for the next pause/resume/edit.
-      if (schedule === undefined || schedule.status !== 'active') {
+      // Only a deleted schedule stops a row here. `paused` deliberately does NOT:
+      // status decides whether the schedule gains a NEW row, never whether an
+      // existing one runs. A row that exists was added while the schedule was
+      // active, so it is honoured — executed, or recorded `missed` if it is too
+      // late — and only the advance is withheld (see `finishScheduledRun`). This
+      // keeps run history complete: pausing never leaves a gap with no record.
+      // Rarely reachable, since pause deletes the pending row in its own
+      // transaction; this is the row that pause raced or never saw.
+      if (schedule === undefined) {
         continue;
       }
 
