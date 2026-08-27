@@ -1,4 +1,4 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -49,6 +49,7 @@ function mapRowToSessionRecord(row: {
   title: string | null;
   last_turn_id: string | null;
   custom: Record<string, unknown> | null;
+  metrics: SessionMetrics;
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;
@@ -66,6 +67,7 @@ function mapRowToSessionRecord(row: {
     title: row.title,
     last_turn_id: row.last_turn_id,
     custom: parseSessionCustom(row.custom),
+    metrics: row.metrics,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
@@ -83,6 +85,7 @@ function sessionSelectColumns() {
     'title' as const,
     'last_turn_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+    jsonText<SessionMetrics>(sql.ref('metrics')).as('metrics'),
     'created_at' as const,
     'updated_at' as const,
     'last_activity_timestamp_ms' as const,
@@ -105,6 +108,11 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
+        metrics: jsonbBind({
+          total_cost_in_usd: 0,
+          total_duration_ms: 0,
+          total_turns: 0,
+        }),
         created_at: now,
         updated_at: now,
         last_activity_timestamp_ms: Date.now(),

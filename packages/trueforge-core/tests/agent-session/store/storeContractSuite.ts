@@ -175,6 +175,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
       expect(mustGet(session).last_activity_timestamp_ms).toBeGreaterThanOrEqual(before);
       expect(mustGet(session).title).toBeNull();
+      expect(mustGet(session).metrics).toEqual({
+        total_cost_in_usd: 0,
+        total_duration_ms: 0,
+        total_turns: 0,
+      });
     });
 
     it('createSession persists created_by', async () => {

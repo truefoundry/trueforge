@@ -5,6 +5,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetrics,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -80,6 +81,7 @@ export interface SessionTable {
   last_turn_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
+  metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;
   updated_at: Date;

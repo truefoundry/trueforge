@@ -184,6 +184,11 @@ export class InMemorySessionStore<
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
+      metrics: {
+        total_cost_in_usd: 0,
+        total_duration_ms: 0,
+        total_turns: 0,
+      },
       custom: input.custom !== null ? deepCopy(input.custom) : null,
     };
     this.sessions.set(key, { record, turnIds: [] });
