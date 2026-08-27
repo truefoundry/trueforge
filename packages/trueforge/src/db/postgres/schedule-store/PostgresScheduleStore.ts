@@ -26,7 +26,7 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
   return {
     id: row.id,
     tenant_id: row.tenant_id,
-    agent_id: row.agent_id,
+    agent_name: row.agent_name,
     name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
     status: row.status,
@@ -79,7 +79,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
       .values({
         id: ulid().toLowerCase(),
         tenant_id: input.tenant_id,
-        agent_id: input.agent_id,
+        agent_name: input.agent_name,
         name: input.name,
         manifest: json(input.manifest),
         // Column mirrors the manifest so the dispatch scan and API reads share one value.
@@ -161,8 +161,8 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
   async listSchedules(input: ListSchedulesInput, transaction?: Transaction<Database>): Promise<ScheduleRecord[]> {
     const db = transaction ?? this.#db;
     let query = db.selectFrom('schedule').selectAll().where('tenant_id', '=', input.tenant_id);
-    if (input.agent_id !== undefined) {
-      query = query.where('agent_id', '=', input.agent_id);
+    if (input.agent_name !== undefined) {
+      query = query.where('agent_name', '=', input.agent_name);
     }
     const rows = await query.orderBy('created_at', 'desc').orderBy('id').execute();
     return rows.map(toScheduleRecord);

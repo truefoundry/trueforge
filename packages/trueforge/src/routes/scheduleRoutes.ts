@@ -3,6 +3,7 @@
  * Handlers are registered in apis/schedules.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
+import { NameSchema } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateScheduleRequestSchema,
@@ -18,7 +19,7 @@ export const ScheduleIdParamsSchema = z.object({
 });
 
 export const ListSchedulesQuerySchema = z.object({
-  agent_id: z.string().min(1).optional().describe('Filter by bound agent.'),
+  agent_name: NameSchema.optional().describe('Filter by bound agent name.'),
 });
 
 export const listSchedulesRoute = createRoute({
@@ -49,7 +50,7 @@ export const createScheduleRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Create a schedule',
-  description: 'Create a schedule for an existing agent and add its first pending run when active.',
+  description: 'Create a schedule for an existing agent (by name) and add its first pending run when active.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'create',
   request: {

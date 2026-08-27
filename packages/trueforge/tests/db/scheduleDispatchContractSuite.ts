@@ -54,7 +54,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
         instructions: 'Be helpful.',
       }),
     });
-    return agent.id;
+    return agent.name;
   }
 
   async function seedSchedule(params: {
@@ -62,11 +62,11 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     scheduledFor: Date;
   }): Promise<{ schedule: ScheduleRecord; run: ScheduleRunRecord }> {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const status = params.status ?? 'active';
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: `sched-${String(Date.now())}`,
       manifest: manifest({ status }),
       created_by: USER,

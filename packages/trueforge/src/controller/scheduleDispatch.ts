@@ -215,7 +215,7 @@ export function logTriggeredRun(logger: Logger): (item: ScheduleDispatchItem) =>
     logger.warn('Schedule run triggered but no executor is configured; run will not execute', {
       schedule_id: item.schedule.id,
       run_id: item.run.id,
-      agent_id: item.schedule.agent_id,
+      agent_name: item.schedule.agent_name,
       scheduled_for: item.run.scheduled_for,
     });
   };

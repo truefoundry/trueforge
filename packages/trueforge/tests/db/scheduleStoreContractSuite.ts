@@ -30,18 +30,18 @@ export function runScheduleStoreContractSuite(deps: {
         instructions: 'Be helpful.',
       }),
     });
-    return agent.id;
+    return agent.name;
   }
 
   it('create active schedule adds a pending run for the next cron fire', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const runFrom = new Date('2026-08-27T10:00:00.000Z');
     const m = manifest({ cron: '0 13 * * *', timezone: 'UTC' });
 
     const { schedule, pendingRun } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'daily',
       manifest: m,
       created_by: USER,
@@ -61,10 +61,10 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('create paused leaves no pending run', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const { schedule, pendingRun } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'paused-at-create',
       manifest: manifest({ status: 'paused' }),
       created_by: USER,
@@ -77,10 +77,10 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('pause drops the pending run; resume re adds a pending run from the new now', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'toggle',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
       created_by: USER,
@@ -114,11 +114,11 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('updating cron while active replaces the pending run with a new slot', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
     const { schedule, pendingRun: first } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'reclock',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC' }),
       created_by: USER,
@@ -140,11 +140,11 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('updating name or task leaves the pending run unchanged', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
     const { schedule, pendingRun: first } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'label-only',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'old task' }),
       created_by: USER,
@@ -169,10 +169,10 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('updating cron while paused leaves no pending run', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'paused-edit',
       manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
       created_by: USER,
@@ -192,14 +192,14 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('findScheduledRuns returns only scheduled rows with scheduled_for <= now, not triggered or missed', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const past = new Date(Date.now() - 60_000);
     const future = new Date(Date.now() + 3_600_000);
 
     async function pausedSchedule(name: string) {
       const { schedule } = await store.createScheduleAndRun({
         tenant_id: TENANT,
-        agent_id: agentId,
+        agent_name: agentName,
         name,
         manifest: manifest({ status: 'paused' }),
         created_by: USER,
@@ -265,13 +265,13 @@ export function runScheduleStoreContractSuite(deps: {
 
   it('deleteSchedule removes the schedule and cascades its runs', async () => {
     const store = deps.getScheduleStore();
-    const agentId = await seedAgent();
+    const agentName = await seedAgent();
     const past = new Date(Date.now() - 60_000);
     const future = new Date(Date.now() + 3_600_000);
 
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_id: agentId,
+      agent_name: agentName,
       name: 'to-delete',
       manifest: manifest({ status: 'paused' }),
       created_by: USER,

@@ -37,8 +37,8 @@ export function cronRunName(scheduledFor: Date): string {
 export interface ScheduleRecord {
   id: string;
   tenant_id: string;
-  /** Immutable FK to `agent.id`; the agent's version resolves at run time. */
-  agent_id: string;
+  /** Immutable FK to `agent.name` (with tenant); agent version resolves at run time. */
+  agent_name: string;
   /** Display label; not unique. */
   name: string;
   manifest: ScheduleManifest;
@@ -89,8 +89,8 @@ export function parseStoredScheduleManifest(manifest: unknown): ScheduleManifest
 
 export interface ListSchedulesInput {
   tenant_id: string;
-  /** When set, only schedules bound to this agent are returned. */
-  agent_id?: string | undefined;
+  /** When set, only schedules bound to this agent name are returned. */
+  agent_name?: string | undefined;
 }
 
 export interface GetScheduleInput {
@@ -100,7 +100,7 @@ export interface GetScheduleInput {
 
 export interface CreateScheduleInput {
   tenant_id: string;
-  agent_id: string;
+  agent_name: string;
   name: string;
   manifest: ScheduleManifest;
   created_by: string;

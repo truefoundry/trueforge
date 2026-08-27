@@ -223,13 +223,14 @@ export interface AgentTable {
 /**
  * Configured schedules.
  * PRIMARY KEY (id).
+ * FK (tenant_id, agent_name) → agent(tenant_id, name) ON DELETE CASCADE.
  */
 export interface ScheduleTable {
   /** application-generated (ulid); FK target for schedule_run */
   id: string;
   tenant_id: string;
-  /** FK -> agent.id, ON DELETE CASCADE. Immutable; agent version resolves at run time. */
-  agent_id: string;
+  /** FK with tenant_id → agent(tenant_id, name). Immutable; agent version resolves at run time. */
+  agent_name: string;
   /** Display label; not unique. */
   name: string;
   /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */

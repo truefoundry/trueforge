@@ -1,5 +1,5 @@
 /**
- * Schedules API (mounted at /api/v1/schedules).xw
+ * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
@@ -33,7 +33,7 @@ export interface SchedulesRouterDeps<TTransaction> {
 function toWireSchedule(record: ScheduleRecord): Schedule {
   return {
     id: record.id,
-    agent_id: record.agent_id,
+    agent_name: record.agent_name,
     name: record.name,
     manifest: record.manifest,
     created_by: record.created_by,
@@ -79,8 +79,11 @@ export function validateManifest(
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
-    const { agent_id: agentId } = c.req.valid('query');
-    const records = await deps.scheduleStore.listSchedules({ tenant_id: TENANT_ID, agent_id: agentId });
+    const { agent_name: agentName } = c.req.valid('query');
+    const records = await deps.scheduleStore.listSchedules({
+      tenant_id: TENANT_ID,
+      agent_name: agentName,
+    });
     return c.json({ data: records.map(toWireSchedule) }, 200);
   };
 
@@ -90,16 +93,16 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
     validateManifest(body.manifest);
 
-    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: body.agent_id });
+    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent_name });
     if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${body.agent_id}` } }, 400);
+      return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 400);
     }
 
     const record = await deps.withTransaction(async transaction => {
       const { schedule } = await deps.scheduleStore.createScheduleAndRun(
         {
           tenant_id: TENANT_ID,
-          agent_id: body.agent_id,
+          agent_name: agent.name,
           name: body.name,
           manifest: body.manifest,
           created_by: user.userRef,

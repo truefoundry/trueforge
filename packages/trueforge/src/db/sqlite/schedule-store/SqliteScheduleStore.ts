@@ -39,7 +39,7 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
   return [
     'id' as const,
     'tenant_id' as const,
-    'agent_id' as const,
+    'agent_name' as const,
     'name' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
@@ -65,7 +65,7 @@ const RUN_COLUMNS = [
 interface ScheduleRow {
   id: string;
   tenant_id: string;
-  agent_id: string;
+  agent_name: string;
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
@@ -124,7 +124,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .values({
         id: ulid().toLowerCase(),
         tenant_id: input.tenant_id,
-        agent_id: input.agent_id,
+        agent_name: input.agent_name,
         name: input.name,
         manifest: jsonbBind(input.manifest),
         // Column mirrors the manifest so the dispatch scan and API reads share one value.
@@ -211,8 +211,8 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
   async listSchedules(input: ListSchedulesInput, transaction?: Transaction<Database>): Promise<ScheduleRecord[]> {
     const db = transaction ?? this.#db;
     let query = db.selectFrom('schedule').select(scheduleColumns).where('tenant_id', '=', input.tenant_id);
-    if (input.agent_id !== undefined) {
-      query = query.where('agent_id', '=', input.agent_id);
+    if (input.agent_name !== undefined) {
+      query = query.where('agent_name', '=', input.agent_name);
     }
     const rows = await query.orderBy('created_at', 'desc').orderBy('id').execute();
     return rows.map(toScheduleRecord);

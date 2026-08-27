@@ -94,7 +94,7 @@ export const ScheduleManifestSchema = ScheduleManifestObjectSchema.openapi('Sche
 export const ScheduleSchema = z
   .object({
     id: z.string(),
-    agent_id: z.string(),
+    agent_name: NameSchema,
     name: NameSchema,
     manifest: ScheduleManifestSchema,
     created_by: z.string(),
@@ -106,7 +106,7 @@ export const ScheduleSchema = z
 
 export const CreateScheduleRequestSchema = z
   .object({
-    agent_id: z.string().min(1),
+    agent_name: NameSchema,
     name: NameSchema,
     manifest: ScheduleManifestSchema,
   })

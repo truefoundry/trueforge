@@ -4,9 +4,9 @@ import { sql, type Kysely } from 'kysely';
  * Scheduled agents: `schedule` + `schedule_run`.
  *
  * - `schedule`: immutable application-generated `id` (ULID) as PK. Spec lives in
- *   Zod-validated `manifest` jsonb (same pattern as `agent`). Real FK to
- *   `agent(id)` with ON DELETE CASCADE, so deleting an agent takes its schedules
- *   with it.
+ *   Zod-validated `manifest` jsonb (same pattern as `agent`). Bound by agent
+ *   name: FK `(tenant_id, agent_name)` → `agent(tenant_id, name)` ON DELETE CASCADE
+ *   (agent names are unique and immutable within a tenant).
  * - `schedule_run`: one row per fire, past or pending. The single pending run is a
  *   row like any other (`status = 'scheduled'`), which is what makes "next fire
  *   time" a plain query instead of a computation.
@@ -28,7 +28,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('schedule')
     .addColumn('id', 'text', col => col.notNull())
     .addColumn('tenant_id', 'text', col => col.notNull())
-    .addColumn('agent_id', 'text', col => col.notNull().references('agent.id').onDelete('cascade'))
+    .addColumn('agent_name', 'text', col => col.notNull())
     .addColumn('name', 'text', col => col.notNull())
     .addColumn('manifest', 'jsonb', col => col.notNull())
     .addColumn('status', 'text', col => col.notNull())
@@ -36,10 +36,17 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('schedule_pkey', ['id'])
+    .addForeignKeyConstraint(
+      'schedule_agent_name_fk',
+      ['tenant_id', 'agent_name'],
+      'agent',
+      ['tenant_id', 'name'],
+      cb => cb.onDelete('cascade'),
+    )
     .execute();
 
   // Schedules are listed per agent (the agent detail page) far more than globally.
-  await db.schema.createIndex('schedule_agent_idx').on('schedule').columns(['tenant_id', 'agent_id']).execute();
+  await db.schema.createIndex('schedule_agent_idx').on('schedule').columns(['tenant_id', 'agent_name']).execute();
 
   await db.schema
     .createTable('schedule_run')

@@ -2,8 +2,8 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Scheduled agents for SQLite — mirrors
- * db/postgres/migrations/20260827_000001_schedule.ts, including the `agent.id` FK
- * target (application-generated ulid) and both partial indexes.
+ * db/postgres/migrations/20260827_000001_schedule.ts, including the composite
+ * FK to `agent(tenant_id, name)` and both partial indexes.
  *
  * SQLite differences: `manifest` is BLOB JSONB, timestamps are ISO TEXT, tables
  * are STRICT. No parent table is rebuilt here, so no `PRAGMA foreign_keys`
@@ -16,20 +16,21 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       CREATE TABLE schedule (
         id TEXT NOT NULL,
         tenant_id TEXT NOT NULL,
-        agent_id TEXT NOT NULL REFERENCES agent (id) ON DELETE CASCADE,
+        agent_name TEXT NOT NULL,
         name TEXT NOT NULL,
         manifest BLOB NOT NULL,
         status TEXT NOT NULL CHECK (length(status) <= 16),
         created_by TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        PRIMARY KEY (id)
+        PRIMARY KEY (id),
+        FOREIGN KEY (tenant_id, agent_name) REFERENCES agent (tenant_id, name) ON DELETE CASCADE
       ) STRICT
     `.execute(trx);
 
     await sql`
       CREATE INDEX schedule_agent_idx
-        ON schedule (tenant_id, agent_id)
+        ON schedule (tenant_id, agent_name)
     `.execute(trx);
 
     await sql`
