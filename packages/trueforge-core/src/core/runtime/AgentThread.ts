@@ -1,6 +1,12 @@
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
+import {
+  applyToolSetDecorators,
+  collectToolSetDecorators,
+  type AgentCapability,
+  type CapabilityState,
+  type ToolSetDecorator,
+} from '../capabilities/AgentCapability';
 import type {
   AgentContextProcessorOutput,
   AgentContextProcessorOverwriteContext,
@@ -498,6 +504,7 @@ export class AgentThread {
 
   private instruction: string | undefined;
   private toolResponseProcessors: ToolResponseProcessor[];
+  private toolSetDecorators: readonly ToolSetDecorator[];
   private instructionBuilders: readonly ((builder: InstructionBuilder) => void)[];
   private systemToolSets: readonly IToolSet[];
   private deferredTool?: DeferredTool | undefined;
@@ -537,6 +544,7 @@ export class AgentThread {
     this.preEphemeralLLMContextProcessors = capabilities.flatMap(c => c.preLLMEphemeralProcessors ?? []);
     this.postToolCallContextProcessor = capabilities.flatMap(c => c.postToolCallProcessors ?? []);
     this.toolResponseProcessors = capabilities.flatMap(c => c.toolResponseProcessors ?? []);
+    this.toolSetDecorators = collectToolSetDecorators(capabilities);
     this.instructionBuilders = capabilities.flatMap(c => c.instructionBuilders ?? []);
     const capabilityPreSend = capabilities.flatMap(c => c.preSendProcessors ?? []);
     // OpenToolCallCloser is fixed core before contributed preSend processors.
@@ -559,13 +567,24 @@ export class AgentThread {
     }
 
     if (this.definition.toolSets?.length) {
-      this.deferredTool = new DeferredTool(this.definition.toolSets, {
-        tracing: this.tracing,
-        logger: input.logger,
-      });
+      // Decorated so a deferred call_tool dispatch reaches hooks with the REAL
+      // underlying tool identity (the proxy itself is decorated separately in
+      // initTools, covering its meta tools).
+      this.deferredTool = new DeferredTool(
+        this.definition.toolSets.map(toolSet => this.decorateToolSet(toolSet)),
+        {
+          tracing: this.tracing,
+          logger: input.logger,
+        },
+      );
     }
 
     this.instruction = this.buildInstruction(this.definition.instruction);
+  }
+
+  /** Applies capability decorators in registration order (first innermost). Names/ids are preserved by contract. */
+  private decorateToolSet(toolSet: IToolSet): IToolSet {
+    return applyToolSetDecorators(toolSet, this.toolSetDecorators);
   }
 
   private buildInstruction(userInstruction?: string): string {
@@ -976,14 +995,18 @@ export class AgentThread {
     initializationInfo: MCPServerInitInfo[];
     authRequirementInfo: MCPAuthRequired[];
   }> {
-    const tfyManagedServers: IToolSet[] = [...this.systemToolSets];
+    const tfyManagedServers: IToolSet[] = this.systemToolSets.map(toolSet => this.decorateToolSet(toolSet));
     if (this.sandbox) {
-      tfyManagedServers.push(this.sandbox);
+      tfyManagedServers.push(this.decorateToolSet(this.sandbox));
     }
     if (this.deferredTool) {
-      tfyManagedServers.push(this.deferredTool);
+      // Decorated so its meta tools (list_tools/get_tool_info/…) are hooked
+      // too; its underlying toolsets were ALSO decorated at construction, so a
+      // deferred call_tool yields two hook events — the meta-invocation and
+      // the resolved underlying call with its real identity.
+      tfyManagedServers.push(this.decorateToolSet(this.deferredTool));
     }
-    const userServers = [...(this.definition.toolSets ?? [])];
+    const userServers = (this.definition.toolSets ?? []).map(toolSet => this.decorateToolSet(toolSet));
 
     const { convertedTools, initializationInfo, authRequirementInfo } = await convertMCPServersToTools({
       tfyManagedServers,

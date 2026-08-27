@@ -60,11 +60,13 @@ import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
 import { mountFrontend } from './frontend';
+import { loadHooksFile } from './hooks/hooksFile';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { HOOK_EVENT_NAMES } from './schemas/hooks';
 import { printStandaloneStartupBanner } from './startupBanner';
 
 /** Persistence + optional Redis wired for the selected topology. */
@@ -212,6 +214,21 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
 
+  const hooks = loadHooksFile({
+    path: configuration.HOOKS_PATH,
+    explicitPath: configuration.HOOKS_PATH_IS_EXPLICIT,
+    logger,
+  });
+  if (hooks !== undefined) {
+    const hookCounts: Record<string, number> = {};
+    for (const event of HOOK_EVENT_NAMES) {
+      if (hooks.hooks[event].length > 0) {
+        hookCounts[event] = hooks.hooks[event].length;
+      }
+    }
+    logger.info('Lifecycle hooks enabled', { path: configuration.HOOKS_PATH, events: hookCounts });
+  }
+
   const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
   if (oidc) {
     logger.info('Auth is enabled', { issuer: oidc.OIDC_ISSUER_URL });
@@ -238,6 +255,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     redis,
     requestReplyRouter,
     eventSubscriptions,
+    hooks,
     logger,
     oidcClient,
   });

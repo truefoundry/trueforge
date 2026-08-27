@@ -172,6 +172,25 @@ function resolveLocalSandboxRootParent(appDataDir: string): string {
   return path.join(appDataDir, 'sandboxes');
 }
 
+/**
+ * Absolute path of the lifecycle-hooks file (docs/key-features/hooks).
+ * Env: `TRUEFORGE_HOOKS_PATH` (optional). Default: `{env-paths config}/hooks.json`.
+ * Prefixed, unlike the other variables, because external integrators that
+ * WRITE the file resolve the same variable from outside this process.
+ * `isExplicit` distinguishes the override from the default location: an
+ * explicitly configured file that is missing fails startup instead of
+ * silently disabling hooks.
+ */
+function resolveHooksPath(): { path: string; isExplicit: boolean } {
+  const override = getEnv('TRUEFORGE_HOOKS_PATH')?.trim();
+  if (override !== undefined && override !== '') {
+    return { path: path.resolve(override), isExplicit: true };
+  }
+  return { path: path.join(envPaths(ENV_PATHS_APP_NAME, { suffix: '' }).config, 'hooks.json'), isExplicit: false };
+}
+
+const hooksPath = resolveHooksPath();
+
 /** Short tmp parent for Code Mode UDS socks (≤65 bytes after realpath). */
 function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
@@ -328,6 +347,16 @@ export interface SharedServerConfiguration {
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
+  /**
+   * Absolute path of the lifecycle-hooks file, read once at startup; an absent
+   * file at the DEFAULT location disables hooks (docs/key-features/hooks).
+   * Env: `TRUEFORGE_HOOKS_PATH` (optional; prefixed so external integrators
+   * that write the file can resolve the same variable from outside this
+   * process). Default: env-paths config dir + `hooks.json`.
+   */
+  HOOKS_PATH: string;
+  /** True when `TRUEFORGE_HOOKS_PATH` was set — a missing file then fails startup instead of silently disabling hooks. */
+  HOOKS_PATH_IS_EXPLICIT: boolean;
   /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
@@ -494,6 +523,8 @@ const shared: SharedServerConfiguration = {
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
+  HOOKS_PATH: hooksPath.path,
+  HOOKS_PATH_IS_EXPLICIT: hooksPath.isExplicit,
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_REQUEST_TIMEOUT_MS',

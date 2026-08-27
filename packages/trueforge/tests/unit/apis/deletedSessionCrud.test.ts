@@ -64,6 +64,7 @@ describe('public CRUD after session deletion', () => {
         agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         sandboxProviderStore,
+        hooks: undefined,
         logger: createLogger({ silent: true }),
         resolveUserContext: () => LOCAL_USER_CONTEXT,
       }),

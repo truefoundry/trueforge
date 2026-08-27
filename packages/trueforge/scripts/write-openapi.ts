@@ -71,6 +71,7 @@ const app = createServerApp({
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
   eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
+  hooks: undefined,
   logger: winston.createLogger({ silent: true }),
   oidcClient: undefined,
 });

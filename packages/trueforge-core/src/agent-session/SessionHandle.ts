@@ -1,6 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
+import { applyToolSetDecorators, collectToolSetDecorators } from '../core/capabilities/AgentCapability';
 import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -226,7 +227,26 @@ export class SessionHandle<
         throw new Error('Unreachable: missing resolved agent definition for main thread');
       }
       if (sandbox) {
-        sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
+        // Code Mode dispatches tool calls outside the threads' toolset wiring,
+        // so decorators (e.g. lifecycle hooks) must interpose here too or
+        // sandbox code could call MCP tools around them. Decorators come from
+        // the SAME capability list the main thread is built with — builtins
+        // included — via the shared fold; the throwaway builtin construction
+        // is side-effect-free.
+        const decorators = collectToolSetDecorators([
+          ...builtinsFromSpec({
+            spec,
+            definition: mainDefinition.definition,
+            isChild: false,
+            sandboxAvailable: true,
+            tracing,
+            logger: input.resolver.logger,
+          }),
+          ...(mainDefinition.extraCapabilities ?? []),
+        ]);
+        sandbox.configureCodeMode(
+          (mainDefinition.definition.toolSets ?? []).map(toolSet => applyToolSetDecorators(toolSet, decorators)),
+        );
       }
 
       const agentThreads = this.buildThreads({

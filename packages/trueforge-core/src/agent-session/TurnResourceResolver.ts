@@ -1,4 +1,5 @@
 import type { Logger } from 'winston';
+import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
@@ -79,6 +80,16 @@ export class TurnResourceResolver<
        * session is bound by reference; omit only if all sessions use inline agents.
        */
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
+      /**
+       * Host capabilities appended after the spec builtins on every thread
+       * (root and sub-agents). Blank instances only — the resolver contract
+       * forbids loading state here; the AgentThread constructor hydrates.
+       * The SAME instances are shared by every thread of the turn, so
+       * capabilities passed this way must be stateless (no `state` seam) —
+       * per-thread state requires overriding resolveAgentDefinition to
+       * construct fresh instances per call.
+       */
+      extraCapabilities?: AgentCapability[] | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -217,6 +228,7 @@ export class TurnResourceResolver<
         iterationLimit: spec.config.iteration_limit,
         toolSets,
       },
+      extraCapabilities: this.deps.extraCapabilities,
     };
   }
 
