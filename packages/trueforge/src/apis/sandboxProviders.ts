@@ -7,6 +7,7 @@ import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sand
 import {
   checkSnapshotStatus,
   isDaytonaAuthError,
+  isDaytonaPermissionError,
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
@@ -105,6 +106,17 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       }
       if (isDaytonaAuthError(error)) {
         return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
+      }
+      if (isDaytonaPermissionError(error)) {
+        return c.json(
+          {
+            error: {
+              message:
+                'Daytona accepted the API key but denied the request — the key needs the write:snapshots permission to register the sandbox image',
+            },
+          },
+          403,
+        );
       }
       throw error;
     }

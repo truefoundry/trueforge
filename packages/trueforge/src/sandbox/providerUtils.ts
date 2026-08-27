@@ -16,9 +16,18 @@ import {
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
 
-/** Daytona rejected the credentials (401 unauthorized / 403 forbidden); retrying the same key cannot succeed. */
+/** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
-  return error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403);
+  return error instanceof DaytonaError && error.statusCode === 401;
+}
+
+/**
+ * Daytona authenticated the key but refused the operation (403 forbidden). Snapshot registration is
+ * gated on `write:snapshots`, which Daytona scopes separately from `write:sandboxes`, so a key that
+ * creates sandboxes can still fail here — the key is valid and needs a permission, not replacing.
+ */
+export function isDaytonaPermissionError(error: unknown): boolean {
+  return error instanceof DaytonaError && error.statusCode === 403;
 }
 
 /**
