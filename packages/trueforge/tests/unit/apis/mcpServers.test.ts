@@ -12,6 +12,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
 const putBody = {
   type: 'remote' as const,
@@ -29,8 +30,8 @@ const putBodyWithDcr = {
 };
 
 const HEADER_TOKEN = 'Bearer test-token';
-/** Wire form of HEADER_TOKEN for length ≥ 10: first 3 + SECRET_REDACTION + last 3. */
-const HEADER_TOKEN_REDACTED = 'Bea-***REDACTED***-ken';
+/** Wire form of HEADER_TOKEN. Derived rather than written out, so the mask has one definition. */
+const HEADER_TOKEN_REDACTED = toRedactedSecretValue(HEADER_TOKEN);
 
 const putBodyWithHeaderAuth = {
   type: 'remote' as const,
@@ -484,27 +485,33 @@ describe('mcp-servers routers', () => {
     });
   });
 
-  it('PUT with a different redacted header value still keeps the stored secret', async () => {
+  it('PUT with a header value that merely contains the sentinel stores it', async () => {
     await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
 
-    // Any value containing ***REDACTED*** is treated as keep, not only the exact GET mask.
-    const keep = {
+    /*
+     * This used to be asserted the other way round: any value containing ***REDACTED*** anywhere
+     * was treated as "keep the stored one". A real header value
+     * carrying the sentinel was silently dropped and the old token stayed. Only the mask a GET
+     * actually returns means keep, so this value is a rotation like any other.
+     */
+    const typed = `oth-${'***REDACTED***'}-xxx`;
+    const rotated = {
       ...putBodyWithHeaderAuth,
       url: 'https://mcp.example.com/v3/mcp',
       auth: {
         type: 'header' as const,
-        headers: { Authorization: 'oth-***REDACTED***-xxx' },
+        headers: { Authorization: typed },
       },
     };
-    const response = await settingsRouter.request('/', putInit(wrapManifest(keep)));
+    const response = await settingsRouter.request('/', putInit(wrapManifest(rotated)));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: configured(
         {
-          ...keep,
+          ...rotated,
           auth: {
             type: 'header',
-            headers: { Authorization: HEADER_TOKEN_REDACTED },
+            headers: { Authorization: toRedactedSecretValue(typed) },
           },
         },
         'authenticated',
@@ -514,8 +521,8 @@ describe('mcp-servers routers', () => {
     const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
     expect(stored?.manifest).toEqual({
       ...putBodyWithHeaderAuth,
-      url: keep.url,
-      auth: putBodyWithHeaderAuth.auth,
+      url: rotated.url,
+      auth: { type: 'header', headers: { Authorization: typed } },
     });
   });
 
@@ -523,7 +530,7 @@ describe('mcp-servers routers', () => {
     await settingsRouter.request('/', putInit(wrapManifest(putBodyWithHeaderAuth)));
 
     const rotatedToken = 'Bearer rotated-token';
-    const rotatedTokenRedacted = 'Bea-***REDACTED***-ken';
+    const rotatedTokenRedacted = toRedactedSecretValue(rotatedToken);
     const rotated = {
       ...putBodyWithHeaderAuth,
       auth: {

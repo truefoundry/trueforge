@@ -4,21 +4,49 @@
  */
 
 export const SECRET_REDACTION = '***REDACTED***';
-const MIN_LENGTH_FOR_PREFIX_SUFFIX = 10;
+/**
+ * Below this, a suffix would be most of the secret, so nothing is shown at all.
+ * A 10-character key used to be published as its first three and last three characters.
+ */
+const MIN_LENGTH_FOR_SUFFIX = 12;
+/** How much of a long secret a response may show, matching what other providers publish. */
+const SUFFIX_LENGTH = 4;
+const MASK_SEPARATOR = '-';
 
-/** Response mask: prefix/suffix for longer secrets; full mask when too short to hide. */
+/** Response mask: a bounded suffix for longer secrets; full mask when too short to hide. */
 export function toRedactedSecretValue(secret: string): string {
-  if (secret.length < MIN_LENGTH_FOR_PREFIX_SUFFIX) {
+  if (secret.length < MIN_LENGTH_FOR_SUFFIX) {
     return SECRET_REDACTION;
   }
-  return `${secret.slice(0, 3)}-${SECRET_REDACTION}-${secret.slice(-3)}`;
+  return `${SECRET_REDACTION}${MASK_SEPARATOR}${secret.slice(-SUFFIX_LENGTH)}`;
+}
+
+/** The prefix every suffix-bearing mask starts with, which is fixed. */
+const MASK_PREFIX = `${SECRET_REDACTION}${MASK_SEPARATOR}`;
+
+/**
+ * Whole-value test for the suffix-bearing mask.
+ *
+ * Compared by length and prefix rather than by regular expression: the sentinel is full of regex
+ * metacharacters, so a pattern built from it needs escaping to stay correct.
+ */
+function isMaskWithSuffix(value: string): boolean {
+  return value.length === MASK_PREFIX.length + SUFFIX_LENGTH && value.startsWith(MASK_PREFIX);
 }
 
 /**
  * True when the client sent a redacted stand-in from a prior GET.
+ *
+ * Matched against the exact shapes `toRedactedSecretValue` produces rather than by substring. A
+ * substring test classified any real secret that happened to contain the sentinel as "keep the
+ * stored one", so the value the user typed was dropped without an error saying so — persisted as
+ * the old secret, or failing a create with a message about a missing key.
+ *
+ * A secret whose whole value is exactly one of these shapes is still indistinguishable from a mask.
+ * Nothing in-band can separate those two; only a field saying "keep" alongside the value could.
  */
 export function isRedactedSecretValue(value: string): boolean {
-  return value.includes(SECRET_REDACTION);
+  return value === SECRET_REDACTION || isMaskWithSuffix(value);
 }
 
 /**

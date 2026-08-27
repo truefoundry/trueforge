@@ -218,22 +218,29 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     expect(stored?.manifest).toEqual({ ...putBody, exec_timeout_ms: 120000 });
   });
 
-  it('PUT with a different redacted api_key still keeps the stored secret', async () => {
+  it('PUT with an api_key that merely contains the sentinel stores it', async () => {
     const { settingsRouter, sandboxProviderStore } = await createRouters();
     expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
 
-    const keep = {
+    /*
+     * This used to be asserted the other way round: any value containing ***REDACTED*** anywhere
+     * was treated as "keep the stored one". A real key carrying the
+     * sentinel was silently dropped and the old one stayed. Only the mask a GET actually returns
+     * means keep, so this is a rotation like any other.
+     */
+    const typed = `oth-${'***REDACTED***'}-xxx`;
+    const rotated = {
       ...putBody,
-      auth: { api_key: 'oth-***REDACTED***-xxx' },
+      auth: { api_key: typed },
     };
-    const response = await settingsRouter.request('/', putInit(keep));
+    const response = await settingsRouter.request('/', putInit(rotated));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      data: wireResponse({ ...keep, auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) } }),
+      data: wireResponse({ ...rotated, auth: { api_key: toRedactedSecretValue(typed) } }),
     });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest).toEqual(putBody);
+    expect(stored?.manifest).toEqual(rotated);
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
