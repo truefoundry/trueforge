@@ -120,6 +120,20 @@ describe('agents router', () => {
 
     const put = await router.request('/missing-agent-id', jsonInit('PUT', updateBody));
     expect(put.status).toBe(404);
+
+    const snippets = await router.request('/missing-agent-id/code-snippets');
+    expect(snippets.status).toBe(404);
+  });
+
+  it('GET code-snippets returns snippets for an existing agent', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'snippet-bot' }));
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const response = await router.request(`/${createdJson.data.id}/code-snippets`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: { snippets: unknown[] } };
+    expect(body.data.snippets.length).toBeGreaterThan(0);
   });
 
   it('DELETE removes an agent by id and is idempotent', async () => {
