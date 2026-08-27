@@ -130,8 +130,10 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   onTriggered: (item: ScheduleDispatchItem) => void | Promise<void>;
   logger: Logger;
   withTransaction: WithTransaction<TTransaction>;
+  /** When aborted, stop before the next run; the current run still finishes. */
+  signal?: AbortSignal;
 }): Promise<{ dispatched: number; missed: number }> {
-  const { scheduleStore, withTransaction, onTriggered, logger } = params;
+  const { scheduleStore, withTransaction, onTriggered, logger, signal } = params;
   const scheduled = await scheduleStore.findScheduledRuns({ limit: DISPATCH_BATCH_LIMIT });
   const now = Date.now();
 
@@ -139,6 +141,9 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   let missed = 0;
 
   for (const run of scheduled) {
+    if (signal?.aborted) {
+      break;
+    }
     try {
       const schedule = await scheduleStore.getSchedule({
         tenant_id: run.tenant_id,
@@ -239,8 +244,14 @@ export function createScheduleDispatchLoop<TTransaction>(params: {
   return {
     name: SCHEDULE_DISPATCH_LOOP_NAME,
     intervalMs: SCHEDULE_DISPATCH_INTERVAL_MS,
-    async tick(): Promise<void> {
-      const result = await dispatchScheduledRuns({ scheduleStore, onTriggered, logger, withTransaction });
+    async tick(signal: AbortSignal): Promise<void> {
+      const result = await dispatchScheduledRuns({
+        scheduleStore,
+        onTriggered,
+        logger,
+        withTransaction,
+        signal,
+      });
       // Only speak up when something happened; an idle pass every 30s is noise.
       if (result.dispatched > 0 || result.missed > 0) {
         logger.info('Schedule dispatch pass', result);

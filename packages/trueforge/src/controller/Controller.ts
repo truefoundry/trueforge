@@ -10,6 +10,9 @@
  */
 import type { Logger } from 'winston';
 
+/** Reason passed to {@link AbortController.abort} when {@link Controller.stop} runs. */
+export const CONTROLLER_STOPPED = 'controller-stopped';
+
 /** One periodic unit of work. */
 export interface ControlLoop {
   /** Stable identifier; appears in logs and keys the controller's per-loop state. */
@@ -20,7 +23,7 @@ export interface ControlLoop {
    * One pass. May throw — the controller logs it and keeps ticking, so a pass must
    * leave nothing half-applied that a later pass cannot recover from.
    */
-  tick(): Promise<void>;
+  tick(signal: AbortSignal): Promise<void>;
 }
 
 interface LoopState {
@@ -33,7 +36,7 @@ export class Controller {
   readonly #loops: readonly ControlLoop[];
   readonly #logger: Logger;
   readonly #state = new Map<string, LoopState>();
-  #stopped = false;
+  readonly #abortController = new AbortController();
 
   constructor(params: { loops: readonly ControlLoop[]; logger: Logger }) {
     const names = new Set<string>();
@@ -47,15 +50,17 @@ export class Controller {
     this.#logger = params.logger;
   }
 
+  /** Shared abort signal; aborted by {@link stop}. */
+  get signal(): AbortSignal {
+    return this.#abortController.signal;
+  }
+
   /**
    * Starts every loop, each with an immediate first pass so a restart does not leave
    * work waiting a full interval.
-   *
-   * Intervals are deliberately not `unref`'d: in the dedicated process they are what
-   * keep the event loop alive.
    */
   start(): void {
-    if (this.#stopped || this.#state.size > 0) {
+    if (this.#abortController.signal.aborted || this.#state.size > 0) {
       return;
     }
     for (const loop of this.#loops) {
@@ -69,19 +74,22 @@ export class Controller {
     this.#logger.info('Controller started', { loops: this.#loops.map(loop => loop.name) });
   }
 
-  /** Stops every loop and waits for in-flight passes to finish. Idempotent. */
+  /**
+   * Stops every loop: clears timers, aborts the shared signal, then waits for
+   * in-flight passes to finish. Idempotent.
+   */
   async stop(): Promise<void> {
-    if (this.#stopped) {
+    if (this.#abortController.signal.aborted) {
       return;
     }
-    this.#stopped = true;
+    this.#abortController.abort(CONTROLLER_STOPPED);
     const passes: Promise<void>[] = [];
     for (const state of this.#state.values()) {
-      if (state.timer !== undefined) {
+      if (state.timer) {
         clearInterval(state.timer);
         state.timer = undefined;
       }
-      if (state.pass !== undefined) {
+      if (state.pass) {
         passes.push(state.pass);
       }
     }
@@ -98,14 +106,19 @@ export class Controller {
    */
   async #tick(loop: ControlLoop): Promise<void> {
     const state = this.#state.get(loop.name);
-    if (state === undefined || this.#stopped || state.pass !== undefined) {
+    const { signal } = this.#abortController;
+    // `state` is always set before the first #tick for that loop; guard is for types.
+    if (!state || signal.aborted || state.pass) {
       return;
     }
 
     const pass = (async () => {
       try {
-        await loop.tick();
+        await loop.tick(signal);
       } catch (error) {
+        if (signal.aborted) {
+          return;
+        }
         this.#logger.error('Control loop pass failed', { loop: loop.name, error });
       }
     })();
