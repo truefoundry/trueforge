@@ -25,6 +25,11 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type {
+  ScheduleManifest,
+  ScheduleRunStatus,
+  ScheduleStatus,
+} from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -219,6 +224,49 @@ export interface AgentTable {
 }
 
 /**
+ * Configured schedules.
+ * PRIMARY KEY (id).
+ */
+export interface ScheduleTable {
+  /** application-generated (ulid); FK target for schedule_run */
+  id: string;
+  tenant_id: string;
+  /** FK -> agent.id, ON DELETE CASCADE. Immutable; agent version resolves at run time. */
+  agent_id: string;
+  /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
+  manifest: JsonbColumn<ScheduleManifest>;
+  /** `paused` stops firing and drops the pending run; in-flight runs continue */
+  status: ScheduleStatus;
+  /** Identity every run of this schedule executes as (`UserContext.userRef`) */
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One row per schedule run, pending or historical — mirrors the Postgres `schedule_run`
+ * PRIMARY KEY (id); UNIQUE (tenant_id, schedule_id, name).
+ */
+export interface ScheduleRunTable {
+  /** application-generated (ulid) */
+  id: string;
+  tenant_id: string;
+  /** FK -> schedule.id, ON DELETE CASCADE */
+  schedule_id: string;
+  /** the run name: `sched:<unixSeconds>` for cron, `manual:<token>` for run-now */
+  name: string;
+  /** the instant this run was due.` */
+  scheduled_for: string;
+  status: ScheduleRunStatus;
+  /** `UserContext.userRef` of who triggered the run */
+  triggered_by: string;
+  /** set on the guarded `scheduled -> running` transition */
+  started_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -280,6 +328,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  schedule: ScheduleTable;
+  schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
