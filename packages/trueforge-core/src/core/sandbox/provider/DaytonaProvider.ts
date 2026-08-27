@@ -29,12 +29,13 @@ const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
 /**
- * Cap on the snapshot registration round-trip.
+ * Cap on the snapshot registration request itself.
  *
- * A caller racing this against `withTimeout` abandons the promise but leaves the request running,
- * so the socket is only released by undici's own ~5-minute default. This aborts the request itself.
+ * `withTimeout` at a caller is a `Promise.race`: it frees the caller but leaves the request running,
+ * so the connection survives until undici's own default. Matches the longest caller budget, so the
+ * socket outlives no one still waiting on it.
  */
-const SNAPSHOT_REGISTER_TIMEOUT_MS = 10_000;
+const SNAPSHOT_REGISTER_TIMEOUT_MS = 60_000;
 
 const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
