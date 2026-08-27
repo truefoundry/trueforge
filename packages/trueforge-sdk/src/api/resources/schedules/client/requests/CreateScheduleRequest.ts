@@ -5,7 +5,7 @@ import type * as TrueForge from "../../../../index.js";
 /**
  * @example
  *     {
- *         agentId: "agent_id",
+ *         agentName: "agent_name",
  *         manifest: {
  *             cron: "cron",
  *             task: "task"
@@ -14,7 +14,7 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface CreateScheduleRequest {
-    agentId: string;
+    agentName: TrueForge.ResourceName;
     manifest: TrueForge.ScheduleManifest;
     name: TrueForge.ResourceName;
 }

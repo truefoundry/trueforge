@@ -12,7 +12,7 @@ describe("SchedulesClient", () => {
         const rawResponseBody = {
             data: [
                 {
-                    agent_id: "agent_id",
+                    agent_name: "agent_name",
                     created_at: "2024-01-15T09:30:00Z",
                     created_by: "created_by",
                     id: "id",
@@ -29,7 +29,7 @@ describe("SchedulesClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    agentId: "agent_id",
+                    agentName: "agent_name",
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
                     createdBy: "created_by",
                     id: "id",
@@ -60,10 +60,10 @@ describe("SchedulesClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { agent_id: "agent_id", manifest: { cron: "cron", task: "task" }, name: "name" };
+        const rawRequestBody = { agent_name: "agent_name", manifest: { cron: "cron", task: "task" }, name: "name" };
         const rawResponseBody = {
             data: {
-                agent_id: "agent_id",
+                agent_name: "agent_name",
                 created_at: "2024-01-15T09:30:00Z",
                 created_by: "created_by",
                 id: "id",
@@ -83,7 +83,7 @@ describe("SchedulesClient", () => {
             .build();
 
         const response = await client.schedules.create({
-            agentId: "agent_id",
+            agentName: "agent_name",
             manifest: {
                 cron: "cron",
                 task: "task",
@@ -92,7 +92,7 @@ describe("SchedulesClient", () => {
         });
         expect(response).toEqual({
             data: {
-                agentId: "agent_id",
+                agentName: "agent_name",
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
                 createdBy: "created_by",
                 id: "id",
@@ -111,7 +111,7 @@ describe("SchedulesClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { agent_id: "x", manifest: { cron: "cron", task: "x" }, name: "xy" };
+        const rawRequestBody = { agent_name: "xy", manifest: { cron: "cron", task: "x" }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -125,7 +125,7 @@ describe("SchedulesClient", () => {
 
         await expect(async () => {
             return await client.schedules.create({
-                agentId: "x",
+                agentName: "xy",
                 manifest: {
                     cron: "cron",
                     task: "x",
@@ -141,7 +141,7 @@ describe("SchedulesClient", () => {
 
         const rawResponseBody = {
             data: {
-                agent_id: "agent_id",
+                agent_name: "agent_name",
                 created_at: "2024-01-15T09:30:00Z",
                 created_by: "created_by",
                 id: "id",
@@ -162,7 +162,7 @@ describe("SchedulesClient", () => {
         const response = await client.schedules.get("schedule_id");
         expect(response).toEqual({
             data: {
-                agentId: "agent_id",
+                agentName: "agent_name",
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
                 createdBy: "created_by",
                 id: "id",
@@ -203,7 +203,7 @@ describe("SchedulesClient", () => {
         const rawRequestBody = { manifest: { cron: "cron", task: "task" }, name: "name" };
         const rawResponseBody = {
             data: {
-                agent_id: "agent_id",
+                agent_name: "agent_name",
                 created_at: "2024-01-15T09:30:00Z",
                 created_by: "created_by",
                 id: "id",
@@ -231,7 +231,7 @@ describe("SchedulesClient", () => {
         });
         expect(response).toEqual({
             data: {
-                agentId: "agent_id",
+                agentName: "agent_name",
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
                 createdBy: "created_by",
                 id: "id",

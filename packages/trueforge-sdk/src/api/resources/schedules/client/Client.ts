@@ -47,9 +47,9 @@ export class SchedulesClient {
         request: TrueForge.ListSchedulesRequest = {},
         requestOptions?: SchedulesClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.ListSchedulesResponse>> {
-        const { agentId } = request;
+        const { agentName } = request;
         const _queryParams: Record<string, unknown> = {
-            agent_id: agentId,
+            agent_name: agentName,
         };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
@@ -115,7 +115,7 @@ export class SchedulesClient {
     }
 
     /**
-     * Create a schedule for an existing agent and add its first pending run when active.
+     * Create a schedule for an existing agent (by name) and add its first pending run when active.
      *
      * @param {TrueForge.CreateScheduleRequest} request
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -126,7 +126,7 @@ export class SchedulesClient {
      *
      * @example
      *     await client.schedules.create({
-     *         agentId: "agent_id",
+     *         agentName: "agent_name",
      *         manifest: {
      *             cron: "cron",
      *             task: "task"

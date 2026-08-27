@@ -929,9 +929,8 @@
       "CreateScheduleRequest": {
         "additionalProperties": false,
         "properties": {
-          "agent_id": {
-            "minLength": 1,
-            "type": "string"
+          "agent_name": {
+            "$ref": "#/components/schemas/ResourceName"
           },
           "manifest": {
             "$ref": "#/components/schemas/ScheduleManifest"
@@ -941,7 +940,7 @@
           }
         },
         "required": [
-          "agent_id",
+          "agent_name",
           "name",
           "manifest"
         ],
@@ -2856,8 +2855,8 @@
       "Schedule": {
         "additionalProperties": false,
         "properties": {
-          "agent_id": {
-            "type": "string"
+          "agent_name": {
+            "$ref": "#/components/schemas/ResourceName"
           },
           "created_at": {
             "format": "date-time",
@@ -2882,7 +2881,7 @@
         },
         "required": [
           "id",
-          "agent_id",
+          "agent_name",
           "name",
           "manifest",
           "created_by",
@@ -5290,14 +5289,19 @@
         "description": "List schedules for the tenant, newest first.",
         "parameters": [
           {
-            "description": "Filter by bound agent.",
+            "description": "Filter by bound agent name.",
             "in": "query",
-            "name": "agent_id",
+            "name": "agent_name",
             "required": false,
             "schema": {
-              "description": "Filter by bound agent.",
-              "minLength": 1,
-              "type": "string"
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ResourceName"
+                },
+                {
+                  "description": "Filter by bound agent name."
+                }
+              ]
             }
           }
         ],
@@ -5333,7 +5337,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "post": {
-        "description": "Create a schedule for an existing agent and add its first pending run when active.",
+        "description": "Create a schedule for an existing agent (by name) and add its first pending run when active.",
         "requestBody": {
           "content": {
             "application/json": {
