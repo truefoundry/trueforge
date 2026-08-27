@@ -81,8 +81,8 @@ export const getAgentCodeSnippetsRoute = createRoute({
   summary: 'Get agent SDK code snippets',
   description:
     'TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.',
-  'x-fern-sdk-group-name': ['agents'],
-  'x-fern-sdk-method-name': 'get_code_snippets',
+  'x-fern-ignore': true,
+  'x-excluded': true,
   request: {
     params: AgentIdParamsSchema,
   },
