@@ -4426,6 +4426,118 @@
         "x-fern-sdk-method-name": "update"
       }
     },
+    "/api/v1/agents/{agent_id}/code-snippets": {
+      "get": {
+        "description": "TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.",
+        "parameters": [
+          {
+            "description": "Immutable agent identifier.",
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "base_url": {
+                          "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+                          "format": "uri",
+                          "type": "string"
+                        },
+                        "snippets": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "icon": {
+                                "format": "uri",
+                                "type": "string"
+                              },
+                              "label_name": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "language": {
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "sample_code": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "non_stream": {
+                                    "description": "SDK sample that creates a turn without streaming.",
+                                    "type": "string"
+                                  },
+                                  "stream": {
+                                    "description": "SDK sample that streams turn events.",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "stream",
+                                  "non_stream"
+                                ],
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "label_name",
+                              "language",
+                              "icon",
+                              "sample_code"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "base_url",
+                        "snippets"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "TypeScript SDK samples and the origin to use as `baseUrl`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
+          }
+        },
+        "summary": "Get agent SDK code snippets",
+        "tags": [
+          "Agents"
+        ],
+        "x-excluded": true,
+        "x-fern-ignore": true
+      }
+    },
     "/api/v1/auth/callback": {
       "get": {
         "description": "Browser-redirect target hit by the identity provider after login, never called directly by SDK consumers. In local/single-binary mode, redirects straight back into the app.",
