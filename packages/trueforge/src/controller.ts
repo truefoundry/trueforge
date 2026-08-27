@@ -75,8 +75,8 @@ try {
     shuttingDown = true;
     logger.info(`Received ${signal}, stopping control loops`);
 
-    // Arm at the start of shutdown; unref so this timer alone cannot keep the process
-    // alive. Passes only hold short transactions, so this should never fire.
+    // Start the deadline at the top of shutdown; unref so this timer alone cannot keep the process
+    // alive. Passes only hold short transactions, so this should never elapse.
     setTimeout(() => {
       logger.warn(`Controller drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
       process.exit(1);

@@ -235,7 +235,7 @@ export interface ScheduleTable {
   name: string;
   /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
   manifest: JsonbColumn<ScheduleManifest>;
-  /** `paused` stops firing and drops the pending run; in-flight runs continue */
+  /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
   /** Identity every run of this schedule executes as (`UserContext.userRef`) */
   created_by: string;

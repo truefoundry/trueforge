@@ -2,14 +2,14 @@ import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
 
 /**
- * Minimum gap between two fires of one schedule.
+ * Minimum gap between two triggers of one schedule.
  */
 export const SCHEDULE_MIN_INTERVAL_SECONDS = 3600;
 
 /**
- * How late a scheduled run may still fire. A run found later than this is recorded
+ * How late a scheduled run may still trigger. A run found later than this is recorded
  * `missed` instead of executed, so a long outage does not end with the server
- * firing a stale run.
+ * triggering a stale run.
  */
 export const SCHEDULE_MAX_LATENESS_SECONDS = 3600;
 
@@ -18,7 +18,7 @@ export const SCHEDULE_MAX_LATENESS_SECONDS = 3600;
  */
 const CRON_FIELD = String.raw`[\d*,\-/]+`;
 
-/** Cron expression cannot produce a valid upcoming fire, or violates schedule policy. */
+/** Cron expression cannot produce a valid upcoming trigger, or violates schedule policy. */
 export class InvalidCronError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -40,12 +40,12 @@ export const CronExpressionSchema = z
  * IANA zone name — never a fixed UTC offset, which cannot represent DST.
  *
  * Optional in the manifest; defaults to UTC, which is also the recommendation when
- * the fire instant matters more than the local hour.
+ * the trigger instant matters more than the local hour.
  *
  * Cron matching is literal wall-clock, so on a DST transition day a 02:30
- * schedule does not fire at all (spring forward) and a 01:30 schedule fires twice
+ * schedule does not trigger at all (spring forward) and a 01:30 schedule triggers twice
  * (fall back). Both are accepted and documented; `schedule_run.name` derives from
- * the fire instant, so a double fire is two legitimately distinct runs.
+ * the trigger instant, so a double trigger is two legitimately distinct runs.
  */
 export const TimezoneSchema = z
   .string()

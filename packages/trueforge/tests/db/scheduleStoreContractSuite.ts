@@ -1,7 +1,7 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { IAgentStore } from '../../src/db/agentStore';
 import { cronRunName, type IScheduleStore } from '../../src/db/scheduleStore';
-import { nextFireAfter } from '../../src/runtime/cron';
+import { nextTriggerAfter } from '../../src/runtime/cron';
 import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas/schedule';
 
 const TENANT = 'default';
@@ -33,7 +33,7 @@ export function runScheduleStoreContractSuite(deps: {
     return { id: agent.id, name: agent.name };
   }
 
-  it('create active schedule adds a pending run for the next cron fire', async () => {
+  it('create active schedule adds a pending run for the next cron trigger', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const runFrom = new Date('2026-08-27T10:00:00.000Z');
@@ -53,7 +53,7 @@ export function runScheduleStoreContractSuite(deps: {
         schedule_id: schedule.id,
         status: 'scheduled',
         triggered_by: USER,
-        scheduled_for: nextFireAfter(m.cron, m.timezone, runFrom).toISOString(),
+        scheduled_for: nextTriggerAfter(m.cron, m.timezone, runFrom).toISOString(),
       }),
     );
     expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toEqual(pendingRun);
@@ -108,11 +108,11 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom: resumeFrom,
     });
     expect(resumed?.pendingRun?.scheduled_for).toBe(
-      nextFireAfter('0 * * * *', 'UTC', resumeFrom).toISOString(),
+      nextTriggerAfter('0 * * * *', 'UTC', resumeFrom).toISOString(),
     );
   });
 
-  it('updating cron while active replaces the pending run with a new slot', async () => {
+  it('updating cron while active replaces the pending run with a new trigger time', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
@@ -124,7 +124,7 @@ export function runScheduleStoreContractSuite(deps: {
       created_by: USER,
       runFrom,
     });
-    expect(first?.scheduled_for).toBe(nextFireAfter('0 9 * * *', 'UTC', runFrom).toISOString());
+    expect(first?.scheduled_for).toBe(nextTriggerAfter('0 9 * * *', 'UTC', runFrom).toISOString());
 
     const updated = await store.updateScheduleAndRun({
       tenant_id: TENANT,
@@ -134,7 +134,7 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom,
     });
     expect(updated?.pendingRun?.id).not.toBe(first?.id);
-    expect(updated?.pendingRun?.scheduled_for).toBe(nextFireAfter('0 17 * * *', 'UTC', runFrom).toISOString());
+    expect(updated?.pendingRun?.scheduled_for).toBe(nextTriggerAfter('0 17 * * *', 'UTC', runFrom).toISOString());
     expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toEqual(updated?.pendingRun);
   });
 
@@ -152,7 +152,7 @@ export function runScheduleStoreContractSuite(deps: {
     });
     expect(first).toBeDefined();
 
-    // A later runFrom would move the next slot if sync ran; it must not.
+    // A later runFrom would move the next trigger time if sync ran; it must not.
     const updated = await store.updateScheduleAndRun({
       tenant_id: TENANT,
       id: schedule.id,
@@ -359,12 +359,12 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom: new Date(),
     });
 
-    const slot = new Date('2026-08-27T12:00:00.000Z');
+    const triggersAt = new Date('2026-08-27T12:00:00.000Z');
     const first = await store.createRun({
       tenant_id: TENANT,
       schedule_id: schedule.id,
-      name: cronRunName(slot),
-      scheduled_for: slot,
+      name: cronRunName(triggersAt),
+      scheduled_for: triggersAt,
       status: 'scheduled',
       triggered_by: USER,
     });
@@ -374,8 +374,8 @@ export function runScheduleStoreContractSuite(deps: {
       store.createRun({
         tenant_id: TENANT,
         schedule_id: schedule.id,
-        name: cronRunName(slot),
-        scheduled_for: slot,
+        name: cronRunName(triggersAt),
+        scheduled_for: triggersAt,
         status: 'scheduled',
         triggered_by: USER,
       }),
@@ -477,12 +477,12 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom: new Date(),
     });
 
-    async function seedScheduled(slot: Date) {
+    async function seedScheduled(triggersAt: Date) {
       return store.createRun({
         tenant_id: TENANT,
         schedule_id: schedule.id,
-        name: cronRunName(slot),
-        scheduled_for: slot,
+        name: cronRunName(triggersAt),
+        scheduled_for: triggersAt,
         status: 'scheduled',
         triggered_by: USER,
       });

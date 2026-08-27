@@ -56,12 +56,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     // Partial: the table is overwhelmingly terminal rows.
     await sql`
-      CREATE INDEX schedule_run_due_idx
+      CREATE INDEX schedule_run_scheduled_for_idx
         ON schedule_run (scheduled_for)
         WHERE status = 'scheduled'
     `.execute(trx);
 
-    // At most one pending run per schedule — the resume-vs-fire race as a constraint.
+    // At most one pending run per schedule — the resume-vs-trigger race as a constraint.
     await sql`
       CREATE UNIQUE INDEX schedule_run_pending_uq
         ON schedule_run (schedule_id)

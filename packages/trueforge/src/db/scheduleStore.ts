@@ -1,6 +1,6 @@
 /**
  * DB-backed schedules and their runs: one `schedule` row per cron binding, plus a
- * `schedule_run` row per fire (pending or historical).
+ * `schedule_run` row per run (pending or historical).
  *
  * One store covers both tables because they are never used apart — the dispatch
  * path needs a scheduled run and its schedule in the same query, and every schedule
@@ -27,8 +27,8 @@ import { ScheduleManifestSchema, type ScheduleManifest, type ScheduleStatus } fr
 export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed' | 'missed';
 
 /**
- * `sched-<unixSeconds>` or `manual-<token>` — one name per cron slot, which is what makes
- * `schedule_run_name_idx` reject a duplicated fire.
+ * `sched-<unixSeconds>` or `manual-<token>` — one name per trigger time, which is what makes
+ * `schedule_run_name_idx` reject a duplicated trigger.
  */
 export function cronRunName(scheduledFor: Date): string {
   return `sched-${String(Math.floor(scheduledFor.getTime() / 1000))}`;
@@ -104,7 +104,7 @@ export interface CreateScheduleInput {
   name: string;
   manifest: ScheduleManifest;
   created_by: string;
-  /** Instant used to compute the first pending fire when status is active. */
+  /** Instant used to compute the first pending run when status is active. */
   runFrom: Date;
 }
 
@@ -115,7 +115,7 @@ export interface UpdateScheduleInput {
   name: string;
   manifest: ScheduleManifest;
   /**
-   * Instant used to compute the next pending fire when a sync runs (status/cron/timezone
+   * Instant used to compute the next pending run when a sync runs (status/cron/timezone
    * change) and the schedule is active.
    */
   runFrom: Date;
@@ -172,7 +172,7 @@ export interface IScheduleStore<TTransaction = never> {
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
   /**
    * Inserts a schedule (`status` mirrors `manifest.status`) and syncs the pending run
-   * in the same call: active adds the next fire from `runFrom`; paused adds nothing.
+   * in the same call: active adds the next run from `runFrom`; paused adds nothing.
    */
   createScheduleAndRun(input: CreateScheduleInput, transaction?: TTransaction): Promise<ScheduleWriteResult>;
   /**
@@ -180,7 +180,10 @@ export interface IScheduleStore<TTransaction = never> {
    * `timezone` change. `name` / `task` edits leave the pending row alone.
    * Returns undefined if the schedule is gone.
    */
-  updateScheduleAndRun(input: UpdateScheduleInput,transaction?: TTransaction): Promise<ScheduleWriteResult | undefined>;
+  updateScheduleAndRun(
+    input: UpdateScheduleInput,
+    transaction?: TTransaction,
+  ): Promise<ScheduleWriteResult | undefined>;
   /** Deletes by immutable id; runs cascade. Idempotent if already missing. */
   deleteSchedule(input: DeleteScheduleInput, transaction?: TTransaction): Promise<void>;
   listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
@@ -196,7 +199,10 @@ export interface IScheduleStore<TTransaction = never> {
    * Status transition. Stamps `triggered_at` when moving to `triggered`.
    * Returns undefined when the row is gone (e.g. pause deleted it).
    */
-  updateRunStatus(input: UpdateScheduleRunStatusInput,transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
+  updateRunStatus(
+    input: UpdateScheduleRunStatusInput,
+    transaction?: TTransaction,
+  ): Promise<ScheduleRunRecord | undefined>;
   /** Drops the scheduled run (pause, manifest edit, delete-and-reinsert). Idempotent. */
   deleteScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<void>;
   /**

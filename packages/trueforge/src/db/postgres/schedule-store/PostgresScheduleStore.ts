@@ -1,6 +1,6 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import { ulid } from 'ulid';
-import { nextFireAfter } from '../../../runtime/cron';
+import { nextTriggerAfter } from '../../../runtime/cron';
 import {
   cronRunName,
   parseStoredScheduleManifest,
@@ -139,13 +139,13 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     if (schedule.status !== 'active') {
       return undefined;
     }
-    const nextFire = nextFireAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
+    const nextTrigger = nextTriggerAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
     return this.createRun(
       {
         tenant_id: schedule.tenant_id,
         schedule_id: schedule.id,
-        name: cronRunName(nextFire),
-        scheduled_for: nextFire,
+        name: cronRunName(nextTrigger),
+        scheduled_for: nextTrigger,
         status: 'scheduled',
         triggered_by: schedule.created_by,
       },

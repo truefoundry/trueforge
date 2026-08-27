@@ -14,7 +14,7 @@ import {
   listSchedulesRoute,
   putScheduleRoute,
 } from '../routes/scheduleRoutes';
-import { minIntervalSeconds, nextFireAfter } from '../runtime/cron';
+import { minIntervalSeconds, nextTriggerAfter } from '../runtime/cron';
 import {
   InvalidCronError,
   SCHEDULE_MIN_INTERVAL_SECONDS,
@@ -46,31 +46,31 @@ export function validateManifest(
   manifest: Pick<ScheduleManifest, 'cron' | 'timezone'>,
   from: Date = new Date(),
 ): void {
-  // Reject if the cron has no upcoming fire (impossible / exhausted calendar).
+  // Reject if the cron has no upcoming trigger time (impossible / exhausted calendar).
   // 5-field cron has no year, so a valid expression always recurs — no one-shot check.
   try {
-    nextFireAfter(manifest.cron, manifest.timezone, from);
+    nextTriggerAfter(manifest.cron, manifest.timezone, from);
   } catch (error) {
     throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" has no next fire time in ${manifest.timezone}`,
+      `Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`,
       { cause: error },
     );
   }
 
-  // Reject expressions that fire < SCHEDULE_MIN_INTERVAL_SECONDS seconds apart.
+  // Reject expressions that trigger < SCHEDULE_MIN_INTERVAL_SECONDS seconds apart.
   let tightest: number;
   try {
     tightest = minIntervalSeconds(manifest, from);
   } catch (error) {
     throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" has no next fire time in ${manifest.timezone}`,
+      `Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`,
       { cause: error },
     );
   }
 
   if (tightest < SCHEDULE_MIN_INTERVAL_SECONDS) {
     throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" fires every ${String(tightest)}s; the minimum interval is ${String(
+      `Cron expression "${manifest.cron}" triggers every ${String(tightest)}s; the minimum interval is ${String(
         SCHEDULE_MIN_INTERVAL_SECONDS,
       )}s`,
     );

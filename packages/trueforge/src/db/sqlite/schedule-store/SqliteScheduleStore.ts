@@ -1,6 +1,6 @@
 import { sql, type ExpressionBuilder, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { ulid } from 'ulid';
-import { nextFireAfter } from '../../../runtime/cron';
+import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleStatus } from '../../../schemas/schedule';
 import {
   cronRunName,
@@ -189,13 +189,13 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     if (schedule.status !== 'active') {
       return undefined;
     }
-    const nextFire = nextFireAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
+    const nextTrigger = nextTriggerAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
     return this.createRun(
       {
         tenant_id: schedule.tenant_id,
         schedule_id: schedule.id,
-        name: cronRunName(nextFire),
-        scheduled_for: nextFire,
+        name: cronRunName(nextTrigger),
+        scheduled_for: nextTrigger,
         status: 'scheduled',
         triggered_by: schedule.created_by,
       },

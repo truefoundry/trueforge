@@ -7,7 +7,7 @@ import {
   type ScheduleRunStatus,
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
-import { nextFireAfter } from '../runtime/cron';
+import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, SCHEDULE_MAX_LATENESS_SECONDS } from '../schemas/schedule';
 import type { ControlLoop } from './Controller';
 
@@ -23,9 +23,9 @@ export const DISPATCH_BATCH_LIMIT = 20;
 /**
  * Gap between loop passes.
  *
- * Well below the minimum schedule interval, so a slot is picked up within a tick of
+ * Well below the minimum schedule interval, so a run is picked up within a tick of
  * `scheduled_for` passing, and cheap: an idle pass is one indexed query against
- * `schedule_run_due_idx`.
+ * `schedule_run_scheduled_for_idx`.
  */
 const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 
@@ -37,8 +37,8 @@ function isTooLate(run: ScheduleRunRecord, now: number): boolean {
 }
 
 /**
- * Mark the current run with `status`, then advance the schedule to the next slot 
- * if the schedule is still active and its cron still has a later fire.
+ * Mark the current run with `status`, then add the schedule's next scheduled run 
+ * if the schedule is still active and its cron still has a later trigger time.
  */
 async function finishScheduledRun<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -64,14 +64,14 @@ async function finishScheduledRun<TTransaction>(params: {
       return;
     }
 
-    let nextFire: Date;
+    let nextTrigger: Date;
     try {
-      nextFire = nextFireAfter(latest.manifest.cron, latest.manifest.timezone, new Date());
+      nextTrigger = nextTriggerAfter(latest.manifest.cron, latest.manifest.timezone, new Date());
     } catch (error) {
       if (!(error instanceof InvalidCronError)) {
         throw error;
       }
-      // No later slot (calendar dead end). Ideally should not happen.
+      // No later trigger time (calendar dead end). Ideally should not happen.
       // Still finish the current row; just do not add another.
       return;
     }
@@ -80,8 +80,8 @@ async function finishScheduledRun<TTransaction>(params: {
       {
         tenant_id: latest.tenant_id,
         schedule_id: latest.id,
-        name: cronRunName(nextFire),
-        scheduled_for: nextFire,
+        name: cronRunName(nextTrigger),
+        scheduled_for: nextTrigger,
         status: 'scheduled',
         triggered_by: latest.created_by,
       },
@@ -92,7 +92,7 @@ async function finishScheduledRun<TTransaction>(params: {
 
 /**
  * Schedule dispatch: turn `scheduled` runs with `scheduled_for <= now` into
- * triggered runs and advance each schedule to its next slot.
+ * triggered runs and add each schedule's next scheduled run.
  *
  * ## IDEMPOTENCY
  * If the process dies between steps, the same scheduled run is seen again on
@@ -110,14 +110,14 @@ async function finishScheduledRun<TTransaction>(params: {
  *   It never cancels a row that still exists: whatever pause did not delete is
  *   executed (or recorded `missed`) so history has no unexplained gap.
  *   If pause commits first, the row is gone and there is nothing to run.
- *   If dispatch commits first, the run fires and pause deletes the pending row
- *   dispatch just added, so firing stops from the next tick — at most one extra run.
+ *   If dispatch commits first, the run triggers and pause deletes the pending row
+ *   dispatch just added, so triggering stops from the next tick — at most one extra run.
  * - **resume **: no race condition; resume just adds a run.
  * - **cron expression change**: deletes the pending run and inserts a fresh one from the new cron.
  *   If put commits first, the pending run is replaced; finish does not insert again.
- *   Missing triggered history for that fire is accepted.
- *   If dispatch commits first, the run fires and put deletes the pending row dispatch just added,
- *   then inserts a fresh one. So the fire that already handed off is kept; the next pending is put's.
+ *   Missing triggered history for that run is accepted.
+ *   If dispatch commits first, the run triggers and put deletes the pending row dispatch just added,
+ *   then inserts a fresh one. So the run that already handed off is kept; the next pending is put's.
  * - **delete**: cascades the runs away. Dispatch either sees the schedule gone
  *   or holds the row and delete waits. A run already handed to the executor keeps going
  *   and leaves an orphan session; the run row is gone, which is accepted.
@@ -163,7 +163,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           status: 'missed',
           withTransaction,
         });
-        logger.warn('Schedule run missed its slot', {
+        logger.warn('Schedule run missed its scheduled time', {
           schedule_id: run.schedule_id,
           run_id: run.id,
           scheduled_for: run.scheduled_for,

@@ -386,7 +386,7 @@ export interface ScheduleTable {
   name: string;
   /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
-  /** `paused` stops firing and drops the pending run; in-flight runs continue */
+  /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
   /** Identity every run of this schedule executes as (`UserContext.userRef`) */
   created_by: string;
@@ -395,7 +395,7 @@ export interface ScheduleTable {
 }
 
 /**
- * One row per fire, pending or historical.
+ * One row per run, pending or historical.
  * PRIMARY KEY (id)
  */
 export interface ScheduleRunTable {
@@ -404,7 +404,7 @@ export interface ScheduleRunTable {
   tenant_id: string;
   /** FK -> schedule.id, ON DELETE CASCADE */
   schedule_id: string;
-  /** the fire slot: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
+  /** unique per trigger time: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
   scheduled_for: Date;
   /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
@@ -485,7 +485,7 @@ export interface OAuthPendingAuthorizationTable {
  * `skill`, `sandbox_provider`, `agent`, `mcp_server`, and the two `oauth_*` tables
  * are low-write, low-volume (one row per tenant/resource, or short-lived).
  * `schedule` is low-write; `schedule_run` takes a handful of bounded updates per
- * fire and is otherwise append-only.
+ * trigger and is otherwise append-only.
  *
  * Canonical Kysely database.
  */

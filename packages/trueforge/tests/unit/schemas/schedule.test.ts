@@ -50,7 +50,7 @@ describe('validateManifest', () => {
     }).toThrow(InvalidCronError);
   });
 
-  it('rejects a back-dated cron with no upcoming fire', () => {
+  it('rejects a back-dated cron with no upcoming trigger time', () => {
     expect(() => {
       validateManifest({ cron: '0 0 30 2 *', timezone: 'UTC' });
     }).toThrow(InvalidCronError);

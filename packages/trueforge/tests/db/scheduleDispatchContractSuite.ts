@@ -11,7 +11,7 @@ import {
   type ScheduleRunRecord,
 } from '../../src/db/scheduleStore';
 import type { WithTransaction } from '../../src/db/transaction';
-import { nextFireAfter } from '../../src/runtime/cron';
+import { nextTriggerAfter } from '../../src/runtime/cron';
 import {
   SCHEDULE_MAX_LATENESS_SECONDS,
   ScheduleManifestSchema,
@@ -25,8 +25,8 @@ const USER = 'tester';
 const OTHER_ACTOR = 'someone-else';
 const CRON = '0 * * * *';
 /**
- * Fires every minute. Used where a slot in the past must produce a DIFFERENT next
- * fire than `now` does — an hourly cron aliases the two unless the seeded slot
+ * Triggers every minute. Used where a past `scheduled_for` must produce a DIFFERENT
+ * next trigger time than `now` does — an hourly cron aliases the two unless the seeded time
  * happens to straddle an hour boundary, which makes the assertion flaky rather
  * than wrong. The one-hour minimum interval is an API-layer rule, not a store one.
  */
@@ -43,11 +43,11 @@ function manifest(overrides: Partial<ScheduleManifest> = {}): ScheduleManifest {
   });
 }
 
-/** Next fire may land on either side of an hour boundary between seed and assert. */
-function expectNextFireIso(actual: string | undefined, fromMs: number, toMs: number): void {
+/** Next trigger time may land on either side of an hour boundary between seed and assert. */
+function expectNextTriggerIso(actual: string | undefined, fromMs: number, toMs: number): void {
   const candidates = new Set([
-    nextFireAfter(CRON, TIMEZONE, new Date(fromMs)).toISOString(),
-    nextFireAfter(CRON, TIMEZONE, new Date(toMs)).toISOString(),
+    nextTriggerAfter(CRON, TIMEZONE, new Date(fromMs)).toISOString(),
+    nextTriggerAfter(CRON, TIMEZONE, new Date(toMs)).toISOString(),
   ]);
   expect(actual !== undefined && candidates.has(actual)).toBe(true);
 }
@@ -75,25 +75,25 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
   }
 
   /**
-   * Due rows belonging to one schedule.
+   * Runs of one schedule whose `scheduled_for` has passed.
    *
    * `findScheduledRuns` is unscoped by design — dispatch sweeps every schedule — so
    * a test must never assert on its raw result, or it inherits whatever pending rows
    * its neighbours left behind.
    */
-  async function dueRunsFor(scheduleId: string): Promise<ScheduleRunRecord[]> {
+  async function scheduledRunsFor(scheduleId: string): Promise<ScheduleRunRecord[]> {
     const found = await deps.getScheduleStore().findScheduledRuns({ limit: 100 });
     return found.filter(run => run.schedule_id === scheduleId);
   }
 
   /**
-   * Advances any due row left behind by an earlier test.
+   * Advances any run left ready by an earlier test.
    *
    * `dispatchScheduledRuns` sweeps every schedule, so a test that asserts on the
    * pass RESULT (counters, hand-off order) — rather than on specific rows — must
-   * start from a database with nothing else due.
+   * start from a database where nothing else is ready to run.
    */
-  async function drainDueRuns(): Promise<void> {
+  async function drainScheduledRuns(): Promise<void> {
     await dispatchScheduledRuns({
       scheduleStore: deps.getScheduleStore(),
       withTransaction: deps.withTransaction,
@@ -121,7 +121,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       created_by: USER,
       runFrom: new Date(),
     });
-    // Replace any auto-added pending slot with the exact scheduled run under test.
+    // Replace the auto-added pending run with the exact one under test.
     await store.deleteScheduledRun({ tenant_id: TENANT, id: schedule.id });
     const run = await store.createRun({
       tenant_id: TENANT,
@@ -186,15 +186,15 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       }),
     );
     expect(next?.id).not.toBe(run.id);
-    expectNextFireIso(next?.scheduled_for, before, after);
-    // Whatever the cron, an advanced slot is never already due.
+    expectNextTriggerIso(next?.scheduled_for, before, after);
+    // Whatever the cron, the next run is never already ready to run.
     expect(Date.parse(next?.scheduled_for ?? '')).toBeGreaterThan(before);
   });
 
-  it('advances from now, not from the slot it just ran (no backfill)', async () => {
+  it('advances from now, not from the time it just ran (no backfill)', async () => {
     const store = deps.getScheduleStore();
     // Half an hour late: still inside the lateness bound, so this run triggers. With a
-    // minute-level cron, advancing from the SLOT would land ~29 minutes in the past,
+    // minute-level cron, advancing from `scheduled_for` would land ~29 minutes in the past,
     // while advancing from NOW lands in the next minute — the two cannot alias.
     const staleSlot = new Date(Date.now() - 30 * 60_000);
     const { schedule, run } = await seedSchedule({
@@ -215,11 +215,11 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
 
     const next = await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id });
     expect(next?.id).not.toBe(run.id);
-    // The intervening 30 minutes of slots are skipped outright, never replayed.
+    // The intervening 30 minutes of triggers are skipped outright, never replayed.
     expect(Date.parse(next?.scheduled_for ?? '')).toBeGreaterThan(before);
     const candidates = new Set([
-      nextFireAfter(MINUTELY_CRON, TIMEZONE, new Date(before)).toISOString(),
-      nextFireAfter(MINUTELY_CRON, TIMEZONE, new Date(after)).toISOString(),
+      nextTriggerAfter(MINUTELY_CRON, TIMEZONE, new Date(before)).toISOString(),
+      nextTriggerAfter(MINUTELY_CRON, TIMEZONE, new Date(after)).toISOString(),
     ]);
     expect(next?.scheduled_for !== undefined && candidates.has(next.scheduled_for)).toBe(true);
   });
@@ -261,7 +261,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       }),
     );
     expect(next?.id).not.toBe(run.id);
-    expectNextFireIso(next?.scheduled_for, before, after);
+    expectNextTriggerIso(next?.scheduled_for, before, after);
   });
 
   it('marks the run failed when onTriggered throws; the next scheduled run stays added', async () => {
@@ -351,7 +351,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({ scheduledFor: pastScheduledFor });
-    // Distinct from the seeded hourly `:00` cron so the next slot cannot alias.
+    // Distinct from the seeded hourly `:00` cron so the next trigger time cannot alias.
     const newCron = '15 * * * *';
     const before = Date.now();
 
@@ -384,14 +384,14 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       }),
     );
     const newCandidates = new Set([
-      nextFireAfter(newCron, TIMEZONE, new Date(before)).toISOString(),
-      nextFireAfter(newCron, TIMEZONE, new Date(after)).toISOString(),
+      nextTriggerAfter(newCron, TIMEZONE, new Date(before)).toISOString(),
+      nextTriggerAfter(newCron, TIMEZONE, new Date(after)).toISOString(),
     ]);
     expect(next?.scheduled_for !== undefined && newCandidates.has(next.scheduled_for)).toBe(true);
 
     const oldCandidates = new Set([
-      nextFireAfter(CRON, TIMEZONE, new Date(before)).toISOString(),
-      nextFireAfter(CRON, TIMEZONE, new Date(after)).toISOString(),
+      nextTriggerAfter(CRON, TIMEZONE, new Date(before)).toISOString(),
+      nextTriggerAfter(CRON, TIMEZONE, new Date(after)).toISOString(),
     ]);
     expect(oldCandidates.has(next!.scheduled_for)).toBe(false);
   });
@@ -426,7 +426,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       expect.objectContaining({ id: schedule.id, status: 'paused' }),
     );
     expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
-    expect(await dueRunsFor(schedule.id)).toEqual([]);
+    expect(await scheduledRunsFor(schedule.id)).toEqual([]);
 
     const second = await dispatchScheduledRuns({
       scheduleStore: store,
@@ -439,13 +439,13 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
 
     expect(second).toEqual({ dispatched: 0, missed: 0 });
     expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
-    expect(await dueRunsFor(schedule.id)).toEqual([]);
+    expect(await scheduledRunsFor(schedule.id)).toEqual([]);
   });
 
   it('processes a whole batch oldest first, isolating one run\'s failure from the rest', async () => {
     const store = deps.getScheduleStore();
-    // This test asserts on the pass result, so nothing else may be due first.
-    await drainDueRuns();
+    // This test asserts on the pass result, so nothing else may be ready first.
+    await drainScheduledRuns();
     expect(await store.findScheduledRuns({ limit: 100 })).toEqual([]);
 
     const now = Date.now();
@@ -486,12 +486,12 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       expect.objectContaining({ status: 'triggered', triggered_at: expect.any(String) }),
     );
 
-    // Every schedule advances, whatever its run's outcome, and never onto a due slot.
+    // Every schedule advances, whatever its run's outcome, and never onto a past time.
     for (const seeded of [late, thrower, healthy]) {
       const next = await store.getScheduledRun({ tenant_id: TENANT, id: seeded.schedule.id });
       expect(next?.id).not.toBe(seeded.run.id);
       expect(Date.parse(next?.scheduled_for ?? '')).toBeGreaterThan(before);
-      expect(await dueRunsFor(seeded.schedule.id)).toEqual([]);
+      expect(await scheduledRunsFor(seeded.schedule.id)).toEqual([]);
     }
   });
 }

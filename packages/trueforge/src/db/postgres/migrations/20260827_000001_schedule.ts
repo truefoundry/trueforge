@@ -7,17 +7,17 @@ import { sql, type Kysely } from 'kysely';
  *   Zod-validated `manifest` jsonb (same pattern as `agent`). Bound by agent
  *   name: FK `(tenant_id, agent_name)` → `agent(tenant_id, name)` ON DELETE CASCADE
  *   (agent names are unique and immutable within a tenant).
- * - `schedule_run`: one row per fire, past or pending. The single pending run is a
- *   row like any other (`status = 'scheduled'`), which is what makes "next fire
+ * - `schedule_run`: one row per run, past or pending. The single pending run is a
+ *   row like any other (`status = 'scheduled'`), which is what makes "next trigger
  *   time" a plain query instead of a computation.
  *
  * Three deliberate index choices:
- * - `schedule_run_due_idx` is PARTIAL on `status = 'scheduled'`. The table is
+ * - `schedule_run_scheduled_for_idx` is PARTIAL on `status = 'scheduled'`. The table is
  *   overwhelmingly terminal rows, so an unfiltered scheduled_for index would get steadily
  *   more expensive as history grows, for no benefit.
  * - `schedule_run_pending_uq` enforces AT MOST ONE pending run per schedule. This
- *   is the resume-vs-fire race expressed as a constraint instead of code.
- * - `schedule_run_name_idx` makes the fire slot idempotent: a cron slot maps to
+ *   is the resume-vs-trigger race expressed as a constraint instead of code.
+ * - `schedule_run_name_idx` makes a repeated trigger idempotent: one trigger time maps to
  *   exactly one row (`sched-<unixSeconds>`), so a duplicated dispatch cannot
  *   double-insert.
  */
@@ -75,7 +75,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .execute();
 
   await sql`
-    CREATE INDEX schedule_run_due_idx
+    CREATE INDEX schedule_run_scheduled_for_idx
       ON schedule_run (scheduled_for)
       WHERE status = 'scheduled'
   `.execute(db);
