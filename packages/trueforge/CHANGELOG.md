@@ -1,5 +1,23 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.0
+
+### Minor Changes
+
+- 0297727: Add context-management compaction triggers with model-aware defaults and migrate persisted legacy token thresholds.
+
+### Patch Changes
+
+- 3539da2: Add `brand.mode` (`icon-title` | `icon-only` | `logo`) so hosts pick chrome look first; `name` always labels the mark, and `resolveBrandChrome` maps mode to layout chrome.
+- 940c4e5: Prefer MCP Python SDK 2.0 snake_case tool annotation fields, with camelCase fallback for older SDKs, without changing destructive-tool detection behavior.
+- a655537: Update published dependency ranges (AI SDK, Hono, MCP SDK, Redis, assistant-ui, and related packages).
+- 5ccac3d: Update /healthz to return JSON status and package version
+- fba6129: Require Node.js 22.14+ (`better-sqlite3` v13 is built for Node-API 10 and SIGSEGVs on 22.13 and below).
+- Updated dependencies [940c4e5]
+- Updated dependencies [a655537]
+- Updated dependencies [0297727]
+  - @truefoundry/trueforge-core@0.2.0-rc.0
+
 ## 0.1.4
 
 ### Patch Changes

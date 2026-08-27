@@ -1,8 +1,9 @@
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 #
 # Groups batch compatible updates into one PR per ecosystem (and, for npm,
-# one PR for minor/patch, one for majors, one for security). Updates that
-# cannot share a group still open as individual PRs.
+# one PR for minor/patch and one for security). Major npm bumps are ignored;
+# bump those manually when ready. Updates that cannot share a group still open
+# as individual PRs.
 
 version: 2
 
@@ -15,18 +16,16 @@ updates:
     # Fern-generated; maintainers regenerate rather than hand-bump deps.
     exclude-paths:
       - packages/trueforge-sdk/**
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     groups:
       npm-minor-and-patch:
         applies-to: version-updates
         update-types:
           - minor
           - patch
-        patterns:
-          - '*'
-      npm-major:
-        applies-to: version-updates
-        update-types:
-          - major
         patterns:
           - '*'
       npm-security:

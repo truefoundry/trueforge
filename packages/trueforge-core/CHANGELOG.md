@@ -1,5 +1,16 @@
 # @truefoundry/trueforge-core
 
+## 0.2.0-rc.0
+
+### Minor Changes
+
+- 0297727: Add context-management compaction triggers with model-aware defaults and migrate persisted legacy token thresholds.
+
+### Patch Changes
+
+- 940c4e5: Prefer MCP Python SDK 2.0 snake_case tool annotation fields, with camelCase fallback for older SDKs, without changing destructive-tool detection behavior.
+- a655537: Update published dependency ranges (AI SDK, Hono, MCP SDK, Redis, assistant-ui, and related packages).
+
 ## 0.1.4
 
 ### Patch Changes

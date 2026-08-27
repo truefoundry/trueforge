@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0-rc.0
+
+### Minor Changes
+
+- 3539da2: Add `brand.mode` (`icon-title` | `icon-only` | `logo`) so hosts pick chrome look first; `name` always labels the mark, and `resolveBrandChrome` maps mode to layout chrome.
+- 16feb29: Add `customActionRenderers` so hosts can pause the composer on client-side tools with their own UI and resume via `onSubmit(content)`.
+- 0297727: Add context-management compaction triggers with model-aware defaults and migrate persisted legacy token thresholds.
+
+### Patch Changes
+
+- b11cfc3: Wire remote chat session deletion and improve the history delete action styling.
+- 3ca4e2e: fixed the button component icon and padding, delete conflicting local prettier.json in trueforge-ui package
+- a655537: Update published dependency ranges (AI SDK, Hono, MCP SDK, Redis, assistant-ui, and related packages).
+- aa4be44: Open markdown links in assistant messages in a new tab
+- d7015fd: show mcp server tool name on tool approval
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.1.4-rc.0
+
 ## Unreleased
 
 ### Minor Changes

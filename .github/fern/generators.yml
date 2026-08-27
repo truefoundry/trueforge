@@ -8,8 +8,8 @@ readme:
     runtime that executes agent turns and streams them over Server-Sent Events.
 
 
-    When auth is enabled on the server, pass an ID token via the optional `token`
-    client option (`Authorization: Bearer`).
+    When auth is enabled on the server, pass an ID token via the optional
+    `token` client option (`Authorization: Bearer`).
   apiReferenceLink: https://trueforge.dev/api/use-agent
   # Fern keys this lookup on the stream flag, so the string form misses and fails.
   defaultEndpoint:
@@ -37,7 +37,7 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.87.1
+        version: 3.88.3
         output:
           location: local-file-system
           path: ../../packages/trueforge-sdk
