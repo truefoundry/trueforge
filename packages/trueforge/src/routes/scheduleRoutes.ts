@@ -2,8 +2,6 @@
  * Schedule route definitions (mounted at /api/v1/schedules).
  * Handlers are registered in apis/schedules.ts.
  *
- * Dispatch is deliberately not an endpoint: the dispatcher process calls
- * `dispatchDueRuns` from `runtime/scheduleDispatch` directly, in both topologies.
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';

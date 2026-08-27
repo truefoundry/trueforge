@@ -51,12 +51,14 @@ import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
+import { Controller } from './controller/Controller';
+import { createScheduleDispatchLoop, logTriggeredRun } from './controller/scheduleDispatch';
 import type { IAgentStore } from './db/agentStore';
-import type { IScheduleStore } from './db/scheduleStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
+import type { IScheduleStore } from './db/scheduleStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
@@ -229,6 +231,21 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   }
   const oidcClient = await initOidc(oidc);
 
+  // Standalone is one process, so it owns the control loops too.
+  const controller = configuration.STANDALONE
+    ? new Controller({
+        loops: [
+          createScheduleDispatchLoop({
+            scheduleStore,
+            withTransaction,
+            onTriggered: logTriggeredRun(logger),
+            logger,
+          }),
+        ],
+        logger,
+      })
+    : undefined;
+
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
     mcpCatalog: McpCatalog.load(),
@@ -252,7 +269,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
   });
 
-  return { activeTurns, app, destroyDb, redis, requestReplyRouter };
+  controller?.start();
+
+  return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
 }
 
 try {
@@ -288,7 +307,7 @@ try {
     logger.info('TrueForge starting', { mode: 'distributed' });
   }
 
-  const { activeTurns, app, destroyDb, redis, requestReplyRouter } = configuration.STANDALONE
+  const { activeTurns, app, controller, destroyDb, redis, requestReplyRouter } = configuration.STANDALONE
     ? await createServerRuntime(
         await createStandalonePersistence({ sqlitePath: configuration.SQLITE_PATH, logger }),
         logger,
@@ -363,6 +382,10 @@ try {
           resolve();
         });
       });
+
+      // Stop the control loops before draining; anything they already started drains
+      // with every other turn below.
+      await controller?.stop();
 
       // Sets the registry's shutdown reason immediately so late track() (in-flight create-turn still
       // inside session.createTurn) aborts as Abandoned; then drains the registry. await
