@@ -17,6 +17,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         id TEXT NOT NULL,
         tenant_id TEXT NOT NULL,
         agent_id TEXT NOT NULL REFERENCES agent (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
         manifest BLOB NOT NULL,
         status TEXT NOT NULL CHECK (length(status) <= 16),
         created_by TEXT NOT NULL,

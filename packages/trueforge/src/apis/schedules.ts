@@ -12,9 +12,7 @@ import {
   deleteScheduleRoute,
   getScheduleRoute,
   listSchedulesRoute,
-  pauseScheduleRoute,
   putScheduleRoute,
-  resumeScheduleRoute,
 } from '../routes/scheduleRoutes';
 import { minIntervalSeconds, nextFireAfter } from '../runtime/cron';
 import {
@@ -36,6 +34,7 @@ function toWireSchedule(record: ScheduleRecord): ConfiguredSchedule {
   return {
     id: record.id,
     agent_id: record.agent_id,
+    name: record.name,
     manifest: record.manifest,
     status: record.status,
     created_by: record.created_by,
@@ -48,9 +47,10 @@ export function validateManifest(
   manifest: Pick<ScheduleManifest, 'cron' | 'timezone'>,
   from: Date = new Date(),
 ): void {
-  let first: Date;
+  // Reject if the cron has no upcoming fire (impossible / exhausted calendar).
+  // 5-field cron has no year, so a valid expression always recurs — no one-shot check.
   try {
-    first = nextFireAfter(manifest, from);
+    nextFireAfter(manifest.cron, manifest.timezone, from);
   } catch (error) {
     throw new InvalidCronError(
       `Cron expression "${manifest.cron}" has no next fire time in ${manifest.timezone}`,
@@ -58,16 +58,7 @@ export function validateManifest(
     );
   }
 
-  // A schedule is a recurring series — reject expressions that exhaust after one slot.
-  try {
-    nextFireAfter(manifest, first);
-  } catch (error) {
-    throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" fires only once; schedules must be recurring`,
-      { cause: error },
-    );
-  }
-
+  // Reject expressions that fire < SCHEDULE_MIN_INTERVAL_SECONDS seconds apart.
   let tightest: number;
   try {
     tightest = minIntervalSeconds(manifest, from);
@@ -110,23 +101,28 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         {
           tenant_id: TENANT_ID,
           agent_id: body.agent_id,
+          name: body.name,
           manifest: body.manifest,
           created_by: user.userRef,
         },
         transaction,
       );
-      const nextFire = nextFireAfter(created.manifest, new Date());
-      await deps.scheduleStore.createRun(
-        {
-          tenant_id: created.tenant_id,
-          schedule_id: created.id,
-          name: cronRunName(nextFire),
-          scheduled_for: nextFire,
-          status: 'scheduled',
-          triggered_by: created.created_by,
-        },
-        transaction,
-      );
+      // A schedule created paused has nothing to arm; the first PUT that activates
+      // it arms the slot from that moment.
+      if (created.status === 'active') {
+        const nextFire = nextFireAfter(created.manifest.cron, created.manifest.timezone, new Date());
+        await deps.scheduleStore.createRun(
+          {
+            tenant_id: created.tenant_id,
+            schedule_id: created.id,
+            name: cronRunName(nextFire),
+            scheduled_for: nextFire,
+            status: 'scheduled',
+            triggered_by: created.created_by,
+          },
+          transaction,
+        );
+      }
       return created;
     });
 
@@ -149,8 +145,8 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     validateManifest(body.manifest);
 
     const record = await deps.withTransaction(async transaction => {
-      const updated = await deps.scheduleStore.updateScheduleManifest(
-        { tenant_id: TENANT_ID, id: scheduleId, manifest: body.manifest },
+      const updated = await deps.scheduleStore.updateSchedule(
+        { tenant_id: TENANT_ID, id: scheduleId, name: body.name, manifest: body.manifest },
         transaction,
       );
       if (updated === undefined) {
@@ -158,7 +154,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       }
       await deps.scheduleStore.deleteScheduledRun({ tenant_id: TENANT_ID, id: scheduleId }, transaction);
       if (updated.status === 'active') {
-        const nextFire = nextFireAfter(updated.manifest, new Date());
+        const nextFire = nextFireAfter(updated.manifest.cron, updated.manifest.timezone, new Date());
         await deps.scheduleStore.createRun(
           {
             tenant_id: updated.tenant_id,
@@ -186,64 +182,11 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     return c.json({}, 200);
   };
 
-  const pauseHandler: RouteHandler<typeof pauseScheduleRoute> = async c => {
-    const { schedule_id: scheduleId } = c.req.valid('param');
-    const record = await deps.withTransaction(async transaction => {
-      const updated = await deps.scheduleStore.setScheduleStatus(
-        { tenant_id: TENANT_ID, id: scheduleId, status: 'paused' },
-        transaction,
-      );
-      if (updated === undefined) {
-        return undefined;
-      }
-      await deps.scheduleStore.deleteScheduledRun({ tenant_id: TENANT_ID, id: scheduleId }, transaction);
-      return updated;
-    });
-
-    if (record === undefined) {
-      return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
-    }
-    return c.json({ data: toWireSchedule(record) }, 200);
-  };
-
-  const resumeHandler: RouteHandler<typeof resumeScheduleRoute> = async c => {
-    const { schedule_id: scheduleId } = c.req.valid('param');
-    const record = await deps.withTransaction(async transaction => {
-      const updated = await deps.scheduleStore.setScheduleStatus(
-        { tenant_id: TENANT_ID, id: scheduleId, status: 'active' },
-        transaction,
-      );
-      if (updated === undefined) {
-        return undefined;
-      }
-      const nextFire = nextFireAfter(updated.manifest, new Date());
-      await deps.scheduleStore.createRun(
-        {
-          tenant_id: updated.tenant_id,
-          schedule_id: updated.id,
-          name: cronRunName(nextFire),
-          scheduled_for: nextFire,
-          status: 'scheduled',
-          triggered_by: updated.created_by,
-        },
-        transaction,
-      );
-      return updated;
-    });
-
-    if (record === undefined) {
-      return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
-    }
-    return c.json({ data: toWireSchedule(record) }, 200);
-  };
-
   const router = new OpenAPIHono();
   router.openapi(listSchedulesRoute, listHandler);
   router.openapi(createScheduleRoute, createHandler);
   router.openapi(getScheduleRoute, getHandler);
   router.openapi(putScheduleRoute, putHandler);
   router.openapi(deleteScheduleRoute, deleteHandler);
-  router.openapi(pauseScheduleRoute, pauseHandler);
-  router.openapi(resumeScheduleRoute, resumeHandler);
   return router;
 }

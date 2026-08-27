@@ -381,6 +381,8 @@ export interface ScheduleTable {
   tenant_id: string;
   /** FK -> agent.id, ON DELETE CASCADE. Immutable; agent version resolves at run time. */
   agent_id: string;
+  /** Display label; not unique. */
+  name: string;
   /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
   /** `paused` stops firing and drops the pending run; in-flight runs continue */
@@ -413,7 +415,7 @@ export interface ScheduleRunTable {
   tenant_id: string;
   /** FK -> schedule.id, ON DELETE CASCADE */
   schedule_id: string;
-  /** the fire slot: `sched:<unixSeconds>` for cron, `manual:<token>` for run-now */
+  /** the fire slot: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
   /** the instant this run was due; preserved even when the run is `missed` */
   scheduled_for: Date;

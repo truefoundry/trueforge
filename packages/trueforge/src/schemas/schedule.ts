@@ -7,12 +7,15 @@
  * sends `manifest.task` as the first user message; the agent definition itself is
  * untouched and its version resolves at run time.
  *
- * Identity lives in columns (`id`, `tenant_id`, `agent_id`, `status`,
+ * Identity lives in columns (`id`, `tenant_id`, `agent_id`, `name`, `status`,
  * `created_by`); everything schedule-shaped lives in the Zod-validated `manifest`
  * document, so future fields (overlap policy, jitter, delivery sinks) need no
  * migration. Same pattern as `agent.manifest` and `skill.manifest`.
+ *
+ * `name` is a display label only — not unique — so two schedules may share a name.
  */
 import { z } from '@hono/zod-openapi';
+import { NameSchema } from './common';
 
 /**
  * Minimum gap between two fires of one schedule.
@@ -34,7 +37,10 @@ export class InvalidCronError extends Error {
   }
 }
 
-/** `paused` stops firing and drops the pending run row; in-flight runs continue. */
+/**
+ * `paused` stops firing and drops the pending run row; in-flight runs continue.
+ * Set through the manifest — there are no pause/resume endpoints.
+ */
 export const ScheduleStatusSchema = z.enum(['active', 'paused']).openapi('ScheduleStatus');
 
 /**
@@ -53,6 +59,9 @@ export const CronExpressionSchema = z
 
 /**
  * IANA zone name — never a fixed UTC offset, which cannot represent DST.
+ *
+ * Optional in the manifest; defaults to UTC, which is also the recommendation when
+ * the fire instant matters more than the local hour.
  *
  * Cron matching is literal wall-clock, so on a DST transition day a 02:30
  * schedule does not fire at all (spring forward) and a 01:30 schedule fires twice
@@ -86,12 +95,19 @@ export const ScheduleTaskSchema = z
   .min(1)
   .describe('First user message sent to the agent on every run.');
 
-/** Schedule document persisted as `schedule.manifest`. */
+/**
+ * Schedule document persisted as `schedule.manifest`.
+ *
+ * `status` and `timezone` carry defaults, so a create body needs only `task` and
+ * `cron`. Both are part of the document rather than separate endpoints: pausing is
+ * an edit like any other.
+ */
 export const ScheduleManifestObjectSchema = z
   .object({
     task: ScheduleTaskSchema,
     cron: CronExpressionSchema,
-    timezone: TimezoneSchema,
+    timezone: TimezoneSchema.default('UTC'),
+    status: ScheduleStatusSchema.default('active'),
   })
   .strict();
 
@@ -102,6 +118,7 @@ export const ConfiguredScheduleSchema = z
   .object({
     id: z.string(),
     agent_id: z.string(),
+    name: NameSchema,
     manifest: ScheduleManifestSchema,
     status: ScheduleStatusSchema,
     created_by: z.string(),
@@ -114,17 +131,24 @@ export const ConfiguredScheduleSchema = z
 export const CreateScheduleRequestSchema = z
   .object({
     agent_id: z.string().min(1),
+    name: NameSchema,
     manifest: ScheduleManifestSchema,
   })
   .strict()
   .openapi('CreateScheduleRequest');
 
 /**
- * Agent binding is immutable — a schedule that should point at a different agent
- * is a different schedule. Status changes go through pause/resume, not here.
+ * Replaces the whole document, like every other manifest PUT in this server: an
+ * omitted optional field is not "left alone", it returns to its default — omitting
+ * `status` re-activates a paused schedule, omitting `timezone` moves it to UTC.
+ * Read-modify-write if that is not what you want.
+ *
+ * Agent binding is immutable — a schedule that should point at a different agent is
+ * a different schedule. `name` is editable (display only; not unique).
  */
 export const UpdateScheduleRequestSchema = z
   .object({
+    name: NameSchema,
     manifest: ScheduleManifestSchema,
   })
   .strict()

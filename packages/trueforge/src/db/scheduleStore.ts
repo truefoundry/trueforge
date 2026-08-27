@@ -28,15 +28,11 @@ import { ScheduleManifestSchema, type ScheduleManifest, type ScheduleStatus } fr
 export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed' | 'missed';
 
 /**
- * `sched:<unixSeconds>` — one name per cron slot, which is what makes
- * `schedule_run_name_idx` reject a duplicated fire.
- *
- * The prefix is also the only record of how a run came to exist: `triggered_by`
- * holds the userRef the run executes as, which is `schedule.created_by` whether the
- * cron fired it or a user did. Run-now will mint `manual:<token>` names.
+ * `sched-<unixSeconds>` or `manual-<token>` — one name per cron slot, which is what makes
+ * `schedule_run_name_idx` reject a duplicated fire. 
  */
 export function cronRunName(scheduledFor: Date): string {
-  return `sched:${String(Math.floor(scheduledFor.getTime() / 1000))}`;
+  return `sched-${String(Math.floor(scheduledFor.getTime() / 1000))}`;
 }
 
 export interface ScheduleRecord {
@@ -44,6 +40,8 @@ export interface ScheduleRecord {
   tenant_id: string;
   /** Immutable FK to `agent.id`; the agent's version resolves at run time. */
   agent_id: string;
+  /** Display label; not unique. */
+  name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
   /** userRef every run of this schedule executes as. */
@@ -58,7 +56,6 @@ export interface ScheduleRunRecord {
   id: string;
   tenant_id: string;
   schedule_id: string;
-  /** `sched:<unixSeconds>` for a cron fire, `manual:<token>` for run-now. */
   name: string;
   /** ISO-8601 UTC instant this run was due. Preserved even when `missed`. */
   scheduled_for: string;
@@ -98,21 +95,17 @@ export interface GetScheduleInput {
 export interface CreateScheduleInput {
   tenant_id: string;
   agent_id: string;
+  name: string;
   manifest: ScheduleManifest;
   created_by: string;
 }
 
-/** Replaces `manifest` for an existing schedule keyed by immutable id. */
-export interface UpdateScheduleManifestInput {
+/** Replaces `name` + `manifest` for an existing schedule keyed by immutable id. */
+export interface UpdateScheduleInput {
   tenant_id: string;
   id: string;
+  name: string;
   manifest: ScheduleManifest;
-}
-
-export interface SetScheduleStatusInput {
-  tenant_id: string;
-  id: string;
-  status: ScheduleStatus;
 }
 
 export interface DeleteScheduleInput {
@@ -156,22 +149,18 @@ export interface FinishScheduleRunInput {
 export interface IScheduleStore<TTransaction = never> {
   listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
-  /** Inserts a schedule with a generated ULID and `status: 'active'`. */
+  /** Inserts a schedule with a generated ULID; `status` mirrors `manifest.status`. */
   createSchedule(input: CreateScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord>;
-  /** Replaces `manifest`. Returns undefined if the schedule is gone. */
-  updateScheduleManifest(
-    input: UpdateScheduleManifestInput,
-    transaction?: TTransaction,
-  ): Promise<ScheduleRecord | undefined>;
-  /** Sets `active` / `paused`. Returns undefined if the schedule is gone. */
-  setScheduleStatus(input: SetScheduleStatusInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
+  /**
+   * Replaces `name` + `manifest`, and the `status` column with it. Returns undefined
+   * if the schedule is gone.
+   */
+  updateSchedule(input: UpdateScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
   /** Deletes by immutable id; runs cascade. Idempotent if already missing. */
   deleteSchedule(input: DeleteScheduleInput, transaction?: TTransaction): Promise<void>;
 
   /** Inserts a run.*/
   createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
-  /** The single `scheduled` run for a schedule, if one exists. */
-  getScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** Drops the scheduled run (pause, manifest edit, delete-and-reinsert). Idempotent. */
   deleteScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<void>;
   /**

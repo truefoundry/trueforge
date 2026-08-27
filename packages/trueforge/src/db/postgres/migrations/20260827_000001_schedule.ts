@@ -18,7 +18,7 @@ import { sql, type Kysely } from 'kysely';
  * - `schedule_run_pending_uq` enforces AT MOST ONE pending run per schedule. This
  *   is the resume-vs-fire race expressed as a constraint instead of code.
  * - `schedule_run_name_idx` makes the fire slot idempotent: a cron slot maps to
- *   exactly one row (`sched:<unixSeconds>`), so a duplicated dispatch cannot
+ *   exactly one row (`sched-<unixSeconds>`), so a duplicated dispatch cannot
  *   double-insert.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
@@ -29,6 +29,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('id', 'text', col => col.notNull())
     .addColumn('tenant_id', 'text', col => col.notNull())
     .addColumn('agent_id', 'text', col => col.notNull().references('agent.id').onDelete('cascade'))
+    .addColumn('name', 'text', col => col.notNull())
     .addColumn('manifest', 'jsonb', col => col.notNull())
     .addColumn('status', 'text', col => col.notNull())
     .addColumn('created_by', 'text', col => col.notNull())

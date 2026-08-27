@@ -12,9 +12,8 @@ import {
   type ListSchedulesInput,
   type ScheduleRecord,
   type ScheduleRunRecord,
-  type SetScheduleStatusInput,
   type TriggerScheduleRunInput,
-  type UpdateScheduleManifestInput,
+  type UpdateScheduleInput,
 } from '../../scheduleStore';
 import { json, now } from '../sqlExpressions';
 import type { Database, ScheduleRunTable, ScheduleTable } from '../types';
@@ -24,6 +23,7 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
     id: row.id,
     tenant_id: row.tenant_id,
     agent_id: row.agent_id,
+    name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
     status: row.status,
     created_by: row.created_by,
@@ -83,8 +83,10 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         id: ulid().toLowerCase(),
         tenant_id: input.tenant_id,
         agent_id: input.agent_id,
+        name: input.name,
         manifest: json(input.manifest),
-        status: 'active',
+        // Column mirrors the manifest so the due scan and API reads share one value.
+        status: input.manifest.status,
         created_by: input.created_by,
         created_at: now(),
         updated_at: now(),
@@ -94,29 +96,14 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     return toScheduleRecord(row);
   }
 
-  async updateScheduleManifest(
-    input: UpdateScheduleManifestInput,
+  async updateSchedule(
+    input: UpdateScheduleInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db
       .updateTable('schedule')
-      .set({ manifest: json(input.manifest), updated_at: now() })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returningAll()
-      .executeTakeFirst();
-    return row === undefined ? undefined : toScheduleRecord(row);
-  }
-
-  async setScheduleStatus(
-    input: SetScheduleStatusInput,
-    transaction?: Transaction<Database>,
-  ): Promise<ScheduleRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('schedule')
-      .set({ status: input.status, updated_at: now() })
+      .set({ name: input.name, manifest: json(input.manifest), status: input.manifest.status, updated_at: now() })
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .returningAll()
@@ -148,21 +135,6 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
       .returningAll()
       .executeTakeFirstOrThrow();
     return toRunRecord(row);
-  }
-
-  async getScheduledRun(
-    input: GetScheduleInput,
-    transaction?: Transaction<Database>,
-  ): Promise<ScheduleRunRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .selectFrom('schedule_run')
-      .selectAll()
-      .where('tenant_id', '=', input.tenant_id)
-      .where('schedule_id', '=', input.id)
-      .where('status', '=', 'scheduled')
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRunRecord(row);
   }
 
   async deleteScheduledRun(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<void> {

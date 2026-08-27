@@ -1,7 +1,6 @@
 /**
  * Schedule route definitions (mounted at /api/v1/schedules).
  * Handlers are registered in apis/schedules.ts.
- *
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -19,7 +18,7 @@ export const ScheduleIdParamsSchema = z.object({
 });
 
 export const ListSchedulesQuerySchema = z.object({
-  agent_id: z.string().min(1).optional().describe('When set, only schedules bound to this agent are returned.'),
+  agent_id: z.string().min(1).optional().describe('Filter by bound agent.'),
 });
 
 export const listSchedulesRoute = createRoute({
@@ -27,7 +26,7 @@ export const listSchedulesRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List schedules',
-  description: 'All schedules for the tenant, newest first. Optionally filtered by bound agent.',
+  description: 'List schedules for the tenant, newest first.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list',
   request: {
@@ -36,11 +35,11 @@ export const listSchedulesRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: ListSchedulesResponseSchema } },
-      description: 'The matching schedules.',
+      description: 'Matching schedules.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description: 'Unauthenticated.',
     },
   },
 });
@@ -50,9 +49,7 @@ export const createScheduleRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Create a schedule',
-  description:
-    'Creates an active schedule for an existing agent and arms its first run. The agent binding is immutable. ' +
-    'Every run executes as the caller.',
+  description: 'Create a schedule for an existing agent and arm its first run when active.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -64,11 +61,11 @@ export const createScheduleRoute = createRoute({
   responses: {
     201: {
       content: { 'application/json': { schema: GetScheduleResponseSchema } },
-      description: 'The created schedule.',
+      description: 'Created schedule.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unknown agent, unusable cron expression, or a cron that fires more often than allowed.',
+      description: 'Unknown agent or invalid cron.',
     },
   },
 });
@@ -78,7 +75,7 @@ export const getScheduleRoute = createRoute({
   path: '/{schedule_id}',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Get a schedule',
-  description: 'Fetch a schedule by immutable id.',
+  description: 'Get a schedule by id.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -91,7 +88,7 @@ export const getScheduleRoute = createRoute({
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Schedule not found.',
+      description: 'Not found.',
     },
   },
 });
@@ -101,9 +98,7 @@ export const putScheduleRoute = createRoute({
   path: '/{schedule_id}',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Update a schedule',
-  description:
-    'Replaces the manifest for an existing schedule. A cron or timezone change re-arms the pending run, so the ' +
-    'next fire follows the new expression. The agent binding cannot be changed; use pause/resume for status.',
+  description: 'Replace name and manifest; re-arms or drops the pending run from the new status.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -116,15 +111,15 @@ export const putScheduleRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetScheduleResponseSchema } },
-      description: 'The saved schedule.',
+      description: 'Updated schedule.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unusable cron expression, or a cron that fires more often than allowed.',
+      description: 'Invalid cron.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Schedule not found.',
+      description: 'Not found.',
     },
   },
 });
@@ -134,7 +129,7 @@ export const deleteScheduleRoute = createRoute({
   path: '/{schedule_id}',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Delete a schedule',
-  description: 'Delete a schedule and its run history by immutable id. Idempotent if already gone.',
+  description: 'Delete a schedule and its runs. Idempotent.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -143,62 +138,11 @@ export const deleteScheduleRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: DeleteScheduleResponseSchema } },
-      description: 'Schedule deleted.',
+      description: 'Deleted.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
-    },
-  },
-});
-
-export const pauseScheduleRoute = createRoute({
-  method: 'post',
-  path: '/{schedule_id}/pause',
-  tags: [OpenApiTag.SCHEDULES],
-  summary: 'Pause a schedule',
-  description: 'Stops firing and drops the pending run. Runs already in flight continue. Idempotent.',
-  'x-fern-sdk-group-name': ['schedules'],
-  'x-fern-sdk-method-name': 'pause',
-  request: {
-    params: ScheduleIdParamsSchema,
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetScheduleResponseSchema } },
-      description: 'The paused schedule.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Schedule not found.',
-    },
-  },
-});
-
-export const resumeScheduleRoute = createRoute({
-  method: 'post',
-  path: '/{schedule_id}/resume',
-  tags: [OpenApiTag.SCHEDULES],
-  summary: 'Resume a schedule',
-  description:
-    'Re-arms the schedule from now — slots missed while paused are not backfilled. Idempotent.',
-  'x-fern-sdk-group-name': ['schedules'],
-  'x-fern-sdk-method-name': 'resume',
-  request: {
-    params: ScheduleIdParamsSchema,
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: GetScheduleResponseSchema } },
-      description: 'The resumed schedule.',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The stored cron expression can no longer produce a fire time.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Schedule not found.',
+      description: 'Unauthenticated.',
     },
   },
 });

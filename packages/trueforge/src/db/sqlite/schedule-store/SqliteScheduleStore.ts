@@ -4,7 +4,6 @@ import type { ScheduleManifest, ScheduleStatus } from '../../../schemas/schedule
 import {
   parseStoredScheduleManifest,
   type CreateScheduleInput,
-  type ScheduleRunStatus,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
   type FindScheduledRunsInput,
@@ -14,9 +13,9 @@ import {
   type ListSchedulesInput,
   type ScheduleRecord,
   type ScheduleRunRecord,
-  type SetScheduleStatusInput,
+  type ScheduleRunStatus,
   type TriggerScheduleRunInput,
-  type UpdateScheduleManifestInput,
+  type UpdateScheduleInput,
 } from '../../scheduleStore';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -37,6 +36,7 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
     'id' as const,
     'tenant_id' as const,
     'agent_id' as const,
+    'name' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
     'created_by' as const,
@@ -62,6 +62,7 @@ interface ScheduleRow {
   id: string;
   tenant_id: string;
   agent_id: string;
+  name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
   created_by: string;
@@ -127,8 +128,10 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         id: ulid().toLowerCase(),
         tenant_id: input.tenant_id,
         agent_id: input.agent_id,
+        name: input.name,
         manifest: jsonbBind(input.manifest),
-        status: 'active',
+        // Column mirrors the manifest so the due scan and API reads share one value.
+        status: input.manifest.status,
         created_by: input.created_by,
         created_at: timestamp,
         updated_at: timestamp,
@@ -138,29 +141,19 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     return toScheduleRecord(row);
   }
 
-  async updateScheduleManifest(
-    input: UpdateScheduleManifestInput,
+  async updateSchedule(
+    input: UpdateScheduleInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db
       .updateTable('schedule')
-      .set({ manifest: jsonbBind(input.manifest), updated_at: nowIso() })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returning(scheduleColumns)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toScheduleRecord(row);
-  }
-
-  async setScheduleStatus(
-    input: SetScheduleStatusInput,
-    transaction?: Transaction<Database>,
-  ): Promise<ScheduleRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('schedule')
-      .set({ status: input.status, updated_at: nowIso() })
+      .set({
+        name: input.name,
+        manifest: jsonbBind(input.manifest),
+        status: input.manifest.status,
+        updated_at: nowIso(),
+      })
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .returning(scheduleColumns)
@@ -193,21 +186,6 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .returning(RUN_COLUMNS)
       .executeTakeFirstOrThrow();
     return toRunRecord(row);
-  }
-
-  async getScheduledRun(
-    input: GetScheduleInput,
-    transaction?: Transaction<Database>,
-  ): Promise<ScheduleRunRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .selectFrom('schedule_run')
-      .select(RUN_COLUMNS)
-      .where('tenant_id', '=', input.tenant_id)
-      .where('schedule_id', '=', input.id)
-      .where('status', '=', 'scheduled')
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRunRecord(row);
   }
 
   async deleteScheduledRun(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<void> {
