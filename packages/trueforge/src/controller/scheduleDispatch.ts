@@ -54,7 +54,7 @@ async function processScheduledRun<TTransaction>(
     const from = new Date(now);
     let nextFire: Date;
     try {
-      nextFire = nextFireAfter(schedule.manifest, from);
+      nextFire = nextFireAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
     } catch (error) {
       if (!(error instanceof InvalidCronError)) {
         throw error;

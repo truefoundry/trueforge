@@ -13,21 +13,21 @@ import { InvalidCronError, type ScheduleManifest } from '../schemas/schedule';
 const INTERVAL_PROBE_FIRES = 5;
 
 /**
- * Next fire strictly after `from`, in the manifest's zone.
+ * Next fire strictly after `from`, in `timezone`.
  *
  * Throws {@link InvalidCronError} when the expression parses structurally
  * but cannot produce a fire — e.g. `0 0 30 2 *`, February 30th.
  */
-export function nextFireAfter(manifest: Pick<ScheduleManifest, 'cron' | 'timezone'>, from: Date): Date {
+export function nextFireAfter(cron: string, timezone: string, from: Date): Date {
   try {
-    const interval = CronExpressionParser.parse(manifest.cron, {
+    const interval = CronExpressionParser.parse(cron, {
       currentDate: from,
-      tz: manifest.timezone,
+      tz: timezone,
     });
     return interval.next().toDate();
   } catch (error) {
     throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" has no next fire time in ${manifest.timezone}`,
+      `Cron expression "${cron}" has no next fire time in ${timezone}`,
       { cause: error },
     );
   }
