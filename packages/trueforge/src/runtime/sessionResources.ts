@@ -25,7 +25,7 @@ import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
+import { toSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 
 export interface McpConnection {
@@ -238,7 +238,7 @@ export async function resolveSandboxProvider({
   if (record !== undefined) {
     // Clone from the snapshot that was actually built (persisted build_ref), not a name
     // derived from the current image — otherwise an image bump breaks creation until rebuild.
-    return toDaytonaSandboxProvider({
+    return toSandboxProvider({
       manifest: record.manifest,
       tenant_id,
       logger,
