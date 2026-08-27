@@ -1,19 +1,3 @@
-/**
- * Scheduled agents domain + wire schemas: the `schedule.manifest` JSONB document,
- * run status/trigger vocabulary, and admin projections.
- *
- * A schedule binds an existing agent (`schedule.agent_id`) to a cron expression and
- * a task. Every fire creates a fresh session owned by `schedule.created_by` and
- * sends `manifest.task` as the first user message; the agent definition itself is
- * untouched and its version resolves at run time.
- *
- * Identity lives in columns (`id`, `tenant_id`, `agent_id`, `name`, `status`,
- * `created_by`); everything schedule-shaped lives in the Zod-validated `manifest`
- * document, so future fields (overlap policy, jitter, delivery sinks) need no
- * migration. Same pattern as `agent.manifest` and `skill.manifest`.
- *
- * `name` is a display label only — not unique — so two schedules may share a name.
- */
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
 
@@ -25,9 +9,14 @@ export const SCHEDULE_MIN_INTERVAL_SECONDS = 3600;
 /**
  * How late a due run may still fire. A run found later than this is recorded
  * `missed` instead of executed, so a long outage does not end with the server
- * firing a stale slot.
+ * firing a stale run.
  */
 export const SCHEDULE_MAX_LATENESS_SECONDS = 3600;
+
+/**
+ * Standard 5-field cron (minute hour day-of-month month day-of-week).
+ */
+const CRON_FIELD = String.raw`[\d*,\-/]+`;
 
 /** Cron expression cannot produce a valid upcoming fire, or violates schedule policy. */
 export class InvalidCronError extends Error {
@@ -37,16 +26,6 @@ export class InvalidCronError extends Error {
   }
 }
 
-/**
- * `paused` stops firing and drops the pending run row; in-flight runs continue.
- * Set through the manifest — there are no pause/resume endpoints.
- */
-export const ScheduleStatusSchema = z.enum(['active', 'paused']).openapi('ScheduleStatus');
-
-/**
- * Standard 5-field cron (minute hour day-of-month month day-of-week).
- */
-const CRON_FIELD = String.raw`[\d*,\-/]+`;
 export const CronExpressionSchema = z
   .string()
   .trim()
@@ -95,12 +74,10 @@ export const ScheduleTaskSchema = z
   .min(1)
   .describe('First user message sent to the agent on every run.');
 
+export const ScheduleStatusSchema = z.enum(['active', 'paused']).openapi('ScheduleStatus');
+
 /**
  * Schedule document persisted as `schedule.manifest`.
- *
- * `status` and `timezone` carry defaults, so a create body needs only `task` and
- * `cron`. Both are part of the document rather than separate endpoints: pausing is
- * an edit like any other.
  */
 export const ScheduleManifestObjectSchema = z
   .object({
@@ -113,20 +90,19 @@ export const ScheduleManifestObjectSchema = z
 
 export const ScheduleManifestSchema = ScheduleManifestObjectSchema.openapi('ScheduleManifest');
 
-/** Admin/settings wire view: identity columns plus the nested manifest. */
-export const ConfiguredScheduleSchema = z
+/** List/get/create/update response item. */
+export const ScheduleSchema = z
   .object({
     id: z.string(),
     agent_id: z.string(),
     name: NameSchema,
     manifest: ScheduleManifestSchema,
-    status: ScheduleStatusSchema,
     created_by: z.string(),
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,
   })
   .strict()
-  .openapi('ConfiguredSchedule');
+  .openapi('Schedule');
 
 export const CreateScheduleRequestSchema = z
   .object({
@@ -137,15 +113,7 @@ export const CreateScheduleRequestSchema = z
   .strict()
   .openapi('CreateScheduleRequest');
 
-/**
- * Replaces the whole document, like every other manifest PUT in this server: an
- * omitted optional field is not "left alone", it returns to its default — omitting
- * `status` re-activates a paused schedule, omitting `timezone` moves it to UTC.
- * Read-modify-write if that is not what you want.
- *
- * Agent binding is immutable — a schedule that should point at a different agent is
- * a different schedule. `name` is editable (display only; not unique).
- */
+
 export const UpdateScheduleRequestSchema = z
   .object({
     name: NameSchema,
@@ -156,14 +124,14 @@ export const UpdateScheduleRequestSchema = z
 
 
 
-export const GetScheduleResponseSchema = z.object({ data: ConfiguredScheduleSchema }).openapi('GetScheduleResponse');
+export const GetScheduleResponseSchema = z.object({ data: ScheduleSchema }).openapi('GetScheduleResponse');
 export const ListSchedulesResponseSchema = z
-  .object({ data: z.array(ConfiguredScheduleSchema) })
+  .object({ data: z.array(ScheduleSchema) })
   .openapi('ListSchedulesResponse');
 export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteScheduleResponse');
 
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;
 export type ScheduleManifest = z.infer<typeof ScheduleManifestSchema>;
-export type ConfiguredSchedule = z.infer<typeof ConfiguredScheduleSchema>;
+export type Schedule = z.infer<typeof ScheduleSchema>;
 export type CreateScheduleRequest = z.infer<typeof CreateScheduleRequestSchema>;
 export type UpdateScheduleRequest = z.infer<typeof UpdateScheduleRequestSchema>;

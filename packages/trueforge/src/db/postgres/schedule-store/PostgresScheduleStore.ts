@@ -137,6 +137,21 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     return toRunRecord(row);
   }
 
+  async getScheduledRun(
+    input: GetScheduleInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleRunRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .selectFrom('schedule_run')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('schedule_id', '=', input.id)
+      .where('status', '=', 'scheduled')
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRunRecord(row);
+  }
+
   async deleteScheduledRun(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db

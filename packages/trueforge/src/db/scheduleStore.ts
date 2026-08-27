@@ -13,6 +13,7 @@
  *
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
+import { nextFireAfter } from '../runtime/cron';
 import { ScheduleManifestSchema, type ScheduleManifest, type ScheduleStatus } from '../schemas/schedule';
 
 /**
@@ -33,6 +34,36 @@ export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed' | 'missed';
  */
 export function cronRunName(scheduledFor: Date): string {
   return `sched-${String(Math.floor(scheduledFor.getTime() / 1000))}`;
+}
+
+/**
+ * Drop the pending run (if any), then arm the next slot when the schedule is active.
+ *
+ * Create and put both call this in the same transaction as the schedule write so an
+ * active schedule never sits without a pending run, and a paused one never keeps one.
+ */
+export async function syncScheduledRun<TTransaction>(
+  scheduleStore: IScheduleStore<TTransaction>,
+  schedule: ScheduleRecord,
+  from: Date,
+  transaction?: TTransaction,
+): Promise<ScheduleRunRecord | undefined> {
+  await scheduleStore.deleteScheduledRun({ tenant_id: schedule.tenant_id, id: schedule.id }, transaction);
+  if (schedule.status !== 'active') {
+    return undefined;
+  }
+  const nextFire = nextFireAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
+  return scheduleStore.createRun(
+    {
+      tenant_id: schedule.tenant_id,
+      schedule_id: schedule.id,
+      name: cronRunName(nextFire),
+      scheduled_for: nextFire,
+      status: 'scheduled',
+      triggered_by: schedule.created_by,
+    },
+    transaction,
+  );
 }
 
 export interface ScheduleRecord {
@@ -132,20 +163,6 @@ export interface TriggerScheduleRunInput {
   id: string;
 }
 
-export interface FinishScheduleRunInput {
-  tenant_id: string;
-  id: string;
-  status: ScheduleRunStatus;
-  /**
-   * When set, the write only applies if the row is still in this status.
-   *
-   * Dispatch passes `'scheduled'` when marking a run `missed` so a pause that
-   * already dropped the row is a no-op. The executor writing its own outcome
-   * needs no guard: it owns the run.
-   */
-  expected_status?: ScheduleRunStatus | undefined;
-}
-
 export interface IScheduleStore<TTransaction = never> {
   listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
@@ -161,6 +178,8 @@ export interface IScheduleStore<TTransaction = never> {
 
   /** Inserts a run.*/
   createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
+  /** The single `scheduled` run for a schedule, if one exists. */
+  getScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** Drops the scheduled run (pause, manifest edit, delete-and-reinsert). Idempotent. */
   deleteScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<void>;
   /**

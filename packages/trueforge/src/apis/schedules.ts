@@ -5,7 +5,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { UserContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import { cronRunName, type IScheduleStore, type ScheduleRecord } from '../db/scheduleStore';
+import { syncScheduledRun, type IScheduleStore, type ScheduleRecord } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createScheduleRoute,
@@ -18,7 +18,7 @@ import { minIntervalSeconds, nextFireAfter } from '../runtime/cron';
 import {
   InvalidCronError,
   SCHEDULE_MIN_INTERVAL_SECONDS,
-  type ConfiguredSchedule,
+  type Schedule,
   type ScheduleManifest,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
@@ -30,13 +30,12 @@ export interface SchedulesRouterDeps<TTransaction> {
   resolveUserContext: (c: Context) => UserContext;
 }
 
-function toWireSchedule(record: ScheduleRecord): ConfiguredSchedule {
+function toWireSchedule(record: ScheduleRecord): Schedule {
   return {
     id: record.id,
     agent_id: record.agent_id,
     name: record.name,
     manifest: record.manifest,
-    status: record.status,
     created_by: record.created_by,
     created_at: record.created_at,
     updated_at: record.updated_at,
@@ -107,22 +106,8 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         },
         transaction,
       );
-      // A schedule created paused has nothing to arm; the first PUT that activates
-      // it arms the slot from that moment.
-      if (created.status === 'active') {
-        const nextFire = nextFireAfter(created.manifest.cron, created.manifest.timezone, new Date());
-        await deps.scheduleStore.createRun(
-          {
-            tenant_id: created.tenant_id,
-            schedule_id: created.id,
-            name: cronRunName(nextFire),
-            scheduled_for: nextFire,
-            status: 'scheduled',
-            triggered_by: created.created_by,
-          },
-          transaction,
-        );
-      }
+      // A schedule created paused arms nothing; the first PUT that activates it arms.
+      await syncScheduledRun(deps.scheduleStore, created, new Date(), transaction);
       return created;
     });
 
@@ -138,6 +123,15 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     return c.json({ data: toWireSchedule(record) }, 200);
   };
 
+  /**
+   * Replaces the whole document, like every other manifest PUT in this server: an
+   * omitted optional field is not "left alone", it returns to its default — omitting
+   * `status` re-activates a paused schedule, omitting `timezone` moves it to UTC.
+   * Read-modify-write if that is not what you want.
+   *
+   * Agent binding is immutable — a schedule that should point at a different agent is
+   * a different schedule. `name` is editable (display only; not unique).
+   */
   const putHandler: RouteHandler<typeof putScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
     const body = c.req.valid('json');
@@ -152,21 +146,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       if (updated === undefined) {
         return undefined;
       }
-      await deps.scheduleStore.deleteScheduledRun({ tenant_id: TENANT_ID, id: scheduleId }, transaction);
-      if (updated.status === 'active') {
-        const nextFire = nextFireAfter(updated.manifest.cron, updated.manifest.timezone, new Date());
-        await deps.scheduleStore.createRun(
-          {
-            tenant_id: updated.tenant_id,
-            schedule_id: updated.id,
-            name: cronRunName(nextFire),
-            scheduled_for: nextFire,
-            status: 'scheduled',
-            triggered_by: updated.created_by,
-          },
-          transaction,
-        );
-      }
+      await syncScheduledRun(deps.scheduleStore, updated, new Date(), transaction);
       return updated;
     });
 
