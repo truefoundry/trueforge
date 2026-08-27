@@ -396,18 +396,6 @@ export interface ScheduleTable {
 /**
  * One row per fire, pending or historical.
  * PRIMARY KEY (id)
- * WITH (fillfactor = 85); two or three small bounded updates per row
- *   (scheduled -> triggered -> terminal)
- * UNIQUE (tenant_id, schedule_id, name) — the fire slot, so a duplicated dispatch
- *   cannot double-insert
- * CREATE INDEX schedule_run_due_idx ON schedule_run (scheduled_for)
- *   WHERE status = 'scheduled'  -- partial: the table is mostly terminal rows
- * CREATE UNIQUE INDEX schedule_run_pending_uq ON schedule_run (schedule_id)
- *   WHERE status = 'scheduled'  -- at most one pending run per schedule
- * CREATE INDEX schedule_run_list_idx ON schedule_run (schedule_id, scheduled_for DESC)
- *
- * No `session_id` column: the run -> session link is carried on `session.custom`
- * (`{ schedule_id, run_id }`) and resolved when the runs list is assembled.
  */
 export interface ScheduleRunTable {
   /** application-generated (ulid) */
@@ -417,12 +405,10 @@ export interface ScheduleRunTable {
   schedule_id: string;
   /** the fire slot: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
-  /** the instant this run was scheduled for; preserved even when the run is `missed` */
   scheduled_for: Date;
   status: ScheduleRunStatus;
   /** `UserContext.userRef` of who triggered the run */
   triggered_by: string;
-  /** set when status moves to `triggered` */
   triggered_at: Date | null;
   created_at: Date;
   updated_at: Date;

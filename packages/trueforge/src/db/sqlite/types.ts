@@ -254,12 +254,10 @@ export interface ScheduleRunTable {
   schedule_id: string;
   /** the run name: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
-  /** the instant this run was scheduled for. */
   scheduled_for: string;
   status: ScheduleRunStatus;
   /** `UserContext.userRef` of who triggered the run */
   triggered_by: string;
-  /** set when status moves to `triggered` */
   triggered_at: string | null;
   created_at: string;
   updated_at: string;
