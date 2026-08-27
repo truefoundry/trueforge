@@ -2,7 +2,7 @@ import type { Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
@@ -49,9 +49,14 @@ function imageDigest(image: string): string {
   return lastSegment.slice(colon + 1);
 }
 
-/** Deterministic build name per image digest so every server replica converges on one build. */
-function deriveImageBuildName(digest: string): string {
-  return `${IMAGE_BUILD_NAME_PREFIX}${digest}`;
+/**
+ * Deterministic build name per Daytona account and image digest. Daytona snapshot names are global,
+ * so an image-only name can resolve to another account's inaccessible snapshot. The API key is
+ * high-entropy secret material and is used only as the HMAC key; it never appears in the name.
+ */
+function deriveImageBuildName({ digest, apiKey }: { digest: string; apiKey: string }): string {
+  const accountImageDigest = createHmac('sha256', apiKey).update(digest).digest('hex').slice(0, 40);
+  return `${IMAGE_BUILD_NAME_PREFIX}${accountImageDigest}`;
 }
 
 /** Terminal-failure build states: a build stuck here never becomes ready on its own. */
@@ -84,9 +89,9 @@ export interface DaytonaSandboxProviderOptions {
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   sandboxImage: string;
   /**
-   * Daytona snapshot name to clone sandboxes from. When omitted it is derived from the image
-   * digest. Callers that create sandboxes pass the persisted build_ref so cloning targets the
-   * snapshot that was actually built, not a speculative name derived from the current image.
+   * Daytona snapshot name to clone sandboxes from. When omitted it is derived from the account
+   * credential and image digest. Callers that create sandboxes pass the persisted build_ref so
+   * cloning targets the snapshot that was actually built, not a speculative name.
    */
   buildRef?: string | undefined;
   timeoutMs: number;
@@ -106,7 +111,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly tenantName: string;
   /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
   private readonly imageUri: string;
-  /** Daytona snapshot name sandboxes are cloned from; the persisted build_ref, or derived from the image digest. */
+  /** Daytona snapshot name sandboxes are cloned from; the persisted build_ref, or a credential-scoped image name. */
   private readonly buildRef: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;
@@ -129,7 +134,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.apiUrl = options.apiUrl ?? DEFAULT_DAYTONA_API_URL;
     this.tenantName = options.tenantName;
     this.imageUri = options.sandboxImage;
-    this.buildRef = options.buildRef ?? deriveImageBuildName(imageDigest(options.sandboxImage));
+    this.buildRef =
+      options.buildRef ?? deriveImageBuildName({ digest: imageDigest(options.sandboxImage), apiKey: options.apiKey });
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
