@@ -7,15 +7,13 @@ import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sand
 import {
   checkSnapshotStatus,
   isDaytonaAuthError,
+  SANDBOX_BUILD_REQUEST_TIMEOUT_MS,
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
-
-/** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
-const BUILD_REQUEST_TIMEOUT_MS = 3_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -81,7 +79,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           ...(locked ? { build_metadata: locked.build_metadata } : {}),
         });
         const built = toSandboxStatus(
-          await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
+          await withTimeout(provider.buildImage(), SANDBOX_BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
         await deps.sandboxProviderStore.upsertSandboxProvider(
           { tenant_id: TENANT_ID, manifest: resolved, ...built },

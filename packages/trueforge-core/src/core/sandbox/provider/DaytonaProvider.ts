@@ -28,6 +28,14 @@ const BUILD_STATE_INACTIVE = 'inactive';
 const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
+/**
+ * Cap on the snapshot registration round-trip.
+ *
+ * A caller racing this against `withTimeout` abandons the promise but leaves the request running,
+ * so the socket is only released by undici's own ~5-minute default. This aborts the request itself.
+ */
+const SNAPSHOT_REGISTER_TIMEOUT_MS = 10_000;
+
 const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
 const DEFAULT_DAYTONA_API_URL = 'https://app.daytona.io/api';
@@ -312,6 +320,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ name: this.buildRef, imageName: this.imageUri }),
+        signal: AbortSignal.timeout(SNAPSHOT_REGISTER_TIMEOUT_MS),
       });
     } catch (error) {
       throw new Error('Daytona snapshot registration request failed.', { cause: error });
