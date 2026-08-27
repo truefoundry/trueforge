@@ -68,6 +68,15 @@ export interface SandboxProvider {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
   /**
+   * Whether this provider can carry Code Mode's bidirectional transport.
+   *
+   * Optional for backwards compatibility: absent means yes, which is correct for
+   * every provider that predates the flag. A provider that sets this to false is
+   * skipped rather than asked and allowed to throw -- Code Mode is an
+   * optimisation, and losing it must not fail the session.
+   */
+  readonly supportsCodeMode?: boolean;
+  /**
    * Ensures the release image is being built into the provider's backing store and
    * returns its current status. Idempotent: an already-built image reports `ready`;
    * a fresh build starts in the background and reports `pending`.

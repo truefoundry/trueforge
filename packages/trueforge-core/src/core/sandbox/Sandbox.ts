@@ -267,6 +267,14 @@ export class Sandbox extends LocalToolMCP {
     if (!servers.length) {
       return;
     }
+    if (this.provider.supportsCodeMode === false) {
+      // Degrade rather than fail: the agent keeps its tools and its sandbox, and
+      // simply routes calls individually instead of batching them in a script.
+      this.logger.info('Code Mode unavailable for this sandbox provider; continuing without it', {
+        provider: this.provider.type,
+      });
+      return;
+    }
     if (this.codeModeDispatcher !== undefined || this.codeModeTransport !== undefined) {
       throw new Error('Code Mode is already configured for this Sandbox');
     }
