@@ -10,14 +10,14 @@ export const CreateScheduleRequest: core.serialization.Schema<
     serializers.CreateScheduleRequest.Raw,
     TrueForge.CreateScheduleRequest
 > = core.serialization.object({
-    agentId: core.serialization.property("agent_id", core.serialization.string()),
+    agentName: core.serialization.property("agent_name", ResourceName),
     manifest: ScheduleManifest,
     name: ResourceName,
 });
 
 export declare namespace CreateScheduleRequest {
     export interface Raw {
-        agent_id: string;
+        agent_name: ResourceName.Raw;
         manifest: ScheduleManifest.Raw;
         name: ResourceName.Raw;
     }

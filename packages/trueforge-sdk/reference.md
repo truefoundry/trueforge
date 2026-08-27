@@ -825,7 +825,7 @@ await client.schedules.list();
 <dl>
 <dd>
 
-Create a schedule for an existing agent and add its first pending run when active.
+Create a schedule for an existing agent (by name) and add its first pending run when active.
 </dd>
 </dl>
 </dd>
@@ -841,7 +841,7 @@ Create a schedule for an existing agent and add its first pending run when activ
 
 ```typescript
 await client.schedules.create({
-    agentId: "agent_id",
+    agentName: "agent_name",
     manifest: {
         cron: "cron",
         task: "task"

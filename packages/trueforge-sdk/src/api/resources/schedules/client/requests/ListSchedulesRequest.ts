@@ -5,6 +5,6 @@
  *     {}
  */
 export interface ListSchedulesRequest {
-    /** Filter by bound agent. */
-    agentId?: string;
+    /** Filter by bound agent name. */
+    agentName?: string;
 }
