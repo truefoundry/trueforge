@@ -3,7 +3,7 @@
  * `schedule_run` row per fire (pending or historical).
  *
  * One store covers both tables because they are never used apart — the dispatch
- * path needs a due run and its schedule in the same query, and every schedule
+ * path needs a scheduled run and its schedule in the same query, and every schedule
  * mutation touches the pending run in the same transaction.
  *
  * Transactions are route-owned (see `WithTransaction`): a store method never opens
@@ -13,16 +13,14 @@
  *
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
-import { nextFireAfter } from '../runtime/cron';
 import { ScheduleManifestSchema, type ScheduleManifest, type ScheduleStatus } from '../schemas/schedule';
 
 /**
  * Run lifecycle.
  * - `scheduled`  the one pending run; at most one per schedule, enforced by
  *                `schedule_run_pending_uq`
- * - `triggered`  taken by the guarded `scheduled -> triggered` transition
- * - `failed`     turn errored, or terminated waiting on a tool approval nobody
- *                could answer
+ * - `triggered`  taken by dispatch via `updateRunStatus`
+ * - `failed`     turn errored, or hand-off to the executor failed
  * - `missed`     run was later than `SCHEDULE_MAX_LATENESS_SECONDS`;
  *                `scheduled_for` is preserved so history shows the gap honestly
  */
@@ -30,40 +28,10 @@ export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed' | 'missed';
 
 /**
  * `sched-<unixSeconds>` or `manual-<token>` — one name per cron slot, which is what makes
- * `schedule_run_name_idx` reject a duplicated fire. 
+ * `schedule_run_name_idx` reject a duplicated fire.
  */
 export function cronRunName(scheduledFor: Date): string {
   return `sched-${String(Math.floor(scheduledFor.getTime() / 1000))}`;
-}
-
-/**
- * Drop the pending run (if any), then arm the next slot when the schedule is active.
- *
- * Create and put both call this in the same transaction as the schedule write so an
- * active schedule never sits without a pending run, and a paused one never keeps one.
- */
-export async function syncScheduledRun<TTransaction>(
-  scheduleStore: IScheduleStore<TTransaction>,
-  schedule: ScheduleRecord,
-  from: Date,
-  transaction?: TTransaction,
-): Promise<ScheduleRunRecord | undefined> {
-  await scheduleStore.deleteScheduledRun({ tenant_id: schedule.tenant_id, id: schedule.id }, transaction);
-  if (schedule.status !== 'active') {
-    return undefined;
-  }
-  const nextFire = nextFireAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
-  return scheduleStore.createRun(
-    {
-      tenant_id: schedule.tenant_id,
-      schedule_id: schedule.id,
-      name: cronRunName(nextFire),
-      scheduled_for: nextFire,
-      status: 'scheduled',
-      triggered_by: schedule.created_by,
-    },
-    transaction,
-  );
 }
 
 export interface ScheduleRecord {
@@ -88,18 +56,25 @@ export interface ScheduleRunRecord {
   tenant_id: string;
   schedule_id: string;
   name: string;
-  /** ISO-8601 UTC instant this run was due. Preserved even when `missed`. */
+  /** ISO-8601 UTC instant this run was scheduled for. Preserved even when `missed`. */
   scheduled_for: string;
   status: ScheduleRunStatus;
   /** userRef the run executes as. */
   triggered_by: string;
-  started_at: string | null;
+  triggered_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-/** A due run plus the schedule that owns it — one query, no N+1 on the dispatch path. */
-export interface DueScheduleRun {
+/** Schedule row plus the pending run after a create/update that syncs it. */
+export interface ScheduleWriteResult {
+  schedule: ScheduleRecord;
+  /** Set when the schedule is active; otherwise undefined (paused adds no pending run). */
+  pendingRun: ScheduleRunRecord | undefined;
+}
+
+/** A scheduled run plus the schedule that owns it — one query, no N+1 on the dispatch path. */
+export interface ScheduleDispatchItem {
   run: ScheduleRunRecord;
   schedule: ScheduleRecord;
 }
@@ -129,6 +104,8 @@ export interface CreateScheduleInput {
   name: string;
   manifest: ScheduleManifest;
   created_by: string;
+  /** Instant used to compute the first pending fire when status is active. */
+  runFrom: Date;
 }
 
 /** Replaces `name` + `manifest` for an existing schedule keyed by immutable id. */
@@ -137,6 +114,26 @@ export interface UpdateScheduleInput {
   id: string;
   name: string;
   manifest: ScheduleManifest;
+  /**
+   * Instant used to compute the next pending fire when a sync runs (status/cron/timezone
+   * change) and the schedule is active.
+   */
+  runFrom: Date;
+}
+
+/**
+ * Pending run is replaced only when `status`, `cron`, or `timezone` change.
+ * `name` and `task` edits leave the pending row alone.
+ */
+export function shouldSyncPendingRun(
+  previous: Pick<ScheduleRecord, 'status' | 'manifest'>,
+  next: Pick<ScheduleRecord, 'status' | 'manifest'>,
+): boolean {
+  return (
+    previous.status !== next.status ||
+    previous.manifest.cron !== next.manifest.cron ||
+    previous.manifest.timezone !== next.manifest.timezone
+  );
 }
 
 export interface DeleteScheduleInput {
@@ -158,41 +155,53 @@ export interface FindScheduledRunsInput {
   limit: number;
 }
 
-export interface TriggerScheduleRunInput {
+export interface GetRunInput {
   tenant_id: string;
   id: string;
 }
 
+export interface UpdateScheduleRunStatusInput {
+  tenant_id: string;
+  id: string;
+  status: ScheduleRunStatus;
+}
+
 export interface IScheduleStore<TTransaction = never> {
-  listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
+  
+  // --- schedule ---
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
-  /** Inserts a schedule with a generated ULID; `status` mirrors `manifest.status`. */
-  createSchedule(input: CreateScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord>;
   /**
-   * Replaces `name` + `manifest`, and the `status` column with it. Returns undefined
-   * if the schedule is gone.
+   * Inserts a schedule (`status` mirrors `manifest.status`) and syncs the pending run
+   * in the same call: active adds the next fire from `runFrom`; paused adds nothing.
    */
-  updateSchedule(input: UpdateScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
+  createScheduleAndRun(input: CreateScheduleInput, transaction?: TTransaction): Promise<ScheduleWriteResult>;
+  /**
+   * Updates a schedule, then syncs the pending run only when `status`, `cron`, or
+   * `timezone` change. `name` / `task` edits leave the pending row alone.
+   * Returns undefined if the schedule is gone.
+   */
+  updateScheduleAndRun(input: UpdateScheduleInput,transaction?: TTransaction): Promise<ScheduleWriteResult | undefined>;
   /** Deletes by immutable id; runs cascade. Idempotent if already missing. */
   deleteSchedule(input: DeleteScheduleInput, transaction?: TTransaction): Promise<void>;
+  listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
 
-  /** Inserts a run.*/
-  createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
+  // --- schedule_run ---
+  /** Load a run by immutable id. */
+  getRun(input: GetRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** The single `scheduled` run for a schedule, if one exists. */
   getScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
+  /** Inserts a run. */
+  createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
+  /**
+   * Status transition. Stamps `triggered_at` when moving to `triggered`.
+   * Returns undefined when the row is gone (e.g. pause deleted it).
+   */
+  updateRunStatus(input: UpdateScheduleRunStatusInput,transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** Drops the scheduled run (pause, manifest edit, delete-and-reinsert). Idempotent. */
   deleteScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<void>;
   /**
-   * Runs scheduled now, oldest slot first.
+   * `scheduled` runs with `scheduled_for <= now`, oldest first.
+   * Triggered / terminal rows are never returned.
    */
   findScheduledRuns(input: FindScheduledRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
-  /**
-   * Guarded `scheduled -> triggered` transition, stamping `started_at`.
-   *
-   * Returns undefined when the row is no longer `scheduled` (e.g. pause dropped
-   * it between the due query and this claim).
-   */
-  triggerRun(input: TriggerScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
-  /** Writes a terminal status. Returns undefined if the run is gone. */
-  finishRun(input: FinishScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
 }

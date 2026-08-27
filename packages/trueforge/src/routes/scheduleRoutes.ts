@@ -49,7 +49,7 @@ export const createScheduleRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Create a schedule',
-  description: 'Create a schedule for an existing agent and arm its first run when active.',
+  description: 'Create a schedule for an existing agent and add its first pending run when active.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'create',
   request: {
@@ -98,7 +98,7 @@ export const putScheduleRoute = createRoute({
   path: '/{schedule_id}',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Update a schedule',
-  description: 'Replace name and manifest; re-arms or drops the pending run from the new status.',
+  description: 'Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'update',
   request: {

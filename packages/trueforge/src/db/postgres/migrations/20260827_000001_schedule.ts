@@ -13,7 +13,7 @@ import { sql, type Kysely } from 'kysely';
  *
  * Three deliberate index choices:
  * - `schedule_run_due_idx` is PARTIAL on `status = 'scheduled'`. The table is
- *   overwhelmingly terminal rows, so an unfiltered due index would get steadily
+ *   overwhelmingly terminal rows, so an unfiltered scheduled_for index would get steadily
  *   more expensive as history grows, for no benefit.
  * - `schedule_run_pending_uq` enforces AT MOST ONE pending run per schedule. This
  *   is the resume-vs-fire race expressed as a constraint instead of code.
@@ -50,7 +50,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('scheduled_for', 'timestamptz', col => col.notNull())
     .addColumn('status', 'text', col => col.notNull())
     .addColumn('triggered_by', 'text', col => col.notNull())
-    .addColumn('started_at', 'timestamptz')
+    .addColumn('triggered_at', 'timestamptz')
     .addColumn('created_at', 'timestamptz', col => col.notNull())
     .addColumn('updated_at', 'timestamptz', col => col.notNull())
     .addPrimaryKeyConstraint('schedule_run_pkey', ['id'])

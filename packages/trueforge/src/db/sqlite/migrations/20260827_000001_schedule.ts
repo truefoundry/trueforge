@@ -41,7 +41,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         scheduled_for TEXT NOT NULL,
         status TEXT NOT NULL,
         triggered_by TEXT NOT NULL,
-        started_at TEXT,
+        triggered_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         PRIMARY KEY (id)

@@ -34,7 +34,7 @@ describe('nextFireAfter', () => {
     expect(next.toISOString()).toBe('2026-08-31T17:00:00.000Z');
   });
 
-  it('is strictly after `from`, so a fire cannot re-arm onto its own slot', () => {
+  it('is strictly after `from`, so a fire cannot land on its own slot', () => {
     const slot = new Date('2026-08-27T17:00:00.000Z');
     expect(nextFireAfter(WEEKDAY_1PM.cron, WEEKDAY_1PM.timezone, slot).getTime()).toBeGreaterThan(slot.getTime());
   });

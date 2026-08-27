@@ -5,7 +5,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { UserContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import { syncScheduledRun, type IScheduleStore, type ScheduleRecord } from '../db/scheduleStore';
+import type { IScheduleStore, ScheduleRecord } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createScheduleRoute,
@@ -96,19 +96,18 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     }
 
     const record = await deps.withTransaction(async transaction => {
-      const created = await deps.scheduleStore.createSchedule(
+      const { schedule } = await deps.scheduleStore.createScheduleAndRun(
         {
           tenant_id: TENANT_ID,
           agent_id: body.agent_id,
           name: body.name,
           manifest: body.manifest,
           created_by: user.userRef,
+          runFrom: new Date(),
         },
         transaction,
       );
-      // A schedule created paused arms nothing; the first PUT that activates it arms.
-      await syncScheduledRun(deps.scheduleStore, created, new Date(), transaction);
-      return created;
+      return schedule;
     });
 
     return c.json({ data: toWireSchedule(record) }, 201);
@@ -139,15 +138,17 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     validateManifest(body.manifest);
 
     const record = await deps.withTransaction(async transaction => {
-      const updated = await deps.scheduleStore.updateSchedule(
-        { tenant_id: TENANT_ID, id: scheduleId, name: body.name, manifest: body.manifest },
+      const result = await deps.scheduleStore.updateScheduleAndRun(
+        {
+          tenant_id: TENANT_ID,
+          id: scheduleId,
+          name: body.name,
+          manifest: body.manifest,
+          runFrom: new Date(),
+        },
         transaction,
       );
-      if (updated === undefined) {
-        return undefined;
-      }
-      await syncScheduledRun(deps.scheduleStore, updated, new Date(), transaction);
-      return updated;
+      return result?.schedule;
     });
 
     if (record === undefined) {

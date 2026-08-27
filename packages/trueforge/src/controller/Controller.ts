@@ -2,16 +2,11 @@
  * The controller: a set of periodic control loops and the timers that drive them.
  *
  * Loops are independent — each has its own interval, its own re-entrancy guard, and
- * its own error boundary, so a slow or failing loop cannot stall another. Adding
- * work to the controller means adding a {@link ControlLoop}, not touching this file.
- *
- * Today there is one loop: schedule dispatch. Reconciling stuck runs and re-arming
- * schedules that lost their pending row are the obvious next ones.
+ * its own error boundary, so a slow or failing loop cannot stall another.
  *
  * The controller runs in exactly ONE process per database. In standalone mode that is
  * the server itself; when `STANDALONE=false` it is the dedicated single-replica
- * process in `src/controller.ts`. Loops are written assuming no peer runs alongside
- * them — see the concurrency note in `scheduleDispatch.ts`.
+ * process in `src/controller.ts`. Loops are written assuming this.
  */
 import type { Logger } from 'winston';
 

@@ -417,13 +417,13 @@ export interface ScheduleRunTable {
   schedule_id: string;
   /** the fire slot: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
   name: string;
-  /** the instant this run was due; preserved even when the run is `missed` */
+  /** the instant this run was scheduled for; preserved even when the run is `missed` */
   scheduled_for: Date;
   status: ScheduleRunStatus;
   /** `UserContext.userRef` of who triggered the run */
   triggered_by: string;
-  /** set on the guarded `scheduled -> triggered` transition */
-  started_at: Date | null;
+  /** set when status moves to `triggered` */
+  triggered_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }

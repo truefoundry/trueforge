@@ -7,7 +7,7 @@ import { NameSchema } from './common';
 export const SCHEDULE_MIN_INTERVAL_SECONDS = 3600;
 
 /**
- * How late a due run may still fire. A run found later than this is recorded
+ * How late a scheduled run may still fire. A run found later than this is recorded
  * `missed` instead of executed, so a long outage does not end with the server
  * firing a stale run.
  */
