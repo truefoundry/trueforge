@@ -33,7 +33,6 @@ export function runScheduleStoreContractSuite(deps: {
     return { id: agent.id, name: agent.name };
   }
 
-
   it('create active schedule adds a pending run for the next cron trigger', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
@@ -57,9 +56,7 @@ export function runScheduleStoreContractSuite(deps: {
         scheduled_for: nextTriggerAfter(m.cron, m.timezone, runFrom).toISOString(),
       }),
     );
-    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(
-      pendingRun,
-    );
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(pendingRun);
   });
 
   it('create paused leaves no pending run', async () => {

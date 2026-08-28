@@ -55,10 +55,7 @@ async function finishScheduledRun<TTransaction>(params: {
 }): Promise<void> {
   const { store, withTransaction, run, status, now } = params;
   await withTransaction(async txn => {
-    const latest = await store.getSchedule(
-      { tenant_id: run.tenant_id, id: run.schedule_id, forUpdate: true },
-      txn,
-    );
+    const latest = await store.getSchedule({ tenant_id: run.tenant_id, id: run.schedule_id, forUpdate: true }, txn);
 
     const updated = await store.updateRunStatus({ tenant_id: run.tenant_id, id: run.id, status }, txn);
     if (updated === undefined) {

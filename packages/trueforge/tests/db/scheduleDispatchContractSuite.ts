@@ -143,7 +143,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
   // threw), then the cases where the advance is withheld or raced, and finally the
   // whole batch together.
 
-
   it('triggers a scheduled run, hands it off, and adds a next scheduled run', async () => {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
