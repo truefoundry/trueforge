@@ -6,6 +6,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import {
   CreateAgentRequestSchema,
   DeleteAgentResponseSchema,
+  GetAgentCodeSnippetsResponseSchema,
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
   UpdateAgentRequestSchema,
@@ -69,6 +70,30 @@ export const createAgentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:
         'The agent spec is valid but requires a capability this server does not provide (e.g. sandbox or skills).',
+    },
+  },
+});
+
+export const getAgentCodeSnippetsRoute = createRoute({
+  method: 'get',
+  path: '/{agent_id}/code-snippets',
+  tags: [OpenApiTag.AGENTS],
+  summary: 'Get agent SDK code snippets',
+  description:
+    'TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.',
+  'x-fern-ignore': true,
+  'x-excluded': true,
+  request: {
+    params: AgentIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetAgentCodeSnippetsResponseSchema } },
+      description: 'TypeScript SDK samples and the origin to use as `baseUrl`.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Agent not found.',
     },
   },
 });

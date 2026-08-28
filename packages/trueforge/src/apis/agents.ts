@@ -12,12 +12,14 @@ import type { WithTransaction } from '../db/transaction';
 import {
   createAgentRoute,
   deleteAgentRoute,
+  getAgentCodeSnippetsRoute,
   getAgentRoute,
   listAgentsRoute,
   putAgentRoute,
 } from '../routes/agentRoutes';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { type Agent, type CreateAgentRequest } from '../schemas/agent';
+import { buildAgentCodeSnippets } from './agentCodeSnippets';
 import { TENANT_ID } from './sessions';
 
 export interface AgentsRouterDeps<TTransaction> {
@@ -89,6 +91,23 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     return c.json({ data: toWireAgent(record) }, 200);
   };
 
+  const getCodeSnippetsHandler: RouteHandler<typeof getAgentCodeSnippetsRoute> = async c => {
+    const { agent_id: agentId } = c.req.valid('param');
+    const record = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+    if (record === undefined) {
+      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+    }
+    return c.json(
+      {
+        data: buildAgentCodeSnippets({
+          agentName: record.name,
+          baseUrl: new URL(c.req.url).origin,
+        }),
+      },
+      200,
+    );
+  };
+
   const deleteHandler: RouteHandler<typeof deleteAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
     await deps.agentStore.deleteAgent({ tenant_id: TENANT_ID, id: agentId });
@@ -113,6 +132,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const router = new OpenAPIHono();
   router.openapi(listAgentsRoute, listHandler);
   router.openapi(createAgentRoute, createHandler);
+  router.openapi(getAgentCodeSnippetsRoute, getCodeSnippetsHandler);
   router.openapi(getAgentRoute, getHandler);
   router.openapi(deleteAgentRoute, deleteHandler);
   router.openapi(putAgentRoute, putHandler);

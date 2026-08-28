@@ -37,6 +37,32 @@ export const GetAgentResponseSchema = z.object({ data: AgentSchema }).openapi('G
 export const ListAgentsResponseSchema = z.object({ data: z.array(AgentSchema) }).openapi('ListAgentsResponse');
 export const DeleteAgentResponseSchema = z.object({}).openapi('DeleteAgentResponse');
 
+export const AgentCodeSnippetSampleCodeSchema = z
+  .object({
+    stream: z.string().describe('SDK sample that streams turn events.'),
+    non_stream: z.string().describe('SDK sample that creates a turn without streaming.'),
+  })
+  .strict();
+
+export const AgentCodeSnippetSchema = z
+  .object({
+    label_name: z.string().min(1),
+    language: z.string().min(1),
+    icon: z.url(),
+    sample_code: AgentCodeSnippetSampleCodeSchema,
+  })
+  .strict();
+
+export const AgentCodeSnippetsSchema = z
+  .object({
+    base_url: z.url().describe('Origin to pass as the TrueForge SDK `baseUrl`.'),
+    snippets: z.array(AgentCodeSnippetSchema),
+  })
+  .strict();
+
+export const GetAgentCodeSnippetsResponseSchema = z.object({ data: AgentCodeSnippetsSchema });
+
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof UpdateAgentRequestSchema>;
 export type Agent = z.infer<typeof AgentSchema>;
+export type AgentCodeSnippets = z.infer<typeof AgentCodeSnippetsSchema>;
