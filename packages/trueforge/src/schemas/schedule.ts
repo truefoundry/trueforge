@@ -35,10 +35,9 @@ export const CronExpressionSchema = z
  * Optional in the manifest; defaults to UTC, which is also the recommendation when
  * the trigger instant matters more than the local hour.
  *
- * Cron matching is literal wall-clock, so on a DST transition day a 02:30
- * schedule does not trigger at all (spring forward) and a 01:30 schedule triggers twice
- * (fall back). Both are accepted and documented; `schedule_run.name` derives from
- * the trigger instant, so a double trigger is two legitimately distinct runs.
+ * Cron is evaluated in this zone via `cron-parser`: a spring-forward gap maps a
+ * missing local time onto the landing hour, and fall-back does not double-fire a
+ * fixed hour. Prefer `UTC` when the trigger instant matters more than the local hour.
  */
 export const TimezoneSchema = z
   .string()

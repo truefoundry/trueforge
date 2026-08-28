@@ -1,10 +1,11 @@
 /**
  * Cron evaluation for schedules.
  *
- * `cron-parser` is used for computation only; it owns no timers. Matching is
- * literal wall-clock in the schedule's IANA zone, so on a DST transition day a
- * 02:30 schedule does not trigger (spring forward) and a 01:30 schedule triggers twice
- * (fall back) — both accepted, both derived from the same single code path.
+ * `cron-parser` is used for computation only; it owns no timers. Expressions are
+ * evaluated in the schedule's IANA zone. On a spring-forward gap, a time that
+ * does not exist (e.g. 02:30) maps onto the landing hour (03:30); fall-back
+ * repeats are not double-fired for a fixed hour. Callers that care about the
+ * exact UTC instant should prefer `timezone: "UTC"`.
  */
 import { CronExpressionParser } from 'cron-parser';
 import { InvalidCronError, type ScheduleManifest } from '../schemas/schedule';
@@ -36,7 +37,7 @@ export function nextTriggerAfter(input: { cron: string; timezone: string; from: 
  * {@link INTERVAL_PROBE_TRIGGERS} triggers.
  *
  * Sampling rather than analysis: a cron field can be irregular (`0 9,9 * * *`,
- * `*\/7 * * * *`), and the DST fall-back hour makes some real gaps shorter than the
+ * `*\/7 * * * *`), and DST transitions can make some real gaps shorter than the
  * nominal one. Probing the actual sequence is both simpler and more honest than
  * reasoning about the fields.
  */

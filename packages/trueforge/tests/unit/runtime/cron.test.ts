@@ -50,7 +50,7 @@ describe('nextTriggerAfter', () => {
     expect(() => nextTriggerAfter({ cron: '0 0 30 2 *', timezone: 'UTC', from: new Date() })).toThrow(InvalidCronError);
   });
 
-  describe('DST — matching is literal wall-clock', () => {
+  describe('DST', () => {
     it('holds the local hour across the autumn transition', () => {
       // 2026-11-01 is the US fall-back date. EDT (UTC-4) before, EST (UTC-5) after,
       // so the same 13:00 local trigger moves from 17:00Z to 18:00Z.
@@ -67,16 +67,16 @@ describe('nextTriggerAfter', () => {
       expect(after.toISOString()).toBe('2026-11-02T18:00:00.000Z');
     });
 
-    it('never triggers at a wall-clock time the zone skipped', () => {
-      // 2026-03-08 is the US spring-forward date: 02:00–03:00 local never happens
-      // in New York, so a 02:30 schedule has no matching time that day.
+    it('maps a skipped spring-forward hour onto the landing hour', () => {
+      // 2026-03-08 springs forward: 02:00–03:00 never exists in New York.
+      // cron-parser fires at 03:30 that day rather than skipping.
       const next = nextTriggerAfter({
         cron: '30 2 * * *',
         timezone: NEW_YORK,
         from: new Date('2026-03-07T12:00:00.000Z'),
       });
-      expect(localWallClock(next)).toBe('02:30');
-      expect(localDate(next)).not.toBe('2026-03-08');
+      expect(localWallClock(next)).toBe('03:30');
+      expect(localDate(next)).toBe('2026-03-08');
     });
   });
 });
