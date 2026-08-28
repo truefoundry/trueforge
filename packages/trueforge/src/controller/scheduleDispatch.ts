@@ -8,7 +8,7 @@ import {
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import { nextTriggerAfter } from '../runtime/cron';
-import { InvalidCronError, SCHEDULE_MAX_LATENESS_SECONDS } from '../schemas/schedule';
+import { InvalidCronError } from '../schemas/schedule';
 import type { ControlLoop } from './Controller';
 
 /**
@@ -32,10 +32,6 @@ const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 /** The loop's name. */
 const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
-function isTooLate(run: ScheduleRunRecord, now: number): boolean {
-  return (now - Date.parse(run.scheduled_for)) / 1000 > SCHEDULE_MAX_LATENESS_SECONDS;
-}
-
 /**
  * Mark the current run with `status`, then add the schedule's next scheduled run
  * if the schedule is still active and its cron still has a later trigger time.
@@ -50,7 +46,7 @@ async function finishScheduledRun<TTransaction>(params: {
   store: IScheduleStore<TTransaction>;
   run: ScheduleRunRecord;
   now: Date;
-  status: Extract<ScheduleRunStatus, 'triggered' | 'failed' | 'missed'>;
+  status: ScheduleRunStatus;
   withTransaction: WithTransaction<TTransaction>;
 }): Promise<void> {
   const { store, withTransaction, run, status, now } = params;
@@ -142,7 +138,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   withTransaction: WithTransaction<TTransaction>;
   /** When aborted, stop before the next run; the current run still finishes. */
   signal?: AbortSignal;
-}): Promise<{ dispatched: number; missed: number }> {
+}): Promise<{ dispatched: number, failed: number }> {
   const { store, withTransaction, onTriggered, logger, signal } = params;
   // ONE clock for the whole pass: it selects the runs, judges lateness, and anchors
   // the next trigger time.
@@ -150,8 +146,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   const scheduled = await store.listScheduledRuns({ limit: DISPATCH_BATCH_LIMIT, until: now });
 
   let dispatched = 0;
-  let missed = 0;
-
+  let failed = 0; 
   for (const run of scheduled) {
     if (signal?.aborted) {
       break;
@@ -170,23 +165,6 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         continue;
       }
 
-      if (isTooLate(run, now.getTime())) {
-        await finishScheduledRun({
-          store,
-          run,
-          now,
-          status: 'missed',
-          withTransaction,
-        });
-        logger.warn('Schedule run missed its scheduled time', {
-          schedule_id: run.schedule_id,
-          run_id: run.id,
-          scheduled_for: run.scheduled_for,
-        });
-        missed += 1;
-        continue;
-      }
-
       try {
         await onTriggered({ run, schedule });
       } catch (error) {
@@ -202,6 +180,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           status: 'failed',
           withTransaction,
         });
+        failed += 1;
         continue;
       }
 
@@ -222,7 +201,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
     }
   }
 
-  return { dispatched, missed };
+  return { dispatched, failed };
 }
 
 /**
@@ -264,9 +243,8 @@ export function createScheduleDispatchLoop<TTransaction>(params: {
         withTransaction,
         signal,
       });
-      // Only speak up when something happened; an idle pass every 30s is noise.
-      if (result.dispatched > 0 || result.missed > 0) {
-        logger.info('Schedule dispatch pass', result);
+      if (result.dispatched > 0 || result.failed > 0) {
+        logger.debug('Scheduled runs dispatched or failed', result);
       }
     },
   };

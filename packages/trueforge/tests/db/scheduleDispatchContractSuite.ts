@@ -11,11 +11,7 @@ import {
 } from '../../src/db/scheduleStore';
 import type { WithTransaction } from '../../src/db/transaction';
 import { nextTriggerAfter } from '../../src/runtime/cron';
-import {
-  SCHEDULE_MAX_LATENESS_SECONDS,
-  ScheduleManifestSchema,
-  type ScheduleManifest,
-} from '../../src/schemas/schedule';
+import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas/schedule';
 
 const TENANT = 'default';
 /** Schedule creator. Every advanced run must be attributed to this identity. */
@@ -108,9 +104,9 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       // Far enough ahead so that it doesnt clash with actual test.
       runFrom: new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000),
     });
-    // Mark the auto-added pending run missed so the exact run can be added.
+    // Mark the auto-added pending run failed so the exact run can be added.
     if (pendingRun !== undefined) {
-      await store.updateRunStatus({ tenant_id: TENANT, id: pendingRun.id, status: 'missed' });
+      await store.updateRunStatus({ tenant_id: TENANT, id: pendingRun.id, status: 'failed' });
     }
     const run = await store.createRun({
       tenant_id: TENANT,
@@ -123,7 +119,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     return { schedule, run };
   }
 
-  it('triggers a scheduled run, hands it off, and adds a next scheduled run', async () => {
+  it('triggers a scheduled run and adds a next scheduled run', async () => {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({
@@ -144,7 +140,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     });
     const after = Date.now();
 
-    expect(result).toEqual({ dispatched: 1, missed: 0 });
+    expect(result).toEqual({ dispatched: 1, failed: 0 });
     expect(triggered).toHaveLength(1);
     expect(triggered[0]?.run.id).toBe(run.id);
     expect(triggered[0]?.schedule.id).toBe(schedule.id);
@@ -189,7 +185,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     });
     const after = Date.now();
 
-    expect(result).toEqual({ dispatched: 1, missed: 0 });
+    expect(result).toEqual({ dispatched: 1, failed: 0 });
 
     const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id });
     expect(next?.id).not.toBe(run.id);
@@ -201,47 +197,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(next?.scheduled_for !== undefined && candidates.has(next.scheduled_for)).toBe(true);
   });
 
-  it('marks a run missed when it is later than the lateness bound and adds a next scheduled run', async () => {
-    const store = deps.getScheduleStore();
-    const pastScheduledFor = new Date(Date.now() - (SCHEDULE_MAX_LATENESS_SECONDS + 1) * 1000);
-    const { schedule, run } = await seedSchedule({ scheduledFor: pastScheduledFor });
-    const triggered: ScheduleDispatchItem[] = [];
-    const before = Date.now();
-
-    const result = await dispatchScheduledRuns({
-      store,
-      withTransaction: deps.withTransaction,
-      onTriggered: item => {
-        triggered.push(item);
-      },
-      logger,
-    });
-    const after = Date.now();
-
-    expect(result).toEqual({ dispatched: 0, missed: 1 });
-    expect(triggered).toHaveLength(0);
-
-    const updated = await store.getRun({ tenant_id: TENANT, id: run.id });
-    expect(updated).toEqual(
-      expect.objectContaining({
-        id: run.id,
-        status: 'missed',
-        triggered_at: null,
-      }),
-    );
-
-    const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id });
-    expect(next).toEqual(
-      expect.objectContaining({
-        schedule_id: schedule.id,
-        status: 'scheduled',
-      }),
-    );
-    expect(next?.id).not.toBe(run.id);
-    expectNextTriggerIso(next?.scheduled_for, before, after);
-  });
-
-  it('marks the run failed when onTriggered throws; the next scheduled run stays added', async () => {
+  it('marks the run failed when on error; the next scheduled run is added', async () => {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({ scheduledFor: pastScheduledFor });
@@ -255,7 +211,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       logger,
     });
 
-    expect(result).toEqual({ dispatched: 0, missed: 0 });
+    expect(result).toEqual({ dispatched: 0, failed: 1 });
 
     const updated = await store.getRun({ tenant_id: TENANT, id: run.id });
     expect(updated).toEqual(
@@ -293,7 +249,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     });
 
     // `paused` withholds the advance; it never cancels a row that already exists.
-    expect(result).toEqual({ dispatched: 1, missed: 0 });
+    expect(result).toEqual({ dispatched: 1, failed: 0 });
     expect(triggered.map(item => item.run.id)).toEqual([run.id]);
     expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toEqual(
       expect.objectContaining({ id: run.id, status: 'triggered', triggered_at: expect.any(String) }),
@@ -301,30 +257,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
-  it('records a late row on a paused schedule as missed', async () => {
-    const store = deps.getScheduleStore();
-    const { schedule, run } = await seedSchedule({
-      status: 'paused',
-      scheduledFor: new Date(Date.now() - (SCHEDULE_MAX_LATENESS_SECONDS + 1) * 1000),
-    });
-
-    const result = await dispatchScheduledRuns({
-      store,
-      withTransaction: deps.withTransaction,
-      onTriggered: () => {
-        throw new Error('a run past the lateness bound must not hand off');
-      },
-      logger,
-    });
-
-    expect(result).toEqual({ dispatched: 0, missed: 1 });
-    expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toEqual(
-      expect.objectContaining({ id: run.id, status: 'missed', triggered_at: null }),
-    );
-    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
-  });
-
-  it('adds the next run from the cron updated during onTriggered', async () => {
+  it('adds the next run from the cron when cron is updated', async () => {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({ scheduledFor: pastScheduledFor });
@@ -348,7 +281,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     });
     const after = Date.now();
 
-    expect(result).toEqual({ dispatched: 1, missed: 0 });
+    expect(result).toEqual({ dispatched: 1, failed: 0 });
     expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toBeUndefined();
 
     const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id });
@@ -371,7 +304,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(oldCandidates.has(next!.scheduled_for)).toBe(false);
   });
 
-  it('pause in onTriggered drops the pending run; a later pass does not add another', async () => {
+  it('pause in middle drops the pending run; a later pass does not add another', async () => {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({ scheduledFor: pastScheduledFor });
@@ -393,7 +326,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       logger,
     });
 
-    expect(first).toEqual({ dispatched: 1, missed: 0 });
+    expect(first).toEqual({ dispatched: 1, failed: 0 });
     expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toBeUndefined();
     expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toEqual(
       expect.objectContaining({ id: schedule.id, status: 'paused' }),
@@ -410,7 +343,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       logger,
     });
 
-    expect(second).toEqual({ dispatched: 0, missed: 0 });
+    expect(second).toEqual({ dispatched: 0, failed: 0 });
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
     expect(await scheduledRunsFor(schedule.id)).toEqual([]);
   });
@@ -422,7 +355,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(await store.listScheduledRuns({ limit: 100, until: new Date() })).toEqual([]);
 
     const now = Date.now();
-    const late = await seedSchedule({ scheduledFor: new Date(now - 70 * 60_000) });
     const thrower = await seedSchedule({ scheduledFor: new Date(now - 50 * 60_000) });
     const healthy = await seedSchedule({ scheduledFor: new Date(now - 5 * 60_000) });
     const handedOff: string[] = [];
@@ -440,12 +372,9 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       logger,
     });
 
-    expect(result).toEqual({ dispatched: 1, missed: 1 });
+    expect(result).toEqual({ dispatched: 1, failed: 1 });
     expect(handedOff).toEqual([thrower.run.id, healthy.run.id]);
 
-    expect(await store.getRun({ tenant_id: TENANT, id: late.run.id })).toEqual(
-      expect.objectContaining({ status: 'missed', triggered_at: null }),
-    );
     expect(await store.getRun({ tenant_id: TENANT, id: thrower.run.id })).toEqual(
       expect.objectContaining({ status: 'failed', triggered_at: null }),
     );
@@ -454,7 +383,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     );
 
     // Every schedule advances, whatever its run's outcome, and never onto a past time.
-    for (const seeded of [late, thrower, healthy]) {
+    for (const seeded of [thrower, healthy]) {
       const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: seeded.schedule.id });
       expect(next?.id).not.toBe(seeded.run.id);
       expect(Date.parse(next?.scheduled_for ?? '')).toBeGreaterThan(before);

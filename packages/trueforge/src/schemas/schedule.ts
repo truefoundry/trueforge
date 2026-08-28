@@ -7,13 +7,6 @@ import { NameSchema } from './common';
 export const SCHEDULE_MIN_INTERVAL_SECONDS = 3600;
 
 /**
- * How late a scheduled run may still trigger. A run found later than this is recorded
- * `missed` instead of executed, so a long outage does not end with the server
- * triggering a stale run.
- */
-export const SCHEDULE_MAX_LATENESS_SECONDS = 3600;
-
-/**
  * Standard 5-field cron (minute hour day-of-month month day-of-week).
  */
 const CRON_FIELD = String.raw`[\d*,\-/]+`;

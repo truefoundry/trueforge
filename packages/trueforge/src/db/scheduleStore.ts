@@ -20,11 +20,9 @@ import { ScheduleManifestSchema, type ScheduleManifest, type ScheduleStatus } fr
  * - `scheduled`  the one pending run; at most one per schedule, enforced by
  *                `schedule_run_pending_uq`
  * - `triggered`  taken by dispatch via `updateRunStatus`
- * - `failed`     turn errored, or hand-off to the executor failed
- * - `missed`     run was later than `SCHEDULE_MAX_LATENESS_SECONDS`;
- *                `scheduled_for` is preserved so history shows the gap honestly
+ * - `failed`     errored, or hand-off to the executor failed
  */
-export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed' | 'missed';
+export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed';
 
 /**
  * `sched-<unixSeconds>` or `manual-<token>` — one name per trigger time, which is what makes
