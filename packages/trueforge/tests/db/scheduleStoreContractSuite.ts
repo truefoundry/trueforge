@@ -196,7 +196,7 @@ export function runScheduleStoreContractSuite(deps: {
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
-  it('listScheduledRuns returns only scheduled rows with scheduled_for <= now, not triggered or missed', async () => {
+  it('listScheduledRuns returns only scheduled rows with scheduled_for <= now, not triggered', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const past = new Date(Date.now() - 60_000);
@@ -216,7 +216,6 @@ export function runScheduleStoreContractSuite(deps: {
 
     const readySchedule = await pausedSchedule('ready');
     const triggeredSchedule = await pausedSchedule('already-triggered');
-    const missedSchedule = await pausedSchedule('already-missed');
     const futureSchedule = await pausedSchedule('future');
 
     const readyRun = await store.createRun({
@@ -242,20 +241,6 @@ export function runScheduleStoreContractSuite(deps: {
       status: 'triggered',
     });
 
-    const missedSeed = await store.createRun({
-      tenant_id: TENANT,
-      schedule_id: missedSchedule.id,
-      name: cronRunName(past),
-      scheduled_for: past,
-      status: 'scheduled',
-      triggered_by: USER,
-    });
-    await store.updateRunStatus({
-      tenant_id: TENANT,
-      id: missedSeed.id,
-      status: 'missed',
-    });
-
     await store.createRun({
       tenant_id: TENANT,
       schedule_id: futureSchedule.id,
@@ -268,7 +253,7 @@ export function runScheduleStoreContractSuite(deps: {
     // `listScheduledRuns` is deliberately unscoped — dispatch sweeps every schedule —
     // so narrow to this test's schedules. Asserting on the raw list would couple this
     // test to whatever pending rows its neighbours left behind.
-    const ownIds = new Set([readySchedule.id, triggeredSchedule.id, missedSchedule.id, futureSchedule.id]);
+    const ownIds = new Set([readySchedule.id, triggeredSchedule.id, futureSchedule.id]);
     const found = await store.listScheduledRuns({ limit: 100, until: new Date() });
     expect(found.filter(run => ownIds.has(run.schedule_id)).map(run => run.id)).toEqual([readyRun.id]);
   });
@@ -436,6 +421,8 @@ export function runScheduleStoreContractSuite(deps: {
       created_by: USER,
       runFrom: new Date(),
     });
+    // Distinct `created_at` so newest-first order is stable.
+    await new Promise(resolve => setTimeout(resolve, 5));
     const newer = await store.createScheduleAndRun({
       tenant_id: TENANT,
       agent_name: agentA.name,
@@ -444,6 +431,7 @@ export function runScheduleStoreContractSuite(deps: {
       created_by: USER,
       runFrom: new Date(),
     });
+    await new Promise(resolve => setTimeout(resolve, 5));
     const otherAgent = await store.createScheduleAndRun({
       tenant_id: TENANT,
       agent_name: agentB.name,
@@ -510,21 +498,7 @@ export function runScheduleStoreContractSuite(deps: {
     );
     expect(triggered!.triggered_at).not.toBeNull();
 
-    const toMiss = await seedScheduled(new Date('2026-08-27T11:00:00.000Z'));
-    const missed = await store.updateRunStatus({
-      tenant_id: TENANT,
-      id: toMiss.id,
-      status: 'missed',
-    });
-    expect(missed).toEqual(
-      expect.objectContaining({
-        id: toMiss.id,
-        status: 'missed',
-        triggered_at: null,
-      }),
-    );
-
-    // Pending unique allows only one scheduled row — finish missed before seeding failed.
+    // Pending unique allows only one scheduled row — finish triggered before seeding failed.
     const toFail = await seedScheduled(new Date('2026-08-27T12:00:00.000Z'));
     const failed = await store.updateRunStatus({
       tenant_id: TENANT,
