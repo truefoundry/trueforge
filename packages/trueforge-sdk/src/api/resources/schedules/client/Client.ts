@@ -24,7 +24,7 @@ export class SchedulesClient {
     }
 
     /**
-     * List schedules for the tenant, newest first.
+     * List schedules for the tenant, newest first. Optionally filter by `agent_name`.
      *
      * @param {TrueForge.ListSchedulesRequest} request
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -121,6 +121,7 @@ export class SchedulesClient {
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ConflictError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -194,6 +195,17 @@ export class SchedulesClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 409:
+                    throw new TrueForge.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -312,6 +324,7 @@ export class SchedulesClient {
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.ConflictError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -397,6 +410,17 @@ export class SchedulesClient {
                     );
                 case 404:
                     throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 409:
+                    throw new TrueForge.ConflictError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

@@ -762,7 +762,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List schedules for the tenant, newest first.
+List schedules for the tenant, newest first. Optionally filter by `agent_name`.
 </dd>
 </dl>
 </dd>
