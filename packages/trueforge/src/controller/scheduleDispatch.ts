@@ -165,11 +165,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
       // Only a deleted schedule stops a row here. `paused` deliberately does NOT:
       // status decides whether the schedule gains a NEW row, never whether an
       // existing one runs. A row that exists was added while the schedule was
-      // active, so it is honoured — executed, or recorded `missed` if it is too
-      // late — and only the advance is withheld (see `finishScheduledRun`). This
-      // keeps run history complete: pausing never leaves a gap with no record.
-      // Rarely reachable, since pause deletes the pending row in its own
-      // transaction; this is the row that pause raced or never saw.
+      // active, so it is honoured.
       if (schedule === undefined) {
         continue;
       }
