@@ -195,9 +195,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
 
   it('advances from now, not from the time it just ran (no backfill)', async () => {
     const store = deps.getScheduleStore();
-    // Half an hour late: still inside the lateness bound, so this run triggers. With a
-    // minute-level cron, advancing from `scheduled_for` would land ~29 minutes in the past,
-    // while advancing from NOW lands in the next minute — the two cannot alias.
     const staleSlot = new Date(Date.now() - 30 * 60_000);
     const { schedule, run } = await seedSchedule({
       scheduledFor: staleSlot,
@@ -217,7 +214,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
 
     const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id });
     expect(next?.id).not.toBe(run.id);
-    // The intervening 30 minutes of triggers are skipped outright, never replayed.
     expect(Date.parse(next?.scheduled_for ?? '')).toBeGreaterThan(before);
     const candidates = new Set([
       nextTriggerAfter({ cron: MINUTELY_CRON, timezone: TIMEZONE, from: new Date(before) }).toISOString(),
@@ -326,7 +322,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
-  it('records a late row on a paused schedule as missed, leaving no gap in history', async () => {
+  it('records a late row on a paused schedule as missed', async () => {
     const store = deps.getScheduleStore();
     const { schedule, run } = await seedSchedule({
       status: 'paused',
@@ -353,7 +349,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({ scheduledFor: pastScheduledFor });
-    // Distinct from the seeded hourly `:00` cron so the next trigger time cannot alias.
     const newCron = '15 * * * *';
     const before = Date.now();
 
@@ -375,7 +370,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     const after = Date.now();
 
     expect(result).toEqual({ dispatched: 1, missed: 0 });
-    // Manifest put deletes the in-flight pending row while finishing.
     expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toBeUndefined();
 
     const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id });
@@ -407,7 +401,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       store,
       withTransaction: deps.withTransaction,
       onTriggered: async item => {
-        // Hand-off still sees `scheduled`; pause deletes that pending row before commit.
         expect(item.run.status).toBe('scheduled');
         const paused = await store.updateScheduleAndRun({
           tenant_id: TENANT,
@@ -421,7 +414,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       logger,
     });
 
-    // Hand-off succeeded; pause may still have dropped the row before finish.
     expect(first).toEqual({ dispatched: 1, missed: 0 });
     expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toBeUndefined();
     expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toEqual(
@@ -451,9 +443,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(await store.listScheduledRuns({ limit: 100, until: new Date() })).toEqual([]);
 
     const now = Date.now();
-    // Ordered by `scheduled_for` ascending, which is the order dispatch must use.
-    // The thrower sits BEFORE the healthy run on purpose: if one failure aborted the
-    // pass, `healthy` would never be reached and its assertions would fail.
     const late = await seedSchedule({ scheduledFor: new Date(now - 70 * 60_000) });
     const thrower = await seedSchedule({ scheduledFor: new Date(now - 50 * 60_000) });
     const healthy = await seedSchedule({ scheduledFor: new Date(now - 5 * 60_000) });
@@ -472,10 +461,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       logger,
     });
 
-    // One triggered, one missed, one failed — and `failed` is deliberately uncounted.
     expect(result).toEqual({ dispatched: 1, missed: 1 });
-    // `late` is past the lateness bound so it never reaches hand-off; the other two do,
-    // oldest first.
     expect(handedOff).toEqual([thrower.run.id, healthy.run.id]);
 
     expect(await store.getRun({ tenant_id: TENANT, id: late.run.id })).toEqual(
