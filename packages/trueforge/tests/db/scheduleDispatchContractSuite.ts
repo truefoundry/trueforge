@@ -4,7 +4,6 @@ import { createLogger } from 'winston';
 import { dispatchScheduledRuns } from '../../src/controller/scheduleDispatch';
 import type { IAgentStore } from '../../src/db/agentStore';
 import {
-  cronRunName,
   type IScheduleStore,
   type ScheduleDispatchItem,
   type ScheduleRecord,
@@ -119,18 +118,17 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       name: `sched-${String(Date.now())}-${String(seq)}`,
       manifest: manifest({ status, cron }),
       created_by: USER,
-      runFrom: new Date(),
+      // Far enough ahead so that it doesnt clash with actual test.
+      runFrom: new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000),
     });
-    // Retire the auto-added pending run so the exact run under test can take the
-    // single pending slot (`schedule_run_pending_uq`). Terminal rows are invisible
-    // to dispatch, so the retired row plays no part in what follows.
+    // Mark the auto-added pending run missed so the exact run can be added.
     if (pendingRun !== undefined) {
       await store.updateRunStatus({ tenant_id: TENANT, id: pendingRun.id, status: 'missed' });
     }
     const run = await store.createRun({
       tenant_id: TENANT,
       schedule_id: schedule.id,
-      name: cronRunName(params.scheduledFor),
+      name: `test-${String(Date.now())}-${String(seq)}`,
       scheduled_for: params.scheduledFor,
       status: 'scheduled',
       triggered_by: params.triggeredBy ?? USER,
