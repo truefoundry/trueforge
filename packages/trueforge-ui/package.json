@@ -59,7 +59,7 @@
   "scripts": {
     "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
     "prebuild": "pnpm run sdk:build",
-    "build": "rm -rf dist && tailwindcss --input src/build-styles.css --output dist/styles.css --minify && tsup",
+    "build": "node ../../scripts/rm-path.mjs dist && tailwindcss --input src/build-styles.css --output dist/styles.css --minify && tsup",
     "dev:watch": "pnpm run \"/^(dev:watch:js|dev:watch:css)$/\"",
     "dev:watch:js": "tsup --watch",
     "dev:watch:css": "tailwindcss --input src/build-styles.css --output dist/styles.css --watch",

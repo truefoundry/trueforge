@@ -21,7 +21,7 @@ import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path/posix';
 import type { ISkillMounter } from './skills/ISkillMounter';
 
 /** Layout derived from install remotePath (always `…/mcp_client.py`). */

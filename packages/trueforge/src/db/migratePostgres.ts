@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
 
+import { importAbsoluteModule } from '../util/crossPlatform';
 import type { Database } from './postgres/types';
 
 function createMigrator(db: Kysely<Database>): Migrator {
@@ -12,6 +13,7 @@ function createMigrator(db: Kysely<Database>): Migrator {
     provider: new FileMigrationProvider({
       fs,
       path,
+      import: importAbsoluteModule,
       migrationFolder: path.join(import.meta.dirname, 'postgres', 'migrations'),
     }),
   });
