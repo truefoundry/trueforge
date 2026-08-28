@@ -112,7 +112,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           {
             error: {
               message:
-                'Daytona accepted the API key but denied the request — the key needs the write:snapshots permission to register the sandbox image',
+                'Daytona denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key in the Daytona dashboard, then try again.',
             },
           },
           403,

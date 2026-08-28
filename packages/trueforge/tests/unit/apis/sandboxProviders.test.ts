@@ -166,7 +166,7 @@ describe('sandboxProviders router', () => {
     expect(response.status).toBe(422);
   });
 
-  it('PUT returns 403 naming the permission when the key cannot register snapshots', async () => {
+  it('PUT returns 403 naming the permissions when the key cannot register snapshots', async () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('Access denied', 403)) }),
     );
@@ -175,7 +175,7 @@ describe('sandboxProviders router', () => {
     expect(await response.json()).toEqual({
       error: {
         message:
-          'Daytona accepted the API key but denied the request — the key needs the write:snapshots permission to register the sandbox image',
+          'Daytona denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key in the Daytona dashboard, then try again.',
       },
     });
   });
