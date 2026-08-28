@@ -151,6 +151,7 @@ export * from "./SessionAgentReference.js";
 export * from "./SessionAgentSpecBody.js";
 export * from "./SessionEvent.js";
 export * from "./SessionEventItem.js";
+export * from "./SessionMetrics.js";
 export * from "./SettingsCapability.js";
 export * from "./Skill.js";
 export * from "./SkillCapability.js";
