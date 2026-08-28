@@ -17,7 +17,7 @@ updates:
     exclude-paths:
       - packages/trueforge-sdk/**
     ignore:
-      - dependency-name: "*"
+      - dependency-name: '*'
         update-types:
           - version-update:semver-major
     groups:
