@@ -73,7 +73,7 @@ export interface ScheduleWriteResult {
   pendingRun: ScheduleRunRecord | undefined;
 }
 
-/** A scheduled run plus the schedule that owns it — one query, no N+1 on the dispatch path. */
+/** A scheduled run plus the schedule that owns it. */
 export interface ScheduleDispatchItem {
   run: ScheduleRunRecord;
   schedule: ScheduleRecord;
