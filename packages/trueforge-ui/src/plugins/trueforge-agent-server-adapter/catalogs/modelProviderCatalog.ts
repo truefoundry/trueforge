@@ -175,5 +175,8 @@ export function createModelProviderCatalog(
       });
       return toUiModelProvider(body.data);
     },
+    deleteModelProvider: async ({ id }) => {
+      await client.settings.modelProviders.delete(id);
+    },
   };
 }

@@ -1036,6 +1036,10 @@
         "properties": {},
         "type": "object"
       },
+      "DeleteModelProviderResponse": {
+        "properties": {},
+        "type": "object"
+      },
       "DynamicSubAgentsConfig": {
         "default": {
           "enabled": true
@@ -6795,6 +6799,55 @@
           "modelProviders"
         ],
         "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
+    "/api/v1/settings/model-providers/{name}": {
+      "delete": {
+        "description": "Deletes a configured model provider by name.",
+        "parameters": [
+          {
+            "description": "Model provider name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Model provider name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteModelProviderResponse"
+                }
+              }
+            },
+            "description": "The model provider was deleted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Model provider not found."
+          }
+        },
+        "summary": "Delete a model provider",
+        "tags": [
+          "Models"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "delete"
       }
     },
     "/api/v1/settings/sandbox-providers": {

@@ -421,3 +421,25 @@ describe('catalog presets are configurable', () => {
     expect(json.data.manifest.auth.api_key).toBe(toRedactedSecretValue(`sk-${preset.type}`));
   });
 });
+
+describe('DELETE /model-providers/:name', () => {
+  it('deletes a configured provider and returns 200 with empty body', async () => {
+    const { settingsRouter, modelProviderStore } = await createRouters();
+    expect((await settingsRouter.request('/model-providers', putInit(anthropicBody))).status).toBe(200);
+
+    const deleteResponse = await settingsRouter.request('/model-providers/anthropic', { method: 'DELETE' });
+    expect(deleteResponse.status).toBe(200);
+    expect(await deleteResponse.json()).toEqual({});
+
+    const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
+    expect(stored).toBeUndefined();
+  });
+
+  it('returns 404 when deleting a non-existent provider', async () => {
+    const { settingsRouter } = await createRouters();
+    const deleteResponse = await settingsRouter.request('/model-providers/non-existent', { method: 'DELETE' });
+    expect(deleteResponse.status).toBe(404);
+    const json = (await deleteResponse.json()) as { error: { message: string } };
+    expect(json.error.message).toContain('not found');
+  });
+});

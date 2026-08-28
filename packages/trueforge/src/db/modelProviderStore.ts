@@ -62,6 +62,8 @@ export interface IModelProviderStore<TTransaction = never> {
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(tenantId: string, transaction?: TTransaction): Promise<AvailableModel[]>;
+
+  deleteProvider(input: GetModelProviderInput, transaction?: TTransaction): Promise<boolean>;
 }
 
 /** Application-side flatten shared by both store implementations. */

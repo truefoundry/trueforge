@@ -134,4 +134,29 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
       },
     ]);
   });
+
+  it('deleteProvider deletes the provider and returns true, or false if not found', async () => {
+    const store = getStore();
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
+
+    const deleted = await store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' });
+    expect(deleted).toBe(true);
+
+    const fetched = await store.getProvider({ tenant_id: TENANT, name: 'anthropic' });
+    expect(fetched).toBeUndefined();
+
+    const deletedAgain = await store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' });
+    expect(deletedAgain).toBe(false);
+  });
+
+  it('deleteProvider is tenant scoped', async () => {
+    const store = getStore();
+    await store.upsertProvider({ tenant_id: 'other-tenant', name: 'anthropic', manifest: anthropic });
+
+    const deleted = await store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' });
+    expect(deleted).toBe(false);
+
+    const otherTenantProvider = await store.getProvider({ tenant_id: 'other-tenant', name: 'anthropic' });
+    expect(otherTenantProvider).toBeDefined();
+  });
 }

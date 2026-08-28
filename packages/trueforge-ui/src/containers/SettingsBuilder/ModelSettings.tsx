@@ -391,7 +391,7 @@ const ModelSettings = () => {
                                 onClick={() => {
                                   handleUpdateModels(
                                     provider,
-                                    provider.models.filter(item => item.id !== model.id),
+                                    provider.models.filter(m => m.id !== model.id),
                                   );
                                 }}
                               >

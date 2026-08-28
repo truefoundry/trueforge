@@ -7,6 +7,7 @@ import {
 import type { WithTransaction } from '../db/transaction';
 import {
   createModelProviderRoute,
+  deleteModelProviderRoute,
   listModelProvidersRoute,
   putModelProviderRoute,
 } from '../routes/modelProviderRoutes';
@@ -64,6 +65,21 @@ function toWireProvider(record: ModelProviderRecord): ConfiguredModelProvider {
 }
 
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
+  const deleteHandler: RouteHandler<typeof deleteModelProviderRoute> = async c => {
+    const { name } = c.req.valid('param');
+
+    const deleted = await deps.modelProviderStore.deleteProvider({
+      tenant_id: TENANT_ID,
+      name,
+    });
+
+    if (!deleted) {
+      return c.json({ error: { message: `Model provider "${name}" not found` } }, 404);
+    }
+
+    return c.json({}, 200);
+  };
+
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const records = await deps.modelProviderStore.listProviders(TENANT_ID);
     return c.json({ data: records.map(toWireProvider) }, 200);
@@ -120,5 +136,6 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   router.openapi(listModelProvidersRoute, listHandler);
   router.openapi(createModelProviderRoute, createHandler);
   router.openapi(putModelProviderRoute, putHandler);
+  router.openapi(deleteModelProviderRoute, deleteHandler);
   return router;
 }
