@@ -46,7 +46,7 @@ export function validateManifest(manifest: Pick<ScheduleManifest, 'cron' | 'time
   // Reject if the cron has no upcoming trigger time (impossible / exhausted calendar).
   // 5-field cron has no year, so a valid expression always recurs — no one-shot check.
   try {
-    nextTriggerAfter(manifest.cron, manifest.timezone, from);
+    nextTriggerAfter({ cron: manifest.cron, timezone: manifest.timezone, from });
   } catch (error) {
     throw new InvalidCronError(`Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`, {
       cause: error,

@@ -72,7 +72,11 @@ async function finishScheduledRun<TTransaction>(params: {
 
     let nextTrigger: Date;
     try {
-      nextTrigger = nextTriggerAfter(latest.manifest.cron, latest.manifest.timezone, advanceFrom);
+      nextTrigger = nextTriggerAfter({
+        cron: latest.manifest.cron,
+        timezone: latest.manifest.timezone,
+        from: advanceFrom,
+      });
     } catch (error) {
       if (!(error instanceof InvalidCronError)) {
         throw error;

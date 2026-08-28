@@ -53,7 +53,7 @@ export function runScheduleStoreContractSuite(deps: {
         schedule_id: schedule.id,
         status: 'scheduled',
         triggered_by: USER,
-        scheduled_for: nextTriggerAfter(m.cron, m.timezone, runFrom).toISOString(),
+        scheduled_for: nextTriggerAfter({ cron: m.cron, timezone: m.timezone, from: runFrom }).toISOString(),
       }),
     );
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(pendingRun);
@@ -107,7 +107,9 @@ export function runScheduleStoreContractSuite(deps: {
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC', status: 'active' }),
       runFrom: resumeFrom,
     });
-    expect(resumed?.pendingRun?.scheduled_for).toBe(nextTriggerAfter('0 * * * *', 'UTC', resumeFrom).toISOString());
+    expect(resumed?.pendingRun?.scheduled_for).toBe(
+      nextTriggerAfter({ cron: '0 * * * *', timezone: 'UTC', from: resumeFrom }).toISOString(),
+    );
   });
 
   it('updating cron while active replaces the pending run with a new trigger time', async () => {
@@ -122,7 +124,9 @@ export function runScheduleStoreContractSuite(deps: {
       created_by: USER,
       runFrom,
     });
-    expect(first?.scheduled_for).toBe(nextTriggerAfter('0 9 * * *', 'UTC', runFrom).toISOString());
+    expect(first?.scheduled_for).toBe(
+      nextTriggerAfter({ cron: '0 9 * * *', timezone: 'UTC', from: runFrom }).toISOString(),
+    );
 
     const updated = await store.updateScheduleAndRun({
       tenant_id: TENANT,
@@ -132,7 +136,9 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom,
     });
     expect(updated?.pendingRun?.id).not.toBe(first?.id);
-    expect(updated?.pendingRun?.scheduled_for).toBe(nextTriggerAfter('0 17 * * *', 'UTC', runFrom).toISOString());
+    expect(updated?.pendingRun?.scheduled_for).toBe(
+      nextTriggerAfter({ cron: '0 17 * * *', timezone: 'UTC', from: runFrom }).toISOString(),
+    );
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(
       updated?.pendingRun,
     );

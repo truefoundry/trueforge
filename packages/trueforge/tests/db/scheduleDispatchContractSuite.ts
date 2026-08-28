@@ -45,8 +45,8 @@ function manifest(overrides: Partial<ScheduleManifest> = {}): ScheduleManifest {
 /** Next trigger time may land on either side of an hour boundary between seed and assert. */
 function expectNextTriggerIso(actual: string | undefined, fromMs: number, toMs: number): void {
   const candidates = new Set([
-    nextTriggerAfter(CRON, TIMEZONE, new Date(fromMs)).toISOString(),
-    nextTriggerAfter(CRON, TIMEZONE, new Date(toMs)).toISOString(),
+    nextTriggerAfter({ cron: CRON, timezone: TIMEZONE, from: new Date(fromMs) }).toISOString(),
+    nextTriggerAfter({ cron: CRON, timezone: TIMEZONE, from: new Date(toMs) }).toISOString(),
   ]);
   expect(actual !== undefined && candidates.has(actual)).toBe(true);
 }
@@ -220,8 +220,8 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     // The intervening 30 minutes of triggers are skipped outright, never replayed.
     expect(Date.parse(next?.scheduled_for ?? '')).toBeGreaterThan(before);
     const candidates = new Set([
-      nextTriggerAfter(MINUTELY_CRON, TIMEZONE, new Date(before)).toISOString(),
-      nextTriggerAfter(MINUTELY_CRON, TIMEZONE, new Date(after)).toISOString(),
+      nextTriggerAfter({ cron: MINUTELY_CRON, timezone: TIMEZONE, from: new Date(before) }).toISOString(),
+      nextTriggerAfter({ cron: MINUTELY_CRON, timezone: TIMEZONE, from: new Date(after) }).toISOString(),
     ]);
     expect(next?.scheduled_for !== undefined && candidates.has(next.scheduled_for)).toBe(true);
   });
@@ -386,14 +386,14 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       }),
     );
     const newCandidates = new Set([
-      nextTriggerAfter(newCron, TIMEZONE, new Date(before)).toISOString(),
-      nextTriggerAfter(newCron, TIMEZONE, new Date(after)).toISOString(),
+      nextTriggerAfter({ cron: newCron, timezone: TIMEZONE, from: new Date(before) }).toISOString(),
+      nextTriggerAfter({ cron: newCron, timezone: TIMEZONE, from: new Date(after) }).toISOString(),
     ]);
     expect(next?.scheduled_for !== undefined && newCandidates.has(next.scheduled_for)).toBe(true);
 
     const oldCandidates = new Set([
-      nextTriggerAfter(CRON, TIMEZONE, new Date(before)).toISOString(),
-      nextTriggerAfter(CRON, TIMEZONE, new Date(after)).toISOString(),
+      nextTriggerAfter({ cron: CRON, timezone: TIMEZONE, from: new Date(before) }).toISOString(),
+      nextTriggerAfter({ cron: CRON, timezone: TIMEZONE, from: new Date(after) }).toISOString(),
     ]);
     expect(oldCandidates.has(next!.scheduled_for)).toBe(false);
   });

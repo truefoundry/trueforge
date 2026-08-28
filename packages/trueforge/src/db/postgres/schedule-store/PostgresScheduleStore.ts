@@ -77,7 +77,11 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     if (schedule.status !== 'active') {
       return undefined;
     }
-    const nextTrigger = nextTriggerAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
+    const nextTrigger = nextTriggerAfter({
+      cron: schedule.manifest.cron,
+      timezone: schedule.manifest.timezone,
+      from,
+    });
     return this.createRun(
       {
         tenant_id: schedule.tenant_id,

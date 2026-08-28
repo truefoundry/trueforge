@@ -18,7 +18,8 @@ const INTERVAL_PROBE_TRIGGERS = 5;
  * Throws {@link InvalidCronError} when the expression parses structurally
  * but cannot produce a trigger time — e.g. `0 0 30 2 *`, February 30th.
  */
-export function nextTriggerAfter(cron: string, timezone: string, from: Date): Date {
+export function nextTriggerAfter(input: { cron: string; timezone: string; from: Date }): Date {
+  const { cron, timezone, from } = input;
   try {
     const interval = CronExpressionParser.parse(cron, {
       currentDate: from,

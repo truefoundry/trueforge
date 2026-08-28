@@ -24,43 +24,59 @@ function localDate(instant: Date): string {
 describe('nextTriggerAfter', () => {
   it('triggers at the wall-clock time in the schedule zone, not UTC', () => {
     // 2026-08-27 is a Thursday; EDT is UTC-4, so 13:00 local is 17:00Z.
-    const next = nextTriggerAfter(WEEKDAY_1PM.cron, WEEKDAY_1PM.timezone, new Date('2026-08-27T10:00:00.000Z'));
+    const next = nextTriggerAfter({
+      ...WEEKDAY_1PM,
+      from: new Date('2026-08-27T10:00:00.000Z'),
+    });
     expect(next.toISOString()).toBe('2026-08-27T17:00:00.000Z');
   });
 
   it('skips the weekend for a weekday-only expression', () => {
     // Friday after the trigger → next is Monday.
-    const next = nextTriggerAfter(WEEKDAY_1PM.cron, WEEKDAY_1PM.timezone, new Date('2026-08-28T18:00:00.000Z'));
+    const next = nextTriggerAfter({
+      ...WEEKDAY_1PM,
+      from: new Date('2026-08-28T18:00:00.000Z'),
+    });
     expect(next.toISOString()).toBe('2026-08-31T17:00:00.000Z');
   });
 
   it('is strictly after `from`, so a trigger cannot land on the instant it ran', () => {
     const triggeredAt = new Date('2026-08-27T17:00:00.000Z');
-    expect(nextTriggerAfter(WEEKDAY_1PM.cron, WEEKDAY_1PM.timezone, triggeredAt).getTime()).toBeGreaterThan(
-      triggeredAt.getTime(),
-    );
+    expect(nextTriggerAfter({ ...WEEKDAY_1PM, from: triggeredAt }).getTime()).toBeGreaterThan(triggeredAt.getTime());
   });
 
   it('throws for an expression that can never trigger', () => {
     // February 30th.
-    expect(() => nextTriggerAfter('0 0 30 2 *', 'UTC', new Date())).toThrow(InvalidCronError);
+    expect(() => nextTriggerAfter({ cron: '0 0 30 2 *', timezone: 'UTC', from: new Date() })).toThrow(
+      InvalidCronError,
+    );
   });
 
   describe('DST — matching is literal wall-clock', () => {
     it('holds the local hour across the autumn transition', () => {
       // 2026-11-01 is the US fall-back date. EDT (UTC-4) before, EST (UTC-5) after,
       // so the same 13:00 local trigger moves from 17:00Z to 18:00Z.
-      const before = nextTriggerAfter(WEEKDAY_1PM.cron, WEEKDAY_1PM.timezone, new Date('2026-10-30T00:00:00.000Z'));
+      const before = nextTriggerAfter({
+        ...WEEKDAY_1PM,
+        from: new Date('2026-10-30T00:00:00.000Z'),
+      });
       expect(before.toISOString()).toBe('2026-10-30T17:00:00.000Z');
 
-      const after = nextTriggerAfter(WEEKDAY_1PM.cron, WEEKDAY_1PM.timezone, new Date('2026-11-02T00:00:00.000Z'));
+      const after = nextTriggerAfter({
+        ...WEEKDAY_1PM,
+        from: new Date('2026-11-02T00:00:00.000Z'),
+      });
       expect(after.toISOString()).toBe('2026-11-02T18:00:00.000Z');
     });
 
     it('never triggers at a wall-clock time the zone skipped', () => {
       // 2026-03-08 is the US spring-forward date: 02:00–03:00 local never happens
       // in New York, so a 02:30 schedule has no matching time that day.
-      const next = nextTriggerAfter('30 2 * * *', NEW_YORK, new Date('2026-03-07T12:00:00.000Z'));
+      const next = nextTriggerAfter({
+        cron: '30 2 * * *',
+        timezone: NEW_YORK,
+        from: new Date('2026-03-07T12:00:00.000Z'),
+      });
       expect(localWallClock(next)).toBe('02:30');
       expect(localDate(next)).not.toBe('2026-03-08');
     });
