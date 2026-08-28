@@ -57,7 +57,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
   withTransaction: WithTransaction<TTransaction>;
 }): void {
   const logger = createLogger({ silent: true });
-  /** Agent names are unique per tenant, and `Date.now()` alone collides in a tight loop. */
   let seq = 0;
 
   async function seedAgent(): Promise<string> {
@@ -73,13 +72,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     return agent.name;
   }
 
-  /**
-   * Runs of one schedule whose `scheduled_for` has passed.
-   *
-   * `listScheduledRuns` is unscoped by design — dispatch sweeps every schedule — so
-   * a test must never assert on its raw result, or it inherits whatever pending rows
-   * its neighbours left behind.
-   */
   async function scheduledRunsFor(scheduleId: string): Promise<ScheduleRunRecord[]> {
     const found = await deps.getScheduleStore().listScheduledRuns({ limit: 100, until: new Date() });
     return found.filter(run => run.schedule_id === scheduleId);
@@ -87,10 +79,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
 
   /**
    * Advances any run left ready by an earlier test.
-   *
-   * `dispatchScheduledRuns` sweeps every schedule, so a test that asserts on the
-   * pass RESULT (counters, hand-off order) — rather than on specific rows — must
-   * start from a database where nothing else is ready to run.
    */
   async function drainScheduledRuns(): Promise<void> {
     await dispatchScheduledRuns({
@@ -105,7 +93,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     status?: 'active' | 'paused';
     scheduledFor: Date;
     cron?: string;
-    /** Actor on the seeded run; defaults to the creator. */
     triggeredBy?: string;
   }): Promise<{ schedule: ScheduleRecord; run: ScheduleRunRecord }> {
     const store = deps.getScheduleStore();
@@ -136,16 +123,9 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     return { schedule, run };
   }
 
-  // Tests run in the order dispatch itself reaches these states: the happy path
-  // first, then each failure the loop can hit as it walks a run (too late -> hand-off
-  // threw), then the cases where the advance is withheld or raced, and finally the
-  // whole batch together.
-
   it('triggers a scheduled run, hands it off, and adds a next scheduled run', async () => {
     const store = deps.getScheduleStore();
     const pastScheduledFor = new Date(Date.now() - 60_000);
-    // The run under test carries a different actor, so asserting the ADVANCED row is
-    // `schedule.created_by` cannot pass by coincidence.
     const { schedule, run } = await seedSchedule({
       scheduledFor: pastScheduledFor,
       triggeredBy: OTHER_ACTOR,
@@ -183,7 +163,6 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       expect.objectContaining({
         schedule_id: schedule.id,
         status: 'scheduled',
-        // The schedule's creator, not whoever the previous run was attributed to.
         triggered_by: USER,
       }),
     );
