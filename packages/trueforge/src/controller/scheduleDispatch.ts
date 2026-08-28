@@ -37,8 +37,14 @@ function isTooLate(run: ScheduleRunRecord, now: number): boolean {
 }
 
 /**
- * Mark the current run with `status`, then add the schedule's next scheduled run 
+ * Mark the current run with `status`, then add the schedule's next scheduled run
  * if the schedule is still active and its cron still has a later trigger time.
+ *
+ * ## LOCK ORDERING
+ * The schedule row is locked FIRST, before the run row is touched. `updateScheduleAndRun`
+ * (the PUT path) does the same: it locks the schedule, then deletes and inserts runs.
+ * Both transactions therefore take schedule-then-run, and serialize cleanly.
+ *
  */
 async function finishScheduledRun<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -48,6 +54,11 @@ async function finishScheduledRun<TTransaction>(params: {
 }): Promise<void> {
   const { scheduleStore, withTransaction, run, status } = params;
   await withTransaction(async txn => {
+    const latest = await scheduleStore.getSchedule(
+      { tenant_id: run.tenant_id, id: run.schedule_id, forUpdate: true },
+      txn,
+    );
+
     const updated = await scheduleStore.updateRunStatus(
       { tenant_id: run.tenant_id, id: run.id, status },
       txn,
@@ -56,10 +67,6 @@ async function finishScheduledRun<TTransaction>(params: {
       return;
     }
 
-    const latest = await scheduleStore.getSchedule(
-      { tenant_id: run.tenant_id, id: run.schedule_id },
-      txn,
-    );
     if (!latest || latest.status !== 'active') {
       return;
     }

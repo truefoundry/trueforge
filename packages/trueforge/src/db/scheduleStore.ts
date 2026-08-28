@@ -96,6 +96,8 @@ export interface ListSchedulesInput {
 export interface GetScheduleInput {
   tenant_id: string;
   id: string;
+  /** Whether to take a row lock on the schedule (`SELECT ... FOR UPDATE`). */
+  forUpdate: boolean | undefined;
 }
 
 export interface CreateScheduleInput {
@@ -160,6 +162,13 @@ export interface GetRunInput {
   id: string;
 }
 
+export class ScheduleRunConflictError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ScheduleRunConflictError';
+  }
+}
+
 export interface UpdateScheduleRunStatusInput {
   tenant_id: string;
   id: string;
@@ -193,7 +202,7 @@ export interface IScheduleStore<TTransaction = never> {
   getRun(input: GetRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** The single `scheduled` run for a schedule, if one exists. */
   getScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
-  /** Inserts a run. */
+  /** Inserts a run. Throws {@link ScheduleRunConflictError} on either unique index. */
   createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
   /**
    * Status transition. Stamps `triggered_at` when moving to `triggered`.

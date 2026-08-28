@@ -5,6 +5,7 @@ import type { ScheduleManifest, ScheduleStatus } from '../../../schemas/schedule
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleRunConflictError,
   shouldSyncPendingRun,
   type CreateScheduleInput,
   type CreateScheduleRunInput,
@@ -21,6 +22,7 @@ import {
   type UpdateScheduleInput,
   type UpdateScheduleRunStatusInput,
 } from '../../scheduleStore';
+import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
@@ -102,6 +104,11 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     this.#db = db;
   }
 
+  /**
+   * `input.forUpdate` is intentionally ignored: SQLite has no `SELECT ... FOR UPDATE`
+   * and does not need one — a write transaction holds the whole database, so the
+   * lock ordering Postgres needs is already guaranteed.
+   */
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db
@@ -144,8 +151,12 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     input: UpdateScheduleInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleWriteResult | undefined> {
+    // Lock first: this transaction writes the schedule AND its runs, and every such
+    // transaction must take the schedule lock before touching a run row (see the
+    // lock-ordering note in `controller/scheduleDispatch.ts`). A no-op here; Postgres
+    // is where it matters.
     const previous = await this.getSchedule(
-      { tenant_id: input.tenant_id, id: input.id },
+      { tenant_id: input.tenant_id, id: input.id, forUpdate: true },
       transaction,
     );
     if (previous === undefined) {
@@ -247,23 +258,30 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
   async createRun(input: CreateScheduleRunInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    const row = await db
-      .insertInto('schedule_run')
-      .values({
-        id: ulid().toLowerCase(),
-        tenant_id: input.tenant_id,
-        schedule_id: input.schedule_id,
-        name: input.name,
-        scheduled_for: input.scheduled_for.toISOString(),
-        status: input.status,
-        triggered_by: input.triggered_by,
-        triggered_at: null,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .returning(RUN_COLUMNS)
-      .executeTakeFirstOrThrow();
-    return toRunRecord(row);
+    try {
+      const row = await db
+        .insertInto('schedule_run')
+        .values({
+          id: ulid().toLowerCase(),
+          tenant_id: input.tenant_id,
+          schedule_id: input.schedule_id,
+          name: input.name,
+          scheduled_for: input.scheduled_for.toISOString(),
+          status: input.status,
+          triggered_by: input.triggered_by,
+          triggered_at: null,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(RUN_COLUMNS)
+        .executeTakeFirstOrThrow();
+      return toRunRecord(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ScheduleRunConflictError(`Schedule run already exists: ${input.name}`, { cause: error });
+      }
+      throw error;
+    }
   }
 
   async updateRunStatus(

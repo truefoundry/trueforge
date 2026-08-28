@@ -5,7 +5,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { UserContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import type { IScheduleStore, ScheduleRecord } from '../db/scheduleStore';
+import { ScheduleRunConflictError, type IScheduleStore, type ScheduleRecord } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createScheduleRoute,
@@ -98,20 +98,28 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 400);
     }
 
-    const record = await deps.withTransaction(async transaction => {
-      const { schedule } = await deps.scheduleStore.createScheduleAndRun(
-        {
-          tenant_id: TENANT_ID,
-          agent_name: agent.name,
-          name: body.name,
-          manifest: body.manifest,
-          created_by: user.userRef,
-          runFrom: new Date(),
-        },
-        transaction,
-      );
-      return schedule;
-    });
+    let record: ScheduleRecord;
+    try {
+      record = await deps.withTransaction(async transaction => {
+        const { schedule } = await deps.scheduleStore.createScheduleAndRun(
+          {
+            tenant_id: TENANT_ID,
+            agent_name: agent.name,
+            name: body.name,
+            manifest: body.manifest,
+            created_by: user.userRef,
+            runFrom: new Date(),
+          },
+          transaction,
+        );
+        return schedule;
+      });
+    } catch (error) {
+      if (error instanceof ScheduleRunConflictError) {
+        return c.json({ error: { message: `${error.message}. Retry the request.` } }, 409);
+      }
+      throw error;
+    }
 
     return c.json({ data: toWireSchedule(record) }, 201);
   };
@@ -140,19 +148,27 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
     validateManifest(body.manifest);
 
-    const record = await deps.withTransaction(async transaction => {
-      const result = await deps.scheduleStore.updateScheduleAndRun(
-        {
-          tenant_id: TENANT_ID,
-          id: scheduleId,
-          name: body.name,
-          manifest: body.manifest,
-          runFrom: new Date(),
-        },
-        transaction,
-      );
-      return result?.schedule;
-    });
+    let record: ScheduleRecord | undefined;
+    try {
+      record = await deps.withTransaction(async transaction => {
+        const result = await deps.scheduleStore.updateScheduleAndRun(
+          {
+            tenant_id: TENANT_ID,
+            id: scheduleId,
+            name: body.name,
+            manifest: body.manifest,
+            runFrom: new Date(),
+          },
+          transaction,
+        );
+        return result?.schedule;
+      });
+    } catch (error) {
+      if (error instanceof ScheduleRunConflictError) {
+        return c.json({ error: { message: `${error.message}. Retry the request.` } }, 409);
+      }
+      throw error;
+    }
 
     if (record === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);

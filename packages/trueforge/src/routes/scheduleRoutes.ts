@@ -18,16 +18,18 @@ export const ScheduleIdParamsSchema = z.object({
   schedule_id: z.string().min(1).max(64).describe('Immutable schedule identifier.'),
 });
 
-export const ListSchedulesQuerySchema = z.object({
-  agent_name: NameSchema.optional().describe('Filter by bound agent name.'),
-});
+export const ListSchedulesQuerySchema = z
+  .object({
+    agent_name: NameSchema.optional(),
+  })
+  .openapi('ListSchedulesQuery');
 
 export const listSchedulesRoute = createRoute({
   method: 'get',
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List schedules',
-  description: 'List schedules for the tenant, newest first.',
+  description: 'List schedules for the tenant, newest first. Optionally filter by `agent_name`.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list',
   request: {
@@ -67,6 +69,10 @@ export const createScheduleRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unknown agent or invalid cron.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The schedule was modified concurrently (usually the controller advancing it). Retry.',
     },
   },
 });
@@ -117,6 +123,10 @@ export const putScheduleRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid cron.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The schedule was modified concurrently (usually the controller advancing it). Retry.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
