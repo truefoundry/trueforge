@@ -135,6 +135,33 @@ describe("SchedulesClient", () => {
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
+    test("create (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { agent_name: "xy", manifest: { cron: "cron", task: "x" }, name: "xy" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.create({
+                agentName: "xy",
+                manifest: {
+                    cron: "cron",
+                    task: "x",
+                },
+                name: "xy",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
     test("get (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
@@ -297,6 +324,32 @@ describe("SchedulesClient", () => {
                 name: "xy",
             });
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("update (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { cron: "cron", task: "x" }, name: "xy" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/schedules/schedule_id")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.update("schedule_id", {
+                manifest: {
+                    cron: "cron",
+                    task: "x",
+                },
+                name: "xy",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
     test("delete (1)", async () => {

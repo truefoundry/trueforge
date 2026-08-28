@@ -5398,22 +5398,14 @@
     },
     "/api/v1/schedules": {
       "get": {
-        "description": "List schedules for the tenant, newest first.",
+        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_name`.",
         "parameters": [
           {
-            "description": "Filter by bound agent name.",
             "in": "query",
             "name": "agent_name",
             "required": false,
             "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/ResourceName"
-                },
-                {
-                  "description": "Filter by bound agent name."
-                }
-              ]
+              "$ref": "#/components/schemas/ResourceName"
             }
           }
         ],
@@ -5480,6 +5472,16 @@
               }
             },
             "description": "Unknown agent or invalid cron."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The schedule was modified concurrently (usually the controller advancing it). Retry."
           }
         },
         "summary": "Create a schedule",
@@ -5643,6 +5645,16 @@
               }
             },
             "description": "Not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The schedule was modified concurrently (usually the controller advancing it). Retry."
           }
         },
         "summary": "Update a schedule",
