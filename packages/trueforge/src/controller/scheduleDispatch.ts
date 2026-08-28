@@ -58,7 +58,7 @@ async function finishScheduledRun<TTransaction>(params: {
       return;
     }
 
-    if (!latest || latest.status !== 'active') {
+    if (latest?.status !== 'active') {
       return;
     }
 

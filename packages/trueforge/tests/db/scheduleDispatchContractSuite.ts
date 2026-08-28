@@ -150,9 +150,9 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       expect.objectContaining({
         id: run.id,
         status: 'triggered',
-        triggered_at: expect.any(String),
       }),
     );
+    expect(typeof updated?.triggered_at).toBe('string');
 
     const next = await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id });
     expect(next).toEqual(
@@ -251,9 +251,9 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     // `paused` withholds the advance; it never cancels a row that already exists.
     expect(result).toEqual({ dispatched: 1, failed: 0 });
     expect(triggered.map(item => item.run.id)).toEqual([run.id]);
-    expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toEqual(
-      expect.objectContaining({ id: run.id, status: 'triggered', triggered_at: expect.any(String) }),
-    );
+    const updated = await store.getRun({ tenant_id: TENANT, id: run.id });
+    expect(updated).toEqual(expect.objectContaining({ id: run.id, status: 'triggered' }));
+    expect(typeof updated?.triggered_at).toBe('string');
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
@@ -301,7 +301,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       nextTriggerAfter({ cron: CRON, timezone: TIMEZONE, from: new Date(before) }).toISOString(),
       nextTriggerAfter({ cron: CRON, timezone: TIMEZONE, from: new Date(after) }).toISOString(),
     ]);
-    expect(oldCandidates.has(next!.scheduled_for)).toBe(false);
+    expect(next?.scheduled_for !== undefined && oldCandidates.has(next.scheduled_for)).toBe(false);
   });
 
   it('pause in middle drops the pending run; a later pass does not add another', async () => {
@@ -378,9 +378,9 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     expect(await store.getRun({ tenant_id: TENANT, id: thrower.run.id })).toEqual(
       expect.objectContaining({ status: 'failed', triggered_at: null }),
     );
-    expect(await store.getRun({ tenant_id: TENANT, id: healthy.run.id })).toEqual(
-      expect.objectContaining({ status: 'triggered', triggered_at: expect.any(String) }),
-    );
+    const healthyUpdated = await store.getRun({ tenant_id: TENANT, id: healthy.run.id });
+    expect(healthyUpdated).toEqual(expect.objectContaining({ status: 'triggered' }));
+    expect(typeof healthyUpdated?.triggered_at).toBe('string');
 
     // Every schedule advances, whatever its run's outcome, and never onto a past time.
     for (const seeded of [thrower, healthy]) {

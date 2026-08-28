@@ -335,7 +335,10 @@ export function runScheduleStoreContractSuite(deps: {
 
     expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
-    expect(await store.getRun({ tenant_id: TENANT, id: pendingRun!.id })).toBeUndefined();
+    if (pendingRun === undefined) {
+      throw new Error('expected pending run before agent delete');
+    }
+    expect(await store.getRun({ tenant_id: TENANT, id: pendingRun.id })).toBeUndefined();
   });
 
   it('rejects a second schedule_run with the same name on one schedule', async () => {
@@ -493,10 +496,13 @@ export function runScheduleStoreContractSuite(deps: {
       expect.objectContaining({
         id: toTrigger.id,
         status: 'triggered',
-        triggered_at: expect.any(String),
       }),
     );
-    expect(triggered!.triggered_at).not.toBeNull();
+    if (triggered === undefined) {
+      throw new Error('expected triggered run');
+    }
+    expect(typeof triggered.triggered_at).toBe('string');
+    expect(triggered.triggered_at).not.toBeNull();
 
     // Pending unique allows only one scheduled row — finish triggered before seeding failed.
     const toFail = await seedScheduled(new Date('2026-08-27T12:00:00.000Z'));
@@ -517,7 +523,7 @@ export function runScheduleStoreContractSuite(deps: {
     expect(
       await store.updateRunStatus({
         tenant_id: TENANT,
-        id: triggered!.id,
+        id: triggered.id,
         status: 'failed',
       }),
     ).toBeUndefined();
