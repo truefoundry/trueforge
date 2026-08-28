@@ -138,7 +138,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   withTransaction: WithTransaction<TTransaction>;
   /** When aborted, stop before the next run; the current run still finishes. */
   signal?: AbortSignal;
-}): Promise<{ dispatched: number, failed: number }> {
+}): Promise<{ dispatched: number; failed: number }> {
   const { store, withTransaction, onTriggered, logger, signal } = params;
   // ONE clock for the whole pass: it selects the runs, judges lateness, and anchors
   // the next trigger time.
@@ -146,7 +146,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   const scheduled = await store.listScheduledRuns({ limit: DISPATCH_BATCH_LIMIT, until: now });
 
   let dispatched = 0;
-  let failed = 0; 
+  let failed = 0;
   for (const run of scheduled) {
     if (signal?.aborted) {
       break;

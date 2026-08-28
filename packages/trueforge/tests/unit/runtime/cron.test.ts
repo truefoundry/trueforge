@@ -47,9 +47,7 @@ describe('nextTriggerAfter', () => {
 
   it('throws for an expression that can never trigger', () => {
     // February 30th.
-    expect(() => nextTriggerAfter({ cron: '0 0 30 2 *', timezone: 'UTC', from: new Date() })).toThrow(
-      InvalidCronError,
-    );
+    expect(() => nextTriggerAfter({ cron: '0 0 30 2 *', timezone: 'UTC', from: new Date() })).toThrow(InvalidCronError);
   });
 
   describe('DST — matching is literal wall-clock', () => {
