@@ -11,7 +11,100 @@ export const SessionMetricsSchema = z
     total_duration_ms: z.number().int().nonnegative(),
     total_turns: z.number().int().nonnegative(),
   })
-  .strict();
+  .strict()
+  .describe('Rolled-up cost, duration, and turn counters for a session.')
+  .openapi('SessionMetrics');
+
+export const SessionMetricsPointSchema = z
+  .object({
+    timestamp: z.string(),
+    value: z.number().nonnegative(),
+  })
+  .strict()
+  .openapi('SessionMetricsPoint');
+
+export const SessionMetricsMeterNameSchema = z.enum([
+  'total_sessions',
+  'total_cost_in_usd',
+  'total_turns',
+  'cost_per_session_in_usd',
+  'avg_turns_per_session',
+  'min_turns_per_session',
+  'max_turns_per_session',
+  'median_turns_per_session',
+  'min_session_duration_ms',
+  'max_session_duration_ms',
+  'median_session_duration_ms',
+  'p95_session_duration_ms',
+]);
+
+export const SessionMetricsMeterSchema = z
+  .object({
+    name: SessionMetricsMeterNameSchema,
+    aggregate_value: z.number().nonnegative(),
+    description: z.string(),
+    unit: z.enum(['count', '$', 'ms']),
+  })
+  .strict()
+  .openapi('SessionMetricsMeter');
+
+export const SessionMetricsMetersResponseSchema = z
+  .object({
+    meters: z.array(SessionMetricsMeterSchema).length(12),
+  })
+  .strict()
+  .openapi('SessionMetricsMetersResponse');
+
+export const SessionMetricsChartNameSchema = z.enum([
+  'sessions_over_time',
+  'sessions_cost_over_time',
+  'turns_over_time',
+]);
+
+export const SessionMetricsChartSchema = z
+  .object({
+    name: SessionMetricsChartNameSchema,
+    display_name: z.string(),
+    description: z.string(),
+    chart_type: z.literal('line'),
+  })
+  .strict()
+  .openapi('SessionMetricsChart');
+
+export const SessionMetricsChartsResponseSchema = z
+  .object({
+    charts: z.array(SessionMetricsChartSchema).length(3),
+  })
+  .strict()
+  .openapi('SessionMetricsChartsResponse');
+
+export const SessionMetricsGraphLineSchema = z
+  .object({
+    name: z.string(),
+    values: z.array(SessionMetricsPointSchema),
+  })
+  .strict()
+  .openapi('SessionMetricsGraphLine');
+
+export const SessionMetricsGraphSchema = z
+  .object({
+    name: SessionMetricsChartNameSchema,
+    display_name: z.string(),
+    description: z.string(),
+    unit: z.enum(['count', '$']),
+    chart_type: z.literal('line'),
+    graph_lines: z.array(SessionMetricsGraphLineSchema).length(1),
+  })
+  .strict()
+  .openapi('SessionMetricsGraph');
+
+export const SessionMetricsChartsDataResponseSchema = z
+  .object({
+    step: z.string(),
+    graphs: z.array(SessionMetricsGraphSchema).length(1),
+  })
+  .strict()
+  .openapi('SessionMetricsChartsDataResponse');
 
 export const SessionAgentReferenceSchema = z
   .object({
@@ -48,6 +141,7 @@ export const SessionSchema = z
     created_by: z.string().describe('Caller identity that created the session (immutable).'),
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
+    metrics: SessionMetricsSchema,
   })
   .openapi('Session');
 
@@ -55,4 +149,14 @@ export type SessionAgentReference = z.infer<typeof SessionAgentReferenceSchema>;
 export type SessionAgentInline = z.infer<typeof SessionAgentInlineSchema>;
 export type SessionAgent = z.infer<typeof SessionAgentSchema>;
 export type SessionMetrics = z.infer<typeof SessionMetricsSchema>;
+export type SessionMetricsPoint = z.infer<typeof SessionMetricsPointSchema>;
+export type SessionMetricsMeterName = z.infer<typeof SessionMetricsMeterNameSchema>;
+export type SessionMetricsMeter = z.infer<typeof SessionMetricsMeterSchema>;
+export type SessionMetricsMetersResponse = z.infer<typeof SessionMetricsMetersResponseSchema>;
+export type SessionMetricsChartName = z.infer<typeof SessionMetricsChartNameSchema>;
+export type SessionMetricsChart = z.infer<typeof SessionMetricsChartSchema>;
+export type SessionMetricsChartsResponse = z.infer<typeof SessionMetricsChartsResponseSchema>;
+export type SessionMetricsGraphLine = z.infer<typeof SessionMetricsGraphLineSchema>;
+export type SessionMetricsGraph = z.infer<typeof SessionMetricsGraphSchema>;
+export type SessionMetricsChartsDataResponse = z.infer<typeof SessionMetricsChartsDataResponseSchema>;
 export type Session = z.infer<typeof SessionSchema>;

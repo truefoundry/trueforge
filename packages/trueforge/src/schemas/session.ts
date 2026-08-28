@@ -1,6 +1,14 @@
 /** Server session wire schemas. Core Session lives in agentSession. */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import {
+  AgentSpecSchema,
+  SessionMetricsChartNameSchema,
+  SessionMetricsChartsDataResponseSchema,
+  SessionMetricsChartsResponseSchema,
+  SessionMetricsMetersResponseSchema,
+  SessionSchema,
+  TokenPaginationSchema,
+} from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema, PAGE_LIMIT } from './common';
 
 /** Create arm: bind by unique registry agent name. */
@@ -87,6 +95,39 @@ export const ListSessionsRequestQuerySchema = z
     agent_id: z.string().min(1).optional().describe('When set, only sessions bound to this agent id are returned.'),
   })
   .openapi('ListSessionsRequestQuery');
+
+export const GetSessionMetricsRequestQuerySchema = z
+  .object({
+    agent_id: z.string().min(1).max(64).describe('Named agent identifier.'),
+    start_timestamp: IsoTimestampQueryParam.describe('Inclusive lower bound on session `created_at`.'),
+    end_timestamp: IsoTimestampQueryParam.describe('Inclusive upper bound on session `created_at`.'),
+  })
+  .openapi('GetSessionMetricsRequestQuery');
+
+export const GetSessionMetricsChartsDataRequestQuerySchema = z
+  .object({
+    ...GetSessionMetricsRequestQuerySchema.shape,
+    chart_name: SessionMetricsChartNameSchema.describe('Chart to return.'),
+  })
+  .openapi('GetSessionMetricsChartsDataRequestQuery');
+
+export const GetSessionMetricsMetersResponseSchema = z
+  .object({
+    data: SessionMetricsMetersResponseSchema,
+  })
+  .openapi('GetSessionMetricsMetersResponse');
+
+export const GetSessionMetricsChartsResponseSchema = z
+  .object({
+    data: SessionMetricsChartsResponseSchema,
+  })
+  .openapi('GetSessionMetricsChartsResponse');
+
+export const GetSessionMetricsChartsDataResponseSchema = z
+  .object({
+    data: SessionMetricsChartsDataResponseSchema,
+  })
+  .openapi('GetSessionMetricsChartsDataResponse');
 
 export const GetSessionResponseSchema = z
   .object({

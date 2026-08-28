@@ -10,6 +10,11 @@ import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } 
 import {
   CreateSessionRequestSchema,
   GetOrCreateSessionByExternalIdRequestSchema,
+  GetSessionMetricsChartsDataRequestQuerySchema,
+  GetSessionMetricsChartsDataResponseSchema,
+  GetSessionMetricsChartsResponseSchema,
+  GetSessionMetricsMetersResponseSchema,
+  GetSessionMetricsRequestQuerySchema,
   GetSessionResponseSchema,
   ListSessionsRequestQuerySchema,
   ListSessionsResponseSchema,
@@ -218,6 +223,77 @@ export const listSessionsRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid query parameters or page token.',
+    },
+  },
+});
+
+export const getSessionMetricsMetersRoute = createRoute({
+  method: 'get',
+  path: '/metrics/meters',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Get session metrics meters',
+  description: "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
+  'x-fern-ignore': true,
+  'x-excluded': true,
+  request: {
+    query: GetSessionMetricsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSessionMetricsMetersResponseSchema } },
+      description: 'Session metric meters.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid timestamps or a window longer than 30 days.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Named agent not found.',
+    },
+  },
+});
+
+export const getSessionMetricsChartsRoute = createRoute({
+  method: 'get',
+  path: '/metrics/charts',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Get session metrics charts',
+  description: 'List available session metric charts.',
+  'x-fern-ignore': true,
+  'x-excluded': true,
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSessionMetricsChartsResponseSchema } },
+      description: 'Session metric chart catalog.',
+    },
+  },
+});
+
+export const getSessionMetricsChartsDataRoute = createRoute({
+  method: 'get',
+  path: '/metrics/charts-data',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Get session metrics chart data',
+  description:
+    "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
+  'x-fern-ignore': true,
+  'x-excluded': true,
+  request: {
+    query: GetSessionMetricsChartsDataRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSessionMetricsChartsDataResponseSchema } },
+      description: 'Zero-filled time series for one chart.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid timestamps or a window longer than 30 days.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Named agent not found.',
     },
   },
 });

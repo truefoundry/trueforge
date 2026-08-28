@@ -8,7 +8,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       col.notNull().defaultTo(sql`'{"total_cost_in_usd":0,"total_duration_ms":0,"total_turns":0}'::jsonb`),
     )
     .execute();
-  // Serves GET /sessions/metrics (named agent + created_at window).
+  // Serves GET /sessions/metrics/* (named agent + created_at window).
   // session_agent_id_idx cannot range on created_at; partial skips inline sessions.
   await sql`
     CREATE INDEX session_agent_created_at_idx

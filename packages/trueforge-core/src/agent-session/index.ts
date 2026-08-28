@@ -21,8 +21,35 @@ export {
 } from './schemas/turn';
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
-export { SessionMetricsSchema, SessionSchema } from './schemas/session';
-export type { Session, SessionAgent, SessionMetrics } from './schemas/session';
+export {
+  SessionMetricsChartNameSchema,
+  SessionMetricsChartSchema,
+  SessionMetricsChartsDataResponseSchema,
+  SessionMetricsChartsResponseSchema,
+  SessionMetricsGraphLineSchema,
+  SessionMetricsGraphSchema,
+  SessionMetricsMeterNameSchema,
+  SessionMetricsMeterSchema,
+  SessionMetricsMetersResponseSchema,
+  SessionMetricsPointSchema,
+  SessionMetricsSchema,
+  SessionSchema,
+} from './schemas/session';
+export type {
+  Session,
+  SessionAgent,
+  SessionMetrics,
+  SessionMetricsChart,
+  SessionMetricsChartName,
+  SessionMetricsChartsDataResponse,
+  SessionMetricsChartsResponse,
+  SessionMetricsGraph,
+  SessionMetricsGraphLine,
+  SessionMetricsMeter,
+  SessionMetricsMeterName,
+  SessionMetricsMetersResponse,
+  SessionMetricsPoint,
+} from './schemas/session';
 
 export {
   EventType,
@@ -58,6 +85,8 @@ export type {
   FreezeAndGetTurnInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
+  GetSessionMetricsChartDataInput,
+  GetSessionMetricsInput,
   GetTurnInput,
   ISessionStore,
   ListSessionEventsInput,

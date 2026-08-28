@@ -11,6 +11,11 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
+import type {
+  SessionMetricsChartName,
+  SessionMetricsChartsDataResponse,
+  SessionMetricsMetersResponse,
+} from '../schemas/session';
 import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
 
 /**
@@ -64,6 +69,18 @@ export interface ListSessionsInput {
   agent_id: string | undefined;
   /** When set, only sessions created by this identity. */
   created_by: string | undefined;
+}
+
+export interface GetSessionMetricsInput {
+  tenant_id: string;
+  agent_id: string;
+  created_by: string;
+  start_timestamp: Date;
+  end_timestamp: Date;
+}
+
+export interface GetSessionMetricsChartDataInput extends GetSessionMetricsInput {
+  chart_name: SessionMetricsChartName;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -259,6 +276,10 @@ export interface ISessionStore<
   listSessions(
     input: ListSessionsInput,
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }>;
+
+  /** Aggregates caller-owned sessions by named agent and inclusive creation window. */
+  getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMetersResponse>;
+  getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartsDataResponse>;
 
   /**
    * Creates the turn AND advances `session.last_turn_id`. Context merging is the

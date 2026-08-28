@@ -19,6 +19,11 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import {
+  GetSessionMetricsChartsDataResponseSchema,
+  GetSessionMetricsChartsResponseSchema,
+  GetSessionMetricsMetersResponseSchema,
+} from '../../../src/schemas/session';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -93,11 +98,13 @@ describe('sessions HTTP agent binding', () => {
         id: string;
         created_by: string;
         agent: { type: 'inline'; spec: { instructions?: string } };
+        metrics: unknown;
       };
     };
     expect(json.data.agent.type).toBe('inline');
     expect(json.data.agent.spec.instructions).toBe('inline');
     expect(json.data.created_by).toBe(LOCAL_USER_CONTEXT.userRef);
+    expect(json.data.metrics).toEqual({ total_cost_in_usd: 0, total_duration_ms: 0, total_turns: 0 });
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -129,6 +136,91 @@ describe('sessions HTTP agent binding', () => {
     };
     expect(listJson.data.every(row => row.agent.id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
+  });
+
+  it('returns caller-scoped metrics for a named agent', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: TENANT_ID,
+      name: 'metrics-agent',
+      manifest: inlineSpec,
+    });
+    await sessionStore.createSession({
+      tenant_id: TENANT_ID,
+      session_id: 'my-metrics-session',
+      created_by: LOCAL_USER_CONTEXT.userRef,
+      agent: { type: 'reference', id: agent.id, name: agent.name },
+      custom: null,
+    });
+    await sessionStore.createSession({
+      tenant_id: TENANT_ID,
+      session_id: 'other-user-metrics-session',
+      created_by: 'someone-else',
+      agent: { type: 'reference', id: agent.id, name: agent.name },
+      custom: null,
+    });
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const end = new Date(Date.now() + 60 * 60 * 1000);
+    const query = new URLSearchParams({
+      agent_id: agent.id,
+      start_timestamp: start.toISOString(),
+      end_timestamp: end.toISOString(),
+    });
+
+    const response = await app.request(`/metrics/meters?${query.toString()}`);
+
+    expect(response.status).toBe(200);
+    const meters = GetSessionMetricsMetersResponseSchema.parse(await response.json());
+    expect(meters.data.meters).toHaveLength(12);
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
+    expect(meters.data.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(0);
+    expect(meters.data.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(0);
+    expect(meters.data.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(0);
+    expect(meters.data.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(0);
+
+    const sessionsChartResponse = await app.request(
+      `/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
+    );
+    expect(sessionsChartResponse.status).toBe(200);
+    const sessionsChart = GetSessionMetricsChartsDataResponseSchema.parse(await sessionsChartResponse.json());
+    expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
+  });
+
+  it('returns the static session metrics chart catalog', async () => {
+    const response = await app.request('/metrics/charts');
+
+    expect(response.status).toBe(200);
+    const payload = GetSessionMetricsChartsResponseSchema.parse(await response.json());
+    expect(payload.data.charts).toHaveLength(3);
+    expect(payload.data.charts.map(chart => chart.name)).toEqual([
+      'sessions_over_time',
+      'sessions_cost_over_time',
+      'turns_over_time',
+    ]);
+  });
+
+  it('returns 404 for session metrics when the agent does not exist', async () => {
+    const query = new URLSearchParams({
+      agent_id: 'missing-agent',
+      start_timestamp: '2026-08-27T00:00:00.000Z',
+      end_timestamp: '2026-08-28T00:00:00.000Z',
+    });
+
+    const response = await app.request(`/metrics/meters?${query.toString()}`);
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: { message: 'Agent not found: missing-agent' } });
+  });
+
+  it('rejects session metrics windows longer than 30 days', async () => {
+    const query = new URLSearchParams({
+      agent_id: 'agent-1',
+      start_timestamp: '2026-01-01T00:00:00.000Z',
+      end_timestamp: '2026-02-01T00:00:00.000Z',
+    });
+
+    const response = await app.request(`/metrics/meters?${query.toString()}`);
+
+    expect(response.status).toBe(400);
   });
 
   it("rejects access to another user's session on get/update/delete/cancel/events and scopes list", async () => {

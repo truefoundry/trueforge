@@ -10,6 +10,10 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
+import {
+  buildSessionMetricsCharts,
+  MAX_SESSION_METRICS_WINDOW_MS,
+} from '@truefoundry/trueforge-core/agent-session/store/sessionMetrics';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
@@ -32,6 +36,9 @@ import {
   createSessionRoute,
   deleteSessionRoute,
   getOrCreateSessionByExternalIdRoute,
+  getSessionMetricsChartsDataRoute,
+  getSessionMetricsChartsRoute,
+  getSessionMetricsMetersRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -65,6 +72,7 @@ export function toWireSession(record: SessionRecord): Session {
     created_by: record.created_by,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
+    metrics: record.metrics,
   };
 }
 
@@ -421,6 +429,67 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
+  const validateSessionMetricsQuery = async (
+    query: {
+      agent_id: string;
+      start_timestamp: Date;
+      end_timestamp: Date;
+    },
+    c: Parameters<RouteHandler<typeof getSessionMetricsMetersRoute>>[0],
+  ) => {
+    const windowMs = query.end_timestamp.getTime() - query.start_timestamp.getTime();
+    if (windowMs < 0) {
+      return c.json({ error: { message: 'end_timestamp must be on or after start_timestamp' } }, 400);
+    }
+    if (windowMs > MAX_SESSION_METRICS_WINDOW_MS) {
+      return c.json({ error: { message: 'metrics window must not exceed 30 days' } }, 400);
+    }
+    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: query.agent_id });
+    if (agent === undefined) {
+      return c.json({ error: { message: `Agent not found: ${query.agent_id}` } }, 404);
+    }
+    return null;
+  };
+
+  const getSessionMetricsMetersHandler: RouteHandler<typeof getSessionMetricsMetersRoute> = async c => {
+    const query = c.req.valid('query');
+    const validationError = await validateSessionMetricsQuery(query, c);
+    if (validationError !== null) {
+      return validationError;
+    }
+    const user = deps.resolveUserContext(c);
+    const metrics = await deps.sessionStore.getSessionMetricsMeters({
+      tenant_id: TENANT_ID,
+      agent_id: query.agent_id,
+      created_by: user.userRef,
+      start_timestamp: query.start_timestamp,
+      end_timestamp: query.end_timestamp,
+    });
+    return c.json({ data: metrics }, 200);
+  };
+
+  const getSessionMetricsChartsHandler: RouteHandler<typeof getSessionMetricsChartsRoute> = c => {
+    return c.json({ data: buildSessionMetricsCharts() }, 200);
+  };
+
+  const getSessionMetricsChartsDataHandler: RouteHandler<typeof getSessionMetricsChartsDataRoute> = async c => {
+    const query = c.req.valid('query');
+    const validationError = await validateSessionMetricsQuery(query, c);
+    if (validationError !== null) {
+      return validationError;
+    }
+    const user = deps.resolveUserContext(c);
+    const chartData = await deps.sessionStore.getSessionMetricsChartData({
+      tenant_id: TENANT_ID,
+      agent_id: query.agent_id,
+      created_by: user.userRef,
+      start_timestamp: query.start_timestamp,
+      end_timestamp: query.end_timestamp,
+      chart_name: query.chart_name,
+    });
+    return c.json({ data: chartData }, 200);
+  };
+
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
@@ -469,6 +538,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
+  router.openapi(getSessionMetricsMetersRoute, getSessionMetricsMetersHandler);
+  router.openapi(getSessionMetricsChartsRoute, getSessionMetricsChartsHandler);
+  router.openapi(getSessionMetricsChartsDataRoute, getSessionMetricsChartsDataHandler);
   router.openapi(getSessionRoute, getSessionHandler);
   router.openapi(deleteSessionRoute, deleteSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);
