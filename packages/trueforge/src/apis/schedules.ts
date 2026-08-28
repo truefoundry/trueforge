@@ -42,19 +42,15 @@ function toWireSchedule(record: ScheduleRecord): Schedule {
   };
 }
 
-export function validateManifest(
-  manifest: Pick<ScheduleManifest, 'cron' | 'timezone'>,
-  from: Date = new Date(),
-): void {
+export function validateManifest(manifest: Pick<ScheduleManifest, 'cron' | 'timezone'>, from: Date = new Date()): void {
   // Reject if the cron has no upcoming trigger time (impossible / exhausted calendar).
   // 5-field cron has no year, so a valid expression always recurs — no one-shot check.
   try {
     nextTriggerAfter(manifest.cron, manifest.timezone, from);
   } catch (error) {
-    throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`,
-      { cause: error },
-    );
+    throw new InvalidCronError(`Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`, {
+      cause: error,
+    });
   }
 
   // Reject expressions that trigger < SCHEDULE_MIN_INTERVAL_SECONDS seconds apart.
@@ -62,10 +58,9 @@ export function validateManifest(
   try {
     tightest = minIntervalSeconds(manifest, from);
   } catch (error) {
-    throw new InvalidCronError(
-      `Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`,
-      { cause: error },
-    );
+    throw new InvalidCronError(`Cron expression "${manifest.cron}" has no next trigger time in ${manifest.timezone}`, {
+      cause: error,
+    });
   }
 
   if (tightest < SCHEDULE_MIN_INTERVAL_SECONDS) {
@@ -126,7 +121,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const getHandler: RouteHandler<typeof getScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
-    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
+    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId, forUpdate: false });
     if (record === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }

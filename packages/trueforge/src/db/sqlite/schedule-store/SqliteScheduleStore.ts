@@ -1,4 +1,4 @@
-import { sql, type ExpressionBuilder, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleStatus } from '../../../schemas/schedule';
@@ -10,8 +10,9 @@ import {
   type CreateScheduleInput,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
-  type FindScheduledRunsInput,
+  type ListScheduledRunsInput,
   type GetRunInput,
+  type GetScheduledRunForInput,
   type GetScheduleInput,
   type IScheduleStore,
   type ListSchedulesInput,
@@ -25,16 +26,6 @@ import {
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
-
-/**
- * Database clock in the same wire format as `Date.prototype.toISOString()`
- * (`%f` is `SS.SSS`), so comparisons against stored TEXT timestamps stay
- * lexicographic. Mirrors Postgres `now()` — one scheduled_for clock authority per engine,
- * never the process clock.
- */
-function nowIsoSql(): RawBuilder<string> {
-  return sql<string>`strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
-}
 
 /** Column list projecting the JSONB manifest as parsed JSON (see JSON_RESULT_COLUMNS). */
 function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
@@ -155,10 +146,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     // transaction must take the schedule lock before touching a run row (see the
     // lock-ordering note in `controller/scheduleDispatch.ts`). A no-op here; Postgres
     // is where it matters.
-    const previous = await this.getSchedule(
-      { tenant_id: input.tenant_id, id: input.id, forUpdate: true },
-      transaction,
-    );
+    const previous = await this.getSchedule({ tenant_id: input.tenant_id, id: input.id, forUpdate: true }, transaction);
     if (previous === undefined) {
       return undefined;
     }
@@ -181,8 +169,8 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     }
     const schedule = toScheduleRecord(row);
     if (!shouldSyncPendingRun(previous, schedule)) {
-      const pendingRun = await this.getScheduledRun(
-        { tenant_id: schedule.tenant_id, id: schedule.id },
+      const pendingRun = await this.getScheduledRunFor(
+        { tenant_id: schedule.tenant_id, schedule_id: schedule.id },
         transaction,
       );
       return { schedule, pendingRun };
@@ -196,7 +184,14 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     from: Date,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord | undefined> {
-    await this.deleteScheduledRun({ tenant_id: schedule.tenant_id, id: schedule.id }, transaction);
+    const db = transaction ?? this.#db;
+    // Clear the pending run, if any; whether a replacement follows depends on status.
+    await db
+      .deleteFrom('schedule_run')
+      .where('tenant_id', '=', schedule.tenant_id)
+      .where('schedule_id', '=', schedule.id)
+      .where('status', '=', 'scheduled')
+      .execute();
     if (schedule.status !== 'active') {
       return undefined;
     }
@@ -240,8 +235,8 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     return row === undefined ? undefined : toRunRecord(row);
   }
 
-  async getScheduledRun(
-    input: GetScheduleInput,
+  async getScheduledRunFor(
+    input: GetScheduledRunForInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord | undefined> {
     const db = transaction ?? this.#db;
@@ -249,7 +244,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .selectFrom('schedule_run')
       .select(RUN_COLUMNS)
       .where('tenant_id', '=', input.tenant_id)
-      .where('schedule_id', '=', input.id)
+      .where('schedule_id', '=', input.schedule_id)
       .where('status', '=', 'scheduled')
       .executeTakeFirst();
     return row === undefined ? undefined : toRunRecord(row);
@@ -304,18 +299,8 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     return row === undefined ? undefined : toRunRecord(row);
   }
 
-  async deleteScheduledRun(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<void> {
-    const db = transaction ?? this.#db;
-    await db
-      .deleteFrom('schedule_run')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('schedule_id', '=', input.id)
-      .where('status', '=', 'scheduled')
-      .execute();
-  }
-
-  async findScheduledRuns(
-    input: FindScheduledRunsInput,
+  async listScheduledRuns(
+    input: ListScheduledRunsInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord[]> {
     const db = transaction ?? this.#db;
@@ -323,7 +308,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .selectFrom('schedule_run')
       .select(RUN_COLUMNS)
       .where('status', '=', 'scheduled')
-      .where('scheduled_for', '<=', nowIsoSql())
+      .where('scheduled_for', '<=', input.until.toISOString())
       .orderBy('scheduled_for')
       .limit(input.limit)
       .execute();

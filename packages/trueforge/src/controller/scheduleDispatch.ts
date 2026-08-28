@@ -1,8 +1,8 @@
 import type { Logger } from 'winston';
 import {
   cronRunName,
-  type ScheduleDispatchItem,
   type IScheduleStore,
+  type ScheduleDispatchItem,
   type ScheduleRunRecord,
   type ScheduleRunStatus,
 } from '../db/scheduleStore';
@@ -47,22 +47,20 @@ function isTooLate(run: ScheduleRunRecord, now: number): boolean {
  *
  */
 async function finishScheduledRun<TTransaction>(params: {
-  scheduleStore: IScheduleStore<TTransaction>;
+  store: IScheduleStore<TTransaction>;
   run: ScheduleRunRecord;
+  now: Date;
   status: Extract<ScheduleRunStatus, 'triggered' | 'failed' | 'missed'>;
   withTransaction: WithTransaction<TTransaction>;
 }): Promise<void> {
-  const { scheduleStore, withTransaction, run, status } = params;
+  const { store, withTransaction, run, status, now } = params;
   await withTransaction(async txn => {
-    const latest = await scheduleStore.getSchedule(
+    const latest = await store.getSchedule(
       { tenant_id: run.tenant_id, id: run.schedule_id, forUpdate: true },
       txn,
     );
 
-    const updated = await scheduleStore.updateRunStatus(
-      { tenant_id: run.tenant_id, id: run.id, status },
-      txn,
-    );
+    const updated = await store.updateRunStatus({ tenant_id: run.tenant_id, id: run.id, status }, txn);
     if (updated === undefined) {
       return;
     }
@@ -71,9 +69,13 @@ async function finishScheduledRun<TTransaction>(params: {
       return;
     }
 
+    // `now` selected this run (`scheduled_for <= now`), so anchoring here gives a
+    // trigger time strictly later than the run being finished.
+    const advanceFrom = new Date(Math.max(Date.parse(run.scheduled_for), now.getTime()));
+
     let nextTrigger: Date;
     try {
-      nextTrigger = nextTriggerAfter(latest.manifest.cron, latest.manifest.timezone, new Date());
+      nextTrigger = nextTriggerAfter(latest.manifest.cron, latest.manifest.timezone, advanceFrom);
     } catch (error) {
       if (!(error instanceof InvalidCronError)) {
         throw error;
@@ -83,7 +85,7 @@ async function finishScheduledRun<TTransaction>(params: {
       return;
     }
 
-    await scheduleStore.createRun(
+    await store.createRun(
       {
         tenant_id: latest.tenant_id,
         schedule_id: latest.id,
@@ -128,21 +130,23 @@ async function finishScheduledRun<TTransaction>(params: {
  * - **delete**: cascades the runs away. Dispatch either sees the schedule gone
  *   or holds the row and delete waits. A run already handed to the executor keeps going
  *   and leaves an orphan session; the run row is gone, which is accepted.
- * 
+ *
  * ## CONCURRENCY
  * NOT concurrency safe by design: call this from exactly ONE process.
  */
 export async function dispatchScheduledRuns<TTransaction>(params: {
-  scheduleStore: IScheduleStore<TTransaction>;
+  store: IScheduleStore<TTransaction>;
   onTriggered: (item: ScheduleDispatchItem) => void | Promise<void>;
   logger: Logger;
   withTransaction: WithTransaction<TTransaction>;
   /** When aborted, stop before the next run; the current run still finishes. */
   signal?: AbortSignal;
 }): Promise<{ dispatched: number; missed: number }> {
-  const { scheduleStore, withTransaction, onTriggered, logger, signal } = params;
-  const scheduled = await scheduleStore.findScheduledRuns({ limit: DISPATCH_BATCH_LIMIT });
-  const now = Date.now();
+  const { store, withTransaction, onTriggered, logger, signal } = params;
+  // ONE clock for the whole pass: it selects the runs, judges lateness, and anchors
+  // the next trigger time.
+  const now = new Date();
+  const scheduled = await store.listScheduledRuns({ limit: DISPATCH_BATCH_LIMIT, until: now });
 
   let dispatched = 0;
   let missed = 0;
@@ -152,9 +156,10 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
       break;
     }
     try {
-      const schedule = await scheduleStore.getSchedule({
+      const schedule = await store.getSchedule({
         tenant_id: run.tenant_id,
         id: run.schedule_id,
+        forUpdate: false,
       });
       // Only a deleted schedule stops a row here. `paused` deliberately does NOT:
       // status decides whether the schedule gains a NEW row, never whether an
@@ -168,10 +173,11 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         continue;
       }
 
-      if (isTooLate(run, now)) {
+      if (isTooLate(run, now.getTime())) {
         await finishScheduledRun({
-          scheduleStore,
+          store,
           run,
+          now,
           status: 'missed',
           withTransaction,
         });
@@ -193,8 +199,9 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           error,
         });
         await finishScheduledRun({
-          scheduleStore,
+          store,
           run,
+          now,
           status: 'failed',
           withTransaction,
         });
@@ -202,8 +209,9 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
       }
 
       await finishScheduledRun({
-        scheduleStore,
+        store,
         run,
+        now,
         status: 'triggered',
         withTransaction,
       });
@@ -253,7 +261,7 @@ export function createScheduleDispatchLoop<TTransaction>(params: {
     intervalMs: SCHEDULE_DISPATCH_INTERVAL_MS,
     async tick(signal: AbortSignal): Promise<void> {
       const result = await dispatchScheduledRuns({
-        scheduleStore,
+        store: scheduleStore,
         onTriggered,
         logger,
         withTransaction,

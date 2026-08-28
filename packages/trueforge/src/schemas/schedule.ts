@@ -113,7 +113,6 @@ export const CreateScheduleRequestSchema = z
   .strict()
   .openapi('CreateScheduleRequest');
 
-
 export const UpdateScheduleRequestSchema = z
   .object({
     name: NameSchema,
@@ -122,12 +121,8 @@ export const UpdateScheduleRequestSchema = z
   .strict()
   .openapi('UpdateScheduleRequest');
 
-
-
 export const GetScheduleResponseSchema = z.object({ data: ScheduleSchema }).openapi('GetScheduleResponse');
-export const ListSchedulesResponseSchema = z
-  .object({ data: z.array(ScheduleSchema) })
-  .openapi('ListSchedulesResponse');
+export const ListSchedulesResponseSchema = z.object({ data: z.array(ScheduleSchema) }).openapi('ListSchedulesResponse');
 export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteScheduleResponse');
 
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;

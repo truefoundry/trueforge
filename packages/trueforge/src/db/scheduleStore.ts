@@ -122,6 +122,48 @@ export interface UpdateScheduleInput {
    */
   runFrom: Date;
 }
+export interface DeleteScheduleInput {
+  tenant_id: string;
+  id: string;
+}
+
+export interface CreateScheduleRunInput {
+  tenant_id: string;
+  schedule_id: string;
+  name: string;
+  scheduled_for: Date;
+  triggered_by: string;
+  status: ScheduleRunStatus;
+}
+
+export interface ListScheduledRunsInput {
+  until: Date;
+  limit: number;
+}
+
+export interface GetRunInput {
+  tenant_id: string;
+  /** Immutable run id. */
+  id: string;
+}
+
+export interface GetScheduledRunForInput {
+  tenant_id: string;
+  schedule_id: string;
+}
+
+export interface UpdateScheduleRunStatusInput {
+  tenant_id: string;
+  id: string;
+  status: ScheduleRunStatus;
+}
+
+export class ScheduleRunConflictError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'ScheduleRunConflictError';
+  }
+}
 
 /**
  * Pending run is replaced only when `status`, `cron`, or `timezone` change.
@@ -138,45 +180,7 @@ export function shouldSyncPendingRun(
   );
 }
 
-export interface DeleteScheduleInput {
-  tenant_id: string;
-  id: string;
-}
-
-export interface CreateScheduleRunInput {
-  tenant_id: string;
-  schedule_id: string;
-  name: string;
-  scheduled_for: Date;
-  triggered_by: string;
-  status: ScheduleRunStatus;
-}
-
-export interface FindScheduledRunsInput {
-  /** Hard cap on rows returned; the caller drains by calling again. */
-  limit: number;
-}
-
-export interface GetRunInput {
-  tenant_id: string;
-  id: string;
-}
-
-export class ScheduleRunConflictError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = 'ScheduleRunConflictError';
-  }
-}
-
-export interface UpdateScheduleRunStatusInput {
-  tenant_id: string;
-  id: string;
-  status: ScheduleRunStatus;
-}
-
 export interface IScheduleStore<TTransaction = never> {
-  
   // --- schedule ---
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
   /**
@@ -198,10 +202,13 @@ export interface IScheduleStore<TTransaction = never> {
   listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
 
   // --- schedule_run ---
-  /** Load a run by immutable id. */
+  /** One run by immutable id. */
   getRun(input: GetRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
-  /** The single `scheduled` run for a schedule, if one exists. */
-  getScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
+  /** A schedule's single pending (`scheduled`) run, if it has one. */
+  getScheduledRunFor(
+    input: GetScheduledRunForInput,
+    transaction?: TTransaction,
+  ): Promise<ScheduleRunRecord | undefined>;
   /** Inserts a run. Throws {@link ScheduleRunConflictError} on either unique index. */
   createRun(input: CreateScheduleRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord>;
   /**
@@ -212,11 +219,9 @@ export interface IScheduleStore<TTransaction = never> {
     input: UpdateScheduleRunStatusInput,
     transaction?: TTransaction,
   ): Promise<ScheduleRunRecord | undefined>;
-  /** Drops the scheduled run (pause, manifest edit, delete-and-reinsert). Idempotent. */
-  deleteScheduledRun(input: GetScheduleInput, transaction?: TTransaction): Promise<void>;
   /**
    * `scheduled` runs with `scheduled_for <= now`, oldest first.
    * Triggered / terminal rows are never returned.
    */
-  findScheduledRuns(input: FindScheduledRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
+  listScheduledRuns(input: ListScheduledRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
 }

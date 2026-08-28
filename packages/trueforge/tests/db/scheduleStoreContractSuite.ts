@@ -33,6 +33,7 @@ export function runScheduleStoreContractSuite(deps: {
     return { id: agent.id, name: agent.name };
   }
 
+
   it('create active schedule adds a pending run for the next cron trigger', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
@@ -56,7 +57,9 @@ export function runScheduleStoreContractSuite(deps: {
         scheduled_for: nextTriggerAfter(m.cron, m.timezone, runFrom).toISOString(),
       }),
     );
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toEqual(pendingRun);
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(
+      pendingRun,
+    );
   });
 
   it('create paused leaves no pending run', async () => {
@@ -72,7 +75,7 @@ export function runScheduleStoreContractSuite(deps: {
     });
 
     expect(pendingRun).toBeUndefined();
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
   it('pause drops the pending run; resume re adds a pending run from the new now', async () => {
@@ -86,7 +89,7 @@ export function runScheduleStoreContractSuite(deps: {
       created_by: USER,
       runFrom: new Date('2026-08-27T10:15:00.000Z'),
     });
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeDefined();
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeDefined();
 
     const paused = await store.updateScheduleAndRun({
       tenant_id: TENANT,
@@ -97,7 +100,7 @@ export function runScheduleStoreContractSuite(deps: {
     });
     expect(paused).toBeDefined();
     expect(paused?.pendingRun).toBeUndefined();
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
 
     const resumeFrom = new Date('2026-08-27T11:30:00.000Z');
     const resumed = await store.updateScheduleAndRun({
@@ -107,9 +110,7 @@ export function runScheduleStoreContractSuite(deps: {
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC', status: 'active' }),
       runFrom: resumeFrom,
     });
-    expect(resumed?.pendingRun?.scheduled_for).toBe(
-      nextTriggerAfter('0 * * * *', 'UTC', resumeFrom).toISOString(),
-    );
+    expect(resumed?.pendingRun?.scheduled_for).toBe(nextTriggerAfter('0 * * * *', 'UTC', resumeFrom).toISOString());
   });
 
   it('updating cron while active replaces the pending run with a new trigger time', async () => {
@@ -135,7 +136,9 @@ export function runScheduleStoreContractSuite(deps: {
     });
     expect(updated?.pendingRun?.id).not.toBe(first?.id);
     expect(updated?.pendingRun?.scheduled_for).toBe(nextTriggerAfter('0 17 * * *', 'UTC', runFrom).toISOString());
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toEqual(updated?.pendingRun);
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(
+      updated?.pendingRun,
+    );
   });
 
   it('updating name or task leaves the pending run unchanged', async () => {
@@ -164,7 +167,7 @@ export function runScheduleStoreContractSuite(deps: {
     expect(updated?.schedule.name).toBe('renamed');
     expect(updated?.schedule.manifest.task).toBe('new task');
     expect(updated?.pendingRun).toEqual(first);
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toEqual(first);
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(first);
   });
 
   it('updating cron while paused leaves no pending run', async () => {
@@ -187,10 +190,10 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom: new Date('2026-08-27T08:00:00.000Z'),
     });
     expect(updated?.pendingRun).toBeUndefined();
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
-  it('findScheduledRuns returns only scheduled rows with scheduled_for <= now, not triggered or missed', async () => {
+  it('listScheduledRuns returns only scheduled rows with scheduled_for <= now, not triggered or missed', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
     const past = new Date(Date.now() - 60_000);
@@ -259,11 +262,11 @@ export function runScheduleStoreContractSuite(deps: {
       triggered_by: USER,
     });
 
-    // `findScheduledRuns` is deliberately unscoped — dispatch sweeps every schedule —
+    // `listScheduledRuns` is deliberately unscoped — dispatch sweeps every schedule —
     // so narrow to this test's schedules. Asserting on the raw list would couple this
     // test to whatever pending rows its neighbours left behind.
     const ownIds = new Set([readySchedule.id, triggeredSchedule.id, missedSchedule.id, futureSchedule.id]);
-    const found = await store.findScheduledRuns({ limit: 100 });
+    const found = await store.listScheduledRuns({ limit: 100, until: new Date() });
     expect(found.filter(run => ownIds.has(run.schedule_id)).map(run => run.id)).toEqual([readyRun.id]);
   });
 
@@ -307,10 +310,10 @@ export function runScheduleStoreContractSuite(deps: {
 
     await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
 
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: historical.id })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: pending.id })).toBeUndefined();
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
   });
 
   it('creating a schedule for an unknown agent fails', async () => {
@@ -342,8 +345,8 @@ export function runScheduleStoreContractSuite(deps: {
 
     await deps.getAgentStore().deleteAgent({ tenant_id: TENANT, id: agent.id });
 
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
-    expect(await store.getScheduledRun({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
+    expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: pendingRun!.id })).toBeUndefined();
   });
 

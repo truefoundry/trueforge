@@ -26,10 +26,7 @@ export function nextTriggerAfter(cron: string, timezone: string, from: Date): Da
     });
     return interval.next().toDate();
   } catch (error) {
-    throw new InvalidCronError(
-      `Cron expression "${cron}" has no next trigger time in ${timezone}`,
-      { cause: error },
-    );
+    throw new InvalidCronError(`Cron expression "${cron}" has no next trigger time in ${timezone}`, { cause: error });
   }
 }
 

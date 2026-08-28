@@ -74,8 +74,8 @@ describe('minIntervalSeconds', () => {
 
   it('reports the tightest gap, not the nominal one', () => {
     // 09:00 and 09:30 daily: mostly ~23.5h apart, but 30 minutes once a day.
-    expect(
-      minIntervalSeconds({ cron: '0,30 9 * * *', timezone: 'UTC' }, new Date('2026-08-27T00:00:00.000Z')),
-    ).toBe(1800);
+    expect(minIntervalSeconds({ cron: '0,30 9 * * *', timezone: 'UTC' }, new Date('2026-08-27T00:00:00.000Z'))).toBe(
+      1800,
+    );
   });
 });

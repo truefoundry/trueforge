@@ -23,9 +23,9 @@ import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleStatus } from '../../schemas/schedule';
-import type { ScheduleRunStatus } from '../scheduleStore';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
+import type { ScheduleRunStatus } from '../scheduleStore';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).

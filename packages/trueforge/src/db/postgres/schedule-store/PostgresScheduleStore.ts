@@ -9,8 +9,9 @@ import {
   type CreateScheduleInput,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
-  type FindScheduledRunsInput,
+  type ListScheduledRunsInput,
   type GetRunInput,
+  type GetScheduledRunForInput,
   type GetScheduleInput,
   type IScheduleStore,
   type ListSchedulesInput,
@@ -60,6 +61,36 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     this.#db = db;
   }
 
+  async #syncPendingRun(
+    schedule: ScheduleRecord,
+    from: Date,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleRunRecord | undefined> {
+    const db = transaction ?? this.#db;
+    // Clear the pending run, if any; whether a replacement follows depends on status.
+    await db
+      .deleteFrom('schedule_run')
+      .where('tenant_id', '=', schedule.tenant_id)
+      .where('schedule_id', '=', schedule.id)
+      .where('status', '=', 'scheduled')
+      .execute();
+    if (schedule.status !== 'active') {
+      return undefined;
+    }
+    const nextTrigger = nextTriggerAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
+    return this.createRun(
+      {
+        tenant_id: schedule.tenant_id,
+        schedule_id: schedule.id,
+        name: cronRunName(nextTrigger),
+        scheduled_for: nextTrigger,
+        status: 'scheduled',
+        triggered_by: schedule.created_by,
+      },
+      transaction,
+    );
+  }
+
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     let query = db
@@ -106,10 +137,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
   ): Promise<ScheduleWriteResult | undefined> {
     // Lock first: this transaction writes the schedule AND its runs, and every such
     // transaction must take the schedule lock before touching a run row.
-    const previous = await this.getSchedule(
-      { tenant_id: input.tenant_id, id: input.id, forUpdate: true },
-      transaction,
-    );
+    const previous = await this.getSchedule({ tenant_id: input.tenant_id, id: input.id, forUpdate: true }, transaction);
     if (previous === undefined) {
       return undefined;
     }
@@ -127,37 +155,14 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     }
     const schedule = toScheduleRecord(row);
     if (!shouldSyncPendingRun(previous, schedule)) {
-      const pendingRun = await this.getScheduledRun(
-        { tenant_id: schedule.tenant_id, id: schedule.id },
+      const pendingRun = await this.getScheduledRunFor(
+        { tenant_id: schedule.tenant_id, schedule_id: schedule.id },
         transaction,
       );
       return { schedule, pendingRun };
     }
     const pendingRun = await this.#syncPendingRun(schedule, input.runFrom, transaction);
     return { schedule, pendingRun };
-  }
-
-  async #syncPendingRun(
-    schedule: ScheduleRecord,
-    from: Date,
-    transaction?: Transaction<Database>,
-  ): Promise<ScheduleRunRecord | undefined> {
-    await this.deleteScheduledRun({ tenant_id: schedule.tenant_id, id: schedule.id }, transaction);
-    if (schedule.status !== 'active') {
-      return undefined;
-    }
-    const nextTrigger = nextTriggerAfter(schedule.manifest.cron, schedule.manifest.timezone, from);
-    return this.createRun(
-      {
-        tenant_id: schedule.tenant_id,
-        schedule_id: schedule.id,
-        name: cronRunName(nextTrigger),
-        scheduled_for: nextTrigger,
-        status: 'scheduled',
-        triggered_by: schedule.created_by,
-      },
-      transaction,
-    );
   }
 
   async deleteSchedule(input: DeleteScheduleInput, transaction?: Transaction<Database>): Promise<void> {
@@ -186,8 +191,8 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     return row === undefined ? undefined : toRunRecord(row);
   }
 
-  async getScheduledRun(
-    input: GetScheduleInput,
+  async getScheduledRunFor(
+    input: GetScheduledRunForInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord | undefined> {
     const db = transaction ?? this.#db;
@@ -195,7 +200,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
       .selectFrom('schedule_run')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
-      .where('schedule_id', '=', input.id)
+      .where('schedule_id', '=', input.schedule_id)
       .where('status', '=', 'scheduled')
       .executeTakeFirst();
     return row === undefined ? undefined : toRunRecord(row);
@@ -248,28 +253,16 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     return row === undefined ? undefined : toRunRecord(row);
   }
 
-  async deleteScheduledRun(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<void> {
-    const db = transaction ?? this.#db;
-    await db
-      .deleteFrom('schedule_run')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('schedule_id', '=', input.id)
-      .where('status', '=', 'scheduled')
-      .execute();
-  }
-
-  async findScheduledRuns(
-    input: FindScheduledRunsInput,
+  async listScheduledRuns(
+    input: ListScheduledRunsInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord[]> {
     const db = transaction ?? this.#db;
-    // Database clock, not the process clock: the dispatcher and the server are
-    // separate pods in distributed mode.
     const rows = await db
       .selectFrom('schedule_run')
       .selectAll()
       .where('status', '=', 'scheduled')
-      .where('scheduled_for', '<=', now())
+      .where('scheduled_for', '<=', input.until)
       .orderBy('scheduled_for')
       .limit(input.limit)
       .execute();
