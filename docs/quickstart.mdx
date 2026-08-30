@@ -95,7 +95,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
   </Tab>
   <Tab title="Railway (Hosted)">
-    Hosted topology on [Railway](https://railway.com) is defined with [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code) in [`.railway/railway.ts`](https://github.com/truefoundry/trueforge/blob/main/.railway/railway.ts): one project with the server (UI + API), Postgres, and Redis. The app builds from [`Dockerfile.dev`](https://github.com/truefoundry/trueforge/blob/main/Dockerfile.dev) and gets `DATABASE_URL`, `REDIS_URL`, and `PUBLIC_BASE_URL` wired in that file.
+    Hosted topology on [Railway](https://railway.com) is defined with [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code) in [`.railway/railway.ts`](https://github.com/truefoundry/trueforge/blob/main/.railway/railway.ts): one project with the server (UI + API), Postgres, and Redis. The app sets `RAILWAY_DOCKERFILE_PATH=Dockerfile.dev` so Railway builds the from-source image ([`Dockerfile.dev`](https://github.com/truefoundry/trueforge/blob/main/Dockerfile.dev)), and wires `DATABASE_URL`, `REDIS_URL`, and `PUBLIC_BASE_URL` in that file.
 
     From a clone of this repo:
 

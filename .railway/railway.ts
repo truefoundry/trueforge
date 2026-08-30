@@ -25,11 +25,10 @@ export default defineRailway(_ctx => {
     // Deploys from this repository's default branch. Forks: change owner/repo
     // (and optionally branch) to build your own copy.
     source: github('truefoundry/trueforge'),
-    // From-source image (root Dockerfile needs APP_VERSION for the npm-install recipe).
-    build: {
-      builder: 'DOCKERFILE',
-      dockerfilePath: 'Dockerfile.dev',
-    },
+    // IaC `build` is a build *command* string (not CaC's builder/dockerfilePath object).
+    // Non-root Dockerfile is selected via RAILWAY_DOCKERFILE_PATH below — without it,
+    // Railway picks the root Dockerfile (npm install of a published version) and fails
+    // without APP_VERSION.
     healthcheck: '/healthz',
     healthcheckTimeout: 300,
     deploy: {
@@ -39,6 +38,8 @@ export default defineRailway(_ctx => {
       drainingSeconds: 35,
     },
     env: {
+      // From-source image; root Dockerfile is the published npm recipe and needs APP_VERSION.
+      RAILWAY_DOCKERFILE_PATH: 'Dockerfile.dev',
       DATABASE_URL: db.env.DATABASE_URL,
       REDIS_URL: cache.env.REDIS_URL,
       // Expanded by Railway at runtime once a public domain exists on this service.
