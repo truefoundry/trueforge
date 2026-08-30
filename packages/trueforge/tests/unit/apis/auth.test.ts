@@ -350,6 +350,31 @@ describe('auth router (auth enabled)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
+  it('GET /callback redirects email_not_allowed when a leftover cookie is outside the allowlist', async () => {
+    // Rollout case: allowlist enabled while browsers still hold pre-allowlist id_tokens.
+    const restrictedClient = await initOidc({
+      ...configuredOidc,
+      OIDC_ALLOWED_EMAILS: ['*@company.com'],
+    });
+    if (!restrictedClient) {
+      throw new Error('OIDC client was not initialized');
+    }
+
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient: restrictedClient, logger }).request(
+      '/callback?code=abc&state=spent',
+      {
+        redirect: 'manual',
+        headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+      },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=email_not_allowed');
+    expect(
+      setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
+    ).toBe(true);
+  });
+
   it('GET /callback replays home when already authenticated even if the IdP returned an error', async () => {
     const token = await createIdToken();
     const res = await createAuthRouter({ oidcClient, logger }).request(
@@ -361,6 +386,33 @@ describe('auth router (auth enabled)', () => {
     );
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/');
+  });
+
+  it('GET /callback surfaces email_not_allowed when exchange fails and the leftover cookie is blocked', async () => {
+    const restrictedClient = await initOidc({
+      ...configuredOidc,
+      OIDC_ALLOWED_EMAILS: ['*@company.com'],
+    });
+    if (!restrictedClient) {
+      throw new Error('OIDC client was not initialized');
+    }
+
+    const token = await createIdToken();
+    const router = createAuthRouter({ oidcClient: restrictedClient, logger });
+    const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
+    const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
+    const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
+    const state = authorizationUrl.searchParams.get('state') ?? '';
+
+    const res = await router.request(`/callback?code=abc&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
+      redirect: 'manual',
+      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}; ${ID_TOKEN_COOKIE}=${token}` },
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=email_not_allowed');
+    expect(
+      setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
+    ).toBe(true);
   });
 
   it('GET /callback keeps the existing session when code exchange fails', async () => {
