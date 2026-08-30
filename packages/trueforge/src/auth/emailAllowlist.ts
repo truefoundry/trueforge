@@ -1,0 +1,56 @@
+import type { OIDCConfig } from '../config';
+
+/** Stable `/?error=` reason when the signed-in email is outside the allowlist. */
+export const EMAIL_NOT_ALLOWED_REASON = 'email_not_allowed';
+
+/** Thrown when OIDC_ALLOWED_EMAILS is set and the caller's email does not match. */
+export class EmailNotAllowedError extends Error {
+  constructor() {
+    super(EMAIL_NOT_ALLOWED_REASON);
+    this.name = 'EmailNotAllowedError';
+  }
+}
+
+/**
+ * Converts an allowlist entry to a anchored regex. `*` is a wildcard; other
+ * regex metacharacters are matched literally. Case is handled by the caller.
+ */
+export function emailAllowlistPatternToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'u');
+}
+
+/** True when `email` matches any allowlist entry (exact or glob). Empty allowlist → true. */
+export function emailMatchesAllowlist(email: string, patterns: string[]): boolean {
+  if (patterns.length === 0) {
+    return true;
+  }
+  const normalized = email.trim().toLowerCase();
+  if (normalized === '') {
+    return false;
+  }
+  return patterns.some(pattern => {
+    const trimmed = pattern.trim().toLowerCase();
+    if (trimmed === '') {
+      return false;
+    }
+    return emailAllowlistPatternToRegExp(trimmed).test(normalized);
+  });
+}
+
+/**
+ * When {@link OIDCConfig.OIDC_ALLOWED_EMAILS} is non-empty, requires a non-empty
+ * ID-token `email` claim that matches at least one entry. No-op when unrestricted.
+ */
+export function assertEmailAllowed(claims: Record<string, unknown>, config: OIDCConfig): void {
+  if (config.OIDC_ALLOWED_EMAILS.length === 0) {
+    return;
+  }
+  const email = claims['email'];
+  if (typeof email !== 'string' || email.trim() === '') {
+    throw new EmailNotAllowedError();
+  }
+  if (!emailMatchesAllowlist(email, config.OIDC_ALLOWED_EMAILS)) {
+    throw new EmailNotAllowedError();
+  }
+}

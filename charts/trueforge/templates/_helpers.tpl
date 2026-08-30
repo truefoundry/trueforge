@@ -183,6 +183,9 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_ADMIN_ROLE_VALUE" "value" .Values.configs.oidc.adminRoleValue) -}}
 {{- $env = append $env (dict "name" "OIDC_SCOPES" "value" .Values.configs.oidc.scopes) -}}
+{{- if .Values.configs.oidc.allowedEmails -}}
+{{- $env = append $env (dict "name" "OIDC_ALLOWED_EMAILS" "value" .Values.configs.oidc.allowedEmails) -}}
+{{- end -}}
 {{- end -}}
 
 {{- range .Values.server.extraEnv -}}

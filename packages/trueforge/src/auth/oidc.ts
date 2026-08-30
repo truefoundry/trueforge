@@ -10,8 +10,9 @@ import {
   randomState,
 } from 'openid-client';
 import { getPublicBaseUrl, type OIDCConfig } from '../config';
-import { buildAuthorizationRequestParams } from './claims';
+import { buildAuthorizationRequestParams, type IdTokenClaims } from './claims';
 import { ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, setAuthCookie } from './cookies';
+import { assertEmailAllowed } from './emailAllowlist';
 import { safeReturnTo } from './safeReturnTo';
 
 const CALLBACK_PATH = '/api/v1/auth/callback';
@@ -119,6 +120,11 @@ export async function exchangeAuthorizationCode(params: {
   // Origin and path come from config so redirect_uri matches the one registered with the IdP.
   const callbackUrl = new URL(authCallbackUrl());
   callbackUrl.search = params.callbackParams.toString();
+  const oidcConfig = getOidcVerify()?.oidcConfig;
+  if (!oidcConfig) {
+    throw new Error('OIDC claim configuration is unavailable; call initOidc before exchanging an authorization code.');
+  }
+
   const tokens = await authorizationCodeGrant(params.client, callbackUrl, {
     pkceCodeVerifier: params.codeVerifier,
     expectedState: params.state,
@@ -127,6 +133,12 @@ export async function exchangeAuthorizationCode(params: {
   if (!idToken) {
     throw new Error('Token response missing id_token');
   }
+
+  // Reject before stamping the cookie so disallowed users never get a session.
+  const tokenClaims = tokens.claims();
+  const claims: IdTokenClaims = tokenClaims ? { ...tokenClaims } : {};
+  assertEmailAllowed(claims, oidcConfig);
+
   setAuthCookie({
     context: params.context,
     name: ID_TOKEN_COOKIE,
