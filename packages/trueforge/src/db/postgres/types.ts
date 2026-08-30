@@ -22,8 +22,10 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type { ScheduleManifest, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
+import type { ScheduleRunStatus } from '../scheduleStore';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -369,6 +371,52 @@ export interface AgentTable {
 }
 
 /**
+ * Configured schedules — immutable ULID `id` PK.
+ * PRIMARY KEY (id)
+ * CREATE INDEX schedule_agent_idx ON schedule (tenant_id, agent_name)
+ * FK (tenant_id, agent_name) → agent(tenant_id, name) ON DELETE CASCADE
+ */
+export interface ScheduleTable {
+  /** application-generated (ulid); FK target for schedule_run */
+  id: string;
+  tenant_id: string;
+  /** FK with tenant_id → agent(tenant_id, name). Immutable; agent version resolves at run time. */
+  agent_name: string;
+  /** Display label; not unique. */
+  name: string;
+  /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
+  manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
+  /** `paused` stops triggering and drops the pending run; in-flight runs continue */
+  status: ScheduleStatus;
+  /** Identity every run of this schedule executes as (`UserContext.userRef`) */
+  created_by: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * One row per run, pending or historical.
+ * PRIMARY KEY (id)
+ */
+export interface ScheduleRunTable {
+  /** application-generated (ulid) */
+  id: string;
+  tenant_id: string;
+  /** FK -> schedule.id, ON DELETE CASCADE */
+  schedule_id: string;
+  /** unique per trigger time: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
+  name: string;
+  scheduled_for: Date;
+  /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
+  status: ScheduleRunStatus;
+  /** `UserContext.userRef` of who triggered the run */
+  triggered_by: string;
+  triggered_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key.
  */
@@ -436,6 +484,8 @@ export interface OAuthPendingAuthorizationTable {
  * itself — the documented, bounded cost of the raw-array model. `model_provider`,
  * `skill`, `sandbox_provider`, `agent`, `mcp_server`, and the two `oauth_*` tables
  * are low-write, low-volume (one row per tenant/resource, or short-lived).
+ * `schedule` is low-write; `schedule_run` takes a handful of bounded updates per
+ * trigger and is otherwise append-only.
  *
  * Canonical Kysely database.
  */
@@ -450,6 +500,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  schedule: ScheduleTable;
+  schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

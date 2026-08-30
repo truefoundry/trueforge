@@ -25,8 +25,10 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type { ScheduleManifest, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
+import type { ScheduleRunStatus } from '../scheduleStore';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -219,6 +221,51 @@ export interface AgentTable {
 }
 
 /**
+ * Configured schedules.
+ * PRIMARY KEY (id).
+ * FK (tenant_id, agent_name) → agent(tenant_id, name) ON DELETE CASCADE.
+ */
+export interface ScheduleTable {
+  /** application-generated (ulid); FK target for schedule_run */
+  id: string;
+  tenant_id: string;
+  /** FK with tenant_id → agent(tenant_id, name). Immutable; agent version resolves at run time. */
+  agent_name: string;
+  /** Display label; not unique. */
+  name: string;
+  /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
+  manifest: JsonbColumn<ScheduleManifest>;
+  /** `paused` stops triggering and drops the pending run; in-flight runs continue */
+  status: ScheduleStatus;
+  /** Identity every run of this schedule executes as (`UserContext.userRef`) */
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One row per schedule run, pending or historical — mirrors the Postgres `schedule_run`
+ * PRIMARY KEY (id); UNIQUE (tenant_id, schedule_id, name).
+ */
+export interface ScheduleRunTable {
+  /** application-generated (ulid) */
+  id: string;
+  tenant_id: string;
+  /** FK -> schedule.id, ON DELETE CASCADE */
+  schedule_id: string;
+  /** the run name: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
+  name: string;
+  scheduled_for: string;
+  /** `scheduled` | `triggered` | `failed` | `missed` — length ≤ 16 */
+  status: ScheduleRunStatus;
+  /** `UserContext.userRef` of who triggered the run */
+  triggered_by: string;
+  triggered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * PRIMARY KEY (id)
  * UNIQUE (tenant_id, name) — the natural lookup key;
  */
@@ -280,6 +327,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  schedule: ScheduleTable;
+  schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;
