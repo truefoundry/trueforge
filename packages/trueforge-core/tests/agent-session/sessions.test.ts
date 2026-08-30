@@ -1,9 +1,11 @@
+import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
 import { EventType } from '../../src/agent-session/schemas/events';
 import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
 import { TurnHandle } from '../../src/agent-session/TurnHandle';
+import { InvalidAgentSendInputError } from '../../src/core/errors';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -126,6 +128,59 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     await expect(
       session.freezeTurn({ turn_id: 'missing-turn', reason: CancellationReason.ClientCancelled }),
     ).rejects.toBeInstanceOf(TurnNotFoundError);
+  });
+
+  it('rejects an approval-only resume of a running turn without cancelling it', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      created_by: 'user-1',
+      agent: { type: 'inline', spec: makeAgentSpec() },
+    });
+    const running = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+
+    // A duplicate or stray approval must not kill the turn it races (#508).
+    await expect(
+      session.createTurn({
+        turn_id: mintTestTurnId(),
+        input: [
+          {
+            type: EventType.USER_TOOL_APPROVAL,
+            thread_id: MAIN_THREAD_ID,
+            tool_call_id: 'call-1',
+            approval: { status: 'allow' },
+          },
+        ],
+        previous_turn_id: 'auto',
+        signal: new AbortController().signal,
+        resolver: makeTestResolver(),
+      }),
+    ).rejects.toBeInstanceOf(InvalidAgentSendInputError);
+    const untouched = await store.getTurn({ session_id: 's1', turn_id: running.id });
+    expect(untouched?.state.status).toBe('running');
+
+    // A user message still barges in and cancels the running turn.
+    const barged = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      input: [{ type: EventType.USER_MESSAGE, content: 'interrupt' }],
+      previous_turn_id: 'auto',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+    expect(barged.state.status).toBe('running');
+    const cancelled = await store.getTurn({ session_id: 's1', turn_id: running.id });
+    expect(cancelled?.state).toMatchObject({
+      status: 'cancelled',
+      reason: CancellationReason.CancelledForNextTurn,
+    });
   });
 
   it('custom value vs merge-fn', async () => {

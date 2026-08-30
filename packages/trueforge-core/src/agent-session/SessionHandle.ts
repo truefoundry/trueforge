@@ -1,6 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
+import { InvalidAgentSendInputError } from '../core/errors';
 import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -185,6 +186,29 @@ export class SessionHandle<
     update_session_title_if_not_exist?: string | undefined;
   }): Promise<TurnHandle<TTurnCustom>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
+
+    // Approval and tool-response items answer the required actions of a
+    // completed turn; a running previous turn cannot have any. Check that
+    // read-only BEFORE the freeze below, so an invalid resume (e.g. a
+    // duplicate approval racing the turn it already resumed) is rejected
+    // without cancelling a turn that is still executing (#508).
+    const items = input.input ?? [];
+    if (
+      previousTurnId !== null &&
+      items.length > 0 &&
+      items.every(msg => isApprovalDecisionMessage(msg) || isClientSideToolResponseMessage(msg))
+    ) {
+      const prior = await this.store.getTurn({
+        session_id: this.session.session_id,
+        turn_id: previousTurnId,
+      });
+      if (prior?.state.status === 'running') {
+        throw new InvalidAgentSendInputError(
+          `previous turn '${previousTurnId}' is still running and has no pending required actions`,
+        );
+      }
+    }
+
     const previous = previousTurnId
       ? await this.freezeTurn({
           turn_id: previousTurnId,
