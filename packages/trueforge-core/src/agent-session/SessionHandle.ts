@@ -204,7 +204,7 @@ export class SessionHandle<
       });
       if (prior?.state.status === 'running') {
         throw new InvalidAgentSendInputError(
-          `previous turn '${previousTurnId}' is still running and has no pending required actions`,
+          `cannot resume previous turn '${previousTurnId}' while it is still running`,
         );
       }
     }
