@@ -21,11 +21,6 @@ export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 401;
 }
 
-/**
- * Daytona authenticated the key but refused the operation (403 forbidden). Snapshot registration is
- * gated on `write:snapshots`, which Daytona scopes separately from `write:sandboxes`, so a key that
- * creates sandboxes can still fail here — the key is valid and needs a permission, not replacing.
- */
 export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
