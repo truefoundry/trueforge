@@ -519,6 +519,11 @@
       "CatalogSandboxProvider": {
         "additionalProperties": false,
         "properties": {
+          "api_url": {
+            "description": "Daytona API base URL. If omitted, uses the default cloud endpoint.",
+            "format": "uri",
+            "type": "string"
+          },
           "auto_archive_interval_in_minutes": {
             "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
             "minimum": 0,
@@ -2757,6 +2762,11 @@
       "SandboxProviderManifest": {
         "additionalProperties": false,
         "properties": {
+          "api_url": {
+            "description": "Daytona API base URL. If omitted, uses the default cloud endpoint.",
+            "format": "uri",
+            "type": "string"
+          },
           "auth": {
             "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
           },

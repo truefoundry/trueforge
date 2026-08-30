@@ -57,6 +57,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
     const body: UpdateSandboxProviderRequest = c.req.valid('json');
+    console.log(body);
     const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
@@ -100,10 +101,12 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         200,
       );
     } catch (error) {
+      console.log(error);
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
       if (isDaytonaAuthError(error)) {
+        console.log(error);
         return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
       }
       throw error;

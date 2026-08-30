@@ -20,16 +20,14 @@ import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandbo
 
 const SNAPSHOT_STATUS_POLL_INTERVAL_MS = 10000;
 
-const configFrom = ({
-  execTimeoutMs,
-  autoStopIntervalInMinutes,
-  autoArchiveIntervalInMinutes,
-  autoDeleteIntervalInMinutes,
-}: SandboxProviderConfig): SandboxProviderConfig => ({
-  execTimeoutMs,
-  autoStopIntervalInMinutes,
-  autoArchiveIntervalInMinutes,
-  autoDeleteIntervalInMinutes,
+const configFrom = (
+  provider: SandboxProviderConfig & { apiUrl?: string },
+): SandboxProviderConfig & { apiUrl?: string } => ({
+  execTimeoutMs: provider.execTimeoutMs,
+  autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
+  autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
+  autoDeleteIntervalInMinutes: provider.autoDeleteIntervalInMinutes,
+  apiUrl: provider.apiUrl,
 });
 
 const statusPresentation = (status: SandboxSnapshotSyncStatus['status']): { label: string; className: string } => {
@@ -177,7 +175,7 @@ const SandboxSettings = () => {
         type: createEntry.type,
         ...configFrom(draft),
         apiKey: draft.apiKey,
-      });
+      } as any);
     }, setFormError);
     setCreateEntry(null);
     setTimeout(() => {

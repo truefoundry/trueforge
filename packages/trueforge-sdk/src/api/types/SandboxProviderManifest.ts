@@ -4,6 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface SandboxProviderManifest {
     auth: TrueForge.DaytonaSandboxProviderAuth;
+    /** Daytona API base URL. If omitted, uses the default cloud endpoint. */
+    apiUrl?: string;
     /** Minutes before Daytona auto-archives the sandbox (0 disables). */
     autoArchiveIntervalInMinutes: number;
     /** Minutes before Daytona auto-deletes the sandbox (0 disables). */

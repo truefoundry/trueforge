@@ -10,6 +10,7 @@ export const SandboxProviderManifest: core.serialization.ObjectSchema<
     TrueForge.SandboxProviderManifest
 > = core.serialization.object({
     auth: DaytonaSandboxProviderAuth,
+    apiUrl: core.serialization.property("api_url", core.serialization.string().optional()),
     autoArchiveIntervalInMinutes: core.serialization.property(
         "auto_archive_interval_in_minutes",
         core.serialization.number(),
@@ -29,6 +30,7 @@ export const SandboxProviderManifest: core.serialization.ObjectSchema<
 export declare namespace SandboxProviderManifest {
     export interface Raw {
         auth: DaytonaSandboxProviderAuth.Raw;
+        api_url?: string | null;
         auto_archive_interval_in_minutes: number;
         auto_delete_interval_in_minutes: number;
         auto_stop_interval_in_minutes: number;

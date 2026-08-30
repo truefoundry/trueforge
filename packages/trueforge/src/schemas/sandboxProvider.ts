@@ -29,6 +29,7 @@ const DaytonaSandboxProviderAuthSchema = z
 export const DaytonaSandboxProviderSchema = z
   .object({
     type: z.literal('daytona').describe('Daytona sandbox provider.'),
+    api_url: z.string().url().optional().describe('Daytona API base URL. If omitted, uses the default cloud endpoint.'),
     auth: DaytonaSandboxProviderAuthSchema,
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
     auto_stop_interval_in_minutes: z
@@ -115,10 +116,11 @@ export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest)
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
-  'timeoutMs' | 'autoStopIntervalInMinutes' | 'autoArchiveIntervalInMinutes' | 'autoDeleteIntervalInMinutes'
+  'apiUrl' | 'timeoutMs' | 'autoStopIntervalInMinutes' | 'autoArchiveIntervalInMinutes' | 'autoDeleteIntervalInMinutes'
 > {
   return {
     apiKey: manifest.auth.api_key,
+    apiUrl: manifest.api_url,
     timeoutMs: manifest.exec_timeout_ms,
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,

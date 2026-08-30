@@ -9,16 +9,29 @@
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
+  CreateSandboxProviderRequest,
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
   SandboxProviderConfig,
   SandboxProviderListEntry,
+  UpdateSandboxProviderRequest,
 } from '../../../server/types.js';
 
-export type UiSandboxProvider = SandboxProviderBase;
-export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
-export type UiSandboxProviderListEntry = SandboxProviderListEntry;
+export interface UiSandboxProvider extends SandboxProviderBase {
+  apiUrl?: string;
+}
+export interface UiSandboxProviderCatalogEntry extends SandboxProviderCatalogEntry {
+  apiUrl?: string;
+}
+export interface UiSandboxProviderListEntry extends SandboxProviderListEntry<UiSandboxProvider> {}
+
+export interface UiCreateSandboxRequest extends CreateSandboxProviderRequest {
+  apiUrl?: string;
+}
+export interface UiUpdateSandboxRequest extends UpdateSandboxProviderRequest {
+  apiUrl?: string;
+}
 
 const DAYTONA_TYPE = 'daytona';
 const DAYTONA_DISPLAY_NAME = 'Daytona';
@@ -32,12 +45,13 @@ function displayNameForType(type: string): string {
 
 export function configFromHarness(
   provider: TrueForgeApi.CatalogSandboxProvider | TrueForgeApi.SandboxProviderManifest,
-): SandboxProviderConfig {
+) {
   return {
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
     autoArchiveIntervalInMinutes: provider.autoArchiveIntervalInMinutes,
     autoDeleteIntervalInMinutes: provider.autoDeleteIntervalInMinutes,
+    apiUrl: 'apiUrl' in provider ? provider.apiUrl : undefined,
   };
 }
 
@@ -94,6 +108,7 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
+    apiUrl?: string;
   } & SandboxProviderConfig,
 ): TrueForgeApi.SandboxProviderManifest {
   if (req.type !== DAYTONA_TYPE) {
@@ -106,11 +121,20 @@ export function toHarnessManifest(
     autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
     autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
     auth: { apiKey: req.apiKey },
+    apiUrl: req.apiUrl,
   };
 }
 
 /** Settings sandbox-catalog port for `createTrueFoundryServer`. Delete omitted (no BE route). */
-export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogServer {
+export function createSandboxProviderCatalog(
+  client: TrueForge,
+): SandboxCatalogServer<
+  UiSandboxProvider,
+  UiSandboxProviderCatalogEntry,
+  UiCreateSandboxRequest,
+  UiUpdateSandboxRequest,
+  UiSandboxProviderListEntry
+> {
   async function resolveApiKey(apiKey: string | undefined): Promise<string> {
     const trimmed = apiKey?.trim();
     if (trimmed !== undefined && trimmed !== '') {
@@ -144,6 +168,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         manifest: toHarnessManifest({
           type: req.type,
           apiKey: req.apiKey,
+          apiUrl: req.apiUrl,
           execTimeoutMs: req.execTimeoutMs,
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
@@ -158,6 +183,7 @@ export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogS
         manifest: toHarnessManifest({
           type: DAYTONA_TYPE,
           apiKey,
+          apiUrl: req.apiUrl,
           execTimeoutMs: req.execTimeoutMs,
           autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
           autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,

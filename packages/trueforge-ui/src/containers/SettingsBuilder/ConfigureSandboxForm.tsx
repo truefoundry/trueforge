@@ -12,6 +12,7 @@ import type { SandboxProviderConfig } from '../../server/types.js';
 
 export type SandboxConfigDraft = SandboxProviderConfig & {
   apiKey: string;
+  apiUrl?: string;
 };
 
 type ConfigureSandboxFormProps = {
@@ -21,7 +22,7 @@ type ConfigureSandboxFormProps = {
   title: string;
   description?: string;
   /** Prefills config fields; apiKey is never autofilled. */
-  initialConfig?: SandboxProviderConfig | null;
+  initialConfig?: (SandboxProviderConfig & { apiUrl?: string }) | null;
   /** When false (updates), empty apiKey means keep the existing key. */
   requireApiKey?: boolean;
   busy?: boolean;
@@ -62,6 +63,7 @@ const ConfigureSandboxForm = ({
   const [autoArchiveIntervalInMinutes, setAutoArchiveIntervalInMinutes] = useState('');
   const [autoDeleteIntervalInMinutes, setAutoDeleteIntervalInMinutes] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [apiUrl, setApiUrl] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const resetForm = () => {
@@ -70,6 +72,7 @@ const ConfigureSandboxForm = ({
     setAutoArchiveIntervalInMinutes('');
     setAutoDeleteIntervalInMinutes('');
     setApiKey('');
+    setApiUrl('');
     setAdvancedOpen(false);
   };
 
@@ -81,6 +84,7 @@ const ConfigureSandboxForm = ({
     setAutoArchiveIntervalInMinutes(String(config.autoArchiveIntervalInMinutes));
     setAutoDeleteIntervalInMinutes(String(config.autoDeleteIntervalInMinutes));
     setApiKey('');
+    setApiUrl((config as SandboxProviderConfig & { apiUrl?: string }).apiUrl ?? '');
     setAdvancedOpen(false);
   }, [open, initialConfig]);
 
@@ -116,6 +120,7 @@ const ConfigureSandboxForm = ({
         autoArchiveIntervalInMinutes: autoArchive,
         autoDeleteIntervalInMinutes: autoDelete,
         apiKey: trimmedKey,
+        apiUrl: apiUrl.trim() || undefined,
       });
       resetForm();
       onOpenChange(false);
@@ -157,6 +162,23 @@ const ConfigureSandboxForm = ({
               }}
               placeholder={requireApiKey ? 'dtn_...' : 'Leave blank to keep existing'}
               autoFocus
+              className={inputClassName}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="sandbox-api-url" className="mb-1.5 block text-sm font-medium text-text-primary">
+              API URL
+              <span className="font-normal text-text-secondary"> (optional)</span>
+            </label>
+            <input
+              id="sandbox-api-url"
+              type="url"
+              value={apiUrl}
+              onChange={event => {
+                setApiUrl(event.target.value);
+              }}
+              placeholder="https://app.daytona.io/api"
               className={inputClassName}
             />
           </div>

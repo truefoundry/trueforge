@@ -37,7 +37,7 @@ export function toDaytonaSandboxProvider({
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
-    client: new Daytona({ apiKey }),
+    client: new Daytona({ apiKey, ...(settings.apiUrl ? { apiUrl: settings.apiUrl } : {}) }),
     apiKey,
     ...settings,
     tenantName: tenant_id,
