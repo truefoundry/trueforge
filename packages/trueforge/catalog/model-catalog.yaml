@@ -366,3 +366,40 @@ providers:
           reasoning_efforts:
             - high
             - max
+  - type: orcarouter
+    models:
+      - model_id: orcarouter/auto
+        name: auto
+        properties:
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+      - model_id: orcarouter/fusion
+        name: fusion
+        properties:
+          context_length: 1000000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+      - model_id: orcarouter/fusion-mini
+        name: fusion-mini
+        properties:
+          context_length: 1000000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+      - model_id: orcarouter/fusion-flash
+        name: fusion-flash
+        properties:
+          context_length: 200000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
