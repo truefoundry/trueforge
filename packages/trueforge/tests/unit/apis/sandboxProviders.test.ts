@@ -166,12 +166,12 @@ describe('sandboxProviders router', () => {
     expect(response.status).toBe(422);
   });
 
-  it('PUT returns 403 naming the permissions when the key cannot register snapshots', async () => {
+  it('PUT returns 422 naming the permissions when the key cannot register snapshots', async () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('Access denied', 403)) }),
     );
     const response = await settingsRouter.request('/', putInit(putBody));
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(422);
     expect(await response.json()).toEqual({
       error: {
         message:
@@ -185,7 +185,7 @@ describe('sandboxProviders router', () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('forbidden', 403)) }),
     );
-    expect((await router.request('/', putInit(putBody))).status).toBe(403);
+    expect((await router.request('/', putInit(putBody))).status).toBe(422);
     expect((await router.request('/')).status).toBe(404);
   });
 
