@@ -19,7 +19,6 @@
   <a href="https://trueforge.dev"><img src="https://img.shields.io/badge/Documentation-trueforge.dev-blue.svg?style=flat-square" alt="Documentation"></a>
   <a href="https://trueforge.dev/quickstart"><img src="https://img.shields.io/badge/Quickstart-trueforge.dev/quickstart-blue.svg?style=flat-square" alt="Quickstart"></a>
   <a href="https://trueforge.dev/api/overview"><img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg?style=flat-square" alt="SDK"></a>
-  <a href="https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Ftruefoundry%2Ftrueforge&plugins=postgresql%2Credis&utm_medium=integration&utm_source=button&utm_campaign=trueforge"><img src="https://railway.com/button.svg" alt="Deploy on Railway"></a>
 </p>
 <p align="center">
   <a href="https://www.npmjs.com/package/@truefoundry/trueforge"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge&logo=npm&style=flat-square" alt="npm @truefoundry/trueforge"></a>
@@ -60,23 +59,6 @@ npx @truefoundry/trueforge@latest
 ```
 
 Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, Kubernetes, or Railway). Connect models, tools, skills and build your first reusable agent.
-
-### Deploy on Railway
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Ftruefoundry%2Ftrueforge&plugins=postgresql%2Credis&utm_medium=integration&utm_source=button&utm_campaign=trueforge)
-
-Hosted topology is defined with [Railway Infrastructure as Code](https://docs.railway.com/infrastructure-as-code) in [`.railway/railway.ts`](.railway/railway.ts) (app + Postgres + Redis, `Dockerfile.dev`, wired env vars). From this repo:
-
-```bash
-pnpm install
-railway login
-railway init --name trueforge   # skip if already linked
-railway config plan
-railway config apply
-railway domain                  # public URL for the trueforge service
-```
-
-Enable [OIDC login](https://trueforge.dev/authentication/overview) before sharing the deployment. Full steps: [Quickstart → Railway](https://trueforge.dev/quickstart).
 
 To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
