@@ -19,6 +19,7 @@
   <a href="https://trueforge.dev"><img src="https://img.shields.io/badge/Documentation-trueforge.dev-blue.svg?style=flat-square" alt="Documentation"></a>
   <a href="https://trueforge.dev/quickstart"><img src="https://img.shields.io/badge/Quickstart-trueforge.dev/quickstart-blue.svg?style=flat-square" alt="Quickstart"></a>
   <a href="https://trueforge.dev/api/overview"><img src="https://img.shields.io/badge/SDK-trueforge.dev/api/overview-blue.svg?style=flat-square" alt="SDK"></a>
+  <a href="https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Ftruefoundry%2Ftrueforge&plugins=postgresql%2Credis&utm_medium=integration&utm_source=button&utm_campaign=trueforge"><img src="https://railway.com/button.svg" alt="Deploy on Railway"></a>
 </p>
 <p align="center">
   <a href="https://www.npmjs.com/package/@truefoundry/trueforge"><img src="https://img.shields.io/npm/v/@truefoundry/trueforge?label=trueforge&logo=npm&style=flat-square" alt="npm @truefoundry/trueforge"></a>
@@ -48,7 +49,7 @@ Building an agent is easy. Running one well is not - you need streaming, session
 - **Context engineering** - subagents, deferred tool loading, Code Mode, large-result offloading, and compaction.
 - **Chat UI + SDK** - use the bundled UI, automate with `@truefoundry/trueforge-sdk`, or embed `@truefoundry/trueforge-ui`.
 
-It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (Postgres + Redis, Docker Compose or Helm).
+It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (Postgres + Redis, Docker Compose, Helm, or Railway).
 
 ## Getting started
 
@@ -58,7 +59,24 @@ It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (
 npx @truefoundry/trueforge@latest
 ```
 
-Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, or Kubernetes). Connect models, tools, skills and build your first reusable agent.
+Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, Kubernetes, or Railway). Connect models, tools, skills and build your first reusable agent.
+
+### Deploy on Railway
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Ftruefoundry%2Ftrueforge&plugins=postgresql%2Credis&utm_medium=integration&utm_source=button&utm_campaign=trueforge)
+
+Hosted topology is defined with [Railway Infrastructure as Code](https://docs.railway.com/infrastructure-as-code) in [`.railway/railway.ts`](.railway/railway.ts) (app + Postgres + Redis, `Dockerfile.dev`, wired env vars). From this repo:
+
+```bash
+pnpm install
+railway login
+railway init --name trueforge   # skip if already linked
+railway config plan
+railway config apply
+railway domain                  # public URL for the trueforge service
+```
+
+Enable [OIDC login](https://trueforge.dev/authentication/overview) before sharing the deployment. Full steps: [Quickstart → Railway](https://trueforge.dev/quickstart).
 
 To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -72,10 +90,10 @@ To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md
   </picture>
 </p>
 
-| Mode   | Best for                    | Storage  | Extra infra      | How to run                   |
-| ------ | --------------------------- | -------- | ---------------- | ---------------------------- |
-| Local  | Personal use, trying it out | SQLite   | None             | `npx @truefoundry/trueforge` |
-| Hosted | Teams, multi-replica        | Postgres | Postgres + Redis | Docker Compose or Helm       |
+| Mode   | Best for                    | Storage  | Extra infra      | How to run                       |
+| ------ | --------------------------- | -------- | ---------------- | -------------------------------- |
+| Local  | Personal use, trying it out | SQLite   | None             | `npx @truefoundry/trueforge`     |
+| Hosted | Teams, multi-replica        | Postgres | Postgres + Redis | Docker Compose, Helm, or Railway |
 
 > **Local mode is for your machine only.** It is a convenient way to try TrueForge — not a production or internet-facing setup. There is no login by default, and data lives in a local SQLite file. Please keep it on localhost. We cannot take responsibility for data loss or unauthorized access if local mode is used beyond that. For a shared or production deployment, use hosted mode.
 
