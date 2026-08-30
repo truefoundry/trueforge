@@ -135,7 +135,7 @@ describe('authMiddleware', () => {
     }): Promise<string> {
       const claims: Record<string, unknown> = { groups: params?.groups ?? [] };
       if (params?.email !== undefined) {
-        claims.email = params.email;
+        claims['email'] = params.email;
       }
       return new SignJWT(claims)
         .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
