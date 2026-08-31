@@ -3,4 +3,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Persist zero-initialized metrics on agent sessions.
+Fold session metrics totals on createTurn and terminal writes.
