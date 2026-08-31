@@ -25,7 +25,7 @@ import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
+import { recordDaytonaAccessFailure, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
@@ -248,6 +248,14 @@ export async function resolveSandboxProvider({
       tenant_id,
       logger,
       build_metadata: record.build_metadata,
+      onError: async error => {
+        await recordDaytonaAccessFailure({
+          store,
+          tenant_id,
+          error,
+          build_metadata: record.build_metadata,
+        });
+      },
     });
   }
   if (!configuration.STANDALONE) {
