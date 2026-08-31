@@ -265,7 +265,7 @@ export const getSessionMetricsChartsRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetSessionMetricsChartResponseSchema } },
-      description: 'Session metric chart catalog.',
+      description: 'Available session metric charts.',
     },
   },
 });
