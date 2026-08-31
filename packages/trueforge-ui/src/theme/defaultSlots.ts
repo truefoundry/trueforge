@@ -28,7 +28,6 @@ import type {
 } from '../atoms/agent-details/types.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
-import { SessionsBrowserButton } from '../atoms/SessionsBrowserButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -54,6 +53,7 @@ import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
+import { SessionsBrowserButton } from '../atoms/SessionsBrowserButton.js';
 import { ShellActionsActionSlot } from '../atoms/ShellActionsActionSlot.js';
 import { MessageListSkeleton } from '../atoms/Skeletons.js';
 import { SubAgentCard } from '../atoms/SubAgentCard.js';

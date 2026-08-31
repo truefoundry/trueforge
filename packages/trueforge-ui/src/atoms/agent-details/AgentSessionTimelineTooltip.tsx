@@ -26,7 +26,9 @@ export function SessionEventTooltip({
   const content = segment.description.trim();
   if (segment.type === 'system') {
     if (content.length === 0) return null;
-    return <p className="max-w-[25rem] whitespace-normal break-words text-xs font-medium text-text-primary">{content}</p>;
+    return (
+      <p className="max-w-[25rem] whitespace-normal break-words text-xs font-medium text-text-primary">{content}</p>
+    );
   }
 
   return (

@@ -33,7 +33,9 @@ describe('sessionShareUrl', () => {
     const share = readSessionShareSearch(`?view=sessions&s_tw=${String(DEFAULT_SESSION_TIME_WINDOW_MS)}`);
     assert.equal(share.view, 'sessions');
     assert.equal(share.timeRange?.timeWindowMs, DEFAULT_SESSION_TIME_WINDOW_MS);
-    assert.ok(share.timeRange != null && share.timeRange.endTs - share.timeRange.startTs === DEFAULT_SESSION_TIME_WINDOW_MS);
+    assert.ok(
+      share.timeRange != null && share.timeRange.endTs - share.timeRange.startTs === DEFAULT_SESSION_TIME_WINDOW_MS,
+    );
   });
 
   it('reads an absolute pinned time range', () => {

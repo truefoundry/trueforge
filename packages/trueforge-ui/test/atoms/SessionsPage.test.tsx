@@ -3,11 +3,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
-import { DEFAULT_SESSION_TIME_WINDOW_MS, SESSION_TIME_BUFFER_MS } from '@/utils/sessionShareUrl.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { DEFAULT_SESSION_TIME_WINDOW_MS, SESSION_TIME_BUFFER_MS } from '@/utils/sessionShareUrl.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 const namedRow: SessionListEntry = {
@@ -52,7 +52,9 @@ function renderPage({
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
-    searchAgents: vi.fn(async () => [{ agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } }]),
+    searchAgents: vi.fn(async () => [
+      { agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } },
+    ]),
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
   });
   render(

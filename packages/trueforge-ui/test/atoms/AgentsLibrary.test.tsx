@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '@/atoms/AgentsLibraryButton.js';

@@ -5,13 +5,13 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { Skeleton } from '../primitives/Skeleton.js';
 import {
   defaultSessionTimeRange,
   readSessionShareSearch,
   resolveSessionTimeRange,
   type SessionTimeRange,
 } from '../../utils/sessionShareUrl.js';
+import { Skeleton } from '../primitives/Skeleton.js';
 
 export function SessionsPage() {
   const sessionsServer = useOptionalAgentSessionsServer();

@@ -36,7 +36,12 @@ import {
   type TimelineTurnBar,
 } from '../../utils/sessionEventTimelineChart.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
-import { hasSessionEventTooltip, SessionEventTooltip, SessionToolCallGroupTooltip, SessionTurnTooltip } from './AgentSessionTimelineTooltip.js';
+import {
+  hasSessionEventTooltip,
+  SessionEventTooltip,
+  SessionToolCallGroupTooltip,
+  SessionTurnTooltip,
+} from './AgentSessionTimelineTooltip.js';
 import type { AgentSessionEventTimelineChartProps } from './types.js';
 
 ChartJS.register(LinearScale, BarElement, Tooltip);
@@ -410,9 +415,7 @@ export function AgentSessionEventTimelineChart({
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.toolCallGroup ? (
       <SessionToolCallGroupTooltip group={tooltipTarget.group} />
-    ) : (
-      null
-    );
+    ) : null;
 
   return (
     <div ref={wrapperRef} className="w-full" data-slot="agent-session-event-timeline-chart">
