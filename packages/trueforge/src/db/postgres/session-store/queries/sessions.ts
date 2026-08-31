@@ -20,16 +20,10 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
-import { isUniqueViolation } from '../../client';
+import { isPgConstraint, isUniqueViolation } from '../../client';
+import { SESSION_EXTERNAL_ID_UQ } from '../../indexes';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
-
-function isPgConstraint(error: unknown, name: string): boolean {
-  if (typeof error !== 'object' || error === null || !('constraint' in error)) {
-    return false;
-  }
-  return error.constraint === name;
-}
 
 type SessionCustom = Record<string, never>;
 type ProtoSessionRecord = SessionRecord<SessionCustom>;
@@ -114,7 +108,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
-      if (isPgConstraint(error, 'session_external_id_uq') && input.external_id) {
+      if (isPgConstraint(error, SESSION_EXTERNAL_ID_UQ) && input.external_id) {
         throw new SessionExternalIdConflictError(input.external_id, { cause: error });
       }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });

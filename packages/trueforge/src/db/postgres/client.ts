@@ -70,3 +70,11 @@ export function isPgErrorCode(err: unknown, code: string): boolean {
 export function isUniqueViolation(err: unknown): boolean {
   return isPgErrorCode(err, '23505');
 }
+
+/** Match a Postgres unique/PK violation to a named constraint or index. */
+export function isPgConstraint(err: unknown, name: string): boolean {
+  if (typeof err !== 'object' || err === null || !('constraint' in err)) {
+    return false;
+  }
+  return err.constraint === name;
+}

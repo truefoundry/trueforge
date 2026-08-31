@@ -126,9 +126,18 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
-      const message = error instanceof Error ? error.message : '';
-      if (input.external_id != null && message.includes('session.external_id')) {
-        throw new SessionExternalIdConflictError(input.external_id, { cause: error });
+      // Which index fired is resolved by lookup, not by parsing the driver
+      // message: SQLite describes a partial unique index by column list or by
+      // index name depending on version. The failed INSERT already rolled back,
+      // so a hit here is the pre-existing row that owns this external id.
+      if (input.external_id !== null) {
+        const owner = await getSessionByExternalId(db, {
+          tenant_id: input.tenant_id,
+          external_id: input.external_id,
+        });
+        if (owner !== undefined) {
+          throw new SessionExternalIdConflictError(input.external_id, { cause: error });
+        }
       }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });
     }
