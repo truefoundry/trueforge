@@ -136,8 +136,9 @@ async function addSessionCostAndDuration(
           sql`'{total_cost_in_usd}'`,
           sql`to_jsonb((metrics->>'total_cost_in_usd')::double precision + ${total_cost_in_usd}::double precision)`,
         ),
+        // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
         sql`'{total_duration_ms}'`,
-        sql`to_jsonb((metrics->>'total_duration_ms')::int + ${total_duration_ms}::int)`,
+        sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
       ),
     })
     .where('session_id', '=', input.session_id)
