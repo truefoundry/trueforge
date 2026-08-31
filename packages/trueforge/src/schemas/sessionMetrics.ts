@@ -30,12 +30,25 @@ export const SessionMetricsMeterNameSchema = z.enum([
   'p95_session_duration_ms',
 ]);
 
+/** Wire value `$` needs a Fern-safe identifier for SDK codegen. */
+const SESSION_METRICS_USD_FERN_ENUM = {
+  $: { name: 'Usd' },
+} as const;
+
+export const SessionMetricsMeterUnitSchema = z.enum(['count', '$', 'ms']).openapi('SessionMetricsMeterUnit', {
+  'x-fern-enum': SESSION_METRICS_USD_FERN_ENUM,
+});
+
+export const SessionMetricsGraphUnitSchema = z.enum(['count', '$']).openapi('SessionMetricsGraphUnit', {
+  'x-fern-enum': SESSION_METRICS_USD_FERN_ENUM,
+});
+
 export const SessionMetricsMeterSchema = z
   .object({
     name: SessionMetricsMeterNameSchema,
     aggregate_value: z.number().nonnegative(),
     description: z.string(),
-    unit: z.enum(['count', '$', 'ms']),
+    unit: SessionMetricsMeterUnitSchema,
   })
   .strict()
   .openapi('SessionMetricsMeter');
@@ -82,7 +95,7 @@ export const SessionMetricsGraphSchema = z
     name: SessionMetricsChartNameSchema,
     display_name: z.string(),
     description: z.string(),
-    unit: z.enum(['count', '$']),
+    unit: SessionMetricsGraphUnitSchema,
     chart_type: z.literal('line'),
     graph_lines: z.array(SessionMetricsGraphLineSchema).length(1),
   })
