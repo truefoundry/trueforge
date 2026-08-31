@@ -1,6 +1,6 @@
 /**
- * Internal metrics route definitions (mounted at /internal/metrics).
- * Handlers are registered in apis/metrics.ts.
+ * Internal session metrics route definitions (mounted at /internal/metrics).
+ * Handlers are registered in apis/sessionMetrics.ts.
  */
 import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';

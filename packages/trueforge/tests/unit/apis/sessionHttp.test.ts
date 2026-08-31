@@ -3,7 +3,7 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { createInternalMetricsRouter } from '../../../src/apis/metrics';
+import { createInternalMetricsRouter } from '../../../src/apis/sessionMetrics';
 import {
   createInternalSessionsRouter,
   createSessionsRouter,

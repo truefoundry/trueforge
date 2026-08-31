@@ -1,8 +1,3 @@
-/**
- * Server-owned session metrics dashboard store.
- * Aggregates per-session `metrics` into meters/charts; not part of ISessionStore.
- * Implementations: PostgresSessionMetricsStore and SqliteSessionMetricsStore.
- */
 import type {
   SessionMetricsChartDataResponse,
   SessionMetricsChartName,
