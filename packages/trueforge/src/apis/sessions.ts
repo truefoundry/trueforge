@@ -10,7 +10,6 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import { buildSessionMetricsCharts } from '@truefoundry/trueforge-core/agent-session/store/sessionMetrics';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
@@ -33,9 +32,6 @@ import {
   createSessionRoute,
   deleteSessionRoute,
   getOrCreateSessionByExternalIdRoute,
-  getSessionMetricsChartsDataRoute,
-  getSessionMetricsChartsRoute,
-  getSessionMetricsMetersRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -226,7 +222,6 @@ function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy
 type InternalSessionsRouterDeps = Pick<
   SessionsRouterDeps,
   | 'sessions'
-  | 'sessionStore'
   | 'modelProviderStore'
   | 'mcpServerStore'
   | 'skillStore'
@@ -285,73 +280,10 @@ function createGetOrCreateSessionByExternalIdHandler(
   };
 }
 
-function createSessionMetricsHandlers(deps: InternalSessionsRouterDeps) {
-  const requireNamedAgentForSessionMetrics = async (
-    agent_id: string,
-    c: Parameters<RouteHandler<typeof getSessionMetricsMetersRoute>>[0],
-  ) => {
-    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agent_id });
-    if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${agent_id}` } }, 404);
-    }
-    return null;
-  };
-
-  const getSessionMetricsMetersHandler: RouteHandler<typeof getSessionMetricsMetersRoute> = async c => {
-    const query = c.req.valid('query');
-    const missingAgent = await requireNamedAgentForSessionMetrics(query.agent_id, c);
-    if (missingAgent !== null) {
-      return missingAgent;
-    }
-    const user = deps.resolveUserContext(c);
-    const metrics = await deps.sessionStore.getSessionMetricsMeters({
-      tenant_id: TENANT_ID,
-      agent_id: query.agent_id,
-      created_by: user.userRef,
-      start_timestamp: query.start_timestamp,
-      end_timestamp: query.end_timestamp,
-    });
-    return c.json({ data: metrics }, 200);
-  };
-
-  const getSessionMetricsChartsHandler: RouteHandler<typeof getSessionMetricsChartsRoute> = c => {
-    return c.json({ data: buildSessionMetricsCharts() }, 200);
-  };
-
-  const getSessionMetricsChartsDataHandler: RouteHandler<typeof getSessionMetricsChartsDataRoute> = async c => {
-    const query = c.req.valid('query');
-    const missingAgent = await requireNamedAgentForSessionMetrics(query.agent_id, c);
-    if (missingAgent !== null) {
-      return missingAgent;
-    }
-    const user = deps.resolveUserContext(c);
-    const chartData = await deps.sessionStore.getSessionMetricsChartData({
-      tenant_id: TENANT_ID,
-      agent_id: query.agent_id,
-      created_by: user.userRef,
-      start_timestamp: query.start_timestamp,
-      end_timestamp: query.end_timestamp,
-      chart_name: query.chart_name,
-    });
-    return c.json({ data: chartData }, 200);
-  };
-
-  return {
-    getSessionMetricsMetersHandler,
-    getSessionMetricsChartsHandler,
-    getSessionMetricsChartsDataHandler,
-  };
-}
-
 /** Internal session operations (mounted at /internal/sessions). */
 export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
   const router = new OpenAPIHono();
-  const { getSessionMetricsMetersHandler, getSessionMetricsChartsHandler, getSessionMetricsChartsDataHandler } =
-    createSessionMetricsHandlers(deps);
   router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
-  router.openapi(getSessionMetricsMetersRoute, getSessionMetricsMetersHandler);
-  router.openapi(getSessionMetricsChartsRoute, getSessionMetricsChartsHandler);
-  router.openapi(getSessionMetricsChartsDataRoute, getSessionMetricsChartsDataHandler);
   return router;
 }
 

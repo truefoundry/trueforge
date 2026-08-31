@@ -16,6 +16,7 @@ import { createCapabilitiesRouter } from './apis/capabilities';
 import { createCatalogRouter } from './apis/catalog';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
+import { createInternalMetricsRouter } from './apis/metrics';
 import { createModelsRouter } from './apis/models';
 import { createSchedulesRouter } from './apis/schedules';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
@@ -284,13 +285,21 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
-        sessionMetricsStore: deps.sessionMetricsStore,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
+        resolveUserContext,
+      }),
+    ),
+  );
+  app.route(
+    '/internal/metrics',
+    withAuth(
+      createInternalMetricsRouter({
+        sessionMetricsStore: deps.sessionMetricsStore,
+        agentStore: deps.agentStore,
         resolveUserContext,
       }),
     ),
