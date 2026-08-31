@@ -60,7 +60,9 @@ export const AgentCodeSnippetsSchema = z
   })
   .strict();
 
-export const GetAgentCodeSnippetsResponseSchema = z.object({ data: AgentCodeSnippetsSchema });
+export const GetAgentCodeSnippetsResponseSchema = z
+  .object({ data: AgentCodeSnippetsSchema })
+  .openapi('GetAgentCodeSnippetsResponse');
 
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof UpdateAgentRequestSchema>;
