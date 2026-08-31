@@ -6,7 +6,6 @@ import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import {
   checkSnapshotStatus,
-  daytonaAccessFailureReason,
   isDaytonaAuthError,
   isDaytonaPermissionError,
   toDaytonaSandboxProvider,
@@ -40,25 +39,11 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
-    let status;
-    try {
-      status = await checkSnapshotStatus({
-        store: deps.sandboxProviderStore,
-        tenant_id: TENANT_ID,
-        logger: deps.logger,
-      });
-    } catch (error) {
-      const status_reason = daytonaAccessFailureReason(error);
-      if (status_reason === undefined) {
-        throw error;
-      }
-      status = await deps.sandboxProviderStore.updateSandboxStatus({
-        tenant_id: TENANT_ID,
-        status: 'failed',
-        status_reason,
-        build_metadata: record.build_metadata,
-      });
-    }
+    const status = await checkSnapshotStatus({
+      store: deps.sandboxProviderStore,
+      tenant_id: TENANT_ID,
+      logger: deps.logger,
+    });
     return c.json(
       {
         data: {
