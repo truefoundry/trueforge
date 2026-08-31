@@ -5,6 +5,7 @@ import {
   resolveUserRef,
   toUserContext,
 } from '../../../src/auth/claims';
+import { EmailNotAllowedError } from '../../../src/auth/emailAllowlist';
 import type { OIDCConfig } from '../../../src/config';
 
 function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
@@ -16,6 +17,7 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'harness-admins',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
+    OIDC_ALLOWED_EMAILS: [],
     ...overrides,
   };
 }
@@ -101,6 +103,33 @@ describe('toUserContext', () => {
   it('propagates resolveUserRef throwing when the reference claim is missing', () => {
     expect(() => toUserContext({ groups: ['harness-admins'] }, config())).toThrow();
   });
+
+  it('allows any email when the allowlist is empty', () => {
+    expect(
+      toUserContext(
+        { sub: 'user-123', groups: [], email: 'anyone@elsewhere.com' },
+        config({ OIDC_ALLOWED_EMAILS: [] }),
+      ),
+    ).toEqual({ userRef: 'user-123', role: 'user' });
+  });
+
+  it('throws EmailNotAllowedError when the email is outside the allowlist', () => {
+    expect(() =>
+      toUserContext(
+        { sub: 'user-123', groups: [], email: 'outsider@elsewhere.com' },
+        config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
+      ),
+    ).toThrow(EmailNotAllowedError);
+  });
+
+  it('allows a matching domain glob', () => {
+    expect(
+      toUserContext(
+        { sub: 'user-123', groups: ['harness-admins'], email: 'alice@company.com' },
+        config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
+      ),
+    ).toEqual({ userRef: 'user-123', role: 'admin' });
+  });
 });
 
 describe('buildAuthorizationRequestParams', () => {
@@ -133,5 +162,12 @@ describe('buildAuthorizationRequestParams', () => {
       config({ OIDC_USER_REFERENCE_CLAIM: 'groups', OIDC_USER_ROLE_CLAIM: 'groups' }),
     );
     expect(claims).toEqual({ id_token: { groups: { essential: true } } });
+  });
+
+  it('requests email as essential when an allowlist is configured', () => {
+    const { claims } = buildAuthorizationRequestParams(config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }));
+    expect(claims).toEqual({
+      id_token: { sub: { essential: true }, groups: { essential: true }, email: { essential: true } },
+    });
   });
 });

@@ -1,6 +1,7 @@
 // Stub the Daytona-touching helpers so the router never talks to Daytona: the PUT path builds via
-// toDaytonaSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError
-// and toSandboxStatus stay real so the auth-error mapping and PUT wire shape are exercised.
+// toDaytonaSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError,
+// isDaytonaPermissionError and toSandboxStatus stay real so the error mapping and PUT wire shape are
+// exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
   return { ...actual, toDaytonaSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
@@ -163,6 +164,20 @@ describe('sandboxProviders router', () => {
     );
     const response = await settingsRouter.request('/', putInit(putBody));
     expect(response.status).toBe(422);
+  });
+
+  it('PUT returns 422 naming the permissions when the key cannot register snapshots', async () => {
+    mockProviderFactory.mockReturnValue(
+      stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('Access denied', 403)) }),
+    );
+    const response = await settingsRouter.request('/', putInit(putBody));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: {
+        message:
+          'Daytona denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key in the Daytona dashboard, then try again.',
+      },
+    });
   });
 
   it('PUT does not persist config when the build call fails auth', async () => {

@@ -45,6 +45,72 @@
         ],
         "type": "object"
       },
+      "AgentCodeSnippet": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "format": "uri",
+            "type": "string"
+          },
+          "label_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "language": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sample_code": {
+            "$ref": "#/components/schemas/AgentCodeSnippetSampleCode"
+          }
+        },
+        "required": [
+          "label_name",
+          "language",
+          "icon",
+          "sample_code"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippetSampleCode": {
+        "additionalProperties": false,
+        "properties": {
+          "non_stream": {
+            "description": "SDK sample that creates a turn without streaming.",
+            "type": "string"
+          },
+          "stream": {
+            "description": "SDK sample that streams turn events.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream",
+          "non_stream"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippets": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "format": "uri",
+            "type": "string"
+          },
+          "snippets": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCodeSnippet"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_url",
+          "snippets"
+        ],
+        "type": "object"
+      },
       "AgentInfo": {
         "properties": {
           "input": {
@@ -752,19 +818,19 @@
         "type": "object"
       },
       "CompactionConfig": {
+        "additionalProperties": false,
         "default": {
           "enabled": true
         },
+        "description": "Uses 80% of the model context length when the explicit trigger is omitted, or 50000 tokens if unknown.",
         "properties": {
-          "compaction_threshold_tokens": {
-            "description": "Context size in tokens that triggers compaction. Default: 50000.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
           "enabled": {
             "default": true,
             "description": "Summarize older history when context grows too large. Default: true.",
             "type": "boolean"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/InputTokensCompactionTrigger"
           }
         },
         "type": "object"
@@ -926,6 +992,26 @@
         ],
         "type": "object"
       },
+      "CreateScheduleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ScheduleManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "agent_name",
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
       "CreateSessionAgent": {
         "anyOf": [
           {
@@ -980,6 +1066,11 @@
         },
         "type": "object"
       },
+      "CronExpression": {
+        "description": "Standard 5-field cron expression, evaluated in `timezone`.",
+        "pattern": "^[\\d*,\\-/]+(?:\\s+[\\d*,\\-/]+){4}$",
+        "type": "string"
+      },
       "CustomModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -1033,6 +1124,10 @@
         "type": "object"
       },
       "DeleteAgentResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "DeleteScheduleResponse": {
         "properties": {},
         "type": "object"
       },
@@ -1151,6 +1246,17 @@
         },
         "type": "object"
       },
+      "GetAgentCodeSnippetsResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentCodeSnippets"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetAgentResponse": {
         "properties": {
           "data": {
@@ -1249,6 +1355,25 @@
         ],
         "type": "object"
       },
+      "GetOrCreateSessionByExternalIdRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "external_id": {
+            "description": "Caller-supplied id unique within the tenant.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id",
+          "agent"
+        ],
+        "type": "object"
+      },
       "GetSandboxProviderCatalogResponse": {
         "properties": {
           "data": {
@@ -1267,6 +1392,17 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/ConfiguredSandboxProvider"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetScheduleResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Schedule"
           }
         },
         "required": [
@@ -1376,6 +1512,28 @@
         ],
         "type": "object"
       },
+      "InputTokensCompactionTrigger": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Trigger compaction when the estimated input reaches a token limit.",
+            "enum": [
+              "input_tokens"
+            ],
+            "type": "string"
+          },
+          "value": {
+            "description": "Estimated input-token count that triggers compaction.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ],
+        "type": "object"
+      },
       "LargeToolResponseConfig": {
         "default": {
           "enabled": true
@@ -1480,6 +1638,34 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/ConfiguredModelProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListScheduleRunsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRun"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListSchedulesResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Schedule"
             },
             "type": "array"
           }
@@ -2776,6 +2962,135 @@
         ],
         "type": "object"
       },
+      "Schedule": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ScheduleManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_name",
+          "name",
+          "manifest",
+          "created_by",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ScheduleManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "cron": {
+            "$ref": "#/components/schemas/CronExpression"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleStatus"
+          },
+          "task": {
+            "description": "First user message sent to the agent on every run.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "timezone": {
+            "$ref": "#/components/schemas/Timezone"
+          }
+        },
+        "required": [
+          "task",
+          "cron"
+        ],
+        "type": "object"
+      },
+      "ScheduleRun": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "schedule_id": {
+            "type": "string"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleRunStatus"
+          },
+          "triggered_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggered_by": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_id",
+          "name",
+          "scheduled_for",
+          "status",
+          "triggered_by",
+          "triggered_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ScheduleRunStatus": {
+        "enum": [
+          "scheduled",
+          "triggered",
+          "failed"
+        ],
+        "type": "string"
+      },
+      "ScheduleStatus": {
+        "default": "active",
+        "enum": [
+          "active",
+          "paused"
+        ],
+        "type": "string"
+      },
       "Session": {
         "properties": {
           "agent": {
@@ -3224,6 +3539,12 @@
           "error"
         ],
         "type": "object"
+      },
+      "Timezone": {
+        "default": "UTC",
+        "description": "IANA time zone the cron expression is evaluated in.",
+        "minLength": 1,
+        "type": "string"
       },
       "TogetherAIModelProvider": {
         "additionalProperties": false,
@@ -3950,6 +4271,22 @@
         ],
         "type": "object"
       },
+      "UpdateScheduleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ScheduleManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateSessionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4129,7 +4466,7 @@
   "info": {
     "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.1.4"
+    "version": "0.2.0-rc.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -4402,6 +4739,57 @@
           "agents"
         ],
         "x-fern-sdk-method-name": "update"
+      }
+    },
+    "/api/v1/agents/{agent_id}/code-snippets": {
+      "get": {
+        "description": "TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.",
+        "parameters": [
+          {
+            "description": "Immutable agent identifier.",
+            "in": "path",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAgentCodeSnippetsResponse"
+                }
+              }
+            },
+            "description": "TypeScript SDK samples and the origin to use as `baseUrl`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
+          }
+        },
+        "summary": "Get agent SDK code snippets",
+        "tags": [
+          "Agents"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "get_code_snippets"
       }
     },
     "/api/v1/auth/callback": {
@@ -5114,6 +5502,366 @@
           "models"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/schedules": {
+      "get": {
+        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_name`.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "agent_name",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ResourceName"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSchedulesResponse"
+                }
+              }
+            },
+            "description": "Matching schedules."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          }
+        },
+        "summary": "List schedules",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Create a schedule for an existing agent (by name) and add its first pending run when active.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScheduleResponse"
+                }
+              }
+            },
+            "description": "Created schedule."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unknown agent or invalid cron."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
+          }
+        },
+        "summary": "Create a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/schedules/{schedule_id}": {
+      "delete": {
+        "description": "Delete a schedule and its runs. Idempotent.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteScheduleResponse"
+                }
+              }
+            },
+            "description": "Deleted."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          }
+        },
+        "summary": "Delete a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
+      "get": {
+        "description": "Get a schedule by id.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScheduleResponse"
+                }
+              }
+            },
+            "description": "The schedule."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          }
+        },
+        "summary": "Get a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScheduleResponse"
+                }
+              }
+            },
+            "description": "Updated schedule."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid cron."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
+          }
+        },
+        "summary": "Update a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "update"
+      }
+    },
+    "/api/v1/schedules/{schedule_id}/runs": {
+      "get": {
+        "description": "List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListScheduleRunsResponse"
+                }
+              }
+            },
+            "description": "Runs of the schedule."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          }
+        },
+        "summary": "List runs of a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "list_runs"
       }
     },
     "/api/v1/sessions": {
@@ -6931,6 +7679,92 @@
         ],
         "x-fern-sdk-method-name": "list"
       }
+    },
+    "/internal/sessions/get-or-create-by-external-id": {
+      "post": {
+        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session already existed for this external id."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+          }
+        },
+        "summary": "Get or create a session by external id",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
     }
   },
   "security": [
@@ -6939,6 +7773,9 @@
     }
   ],
   "tags": [
+    {
+      "name": "Internal"
+    },
     {
       "name": "Auth"
     },
@@ -6959,6 +7796,9 @@
     },
     {
       "name": "Agents"
+    },
+    {
+      "name": "Schedules"
     },
     {
       "name": "Agent Sessions"

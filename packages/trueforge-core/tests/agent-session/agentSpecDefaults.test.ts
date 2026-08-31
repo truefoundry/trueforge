@@ -8,8 +8,27 @@ describe('AgentSpec RuntimeConfig defaults', () => {
     expect(spec.config.generative_ui).toEqual({ enabled: true });
     expect(spec.config.ask_user_questions).toEqual({ enabled: true });
     expect(spec.config.dynamic_sub_agents).toEqual({ enabled: true });
-    expect(spec.config.context_management.compaction.enabled).toBe(true);
+    expect(spec.config.context_management.compaction).toEqual({ enabled: true });
     expect(spec.config.context_management.large_tool_response.enabled).toBe(true);
+  });
+
+  it('accepts an explicit input-token compaction trigger', () => {
+    const spec = AgentSpecSchema.parse({
+      model: { name: 'provider/model' },
+      config: {
+        context_management: {
+          compaction: {
+            enabled: true,
+            trigger: { type: 'input_tokens', value: 80_000 },
+          },
+        },
+      },
+    });
+
+    expect(spec.config.context_management.compaction).toEqual({
+      enabled: true,
+      trigger: { type: 'input_tokens', value: 80_000 },
+    });
   });
 
   it('fills generative_ui when other config fields are present', () => {

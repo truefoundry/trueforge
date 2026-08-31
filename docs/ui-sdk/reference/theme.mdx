@@ -9,7 +9,7 @@ description: "Theme provider, hooks, presets, brand, and slots."
 | --- | --- |
 | `ThemeProvider` | Owns light/dark/system state and injects token CSS variables on a wrapper `div.aui-theme-root`. |
 | `SlotsProvider` | Slot override registry. Must sit outside `TrueFoundryChatProvider`. |
-| `BrandLogo` | The product mark: renders `theme.brand.logo` for the active mode as an image labelled with `theme.brand.name`, linked when the config sets `href`. Falls back to the default mark. Overridable slot. Props: `{ className? }`. |
+| `BrandLogo` | Product mark. `variant="icon"` renders the compact square asset; `variant="logo"` renders the wider asset and falls back to the icon. With no brand override, the logo variant uses the built-in TrueForge wordmark. Overridable slot. Props: `{ className?, variant?: "icon" \| "logo" }`. |
 | `Icon` | Renders a built-in icon by name, or your replacement when `theme.icons` maps that name. Props: `{ name: string \| readonly string[] } & IconProps`. An array resolves to its **last** element, accommodating Font Awesome-style `["far", "clone"]` tuples; it is not a fallback chain. An unresolved name renders nothing. |
 
 ## Hooks
@@ -19,7 +19,8 @@ description: "Theme provider, hooks, presets, brand, and slots."
 | `useTheme()` | `{ preset, mode, preference, isDark, setTheme }`. `setTheme` is a no-op when `theme.mode` is controlled. |
 | `useThemeMode()` | Resolved `"light" \| "dark"`. Reads the mode published by `SlotsProvider`, so it returns `"light"` when no `SlotsProvider` is above it — even in dark mode. |
 | `useBrand()` | The active `BrandConfig`. |
-| `useBrandName()` | `theme.brand.name`, or `"TrueForge"` when unset. Safe outside a provider. |
+| `useBrandName()` | The configured name; `undefined` for unnamed custom branding; or `"TrueForge"` when no custom image is configured. Safe outside a provider. |
+| `resolveBrandChrome(brand)` | `{ expandedVariant, collapsedVariant, showTitle }` from `brand.mode`. Prefer this over re-deriving field combinations. |
 | `useThemeIcons()` | The `IconMap` from `theme.icons`. |
 | `useContentClassNames()` | `theme.classNames`; throws outside a provider. |
 | `useOptionalContentClassNames()` | Same, but returns `{}` outside a provider instead of throwing — no null check needed. |
@@ -35,8 +36,8 @@ description: "Theme provider, hooks, presets, brand, and slots."
 
 ## Types
 
-`ThemeConfig`, `ThemeMode`, `ThemePreset`, `SemanticTokens`, `BrandConfig`, `BrandLogoConfig`,
-`ContentClassNames`, `IconMap`, `ThemeIconProps`, `IconProps`, `LayoutProp`, `AtomSlots`,
+`ThemeConfig`, `ThemeMode`, `ThemePreset`, `SemanticTokens`, `BrandConfig`, `BrandMode`, `BrandImage`, `BrandLogoConfig`,
+`BrandChrome`, `ContentClassNames`, `IconMap`, `ThemeIconProps`, `IconProps`, `LayoutProp`, `AtomSlots`,
 `SlotOverrides`.
 
 ```ts

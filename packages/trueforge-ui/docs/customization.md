@@ -29,7 +29,7 @@ over hacking third-party CSS:
     preset: 'claude',
     mode: 'dark',
     tokens: { primary: '#e11d48' },
-    brand: { name: 'Acme', logo: '/brand/logo.svg' },
+    brand: { mode: 'logo', name: 'Acme', icon: '/brand/icon.svg', logo: '/brand/wordmark.svg' },
     icons: { send: MySendSvg },
     classNames: {
       markdown: 'prose max-w-none',

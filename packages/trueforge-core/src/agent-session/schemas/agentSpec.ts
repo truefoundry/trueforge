@@ -111,16 +111,21 @@ const MCPServerRequestSchema = z
 
 // --- Runtime config ---
 
+const InputTokensCompactionTriggerSchema = z
+  .object({
+    type: z.literal('input_tokens').describe('Trigger compaction when the estimated input reaches a token limit.'),
+    value: z.number().int().positive().describe('Estimated input-token count that triggers compaction.'),
+  })
+  .strict()
+  .openapi('InputTokensCompactionTrigger');
+
 const CompactionSettingsSchema = z
   .object({
     enabled: z.boolean().default(true).describe('Summarize older history when context grows too large. Default: true.'),
-    compaction_threshold_tokens: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe('Context size in tokens that triggers compaction. Default: 50000.'),
+    trigger: InputTokensCompactionTriggerSchema.optional(),
   })
+  .strict()
+  .describe('Uses 80% of the model context length when the explicit trigger is omitted, or 50000 tokens if unknown.')
   .openapi('CompactionConfig');
 
 const LargeToolResponseSettingsSchema = z.object({

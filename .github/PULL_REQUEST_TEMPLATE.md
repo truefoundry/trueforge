@@ -2,7 +2,7 @@
 
 <!-- What does this PR change, and why? Link the related issue if there is one. -->
 
-Closes #
+Closes #<add-issue-number-here>
 
 ## Changes
 

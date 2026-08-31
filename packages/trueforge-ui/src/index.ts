@@ -2,7 +2,8 @@
 
 import './icons/registerAgentIcons.js';
 
-export { BrandLogo, useBrandName } from './theme/brand.js';
+export { BrandLogo, resolveBrandChrome, useBrandName } from './theme/brand.js';
+export type { BrandChrome } from './theme/brand.js';
 export { defaultSlots } from './theme/defaultSlots.js';
 export { PRESETS, resolvePresetTokens } from './theme/presets/index.js';
 export type { PublicAtomSlots as AtomSlots, SlotOverrides } from './theme/publicSlots.js';
@@ -17,7 +18,9 @@ export {
 } from './theme/ThemeProvider.js';
 export type {
   BrandConfig,
+  BrandImage,
   BrandLogoConfig,
+  BrandMode,
   ContentClassNames,
   IconMap,
   LayoutProp,
@@ -158,6 +161,7 @@ export {
 } from './containers/AttachmentsContainer.js';
 export { ComposerContainer } from './containers/ComposerContainer.js';
 export type { ComposerContainerProps } from './containers/ComposerContainer.js';
+export { CustomActionContainer } from './containers/CustomActionContainer.js';
 export { HistoryLoaderContainer } from './containers/HistoryLoaderContainer.js';
 export { McpAuthContainer } from './containers/McpAuthContainer.js';
 export { default as PostMcpOauthScreen } from './containers/McpOauthContainer/PostMcpOauthScreen.js';
@@ -228,6 +232,11 @@ export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
 export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueFoundryServer } from './server/createTrueFoundryServer.js';
 export type { CreateTrueFoundryServerOptions, TrueFoundryServer } from './server/createTrueFoundryServer.js';
+export {
+  CustomActionRenderersProvider,
+  useOptionalCustomActionRenderers,
+} from './server/CustomActionRenderersContext.js';
+export type { CustomActionRendererProps, CustomActionRenderers } from './server/CustomActionRenderersContext.js';
 export {
   ServerProvider,
   useCatalogServer,

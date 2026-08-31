@@ -41,6 +41,7 @@ describe('turns', () => {
           }),
         },
         custom: null,
+        external_id: null,
       });
 
       const app = new OpenAPIHono();

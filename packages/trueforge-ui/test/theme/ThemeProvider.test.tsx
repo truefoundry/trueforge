@@ -138,7 +138,7 @@ describe('ThemeProvider', () => {
 
   it('exposes brand config and labels BrandLogo with the brand name', () => {
     render(
-      <ThemeProvider theme={{ brand: { name: 'Acme', logo: '/acme.svg' } }}>
+      <ThemeProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <BrandProbe />
         <BrandLogo className="size-4" />
       </ThemeProvider>,

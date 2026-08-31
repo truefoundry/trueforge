@@ -14,7 +14,10 @@ Login in TrueForge is **optional**. Run it without auth for personal, local use,
 | **OIDC login** | Hosted or shared team deployments | Sign-in with your IdP; each person is an `admin` or a `user` |
 
 <Note>
-  Standalone / local mode ignores OIDC even if the variables are set. OIDC login applies to hosted deployments (Docker Compose or Helm). Local mode is intended for personal use on your own machine — it is not a production or internet-facing setup. Please keep it on localhost; we cannot take responsibility for data loss or unauthorized access if it is used beyond that.
+  Standalone / local mode ignores OIDC even if the variables are set. OIDC login applies to hosted deployments
+  (Docker Compose, Helm, or Railway). Local mode is intended for personal use on your own machine — it is not a
+  production or internet-facing setup. Please keep it on localhost; we cannot take responsibility for data loss or
+  unauthorized access if it is used beyond that.
 </Note>
 
 ## Option A — leave login off
@@ -124,6 +127,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
     | `OIDC_USER_ROLE_CLAIM` | No (default `groups`) | Claim inspected for admin membership |
     | `OIDC_ADMIN_ROLE_VALUE` | No (default `admin`) | Exact string that grants `admin` (case-sensitive) |
     | `OIDC_SCOPES` | No (default `openid,profile,email`) | Scopes for the authorize request |
+    | `OIDC_ALLOWED_EMAILS` | No | Comma-separated allowlist of exact emails and/or `*` globs (e.g. `alice@acme.com,*@partner.com`). When set, only ID tokens whose `email` claim matches an entry may sign in. Empty / unset = unrestricted. Matching is case-insensitive. |
 
     How you pass these depends on how you run TrueForge:
 
@@ -140,6 +144,8 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
         OIDC_USER_ROLE_CLAIM=groups
         OIDC_ADMIN_ROLE_VALUE=harness-admin
         OIDC_SCOPES=openid,profile,email,groups
+        # Optional: restrict who can sign in (exact emails and/or * globs)
+        # OIDC_ALLOWED_EMAILS=alice@acme.com,*@partner.com
         ```
       </Tab>
       <Tab title="Helm">
@@ -164,6 +170,8 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
             userRoleClaim: groups
             adminRoleValue: harness-admin
             scopes: "openid,profile,email,groups"
+            # Optional: restrict who can sign in
+            # allowedEmails: "alice@acme.com,*@partner.com"
         extraObjects:
           - apiVersion: v1
             kind: Secret
@@ -217,6 +225,7 @@ To call the HTTP API or SDK against a server with login enabled, pass an ID toke
 | Blank authorize screen when requesting `groups` | Custom Authorization Server is missing the `groups` scope and/or ID-token groups claim (Okta) |
 | Login works but everyone is `role: "user"` | Groups/roles claim missing from the ID token, wrong claim name, or admin value mismatch (case-sensitive) |
 | SDK returns `401` | OIDC is on and the request has no [ID token](/api/quickstart#get-a-token-and-connect) or session cookie |
+| Sign-in fails with `login_failed` / APIs return `401` after allowlist rollout | Caller’s `email` claim is outside `OIDC_ALLOWED_EMAILS`, or the ID token has no `email` claim while an allowlist is set. Failures stay generic so the allowlist is not disclosed. |
 
 ## Security checklist
 

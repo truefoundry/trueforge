@@ -13,18 +13,23 @@ import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { useBrandName } from '../theme/brand.js';
+import { resolveBrandChrome, useBrandName } from '../theme/brand.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { useBrand } from '../theme/ThemeProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
 
 // Survives ChatProvider remounts when openDraft / selectAgent bumps runtimeKey.
 let desktopCollapsed = false;
 
+const brandLogoClassName = 'h-5 max-w-40 shrink-0 object-contain';
+
 export function SidebarLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const brand = useBrand();
   const brandName = useBrandName();
+  const chrome = resolveBrandChrome(brand);
   const BrandLogo = useSlot('BrandLogo');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const ClearChatButton = useSlot('ClearChatButton');
@@ -94,8 +99,13 @@ export function SidebarLayout({ className }: { className?: string }) {
           className={cn('flex shrink-0 items-center px-3 py-3', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}
         >
           <div className={cn('flex min-w-0 items-center text-text-primary', collapsed ? 'justify-center' : 'gap-2')}>
-            <BrandLogo className="size-5 shrink-0 object-contain" />
-            {!collapsed ? <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span> : null}
+            <BrandLogo
+              variant={collapsed ? chrome.collapsedVariant : chrome.expandedVariant}
+              className={cn(brandLogoClassName, (collapsed || chrome.expandedVariant === 'icon') && 'w-5')}
+            />
+            {!collapsed && chrome.showTitle && brandName != null ? (
+              <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
+            ) : null}
           </div>
           <button
             type="button"
@@ -217,8 +227,13 @@ export function SidebarLayout({ className }: { className?: string }) {
             tabIndex={-1}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-text-primary">
-              <BrandLogo className="size-5 shrink-0 object-contain" />
-              <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
+              <BrandLogo
+                variant={chrome.expandedVariant}
+                className={cn(brandLogoClassName, chrome.expandedVariant === 'icon' && 'w-5')}
+              />
+              {chrome.showTitle && brandName != null ? (
+                <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
+              ) : null}
             </div>
             <ThreadListContainer onThreadOpen={() => setMobileNavOpen(false)} />
           </div>

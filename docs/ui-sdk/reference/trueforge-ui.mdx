@@ -132,15 +132,29 @@ import { TrueForgeUI } from "@truefoundry/trueforge-ui";
       </Expandable>
     </ParamField>
     <ParamField path="brand" type="BrandConfig">
-      Optional. Omit it to keep the default mark and the `"TrueForge"` name; setting it
-      requires a `name`.
+      Optional. Omit it to use the built-in TrueForge wordmark in expanded chrome and
+      square mark in compact surfaces. When set, choose `mode` first, then pass the
+      fields that mode requires.
 
       <Expandable title="BrandConfig">
-        <ParamField path="name" type="string" required>
-          Shown beside the mark, and used as the logo's accessible label.
+        <ParamField path="mode" type='"icon-title" | "icon-only" | "logo"'>
+          Chrome look. `icon-title` shows `name` beside the square mark; `icon-only`
+          and `logo` keep `name` for alt only.
+        </ParamField>
+        <ParamField path="name" type="string">
+          Required. Accessible image label (`alt` / `aria-label`). Also shown as title
+          text beside the square icon when `mode` is `icon-title`.
+        </ParamField>
+        <ParamField path="icon" type="string | BrandLogoConfig">
+          Square image used in collapsed and compact surfaces. Optional for
+          `icon-title` (default mark); required for `icon-only` and `logo`.
         </ParamField>
         <ParamField path="logo" type="string | BrandLogoConfig">
-          Image URL, or per-mode sources. Omit to pair your name with the default mark.
+          Wider image used when `mode` is `logo`. Falls back to `icon` in
+          `BrandLogo` if needed. Required for `mode: "logo"`.
+        </ParamField>
+        <ParamField path="href" type="string">
+          Wraps configured brand images in a same-tab link.
         </ParamField>
       </Expandable>
 
@@ -154,14 +168,12 @@ import { TrueForgeUI } from "@truefoundry/trueforge-ui";
         <ParamField path="src" type="string">
           Mode-agnostic source, used when neither `light` nor `dark` is set.
         </ParamField>
-        <ParamField path="href" type="string">
-          Wraps the logo in a same-tab link, labelled with `name`.
-        </ParamField>
       </Expandable>
 
       A single configured mode is used for both modes, so `{ light }` alone never renders a
-      missing image. To render a component rather than an image, override the `BrandLogo` slot
-      through `overrides`.
+      missing image. Use `BrandLogo` with `variant="icon"` or `variant="logo"` in custom
+      layouts. To render a component rather than an image, override its slot through
+      `overrides`.
     </ParamField>
     <ParamField path="icons" type="IconMap">
       Replace registry icons by name. Values are Lucide components, React nodes, render
@@ -238,7 +250,10 @@ Persisted sessions remain available through the thread list.
   server={{ type: "truefoundry", apiKey, controlPlaneURL }}
   layout="sidebar"
   agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}
-  theme={{ preset: "claude", brand: { name: "Acme", logo: "/logo.svg" } }}
+  theme={{
+    preset: "claude",
+    brand: { mode: "logo", name: "Acme", icon: "/icon.svg", logo: "/wordmark.svg" },
+  }}
   overrides={{ ClearChatButton: MyClearButton }}
   className="h-full min-h-0"
   onError={(e) => reportError(e)}

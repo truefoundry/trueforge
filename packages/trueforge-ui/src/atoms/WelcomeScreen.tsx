@@ -20,7 +20,7 @@ export function WelcomeScreen({ heading = 'How can I help you today?', icon, cla
     ) : preset === 'chatgpt' ? null : preset === 'claude' ? (
       <Icon name="welcome-sparkle" className="size-5 fill-current text-primary-button-bg" />
     ) : (
-      <BrandLogo className={'size-10'} />
+      <BrandLogo variant="icon" className="size-10" />
     );
 
   return (

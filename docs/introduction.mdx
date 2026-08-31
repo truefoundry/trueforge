@@ -81,7 +81,7 @@ The agent features are identical in both modes — only the backend around the s
 | | Local | Hosted |
 | --- | --- | --- |
 | **Best for** | Personal use — one process on your machine, like Claude Desktop | A shared deployment for your team, like Claude's managed agents |
-| **How to run** | `npx @truefoundry/trueforge` | Docker Compose or Helm |
+| **How to run** | `npx @truefoundry/trueforge` | Docker Compose, Helm, or Railway |
 | **Storage** | SQLite | Postgres, shared by all replicas |
 | **Extra infra** | None | Postgres + Redis |
 | **Replicas** | Single process | Multiple replicas behind a load balancer. Redis peers them so streams and cancellations follow the client across replicas. |

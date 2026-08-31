@@ -58,12 +58,12 @@ jobs:
       pull-requests: write
     steps:
       - id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
 
@@ -90,7 +90,7 @@ jobs:
       - if: steps.pin-uri.outputs.changed == 'true'
         run: bash scripts/changeset-sandbox-image.sh
 
-      - uses: peter-evans/create-pull-request@v7
+      - uses: peter-evans/create-pull-request@v8
         with:
           # GitHub will not start new workflow runs from GITHUB_TOKEN (anti-recursion).
           # ci.yml would never run (or sit approval-required); required checks stay

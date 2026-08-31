@@ -87,7 +87,7 @@ export function WidgetLayout({ className }: { className?: string }) {
             ×
           </span>
         ) : (
-          <BrandLogo className="size-6" />
+          <BrandLogo variant="icon" className="size-6" />
         )}
       </button>
     </div>

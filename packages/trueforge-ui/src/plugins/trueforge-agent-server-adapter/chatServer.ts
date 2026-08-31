@@ -240,6 +240,10 @@ export function createHarnessChatServer(options: CreateHarnessChatServerOptions 
       return toUiSession(response.data);
     },
 
+    async deleteSession({ sessionId }) {
+      await client.sessions.delete(sessionId);
+    },
+
     async updateSession({ sessionId, agentSpec }) {
       // Named (reference) sessions reject agent updates server-side.
       const response = await client.sessions.update(sessionId, {

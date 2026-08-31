@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@assistant-ui/core": "0.2.22",
-    "@assistant-ui/react": "^0.14.24",
+    "@assistant-ui/react": "0.14.27",
     "@assistant-ui/store": "0.2.21",
     "@truefoundry/assistant-ui-runtime": "0.1.21",
     "@truefoundry/trueforge-sdk": "workspace:*",

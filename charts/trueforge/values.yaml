@@ -5,7 +5,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.1.4-fba492f"
+  tag: "0.2.0-rc.0-8e9f92d"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -19,8 +19,19 @@ serviceAccount:
   name: ""
 podAnnotations: {}
 podLabels: {}
-podSecurityContext: {}
-securityContext: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
 # Rolling update controls (omit keys you do not want to set).
@@ -72,6 +83,9 @@ configs:
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
+    # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
+    # Empty = unrestricted. Matched against the ID token `email` claim.
+    allowedEmails: ""
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
 # defaults no longer pull. We source pinned legacy images from the TrueFoundry
@@ -174,7 +188,15 @@ extraContainers: []
 # Extra volumes / mounts on the server container (e.g. CA bundles, projected tokens).
 extraVolumes: []
 extraVolumeMounts: []
-resources: {}
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+    ephemeral-storage: 256Mi
+  limits:
+    cpu: 200m
+    memory: 512Mi
+    ephemeral-storage: 512Mi
 # startupProbe runs until success before liveness/readiness; sized for migrate + Redis connect.
 startupProbe:
   httpGet:

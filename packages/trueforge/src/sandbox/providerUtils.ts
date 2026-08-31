@@ -1,6 +1,11 @@
 /** Daytona provider construction + persisted build-status refresh (see checkSnapshotStatus). */
 import { Daytona, DaytonaError } from '@daytona/sdk';
-import { DaytonaSandboxProvider, SANDBOX_IMAGE_URI, type SandboxBuild } from '@truefoundry/trueforge-core/core';
+import {
+  DaytonaSandboxProvider,
+  SANDBOX_IMAGE_URI,
+  withTimeout,
+  type SandboxBuild,
+} from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
@@ -11,9 +16,13 @@ import {
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
 
-/** Daytona rejected the credentials (401 unauthorized / 403 forbidden); retrying the same key cannot succeed. */
+/** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
-  return error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403);
+  return error instanceof DaytonaError && error.statusCode === 401;
+}
+
+export function isDaytonaPermissionError(error: unknown): boolean {
+  return error instanceof DaytonaError && error.statusCode === 403;
 }
 
 /**
@@ -68,6 +77,9 @@ function sandboxStatusFromRecord(record: SandboxProviderRecord): SandboxStatus {
 // Daytona deactivates idle snapshots after 14 days; revalidate at 13 to stay a day ahead.
 const READY_REVALIDATE_INTERVAL_MS = 13 * 24 * 60 * 60 * 1000;
 
+/** Cap the Daytona round-trip for the refresh, which runs outside a transaction. */
+const STATUS_REFRESH_TIMEOUT_MS = 60_000;
+
 export async function checkSnapshotStatus({
   store,
   tenant_id,
@@ -99,9 +111,9 @@ export async function checkSnapshotStatus({
   let build: SandboxBuild;
   if (record.status === 'ready') {
     // this is because image may have deactivated
-    build = await provider.buildImage();
+    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
   } else {
-    build = await provider.getImageBuildStatus();
+    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
   }
   const next = toSandboxStatus(build);
   const updated = await store.updateSandboxStatus({ tenant_id, ...next });

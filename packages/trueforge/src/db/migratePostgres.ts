@@ -4,25 +4,30 @@ import path from 'node:path';
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
 
+import { ensureTrueforgeSchema, TRUEFORGE_SCHEMA } from './postgres/schema';
 import type { Database } from './postgres/types';
 
-/**
- * Runs all pending Postgres migrations.
- *
- * This module lives at `src/db/` (bundled into `dist/main.js`) so the folder is
- * always `…/postgres/migrations` — source or production.
- */
-export async function migrateToLatest(db: Kysely<Database>): Promise<void> {
-  const migrator = new Migrator({
+function createMigrator(db: Kysely<Database>): Migrator {
+  return new Migrator({
     db,
     provider: new FileMigrationProvider({
       fs,
       path,
       migrationFolder: path.join(import.meta.dirname, 'postgres', 'migrations'),
     }),
+    migrationTableSchema: TRUEFORGE_SCHEMA,
   });
+}
 
-  const { error, results } = await migrator.migrateToLatest();
+async function runMigrations(input: { db: Kysely<Database>; targetMigrationName: string | undefined }): Promise<void> {
+  await ensureTrueforgeSchema(input.db);
+
+  const migrator = createMigrator(input.db);
+
+  const { error, results } =
+    input.targetMigrationName === undefined
+      ? await migrator.migrateToLatest()
+      : await migrator.migrateTo(input.targetMigrationName);
 
   results?.forEach(it => {
     if (it.status === 'Success') {
@@ -38,4 +43,19 @@ export async function migrateToLatest(db: Kysely<Database>): Promise<void> {
     }
     throw new Error('failed to migrate', { cause: error });
   }
+}
+
+/**
+ * Runs all pending Postgres migrations.
+ *
+ * This module lives at `src/db/` (bundled into `dist/main.js`) so the folder is
+ * always `…/postgres/migrations` — source or production.
+ */
+export async function migrateToLatest(db: Kysely<Database>): Promise<void> {
+  await runMigrations({ db, targetMigrationName: undefined });
+}
+
+/** Runs Postgres migrations up to and including the named migration. */
+export async function migrateTo(db: Kysely<Database>, targetMigrationName: string): Promise<void> {
+  await runMigrations({ db, targetMigrationName });
 }

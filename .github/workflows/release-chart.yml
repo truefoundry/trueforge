@@ -41,7 +41,7 @@ jobs:
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
       - name: Check out chart commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || inputs.tag || github.ref }}
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
           sudo chmod +x /usr/bin/yq
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.16.4
 

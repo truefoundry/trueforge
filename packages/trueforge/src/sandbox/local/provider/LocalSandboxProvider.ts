@@ -23,8 +23,8 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
-import { ulid } from 'ulid';
 import type { Logger } from 'winston';
+import { newId } from '../../../utils/id';
 import {
   assertCodeModeSocketParentPath,
   CodeModeUdsTransport,
@@ -589,7 +589,7 @@ export class LocalSandboxProvider implements SandboxProvider {
 
   async createSandbox(): Promise<{ sandboxId: string }> {
     await this.ensureSrt();
-    const sandboxId = await createSandbox(join(this.sandboxRootPathParent, ulid().toLowerCase()));
+    const sandboxId = await createSandbox(join(this.sandboxRootPathParent, newId()));
     this.logger.info('LocalSandboxProvider created sandbox', {
       sandboxId,
       shell: this.support.shell,

@@ -50,15 +50,15 @@ jobs:
           github.event_name == 'push' ||
           github.event_name == 'workflow_dispatch' ||
           github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
       # Writable checkout: App token minted only for same-repo / push / dispatch.
       - name: Check out branch
         if: steps.app-token.outcome == 'success'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.head_ref || github.ref_name }}
@@ -70,17 +70,17 @@ jobs:
       # Use base-repo pull refs (head.sha) — cloning the fork with GITHUB_TOKEN 403s.
       - name: Check out pull request head
         if: github.event_name == 'pull_request' && steps.app-token.outcome != 'success'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'

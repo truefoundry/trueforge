@@ -1,5 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
-import { ulid } from 'ulid';
+import { newId } from '../utils/id';
 
 /**
  * Mints a turn id owned by `executorId`. The server calls this at turn
@@ -7,7 +7,7 @@ import { ulid } from 'ulid';
  * is the matching decoder on the routing path.
  */
 export function mintPeeredTurnId(executorId: string): string {
-  return `${ulid().toLowerCase()}.${executorId}`;
+  return `${newId()}.${executorId}`;
 }
 
 /** Decodes the owning executor; throws 400 for an id outside the grammar. */

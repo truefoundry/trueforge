@@ -31,6 +31,15 @@ That means:
 
 Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.io) preset from the catalog, and paste your API key.
 
+<Note>
+  The Daytona API key needs permission to create **snapshots**, not only sandboxes. The first time you configure the
+  provider, TrueForge builds a release snapshot in your Daytona account, and every sandbox it starts afterwards is
+  cloned from that snapshot. Create the key with **Sandboxes** access and **Snapshots** write (create) permission.
+
+  If the key is missing snapshot permission, configuring the provider fails 
+  even though the key is otherwise valid. If you hit that, check the key's permissions before regenerating it.
+</Note>
+
 <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
   <iframe
     src="https://app.supademo.com/embed/cmsk7vatl00pz0n0jme1d96w5?embed_v=2&utm_source=embed"

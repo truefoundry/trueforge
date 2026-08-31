@@ -1,0 +1,61 @@
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Groups batch compatible updates into one PR per ecosystem (and, for npm,
+# one PR for minor/patch and one for security). Major npm bumps are ignored;
+# bump those manually when ready. Updates that cannot share a group still open
+# as individual PRs.
+
+version: 2
+
+updates:
+  # pnpm workspace — Dependabot uses the npm ecosystem for pnpm.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Fern-generated; maintainers regenerate rather than hand-bump deps.
+    exclude-paths:
+      - packages/trueforge-sdk/**
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - '*'
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+
+  - package-ecosystem: helm
+    directory: /charts/trueforge
+    schedule:
+      interval: weekly
+    groups:
+      helm:
+        patterns:
+          - '*'
+
+  - package-ecosystem: pip
+    directory: /benchmark
+    schedule:
+      interval: weekly
+    groups:
+      pip:
+        patterns:
+          - '*'

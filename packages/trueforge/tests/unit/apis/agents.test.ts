@@ -23,6 +23,14 @@ const modelProvider = {
 const manifest = {
   model: { name: 'anthropic/claude-sonnet-4-6' },
   instructions: 'Be helpful.',
+  config: {
+    context_management: {
+      compaction: {
+        enabled: true,
+        trigger: { type: 'input_tokens', value: 80_000 },
+      },
+    },
+  },
 };
 
 const writeBody = {
@@ -40,7 +48,15 @@ const updateBody = {
 type WireAgent = {
   id: string;
   name: string;
-  manifest: { model: { name: string }; instructions?: string };
+  manifest: {
+    model: { name: string };
+    instructions?: string;
+    config?: {
+      context_management?: {
+        compaction?: { enabled: boolean; trigger?: { type: 'input_tokens'; value: number } };
+      };
+    };
+  };
 };
 
 function jsonInit(method: string, body: unknown): RequestInit {
@@ -79,6 +95,14 @@ describe('agents router', () => {
       manifest: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
+        config: {
+          context_management: {
+            compaction: {
+              enabled: true,
+              trigger: { type: 'input_tokens', value: 80_000 },
+            },
+          },
+        },
       },
     });
 
@@ -96,6 +120,20 @@ describe('agents router', () => {
 
     const put = await router.request('/missing-agent-id', jsonInit('PUT', updateBody));
     expect(put.status).toBe(404);
+
+    const snippets = await router.request('/missing-agent-id/code-snippets');
+    expect(snippets.status).toBe(404);
+  });
+
+  it('GET code-snippets returns snippets for an existing agent', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'snippet-bot' }));
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const response = await router.request(`/${createdJson.data.id}/code-snippets`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: { snippets: unknown[] } };
+    expect(body.data.snippets.length).toBeGreaterThan(0);
   });
 
   it('DELETE removes an agent by id and is idempotent', async () => {

@@ -10,6 +10,7 @@ import type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -41,6 +42,7 @@ import {
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
+  getSessionByExternalId as getSessionByExternalIdQuery,
   getSession as getSessionQuery,
   listSessions as listSessionsQuery,
   updateSession as updateSessionQuery,
@@ -100,6 +102,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   getSession(input: GetSessionInput): Promise<SessionRecord<SessionCustom> | undefined> {
     return getSessionQuery(this.db, input);
+  }
+
+  getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<SessionCustom> | undefined> {
+    return getSessionByExternalIdQuery(this.db, input);
   }
 
   updateSession(input: UpdateSessionInput<SessionCustom>): Promise<void> {

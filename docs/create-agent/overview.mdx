@@ -254,7 +254,10 @@ The `manifest` you save (or the inline `spec`) is the agent spec below — every
     "ask_user_questions": { "enabled": true },
     "dynamic_sub_agents": { "enabled": true },
     "context_management": {
-      "compaction": { "enabled": true },
+      "compaction": {
+        "enabled": true,
+        "trigger": { "type": "input_tokens", "value": 80000 }
+      },
       "large_tool_response": { "enabled": true }
     },
     "iteration_limit": 50
@@ -330,11 +333,15 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 
 #### `config.context_management`
 
-| Field                                    | Default | Set via | Description                                           |
-| ---------------------------------------- | ------- | ------- | ----------------------------------------------------- |
-| `compaction.enabled`                     | `true`  | API     | Summarize older history when context grows too large. |
-| `compaction.compaction_threshold_tokens` | `50000` | API     | Context size (tokens) that triggers compaction.       |
-| `large_tool_response.enabled`            | `true`  | API     | Offload oversized tool responses to a sandbox file.   |
+Compaction is enabled by default. When its `trigger` is omitted, it runs at 80% of the configured model's context
+length, or at 50,000 input tokens when that context length is unavailable.
+
+| Field                               | Default                     | Set via | Description                                         |
+| ----------------------------------- | --------------------------- | ------- | --------------------------------------------------- |
+| `compaction.enabled`                | `true`                      | API     | Summarize older history as context grows.           |
+| `compaction.trigger.type`           | `input_tokens`              | API     | Trigger using the estimated request input size.     |
+| `compaction.trigger.value`          | 80% of model context length | API     | Explicit input-token threshold when configured.     |
+| `large_tool_response.enabled`       | `true`                      | API     | Offload oversized tool responses to a sandbox file. |
 
 ### `response_format`
 

@@ -68,29 +68,56 @@ export type IconEntry = IconComponent | ReactNode;
 export type IconMap = Record<string, IconEntry>;
 
 /**
- * Logo sources. `light` / `dark` pick per resolved theme mode and fall back to
- * each other, then to `src`. `href` wraps the logo in a same-tab link. The logo
- * is labelled with `name`; replace the mark itself through the slot table when
- * an image URL is not enough.
+ * Brand image sources. `light` / `dark` pick per resolved theme mode and fall
+ * back to each other, then to `src`.
  */
 export type BrandLogoConfig = {
   src?: string;
   light?: string;
   dark?: string;
-  href?: string;
 };
 
+export type BrandImage = string | BrandLogoConfig;
+
+/** Chrome look for `theme.brand`. Omit `brand` entirely for the default TrueForge marks. */
+export type BrandMode = 'icon-title' | 'icon-only' | 'logo';
+
 /**
- * Setting `brand` requires a `name`: it labels the logo, so a logo without one has
- * no accessible name. `logo` is optional — omit it to pair host text with the stock
- * mark.
+ * Product branding. Set `mode`, then pass the fields that mode requires.
+ * `name` always labels the mark (`alt` / `aria-label`).
  */
-export type BrandConfig = {
-  /** Display name, and the logo's accessible label. */
-  name: string;
-  /** Image URL, or per-mode sources. Omit to keep the default mark. */
-  logo?: string | BrandLogoConfig;
-};
+export type BrandConfig =
+  | {
+      mode: 'icon-title';
+      /** Accessible label and visible title beside the square mark in expanded chrome. */
+      name: string;
+      /** Square image, or per-mode sources. Omit to keep the default mark. */
+      icon?: BrandImage;
+      logo?: never;
+      /** Wraps configured brand images in a same-tab link. */
+      href?: string;
+    }
+  | {
+      mode: 'icon-only';
+      /** Accessible label only — no title text in expanded chrome. */
+      name: string;
+      /** Square image, or per-mode sources. */
+      icon: BrandImage;
+      logo?: never;
+      /** Wraps configured brand images in a same-tab link. */
+      href?: string;
+    }
+  | {
+      mode: 'logo';
+      /** Accessible label only — wide logo replaces the text title in expanded chrome. */
+      name: string;
+      /** Square image, or per-mode sources, used when compact. */
+      icon: BrandImage;
+      /** Wider image, or per-mode sources, used when expanded. */
+      logo: BrandImage;
+      /** Wraps configured brand images in a same-tab link. */
+      href?: string;
+    };
 
 export type ContentClassNames = {
   markdown?: string;

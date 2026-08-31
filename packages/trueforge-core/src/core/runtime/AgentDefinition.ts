@@ -14,6 +14,12 @@ export type ModelParams = Record<string, unknown>;
  */
 export interface AgentDefinition {
   modelClient: ILLM;
+  modelProperties?:
+    | {
+        /** Maximum combined input/output context for the resolved model, when known. */
+        contextLength: number | undefined;
+      }
+    | undefined;
   instruction?: string | undefined;
   messages?: readonly LLMUserMessage[] | undefined;
   modelParams?: ModelParams | undefined;

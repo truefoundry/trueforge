@@ -33,6 +33,14 @@ export const CreateSessionRequestSchema = z
   .strict()
   .openapi('CreateSessionRequest');
 
+export const GetOrCreateSessionByExternalIdRequestSchema = z
+  .object({
+    external_id: z.string().min(1).max(128).describe('Caller-supplied id unique within the tenant.'),
+    agent: CreateSessionAgentSchema,
+  })
+  .strict()
+  .openapi('GetOrCreateSessionByExternalIdRequest');
+
 /** Only inline sessions may be updated; named (reference) sessions reject agent updates. */
 export const UpdateSessionRequestSchema = z
   .object({

@@ -58,21 +58,36 @@ Built-in layouts are code-split, so only the layout you use is loaded into your 
 
 ## Preset Themes
 
-Choose from four built-in themes - Claude, ChatGPT, Gemini, and TrueFoundry, or create a [custom theme](../setup-custom-ui/custom-theme) to match your brand.
+Choose from four built-in themes - Claude, ChatGPT, Gemini, and TrueForge, or create a [custom theme](../setup-custom-ui/custom-theme) to match your brand.
 
 ## The theme object
 
 ```ts
+type BrandImage = string | { src?: string; light?: string; dark?: string };
+
+type BrandMode = "icon-title" | "icon-only" | "logo";
+
+type BrandConfig =
+  | { mode: "icon-title"; name: string; icon?: BrandImage; logo?: never; href?: string }
+  | { mode: "icon-only"; name: string; icon: BrandImage; logo?: never; href?: string }
+  | { mode: "logo"; name: string; icon: BrandImage; logo: BrandImage; href?: string };
+
 type ThemeConfig = {
   preset?: "trueforge" | "claude" | "chatgpt" | "gemini"; // default "trueforge"
   mode?: "light" | "dark" | "system";
-  brand?: {
-    name: string; // required when `brand` is set
-    logo?: string | BrandLogoConfig;
-  },
+  brand?: BrandConfig;
   ...
 };
 ```
+
+Set `brand.mode`, then pass the fields that mode requires. `name` always labels the mark.
+
+| Look | `mode` | Required | Expanded | Collapsed |
+| --- | --- | --- | --- | --- |
+| Default | omit `brand` | — | TrueForge wordmark | TrueForge square |
+| Icon + title | `"icon-title"` | `name` (+ optional `icon`) | square + title | square |
+| Icon only | `"icon-only"` | `name`, `icon` | square | square |
+| Wide logo | `"logo"` | `name`, `icon`, `logo` | wide logo | square |
 
 ```tsx App.tsx
 <TrueForgeUI
@@ -81,12 +96,19 @@ type ThemeConfig = {
     preset: "trueforge",
     mode: "system",
     brand: {
-        name: "TrueForge",
-        logo: "/logo.svg",
+      mode: "logo",
+      name: "Acme",
+      icon: "/icon.svg",
+      logo: "/wordmark.svg",
     }
   }}
 />
 ```
+
+`icon` is the square asset used in collapsed and compact surfaces. `logo` is the wider
+asset used when `mode` is `"logo"` and requires `icon` as its compact fallback. When
+`brand` is omitted, expanded chrome uses the built-in TrueForge wordmark and compact
+surfaces use the built-in square mark.
 
 The `chatgpt`, `claude`, and `gemini` themes are shown below:
 
@@ -124,24 +146,30 @@ You can also provide separate logos for light and dark modes, allowing your bran
   theme={{
     ...
     brand: {
-      name: "TrueForge",
-      logo: {
-        light: "/logo/light.svg",
-        dark: "/logo/dark.svg",
-        href: "https://trueforge.dev", // URL to redirect on logo click
+      mode: "logo",
+      name: "Acme",
+      icon: {
+        light: "/icon/light.svg",
+        dark: "/icon/dark.svg",
       },
+      logo: {
+        light: "/wordmark/light.svg",
+        dark: "/wordmark/dark.svg",
+      },
+      href: "https://example.com",
     }
   }}
 />
 ```
 
-The logo source is selected based on the resolved theme mode. When mode is omitted, the logo automatically follows the system theme.
+The icon and logo sources are selected based on the resolved theme mode. When mode is omitted, they automatically follow the system theme.
 
-* Provide both light and dark to use a different logo for each mode.
-* Provide only one of light or dark to use the same logo in both modes.
-* Use src for a mode-independent logo.
-* `name` sets the brand name in the topbar right next to the logo.
-* Set `href` to make the logo clickable.
+* Provide both light and dark to use a different image for each mode.
+* Provide only one of light or dark to use the same image in both modes.
+* Use src for a mode-independent image.
+* Set `brand.mode` first (`icon-title` | `icon-only` | `logo`); `name` is required and always labels images.
+* Visible title text only appears for `mode: "icon-title"`.
+* Set the brand-level `href` to make configured images clickable.
 
 For more advanced use cases, such as rendering an inline SVG or an animated logo, override the BrandLogo slot instead of passing a React node through the theme object.
 

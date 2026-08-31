@@ -11,6 +11,7 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
 import { AskUserContainer } from './AskUserContainer.js';
 import { ComposerAttachmentsContainer } from './AttachmentsContainer.js';
+import { CustomActionContainer } from './CustomActionContainer.js';
 import { McpAuthContainer } from './McpAuthContainer.js';
 
 export type ComposerContainerProps = {
@@ -109,6 +110,9 @@ export function ComposerContainer({
 
   if (pauseView.kind === 'mcp') {
     return <McpAuthContainer />;
+  }
+  if (pauseView.kind === 'custom') {
+    return <CustomActionContainer />;
   }
   if (pauseView.kind === 'ask-user') {
     return <AskUserContainer />;

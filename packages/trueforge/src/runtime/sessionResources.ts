@@ -5,6 +5,7 @@ import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
   SkillMounter,
+  type AgentDefinition,
   type AgentTracing,
   type GitSkill,
   type ModelParams,
@@ -59,6 +60,7 @@ export async function getModelDetails({
 }): Promise<{
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
+  modelProperties: AgentDefinition['modelProperties'];
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -92,6 +94,7 @@ export async function getModelDetails({
       headers: {},
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
+    modelProperties: { contextLength: model.properties.context_length },
   };
 }
 

@@ -31,14 +31,13 @@
     "sdk:generate": "bash scripts/generate-sdk.sh",
     "smoke:down": "docker compose down",
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
-    "prestandalone:dev:no-watch": "pnpm --filter @truefoundry/trueforge migrate:legacy-sqlite-path",
-    "prestandalone:dev": "pnpm --filter @truefoundry/trueforge migrate:legacy-sqlite-path",
     "standalone:dev:no-watch": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge --filter frontend dev:no-watch",
     "standalone:dev": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge-core --filter @truefoundry/trueforge --filter frontend dev",
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
     "test:frontend": "pnpm --filter frontend test",
+    "test:chart-version": "bash tests/scripts/resolve-chart-version.test.sh",
     "test:trueforge-core": "pnpm --filter @truefoundry/trueforge-core test",
     "test:trueforge": "pnpm --filter @truefoundry/trueforge test",
     "test:local-sandbox:contract": "pnpm --filter @truefoundry/trueforge test:local-sandbox:contract",
@@ -53,17 +52,18 @@
     "version": "node scripts/version.mjs"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.0",
-    "@eslint-react/eslint-plugin": "^5.18.0",
+    "@changesets/cli": "^3.0.1",
+    "@eslint-react/eslint-plugin": "^5.18.6",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.7.0",
+    "eslint": "^10.9.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "prettier": "^3.5.3",
-    "prettier-plugin-organize-imports": "^4.0.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "railway": "^3.11.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.65.0"
+    "typescript-eslint": "^8.68.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,md}": "prettier --write --cache --cache-location .prettiercache --cache-strategy content --config .prettierrc"

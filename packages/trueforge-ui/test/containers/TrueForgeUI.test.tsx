@@ -304,7 +304,7 @@ describe('StackChatPanel', () => {
 describe('SidebarLayout', () => {
   it('shows the app brand in the mobile sessions drawer', () => {
     render(
-      <SlotsProvider theme={{ brand: { name: 'Acme', logo: { src: '/acme.svg' } } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: { src: '/acme.svg' } } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
             <SidebarLayout />
@@ -320,9 +320,63 @@ describe('SidebarLayout', () => {
     expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
   });
 
+  it('shows the default wordmark without a name in expanded chrome', () => {
+    const { container } = render(
+      <SlotsProvider>
+        <RuntimeHarness messages={[]}>
+          <div className="h-96">
+            <SidebarLayout />
+          </div>
+        </RuntimeHarness>
+      </SlotsProvider>,
+    );
+
+    const mark = container.querySelector('aside svg');
+    expect(mark).toHaveAttribute('viewBox', '0 0 614 100');
+    expect(screen.queryByText('TrueForge')).not.toBeInTheDocument();
+  });
+
+  it('shows a wide logo when expanded and its square icon when collapsed', () => {
+    const { container } = render(
+      <SlotsProvider
+        theme={{ brand: { mode: 'logo', name: 'Acme', icon: '/acme-icon.svg', logo: '/acme-wordmark.svg' } }}
+      >
+        <RuntimeHarness messages={[]}>
+          <div className="h-96">
+            <SidebarLayout />
+          </div>
+        </RuntimeHarness>
+      </SlotsProvider>,
+    );
+
+    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-wordmark.svg');
+    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-icon.svg');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+  });
+
+  it('supports icon-only branding in expanded chrome', () => {
+    const { container } = render(
+      <SlotsProvider theme={{ brand: { mode: 'icon-only', name: 'Acme', icon: '/acme-icon.svg' } }}>
+        <RuntimeHarness messages={[]}>
+          <div className="h-96">
+            <SidebarLayout />
+          </div>
+        </RuntimeHarness>
+      </SlotsProvider>,
+    );
+
+    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-icon.svg');
+    expect(container.querySelector('aside img')).toHaveAttribute('alt', 'Acme');
+    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
+  });
+
   it('shows the brand and toggles the desktop sidebar rail', () => {
     const { unmount } = render(
-      <SlotsProvider theme={{ brand: { name: 'Acme', logo: '/acme.svg' } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
             <SidebarLayout />
@@ -341,7 +395,7 @@ describe('SidebarLayout', () => {
     // New Chat / Agents remount ChatProvider via runtimeKey; collapse must survive.
     unmount();
     render(
-      <SlotsProvider theme={{ brand: { name: 'Acme', logo: '/acme.svg' } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
             <SidebarLayout />
@@ -354,7 +408,7 @@ describe('SidebarLayout', () => {
 
   it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
     const { rerender } = render(
-      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
           <ShellModeProvider>
             <RuntimeHarness messages={[]}>
@@ -382,7 +436,7 @@ describe('SidebarLayout', () => {
 
     // Settings stays available with a locked agentName when catalog is present.
     rerender(
-      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
           <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'locked-agent' }}>
             <RuntimeHarness messages={[]}>
@@ -404,7 +458,7 @@ describe('SidebarLayout', () => {
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
     rerender(
-      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider
           server={createMockAgentUIServer({
             catalog: stubCatalog,
@@ -434,7 +488,7 @@ describe('SidebarLayout', () => {
 
     // No catalog → no Settings button.
     rerender(
-      <SlotsProvider theme={{ brand: { name: 'Acme' } }}>
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer()}>
           <ShellModeProvider>
             <RuntimeHarness messages={[]}>
