@@ -138,6 +138,9 @@ importers:
       '@truefoundry/trueforge-core':
         specifier: workspace:*
         version: link:../trueforge-core
+      '@truefoundry/trueforge-sdk':
+        specifier: workspace:*
+        version: link:../trueforge-sdk
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3

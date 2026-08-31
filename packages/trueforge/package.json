@@ -62,6 +62,7 @@
     "@hono/zod-openapi": "^1.6.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@truefoundry/trueforge-core": "workspace:*",
+    "@truefoundry/trueforge-sdk": "workspace:*",
     "better-sqlite3": "^13.0.3",
     "cron-parser": "^5.4.0",
     "env-paths": "^4.0.0",
