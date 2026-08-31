@@ -1,6 +1,6 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { AgentSessionsServer, CodeSnippet, ListResult, SessionListEntry } from '../../server/types.js';
-import { toUiAgentSpec } from './chatServer.js';
+import type { AgentSessionsServer, CodeSnippet, SessionListEntry } from '../../server/types.js';
+import { toListResult, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { toUiEventItem } from './toUiTurnState.js';
 import type { HarnessAgentSpec } from './types.js';
@@ -35,21 +35,12 @@ function parseSnippet(value: unknown): CodeSnippet | null {
   };
 }
 
-interface HarnessPageSource<T> {
-  data: T[];
-  response: { pagination: TrueForgeApi.TokenPagination };
-}
-
-function toListResult<TSource, TResult>(
-  page: HarnessPageSource<TSource>,
-  map: (item: TSource) => TResult,
-): ListResult<TResult> {
-  const data = page.data.map(map);
-  const token = page.response.pagination.nextPageToken;
-  return {
-    data,
-    ...(token === undefined ? {} : { nextPageToken: token }),
-  };
+function toIsoDate(value: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid ISO timestamp: ${value}`);
+  }
+  return date;
 }
 
 function toSessionListEntry(session: TrueForgeApi.Session): SessionListEntry<HarnessAgentSpec> {
@@ -76,8 +67,6 @@ export function createHarnessAgentSessionsServer(
   options: CreateHarnessAgentSessionsServerOptions = {},
 ): AgentSessionsServer<HarnessAgentSpec> {
   const client = options.client ?? createTrueForgeClient(options);
-  const request = options.fetch ?? fetch;
-  const baseUrl = options.baseUrl?.replace(/\/$/, '') ?? '';
 
   return {
     async getAgent({ agentId }) {
@@ -89,9 +78,10 @@ export function createHarnessAgentSessionsServer(
       };
     },
     async getCodeSnippets({ agentId }) {
-      const response = await request(`${baseUrl}/api/v1/agents/${encodeURIComponent(agentId)}/code-snippets`, {
-        headers: options.token === undefined ? undefined : { Authorization: `Bearer ${options.token}` },
-      });
+      const response = await client.fetch(
+        `api/v1/agents/${encodeURIComponent(agentId)}/code-snippets`,
+        options.token === undefined ? undefined : { headers: { Authorization: `Bearer ${options.token}` } },
+      );
       if (!response.ok) {
         throw new Error(`Failed to load agent code snippets (${response.status}).`);
       }
@@ -108,8 +98,8 @@ export function createHarnessAgentSessionsServer(
         ...(requestParams.pageToken === undefined ? {} : { pageToken: requestParams.pageToken }),
         ...(requestParams.startTimestamp === undefined
           ? {}
-          : { startTimestamp: new Date(requestParams.startTimestamp) }),
-        ...(requestParams.endTimestamp === undefined ? {} : { endTimestamp: new Date(requestParams.endTimestamp) }),
+          : { startTimestamp: toIsoDate(requestParams.startTimestamp) }),
+        ...(requestParams.endTimestamp === undefined ? {} : { endTimestamp: toIsoDate(requestParams.endTimestamp) }),
         ...(requestParams.agentId === undefined || requestParams.agentId.length === 0
           ? {}
           : { agentId: requestParams.agentId }),

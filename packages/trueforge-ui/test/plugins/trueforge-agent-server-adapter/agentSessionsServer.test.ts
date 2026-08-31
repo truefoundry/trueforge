@@ -51,6 +51,28 @@ describe('createHarnessAgentSessionsServer', () => {
     ]);
   });
 
+  it('forwards bearer auth when code snippets use the default relative base URL', async () => {
+    const request = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        data: {
+          snippets: [
+            {
+              label_name: 'Python',
+              language: 'python',
+              sample_code: { stream: 'stream()', non_stream: 'run()' },
+            },
+          ],
+        },
+      }),
+    );
+    const server = createHarnessAgentSessionsServer({ baseUrl: '/', token: 'test-token', fetch: request });
+
+    await server.getCodeSnippets({ agentId: 'agent/1' });
+
+    const init = request.mock.calls[0]?.[1];
+    assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-token');
+  });
+
   it('maps listSessions and listSessionEvents onto the UI contract', async () => {
     const list = vi.fn(async () => ({
       data: [
@@ -102,5 +124,9 @@ describe('createHarnessAgentSessionsServer', () => {
     assert.deepEqual(await server.listSessionEvents({ sessionId: 'sess-1', limit: 25 }), {
       data: [{ turnId: 'turn-1', event: { type: 'turn.created', id: 'evt-1', turnId: 'turn-1' } }],
     });
+    await assert.rejects(
+      () => server.listSessions({ startTimestamp: 'not-a-timestamp' }),
+      /Invalid ISO timestamp: not-a-timestamp/,
+    );
   });
 });

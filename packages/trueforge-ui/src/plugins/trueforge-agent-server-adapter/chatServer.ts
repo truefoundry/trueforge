@@ -102,12 +102,12 @@ function toUiTurn(turn: TrueForgeApi.Turn): Turn {
   };
 }
 
-interface HarnessPageSource<T> {
+export interface HarnessPageSource<T> {
   data: T[];
   response: { pagination: TrueForgeApi.TokenPagination };
 }
 
-function toListResult<TSource, TResult>(
+export function toListResult<TSource, TResult>(
   page: HarnessPageSource<TSource>,
   map: (item: TSource) => TResult,
 ): ListResult<TResult> {
