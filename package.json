@@ -61,6 +61,7 @@
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.6",
     "prettier-plugin-organize-imports": "^4.3.0",
+    "railway": "^3.11.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.68.0"
   },

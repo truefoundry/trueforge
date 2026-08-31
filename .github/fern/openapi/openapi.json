@@ -45,6 +45,72 @@
         ],
         "type": "object"
       },
+      "AgentCodeSnippet": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "format": "uri",
+            "type": "string"
+          },
+          "label_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "language": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sample_code": {
+            "$ref": "#/components/schemas/AgentCodeSnippetSampleCode"
+          }
+        },
+        "required": [
+          "label_name",
+          "language",
+          "icon",
+          "sample_code"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippetSampleCode": {
+        "additionalProperties": false,
+        "properties": {
+          "non_stream": {
+            "description": "SDK sample that creates a turn without streaming.",
+            "type": "string"
+          },
+          "stream": {
+            "description": "SDK sample that streams turn events.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream",
+          "non_stream"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippets": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "format": "uri",
+            "type": "string"
+          },
+          "snippets": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCodeSnippet"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_url",
+          "snippets"
+        ],
+        "type": "object"
+      },
       "AgentInfo": {
         "properties": {
           "input": {
@@ -1178,6 +1244,17 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "GetAgentCodeSnippetsResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentCodeSnippets"
+          }
+        },
+        "required": [
+          "data"
+        ],
         "type": "object"
       },
       "GetAgentResponse": {
@@ -4686,72 +4763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "data": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "base_url": {
-                          "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
-                          "format": "uri",
-                          "type": "string"
-                        },
-                        "snippets": {
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "icon": {
-                                "format": "uri",
-                                "type": "string"
-                              },
-                              "label_name": {
-                                "minLength": 1,
-                                "type": "string"
-                              },
-                              "language": {
-                                "minLength": 1,
-                                "type": "string"
-                              },
-                              "sample_code": {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "non_stream": {
-                                    "description": "SDK sample that creates a turn without streaming.",
-                                    "type": "string"
-                                  },
-                                  "stream": {
-                                    "description": "SDK sample that streams turn events.",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "stream",
-                                  "non_stream"
-                                ],
-                                "type": "object"
-                              }
-                            },
-                            "required": [
-                              "label_name",
-                              "language",
-                              "icon",
-                              "sample_code"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        }
-                      },
-                      "required": [
-                        "base_url",
-                        "snippets"
-                      ],
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ],
-                  "type": "object"
+                  "$ref": "#/components/schemas/GetAgentCodeSnippetsResponse"
                 }
               }
             },
@@ -4773,7 +4785,11 @@
           "Agents"
         ],
         "x-excluded": true,
-        "x-fern-ignore": true
+        "x-fern-sdk-group-name": [
+          "internal",
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "get_code_snippets"
       }
     },
     "/api/v1/auth/callback": {

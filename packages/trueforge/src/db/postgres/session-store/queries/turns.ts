@@ -1,3 +1,4 @@
+import type { SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   type TerminalTurnState,
@@ -28,7 +29,7 @@ import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/ru
 import type { SandboxInfo } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
 import { sql, type Kysely, type QueryCreator, type RawBuilder, type Transaction } from 'kysely';
 import { isUniqueViolation } from '../../client';
-import { json } from '../../sqlExpressions';
+import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../../types';
 import { lateralUnnestBigintArrayWithOrdinality } from '../sqlExpressions';
 
@@ -109,6 +110,40 @@ export interface ListTurnsResult {
 
 type DbOrTrx = Kysely<Database> | Transaction<Database>;
 type TurnFenceDb = DbOrTrx | QueryCreator<Database>;
+
+function incrementSessionTotalTurns(): RawBuilder<SessionMetrics> {
+  return jsonbSet<SessionMetrics>(
+    sql`metrics`,
+    sql`'{total_turns}'`,
+    sql`to_jsonb((metrics->>'total_turns')::int + 1)`,
+  );
+}
+
+/** Same tx as the turn flip; the session row lock serializes concurrent terminal folds. */
+async function addSessionCostAndDuration(
+  trx: Transaction<Database>,
+  input: { session_id: string; turn_created_at: Date; turn_state: TerminalTurnState },
+): Promise<void> {
+  const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
+  const total_cost_in_usd = input.turn_state.metrics?.total_cost_in_usd ?? 0;
+  const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
+  await trx
+    .updateTable('session')
+    .set({
+      metrics: jsonbSet<SessionMetrics>(
+        jsonbSet(
+          sql`metrics`,
+          sql`'{total_cost_in_usd}'`,
+          sql`to_jsonb((metrics->>'total_cost_in_usd')::double precision + ${total_cost_in_usd}::double precision)`,
+        ),
+        // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
+        sql`'{total_duration_ms}'`,
+        sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
+      ),
+    })
+    .where('session_id', '=', input.session_id)
+    .execute();
+}
 
 function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState {
   switch (state.status) {
@@ -384,6 +419,8 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           last_turn_id: input.turn.turn_id,
           updated_at: sql`now()`,
           last_activity_timestamp_ms: input.last_activity_timestamp_ms,
+          // total_turns rides the same tip UPDATE so a later failure in this tx rolls it back.
+          metrics: incrementSessionTotalTurns(),
           ...(input.update_session_title_if_not_exist !== null
             ? {
                 title: sql`COALESCE(title, ${input.update_session_title_if_not_exist})`,
@@ -618,9 +655,10 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
+      .returning(['created_at'])
       .executeTakeFirst();
 
-    if (Number(updateResult.numUpdatedRows) > 0) {
+    if (updateResult !== undefined) {
       await trx
         .insertInto('session_event')
         .values({
@@ -631,6 +669,12 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
           created_at: new Date(input.turn_done_event.created_at),
         })
         .execute();
+      // Only the winning cancel folds; a freeze of an already-terminal turn is a read.
+      await addSessionCostAndDuration(trx, {
+        session_id: input.session_id,
+        turn_created_at: updateResult.created_at,
+        turn_state: cancelledState,
+      });
     }
 
     const record = await assembleTurnRecord(trx, input);
@@ -706,10 +750,11 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
+      .returning(['created_at'])
       .executeTakeFirst();
 
-    const numUpdated = Number(result.numUpdatedRows);
-    if (numUpdated === 0) {
+    // No RETURNING row: UPDATE matched 0 running turns.
+    if (result === undefined) {
       const existing = await trx
         .selectFrom('turn')
         .select('state')
@@ -722,6 +767,12 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
       }
       throw new TurnNotRunningError(input.turn_id, terminalTurnState(existing.state, input.turn_id));
     }
+
+    await addSessionCostAndDuration(trx, {
+      session_id: input.session_id,
+      turn_created_at: result.created_at,
+      turn_state: input.state,
+    });
 
     await trx
       .insertInto('session_event')

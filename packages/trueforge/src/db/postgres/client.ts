@@ -1,6 +1,7 @@
 import { Kysely, PostgresDialect } from 'kysely';
 import pg, { Pool } from 'pg';
 
+import { TRUEFORGE_SCHEMA } from './schema';
 import type { Database } from './types';
 
 const INT8_OID = 20;
@@ -50,6 +51,7 @@ export function createDb(options: {
         max: poolMax,
         statement_timeout: statementTimeoutMs,
         idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
+        options: `-c search_path=${TRUEFORGE_SCHEMA}`,
       }),
     }),
   });

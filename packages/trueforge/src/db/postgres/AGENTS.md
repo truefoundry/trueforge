@@ -2,3 +2,4 @@
 - Application timestamps MUST be treated as UTC instants. Serialize with `Date.prototype.toISOString()` (always `...Z` with milliseconds).
 - Do not run DB queries inside loops (N+1). Prefer a single batched query, a join, or an `IN`/`ANY` lookup over per-item round-trips.
 - Postgres migrations MUST start `up`/`down` with `SET LOCAL lock_timeout = '5s'` so waiting DDL fails fast instead of blocking later queries (including `SELECT`s) behind it in the lock queue.
+- All app tables and Kysely migration bookkeeping live in the `trueforge` schema (not `public`). `runMigrations` bootstraps that schema (CREATE + move legacy `public` tables) before the Migrator runs; `createDb` sets `search_path=trueforge`.

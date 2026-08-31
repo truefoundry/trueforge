@@ -1,5 +1,8 @@
 export * from "./ActionRequiredEvent.js";
 export * from "./Agent.js";
+export * from "./AgentCodeSnippet.js";
+export * from "./AgentCodeSnippetSampleCode.js";
+export * from "./AgentCodeSnippets.js";
 export * from "./AgentInfo.js";
 export * from "./AgentParent.js";
 export * from "./AgentSpec.js";
@@ -50,6 +53,7 @@ export * from "./FileContent.js";
 export * from "./FinishReason.js";
 export * from "./FireworksModelProvider.js";
 export * from "./GenerativeUiConfig.js";
+export * from "./GetAgentCodeSnippetsResponse.js";
 export * from "./GetAgentResponse.js";
 export * from "./GetCapabilitiesResponse.js";
 export * from "./GetMcpServerCatalogResponse.js";

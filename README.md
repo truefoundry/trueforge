@@ -10,7 +10,7 @@
 <p align="center">The open-source agent harness - the runtime layer that turns an LLM into a working agent</p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/155463?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-155463" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/155463/weekly?language=TypeScript" alt="truefoundry%2Ftrueforge | Trendshift" width="250" height="55"/></a>
+  <a href="https://trendshift.io/repositories/155463?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-155463" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/155463/daily?language=TypeScript" alt="truefoundry%2Ftrueforge | Trendshift" width="250" height="55"/></a>
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ Building an agent is easy. Running one well is not - you need streaming, session
 - **Context engineering** - subagents, deferred tool loading, Code Mode, large-result offloading, and compaction.
 - **Chat UI + SDK** - use the bundled UI, automate with `@truefoundry/trueforge-sdk`, or embed `@truefoundry/trueforge-ui`.
 
-It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (Postgres + Redis, Docker Compose or Helm).
+It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (Postgres + Redis, Docker Compose, Helm, or Railway).
 
 ## Getting started
 
@@ -58,7 +58,7 @@ It scales down and up: **local mode** (one process, SQLite) or **hosted mode** (
 npx @truefoundry/trueforge@latest
 ```
 
-Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, or Kubernetes). Connect models, tools, skills and build your first reusable agent.
+Use the [Quickstart](https://trueforge.dev/quickstart) guide to run TrueForge using various methods (Local, Docker Compose, Kubernetes, or Railway). Connect models, tools, skills and build your first reusable agent.
 
 To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -72,10 +72,10 @@ To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md
   </picture>
 </p>
 
-| Mode   | Best for                    | Storage  | Extra infra      | How to run                   |
-| ------ | --------------------------- | -------- | ---------------- | ---------------------------- |
-| Local  | Personal use, trying it out | SQLite   | None             | `npx @truefoundry/trueforge` |
-| Hosted | Teams, multi-replica        | Postgres | Postgres + Redis | Docker Compose or Helm       |
+| Mode   | Best for                    | Storage  | Extra infra      | How to run                       |
+| ------ | --------------------------- | -------- | ---------------- | -------------------------------- |
+| Local  | Personal use, trying it out | SQLite   | None             | `npx @truefoundry/trueforge`     |
+| Hosted | Teams, multi-replica        | Postgres | Postgres + Redis | Docker Compose, Helm, or Railway |
 
 > **Local mode is for your machine only.** It is a convenient way to try TrueForge — not a production or internet-facing setup. There is no login by default, and data lives in a local SQLite file. Please keep it on localhost. We cannot take responsibility for data loss or unauthorized access if local mode is used beyond that. For a shared or production deployment, use hosted mode.
 
