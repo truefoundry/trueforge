@@ -3,10 +3,6 @@ import type { TurnRecord } from '@truefoundry/trueforge-core/agent-session/model
 import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforge-core/agent-session/schemas/events';
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session/schemas/pagination';
 import type {
-  SessionMetricsChartDataResponse,
-  SessionMetricsMeterResponse,
-} from '@truefoundry/trueforge-core/agent-session/schemas/session';
-import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
@@ -16,8 +12,6 @@ import type {
   FreezeAndGetTurnInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
-  GetSessionMetricsChartDataInput,
-  GetSessionMetricsInput,
   GetTurnInput,
   ISessionStore,
   ListSessionEventsInput,
@@ -49,8 +43,6 @@ import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
   getSessionByExternalId as getSessionByExternalIdQuery,
-  getSessionMetricsChartData as getSessionMetricsChartDataQuery,
-  getSessionMetricsMeters as getSessionMetricsMetersQuery,
   getSession as getSessionQuery,
   listSessions as listSessionsQuery,
   updateSession as updateSessionQuery,
@@ -129,14 +121,6 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
         ...result.pagination,
       },
     };
-  }
-
-  getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMeterResponse> {
-    return getSessionMetricsMetersQuery(this.db, input);
-  }
-
-  getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartDataResponse> {
-    return getSessionMetricsChartDataQuery(this.db, input);
   }
 
   async createTurn(input: CreateTurnInput<TurnCustom>): Promise<void> {

@@ -1,16 +1,14 @@
 /** Server session wire schemas. Core Session lives in agentSession. */
 import { z } from '@hono/zod-openapi';
+import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import { NameSchema, PAGE_LIMIT } from './common';
 import {
-  AgentSpecSchema,
+  MAX_SESSION_METRICS_WINDOW_MS,
   SessionMetricsChartDataResponseSchema,
   SessionMetricsChartNameSchema,
   SessionMetricsChartResponseSchema,
   SessionMetricsMeterResponseSchema,
-  SessionSchema,
-  TokenPaginationSchema,
-} from '@truefoundry/trueforge-core/agent-session';
-import { MAX_SESSION_METRICS_WINDOW_MS } from '@truefoundry/trueforge-core/agent-session/store/sessionMetrics';
-import { NameSchema, PAGE_LIMIT } from './common';
+} from './sessionMetrics';
 
 /** Create arm: bind by unique registry agent name. */
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');

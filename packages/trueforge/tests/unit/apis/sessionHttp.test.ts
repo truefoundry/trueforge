@@ -3,6 +3,7 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
+import { createInternalMetricsRouter } from '../../../src/apis/metrics';
 import {
   createInternalSessionsRouter,
   createSessionsRouter,
@@ -16,6 +17,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
+import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
@@ -47,6 +49,7 @@ describe('sessions HTTP agent binding', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     sessionStore = new SqliteSessionStore(db);
+    const sessionMetricsStore = new SqliteSessionMetricsStore(db);
     const sessions = new Sessions({ sessionStore });
     const modelProviderStore = new SqliteModelProviderStore(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
@@ -88,6 +91,14 @@ describe('sessions HTTP agent binding', () => {
     };
     app.route('/', createSessionsRouter(deps));
     app.route('/internal/sessions', createInternalSessionsRouter(deps));
+    app.route(
+      '/internal/metrics',
+      createInternalMetricsRouter({
+        sessionMetricsStore,
+        agentStore: deps.agentStore,
+        resolveUserContext: deps.resolveUserContext,
+      }),
+    );
   });
 
   it('creates a session from an inline AgentSpec', async () => {
@@ -168,7 +179,7 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: end.toISOString(),
     });
 
-    const response = await app.request(`/internal/sessions/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(200);
     const meters = GetSessionMetricsMeterResponseSchema.parse(await response.json());
@@ -180,7 +191,7 @@ describe('sessions HTTP agent binding', () => {
     expect(meters.data.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(0);
 
     const sessionsChartResponse = await app.request(
-      `/internal/sessions/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
+      `/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
     );
     expect(sessionsChartResponse.status).toBe(200);
     const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
@@ -188,7 +199,7 @@ describe('sessions HTTP agent binding', () => {
   });
 
   it('returns the static session metrics charts', async () => {
-    const response = await app.request('/internal/sessions/metrics/charts');
+    const response = await app.request('/internal/metrics/charts');
 
     expect(response.status).toBe(200);
     const payload = GetSessionMetricsChartResponseSchema.parse(await response.json());
@@ -207,7 +218,7 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: '2026-08-28T00:00:00.000Z',
     });
 
-    const response = await app.request(`/internal/sessions/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: { message: 'Agent not found: missing-agent' } });
@@ -220,7 +231,7 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: '2026-02-01T00:00:00.000Z',
     });
 
-    const response = await app.request(`/internal/sessions/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(400);
   });

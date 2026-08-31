@@ -4,8 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ResolveUserContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import type { ISessionMetricsStore } from '../db/session-metrics/ISessionMetricsStore';
-import { buildSessionMetricsCharts } from '../db/session-metrics/sessionMetrics';
+import { buildSessionMetricsCharts, type ISessionMetricsStore } from '../db/sessionMetricsStore';
 import {
   getSessionMetricsChartsDataRoute,
   getSessionMetricsChartsRoute,

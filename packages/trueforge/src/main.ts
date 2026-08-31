@@ -58,7 +58,7 @@ import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
-import type { ISessionMetricsStore } from './db/session-metrics/ISessionMetricsStore';
+import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
