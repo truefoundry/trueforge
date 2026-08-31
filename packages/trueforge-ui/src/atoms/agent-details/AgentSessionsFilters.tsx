@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useOptionalServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -77,11 +77,6 @@ export function AgentSessionsFilters({
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [menuOpen]);
-
-  const selectedAgentLabel = useMemo(() => {
-    if (agentId == null) return 'All';
-    return agents.find(agent => (agent.agentId ?? agent.name) === agentId)?.name ?? agentId;
-  }, [agentId, agents]);
 
   const timeLabel =
     timeRange.timeWindowMs != null

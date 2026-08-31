@@ -125,6 +125,18 @@
   font-size: inherit;
 }
 
+.aui-markdown.markdown-body h1 {
+  font-size: 1.4em;
+}
+
+.aui-markdown.markdown-body h2 {
+  font-size: 1.2em;
+}
+
+.aui-markdown.markdown-body h3 {
+  font-size: 1em;
+}
+
 /* Preset typography applies to prose only; code always keeps a monospace stack. */
 .aui-markdown.markdown-body :is(code, kbd, pre, samp, tt) {
   font-family: var(

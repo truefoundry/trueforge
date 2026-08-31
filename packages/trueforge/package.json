@@ -63,6 +63,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@truefoundry/trueforge-core": "workspace:*",
     "better-sqlite3": "^13.0.3",
+    "cron-parser": "^5.4.0",
     "env-paths": "^4.0.0",
     "hono": "^4.13.5",
     "jose": "^6.2.10",

@@ -84,6 +84,17 @@
             },
             "default": "./dist/cjs/api/resources/models/exports.js"
         },
+        "./schedules": {
+            "import": {
+                "types": "./dist/esm/api/resources/schedules/exports.d.mts",
+                "default": "./dist/esm/api/resources/schedules/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/schedules/exports.d.ts",
+                "default": "./dist/cjs/api/resources/schedules/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/schedules/exports.js"
+        },
         "./sessions": {
             "import": {
                 "types": "./dist/esm/api/resources/sessions/exports.d.mts",

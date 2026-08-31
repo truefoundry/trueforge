@@ -62,7 +62,7 @@ export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions &
 };
 
 /**
- * Compose chat + builder + default settings catalogs into an `AgentUIServer`.
+ * Compose chat + builder + agent sessions + default settings catalogs into an `AgentUIServer`.
  */
 export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServerOptions = {}) {
   const { catalog: catalogOverride, ...clientOptions } = options;

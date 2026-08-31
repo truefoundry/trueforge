@@ -5,6 +5,8 @@ export * as catalogs from "./catalogs/index.js";
 export * from "./mcpServers/client/requests/index.js";
 export * as mcpServers from "./mcpServers/index.js";
 export * as models from "./models/index.js";
+export * from "./schedules/client/requests/index.js";
+export * as schedules from "./schedules/index.js";
 export * as server from "./server/index.js";
 export * from "./sessions/client/requests/index.js";
 export * as sessions from "./sessions/index.js";
