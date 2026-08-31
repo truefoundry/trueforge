@@ -88,7 +88,7 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
     transaction?: Transaction<Database>,
   ): Promise<SandboxProviderRecord | undefined> {
     const db = transaction ?? this.#db;
-    const expectedUpdatedAt = input.expected_updated_at;
+    const expectedManifest = input.expected_manifest;
     let query = db
       .updateTable('sandbox_provider')
       .set({
@@ -98,8 +98,8 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id);
-    if (expectedUpdatedAt !== undefined) {
-      query = query.where('updated_at', '=', new Date(expectedUpdatedAt));
+    if (expectedManifest !== undefined) {
+      query = query.where('manifest', '=', json(expectedManifest));
     }
     const row = await query.returningAll().executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
