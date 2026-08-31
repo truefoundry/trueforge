@@ -55,11 +55,10 @@ export const SessionMetricsMetersResponseSchema = z
   .strict()
   .openapi('SessionMetricsMetersResponse');
 
-export const SessionMetricsChartNameSchema = z.enum([
-  'sessions_over_time',
-  'sessions_cost_over_time',
-  'turns_over_time',
-]);
+export const SessionMetricsChartNameSchema = z
+  .enum(['sessions_over_time', 'sessions_cost_over_time', 'turns_over_time'])
+  .describe('Session metrics chart to return.')
+  .openapi('SessionMetricsChartName');
 
 export const SessionMetricsChartSchema = z
   .object({
