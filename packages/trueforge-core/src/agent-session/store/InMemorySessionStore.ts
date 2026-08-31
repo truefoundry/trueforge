@@ -4,7 +4,6 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { SessionMetricsChartDataResponse, SessionMetricsMeterResponse } from '../schemas/session';
 import type { TerminalTurnState } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
@@ -17,8 +16,6 @@ import type {
   FreezeAndGetTurnInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
-  GetSessionMetricsChartDataInput,
-  GetSessionMetricsInput,
   GetTurnInput,
   ISessionStore,
   ListSessionEventsInput,
@@ -43,15 +40,6 @@ import {
   type SessionEventPageCursor,
 } from './SessionEventPageToken';
 import { decodeSessionListPageToken, paginateSessionListRows } from './SessionListPageToken';
-import {
-  buildSessionMetricsChartData,
-  buildSessionMetricsMeters,
-  foldSessionMetricsAggregate,
-  type SessionMetricsAggregate,
-  type SessionMetricsBucket,
-  type SessionMetricsRow,
-  sessionMetricsStepSeconds,
-} from './sessionMetrics';
 import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
@@ -321,65 +309,6 @@ export class InMemorySessionStore<
 
     const page = paginateSessionListRows(filtered, input.limit, row => row.updated_at.toISOString());
     return { data: deepCopy(page.data), pagination: page.pagination };
-  }
-
-  private collectSessionMetricsData(input: GetSessionMetricsInput): {
-    aggregate: SessionMetricsAggregate;
-    buckets: SessionMetricsBucket[];
-    step_seconds: number;
-  } {
-    const step_seconds = sessionMetricsStepSeconds(input);
-    const buckets = new Map<number, SessionMetricsBucket>();
-    const metricRows: SessionMetricsRow[] = [];
-
-    for (const stored of this.sessions.values()) {
-      const record = stored.record;
-      const createdAtMs = record.created_at.getTime();
-      if (
-        record.tenant_id !== input.tenant_id ||
-        record.created_by !== input.created_by ||
-        record.agent.type !== 'reference' ||
-        record.agent.id !== input.agent_id ||
-        createdAtMs < input.start_timestamp.getTime() ||
-        createdAtMs > input.end_timestamp.getTime()
-      ) {
-        continue;
-      }
-
-      metricRows.push({
-        total_turns: record.metrics.total_turns,
-        total_duration_ms: record.metrics.total_duration_ms,
-        total_cost_in_usd: record.metrics.total_cost_in_usd,
-      });
-
-      const timestamp_seconds = Math.floor(createdAtMs / 1000 / step_seconds) * step_seconds;
-      const bucket = buckets.get(timestamp_seconds) ?? {
-        timestamp_seconds,
-        sessions: 0,
-        turns: 0,
-        cost: 0,
-      };
-      bucket.sessions += 1;
-      bucket.turns += record.metrics.total_turns;
-      bucket.cost += record.metrics.total_cost_in_usd;
-      buckets.set(timestamp_seconds, bucket);
-    }
-
-    return {
-      aggregate: foldSessionMetricsAggregate(metricRows),
-      buckets: [...buckets.values()],
-      step_seconds,
-    };
-  }
-
-  async getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMeterResponse> {
-    const { aggregate } = this.collectSessionMetricsData(input);
-    return buildSessionMetricsMeters(aggregate);
-  }
-
-  async getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartDataResponse> {
-    const { buckets, step_seconds } = this.collectSessionMetricsData(input);
-    return buildSessionMetricsChartData({ query: input, buckets, step_seconds });
   }
 
   async createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void> {

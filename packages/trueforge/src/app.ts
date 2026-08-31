@@ -34,6 +34,7 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
+import type { ISessionMetricsStore } from './db/session-metrics/ISessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -155,6 +156,7 @@ export interface ServerDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessionStore: ISessionStore;
+  sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
@@ -283,6 +285,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createInternalSessionsRouter({
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
+        sessionMetricsStore: deps.sessionMetricsStore,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
