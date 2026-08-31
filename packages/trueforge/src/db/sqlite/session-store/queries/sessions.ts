@@ -307,7 +307,7 @@ async function fetchSessionMetricsAggregate(
 ): Promise<SessionMetricsAggregate> {
   const start_timestamp = input.start_timestamp.toISOString();
   const end_timestamp = input.end_timestamp.toISOString();
-  // Scan rows; fold via foldSessionMetricsAggregate (same inclusion rules as InMemory / Postgres).
+  // Scan rows; fold via foldSessionMetricsAggregate (same as InMemory / Postgres).
   const rows = await db
     .selectFrom('session')
     .select([

@@ -287,8 +287,8 @@ async function fetchSessionMetricsAggregate(
   db: Kysely<Database>,
   input: GetSessionMetricsInput,
 ): Promise<SessionMetricsAggregate> {
-  // Inclusion matches foldSessionMetricsAggregate: turns > 0 / duration > 0 (not total_turns for duration).
-  // COALESCE keeps empty windows at 0 (AVG/percentile would otherwise be null).
+  // Every session in the window (including zero-turn / zero-duration); matches foldSessionMetricsAggregate.
+  // COALESCE keeps empty windows at 0 (percentile_cont would otherwise be null).
   const aggregateRow = await db
     .selectFrom('session')
     .select([
@@ -297,26 +297,21 @@ async function fetchSessionMetricsAggregate(
       sql<number>`COALESCE(SUM((metrics->>'total_cost_in_usd')::double precision), 0)::double precision`.as(
         'total_cost_in_usd',
       ),
-      sql<number>`COUNT(*) FILTER (WHERE (metrics->>'total_turns')::bigint > 0)::int`.as('active_sessions'),
-      sql<number>`COALESCE(MIN((metrics->>'total_turns')::bigint) FILTER (WHERE (metrics->>'total_turns')::bigint > 0), 0)::double precision`.as(
-        'min_turns_per_session',
-      ),
-      sql<number>`COALESCE(MAX((metrics->>'total_turns')::bigint) FILTER (WHERE (metrics->>'total_turns')::bigint > 0), 0)::double precision`.as(
-        'max_turns_per_session',
-      ),
-      sql<number>`COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY (metrics->>'total_turns')::double precision) FILTER (WHERE (metrics->>'total_turns')::bigint > 0), 0)::double precision`.as(
+      sql<number>`COALESCE(MIN((metrics->>'total_turns')::bigint), 0)::double precision`.as('min_turns_per_session'),
+      sql<number>`COALESCE(MAX((metrics->>'total_turns')::bigint), 0)::double precision`.as('max_turns_per_session'),
+      sql<number>`COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY (metrics->>'total_turns')::double precision), 0)::double precision`.as(
         'median_turns_per_session',
       ),
-      sql<number>`COALESCE(MIN((metrics->>'total_duration_ms')::bigint) FILTER (WHERE (metrics->>'total_duration_ms')::bigint > 0), 0)::double precision`.as(
+      sql<number>`COALESCE(MIN((metrics->>'total_duration_ms')::bigint), 0)::double precision`.as(
         'min_session_duration_ms',
       ),
-      sql<number>`COALESCE(MAX((metrics->>'total_duration_ms')::bigint) FILTER (WHERE (metrics->>'total_duration_ms')::bigint > 0), 0)::double precision`.as(
+      sql<number>`COALESCE(MAX((metrics->>'total_duration_ms')::bigint), 0)::double precision`.as(
         'max_session_duration_ms',
       ),
-      sql<number>`COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY (metrics->>'total_duration_ms')::double precision) FILTER (WHERE (metrics->>'total_duration_ms')::bigint > 0), 0)::double precision`.as(
+      sql<number>`COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY (metrics->>'total_duration_ms')::double precision), 0)::double precision`.as(
         'median_session_duration_ms',
       ),
-      sql<number>`COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY (metrics->>'total_duration_ms')::double precision) FILTER (WHERE (metrics->>'total_duration_ms')::bigint > 0), 0)::double precision`.as(
+      sql<number>`COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY (metrics->>'total_duration_ms')::double precision), 0)::double precision`.as(
         'p95_session_duration_ms',
       ),
     ])
@@ -331,7 +326,6 @@ async function fetchSessionMetricsAggregate(
     total_sessions: aggregateRow.total_sessions,
     total_turns: aggregateRow.total_turns,
     total_cost_in_usd: aggregateRow.total_cost_in_usd,
-    active_sessions: aggregateRow.active_sessions,
     min_turns_per_session: aggregateRow.min_turns_per_session,
     max_turns_per_session: aggregateRow.max_turns_per_session,
     median_turns_per_session: aggregateRow.median_turns_per_session,

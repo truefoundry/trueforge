@@ -10,7 +10,6 @@ const emptyAggregate = {
   total_sessions: 0,
   total_turns: 0,
   total_cost_in_usd: 0,
-  active_sessions: 0,
   min_turns_per_session: 0,
   max_turns_per_session: 0,
   median_turns_per_session: 0,
@@ -59,14 +58,13 @@ describe('session metrics builders', () => {
       total_sessions: 4,
       total_turns: 7,
       total_cost_in_usd: 1,
-      active_sessions: 3,
-      min_turns_per_session: 1,
+      min_turns_per_session: 0,
       max_turns_per_session: 4,
-      median_turns_per_session: 2,
-      min_session_duration_ms: 100,
+      median_turns_per_session: 1.5,
+      min_session_duration_ms: 0,
       max_session_duration_ms: 1000,
-      median_session_duration_ms: 400,
-      p95_session_duration_ms: 940,
+      median_session_duration_ms: 250,
+      p95_session_duration_ms: 910,
     });
 
     expect(metrics.meters).toHaveLength(12);
@@ -76,8 +74,8 @@ describe('session metrics builders', () => {
       description: 'Total cost / total sessions',
       unit: '$',
     });
-    expect(metrics.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(2.33);
-    expect(metrics.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(940);
+    expect(metrics.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(1.75);
+    expect(metrics.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(910);
   });
 
   it('maps bucket fields by chart name', () => {
@@ -118,16 +116,17 @@ describe('session metrics builders', () => {
     expect(buildSessionMetricsMeters(emptyAggregate).meters).toHaveLength(12);
   });
 
-  it('excludes in-flight sessions from duration distributions', () => {
+  it('includes zero-turn and zero-duration sessions in distributions', () => {
     const aggregate = foldSessionMetricsAggregate([
+      { total_turns: 0, total_duration_ms: 0, total_cost_in_usd: 0 },
       { total_turns: 1, total_duration_ms: 0, total_cost_in_usd: 0 },
       { total_turns: 1, total_duration_ms: 2000, total_cost_in_usd: 0.5 },
     ]);
-    expect(aggregate.total_sessions).toBe(2);
-    expect(aggregate.active_sessions).toBe(2);
-    expect(aggregate.min_turns_per_session).toBe(1);
-    expect(aggregate.min_session_duration_ms).toBe(2000);
-    expect(aggregate.median_session_duration_ms).toBe(2000);
-    expect(aggregate.p95_session_duration_ms).toBe(2000);
+    expect(aggregate.total_sessions).toBe(3);
+    expect(aggregate.min_turns_per_session).toBe(0);
+    expect(aggregate.median_turns_per_session).toBe(1);
+    expect(aggregate.min_session_duration_ms).toBe(0);
+    expect(aggregate.median_session_duration_ms).toBe(0);
+    expect(aggregate.p95_session_duration_ms).toBeCloseTo(1800);
   });
 });

@@ -50,7 +50,6 @@ export interface SessionMetricsAggregate {
   total_sessions: number;
   total_turns: number;
   total_cost_in_usd: number;
-  active_sessions: number;
   min_turns_per_session: number;
   max_turns_per_session: number;
   median_turns_per_session: number;
@@ -100,10 +99,8 @@ function continuousPercentile(sortedValues: number[], fraction: number): number 
 }
 
 /**
- * Fold matching sessions into meter inputs. Inclusion (InMemory / SQLite / Postgres must match):
- * - totals: every session in the window
- * - turn distributions: `total_turns > 0` (createTurn bumps immediately)
- * - duration distributions: `total_duration_ms > 0` (duration folds only on terminal writes)
+ * Fold matching sessions into meter inputs. Every session in the window is included
+ * (including zero-turn / zero-duration); InMemory / SQLite / Postgres must match.
  */
 export function foldSessionMetricsAggregate(rows: SessionMetricsRow[]): SessionMetricsAggregate {
   const turnsPerSession: number[] = [];
@@ -113,12 +110,8 @@ export function foldSessionMetricsAggregate(rows: SessionMetricsRow[]): SessionM
   for (const row of rows) {
     total_turns += row.total_turns;
     total_cost_in_usd += row.total_cost_in_usd;
-    if (row.total_turns > 0) {
-      turnsPerSession.push(row.total_turns);
-    }
-    if (row.total_duration_ms > 0) {
-      sessionDurations.push(row.total_duration_ms);
-    }
+    turnsPerSession.push(row.total_turns);
+    sessionDurations.push(row.total_duration_ms);
   }
   turnsPerSession.sort((a, b) => a - b);
   sessionDurations.sort((a, b) => a - b);
@@ -126,7 +119,6 @@ export function foldSessionMetricsAggregate(rows: SessionMetricsRow[]): SessionM
     total_sessions: rows.length,
     total_turns,
     total_cost_in_usd,
-    active_sessions: turnsPerSession.length,
     min_turns_per_session: turnsPerSession[0] ?? 0,
     max_turns_per_session: turnsPerSession.at(-1) ?? 0,
     median_turns_per_session: continuousPercentile(turnsPerSession, 0.5),
@@ -143,9 +135,7 @@ function buildMeters(aggregate: SessionMetricsAggregate): SessionMetricsMeterRes
       ? 0
       : round({ value: aggregate.total_cost_in_usd / aggregate.total_sessions, digits: 3 });
   const avgTurnsPerSession =
-    aggregate.active_sessions === 0
-      ? 0
-      : round({ value: aggregate.total_turns / aggregate.active_sessions, digits: 2 });
+    aggregate.total_sessions === 0 ? 0 : round({ value: aggregate.total_turns / aggregate.total_sessions, digits: 2 });
   const medianTurns = round({ value: aggregate.median_turns_per_session, digits: 2 });
   const minDuration = Math.round(aggregate.min_session_duration_ms);
   const maxDuration = Math.round(aggregate.max_session_duration_ms);

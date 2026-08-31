@@ -482,7 +482,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(dailyChart.step).toBe('86400');
     });
 
-    it('calculates active-session distributions with continuous percentiles', async () => {
+    it('calculates session distributions with continuous percentiles', async () => {
       const store = createStore();
       const sessionDefinitions = [
         { id: 'metrics-inactive', turnDurations: [] },
@@ -523,19 +523,20 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: new Date(Date.now() + 60 * 60 * 1000),
       });
 
+      // Includes zero-turn / zero-duration session: turns [0,1,2,4], durations [0,100,400,1000].
       expect(meters.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(4);
       expect(meters.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(7);
-      expect(meters.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(2.33);
-      expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.aggregate_value).toBe(1);
+      expect(meters.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(1.75);
+      expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.aggregate_value).toBe(0);
       expect(meters.meters.find(meter => meter.name === 'max_turns_per_session')?.aggregate_value).toBe(4);
-      expect(meters.meters.find(meter => meter.name === 'median_turns_per_session')?.aggregate_value).toBe(2);
-      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.aggregate_value).toBe(100);
+      expect(meters.meters.find(meter => meter.name === 'median_turns_per_session')?.aggregate_value).toBe(1.5);
+      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.aggregate_value).toBe(0);
       expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.aggregate_value).toBe(1000);
-      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(400);
-      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(940);
+      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(250);
+      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(910);
     });
 
-    it('excludes in-flight first turns from duration meters', async () => {
+    it('includes zero-duration in-flight sessions in duration meters', async () => {
       const store = createStore();
       const start = new Date(Date.now() - 60 * 60 * 1000);
       await store.createSession({
@@ -577,10 +578,10 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(meters.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(2);
       expect(meters.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(2);
       expect(meters.meters.find(meter => meter.name === 'min_turns_per_session')?.aggregate_value).toBe(1);
-      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.aggregate_value).toBe(2000);
+      expect(meters.meters.find(meter => meter.name === 'min_session_duration_ms')?.aggregate_value).toBe(0);
       expect(meters.meters.find(meter => meter.name === 'max_session_duration_ms')?.aggregate_value).toBe(2000);
-      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(2000);
-      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(2000);
+      expect(meters.meters.find(meter => meter.name === 'median_session_duration_ms')?.aggregate_value).toBe(1000);
+      expect(meters.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(1900);
     });
   });
 
