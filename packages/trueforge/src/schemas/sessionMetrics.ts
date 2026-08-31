@@ -32,7 +32,7 @@ export const SessionMetricsMeterNameSchema = z.enum([
 
 /** Wire value `$` needs a Fern-safe identifier for SDK codegen. */
 const SESSION_METRICS_USD_FERN_ENUM = {
-  $: { name: 'Usd' },
+  $: { name: 'USD' },
 } as const;
 
 export const SessionMetricsMeterUnitSchema = z.enum(['count', '$', 'ms']).openapi('SessionMetricsMeterUnit', {
