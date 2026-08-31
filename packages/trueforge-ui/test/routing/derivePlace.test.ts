@@ -7,6 +7,7 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
   return {
     settingsOpen: false,
     libraryOpen: false,
+    sessionsOpen: false,
     libraryAgentId: null,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
@@ -21,6 +22,10 @@ describe('derivePlace', () => {
 
   it('library overlay wins over the chat place when settings is closed', () => {
     expect(derivePlace(snap({ libraryOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'library' });
+  });
+
+  it('sessions browser wins over the chat place when settings is closed', () => {
+    expect(derivePlace(snap({ sessionsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'sessionsBrowser' });
   });
 
   it('library agent detail wins over the library list and chat place', () => {

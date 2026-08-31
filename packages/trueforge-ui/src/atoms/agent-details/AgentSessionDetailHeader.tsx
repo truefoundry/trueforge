@@ -10,7 +10,14 @@ import type { AgentSessionDetailHeaderProps } from './types.js';
 
 export { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 
-export function AgentSessionDetailHeader({ title, sessionId, agentId, onClose }: AgentSessionDetailHeaderProps) {
+export function AgentSessionDetailHeader({
+  title,
+  sessionId,
+  agentId,
+  createdAt,
+  view,
+  onClose,
+}: AgentSessionDetailHeaderProps) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -21,7 +28,7 @@ export function AgentSessionDetailHeader({ title, sessionId, agentId, onClose }:
 
   const copySessionLink = async () => {
     try {
-      await navigator.clipboard.writeText(buildAgentSessionShareUrl({ sessionId, agentId }));
+      await navigator.clipboard.writeText(buildAgentSessionShareUrl({ sessionId, agentId, createdAt, view }));
       setCopied(true);
     } catch {
       // Clipboard may be unavailable; ignore.

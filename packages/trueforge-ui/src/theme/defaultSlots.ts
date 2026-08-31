@@ -16,7 +16,9 @@ import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
 import { AgentSessionDetailHeader } from '../atoms/agent-details/AgentSessionDetailHeader.js';
 import { AgentSessionListRow } from '../atoms/agent-details/AgentSessionListRow.js';
 import { AgentSessionMetricsStrip } from '../atoms/agent-details/AgentSessionMetricsStrip.js';
+import { AgentSessionsFilters } from '../atoms/agent-details/AgentSessionsFilters.js';
 import { AgentSessionTurnHeader } from '../atoms/agent-details/AgentSessionTurnHeader.js';
+import { SessionsPage } from '../atoms/agent-details/SessionsPage.js';
 import type {
   AgentCodeSnippetsProps,
   AgentOverviewProps,
@@ -26,6 +28,7 @@ import type {
 } from '../atoms/agent-details/types.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
+import { SessionsBrowserButton } from '../atoms/SessionsBrowserButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -151,6 +154,7 @@ export const defaultSlots = {
   AgentsLibrary,
   AgentLibraryRow,
   AgentsLibraryButton,
+  SessionsBrowserButton,
   AgentDetailsPage,
   AgentDetailsHeader,
   AgentDetailsTabs,
@@ -158,6 +162,8 @@ export const defaultSlots = {
   AgentOverview,
   AgentOverviewCard,
   AgentSessionDetailHeader,
+  AgentSessionsFilters,
+  SessionsPage,
   AgentSessionEventTimeline,
   AgentSessionEventTimelineChart,
   AgentSessionListRow,

@@ -12,6 +12,7 @@ describe('resolveRoutesConfig', () => {
       libraryAgent: '/library/:agentId',
       agent: '/agents/:agentName',
       session: '/sessions/:sessionId',
+      sessionsBrowser: '/sessions',
     });
   });
 
@@ -44,6 +45,7 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'libraryAgent', agentId: 'agent/id' }, routes)).toBe('/library/agent%2Fid');
     expect(buildPath({ type: 'agent', agentName: 'code-helper' }, routes)).toBe('/agents/code-helper');
     expect(buildPath({ type: 'session', sessionId: 'abc123' }, routes)).toBe('/sessions/abc123');
+    expect(buildPath({ type: 'sessionsBrowser' }, routes)).toBe('/sessions');
   });
 
   it('encodes param values', () => {
@@ -70,6 +72,7 @@ describe('matchPath', () => {
     expect(matchPath('/library', routes)).toEqual({ type: 'library' });
     expect(matchPath('/library/agent%2Fid', routes)).toEqual({ type: 'libraryAgent', agentId: 'agent/id' });
     expect(matchPath('/agents/a%2Fb', routes)).toEqual({ type: 'agent', agentName: 'a/b' });
+    expect(matchPath('/sessions', routes)).toEqual({ type: 'sessionsBrowser' });
     expect(matchPath('/sessions/xyz', routes)).toEqual({ type: 'session', sessionId: 'xyz' });
   });
 
@@ -98,6 +101,7 @@ describe('matchPath', () => {
       { type: 'libraryAgent' as const, agentId: 'agent id/1' },
       { type: 'agent' as const, agentName: 'weird name/1' },
       { type: 'session' as const, sessionId: 'sess 9' },
+      { type: 'sessionsBrowser' as const },
     ]) {
       const path = buildPath(place, routes);
       if (path == null) throw new Error(`Expected a path for ${place.type}`);
@@ -120,6 +124,9 @@ describe('matchLocation', () => {
     expect(matchLocation('/sessions/sess-1', '?agentId=agent-1', routes)).toEqual({
       type: 'session',
       sessionId: 'sess-1',
+    });
+    expect(matchLocation('/sessions', '?agentId=agent-1&view=sessions', routes)).toEqual({
+      type: 'sessionsBrowser',
     });
   });
 });

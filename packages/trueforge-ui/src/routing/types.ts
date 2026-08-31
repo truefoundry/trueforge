@@ -10,7 +10,8 @@ export type RoutePlace =
   | { type: 'session'; sessionId: string }
   | { type: 'settings' }
   | { type: 'library' }
-  | { type: 'libraryAgent'; agentId: string };
+  | { type: 'libraryAgent'; agentId: string }
+  | { type: 'sessionsBrowser' };
 
 /**
  * Host-facing route path customization. Only honored when `withRouter`.
@@ -33,6 +34,8 @@ export type RoutesConfig = {
     agent?: string | false;
     /** Session deep link. `false` disables. Default `'/sessions/:sessionId'`. */
     session?: string | false;
+    /** All-user sessions browser. `false` disables. Default `'/sessions'`. */
+    sessionsBrowser?: string | false;
   };
 };
 
@@ -45,12 +48,14 @@ export type ResolvedRoutes = {
   libraryAgent: string | null;
   agent: string | null;
   session: string | null;
+  sessionsBrowser: string | null;
 };
 
 /** Inputs for deriving the current place from shell + runtime state. */
 export type ShellSnapshot = {
   settingsOpen: boolean;
   libraryOpen: boolean;
+  sessionsOpen: boolean;
   libraryAgentId: string | null;
   pendingSessionId?: string;
   /** Remote id of the active thread once a fresh chat is persisted. */

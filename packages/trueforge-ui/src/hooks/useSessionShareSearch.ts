@@ -1,31 +1,43 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 import {
   readSessionShareSearch,
   replaceSessionShareSearch,
+  SESSION_SHARE_CHANGE_EVENT,
   type SessionShareSearch,
+  type SessionShareWrite,
 } from '../utils/sessionShareUrl.js';
 
+function subscribeShareSearch(onStoreChange: () => void): () => void {
+  window.addEventListener('popstate', onStoreChange);
+  window.addEventListener(SESSION_SHARE_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener('popstate', onStoreChange);
+    window.removeEventListener(SESSION_SHARE_CHANGE_EVENT, onStoreChange);
+  };
+}
+
+function getShareSearchSnapshot(): string {
+  return window.location.search;
+}
+
+function getServerShareSearchSnapshot(): string {
+  return '';
+}
+
 /**
- * Library session share query (`agentId`, `sessionId`) on `window.location`.
+ * Session share query on `window.location`.
  * Does not use react-router, so it works with `withRouter` on or off.
  */
 export function useSessionShareSearch(): SessionShareSearch & {
-  updateShareSearch: (next: { sessionId?: string | null; agentId?: string | null }) => void;
+  updateShareSearch: (next: SessionShareWrite) => void;
 } {
-  const [search, setSearch] = useState(() => readSessionShareSearch(window.location.search));
-
-  useEffect(() => {
-    const sync = () => setSearch(readSessionShareSearch(window.location.search));
-    window.addEventListener('popstate', sync);
-    return () => window.removeEventListener('popstate', sync);
+  const search = useSyncExternalStore(subscribeShareSearch, getShareSearchSnapshot, getServerShareSearchSnapshot);
+  const updateShareSearch = useCallback((next: SessionShareWrite) => {
+    replaceSessionShareSearch(next);
   }, []);
 
-  const updateShareSearch = useCallback((next: { sessionId?: string | null; agentId?: string | null }) => {
-    setSearch(readSessionShareSearch(replaceSessionShareSearch(next)));
-  }, []);
-
-  return { ...search, updateShareSearch };
+  return { ...readSessionShareSearch(search), updateShareSearch };
 }

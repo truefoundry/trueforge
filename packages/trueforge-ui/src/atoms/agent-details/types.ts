@@ -5,7 +5,12 @@ import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/
 import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export type AgentSessionsProps = {
-  agentId: string;
+  /** Library tab locks the list to this agent. Omit on the all-user Sessions page. */
+  agentId?: string;
+  startTimestamp?: string;
+  endTimestamp?: string;
+  /** When `sessions`, selection writes `view=sessions` and pins `s_sts`/`s_ets`. */
+  shareView?: 'sessions' | null;
 };
 
 export type AgentSessionListRowProps = {
@@ -24,7 +29,9 @@ export type AgentSessionListRowProps = {
 export type AgentSessionDetailHeaderProps = {
   title: string;
   sessionId: string;
-  agentId: string;
+  agentId?: string;
+  createdAt?: string;
+  view?: 'sessions' | null;
   onClose: () => void;
 };
 

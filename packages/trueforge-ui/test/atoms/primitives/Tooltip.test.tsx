@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { LightTooltip, Tooltip } from '@/atoms/primitives/Tooltip.js';
+import { clampCenteredTooltip, LightTooltip, Tooltip } from '@/atoms/primitives/Tooltip.js';
 
 describe('Tooltip', () => {
   it('shows and hides on hover while merging the child callbacks', () => {
@@ -89,6 +89,32 @@ describe('Tooltip', () => {
 
     fireEvent.mouseMove(trigger, { clientX: 410 });
     expect(screen.getByRole('tooltip')).toHaveStyle({ left: '410px' });
+  });
+
+  it('clamps a centered tooltip so it stays inside the viewport', () => {
+    expect(
+      clampCenteredTooltip({
+        left: 800,
+        top: 40,
+        width: 320,
+        height: 80,
+        side: 'bottom',
+        viewportWidth: 900,
+        viewportHeight: 600,
+      }),
+    ).toEqual({ left: 732, top: 40 });
+
+    expect(
+      clampCenteredTooltip({
+        left: 10,
+        top: 40,
+        width: 200,
+        height: 80,
+        side: 'bottom',
+        viewportWidth: 900,
+        viewportHeight: 600,
+      }),
+    ).toEqual({ left: 108, top: 40 });
   });
 
   it('opens below the trigger when side is bottom', () => {

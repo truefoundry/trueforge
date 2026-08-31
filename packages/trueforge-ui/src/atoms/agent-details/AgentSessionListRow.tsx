@@ -33,9 +33,11 @@ export function AgentSessionListRow({
             <>
               <Icon name="robot" className="size-3 shrink-0" />
               <span className="truncate">{agentName}</span>
-              <span aria-hidden="true">·</span>
             </>
-          ) : null}
+          ) : (
+            <span>Draft</span>
+          )}
+          <span aria-hidden="true">·</span>
           <span>{relative}</span>
         </span>
         <span className="shrink-0 tabular-nums">{formatSessionListMetrics(metrics)}</span>

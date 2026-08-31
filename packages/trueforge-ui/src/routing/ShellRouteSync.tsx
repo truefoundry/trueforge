@@ -30,6 +30,7 @@ export function ShellRouteSync({
   const snapshot: ShellSnapshot = {
     settingsOpen: shell.settingsOpen,
     libraryOpen: shell.libraryOpen,
+    sessionsOpen: shell.sessionsOpen,
     libraryAgentId: shell.libraryAgentId,
     pendingSessionId: shell.pendingSessionId,
     activeRemoteId,
@@ -92,6 +93,9 @@ export function ShellRouteSync({
         case 'library':
           shell.setLibraryOpen(true);
           return;
+        case 'sessionsBrowser':
+          shell.setSessionsOpen(true);
+          return;
         case 'libraryAgent':
           shell.openLibraryAgent(target.agentId);
           return;
@@ -137,6 +141,8 @@ export function ShellRouteSync({
       shell.setSettingsOpen(true);
     } else if (urlPlace.type === 'library') {
       shell.setLibraryOpen(true);
+    } else if (urlPlace.type === 'sessionsBrowser') {
+      shell.setSessionsOpen(true);
     } else if (urlPlace.type === 'libraryAgent') {
       shell.openLibraryAgent(urlPlace.agentId);
     } else {
@@ -208,6 +214,9 @@ export function ShellRouteSync({
     }
     if (urlPlace.type !== 'library' && urlPlace.type !== 'libraryAgent' && shell.libraryOpen) {
       shell.setLibraryOpen(false);
+    }
+    if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
+      shell.setSessionsOpen(false);
     }
     applyPlace(urlPlace);
     // eslint-disable-next-line react-hooks/exhaustive-deps

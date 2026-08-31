@@ -8,6 +8,7 @@ const DEFAULTS = {
   libraryAgent: '/library/:agentId',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
+  sessionsBrowser: '/sessions',
 } as const;
 
 function normalizePath(path: string): string {
@@ -32,6 +33,7 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
+    sessionsBrowser: resolveOptional(paths?.sessionsBrowser, DEFAULTS.sessionsBrowser),
   };
 }
 
@@ -64,6 +66,8 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.agent == null ? null : fillTemplate(routes.agent, place.agentName);
     case 'session':
       return routes.session == null ? null : fillTemplate(routes.session, place.sessionId);
+    case 'sessionsBrowser':
+      return routes.sessionsBrowser;
   }
 }
 
@@ -106,6 +110,9 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
   }
   if (routes.library != null && normalized === routes.library) {
     return { type: 'library' };
+  }
+  if (routes.sessionsBrowser != null && normalized === routes.sessionsBrowser) {
+    return { type: 'sessionsBrowser' };
   }
   if (routes.libraryAgent != null) {
     const agentId = matchTemplate(routes.libraryAgent, segments);

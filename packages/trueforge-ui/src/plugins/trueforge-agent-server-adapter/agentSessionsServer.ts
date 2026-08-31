@@ -1,13 +1,8 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type {
-  AgentSessionsServer,
-  CodeSnippet,
-  ListResult,
-  SessionEventItem,
-  SessionListEntry,
-} from '../../server/types.js';
+import type { AgentSessionsServer, CodeSnippet, ListResult, SessionListEntry } from '../../server/types.js';
 import { toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { toUiEventItem } from './toUiTurnState.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export type CreateHarnessAgentSessionsServerOptions = CreateTrueForgeClientOptions & {
@@ -55,10 +50,6 @@ function toListResult<TSource, TResult>(
     data,
     ...(token === undefined ? {} : { nextPageToken: token }),
   };
-}
-
-function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem {
-  return { turnId: item.turnId, event: { ...item.event } };
 }
 
 function toSessionListEntry(session: TrueForgeApi.Session): SessionListEntry<HarnessAgentSpec> {

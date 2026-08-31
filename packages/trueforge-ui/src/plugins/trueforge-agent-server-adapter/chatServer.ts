@@ -12,16 +12,9 @@
  * agent. The UI filters with registry `agentId`.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type {
-  AgentChatServer,
-  ListResult,
-  Session,
-  SessionEventItem,
-  Turn,
-  TurnInputItem,
-  UserMessageContent,
-} from '../../server/types.js';
+import type { AgentChatServer, ListResult, Session, Turn, TurnInputItem, UserMessageContent } from '../../server/types.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { toUiEventItem, toUiStreamingEvent, toUiTurnState } from './toUiTurnState.js';
 import type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
@@ -93,16 +86,13 @@ function toUiInput(input: TrueForgeApi.TurnInputItem[]): TurnInputItem[] {
 }
 
 function toUiTurn(turn: TrueForgeApi.Turn): Turn {
-  const { previousTurnId, input, ...rest } = turn;
+  const { previousTurnId, input, state, ...rest } = turn;
   return {
     ...rest,
+    state: toUiTurnState(state),
     ...(previousTurnId === null ? {} : { previousTurnId }),
     ...(input === undefined ? {} : { input: toUiInput(input) }),
   };
-}
-
-function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem {
-  return { turnId: item.turnId, event: { ...item.event } };
 }
 
 interface HarnessPageSource<T> {
@@ -218,7 +208,7 @@ export function createHarnessChatServer(
       for await (const item of stream.withMetadata()) {
         yield {
           sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-          event: { ...item.data },
+          event: toUiStreamingEvent(item.data),
         };
         fallbackSequence += 1;
       }
@@ -241,7 +231,7 @@ export function createHarnessChatServer(
       for await (const item of stream.withMetadata()) {
         yield {
           sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-          event: { ...item.data },
+          event: toUiStreamingEvent(item.data),
         };
         fallbackSequence += 1;
       }

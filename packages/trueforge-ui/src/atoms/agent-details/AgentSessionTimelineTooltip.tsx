@@ -56,7 +56,7 @@ export function SessionTurnTooltip({
   segments: SessionEventTimelineSegment[];
 }) {
   return (
-    <div className="max-h-72 w-72 overflow-auto text-xs text-text-primary">
+    <div className="max-h-72 w-72 max-w-full overflow-auto text-xs text-text-primary">
       <div className="flex items-center justify-between gap-3">
         <span className="font-semibold">{`Turn ${turnNumber}`}</span>
         <span className="tabular-nums text-text-secondary">{formatDurationMs(durationMs)}</span>
@@ -91,7 +91,7 @@ export function SessionTurnTooltip({
 
 export function SessionToolCallGroupTooltip({ group }: { group: TimelineToolCallGroup }) {
   return (
-    <div className="max-h-72 w-80 overflow-auto text-xs">
+    <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-text-secondary">Tool calls</span>
         <span className="tabular-nums text-text-secondary">{formatTimelineDuration(group.endMs - group.startMs)}</span>

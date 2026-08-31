@@ -5,6 +5,48 @@ import { createPortal } from 'react-dom';
 
 import { cn } from '../lib/cn.js';
 
+const TOOLTIP_VIEWPORT_PAD = 8;
+
+/** `left`/`top` are the desired center and top-edge (bottom) or bottom-edge (top). */
+export function clampCenteredTooltip({
+  left,
+  top,
+  width,
+  height,
+  side,
+  viewportWidth,
+  viewportHeight,
+  pad = TOOLTIP_VIEWPORT_PAD,
+}: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  side: 'top' | 'bottom';
+  viewportWidth: number;
+  viewportHeight: number;
+  pad?: number;
+}): { top: number; left: number } {
+  let nextLeft = left;
+  if (width > 0) {
+    const half = width / 2;
+    const minCenter = pad + half;
+    const maxCenter = viewportWidth - pad - half;
+    nextLeft = maxCenter < minCenter ? viewportWidth / 2 : Math.min(maxCenter, Math.max(minCenter, left));
+  }
+
+  let nextTop = top;
+  if (height > 0) {
+    if (side === 'bottom') {
+      const overflow = top + height - (viewportHeight - pad);
+      if (overflow > 0) nextTop = Math.max(pad, top - overflow);
+    } else if (top - height < pad) {
+      nextTop = pad + height;
+    }
+  }
+  return { top: nextTop, left: nextLeft };
+}
+
 // Keep portaled chrome under ThemeProvider so preset/custom CSS vars still apply.
 function themePortalRoot(from: HTMLElement | null): HTMLElement {
   // A native <dialog> opened with showModal() renders in the top layer, above any
@@ -37,7 +79,32 @@ export function Tooltip({
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
   const cursorXRef = useRef<number | null>(null);
+  const placeRef = useRef<() => void>(() => {});
+
+  placeRef.current = () => {
+    const trigger = triggerWrapRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const next = {
+      top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
+      left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
+    };
+    const tooltipEl = tooltipRef.current;
+    setPos(
+      tooltipEl
+        ? clampCenteredTooltip({
+            ...next,
+            width: tooltipEl.offsetWidth,
+            height: tooltipEl.offsetHeight,
+            side,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+          })
+        : next,
+    );
+  };
 
   useLayoutEffect(() => {
     if (!visible) {
@@ -45,16 +112,7 @@ export function Tooltip({
       return;
     }
 
-    const update = () => {
-      const el = triggerWrapRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setPos({
-        top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
-        left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
-      });
-    };
-
+    const update = () => placeRef.current();
     update();
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
@@ -62,7 +120,7 @@ export function Tooltip({
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [followCursor, visible, side]);
+  }, [followCursor, visible, side, content]);
 
   if (!isValidElement(children)) return children;
 
@@ -77,14 +135,7 @@ export function Tooltip({
     onMouseMove(e: React.MouseEvent<Element>) {
       if (followCursor) {
         cursorXRef.current = e.clientX;
-        const el = triggerWrapRef.current;
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          setPos({
-            top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
-            left: e.clientX,
-          });
-        }
+        placeRef.current();
       }
       (p.onMouseMove as ((e: React.MouseEvent<Element>) => void) | undefined)?.(e);
     },
@@ -108,17 +159,19 @@ export function Tooltip({
   });
 
   const tooltip =
-    visible && content != null && pos != null
+    visible && content != null
       ? createPortal(
           <span
+            ref={tooltipRef}
             role="tooltip"
             style={{
-              top: pos.top,
-              left: pos.left,
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
               transform: side === 'bottom' ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+              visibility: pos == null ? 'hidden' : undefined,
             }}
             className={cn(
-              'pointer-events-none fixed z-[200]',
+              'pointer-events-none fixed z-[200] max-w-[calc(100vw-1rem)]',
               'whitespace-nowrap rounded bg-card-bg px-2 py-1 text-xs text-text-primary shadow-md',
               className,
             )}

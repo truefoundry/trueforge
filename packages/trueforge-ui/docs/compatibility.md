@@ -21,7 +21,7 @@ Install once at the app root.
 | ----------------------------------- | ---------- |
 | `@assistant-ui/core`                | `^0.2.22`  |
 | `@assistant-ui/react`               | `^0.14.24` |
-| `@truefoundry/assistant-ui-runtime` | `0.1.18`   |
+| `@truefoundry/assistant-ui-runtime` | `0.1.22`   |
 | `truefoundry-gateway-sdk`           | `^0.4.0`   |
 | `lucide-react`                      | `^0.562.0` |
 

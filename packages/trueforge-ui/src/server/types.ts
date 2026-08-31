@@ -89,6 +89,7 @@ export type {
   SkillMount,
   ToolBase,
   Turn,
+  TurnDoneMetrics,
   TurnInputItem,
   TurnState,
   TurnStreamData,

@@ -302,7 +302,15 @@ describe('buildSessionMetrics', () => {
             output: null,
             requiredActions: [],
             ...{
-              metrics: { totalTokens: 80, totalCostInUsd: 0.5, totalInputTokens: 50, totalOutputTokens: 30 },
+              metrics: {
+                totalTokens: 80,
+                totalCostInUsd: 0.5,
+                totalInputTokens: 50,
+                totalOutputTokens: 30,
+                totalCacheReadTokens: 0,
+                totalCacheWriteTokens: 0,
+                totalReasoningTokens: 0,
+              },
             },
           },
           createdAt: '2026-01-01T00:00:02.000Z',

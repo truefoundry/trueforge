@@ -90,7 +90,15 @@ describe('buildSessionTurnViews', () => {
       completedAt: '2026-01-01T00:01:00.000Z',
       output: null,
       requiredActions: [],
-      metrics: { totalTokens: 122_000, totalCostInUsd: 1.4872 },
+      metrics: {
+        totalTokens: 122_000,
+        totalCostInUsd: 1.4872,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCacheReadTokens: 0,
+        totalCacheWriteTokens: 0,
+        totalReasoningTokens: 0,
+      },
     } satisfies TurnDoneEvent['state'] & {
       metrics: { totalTokens: number; totalCostInUsd: number };
     };

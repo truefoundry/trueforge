@@ -11,7 +11,12 @@ afterEach(() => {
 
 function Probe() {
   const shell = useShellMode();
-  return <div>{shell.libraryAgentId ?? 'none'}</div>;
+  return (
+    <div>
+      <span>{shell.libraryAgentId ?? 'none'}</span>
+      <span>{shell.sessionsOpen ? 'sessions-open' : 'sessions-closed'}</span>
+    </div>
+  );
 }
 
 describe('LibrarySessionShareBoot', () => {
@@ -34,5 +39,18 @@ describe('LibrarySessionShareBoot', () => {
       </ShellModeProvider>,
     );
     expect(getByText('none')).toBeInTheDocument();
+    expect(getByText('sessions-closed')).toBeInTheDocument();
+  });
+
+  it('opens the sessions browser from ?view=sessions without a router', () => {
+    window.history.replaceState(null, '', '/?view=sessions&agentId=agent-1');
+    const { getByText } = render(
+      <ShellModeProvider>
+        <LibrarySessionShareBoot />
+        <Probe />
+      </ShellModeProvider>,
+    );
+    expect(getByText('none')).toBeInTheDocument();
+    expect(getByText('sessions-open')).toBeInTheDocument();
   });
 });

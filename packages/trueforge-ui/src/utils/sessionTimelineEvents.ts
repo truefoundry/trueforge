@@ -1,5 +1,6 @@
 import { MAIN_THREAD_ID } from './sessionEventTimeline.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
+import { parseSandboxArgs, SANDBOX_TOOL_NAMES } from './toolCallParsing.js';
 
 export type TimelineEvent = Record<string, unknown> & { type: string };
 
@@ -122,19 +123,10 @@ export function getSubAgentDescription(event: TimelineEvent): string {
 export function toolCallDescription(toolCall: Record<string, unknown>): string {
   const fn = isRecord(toolCall.function) ? toolCall.function : undefined;
   const name = typeof fn?.name === 'string' ? fn.name : '';
-  if (name === 'sandbox_exec' || name === 'code_sandbox') {
+  if (SANDBOX_TOOL_NAMES.has(name) || name === 'code_sandbox') {
     const argumentsJson = typeof fn?.arguments === 'string' ? fn.arguments : undefined;
-    if (argumentsJson != null && argumentsJson.trim()[0] === '{') {
-      try {
-        const parsed: unknown = JSON.parse(argumentsJson);
-        if (isRecord(parsed) && typeof parsed.intent === 'string' && parsed.intent.trim().length > 0) {
-          return parsed.intent.trim();
-        }
-      } catch {
-        return name;
-      }
-    }
-    return name;
+    const intent = parseSandboxArgs(argumentsJson).intent?.trim();
+    return intent != null && intent.length > 0 ? intent : name;
   }
   return name;
 }

@@ -7,6 +7,7 @@ import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
+import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentSessionsProps } from './types.js';
 
@@ -15,7 +16,7 @@ function sessionTitle(entry: Pick<SessionListEntry, 'title'>): string {
   return title != null && title.length > 0 ? title : 'Untitled session';
 }
 
-export function AgentSessions({ agentId }: AgentSessionsProps) {
+export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
@@ -36,11 +37,13 @@ export function AgentSessions({ agentId }: AgentSessionsProps) {
 
   const listRequest = useMemo(
     () => ({
-      agentId,
       order: 'desc' as const,
       limit: 20,
+      ...(agentId == null || agentId.length === 0 ? {} : { agentId }),
+      ...(startTimestamp == null ? {} : { startTimestamp }),
+      ...(endTimestamp == null ? {} : { endTimestamp }),
     }),
-    [agentId],
+    [agentId, endTimestamp, startTimestamp],
   );
 
   const loadInitialList = useCallback(async () => {
@@ -120,8 +123,14 @@ export function AgentSessions({ agentId }: AgentSessionsProps) {
     };
   }, [chatServer, selectedSessionId, sessionsServer]);
 
-  const selectSession = (sessionId: string) => {
-    updateShareSearch({ sessionId, agentId });
+  const selectSession = (entry: SessionListEntry) => {
+    const pinned = shareView === 'sessions' ? sessionTimeRangeFromCreatedAt(entry.createdAt) : null;
+    updateShareSearch({
+      sessionId: entry.id,
+      ...(shareView === 'sessions'
+        ? { view: 'sessions', ...(pinned == null ? {} : { timeRange: pinned }) }
+        : { agentId: agentId ?? null }),
+    });
   };
 
   const clearSelectedSession = () => {
@@ -160,7 +169,7 @@ export function AgentSessions({ agentId }: AgentSessionsProps) {
                 lastActivityAt={entry.lastActivityAt}
                 metrics={entry.metrics}
                 active={entry.id === selectedSessionId}
-                onSelect={() => selectSession(entry.id)}
+                onSelect={() => selectSession(entry)}
               />
             ))
           )}
@@ -195,6 +204,8 @@ export function AgentSessions({ agentId }: AgentSessionsProps) {
               title={selectedTitle}
               sessionId={selectedSessionId}
               agentId={agentId}
+              createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
+              view={shareView}
               onClose={clearSelectedSession}
             />
             {detailLoading || detailEvents === undefined ? (

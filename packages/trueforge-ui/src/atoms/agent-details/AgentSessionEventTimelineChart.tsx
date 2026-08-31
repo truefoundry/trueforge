@@ -66,6 +66,13 @@ function eventOrder(type: SessionEventTimelineSegment['type']): number {
   return 1;
 }
 
+function turnBarLabelPoint(element: object): { x: number; y: number } | null {
+  if (!('x' in element) || !('y' in element) || !('base' in element)) return null;
+  const { x, y, base } = element;
+  if (typeof x !== 'number' || typeof y !== 'number' || typeof base !== 'number') return null;
+  return { x: (x + base) / 2, y };
+}
+
 export function AgentSessionEventTimelineChart({
   turns,
   segments,
@@ -262,7 +269,9 @@ export function AgentSessionEventTimelineChart({
         ctx.textBaseline = 'middle';
         turnBars.forEach((bar, index) => {
           const element = chart.getDatasetMeta(index).data[0];
-          if (element) ctx.fillText(`T${bar.ordinal + 1}`, element.x, element.y);
+          if (element == null) return;
+          const point = turnBarLabelPoint(element);
+          if (point) ctx.fillText(`T${bar.ordinal + 1}`, point.x, point.y);
         });
         ctx.restore();
       },
