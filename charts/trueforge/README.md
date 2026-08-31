@@ -141,6 +141,8 @@ configs:
     # userRoleClaim: groups
     # adminRoleValue: admin
     # scopes: "openid,profile,email,groups"
+    # Optional email allowlist (exact + * globs). Empty = unrestricted.
+    # allowedEmails: "alice@acme.com,*@partner.com"
 ```
 
 ## Using Secrets

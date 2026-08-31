@@ -1,4 +1,5 @@
 import type { OIDCConfig } from '../config';
+import { assertEmailAllowed } from './emailAllowlist';
 import type { Role, UserContext } from './identity';
 
 /** Raw claims from a decoded ID token; values are untyped until read here. */
@@ -46,6 +47,7 @@ export function resolveRole(claims: IdTokenClaims, config: OIDCConfig): Role {
 
 /** Everything `/callback` (and later `/me`, once sessions are real) needs from a set of claims. */
 export function toUserContext(claims: IdTokenClaims, config: OIDCConfig): UserContext {
+  assertEmailAllowed(claims, config);
   return {
     userRef: resolveUserRef(claims, config),
     role: resolveRole(claims, config),
@@ -65,15 +67,21 @@ export interface AuthorizationRequestParams {
  * login outright if it can't actually produce that claim (e.g. a broken
  * claim mapping) instead of silently omitting it and defaulting the user to
  * non-admin.
+ * When an email allowlist is configured, `email` is also marked essential so
+ * the IdP cannot complete login without a usable address to check.
  */
 export function buildAuthorizationRequestParams(config: OIDCConfig): AuthorizationRequestParams {
+  const idTokenClaims: Record<string, { essential: true }> = {
+    [config.OIDC_USER_REFERENCE_CLAIM]: { essential: true },
+    [config.OIDC_USER_ROLE_CLAIM]: { essential: true },
+  };
+  if (config.OIDC_ALLOWED_EMAILS.length > 0) {
+    idTokenClaims['email'] = { essential: true };
+  }
   return {
     scopes: config.OIDC_SCOPES,
     claims: {
-      id_token: {
-        [config.OIDC_USER_REFERENCE_CLAIM]: { essential: true },
-        [config.OIDC_USER_ROLE_CLAIM]: { essential: true },
-      },
+      id_token: idTokenClaims,
     },
   };
 }

@@ -83,6 +83,9 @@ configs:
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
+    # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
+    # Empty = unrestricted. Matched against the ID token `email` claim.
+    allowedEmails: ""
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
 # defaults no longer pull. We source pinned legacy images from the TrueFoundry

@@ -17,6 +17,7 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_USER_ROLE_CLAIM: 'groups',
   OIDC_ADMIN_ROLE_VALUE: 'admin',
   OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
+  OIDC_ALLOWED_EMAILS: [],
 };
 
 function json(body: unknown, status = 200): Response {
@@ -129,9 +130,14 @@ describe('authMiddleware', () => {
       audience?: string;
       sub?: string;
       groups?: string[];
+      email?: string;
       exp?: string | number;
     }): Promise<string> {
-      return new SignJWT({ groups: params?.groups ?? [] })
+      const claims: Record<string, unknown> = { groups: params?.groups ?? [] };
+      if (params?.email !== undefined) {
+        claims['email'] = params.email;
+      }
+      return new SignJWT(claims)
         .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
         .setIssuer(params?.issuer ?? ISSUER)
         .setAudience(params?.audience ?? AUDIENCE)
@@ -276,6 +282,35 @@ describe('authMiddleware', () => {
       });
       expect(res.status).toBe(403);
       expect(await res.json()).toEqual({ error: { message: 'Admin access required' } });
+    });
+
+    it('returns 401 when the email is outside OIDC_ALLOWED_EMAILS', async () => {
+      enableOidcAuth({
+        client: oidcClient,
+        oidcConfig: { ...OIDC_CONFIG, OIDC_ALLOWED_EMAILS: ['*@company.com'] },
+      });
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'], email: 'alice@elsewhere.com' });
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
+    });
+
+    it('allows a caller whose email matches OIDC_ALLOWED_EMAILS', async () => {
+      enableOidcAuth({
+        client: oidcClient,
+        oidcConfig: { ...OIDC_CONFIG, OIDC_ALLOWED_EMAILS: ['*@company.com'] },
+      });
+      const token = await createIdToken({ sub: 'alice', groups: ['admin'], email: 'alice@company.com' });
+      const res = await createApp().request('/api/v1/models', {
+        headers: { Cookie: `id_token=${token}` },
+      });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        user: { userRef: 'alice', role: 'admin' },
+      });
     });
 
     it.each([

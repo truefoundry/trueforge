@@ -97,6 +97,20 @@ export function parseOidcScopes(raw: string): string[] {
   return scopes;
 }
 
+/**
+ * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
+ * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
+ */
+export function parseOidcAllowedEmails(raw: string | undefined): string[] {
+  if (raw === undefined || raw.trim() === '') {
+    return [];
+  }
+  return raw
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part.length > 0);
+}
+
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
 function parsePositiveInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
   const { envKey, raw, defaultValue } = options;
@@ -261,6 +275,7 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
     OIDC_ADMIN_ROLE_VALUE:
       getEnv('OIDC_ADMIN_ROLE_VALUE', { defaultValue: DEFAULT_OIDC_ADMIN_ROLE_VALUE }) ?? DEFAULT_OIDC_ADMIN_ROLE_VALUE,
     OIDC_SCOPES: parseOidcScopes(getEnv('OIDC_SCOPES', { defaultValue: DEFAULT_OIDC_SCOPES }) ?? DEFAULT_OIDC_SCOPES),
+    OIDC_ALLOWED_EMAILS: parseOidcAllowedEmails(getEnv('OIDC_ALLOWED_EMAILS')),
   };
 }
 
@@ -292,6 +307,12 @@ export interface OIDCConfig {
    * Okta `groups` claims require the `groups` scope; Azure AD app roles typically omit it.
    */
   OIDC_SCOPES: string[];
+  /**
+   * Optional allowlist of emails that may sign in. Env: `OIDC_ALLOWED_EMAILS`.
+   * Comma-separated exact addresses and/or `*` globs (e.g. `alice@acme.com,*@partner.com`).
+   * Matching is case-insensitive against the ID token `email` claim. Empty = unrestricted.
+   */
+  OIDC_ALLOWED_EMAILS: string[];
 }
 
 export interface SharedServerConfiguration {

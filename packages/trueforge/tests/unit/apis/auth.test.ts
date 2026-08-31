@@ -16,6 +16,7 @@ jest.mock('../../../src/config', () => {
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
+    OIDC_ALLOWED_EMAILS: [] as string[],
   };
   const config = {
     STANDALONE: false as const,
@@ -265,6 +266,34 @@ describe('auth router (auth enabled)', () => {
     expect(idTokenCookie).toContain('Max-Age=86400');
   });
 
+  it('GET /callback rejects emails outside OIDC_ALLOWED_EMAILS without setting a session', async () => {
+    const restrictedClient = await initOidc({
+      ...configuredOidc,
+      OIDC_ALLOWED_EMAILS: ['*@company.com'],
+    });
+    if (!restrictedClient) {
+      throw new Error('OIDC client was not initialized');
+    }
+
+    const router = createAuthRouter({ oidcClient: restrictedClient, logger });
+    const loginRes = await router.request('/login', { redirect: 'manual' });
+    const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
+    const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
+    const state = authorizationUrl.searchParams.get('state') ?? '';
+    expect(JSON.parse(authorizationUrl.searchParams.get('claims') ?? '{}')).toEqual({
+      id_token: { sub: { essential: true }, groups: { essential: true }, email: { essential: true } },
+    });
+
+    const callbackRes = await router.request(`/callback?code=abc123&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
+      redirect: 'manual',
+      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}` },
+    });
+
+    expect(callbackRes.status).toBe(302);
+    expect(callbackRes.headers.get('location')).toBe('/?error=login_failed');
+    expect(setCookies(callbackRes).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`))).toBe(false);
+  });
+
   it('GET /callback redirects home with error when the IdP returns an error', async () => {
     const res = await createAuthRouter({ oidcClient, logger }).request(
       '/callback?state=any&error=access_denied&error_description=user%20cancelled',
@@ -321,6 +350,32 @@ describe('auth router (auth enabled)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
+  it('GET /callback clears a leftover cookie outside the allowlist without revealing why', async () => {
+    // Rollout case: allowlist enabled while browsers still hold pre-allowlist id_tokens.
+    // Failure stays generic (`login_failed`) so allowlist membership is not disclosed.
+    const restrictedClient = await initOidc({
+      ...configuredOidc,
+      OIDC_ALLOWED_EMAILS: ['*@company.com'],
+    });
+    if (!restrictedClient) {
+      throw new Error('OIDC client was not initialized');
+    }
+
+    const token = await createIdToken();
+    const res = await createAuthRouter({ oidcClient: restrictedClient, logger }).request(
+      '/callback?code=abc&state=spent',
+      {
+        redirect: 'manual',
+        headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+      },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
+    expect(
+      setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
+    ).toBe(true);
+  });
+
   it('GET /callback replays home when already authenticated even if the IdP returned an error', async () => {
     const token = await createIdToken();
     const res = await createAuthRouter({ oidcClient, logger }).request(
@@ -332,6 +387,33 @@ describe('auth router (auth enabled)', () => {
     );
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/');
+  });
+
+  it('GET /callback keeps login_failed when exchange fails and the leftover cookie is blocked', async () => {
+    const restrictedClient = await initOidc({
+      ...configuredOidc,
+      OIDC_ALLOWED_EMAILS: ['*@company.com'],
+    });
+    if (!restrictedClient) {
+      throw new Error('OIDC client was not initialized');
+    }
+
+    const token = await createIdToken();
+    const router = createAuthRouter({ oidcClient: restrictedClient, logger });
+    const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
+    const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
+    const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
+    const state = authorizationUrl.searchParams.get('state') ?? '';
+
+    const res = await router.request(`/callback?code=abc&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
+      redirect: 'manual',
+      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}; ${ID_TOKEN_COOKIE}=${token}` },
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
+    expect(
+      setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
+    ).toBe(true);
   });
 
   it('GET /callback keeps the existing session when code exchange fails', async () => {
