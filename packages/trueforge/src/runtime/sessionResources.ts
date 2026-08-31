@@ -208,13 +208,14 @@ export async function resolveSandboxProvider({
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
-    if (record.manifest.type !== 'daytona') {
+    const manifest = record.manifest;
+    if (manifest.type !== 'daytona') {
       return toSandboxProviderFromRecord({ record, tenant_id, logger });
     }
     // Clone from the snapshot that was actually built (persisted build_ref), not a name
     // derived from the current image — otherwise an image bump breaks creation until rebuild.
     return toDaytonaSandboxProvider({
-      manifest: record.manifest,
+      manifest,
       tenant_id,
       logger,
       build_metadata: record.build_metadata,
@@ -224,7 +225,7 @@ export async function resolveSandboxProvider({
           tenant_id,
           error,
           build_metadata: record.build_metadata,
-          expected_updated_at: record.updated_at,
+          expected_manifest: manifest,
         });
       },
     });
