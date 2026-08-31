@@ -19,9 +19,9 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { SESSION_EXTERNAL_ID_UQ } from '../../../indexes';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isPgConstraint, isUniqueViolation } from '../../client';
-import { SESSION_EXTERNAL_ID_UQ } from '../../indexes';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
