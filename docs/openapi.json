@@ -1278,6 +1278,25 @@
         ],
         "type": "object"
       },
+      "GetOrCreateSessionByExternalIdRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "external_id": {
+            "description": "Caller-supplied id unique within the tenant.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id",
+          "agent"
+        ],
+        "type": "object"
+      },
       "GetSandboxProviderCatalogResponse": {
         "properties": {
           "data": {
@@ -5998,6 +6017,91 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/sessions/get-or-create-by-external-id": {
+      "post": {
+        "description": "Idempotent get-or-create: returns the existing session for this tenant-scoped `external_id`, or creates one",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session already existed for this external id."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+          }
+        },
+        "summary": "Get or create a session by external id",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_or_create_by_external_id"
       }
     },
     "/api/v1/sessions/{session_id}": {
