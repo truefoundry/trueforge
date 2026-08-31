@@ -1,4 +1,4 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -59,6 +59,7 @@ function mapRowToSessionRecord(row: {
   last_turn_id: string | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
+  metrics: SessionMetrics;
   created_at: Date;
   updated_at: Date;
   last_activity_timestamp_ms: number;
@@ -77,6 +78,7 @@ function mapRowToSessionRecord(row: {
     last_turn_id: row.last_turn_id,
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
+    metrics: row.metrics,
     created_at: row.created_at,
     updated_at: row.updated_at,
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
@@ -100,6 +102,11 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
         external_id: input.external_id ?? null,
+        metrics: json({
+          total_cost_in_usd: 0,
+          total_duration_ms: 0,
+          total_turns: 0,
+        }),
         created_at: new Date(nowMs),
         updated_at: new Date(nowMs),
         last_activity_timestamp_ms: nowMs,
