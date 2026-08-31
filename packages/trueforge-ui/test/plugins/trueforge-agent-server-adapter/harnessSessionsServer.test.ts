@@ -212,6 +212,37 @@ describe('createHarnessSessionsServer', () => {
     ]);
   });
 
+  it('sends Bearer on code-snippets when token is set with relative baseUrl', async () => {
+    const authorizations: string[] = [];
+    const fetchTracking: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/code-snippets')) {
+        const headers = init?.headers;
+        const record =
+          headers instanceof Headers
+            ? Object.fromEntries(headers.entries())
+            : Array.isArray(headers)
+              ? Object.fromEntries(headers)
+              : { ...headers };
+        const value = record.authorization ?? record.Authorization;
+        if (typeof value === 'string') authorizations.push(value);
+      }
+      return fetchMock(input, init);
+    };
+
+    const server = createHarnessSessionsServer({
+      fetch: fetchTracking,
+      token: 'secret-token',
+      baseUrl: '/',
+    });
+    await server.getCodeSnippets({ agentId: 'agt_1' });
+
+    assert.ok(
+      authorizations.some(value => value === 'Bearer secret-token'),
+      `expected Bearer on code-snippets, got ${JSON.stringify(authorizations)}`,
+    );
+  });
+
   it('lists sessions with agent and timestamp filters under ListResult', async () => {
     const server = createHarnessSessionsServer({ fetch: fetchMock });
 

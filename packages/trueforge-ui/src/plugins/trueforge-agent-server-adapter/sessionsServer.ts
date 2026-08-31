@@ -105,7 +105,13 @@ export function createHarnessSessionsServer(
     },
 
     async getCodeSnippets({ agentId }) {
-      const response = await client.fetch(`api/v1/agents/${encodeURIComponent(agentId)}/code-snippets`);
+      // TODO: replace passthrough fetch with a generated SDK method (e.g. client.agents.getCodeSnippets)
+      // once `/code-snippets` is Fern-exported. Relative `baseUrl` (e.g. `/`) skips SDK auth origin
+      // checks on fetch — pass Bearer explicitly when we have `token`.
+      const response = await client.fetch(
+        `api/v1/agents/${encodeURIComponent(agentId)}/code-snippets`,
+        options.token === undefined ? undefined : { headers: { Authorization: `Bearer ${options.token}` } },
+      );
       if (!response.ok) {
         throw new Error(`getCodeSnippets failed: ${response.status} ${response.statusText}`);
       }

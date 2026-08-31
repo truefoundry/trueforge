@@ -82,7 +82,9 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
   return createTrueFoundryServer<HarnessAgentSpec>({
     chatServer: createHarnessChatServer({ client }),
     ...createHarnessBuilderServer({ client }),
-    sessions: createHarnessSessionsServer({ client }),
+    // Keep `token` / `baseUrl` on the sessions adapter so Fern-excluded
+    // `client.fetch` paths can attach Bearer when the SDK origin check skips.
+    sessions: createHarnessSessionsServer({ ...clientOptions, client }),
     catalog,
   });
 }
