@@ -50,9 +50,6 @@ async function runMigrations(input: { db: Kysely<Database>; targetMigrationName:
  *
  * This module lives at `src/db/` (bundled into `dist/main.js`) so the folder is
  * always `…/postgres/migrations` — source or production.
- *
- * Before migrating, ensures the `trueforge` schema exists and moves any legacy
- * `public` app/Kysely tables into it so existing installs keep their history.
  */
 export async function migrateToLatest(db: Kysely<Database>): Promise<void> {
   await runMigrations({ db, targetMigrationName: undefined });
