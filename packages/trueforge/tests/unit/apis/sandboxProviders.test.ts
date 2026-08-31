@@ -149,13 +149,23 @@ describe('sandboxProviders router', () => {
     expect(stored?.manifest).toEqual(putBody);
   });
 
-  it('GET surfaces an error (500) when the status refresh throws', async () => {
+  it('GET marks the provider failed when Daytona denies status refresh access', async () => {
     const { settingsRouter: router } = await createRouters();
     expect((await router.request('/', putInit(putBody))).status).toBe(200);
 
-    mockCheckStatus.mockRejectedValue(new DaytonaError('unreachable', 500));
+    mockCheckStatus.mockRejectedValue(new DaytonaError('Access denied', 403));
     const get = await router.request('/');
-    expect(get.status).toBe(500);
+    expect(get.status).toBe(200);
+    expect(await get.json()).toEqual({
+      data: {
+        manifest: {
+          ...putBody,
+          auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+        },
+        status: 'failed',
+        status_reason: 'Daytona denied access to the configured API key.',
+      },
+    });
   });
 
   it('PUT returns 422 when Daytona rejects the API key', async () => {
