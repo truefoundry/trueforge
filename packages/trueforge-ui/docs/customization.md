@@ -99,7 +99,7 @@ Places mirrored to the URL:
 - `/sessions/:sessionId` — a specific chat session
 - `/settings` — settings overlay (closing navigates to the chat place below it)
 - `/library` — Agents Library
-- `/library/:agentId` — agent Overview, Sessions, and Use In Code (when `server.sessions` is available)
+- `/library/:agentId` — agent details. `?tab=overview|sessions|code` selects the tab (default Overview)
 
 Customize the paths (only honored when `withRouter`). Set any entry to `false`
 to keep that place overlay-only with no URL:
@@ -127,7 +127,9 @@ Notes on behaviour:
   navigation, so host state in `?…` survives switching sessions.
 - A copied library session link is `?agentId=&sessionId=` on the current page
   (plus `/library/:agentId` when `withRouter`). Opening it lands on that
-  agent's Sessions tab. The same query works when `withRouter` is off.
+  agent's Sessions tab. Clicking an agent in the library writes `?tab=overview`
+  so a leftover chat `sessionId` does not open Sessions. The same query works
+  when `withRouter` is off.
 - The all-user Sessions page is `/sessions` when `withRouter` is on, or
   `?view=sessions` when it is off. Agent and time filters live in the query
   (`agentId`, `s_tw` for a relative window, or `s_sts`/`s_ets` for an absolute

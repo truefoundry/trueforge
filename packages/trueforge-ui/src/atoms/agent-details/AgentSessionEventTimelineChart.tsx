@@ -36,7 +36,7 @@ import {
   type TimelineTurnBar,
 } from '../../utils/sessionEventTimelineChart.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
-import { SessionEventTooltip, SessionToolCallGroupTooltip, SessionTurnTooltip } from './AgentSessionTimelineTooltip.js';
+import { hasSessionEventTooltip, SessionEventTooltip, SessionToolCallGroupTooltip, SessionTurnTooltip } from './AgentSessionTimelineTooltip.js';
 import type { AgentSessionEventTimelineChartProps } from './types.js';
 
 ChartJS.register(LinearScale, BarElement, Tooltip);
@@ -89,6 +89,7 @@ export function AgentSessionEventTimelineChart({
   const [widthPx, setWidthPx] = useState(0);
   const [overheadPx, setOverheadPx] = useState(OVERHEAD_PX);
   const [tooltipTarget, setTooltipTarget] = useState<TimelineHoverTarget | null>(null);
+  const [tooltipAnchor, setTooltipAnchor] = useState<{ left: number; top: number } | null>(null);
   const tooltipIdRef = useRef('');
 
   useEffect(() => {
@@ -191,19 +192,30 @@ export function AgentSessionEventTimelineChart({
     [mainEventSegments, subAgentLanes, toolCallGroups, turnBars],
   );
 
-  const barDataset = (
-    label: string,
-    range: TimelineGap,
-    y: number,
-    color: string,
-    hover: string,
-    thickness: number,
+  const barDataset = ({
+    label,
+    range,
+    y,
+    color,
+    hover,
+    thickness,
     order = 1,
-  ) => ({
+    inflateAmount,
+  }: {
+    label: string;
+    range: TimelineGap;
+    y: number;
+    color: string;
+    hover: string;
+    thickness: number;
+    order?: number;
+    inflateAmount?: number;
+  }) => ({
     label,
     data: [{ x: getTimelineRange(range), y }] satisfies BarPoint[],
     backgroundColor: color,
     hoverBackgroundColor: hover,
+    hoverBorderColor: hover,
     borderWidth: 0,
     borderSkipped: false,
     borderRadius: BAR_RADIUS_PX,
@@ -211,46 +223,59 @@ export function AgentSessionEventTimelineChart({
     barThickness: thickness,
     grouped: false,
     order,
+    ...(inflateAmount == null ? {} : { inflateAmount }),
   });
 
   const chartData = useMemo<ChartData<'bar', BarPoint[], string>>(
     () => ({
       datasets: [
-        ...turnBars.map(bar => barDataset(`Turn ${bar.ordinal + 1}`, bar, centers[0] ?? 0, turnFill, turnHover, 16)),
+        ...turnBars.map(bar =>
+          barDataset({
+            label: `Turn ${bar.ordinal + 1}`,
+            range: bar,
+            y: centers[0] ?? 0,
+            color: turnFill,
+            hover: turnHover,
+            thickness: 16,
+          }),
+        ),
         ...subAgentLanes.flatMap(lane =>
           lane.segments.map(segment =>
-            barDataset(
-              `${getSessionEventLabel(segment.type)}: ${segment.title}`,
-              segment,
-              centers[eventRow + 1 + lane.lane] ?? 0,
-              getSessionEventColor(segment.type),
-              getSessionEventHoverColor(segment.type),
-              12,
-              eventOrder(segment.type),
-            ),
+            barDataset({
+              label: `${getSessionEventLabel(segment.type)}: ${segment.title}`,
+              range: segment,
+              y: centers[eventRow + 1 + lane.lane] ?? 0,
+              color: getSessionEventColor(segment.type),
+              hover: getSessionEventHoverColor(segment.type),
+              thickness: 12,
+              order: eventOrder(segment.type),
+              inflateAmount: 0.5,
+            }),
           ),
         ),
         ...mainEventSegments.map(segment =>
-          barDataset(
-            `${getSessionEventLabel(segment.type)}: ${segment.title}`,
-            segment,
-            centers[eventRow] ?? 0,
-            getSessionEventColor(segment.type),
-            getSessionEventHoverColor(segment.type),
-            28,
-            eventOrder(segment.type),
-          ),
+          barDataset({
+            label: `${getSessionEventLabel(segment.type)}: ${segment.title}`,
+            range: segment,
+            y: centers[eventRow] ?? 0,
+            color: getSessionEventColor(segment.type),
+            hover: getSessionEventHoverColor(segment.type),
+            thickness: 28,
+            order: eventOrder(segment.type),
+            inflateAmount: 0.5,
+          }),
         ),
         ...toolCallGroups.map(group =>
-          barDataset(
-            'Parallel tool calls',
-            group,
-            centers[eventRow] ?? 0,
-            getSessionEventColor('tool_call'),
-            getSessionEventHoverColor('tool_call'),
-            28,
-            eventOrder('tool_call'),
-          ),
+          barDataset({
+            label: 'Parallel tool calls',
+            range: group,
+            y: centers[eventRow] ?? 0,
+            color: getSessionEventColor('tool_call'),
+            hover: getSessionEventHoverColor('tool_call'),
+            thickness: 28,
+            order: eventOrder('tool_call'),
+            inflateAmount: 0.5,
+          }),
         ),
       ],
     }),
@@ -300,17 +325,27 @@ export function AgentSessionEventTimelineChart({
         if (target?.type === TIMELINE_TYPE.turn) onSelectTurn?.(target.bar.turnIndex);
       },
       onHover: (event, elements) => {
+        const hoveredDatasetIndex = elements[0]?.datasetIndex;
+        const next = hoveredDatasetIndex == null ? null : (chartTargets[hoveredDatasetIndex] ?? null);
         const native = event.native;
         if (native?.target instanceof HTMLElement) {
-          native.target.style.cursor =
-            chartTargets[elements[0]?.datasetIndex ?? -1]?.type === TIMELINE_TYPE.turn ? 'pointer' : 'default';
+          native.target.style.cursor = next?.type === TIMELINE_TYPE.turn ? 'pointer' : 'default';
         }
-        if (elements[0]?.datasetIndex == null) return;
-        const next = chartTargets[elements[0].datasetIndex] ?? null;
+        // Pointer between bars keeps the current tooltip; a bar without a tooltip dismisses it.
+        if (hoveredDatasetIndex == null) return;
         const nextId = getTimelineHoverTargetId(next);
         if (tooltipIdRef.current === nextId) return;
         tooltipIdRef.current = nextId;
         setTooltipTarget(next);
+        if (next == null) {
+          setTooltipAnchor(null);
+          return;
+        }
+        if (!(native instanceof MouseEvent) || !(native.target instanceof HTMLElement)) return;
+        setTooltipAnchor({
+          left: native.clientX,
+          top: native.target.getBoundingClientRect().bottom,
+        });
       },
       plugins: { legend: { display: false }, tooltip: { enabled: false } },
       scales: {
@@ -364,7 +399,7 @@ export function AgentSessionEventTimelineChart({
         durationMs={tooltipTarget.bar.durationMs}
         segments={segments.filter(segment => segment.turnIndex === tooltipTarget.bar.turnIndex)}
       />
-    ) : tooltipTarget?.type === TIMELINE_TYPE.event ? (
+    ) : tooltipTarget?.type === TIMELINE_TYPE.event && hasSessionEventTooltip(tooltipTarget.segment) ? (
       <SessionEventTooltip
         segment={tooltipTarget.segment}
         subAgentLabel={
@@ -376,12 +411,19 @@ export function AgentSessionEventTimelineChart({
     ) : tooltipTarget?.type === TIMELINE_TYPE.toolCallGroup ? (
       <SessionToolCallGroupTooltip group={tooltipTarget.group} />
     ) : (
-      ''
+      null
     );
 
   return (
     <div ref={wrapperRef} className="w-full" data-slot="agent-session-event-timeline-chart">
-      <LightTooltip title={tooltipContent} side="bottom" triggerClassName="block w-full" followCursor>
+      <LightTooltip
+        title={tooltipContent}
+        side="bottom"
+        triggerClassName="block w-full"
+        followCursor
+        className="max-w-[min(25rem,calc(100vw-1rem))] whitespace-normal"
+        anchor={tooltipAnchor}
+      >
         <div className="w-full" style={containerStyle}>
           <Bar data={chartData} options={chartOptions} plugins={[turnLabelPlugin, overheadPlugin]} />
         </div>

@@ -31,6 +31,17 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('does not render an empty tooltip shell', () => {
+    render(
+      <Tooltip content="">
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Chart' }));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
   it('shows and hides on keyboard focus while merging the child callbacks', () => {
     const onFocus = vi.fn();
     const onBlur = vi.fn();
@@ -89,6 +100,21 @@ describe('Tooltip', () => {
 
     fireEvent.mouseMove(trigger, { clientX: 410 });
     expect(screen.getByRole('tooltip')).toHaveStyle({ left: '410px' });
+  });
+
+  it('pins the tooltip to explicit cursor-anchor coords', () => {
+    render(
+      <Tooltip content="Turn 1" side="bottom" followCursor anchor={{ left: 640, top: 120 }}>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Chart' });
+    fireEvent.mouseEnter(trigger, { clientX: 240 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '640px', top: '126px' });
+
+    fireEvent.mouseMove(trigger, { clientX: 410 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '640px', top: '126px' });
   });
 
   it('clamps a centered tooltip so it stays inside the viewport', () => {

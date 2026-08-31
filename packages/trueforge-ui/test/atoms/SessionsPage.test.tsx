@@ -101,6 +101,19 @@ describe('SessionsPage', () => {
     }
     expect(Date.parse(request.endTimestamp) - Date.parse(request.startTimestamp)).toBe(DEFAULT_SESSION_TIME_WINDOW_MS);
     expect(window.location.search).toContain('view=sessions');
+    expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
+  });
+
+  it('shows the custom range picker only after Custom Time Range is clicked', async () => {
+    renderPage();
+    const timeButton = await screen.findByRole('button', { name: 'Last 30 days' });
+    fireEvent.click(timeButton);
+    expect(screen.getByRole('button', { name: 'Custom Time Range' })).toBeInTheDocument();
+    expect(screen.queryByText('Select Time Range')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Custom Time Range' }));
+    expect(screen.getByText('Select Time Range')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
   });
 
   it('writes a pinned time window when a session is opened and does not require the row to be scrolled into view', async () => {

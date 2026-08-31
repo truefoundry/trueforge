@@ -44,8 +44,8 @@ function SessionMetricTile({
 
 export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripProps) {
   return (
-    <div className="overflow-hidden border-b border-border" data-slot="agent-session-metrics-strip">
-      <div className="-mb-px -mr-px grid grid-cols-2 min-[24rem]:grid-cols-4 min-[48rem]:grid-cols-8">
+    <div className="@container overflow-hidden border-b border-border" data-slot="agent-session-metrics-strip">
+      <div className="-mb-px -mr-px grid grid-cols-3 @min-[24rem]:grid-cols-4 @min-[48rem]:grid-cols-8">
         <SessionMetricTile id="turns" label="Turns" value={metrics.totalTurns} />
         <SessionMetricTile
           id="wall-time"

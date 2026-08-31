@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '@/atoms/AgentsLibraryButton.js';
@@ -21,6 +21,10 @@ beforeAll(() => {
     this.removeAttribute('open');
     this.dispatchEvent(new Event('close'));
   };
+});
+
+afterEach(() => {
+  window.history.replaceState(null, '', '/');
 });
 
 function mockServer(
@@ -119,6 +123,7 @@ describe('AgentsLibrary', () => {
 
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Open alpha-agent' }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('agent-1');
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('overview');
   });
 
   it('lists agents and selects a named agent (Try = immutable)', async () => {

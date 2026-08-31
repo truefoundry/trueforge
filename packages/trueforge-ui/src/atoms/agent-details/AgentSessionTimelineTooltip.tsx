@@ -11,6 +11,10 @@ import {
 import type { TimelineToolCallGroup } from '../../utils/sessionEventTimelineChart.js';
 import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
 
+export function hasSessionEventTooltip(segment: SessionEventTimelineSegment): boolean {
+  return segment.type !== 'system' || segment.description.trim().length > 0;
+}
+
 export function SessionEventTooltip({
   segment,
   subAgentLabel,
@@ -21,11 +25,12 @@ export function SessionEventTooltip({
   const showDuration = !segment.isMarker && !SESSION_EVENT_TOOLTIP_HIDE_DURATION.has(segment.type);
   const content = segment.description.trim();
   if (segment.type === 'system') {
-    return <p className="max-w-xs whitespace-normal break-words text-xs font-medium text-text-primary">{content}</p>;
+    if (content.length === 0) return null;
+    return <p className="max-w-[25rem] whitespace-normal break-words text-xs font-medium text-text-primary">{content}</p>;
   }
 
   return (
-    <div className="max-h-72 max-w-xs overflow-auto whitespace-normal break-words text-xs">
+    <div className="max-h-72 max-w-[25rem] overflow-auto whitespace-normal break-words text-xs">
       {subAgentLabel != null ? (
         <div className="border-b border-border py-1.5 text-text-secondary">{`Sub-Agent: ${subAgentLabel}`}</div>
       ) : null}

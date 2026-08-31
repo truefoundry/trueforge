@@ -48,7 +48,13 @@ describe('AgentSessionMetricsStrip', () => {
     expect(screen.getByText('Tool calls')).toBeInTheDocument();
     expect(screen.getByText('Sub-agents')).toBeInTheDocument();
     expect(screen.getByText('Errors')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="agent-session-metrics-strip"]')).toHaveClass('@container');
     expect(document.querySelector('[data-slot="agent-session-metrics-strip"]')).not.toHaveClass('rounded-md');
+    expect(document.querySelector('[data-slot="agent-session-metrics-strip"] > div')).toHaveClass(
+      'grid-cols-3',
+      '@min-[24rem]:grid-cols-4',
+      '@min-[48rem]:grid-cols-8',
+    );
     expect(document.querySelector('[data-slot="session-metric-wall-time"]')).toHaveClass('w-full');
   });
 });

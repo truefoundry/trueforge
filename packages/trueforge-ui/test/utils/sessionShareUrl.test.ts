@@ -4,6 +4,7 @@ import { describe, it } from 'vitest';
 import {
   DEFAULT_SESSION_TIME_WINDOW_MS,
   defaultSessionTimeRange,
+  libraryAgentTabFromSearch,
   readSessionShareSearch,
   SESSION_TIME_BUFFER_MS,
   sessionTimeRangeFromCreatedAt,
@@ -15,12 +16,14 @@ describe('sessionShareUrl', () => {
     assert.deepEqual(readSessionShareSearch('?sessionId=sess-1&agentId=agent-1'), {
       sessionId: 'sess-1',
       agentId: 'agent-1',
+      tab: null,
       view: null,
       timeRange: null,
     });
     assert.deepEqual(readSessionShareSearch(''), {
       sessionId: null,
       agentId: null,
+      tab: null,
       view: null,
       timeRange: null,
     });
@@ -37,6 +40,7 @@ describe('sessionShareUrl', () => {
     assert.deepEqual(readSessionShareSearch('?s_sts=1000&s_ets=2000'), {
       sessionId: null,
       agentId: null,
+      tab: null,
       view: null,
       timeRange: { startTs: 1000, endTs: 2000 },
     });
@@ -76,12 +80,23 @@ describe('sessionShareUrl', () => {
     });
   });
 
-  it('defaults the sessions filter to the last 30 minutes', () => {
+  it('defaults the sessions filter to the last 30 days', () => {
     const now = 1_700_000_000_000;
     assert.deepEqual(defaultSessionTimeRange(now), {
       startTs: now - DEFAULT_SESSION_TIME_WINDOW_MS,
       endTs: now,
       timeWindowMs: DEFAULT_SESSION_TIME_WINDOW_MS,
     });
+  });
+
+  it('resolves the library details tab from tab= then a matching session share', () => {
+    const share = readSessionShareSearch('?sessionId=sess-1&agentId=agent-1');
+    assert.equal(libraryAgentTabFromSearch(share, 'agent-1'), 'sessions');
+    assert.equal(libraryAgentTabFromSearch(share, 'other-agent'), 'overview');
+    assert.equal(
+      libraryAgentTabFromSearch(readSessionShareSearch('?sessionId=sess-1&tab=overview'), 'agent-1'),
+      'overview',
+    );
+    assert.equal(libraryAgentTabFromSearch(readSessionShareSearch('?tab=code'), 'agent-1'), 'code');
   });
 });

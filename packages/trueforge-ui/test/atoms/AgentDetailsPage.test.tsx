@@ -144,6 +144,25 @@ describe('AgentDetailsPage', () => {
     expect(screen.getByText('timeline-body')).toBeInTheDocument();
   });
 
+  it('stays on Overview when the URL only has an unrelated chat sessionId', async () => {
+    window.history.replaceState(null, '', '/library/agent-1?sessionId=chat-sess');
+    renderPage();
+    expect(await screen.findByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Sessions' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('honors tab= in the URL and writes it when the user switches tabs', async () => {
+    window.history.replaceState(null, '', '/library/agent-1?tab=code');
+    const { getCodeSnippets } = renderPage();
+    expect(await screen.findByRole('tab', { name: 'Use In Code' })).toHaveAttribute('aria-selected', 'true');
+    await screen.findByText('const stream = true;');
+    expect(getCodeSnippets).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('overview');
+  });
+
   it('loads session metadata from getSession when a row is selected', async () => {
     const { getSession, listSessionEvents } = renderPage({
       overrides: { AgentSessionTimelineContainer: () => <div>timeline-body</div> },

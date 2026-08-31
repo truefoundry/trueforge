@@ -57,6 +57,17 @@ function themePortalRoot(from: HTMLElement | null): HTMLElement {
   return from?.closest('.aui-theme-root') ?? document.body;
 }
 
+function hasTooltipContent(content: React.ReactNode): boolean {
+  if (content == null || content === false) return false;
+  if (typeof content === 'string') return content.trim().length > 0;
+  return true;
+}
+
+export type TooltipAnchor = {
+  left: number;
+  top: number;
+};
+
 export type TooltipProps = {
   content: React.ReactNode;
   children: React.ReactElement;
@@ -65,6 +76,8 @@ export type TooltipProps = {
   side?: 'top' | 'bottom';
   dismissOnClick?: boolean;
   followCursor?: boolean;
+  /** When set, tooltip is pinned to these viewport coords instead of the trigger. */
+  anchor?: TooltipAnchor | null;
 };
 
 export function Tooltip({
@@ -75,6 +88,7 @@ export function Tooltip({
   side = 'top',
   dismissOnClick = true,
   followCursor = false,
+  anchor = null,
 }: TooltipProps) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -85,12 +99,17 @@ export function Tooltip({
 
   placeRef.current = () => {
     const trigger = triggerWrapRef.current;
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const next = {
-      top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
-      left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
-    };
+    let next: { top: number; left: number } | null = null;
+    if (anchor != null) {
+      next = { top: side === 'bottom' ? anchor.top + 6 : anchor.top - 6, left: anchor.left };
+    } else if (trigger) {
+      const rect = trigger.getBoundingClientRect();
+      next = {
+        top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
+        left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
+      };
+    }
+    if (next == null) return;
     const tooltipEl = tooltipRef.current;
     setPos(
       tooltipEl
@@ -120,7 +139,7 @@ export function Tooltip({
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [followCursor, visible, side, content]);
+  }, [anchor, followCursor, visible, side, content]);
 
   if (!isValidElement(children)) return children;
 
@@ -133,7 +152,7 @@ export function Tooltip({
       (p.onMouseEnter as ((e: React.MouseEvent<Element>) => void) | undefined)?.(e);
     },
     onMouseMove(e: React.MouseEvent<Element>) {
-      if (followCursor) {
+      if (followCursor && anchor == null) {
         cursorXRef.current = e.clientX;
         placeRef.current();
       }
@@ -159,7 +178,7 @@ export function Tooltip({
   });
 
   const tooltip =
-    visible && content != null
+    visible && hasTooltipContent(content)
       ? createPortal(
           <span
             ref={tooltipRef}
@@ -199,6 +218,7 @@ export type LightTooltipProps = {
   side?: 'top' | 'bottom';
   dismissOnClick?: boolean;
   followCursor?: boolean;
+  anchor?: TooltipAnchor | null;
 };
 
 export function LightTooltip({
@@ -210,6 +230,7 @@ export function LightTooltip({
   side,
   dismissOnClick,
   followCursor,
+  anchor,
 }: LightTooltipProps) {
   return (
     <Tooltip
@@ -219,6 +240,7 @@ export function LightTooltip({
       side={side}
       dismissOnClick={dismissOnClick}
       followCursor={followCursor}
+      anchor={anchor}
     >
       {children}
     </Tooltip>

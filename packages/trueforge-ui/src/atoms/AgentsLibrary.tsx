@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
@@ -131,6 +132,7 @@ export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: Agen
 
 export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const shell = useShellMode();
+  const { updateShareSearch } = useSessionShareSearch();
   const sessionsServer = useOptionalAgentSessionsServer();
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
   const [query, setQuery] = useState('');
@@ -245,7 +247,12 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     agent={agent}
                     showEdit={showEdit}
                     {...(sessionsServer != null && agentId != null
-                      ? { onOpen: () => shell.openLibraryAgent(agentId) }
+                      ? {
+                          onOpen: () => {
+                            updateShareSearch({ tab: 'overview' });
+                            shell.openLibraryAgent(agentId);
+                          },
+                        }
                       : {})}
                     onTry={() => handleTry(agent)}
                     onEdit={() => {
