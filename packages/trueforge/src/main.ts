@@ -345,7 +345,7 @@ try {
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT, hostname: configuration.HOST }, info => {
     logger.info(`Agent server listening on http://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`);
-    // Started here, not at construction: the loops call this server over HTTP.
+    // The controller calls this server over HTTP.
     controller?.start();
   });
 
