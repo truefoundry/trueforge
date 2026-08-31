@@ -134,6 +134,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      external_id: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));

@@ -18,6 +18,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'hydrate-me' }) },
       custom: { tag: 'a' },
+      external_id: null,
     });
     expect(created.agent).toEqual({
       type: 'inline',
@@ -41,6 +42,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -71,6 +73,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const created = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -108,6 +111,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -136,6 +140,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const t1 = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -166,6 +171,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const first = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -198,6 +204,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     await expect(
       session.createTurn({
@@ -235,6 +242,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
 
     // Failure path: resources acquired before the throw must be released.

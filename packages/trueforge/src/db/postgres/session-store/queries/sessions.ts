@@ -101,7 +101,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
-        external_id: input.external_id ?? null,
+        external_id: input.external_id,
         metrics: json({
           total_cost_in_usd: 0,
           total_duration_ms: 0,

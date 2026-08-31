@@ -282,6 +282,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         session_id: sessionId,
         created_by: user.userRef,
         agent: { type: 'reference', id: agent.id, name: agent.name },
+        external_id: null,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
     }
@@ -300,6 +301,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       session_id: sessionId,
       created_by: user.userRef,
       agent: { type: 'inline', spec: body.agent.spec },
+      external_id: null,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };

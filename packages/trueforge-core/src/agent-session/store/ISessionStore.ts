@@ -19,14 +19,9 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id'
 > & {
   custom: TSessionCustom | null;
-  /**
-   * Optional unique key within `tenant_id`. Omit or `null` for no external id.
-   * When set, unique among sessions in that tenant that also have an external id.
-   */
-  external_id?: string | null;
 };
 
 /**

@@ -175,7 +175,7 @@ export class InMemorySessionStore<
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
-    const externalId = input.external_id ?? null;
+    const externalId = input.external_id;
     if (externalId !== null) {
       for (const stored of this.sessions.values()) {
         if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === externalId) {
