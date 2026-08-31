@@ -112,10 +112,10 @@ type DbOrTrx = Kysely<Database> | Transaction<Database>;
 /** Same tx as the turn flip; BEGIN IMMEDIATE serializes concurrent terminal folds. */
 async function addSessionCostAndDuration(
   trx: Transaction<Database>,
-  input: { session_id: string; created_at: Date; state: TerminalTurnState },
+  input: { session_id: string; turn_created_at: Date; turn_state: TerminalTurnState },
 ): Promise<void> {
-  const elapsed_ms = Date.parse(input.state.completed_at) - input.created_at.getTime();
-  const total_cost_in_usd = input.state.metrics?.total_cost_in_usd ?? 0;
+  const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
+  const total_cost_in_usd = input.turn_state.metrics?.total_cost_in_usd ?? 0;
   const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   await trx
     .updateTable('session')
@@ -709,8 +709,8 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
       // Only the winning cancel folds; a freeze of an already-terminal turn is a read.
       await addSessionCostAndDuration(trx, {
         session_id: input.session_id,
-        created_at: new Date(updateResult.created_at),
-        state: cancelledState,
+        turn_created_at: new Date(updateResult.created_at),
+        turn_state: cancelledState,
       });
     }
 
@@ -816,8 +816,8 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
 
     await addSessionCostAndDuration(trx, {
       session_id: input.session_id,
-      created_at: new Date(result.created_at),
-      state: input.state,
+      turn_created_at: new Date(result.created_at),
+      turn_state: input.state,
     });
 
     await trx

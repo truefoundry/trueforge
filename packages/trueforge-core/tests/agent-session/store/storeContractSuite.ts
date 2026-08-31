@@ -1619,6 +1619,54 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
     });
 
+    it('accumulates session.metrics across turn1 done, turn2 cancel, and turn3 create', async () => {
+      const store = createStore();
+      await seedSession(store);
+
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const turn1 = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      const turn1Done = {
+        ...makeDoneTurnState(),
+        completed_at: new Date(mustGet(turn1).created_at.getTime() + 1000).toISOString(),
+        metrics: { total_cost_in_usd: 1.0 },
+      };
+      await store.updateTurnState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: turn1Done,
+        turn_done_event: makeTurnDoneEvent(turn1Done),
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
+      );
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      const turn2 = await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-2',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+      if (turn2.state.status !== 'cancelled') {
+        throw new Error(`expected cancelled turn, got ${turn2.state.status}`);
+      }
+      const turn2DurationMs = Math.max(
+        0,
+        Math.trunc(Date.parse(turn2.state.completed_at) - turn2.created_at.getTime()),
+      );
+
+      await store.createTurn(
+        makeCreateTurnInput({ sessionId, turnId: 'turn-3', previousTurnId: 'turn-2', firstTurnId: 'turn-1' }),
+      );
+
+      const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
+      expect(mustGet(session).metrics).toEqual({
+        total_cost_in_usd: 1.0,
+        total_duration_ms: 1000 + turn2DurationMs,
+        total_turns: 3,
+      });
+    });
+
     it('missing turn → not found', async () => {
       const store = createStore();
       await seedSession(store);

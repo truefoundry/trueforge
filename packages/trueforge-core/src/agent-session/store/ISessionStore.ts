@@ -282,11 +282,8 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * One tx: (a) conditionally cancel a running turn with `reason`; (b) if it
-   * did cancel, insert the caller-built `turn_done_event` and add cost plus
-   * `completed_at − created_at` into `session.metrics` — already-terminal
-   * turns skip the event insert and the metrics fold; (c) return the now-immutable
-   * turn record. Missing turn → {@link TurnNotFoundError}.
+   * Cancel if still running (persist `turn_done` and fold cost/duration into
+   * `session.metrics`); already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
@@ -299,17 +296,9 @@ export interface ISessionStore<
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Writes the terminal state and `turn_done_event` atomically, and adds
-   * `metrics.total_cost_in_usd` plus `completed_at − created_at` into
-   * `session.metrics` in that same unit. Store contract —
-   * **first terminal write wins**:
-   * - Allowed: `running` → `done` | `cancelled` | `error`.
-   * - Rejected with **409** (or equivalent conflict): any write when status is already
-   *   terminal — including done→cancelled, cancelled→done, error→*, terminal→running.
-   * - Missing turn → 404 / not-found.
-   *
-   * Check under the same concurrency control as other turn mutations (lock/CAS) —
-   * not a racy read-then-write outside the critical section.
+   * First terminal write wins (`running` → done/cancelled/error); otherwise 409.
+   * Winning write also folds cost/duration into `session.metrics`. Missing → 404.
+   * Must use the same lock/CAS as other turn mutations.
    */
   updateTurnState(input: UpdateTurnStateInput): Promise<void>;
 
