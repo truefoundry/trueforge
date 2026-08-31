@@ -44,10 +44,14 @@ COPY packages/trueforge-core/src/core/sandbox/scripts packages/trueforge-core/sr
 
 # ---------------------------------------------------------------------------
 # builder: install all deps (incl. dev) and build trueforge-core + server.
+# The server imports @truefoundry/trueforge-sdk (schedule dispatch), so the SDK
+# must be built before `pnpm --filter @truefoundry/trueforge build` (tsc).
 # ---------------------------------------------------------------------------
 FROM workspace AS builder
 RUN pnpm install --frozen-lockfile --offline --filter @truefoundry/trueforge...
 COPY packages/trueforge-core packages/trueforge-core
+COPY packages/trueforge-sdk packages/trueforge-sdk
+RUN pnpm --filter @truefoundry/trueforge-sdk build
 COPY packages/trueforge packages/trueforge
 RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge build
 
@@ -82,9 +86,11 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/packages/trueforge-core/node_modules ./packages/trueforge-core/node_modules
 COPY --from=prod-deps /app/packages/trueforge/node_modules ./packages/trueforge/node_modules
 
-# Built workspace dependency (@truefoundry/trueforge-core).
+# Built workspace dependencies (@truefoundry/trueforge-core + SDK).
 COPY --from=builder /app/packages/trueforge-core/package.json ./packages/trueforge-core/package.json
 COPY --from=builder /app/packages/trueforge-core/dist ./packages/trueforge-core/dist
+COPY --from=builder /app/packages/trueforge-sdk/package.json ./packages/trueforge-sdk/package.json
+COPY --from=builder /app/packages/trueforge-sdk/dist ./packages/trueforge-sdk/dist
 
 # Built server (JS). UI is copied below from the parallel frontend stage into
 # dist/_frontend — same path as the npm tarball / `pnpm build` copy step.
