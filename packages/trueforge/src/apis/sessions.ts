@@ -310,8 +310,17 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const body = c.req.valid('json');
     const user = deps.resolveUserContext(c);
 
-    // Resolved before the insert even when the session already exists: the
-    // agent binding is part of the row, so it cannot be deferred past create.
+    const existing = await deps.sessions.getByExternalId({
+      tenant_id: TENANT_ID,
+      external_id: body.external_id,
+    });
+    if (existing !== undefined) {
+      if (!checkSessionAccess({ userRef: user.userRef, createdBy: existing.record.created_by })) {
+        return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+      }
+      return c.json({ data: toWireSession(existing.record) }, 200);
+    }
+
     let agent: SessionRecord['agent'];
     if (isSessionAgentNameRef(body.agent)) {
       const named = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
