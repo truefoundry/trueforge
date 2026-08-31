@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
@@ -9,7 +10,7 @@ import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
-import { createMockAgentUIServer } from '../server/mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer } from '../server/mockServer.js';
 
 beforeAll(() => {
   // jsdom does not implement HTMLDialogElement showModal/close.
@@ -36,6 +37,39 @@ function mockServer(
   return createMockAgentUIServer({
     searchAgents: vi.fn(async () => agents),
   });
+}
+
+function renderLibrary(
+  ui: ReactNode,
+  {
+    server = mockServer(),
+    agentConfig,
+  }: {
+    server?: AgentUIServer;
+    agentConfig?: Parameters<typeof ShellModeProvider>[0]['agentConfig'];
+  } = {},
+) {
+  return render(
+    <SlotsProvider>
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={agentConfig}>{ui}</ShellModeProvider>
+      </ServerProvider>
+    </SlotsProvider>,
+  );
+}
+
+function LibraryHarness({ children, onSelectAgent }: { children?: ReactNode; onSelectAgent?: (name: string) => void }) {
+  const shell = useShellMode();
+  return (
+    <>
+      <button type="button" onClick={() => shell.setLibraryOpen(true)}>
+        Open library
+      </button>
+      <output data-testid="library-agent-id">{shell.libraryAgentId ?? ''}</output>
+      <AgentsLibrary onSelectAgent={onSelectAgent} />
+      {children}
+    </>
+  );
 }
 
 describe('CenteredModal', () => {
@@ -70,32 +104,41 @@ describe('CenteredModal', () => {
 });
 
 describe('AgentsLibrary', () => {
+  it('opens agent details from the row only when the optional server is available', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'agent-1' }]),
+      sessions: createMockAgentSessionsServer({
+        getAgent: vi.fn(),
+        getCodeSnippets: vi.fn(),
+      }),
+    });
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Open alpha-agent' }));
+    expect(screen.getByTestId('library-agent-id')).toHaveTextContent('agent-1');
+  });
+
   it('lists agents and selects a named agent (Try = immutable)', async () => {
     const server = mockServer([
       { name: 'alpha-agent', agentId: 'alpha-agent' },
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
     const onSelectAgent = vi.fn();
-    const onOpenChange = vi.fn();
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibrary open onOpenChange={onOpenChange} onSelectAgent={onSelectAgent} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server });
 
-    expect(screen.getByRole('dialog', { name: 'Agents Library' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Agents Library' })).not.toBeInTheDocument();
+    });
   });
 
   it('shows Edit when composer is enabled and agentSpec is present', async () => {
@@ -108,15 +151,12 @@ describe('AgentsLibrary', () => {
       { name: 'try-only', agentId: 'try-only' },
     ]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Edit agent writer' })).toBeInTheDocument();
@@ -139,15 +179,12 @@ describe('AgentsLibrary', () => {
       { name: 'bare', agentId: 'bare' },
     ]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
       expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
@@ -167,15 +204,12 @@ describe('AgentsLibrary', () => {
       },
     ]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider agentConfig={{ mode: 'AgentLibrary' }}>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibrary' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent writer' })).toBeInTheDocument();
@@ -186,15 +220,9 @@ describe('AgentsLibrary', () => {
   it('shows create-one guidance when there are no agents yet', async () => {
     const server = mockServer([]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, { server });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
       expect(screen.getByText('No agents yet. Build one in a chat, then save it as an agent.')).toBeInTheDocument();
@@ -204,15 +232,9 @@ describe('AgentsLibrary', () => {
   it('shows a no-matches message (not the create-one guidance) when a search returns nothing', async () => {
     const server = mockServer([]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, { server });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'zzz' } });
 
@@ -221,24 +243,33 @@ describe('AgentsLibrary', () => {
     });
     expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
+
+  it('closes via the back button', () => {
+    renderLibrary(<LibraryHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.queryByRole('heading', { name: 'Agents Library' })).not.toBeInTheDocument();
+  });
 });
 
 describe('AgentsLibraryButton', () => {
-  it('opens the Agents Library dialog from the trigger', async () => {
+  it('opens the Agents Library panel from the trigger', async () => {
     const server = mockServer([{ name: 'alpha-agent', agentId: 'alpha-agent' }]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibraryButton />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
+    renderLibrary(
+      <>
+        <AgentsLibraryButton />
+        <AgentsLibrary />
+      </>,
+      { server },
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Agents Library/ }));
-    expect(screen.getByRole('dialog', { name: 'Agents Library' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Agents Library/ })).toHaveAttribute('aria-current', 'page');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
@@ -263,15 +294,12 @@ describe('AgentsLibraryButton', () => {
       );
     }
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibraryButton />
-            <Invalidate />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
+    renderLibrary(
+      <>
+        <AgentsLibraryButton />
+        <Invalidate />
+      </>,
+      { server },
     );
 
     await waitFor(() => {
@@ -293,15 +321,7 @@ describe('AgentsLibraryButton', () => {
     }));
     const server = mockServer(agents);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibraryButton />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<AgentsLibraryButton />, { server });
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Agents Library \(50\+\)/ })).toBeInTheDocument();
@@ -312,15 +332,7 @@ describe('AgentsLibraryButton', () => {
     const searchAgents = vi.fn(async () => [{ name: 'alpha', agentId: 'alpha' }]);
     const server = createMockAgentUIServer({ searchAgents });
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibraryButton compact />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<AgentsLibraryButton compact />, { server });
 
     expect(screen.getByRole('button', { name: 'Agents Library' })).toBeInTheDocument();
     expect(searchAgents).not.toHaveBeenCalled();

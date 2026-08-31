@@ -3,6 +3,8 @@ import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 const DEFAULTS = {
   root: '/',
   settings: '/settings',
+  library: '/library',
+  libraryAgent: '/library/:agentId',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
 } as const;
@@ -25,6 +27,8 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     basename: routes?.basename ?? '',
     root: normalizePath(paths?.root ?? DEFAULTS.root),
     settings: resolveOptional(paths?.settings, DEFAULTS.settings),
+    library: resolveOptional(paths?.library, DEFAULTS.library),
+    libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
   };
@@ -51,6 +55,10 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.root;
     case 'settings':
       return routes.settings;
+    case 'library':
+      return routes.library;
+    case 'libraryAgent':
+      return routes.libraryAgent == null ? null : fillTemplate(routes.libraryAgent, place.agentId);
     case 'agent':
       return routes.agent == null ? null : fillTemplate(routes.agent, place.agentName);
     case 'session':
@@ -95,6 +103,13 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
   if (routes.settings != null && normalized === routes.settings) {
     return { type: 'settings' };
   }
+  if (routes.library != null && normalized === routes.library) {
+    return { type: 'library' };
+  }
+  if (routes.libraryAgent != null) {
+    const agentId = matchTemplate(routes.libraryAgent, segments);
+    if (agentId != null) return { type: 'libraryAgent', agentId };
+  }
   if (routes.agent != null) {
     const agentName = matchTemplate(routes.agent, segments);
     if (agentName != null) return { type: 'agent', agentName };
@@ -112,6 +127,7 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
 export function placesEqual(a: RoutePlace, b: RoutePlace): boolean {
   if (a.type !== b.type) return false;
   if (a.type === 'agent' && b.type === 'agent') return a.agentName === b.agentName;
+  if (a.type === 'libraryAgent' && b.type === 'libraryAgent') return a.agentId === b.agentId;
   if (a.type === 'session' && b.type === 'session') return a.sessionId === b.sessionId;
   return true;
 }

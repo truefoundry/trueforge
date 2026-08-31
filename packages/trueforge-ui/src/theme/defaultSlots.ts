@@ -1,3 +1,4 @@
+import { lazy, type ComponentType } from 'react';
 import { Accordion, AccordionDetails, AccordionSummary } from '../atoms/primitives/Accordion.js';
 
 import { AgentStepsCard } from '../atoms/adapters/AgentStepsCardAdapter.js';
@@ -6,7 +7,14 @@ import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
 import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
 
-import { AgentsLibrary } from '../atoms/AgentsLibrary.js';
+import { AgentCodeBlock } from '../atoms/agent-details/AgentCodeBlock.js';
+import { AgentDetailsHeader } from '../atoms/agent-details/AgentDetailsHeader.js';
+import { AgentDetailsPage } from '../atoms/agent-details/AgentDetailsPage.js';
+import { AgentDetailsTabs } from '../atoms/agent-details/AgentDetailsTabs.js';
+import { AgentDetailsUnavailable } from '../atoms/agent-details/AgentDetailsUnavailable.js';
+import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
+import type { AgentCodeSnippetsProps, AgentOverviewProps } from '../atoms/agent-details/types.js';
+import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
@@ -56,6 +64,12 @@ import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
 import { WelcomeScreen } from '../atoms/WelcomeScreen.js';
 import { BrandLogo } from './brand.js';
 import type { AtomSlots } from './SlotsProvider.js';
+
+const AgentOverview: ComponentType<AgentOverviewProps> = lazy(() => import('../atoms/agent-details/AgentOverview.js'));
+const AgentSessions: ComponentType = lazy(() => import('../atoms/agent-details/AgentSessions.js'));
+const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
+  () => import('../atoms/agent-details/AgentCodeSnippets.js'),
+);
 
 // ponytail: primitives stay CSS/token-styled (not slots) — see docs/customization.md.
 // import { Button } from "../atoms/primitives/Button.js";
@@ -113,7 +127,17 @@ export const defaultSlots = {
   ThreadListRow,
   ThreadListNewButton,
   AgentsLibrary,
+  AgentLibraryRow,
   AgentsLibraryButton,
+  AgentDetailsPage,
+  AgentDetailsHeader,
+  AgentDetailsTabs,
+  AgentDetailsUnavailable,
+  AgentOverview,
+  AgentOverviewCard,
+  AgentSessions,
+  AgentCodeSnippets,
+  AgentCodeBlock,
   SaveAgentButton,
   SelectAgentEmptyState,
   ClearChatButton,

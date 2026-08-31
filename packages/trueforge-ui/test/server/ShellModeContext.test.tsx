@@ -68,6 +68,41 @@ describe('ShellModeProvider', () => {
     expect(result.current.settingsSection).toBe('connectors');
   });
 
+  it('closes the library when settings opens and vice versa', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.setLibraryOpen(true));
+    expect(result.current.libraryOpen).toBe(true);
+    expect(result.current.settingsOpen).toBe(false);
+
+    act(() => result.current.setSettingsOpen(true));
+    expect(result.current.settingsOpen).toBe(true);
+    expect(result.current.libraryOpen).toBe(false);
+
+    act(() => result.current.setLibraryOpen(true));
+    expect(result.current.libraryOpen).toBe(true);
+    expect(result.current.settingsOpen).toBe(false);
+  });
+
+  it('opens agent details and returns to the library list', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openLibraryAgent('agent-1'));
+    expect(result.current.libraryOpen).toBe(true);
+    expect(result.current.libraryAgentId).toBe('agent-1');
+
+    act(() => result.current.closeLibraryAgent());
+    expect(result.current.libraryOpen).toBe(true);
+    expect(result.current.libraryAgentId).toBeNull();
+
+    act(() => result.current.setLibraryAgentId('agent-2'));
+    expect(result.current.libraryAgentId).toBe('agent-2');
+
+    act(() => result.current.setLibraryOpen(false));
+    expect(result.current.libraryOpen).toBe(false);
+    expect(result.current.libraryAgentId).toBeNull();
+  });
+
   it('defaults to AgentLibraryWithComposer (mutable + library)', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true, locked: false });

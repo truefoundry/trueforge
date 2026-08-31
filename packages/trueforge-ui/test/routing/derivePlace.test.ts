@@ -6,6 +6,8 @@ import type { ShellSnapshot } from '@/routing/types.js';
 function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
   return {
     settingsOpen: false,
+    libraryOpen: false,
+    libraryAgentId: null,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -15,6 +17,21 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
 describe('derivePlace', () => {
   it('settings overlay wins over the chat place', () => {
     expect(derivePlace(snap({ settingsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'settings' });
+  });
+
+  it('library overlay wins over the chat place when settings is closed', () => {
+    expect(derivePlace(snap({ libraryOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'library' });
+  });
+
+  it('library agent detail wins over the library list and chat place', () => {
+    expect(derivePlace(snap({ libraryOpen: true, libraryAgentId: 'agent-1', pendingSessionId: 'abc' }))).toEqual({
+      type: 'libraryAgent',
+      agentId: 'agent-1',
+    });
+  });
+
+  it('settings overlay wins over library', () => {
+    expect(derivePlace(snap({ settingsOpen: true, libraryOpen: true }))).toEqual({ type: 'settings' });
   });
 
   it('pendingSessionId maps to a session while no thread has reported yet', () => {

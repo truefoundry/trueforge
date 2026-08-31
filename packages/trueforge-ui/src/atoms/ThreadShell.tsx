@@ -78,7 +78,7 @@ export const MessageGroup = forwardRef<HTMLDivElement, MessageGroupProps>(({ cla
   <div
     ref={ref}
     data-slot="aui_message-group"
-    className={cn('flex flex-col gap-y-6 empty:hidden', className)}
+    className={cn('flex flex-col gap-y-4 empty:hidden', className)}
     {...rest}
   />
 ));

@@ -8,7 +8,9 @@ export type RoutePlace =
   | { type: 'root' }
   | { type: 'agent'; agentName: string }
   | { type: 'session'; sessionId: string }
-  | { type: 'settings' };
+  | { type: 'settings' }
+  | { type: 'library' }
+  | { type: 'libraryAgent'; agentId: string };
 
 /**
  * Host-facing route path customization. Only honored when `withRouter`.
@@ -23,6 +25,10 @@ export type RoutesConfig = {
     root?: string;
     /** Settings overlay. `false` keeps settings overlay-only (no URL). Default `'/settings'`. */
     settings?: string | false;
+    /** Agents Library overlay. `false` keeps library overlay-only (no URL). Default `'/library'`. */
+    library?: string | false;
+    /** Agent detail under the library. Default `'/library/:agentId'`. */
+    libraryAgent?: string | false;
     /** Immutable "Try" agent. `false` disables. Default `'/agents/:agentName'`. */
     agent?: string | false;
     /** Session deep link. `false` disables. Default `'/sessions/:sessionId'`. */
@@ -35,6 +41,8 @@ export type ResolvedRoutes = {
   basename: string;
   root: string;
   settings: string | null;
+  library: string | null;
+  libraryAgent: string | null;
   agent: string | null;
   session: string | null;
 };
@@ -42,6 +50,8 @@ export type ResolvedRoutes = {
 /** Inputs for deriving the current place from shell + runtime state. */
 export type ShellSnapshot = {
   settingsOpen: boolean;
+  libraryOpen: boolean;
+  libraryAgentId: string | null;
   pendingSessionId?: string;
   /** Remote id of the active thread once a fresh chat is persisted. */
   activeRemoteId?: string;

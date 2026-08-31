@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   ServerProvider,
+  useAgentSessionsServer,
   useCatalogServer,
+  useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
   useOptionalRefreshServerCapabilities,
   useOptionalServer,
@@ -13,7 +15,7 @@ import {
   useServerCapabilities,
 } from '@/server/ServerContext.js';
 import type { AgentUIServer, CatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer } from './mockServer.js';
 
 const catalog: CatalogServer = {
   modelCatalog: {
@@ -162,6 +164,27 @@ describe('useCatalogServer', () => {
     const { result } = renderHook(() => useOptionalCatalogServer(), {
       wrapper: wrap(server),
     });
+    expect(result.current).toBeNull();
+  });
+
+  it('provides the optional agent sessions server', () => {
+    const sessions = createMockAgentSessionsServer({
+      getAgent: vi.fn(),
+      getCodeSnippets: vi.fn(),
+    });
+    const server = createMockAgentUIServer({ sessions });
+    const required = renderHook(() => useAgentSessionsServer(), { wrapper: wrap(server) });
+    const optional = renderHook(() => useOptionalAgentSessionsServer(), { wrapper: wrap(server) });
+    expect(required.result.current).toBe(sessions);
+    expect(optional.result.current).toBe(sessions);
+  });
+
+  it('handles an omitted agent sessions server', () => {
+    const server = createMockAgentUIServer();
+    expect(() => renderHook(() => useAgentSessionsServer(), { wrapper: wrap(server) })).toThrow(
+      /requires AgentUIServer\.sessions/,
+    );
+    const { result } = renderHook(() => useOptionalAgentSessionsServer(), { wrapper: wrap(server) });
     expect(result.current).toBeNull();
   });
 });

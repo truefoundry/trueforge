@@ -143,6 +143,7 @@ function ThreadListItemRow({
         onSelect={() => {
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
+          shell?.setLibraryOpen(false);
 
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
           const sessionMutable = threadListItemIsMutable(custom);
@@ -321,6 +322,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
   const handleNewChat = () => {
     onThreadOpen?.();
+    shell?.setLibraryOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
       return;
@@ -349,11 +351,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
       header={
         <div className="flex flex-col gap-1">
           {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-          <AgentsLibraryButton
-            onSelectAgent={() => {
-              onThreadOpen?.();
-            }}
-          />
+          <AgentsLibraryButton />
         </div>
       }
     >

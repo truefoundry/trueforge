@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AgentBuilderCapabilitiesResponse, AgentUIServer, CatalogServer } from './types.js';
+import type { AgentBuilderCapabilitiesResponse, AgentSessionsServer, AgentUIServer, CatalogServer } from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
 const ServerCapabilitiesContext = createContext<{
@@ -79,4 +79,16 @@ export function useCatalogServer(): CatalogServer {
 
 export function useOptionalCatalogServer(): CatalogServer | null {
   return useOptionalServer()?.catalog ?? null;
+}
+
+export function useAgentSessionsServer(): AgentSessionsServer {
+  const sessions = useServer().sessions;
+  if (sessions == null) {
+    throw new Error('useAgentSessionsServer requires AgentUIServer.sessions.');
+  }
+  return sessions;
+}
+
+export function useOptionalAgentSessionsServer(): AgentSessionsServer | null {
+  return useOptionalServer()?.sessions ?? null;
 }

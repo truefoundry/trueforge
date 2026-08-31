@@ -90,6 +90,8 @@ Places mirrored to the URL:
 - `/agents/:agentName` — immutable "Try" of a library agent
 - `/sessions/:sessionId` — a specific chat session
 - `/settings` — settings overlay (closing navigates to the chat place below it)
+- `/library` — Agents Library
+- `/library/:agentId` — agent Overview, Sessions, and Use In Code (when `server.sessions` is available)
 
 Customize the paths (only honored when `withRouter`). Set any entry to `false`
 to keep that place overlay-only with no URL:
@@ -100,12 +102,12 @@ to keep that place overlay-only with no URL:
   withRouter
   routes={{
     basename: '/app',
-    paths: { session: '/chats/:sessionId', settings: false },
+    paths: { session: '/chats/:sessionId', libraryAgent: '/library/:agentId', settings: false },
   }}
 />
 ```
 
-Custom `agent` / `session` templates must keep their `:param` segment, or the
+Custom `agent` / `session` / `libraryAgent` templates must keep their `:param` segment, or the
 place can be written to the URL but not read back.
 
 Shell state stays the source of truth; the router mirrors it. Combining

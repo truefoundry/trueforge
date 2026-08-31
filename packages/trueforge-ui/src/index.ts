@@ -239,7 +239,9 @@ export {
 export type { CustomActionRendererProps, CustomActionRenderers } from './server/CustomActionRenderersContext.js';
 export {
   ServerProvider,
+  useAgentSessionsServer,
   useCatalogServer,
+  useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
   useOptionalServer,
   useServer,
@@ -258,13 +260,17 @@ export type {
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
   AgentChatServer,
+  AgentDetail,
   AgentLibraryEntry,
+  AgentSessionsServer,
   AgentSkill,
   AgentSpec,
   AgentUIServer,
   ApprovalDecision,
   AuthenticateConnectorRequest,
   CatalogServer,
+  CodeSnippet,
+  CodeSnippetSampleCode,
   ConnectorAuth,
   ConnectorAuthApiKey,
   ConnectorAuthNone,
@@ -290,6 +296,7 @@ export type {
   GithubSkill,
   ImportGithubSkillRequest,
   ListResult,
+  ListSessionEventsParams,
   ListSessionsOrder,
   ListSessionsParams,
   McpServerMount,
@@ -320,6 +327,8 @@ export type {
   SelectRegistrySkillRequest,
   Session,
   SessionEventItem,
+  SessionListEntry,
+  SessionListMetrics,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,
@@ -340,6 +349,24 @@ export type {
   UserToolApprovalEvent,
   UserToolResponseEvent,
 } from './server/types.js';
+
+export { AgentCodeBlock } from './atoms/agent-details/AgentCodeBlock.js';
+export { AgentDetailsHeader } from './atoms/agent-details/AgentDetailsHeader.js';
+export { AgentDetailsPage } from './atoms/agent-details/AgentDetailsPage.js';
+export { AgentDetailsTabs } from './atoms/agent-details/AgentDetailsTabs.js';
+export { AgentDetailsUnavailable } from './atoms/agent-details/AgentDetailsUnavailable.js';
+export { AgentOverviewCard } from './atoms/agent-details/AgentOverviewCard.js';
+export type {
+  AgentCodeBlockProps,
+  AgentCodeSnippetsProps,
+  AgentDetailsHeaderProps,
+  AgentDetailsPageProps,
+  AgentDetailsTab,
+  AgentDetailsTabsProps,
+  AgentDetailsUnavailableProps,
+  AgentOverviewCardProps,
+  AgentOverviewProps,
+} from './atoms/agent-details/types.js';
 
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
