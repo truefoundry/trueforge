@@ -8,6 +8,7 @@ import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { DEFAULT_SESSION_TIME_WINDOW_MS, SESSION_TIME_BUFFER_MS } from '@/utils/sessionShareUrl.js';
+import { toDateTimeLocalValue } from '@/utils/sessionTimePresets.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 const namedRow: SessionListEntry = {
@@ -71,6 +72,7 @@ function renderPage({
 
 describe('SessionsPage', () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     window.history.replaceState(null, '', '/');
   });
 
@@ -118,9 +120,31 @@ describe('SessionsPage', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
   });
 
+  it('does not apply a custom range inverted by the 70-day clamp', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-08-31T12:00:00.000Z'));
+    const listSessions = vi.fn(async () => ({ data: [namedRow, draftRow] }));
+    renderPage({ listSessions });
+    fireEvent.click(await screen.findByRole('button', { name: 'Last 30 days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Custom Time Range' }));
+    fireEvent.change(screen.getByLabelText('From'), {
+      target: { value: toDateTimeLocalValue(Date.parse('2026-05-01T00:00:00.000Z')) },
+    });
+    fireEvent.change(screen.getByLabelText('To'), {
+      target: { value: toDateTimeLocalValue(Date.parse('2026-05-02T00:00:00.000Z')) },
+    });
+    const requestsBeforeApply = listSessions.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(listSessions).toHaveBeenCalledTimes(requestsBeforeApply);
+    expect(screen.getByText('Select Time Range')).toBeInTheDocument();
+  });
+
   it('writes a pinned time window when a session is opened and does not require the row to be scrolled into view', async () => {
-    renderPage();
+    const { listSessions } = renderPage();
+    const mockedListSessions = vi.mocked(listSessions);
     const row = await screen.findByText('Named session');
+    const initialListRequest = mockedListSessions.mock.calls[0]?.[0];
     fireEvent.click(row.closest('button') ?? row);
     await waitFor(() => {
       const params = new URLSearchParams(window.location.search);
@@ -131,6 +155,9 @@ describe('SessionsPage', () => {
       expect(params.get('s_sts')).toBe(String(createdAtMs - SESSION_TIME_BUFFER_MS));
       expect(params.get('s_ets')).toBe(String(createdAtMs + SESSION_TIME_BUFFER_MS));
     });
+    // Pinning makes refresh/deep-link boot find the selected row, but must not
+    // replace the active list filter during this mounted interaction.
+    expect(mockedListSessions.mock.calls.every(([request]) => request === initialListRequest)).toBe(true);
     expect(screen.getByRole('heading', { name: 'Named session' })).toBeInTheDocument();
   });
 });

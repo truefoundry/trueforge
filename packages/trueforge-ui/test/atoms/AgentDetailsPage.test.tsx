@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDetailsPage } from '@/atoms/agent-details/AgentDetailsPage.js';
+import { AgentSessions } from '@/atoms/agent-details/AgentSessions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type { AgentDetail, CodeSnippet, Session, SessionEventItem, SessionListEntry } from '@/server/types.js';
@@ -40,6 +41,18 @@ const sessionRows: SessionListEntry[] = [
     agentName: 'release-notes-writer',
   },
 ];
+
+function deferred<T>() {
+  let settle: ((value: T) => void) | undefined;
+  return {
+    promise: new Promise<T>(resolve => {
+      settle = resolve;
+    }),
+    resolve(value: T) {
+      settle?.(value);
+    },
+  };
+}
 
 function renderPage({
   getAgent = vi.fn(async () => detail),
@@ -129,6 +142,72 @@ describe('AgentDetailsPage', () => {
     expect(listSessions).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: 'agent-1', order: 'desc', limit: 20 }),
     );
+  });
+
+  it('ignores a stale list response after the agent filter changes', async () => {
+    const first = deferred<{ data: SessionListEntry[] }>();
+    const second = deferred<{ data: SessionListEntry[] }>();
+    const listSessions = vi.fn((request?: { agentId?: string }) =>
+      request?.agentId === 'agent-1' ? first.promise : second.promise,
+    );
+    const server = createMockAgentUIServer({
+      sessions: {
+        getAgent: vi.fn(async () => detail),
+        getCodeSnippets: vi.fn(async () => snippets),
+        listSessions,
+        listSessionEvents: vi.fn(async () => ({ data: [] })),
+      },
+    });
+    const ui = (agentId: string) => (
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentSessions agentId={agentId} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>
+    );
+    const view = render(ui('agent-1'));
+    view.rerender(ui('agent-2'));
+
+    await act(async () => {
+      second.resolve({
+        data: [
+          {
+            id: 'sess-2',
+            title: 'Second agent session',
+            createdAt: '2026-01-03T00:00:00.000Z',
+            updatedAt: '2026-01-03T00:01:00.000Z',
+            lastActivityAt: '2026-01-03T00:01:00.000Z',
+            metrics: { totalTurns: 1, totalCostInUsd: 0, totalDurationMs: 1000 },
+            agentName: 'second-agent',
+          },
+        ],
+      });
+    });
+    expect(await screen.findByText('Second agent session')).toBeInTheDocument();
+
+    await act(async () => {
+      first.resolve({ data: sessionRows });
+    });
+    expect(screen.queryByText('Release notes draft')).not.toBeInTheDocument();
+  });
+
+  it('keeps loaded rows visible when loading another page fails', async () => {
+    const listSessions = vi.fn(async (request?: { pageToken?: string }) => {
+      if (request?.pageToken != null) throw new Error('network error');
+      return { data: sessionRows, nextPageToken: 'next-page' };
+    });
+    renderPage({ listSessions });
+    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+    expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    await waitFor(() => expect(listSessions).toHaveBeenCalledTimes(2));
+    expect(screen.getByText('Release notes draft')).toBeInTheDocument();
+    expect(screen.queryByText('Sessions could not be loaded.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Load more' })).toBeEnabled();
   });
 
   it('opens the Sessions tab and selected session from the share URL', async () => {

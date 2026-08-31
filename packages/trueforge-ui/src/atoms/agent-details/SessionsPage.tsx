@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
@@ -46,7 +46,9 @@ export function SessionsPage() {
     return () => window.removeEventListener('popstate', syncFilters);
   }, []);
 
-  const resolved = resolveSessionTimeRange(timeRange);
+  // Resolve relative presets only when the filter changes. Unrelated query
+  // updates (such as selecting a session) must not shift/refetch the list.
+  const resolved = useMemo(() => resolveSessionTimeRange(timeRange), [timeRange]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">

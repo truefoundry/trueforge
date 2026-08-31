@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
@@ -30,6 +30,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const [listLoading, setListLoading] = useState(true);
   const [listLoadingMore, setListLoadingMore] = useState(false);
   const [listFailed, setListFailed] = useState(false);
+  const listRequestIdRef = useRef(0);
   const [detailEvents, setDetailEvents] = useState<SessionEventItem[]>();
   const [detailSession, setDetailSession] = useState<Session>();
   const [detailLoading, setDetailLoading] = useState(false);
@@ -46,37 +47,47 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     [agentId, endTimestamp, startTimestamp],
   );
 
-  const loadInitialList = useCallback(async () => {
-    setListLoading(true);
-    setListFailed(false);
-    try {
-      const page = await sessionsServer.listSessions(listRequest);
-      setEntries(page.data);
-      setNextPageToken(page.nextPageToken);
-    } catch {
-      setEntries([]);
-      setNextPageToken(undefined);
-      setListFailed(true);
-    } finally {
-      setListLoading(false);
-    }
-  }, [listRequest, sessionsServer]);
-
   useEffect(() => {
-    void loadInitialList();
-  }, [loadInitialList]);
+    const requestId = ++listRequestIdRef.current;
+    let cancelled = false;
+    setListLoading(true);
+    setListLoadingMore(false);
+    setListFailed(false);
+    void sessionsServer
+      .listSessions(listRequest)
+      .then(page => {
+        if (cancelled || listRequestIdRef.current !== requestId) return;
+        setEntries(page.data);
+        setNextPageToken(page.nextPageToken);
+      })
+      .catch(() => {
+        if (cancelled || listRequestIdRef.current !== requestId) return;
+        setEntries([]);
+        setNextPageToken(undefined);
+        setListFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled && listRequestIdRef.current === requestId) setListLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listRequest, sessionsServer]);
 
   const loadMore = useCallback(async () => {
     if (nextPageToken == null || listLoadingMore) return;
+    const requestId = listRequestIdRef.current;
     setListLoadingMore(true);
     try {
       const page = await sessionsServer.listSessions({ ...listRequest, pageToken: nextPageToken });
+      if (listRequestIdRef.current !== requestId) return;
       setEntries(current => [...current, ...page.data]);
       setNextPageToken(page.nextPageToken);
     } catch {
-      setListFailed(true);
+      // Keep the current page and token visible so the user can retry.
     } finally {
-      setListLoadingMore(false);
+      if (listRequestIdRef.current === requestId) setListLoadingMore(false);
     }
   }, [listLoadingMore, listRequest, nextPageToken, sessionsServer]);
 

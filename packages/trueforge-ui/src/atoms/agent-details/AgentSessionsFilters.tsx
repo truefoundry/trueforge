@@ -88,7 +88,9 @@ export function AgentSessionsFilters({
     const endTs = fromDateTimeLocalValue(toValue);
     if (startTs == null || endTs == null || startTs >= endTs) return;
     const minStart = Date.now() - SESSION_CUSTOM_RANGE_MAX_DAYS * 24 * 60 * 60 * 1000;
-    onTimeRangeChange({ startTs: Math.max(startTs, minStart), endTs });
+    const clampedStartTs = Math.max(startTs, minStart);
+    if (clampedStartTs >= endTs) return;
+    onTimeRangeChange({ startTs: clampedStartTs, endTs });
     setMenuOpen(false);
     setCustomPickerOpen(false);
   };

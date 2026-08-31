@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { useEffect, useState } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -151,13 +151,13 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/library');
   });
 
-  it('clears stale session query state from the library URL while preserving host keys', () => {
+  it('clears stale session query state from the library URL while preserving host keys', async () => {
     renderSync({
       initialEntries: ['/library?theme=dark&sessionId=sess-1&agentId=agent-1&s_sts=1&s_ets=2'],
       agentConfig: { mode: 'AgentLibraryWithComposer' },
     });
     expect(pathname).toBe('/library');
-    expect(search).toBe('?theme=dark');
+    await waitFor(() => expect(search).toBe('?theme=dark'));
   });
 
   it('opens agent details on boot from a /library/:agentId deep link', () => {

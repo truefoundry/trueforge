@@ -172,7 +172,10 @@ export function ShellRouteSync({
     }
     const target = buildPath(place, routes);
     if (target == null) return; // place has no configured URL (e.g. settings disabled)
-    const targetSearch = sanitizeSearchForPlace(place, location.search);
+    const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
+    const browserPathname = `${basename}${location.pathname}` || '/';
+    const latestSearch = window.location.pathname === browserPathname ? window.location.search : location.search;
+    const targetSearch = sanitizeSearchForPlace(place, latestSearch);
 
     const prev = prevPlaceRef.current;
     prevPlaceRef.current = place;

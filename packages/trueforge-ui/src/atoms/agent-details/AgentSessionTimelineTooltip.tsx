@@ -37,7 +37,7 @@ export function SessionEventTooltip({
         <div className="border-b border-border py-1.5 text-text-secondary">{`Sub-Agent: ${subAgentLabel}`}</div>
       ) : null}
       <div className="flex items-center justify-between gap-3 pt-1">
-        <span className={segment.type === 'error' ? 'font-medium text-red-500' : 'font-medium text-text-secondary'}>
+        <span className={segment.type === 'error' ? 'font-medium text-failure-bg' : 'font-medium text-text-secondary'}>
           {getSessionEventTooltipHeading(segment.type)}
         </span>
         {showDuration ? (
