@@ -49,7 +49,12 @@ function fakeStore(dispatchItem: ScheduleDispatchItem) {
   };
 }
 
-async function tickDispatch(sessions: {
+/**
+ * Mirrors how the SDK splits these calls: get-or-create is only on `internal.sessions`,
+ * turns only on the public `sessions`. Giving each client just its own methods means a call
+ * routed to the wrong one throws instead of silently resolving.
+ */
+async function tickDispatch(mocks: {
   getOrCreateByExternalId: jest.Mock;
   listTurns: jest.Mock;
   createTurn: jest.Mock;
@@ -59,7 +64,10 @@ async function tickDispatch(sessions: {
   const logger = fakeLogger();
   const loop = scheduleDispatchLoop({
     scheduleStore: store as never,
-    client: { sessions, internal: { sessions } } as never,
+    client: {
+      sessions: { listTurns: mocks.listTurns, createTurn: mocks.createTurn },
+      internal: { sessions: { getOrCreateByExternalId: mocks.getOrCreateByExternalId } },
+    } as never,
     logger: logger as never,
     withTransaction: async callback => callback({} as never),
   });
