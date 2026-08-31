@@ -254,6 +254,7 @@ export async function resolveSandboxProvider({
           tenant_id,
           error,
           build_metadata: record.build_metadata,
+          expected_updated_at: record.updated_at,
         });
       },
     });

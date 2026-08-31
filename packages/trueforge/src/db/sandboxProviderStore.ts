@@ -34,6 +34,7 @@ export interface UpdateSandboxStatusInput {
   status: SandboxBuildStatus;
   status_reason: string | null;
   build_metadata: SandboxBuildMetadata | null;
+  expected_updated_at?: string | undefined;
 }
 
 export interface ISandboxProviderStore<TTransaction = never> {
