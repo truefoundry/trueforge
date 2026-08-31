@@ -9,6 +9,7 @@ import {
   SessionSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
+import { MAX_SESSION_METRICS_WINDOW_MS } from '@truefoundry/trueforge-core/agent-session/store/sessionMetrics';
 import { NameSchema, PAGE_LIMIT } from './common';
 
 /** Create arm: bind by unique registry agent name. */
@@ -96,19 +97,44 @@ export const ListSessionsRequestQuerySchema = z
   })
   .openapi('ListSessionsRequestQuery');
 
-export const GetSessionMetricsRequestQuerySchema = z
-  .object({
-    agent_id: z.string().min(1).max(64).describe('Named agent identifier.'),
-    start_timestamp: IsoTimestampQueryParam.describe('Inclusive lower bound on session `created_at`.'),
-    end_timestamp: IsoTimestampQueryParam.describe('Inclusive upper bound on session `created_at`.'),
-  })
-  .openapi('GetSessionMetricsRequestQuery');
+const GetSessionMetricsRequestQueryObjectSchema = z.object({
+  agent_id: z.string().min(1).max(64).describe('Named agent identifier.'),
+  start_timestamp: IsoTimestampQueryParam.describe('Inclusive lower bound on session `created_at`.'),
+  end_timestamp: IsoTimestampQueryParam.describe('Inclusive upper bound on session `created_at`.'),
+});
+
+function refineSessionMetricsTimeWindow(
+  query: { start_timestamp: Date; end_timestamp: Date },
+  ctx: z.RefinementCtx,
+): void {
+  const windowMs = query.end_timestamp.getTime() - query.start_timestamp.getTime();
+  if (windowMs < 0) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'end_timestamp must be on or after start_timestamp',
+      path: ['end_timestamp'],
+    });
+    return;
+  }
+  if (windowMs > MAX_SESSION_METRICS_WINDOW_MS) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'metrics window must not exceed 30 days',
+      path: ['end_timestamp'],
+    });
+  }
+}
+
+export const GetSessionMetricsRequestQuerySchema = GetSessionMetricsRequestQueryObjectSchema.superRefine(
+  refineSessionMetricsTimeWindow,
+).openapi('GetSessionMetricsRequestQuery');
 
 export const GetSessionMetricsChartsDataRequestQuerySchema = z
   .object({
-    ...GetSessionMetricsRequestQuerySchema.shape,
+    ...GetSessionMetricsRequestQueryObjectSchema.shape,
     chart_name: SessionMetricsChartNameSchema,
   })
+  .superRefine(refineSessionMetricsTimeWindow)
   .openapi('GetSessionMetricsChartsDataRequestQuery');
 
 export const GetSessionMetricsMetersResponseSchema = z

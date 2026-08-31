@@ -10,10 +10,7 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import {
-  buildSessionMetricsCharts,
-  MAX_SESSION_METRICS_WINDOW_MS,
-} from '@truefoundry/trueforge-core/agent-session/store/sessionMetrics';
+import { buildSessionMetricsCharts } from '@truefoundry/trueforge-core/agent-session/store/sessionMetrics';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
@@ -429,33 +426,22 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
-  const validateSessionMetricsQuery = async (
-    query: {
-      agent_id: string;
-      start_timestamp: Date;
-      end_timestamp: Date;
-    },
+  const requireNamedAgentForSessionMetrics = async (
+    agent_id: string,
     c: Parameters<RouteHandler<typeof getSessionMetricsMetersRoute>>[0],
   ) => {
-    const windowMs = query.end_timestamp.getTime() - query.start_timestamp.getTime();
-    if (windowMs < 0) {
-      return c.json({ error: { message: 'end_timestamp must be on or after start_timestamp' } }, 400);
-    }
-    if (windowMs > MAX_SESSION_METRICS_WINDOW_MS) {
-      return c.json({ error: { message: 'metrics window must not exceed 30 days' } }, 400);
-    }
-    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: query.agent_id });
+    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agent_id });
     if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${query.agent_id}` } }, 404);
+      return c.json({ error: { message: `Agent not found: ${agent_id}` } }, 404);
     }
     return null;
   };
 
   const getSessionMetricsMetersHandler: RouteHandler<typeof getSessionMetricsMetersRoute> = async c => {
     const query = c.req.valid('query');
-    const validationError = await validateSessionMetricsQuery(query, c);
-    if (validationError !== null) {
-      return validationError;
+    const missingAgent = await requireNamedAgentForSessionMetrics(query.agent_id, c);
+    if (missingAgent !== null) {
+      return missingAgent;
     }
     const user = deps.resolveUserContext(c);
     const metrics = await deps.sessionStore.getSessionMetricsMeters({
@@ -474,9 +460,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const getSessionMetricsChartsDataHandler: RouteHandler<typeof getSessionMetricsChartsDataRoute> = async c => {
     const query = c.req.valid('query');
-    const validationError = await validateSessionMetricsQuery(query, c);
-    if (validationError !== null) {
-      return validationError;
+    const missingAgent = await requireNamedAgentForSessionMetrics(query.agent_id, c);
+    if (missingAgent !== null) {
+      return missingAgent;
     }
     const user = deps.resolveUserContext(c);
     const chartData = await deps.sessionStore.getSessionMetricsChartData({
