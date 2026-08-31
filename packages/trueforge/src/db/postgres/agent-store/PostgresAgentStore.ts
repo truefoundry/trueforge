@@ -1,5 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
-import { ulid } from 'ulid';
+import { newId } from '../../../utils/id';
 import {
   AgentNameConflictError,
   parseStoredAgentSpec,
@@ -56,7 +56,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
       const row = await db
         .insertInto('agent')
         .values({
-          id: ulid().toLowerCase(),
+          id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: json(input.manifest),

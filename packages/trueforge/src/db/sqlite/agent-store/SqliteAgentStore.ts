@@ -1,6 +1,6 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import { ulid } from 'ulid';
+import { newId } from '../../../utils/id';
 import {
   AgentNameConflictError,
   parseStoredAgentSpec,
@@ -75,7 +75,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
       const row = await db
         .insertInto('agent')
         .values({
-          id: ulid().toLowerCase(),
+          id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: jsonbBind(input.manifest),

@@ -4,4 +4,4 @@
 "@truefoundry/trueforge-sdk": patch
 ---
 
-Add tenant-unique optional session `external_id` with an idempotent `POST /internal/sessions/get-or-create-by-external-id` endpoint and SDK method.
+Add tenant-unique optional session `external_id`, `Sessions.getOrCreateByExternalId`, and an idempotent `POST /internal/sessions/get-or-create-by-external-id` endpoint and SDK method.

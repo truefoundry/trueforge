@@ -34,6 +34,61 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(loaded?.session_id).toBe('s1');
   });
 
+  it('getOrCreateByExternalId creates once and returns the existing row on retry', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const agent = { type: 'inline' as const, spec: makeAgentSpec({ instructions: 'first' }) };
+
+    const first = await sessions.getOrCreateByExternalId({
+      tenant_id: tenant,
+      created_by: 'user-1',
+      agent,
+      external_id: 'run-1',
+    });
+    expect(first.created).toBe(true);
+    expect(first.session.record.external_id).toBe('run-1');
+
+    const again = await sessions.getOrCreateByExternalId({
+      tenant_id: tenant,
+      created_by: 'other',
+      agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'ignored' }) },
+      external_id: 'run-1',
+    });
+    expect(again.created).toBe(false);
+    expect(again.session.session_id).toBe(first.session.session_id);
+    expect(again.session.record.created_by).toBe('user-1');
+    expect(again.session.agent).toEqual({
+      type: 'inline',
+      spec: expect.objectContaining({ instructions: 'first' }),
+    });
+  });
+
+  it('getOrCreateByExternalId returns the winner when create loses the unique race', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const agent = { type: 'inline' as const, spec: makeAgentSpec() };
+
+    await sessions.create({
+      tenant_id: tenant,
+      session_id: 'winner',
+      created_by: 'user-1',
+      agent,
+      external_id: 'run-1',
+    });
+
+    const getByExternalId = jest.spyOn(sessions, 'getByExternalId');
+    getByExternalId.mockResolvedValueOnce(undefined);
+
+    const { session, created } = await sessions.getOrCreateByExternalId({
+      tenant_id: tenant,
+      created_by: 'user-2',
+      agent,
+      external_id: 'run-1',
+    });
+    expect(created).toBe(false);
+    expect(session.session_id).toBe('winner');
+  });
+
   it('run() happy path commits a running turn without executing', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });

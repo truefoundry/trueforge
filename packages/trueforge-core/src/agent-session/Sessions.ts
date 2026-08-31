@@ -2,6 +2,7 @@
  * Storage-only session collection: create / get. Behavior arrives per run via
  * the resolver on {@link SessionHandle.createTurn}.
  */
+import { ulid } from 'ulid';
 import { SessionHandle } from './SessionHandle';
 import type {
   CreateSessionInput,
@@ -9,6 +10,7 @@ import type {
   GetSessionInput,
   ISessionStore,
 } from './store/ISessionStore';
+import { SessionExternalIdConflictError } from './store/SessionStoreErrors';
 
 export type SessionsCreateInput<TSessionCustom extends object> = Omit<CreateSessionInput<TSessionCustom>, 'custom'> & {
   custom?: TSessionCustom | undefined;
@@ -75,5 +77,37 @@ export class Sessions<
       store: this.store,
       session: record,
     });
+  }
+
+  /**
+   * Get-or-create the session bound to a tenant-scoped `external_id`.
+   */
+  async getOrCreateByExternalId(
+    input: Omit<SessionsCreateInput<TSessionCustom>, 'session_id' | 'external_id'> & { external_id: string },
+  ): Promise<{ session: SessionHandle<TSessionCustom, TTurnCustom>; created: boolean }> {
+    const { tenant_id, external_id } = input;
+
+    const existing = await this.getByExternalId({ tenant_id, external_id });
+    if (existing !== undefined) {
+      return { session: existing, created: false };
+    }
+
+    try {
+      const session = await this.create({
+        ...input,
+        session_id: ulid().toLowerCase(),
+        external_id,
+      });
+      return { session, created: true };
+    } catch (error) {
+      if (!(error instanceof SessionExternalIdConflictError)) {
+        throw error;
+      }
+      const winner = await this.getByExternalId({ tenant_id, external_id });
+      if (winner === undefined) {
+        throw error;
+      }
+      return { session: winner, created: false };
+    }
   }
 }

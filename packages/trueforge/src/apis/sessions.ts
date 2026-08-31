@@ -18,7 +18,6 @@ import {
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
-import { ulid } from 'ulid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { ResolveUserContext } from '../auth/identity';
@@ -42,6 +41,7 @@ import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
+import { newId } from '../utils/id';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_ID = 'default';
@@ -218,53 +218,6 @@ function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy
   return userRef === createdBy;
 }
 
-/**
- * Get-or-create the session bound to a tenant-scoped `external_id`.
- * Idempotent and race-safe: the partial unique index guarantees at most one
- * session per external id, so concurrent callers converge on the same row with
- * no application-level lease.
- *
- * Read first; create only on a miss. A concurrent create loses with a unique
- * violation, then we return the winning row. An existing session is returned
- * as-is; `agent` binds only the row this call creates.
- */
-export async function getOrCreateSessionByExternalId(params: {
-  sessions: Sessions;
-  tenant_id: string;
-  external_id: string;
-  created_by: string;
-  agent: SessionRecord['agent'];
-}): Promise<{ session: SessionHandle; created: boolean }> {
-  const { sessions, tenant_id, external_id, created_by, agent } = params;
-
-  const existing = await sessions.getByExternalId({ tenant_id, external_id });
-  if (existing !== undefined) {
-    return { session: existing, created: false };
-  }
-
-  try {
-    const session = await sessions.create({
-      tenant_id,
-      session_id: ulid().toLowerCase(),
-      created_by,
-      agent,
-      external_id,
-    });
-    return { session, created: true };
-  } catch (error) {
-    if (!(error instanceof SessionStoreConflictError)) {
-      throw error;
-    }
-    const winner = await sessions.getByExternalId({ tenant_id, external_id });
-    if (winner === undefined) {
-      // Conflict was on something other than external_id (a session_id
-      // collision), so there is no winner to hand back.
-      throw error;
-    }
-    return { session: winner, created: false };
-  }
-}
-
 type InternalSessionsRouterDeps = Pick<
   SessionsRouterDeps,
   | 'sessions'
@@ -313,8 +266,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       agent = { type: 'inline', spec: body.agent.spec };
     }
 
-    const { session, created } = await getOrCreateSessionByExternalId({
-      sessions: deps.sessions,
+    const { session, created } = await deps.sessions.getOrCreateByExternalId({
       tenant_id: TENANT_ID,
       external_id: body.external_id,
       created_by: user.userRef,
@@ -338,7 +290,7 @@ export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
-    const sessionId = ulid().toLowerCase();
+    const sessionId = newId();
 
     if (isSessionAgentNameRef(body.agent)) {
       const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
