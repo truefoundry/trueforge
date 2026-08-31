@@ -3486,7 +3486,7 @@
         "type": "string",
         "x-fern-enum": {
           "$": {
-            "name": "Usd"
+            "name": "USD"
           }
         }
       },
@@ -3553,7 +3553,7 @@
         "type": "string",
         "x-fern-enum": {
           "$": {
-            "name": "Usd"
+            "name": "USD"
           }
         }
       },
