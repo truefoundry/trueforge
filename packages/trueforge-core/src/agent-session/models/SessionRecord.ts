@@ -1,4 +1,4 @@
-import type { SessionAgent } from '../schemas/session';
+import type { SessionAgent, SessionMetrics } from '../schemas/session';
 
 /**
  * Session persistence record. Agent binding is a single discriminated `agent`
@@ -17,6 +17,11 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    */
   title: string | null;
   /**
+   * Optional caller-supplied key, unique within a tenant when set.
+   * Null means the session has no external id.
+   */
+  external_id: string | null;
+  /**
    * Session tip — used for `previous_turn_id: 'auto'` resolution and turn
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */
@@ -30,5 +35,6 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * updateSession, and createTurn — never on reads.
    */
   last_activity_timestamp_ms: number;
+  metrics: SessionMetrics;
   custom: TCustom | null;
 }

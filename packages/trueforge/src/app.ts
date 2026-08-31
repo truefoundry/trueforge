@@ -18,7 +18,7 @@ import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createSchedulesRouter } from './apis/schedules';
-import { createSessionsRouter } from './apis/sessions';
+import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
@@ -273,6 +273,20 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
+        resolveUserContext,
+      }),
+    ),
+  );
+  app.route(
+    '/internal/sessions',
+    withAuth(
+      createInternalSessionsRouter({
+        sessions: deps.sessions,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        agentStore: deps.agentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
         resolveUserContext,
       }),
     ),

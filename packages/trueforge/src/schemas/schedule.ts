@@ -60,6 +60,11 @@ export const TimezoneSchema = z
  */
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });
 
+const NullableIsoTimestamp = z.iso
+  .datetime()
+  .nullable()
+  .openapi({ type: ['string', 'null'], format: 'date-time' });
+
 export const ScheduleTaskSchema = z
   .string()
   .trim()
@@ -117,8 +122,38 @@ export const GetScheduleResponseSchema = z.object({ data: ScheduleSchema }).open
 export const ListSchedulesResponseSchema = z.object({ data: z.array(ScheduleSchema) }).openapi('ListSchedulesResponse');
 export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteScheduleResponse');
 
+/**
+ * Run lifecycle.
+ * - `scheduled`  the one pending run; at most one per schedule, enforced by
+ *                `schedule_run_pending_uq`
+ * - `triggered`  taken by dispatch via `updateRunStatus`
+ * - `failed`     errored, or hand-off to the executor failed
+ */
+export const ScheduleRunStatusSchema = z.enum(['scheduled', 'triggered', 'failed']).openapi('ScheduleRunStatus');
+
+export const ScheduleRunSchema = z
+  .object({
+    id: z.string(),
+    schedule_id: z.string(),
+    name: z.string(),
+    scheduled_for: IsoTimestamp,
+    status: ScheduleRunStatusSchema,
+    triggered_by: z.string(),
+    triggered_at: NullableIsoTimestamp,
+    created_at: IsoTimestamp,
+    updated_at: IsoTimestamp,
+  })
+  .strict()
+  .openapi('ScheduleRun');
+
+export const ListScheduleRunsResponseSchema = z
+  .object({ data: z.array(ScheduleRunSchema) })
+  .openapi('ListScheduleRunsResponse');
+
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;
+export type ScheduleRunStatus = z.infer<typeof ScheduleRunStatusSchema>;
 export type ScheduleManifest = z.infer<typeof ScheduleManifestSchema>;
 export type Schedule = z.infer<typeof ScheduleSchema>;
+export type ScheduleRun = z.infer<typeof ScheduleRunSchema>;
 export type CreateScheduleRequest = z.infer<typeof CreateScheduleRequestSchema>;
 export type UpdateScheduleRequest = z.infer<typeof UpdateScheduleRequestSchema>;

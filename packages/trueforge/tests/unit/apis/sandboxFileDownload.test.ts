@@ -113,6 +113,7 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
       session_id: 'no-turn',
       created_by: LOCAL_USER_CONTEXT.userRef,
       agent: { type: 'inline', spec: agentSpec() },
+      external_id: null,
     });
 
     const response = await app.request(downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }));

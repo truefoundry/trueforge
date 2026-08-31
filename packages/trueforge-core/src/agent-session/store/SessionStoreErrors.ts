@@ -54,6 +54,16 @@ export class SessionAlreadyExistsError extends SessionStoreConflictError {
   }
 }
 
+export class SessionExternalIdConflictError extends SessionStoreConflictError {
+  readonly external_id: string;
+
+  constructor(external_id: string, options?: ErrorOptions) {
+    super(`Session already exists for external id: ${external_id}`, options);
+    this.name = 'SessionExternalIdConflictError';
+    this.external_id = external_id;
+  }
+}
+
 export class TurnAlreadyExistsError extends SessionStoreConflictError {
   readonly turn_id: string;
 

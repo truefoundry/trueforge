@@ -5,6 +5,14 @@
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 
+export const SessionMetricsSchema = z
+  .object({
+    total_cost_in_usd: z.number().nonnegative(),
+    total_duration_ms: z.number().int().nonnegative(),
+    total_turns: z.number().int().nonnegative(),
+  })
+  .strict();
+
 export const SessionAgentReferenceSchema = z
   .object({
     type: z.literal('reference').describe('Bind the session to a named registry agent.'),
@@ -46,4 +54,5 @@ export const SessionSchema = z
 export type SessionAgentReference = z.infer<typeof SessionAgentReferenceSchema>;
 export type SessionAgentInline = z.infer<typeof SessionAgentInlineSchema>;
 export type SessionAgent = z.infer<typeof SessionAgentSchema>;
+export type SessionMetrics = z.infer<typeof SessionMetricsSchema>;
 export type Session = z.infer<typeof SessionSchema>;

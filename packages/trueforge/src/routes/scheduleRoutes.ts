@@ -9,6 +9,7 @@ import {
   CreateScheduleRequestSchema,
   DeleteScheduleResponseSchema,
   GetScheduleResponseSchema,
+  ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
   UpdateScheduleRequestSchema,
 } from '../schemas/schedule';
@@ -47,6 +48,34 @@ export const listSchedulesRoute = createRoute({
   },
 });
 
+export const listScheduleRunsRoute = createRoute({
+  method: 'get',
+  path: '/{schedule_id}/runs',
+  tags: [OpenApiTag.SCHEDULES],
+  summary: 'List runs of a schedule',
+  description:
+    'List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.',
+  'x-fern-sdk-group-name': ['schedules'],
+  'x-fern-sdk-method-name': 'list_runs',
+  request: {
+    params: ScheduleIdParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListScheduleRunsResponseSchema } },
+      description: 'Runs of the schedule.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The caller is not the schedule creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Not found.',
+    },
+  },
+});
+
 export const createScheduleRoute = createRoute({
   method: 'post',
   path: '/',
@@ -72,7 +101,7 @@ export const createScheduleRoute = createRoute({
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The schedule was modified concurrently (usually the controller advancing it). Retry.',
+      description: 'The name is already taken for this agent, or the schedule was modified concurrently (retry).',
     },
   },
 });
@@ -92,6 +121,10 @@ export const getScheduleRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetScheduleResponseSchema } },
       description: 'The schedule.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The caller is not the schedule creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -124,9 +157,13 @@ export const putScheduleRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid cron.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The caller is not the schedule creator.',
+    },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The schedule was modified concurrently (usually the controller advancing it). Retry.',
+      description: 'The name is already taken for this agent, or the schedule was modified concurrently (retry).',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -150,6 +187,10 @@ export const deleteScheduleRoute = createRoute({
     200: {
       content: { 'application/json': { schema: DeleteScheduleResponseSchema } },
       description: 'Deleted.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The caller is not the schedule creator.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

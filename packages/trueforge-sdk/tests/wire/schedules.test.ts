@@ -215,6 +215,25 @@ describe("SchedulesClient", () => {
             .mockEndpoint()
             .get("/api/v1/schedules/schedule_id")
             .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.get("schedule_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("get (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/schedules/schedule_id")
+            .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
@@ -311,6 +330,32 @@ describe("SchedulesClient", () => {
             .put("/api/v1/schedules/schedule_id")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.update("schedule_id", {
+                manifest: {
+                    cron: "cron",
+                    task: "x",
+                },
+                name: "xy",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("update (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { cron: "cron", task: "x" }, name: "xy" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/schedules/schedule_id")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
@@ -326,7 +371,7 @@ describe("SchedulesClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("update (4)", async () => {
+    test("update (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { cron: "cron", task: "x" }, name: "xy" };
@@ -387,5 +432,108 @@ describe("SchedulesClient", () => {
         await expect(async () => {
             return await client.schedules.delete("schedule_id");
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("delete (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/schedules/schedule_id")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.delete("schedule_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("list_runs (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: [
+                {
+                    created_at: "2024-01-15T09:30:00Z",
+                    id: "id",
+                    name: "name",
+                    schedule_id: "schedule_id",
+                    scheduled_for: "2024-01-15T09:30:00Z",
+                    status: "scheduled",
+                    triggered_at: "2024-01-15T09:30:00Z",
+                    triggered_by: "triggered_by",
+                    updated_at: "2024-01-15T09:30:00Z",
+                },
+            ],
+        };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/schedules/schedule_id/runs")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.schedules.listRuns("schedule_id");
+        expect(response).toEqual({
+            data: [
+                {
+                    createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                    id: "id",
+                    name: "name",
+                    scheduleId: "schedule_id",
+                    scheduledFor: new Date("2024-01-15T09:30:00.000Z"),
+                    status: "scheduled",
+                    triggeredAt: new Date("2024-01-15T09:30:00.000Z"),
+                    triggeredBy: "triggered_by",
+                    updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+                },
+            ],
+        });
+    });
+
+    test("list_runs (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/schedules/schedule_id/runs")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.listRuns("schedule_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("list_runs (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/schedules/schedule_id/runs")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.listRuns("schedule_id");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 });

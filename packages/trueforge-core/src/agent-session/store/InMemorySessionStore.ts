@@ -14,6 +14,7 @@ import type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -42,6 +43,7 @@ import { decodeSessionListPageToken, paginateSessionListRows } from './SessionLi
 import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
@@ -173,6 +175,14 @@ export class InMemorySessionStore<
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
+    const externalId = input.external_id;
+    if (externalId !== null) {
+      for (const stored of this.sessions.values()) {
+        if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === externalId) {
+          throw new SessionExternalIdConflictError(externalId);
+        }
+      }
+    }
     const now = new Date();
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
@@ -181,9 +191,15 @@ export class InMemorySessionStore<
       agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,
+      external_id: externalId,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
+      metrics: {
+        total_cost_in_usd: 0,
+        total_duration_ms: 0,
+        total_turns: 0,
+      },
       custom: input.custom !== null ? deepCopy(input.custom) : null,
     };
     this.sessions.set(key, { record, turnIds: [] });
@@ -207,6 +223,15 @@ export class InMemorySessionStore<
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
     const stored = this.sessions.get(sessionKey(input.session_id));
     return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
+  }
+
+  async getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined> {
+    for (const stored of this.sessions.values()) {
+      if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === input.external_id) {
+        return deepCopy(stored.record);
+      }
+    }
+    return undefined;
   }
 
   async updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void> {
@@ -332,6 +357,7 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
+    stored.record.metrics.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date();
     if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
@@ -355,6 +381,7 @@ export class InMemorySessionStore<
       if (list) {
         list.push(deepCopy(input.turn_done_event));
       }
+      this.addTerminalSessionMetrics(input.session_id, turn.created_at, cancelledState);
     }
 
     return deepCopy(turn);
@@ -397,6 +424,7 @@ export class InMemorySessionStore<
     if (list) {
       list.push(deepCopy(input.turn_done_event));
     }
+    this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
@@ -408,6 +436,17 @@ export class InMemorySessionStore<
     }
     list.push(...deepCopy(input.events));
     return;
+  }
+
+  /** Cost from turn metrics; duration is completed_at − created_at, floored at 0. */
+  private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
+    const stored = this.sessions.get(sessionKey(sessionId));
+    if (!stored) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
+    stored.record.metrics.total_cost_in_usd += state.metrics?.total_cost_in_usd ?? 0;
+    stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
   private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {

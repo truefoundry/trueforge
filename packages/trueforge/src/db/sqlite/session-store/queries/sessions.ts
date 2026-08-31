@@ -1,8 +1,9 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -13,6 +14,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
@@ -48,7 +50,9 @@ function mapRowToSessionRecord(row: {
   agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
+  external_id: string | null;
   custom: Record<string, unknown> | null;
+  metrics: SessionMetrics;
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;
@@ -65,7 +69,9 @@ function mapRowToSessionRecord(row: {
     }),
     title: row.title,
     last_turn_id: row.last_turn_id,
+    external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
+    metrics: row.metrics,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
@@ -82,7 +88,9 @@ function sessionSelectColumns() {
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
     'last_turn_id' as const,
+    'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+    jsonText<SessionMetrics>(sql.ref('metrics')).as('metrics'),
     'created_at' as const,
     'updated_at' as const,
     'last_activity_timestamp_ms' as const,
@@ -105,6 +113,12 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
+        external_id: input.external_id,
+        metrics: jsonbBind({
+          total_cost_in_usd: 0,
+          total_duration_ms: 0,
+          total_turns: 0,
+        }),
         created_at: now,
         updated_at: now,
         last_activity_timestamp_ms: Date.now(),
@@ -112,6 +126,19 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
+      // Which index fired is resolved by lookup, not by parsing the driver
+      // message: SQLite describes a partial unique index by column list or by
+      // index name depending on version. The failed INSERT already rolled back,
+      // so a hit here is the pre-existing row that owns this external id.
+      if (input.external_id !== null) {
+        const owner = await getSessionByExternalId(db, {
+          tenant_id: input.tenant_id,
+          external_id: input.external_id,
+        });
+        if (owner !== undefined) {
+          throw new SessionExternalIdConflictError(input.external_id, { cause: error });
+        }
+      }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });
     }
     throw error;
@@ -135,6 +162,24 @@ export async function getSession(
     .select(sessionSelectColumns)
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
+    .executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
+export async function getSessionByExternalId(
+  db: Kysely<Database>,
+  input: GetSessionByExternalIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db
+    .selectFrom('session')
+    .select(sessionSelectColumns)
+    .where('tenant_id', '=', input.tenant_id)
+    .where('external_id', '=', input.external_id)
     .executeTakeFirst();
 
   if (row === undefined) {
