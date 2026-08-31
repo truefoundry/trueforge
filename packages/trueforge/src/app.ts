@@ -282,6 +282,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
+        sessionStore: deps.sessionStore,
         modelProviderStore: deps.modelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,

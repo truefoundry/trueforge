@@ -230,11 +230,11 @@ export const listSessionsRoute = createRoute({
 export const getSessionMetricsMetersRoute = createRoute({
   method: 'get',
   path: '/metrics/meters',
-  tags: [OpenApiTag.AGENT_SESSIONS],
+  tags: [OpenApiTag.INTERNAL],
   summary: 'Get session metrics meters',
   description: "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
-  'x-fern-ignore': true,
-  'x-excluded': true,
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
+  'x-fern-sdk-method-name': 'get_metrics_meters',
   request: {
     query: GetSessionMetricsRequestQuerySchema,
   },
@@ -257,11 +257,11 @@ export const getSessionMetricsMetersRoute = createRoute({
 export const getSessionMetricsChartsRoute = createRoute({
   method: 'get',
   path: '/metrics/charts',
-  tags: [OpenApiTag.AGENT_SESSIONS],
+  tags: [OpenApiTag.INTERNAL],
   summary: 'Get session metrics charts',
   description: 'List available session metric charts.',
-  'x-fern-ignore': true,
-  'x-excluded': true,
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
+  'x-fern-sdk-method-name': 'list_metrics_charts',
   responses: {
     200: {
       content: { 'application/json': { schema: GetSessionMetricsChartResponseSchema } },
@@ -273,12 +273,12 @@ export const getSessionMetricsChartsRoute = createRoute({
 export const getSessionMetricsChartsDataRoute = createRoute({
   method: 'get',
   path: '/metrics/charts-data',
-  tags: [OpenApiTag.AGENT_SESSIONS],
+  tags: [OpenApiTag.INTERNAL],
   summary: 'Get session metrics chart data',
   description:
     "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
-  'x-fern-ignore': true,
-  'x-excluded': true,
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
+  'x-fern-sdk-method-name': 'get_metrics_chart_data',
   request: {
     query: GetSessionMetricsChartDataRequestQuerySchema,
   },
