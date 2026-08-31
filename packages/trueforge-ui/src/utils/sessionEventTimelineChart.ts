@@ -1,5 +1,14 @@
 import type { SessionEventTimelineSegment } from './sessionEventTimeline.js';
 
+/**
+ * Pure layout helpers for the Sessions timeline.
+ *
+ * Segment construction owns event meaning; this module owns visual grouping,
+ * lane allocation, and the compressed time axis. Keeping these calculations
+ * outside React/Chart.js makes the rendering rules deterministic and testable.
+ */
+
+/** Minimal interval shared by bars, compressed gaps, and grouped tool calls. */
 export type TimelineGap = {
   startMs: number;
   endMs: number;
@@ -51,6 +60,7 @@ export type TimelineHoverTarget =
   | { type: typeof TIMELINE_TYPE.event; segment: SessionEventTimelineSegment }
   | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup };
 
+/** Stable identity used to avoid replacing tooltip state while hovering the same bar. */
 export function getTimelineHoverTargetId(target: TimelineHoverTarget | null): string {
   if (target == null) return '';
   if (target.type === TIMELINE_TYPE.turn) return target.bar.id;
@@ -58,10 +68,17 @@ export function getTimelineHoverTargetId(target: TimelineHoverTarget | null): st
   return target.group.id;
 }
 
+/** Convert an interval to Chart.js's floating horizontal-bar data shape. */
 export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, number] {
   return [startMs, endMs];
 }
 
+/**
+ * Derive one background range per turn from all of that turn's segments.
+ *
+ * Turn numbers can be sparse after filtering or incomplete server data, so
+ * `ordinal` is a dense visual position while `turnIndex` remains the source id.
+ */
 export function getTimelineLayout(segments: SessionEventTimelineSegment[]): TimelineLayout {
   const rangesByTurnIndex = new Map<number, TimelineGap>();
 
@@ -88,10 +105,17 @@ export function getTimelineLayout(segments: SessionEventTimelineSegment[]): Time
   };
 }
 
+/** Touching endpoints do not overlap, allowing adjacent bars to share a row. */
 function segmentsOverlap(left: SessionEventTimelineSegment, right: SessionEventTimelineSegment): boolean {
   return left.startMs < right.endMs && right.startMs < left.endMs;
 }
 
+/**
+ * Select representative sub-agent tracks for the main event row.
+ *
+ * Longest-first selection preserves the tracks that explain the most elapsed
+ * time; overlapping tracks are still available in dedicated sub-agent lanes.
+ */
 export function pickLongestNonOverlappingSegments(
   segments: SessionEventTimelineSegment[],
 ): SessionEventTimelineSegment[] {
@@ -106,6 +130,13 @@ export function pickLongestNonOverlappingSegments(
   return selected.sort((left, right) => left.startMs - right.startMs);
 }
 
+/**
+ * Merge transitively overlapping tool calls within the same turn and thread.
+ *
+ * Concurrent calls would otherwise draw on top of one another in the main
+ * event row. The merged bar spans the union and its tooltip lists every member.
+ * Calls from different turns/threads never merge even if timestamps overlap.
+ */
 export function groupOverlappingToolCalls(segments: SessionEventTimelineSegment[]): TimelineToolCallGroup[] {
   const groups: TimelineToolCallGroup[] = [];
   for (const segment of [...segments].sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs)) {
@@ -130,6 +161,13 @@ export function groupOverlappingToolCalls(segments: SessionEventTimelineSegment[
   return groups;
 }
 
+/**
+ * Assign sub-agent tracks to the first reusable non-overlapping lane and attach
+ * each thread's child events to that track.
+ *
+ * `minWidthMs` matches the chart's minimum pixel width in time units, preventing
+ * visually widened markers from colliding even when their raw durations do not.
+ */
 export function getSubAgentLanes({
   subAgentSegments,
   threadSegments,
@@ -166,7 +204,15 @@ export function getSubAgentLanes({
   }));
 }
 
-// Collapse real idle time between turns while preserving durations within each turn.
+/**
+ * Collapse real idle time between turns while preserving all within-turn
+ * offsets and durations.
+ *
+ * Session history may contain minutes or days between user messages. Displaying
+ * that idle time would squeeze useful execution bars into a few pixels, so each
+ * turn is translated to begin where the previous one ended. The chart adds a
+ * small fixed visual separator afterward.
+ */
 export function compressInterTurnGaps(segments: SessionEventTimelineSegment[]): SessionEventTimelineSegment[] {
   const rangesByTurnIndex = new Map<number, { turnIndex: number; startMs: number; endMs: number }>();
   for (const segment of segments) {
@@ -200,6 +246,10 @@ export function compressInterTurnGaps(segments: SessionEventTimelineSegment[]): 
   });
 }
 
+/**
+ * Translate a chart-axis coordinate back to active elapsed time by subtracting
+ * the fixed visual gaps inserted between turn bars.
+ */
 export function getActiveTimelineMs(valueMs: number, gaps: TimelineGap[]): number {
   let activeMs = valueMs;
   for (const gap of gaps) {
@@ -208,6 +258,10 @@ export function getActiveTimelineMs(valueMs: number, gaps: TimelineGap[]): numbe
   return Math.max(0, activeMs);
 }
 
+/**
+ * Keep generated ticks before the active endpoint, then force endpoint and
+ * padding ticks so the final duration label and trailing whitespace are stable.
+ */
 export function buildTimelineAxisTicks<T extends { value: number }>({
   ticks,
   totalMs,

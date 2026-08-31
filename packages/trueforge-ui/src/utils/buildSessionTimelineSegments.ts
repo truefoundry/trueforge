@@ -21,10 +21,27 @@ import {
 } from './sessionTimelineEvents.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
 
+/**
+ * Convert server turns and events into the transport-independent intervals
+ * consumed by the Sessions timeline.
+ *
+ * The conversion runs in two passes because several bars need a later event
+ * to determine their end:
+ * - tool calls span from the model event that requested them to `tool.response`;
+ * - sub-agent tracks span from `thread.created` to `thread.done`;
+ * - approval-gated and sub-agent parent calls are excluded from ordinary tool
+ *   bars because they have dedicated visual representations.
+ *
+ * The second pass emits one user marker per turn, then chronological event
+ * segments for each thread. Finally, real idle gaps between turns are removed
+ * so old sessions remain readable without changing durations inside a turn.
+ */
 export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionEventTimelineSegment[] {
   const originMs = parseTimestamp(turns[0]?.created.createdAt);
   if (originMs == null) return [];
 
+  // Correlation indexes built up front let the emission pass calculate complete
+  // intervals without depending on the source event order.
   const toolResponsesByTurnId = new Map<string, Map<string, TimelineEvent>>();
   const approvalRequiredIdsByTurnId = new Map<string, Set<string>>();
   const threadDoneEvents = new Map<string, TimelineEvent>();
@@ -78,6 +95,8 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
       isMarker: true,
     });
 
+    // Model intervals are independent per thread. Using one global previous
+    // timestamp would make concurrent sub-agent bars consume each other's time.
     const lastTimestampByThreadId = new Map<string, number>();
     const events = [...turn.events]
       .map(asTimelineEvent)
@@ -120,6 +139,12 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   ).sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
 }
 
+/**
+ * Map one supported server event to zero or more visual segments.
+ *
+ * New event types should be added here
+ * when they have a clear visual category and useful timing semantics.
+ */
 function appendEventSegments({
   event,
   eventMs,
@@ -156,6 +181,9 @@ function appendEventSegments({
       const responses = toolResponsesByTurnId.get(turn.turnId);
       const approvalIds = approvalRequiredIdsByTurnId.get(turn.turnId);
 
+      // A model event can request several tools at once. Each tool gets its own
+      // response-bounded interval; overlapping intervals are grouped later by
+      // the chart-layout utility into one parallel-tool-call bar.
       for (const toolCall of toolCallsOf(event)) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
         // Skip parent create_sub_agent calls and approval-gated calls; they have their own segments.
@@ -175,7 +203,9 @@ function appendEventSegments({
         });
       }
 
-      // Keep the final model output on the graph; step cards exclude it separately.
+      // The model bar covers processing since the previous event on this thread.
+      // Keep an empty root model segment because it may still contain tool calls
+      // and therefore represents real model time.
       if (modelContent.length > 0 || threadId === MAIN_THREAD_ID) {
         segments.push({
           id: eventId(event),
@@ -192,6 +222,8 @@ function appendEventSegments({
       return;
     }
     case 'thread.created': {
+      // The parent call is represented by this track, while child events are
+      // assigned to the same thread id and rendered on the track's lane.
       const doneEvent = threadDoneEvents.get(threadId);
       const doneMs = doneEvent == null ? null : parseTimestamp(eventCreatedAt(doneEvent));
       segments.push({
@@ -212,6 +244,8 @@ function appendEventSegments({
     case 'mcp.auth_required':
     case 'mcp.initialize':
     case 'sandbox.created':
+      // These are point-in-time state transitions, so start and end are equal
+      // and Chart.js renders them with the configured minimum marker width.
       segments.push({
         id: eventId(event),
         type:
@@ -243,6 +277,13 @@ function appendEventSegments({
   }
 }
 
+/**
+ * Add the terminal marker that closes a turn.
+ *
+ * Errors use the latest observed timestamp when the backend omitted
+ * `completed_at`, ensuring failures remain visible instead of being dropped.
+ * Running/paused turns have no terminal marker because they have not ended.
+ */
 function appendTerminalSegment({
   turn,
   turnIndex,
