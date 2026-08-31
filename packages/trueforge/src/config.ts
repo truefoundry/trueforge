@@ -186,8 +186,15 @@ function resolveRedisUrl(): string {
   return raw;
 }
 
-/** Postgres connection string derived from `POSTGRES_*` for distributed mode. */
+/**
+ * Postgres connection string for distributed mode.
+ * Prefers `DATABASE_URL` when set (Railway / managed Postgres); otherwise builds from `POSTGRES_*`.
+ */
 function resolvePostgresDatabaseUrl(): string {
+  const databaseUrl = getEnv('DATABASE_URL');
+  if (databaseUrl !== undefined && databaseUrl.trim() !== '') {
+    return databaseUrl.trim();
+  }
   const postgresUser = getEnv('POSTGRES_USER', { defaultValue: DEFAULT_POSTGRES_USER }) ?? DEFAULT_POSTGRES_USER;
   const postgresPassword =
     getEnv('POSTGRES_PASSWORD', { defaultValue: DEFAULT_POSTGRES_PASSWORD }) ?? DEFAULT_POSTGRES_PASSWORD;
@@ -205,7 +212,7 @@ function resolvePostgresDatabaseUrl(): string {
     postgresHost.trim() === ''
   ) {
     throw new Error(
-      'POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST must be non-empty when STANDALONE=false.',
+      'Set DATABASE_URL, or set non-empty POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST when STANDALONE=false.',
     );
   }
   return buildPostgresConnectionString({
@@ -434,8 +441,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
-   * Postgres connection string derived from `POSTGRES_*` (not read from env directly).
-   * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` with user/password URL-encoded.
+   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`.
+   * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
    */
   DATABASE_URL: string;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */

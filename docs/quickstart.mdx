@@ -9,7 +9,7 @@ description: 'Run TrueForge, connect a model and tools, and build your first reu
 TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** — a single process on your machine, like a personal productivity tool — and **hosted mode** — a shared deployment for your team, with Postgres for storage and Redis for cross-replica peering. The agent features are identical in both.
 
 <Tabs>
-  <Tab title="Local mode (npx)">
+  <Tab title="npx (Local)">
     Requires [Node.js](https://nodejs.org) 22.14 or newer. One command, no other infrastructure — the UI and backend run locally, and data is stored in a local SQLite file:
 
     ```bash
@@ -26,7 +26,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     </Warning>
 
   </Tab>
-  <Tab title="Hosted mode (Docker Compose)">
+  <Tab title="Docker Compose (Hosted)">
     Runs the full hosted topology on your machine: the server (UI + API), Postgres, and Redis.
 
     ```bash
@@ -44,7 +44,7 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     | Host ports                                            | `8791`, `5433`, `6380`  | App, Postgres, and Redis.                                |
 
   </Tab>
-  <Tab title="Hosted mode (Kubernetes)">
+  <Tab title="Kubernetes (Hosted)">
     The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own):
 
     ```bash
@@ -94,11 +94,35 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
     | `configs.oidc.enabled` | `false` | Enable IdP login via `configs.oidc.*`. Default off = shared local admin — see [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md#dev-defaults-read-before-exposing). |
 
   </Tab>
+  <Tab title="Railway (Hosted)">
+    Hosted topology on [Railway](https://railway.com) is defined with [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code) in [`.railway/railway.ts`](https://github.com/truefoundry/trueforge/blob/main/.railway/railway.ts): one project with the server (UI + API), Postgres, and Redis. The app sets `RAILWAY_DOCKERFILE_PATH=Dockerfile.dev` so Railway builds the from-source image ([`Dockerfile.dev`](https://github.com/truefoundry/trueforge/blob/main/Dockerfile.dev)), and wires `DATABASE_URL`, `REDIS_URL`, and `PUBLIC_BASE_URL` in that file.
+
+    From a clone of this repo:
+
+    ```bash
+    pnpm install
+    railway login
+    railway init --name trueforge
+    railway config plan
+    railway config apply
+    railway domain
+    ```
+
+    `railway config apply` creates the three services and connects them. Generate a public domain on the `trueforge` service (CLI above or Settings → Networking), then open that URL.
+
+    <Warning>
+      Without [OIDC login](/authentication/overview), anyone who can reach the URL is admin. Enable login before sharing
+      a Railway deployment beyond personal use.
+    </Warning>
+
+    `STANDALONE=false` and `HOST=0.0.0.0` are baked into `Dockerfile.dev`. Railway injects `PORT` automatically.
+
+  </Tab>
 </Tabs>
 
 <Note>
-  Local mode (`npx`) uses SQLite and needs no other services. Docker Compose and Kubernetes run hosted mode: Postgres
-  replaces SQLite as durable storage, and Redis peers the replicas so streams and cancellations follow the client
+  Local mode (`npx`) uses SQLite and needs no other services. Docker Compose, Kubernetes, and Railway run hosted mode:
+  Postgres replaces SQLite as durable storage, and Redis peers the replicas so streams and cancellations follow the client
   across them.
 </Note>
 
@@ -252,7 +276,8 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     PUBLIC_BASE_URL=https://trueforge.myorg.com npx @truefoundry/trueforge
     ```
 
-    In hosted mode, set it in `packages/trueforge/.env` (Docker Compose) or via `server.publicBaseUrl` (Helm).
+    In hosted mode, set it in `packages/trueforge/.env` (Docker Compose), via `server.publicBaseUrl` (Helm), or as
+    `PUBLIC_BASE_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}` on Railway.
 
   </Accordion>
 </AccordionGroup>

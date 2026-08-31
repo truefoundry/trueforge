@@ -8,7 +8,8 @@
 #
 # Dependency install uses pnpm fetch (lockfile-only) then install --offline so
 # the download layer stays cached when only package.json / scripts change.
-# See https://pnpm.io/cli/fetch
+# See https://pnpm.io/cli/fetch. BuildKit cache mounts are avoided so the same
+# file builds on Railway Metal (which requires a hardcoded service id in mount ids).
 
 FROM node:24-slim AS base
 ENV PNPM_HOME=/pnpm
@@ -18,10 +19,14 @@ WORKDIR /app
 
 # ---------------------------------------------------------------------------
 # store: the pnpm store, from the lockfile only (stable when manifests churn).
+# BuildKit cache mounts are omitted: Railway's Metal builder requires
+# `id=s/<service-id>-…` (hardcoded per deploy), which cannot live in a shared
+# OSS Dockerfile. Layer cache on this stage still hits when the lockfile is
+# unchanged.
 # ---------------------------------------------------------------------------
 FROM base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
+RUN pnpm fetch
 
 # ---------------------------------------------------------------------------
 # workspace: install inputs shared by every stage below — the manifests plus the
@@ -41,8 +46,7 @@ COPY packages/trueforge-core/src/core/sandbox/scripts packages/trueforge-core/sr
 # builder: install all deps (incl. dev) and build trueforge-core + server.
 # ---------------------------------------------------------------------------
 FROM workspace AS builder
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --filter @truefoundry/trueforge...
+RUN pnpm install --frozen-lockfile --offline --filter @truefoundry/trueforge...
 COPY packages/trueforge-core packages/trueforge-core
 COPY packages/trueforge packages/trueforge
 RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundry/trueforge build
@@ -51,8 +55,7 @@ RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundr
 # frontend-builder: build the UI the server serves (parallel to builder above).
 # ---------------------------------------------------------------------------
 FROM workspace AS frontend-builder
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --filter frontend...
+RUN pnpm install --frozen-lockfile --offline --filter frontend...
 COPY packages/trueforge-sdk packages/trueforge-sdk
 RUN pnpm --filter @truefoundry/trueforge-sdk build
 COPY packages/trueforge-ui packages/trueforge-ui
@@ -64,14 +67,17 @@ RUN pnpm --filter frontend build
 # prod-deps: production dependency tree (no dev tooling), resolved offline.
 # ---------------------------------------------------------------------------
 FROM workspace AS prod-deps
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/trueforge...
+RUN pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/trueforge...
 
 # ---------------------------------------------------------------------------
 # runner: minimal image with prod node_modules + built artifacts.
 # ---------------------------------------------------------------------------
 FROM base AS runner
-ENV NODE_ENV=production
+# HOST=0.0.0.0 so Railway / Compose published ports and probes reach the process.
+# STANDALONE=false ⇒ Postgres + Redis (hosted topology this image is built for).
+ENV NODE_ENV=production \
+    STANDALONE=false \
+    HOST=0.0.0.0
 
 # Production dependency tree (pnpm workspace symlinks preserved).
 COPY --from=prod-deps /app/node_modules ./node_modules
