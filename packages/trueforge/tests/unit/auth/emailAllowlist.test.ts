@@ -1,4 +1,4 @@
-import { assertEmailAllowed, EMAIL_NOT_ALLOWED_REASON, emailMatchesAllowlist } from '../../../src/auth/emailAllowlist';
+import { assertEmailAllowed, emailMatchesAllowlist, EmailNotAllowedError } from '../../../src/auth/emailAllowlist';
 import type { OIDCConfig } from '../../../src/config';
 
 function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
@@ -46,14 +46,20 @@ describe('assertEmailAllowed', () => {
 
   it('throws when the email claim is missing', () => {
     expect(() => assertEmailAllowed({ sub: 'u1' }, config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }))).toThrow(
-      EMAIL_NOT_ALLOWED_REASON,
+      EmailNotAllowedError,
     );
   });
 
   it('throws when the email does not match', () => {
     expect(() =>
       assertEmailAllowed({ email: 'outsider@elsewhere.com' }, config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] })),
-    ).toThrow(EMAIL_NOT_ALLOWED_REASON);
+    ).toThrow(EmailNotAllowedError);
+  });
+
+  it('uses a generic login_failed message so redirects do not reveal allowlist membership', () => {
+    expect(() =>
+      assertEmailAllowed({ email: 'outsider@elsewhere.com' }, config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] })),
+    ).toThrow('login_failed');
   });
 
   it('allows a matching email', () => {

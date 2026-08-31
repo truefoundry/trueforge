@@ -5,6 +5,7 @@ import {
   resolveUserRef,
   toUserContext,
 } from '../../../src/auth/claims';
+import { EmailNotAllowedError } from '../../../src/auth/emailAllowlist';
 import type { OIDCConfig } from '../../../src/config';
 
 function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
@@ -112,13 +113,13 @@ describe('toUserContext', () => {
     ).toEqual({ userRef: 'user-123', role: 'user' });
   });
 
-  it('throws email_not_allowed when the email is outside the allowlist', () => {
+  it('throws EmailNotAllowedError when the email is outside the allowlist', () => {
     expect(() =>
       toUserContext(
         { sub: 'user-123', groups: [], email: 'outsider@elsewhere.com' },
         config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
       ),
-    ).toThrow(/email_not_allowed/);
+    ).toThrow(EmailNotAllowedError);
   });
 
   it('allows a matching domain glob', () => {

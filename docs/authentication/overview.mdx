@@ -222,7 +222,7 @@ To call the HTTP API or SDK against a server with login enabled, pass an ID toke
 | Blank authorize screen when requesting `groups` | Custom Authorization Server is missing the `groups` scope and/or ID-token groups claim (Okta) |
 | Login works but everyone is `role: "user"` | Groups/roles claim missing from the ID token, wrong claim name, or admin value mismatch (case-sensitive) |
 | SDK returns `401` | OIDC is on and the request has no [ID token](/api/quickstart#get-a-token-and-connect) or session cookie |
-| `Your email is not allowed…` / `email_not_allowed` | Caller’s `email` claim is outside `OIDC_ALLOWED_EMAILS`, or the ID token has no `email` claim while an allowlist is set |
+| Sign-in fails with `login_failed` / APIs return `401` after allowlist rollout | Caller’s `email` claim is outside `OIDC_ALLOWED_EMAILS`, or the ID token has no `email` claim while an allowlist is set. Failures stay generic so the allowlist is not disclosed. |
 
 ## Security checklist
 

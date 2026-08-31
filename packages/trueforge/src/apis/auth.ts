@@ -4,7 +4,6 @@ import type { Context } from 'hono';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
-import { EMAIL_NOT_ALLOWED_REASON, EmailNotAllowedError } from '../auth/emailAllowlist';
 import { resolveUserContext } from '../auth/identity';
 import { authMiddleware, resolveAuthUser } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
@@ -19,10 +18,10 @@ function oauthErrorRedirect(reason: string): string {
 
 /**
  * Soft-success probe for callback: a usable session → redirect; a leftover cookie
- * whose email is now blocked → `/?error=email_not_allowed` (and clear the cookie);
- * missing/invalid JWT or other claim-mapping failures → no redirect (caller continues).
+ * with unusable claims (allowlist, missing user ref, etc.) → clear it and continue
+ * so the caller can show a generic login failure without leaking why.
  */
-async function redirectIfAuthenticatedOrEmailBlocked(params: {
+async function redirectIfAlreadyAuthenticated(params: {
   context: Context;
   whenAuthenticated: string;
 }): Promise<Response | undefined> {
@@ -30,12 +29,9 @@ async function redirectIfAuthenticatedOrEmailBlocked(params: {
     if (await resolveAuthUser(params.context)) {
       return params.context.redirect(params.whenAuthenticated, 302);
     }
-  } catch (error) {
-    if (error instanceof EmailNotAllowedError) {
-      clearAuthCookie({ context: params.context, name: ID_TOKEN_COOKIE });
-      return params.context.redirect(oauthErrorRedirect(EMAIL_NOT_ALLOWED_REASON), 302);
-    }
-    // Valid JWT but unusable claims (e.g. missing user reference) → not authenticated.
+  } catch {
+    // Valid JWT but unusable claims — drop the stale cookie; treat as unauthenticated.
+    clearAuthCookie({ context: params.context, name: ID_TOKEN_COOKIE });
   }
   return undefined;
 }
@@ -77,7 +73,7 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
 
     if (pending?.state !== query.state || query.error || !query.code) {
       // If already authenticated, redirect home instead of showing an error.
-      const soft = await redirectIfAuthenticatedOrEmailBlocked({ context: c, whenAuthenticated: '/' });
+      const soft = await redirectIfAlreadyAuthenticated({ context: c, whenAuthenticated: '/' });
       if (soft) {
         return soft;
       }
@@ -100,19 +96,14 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
       return c.redirect(safeReturnTo(pending.return_to), 302);
     } catch (error) {
       params.logger.error('Failed to exchange authorization code', extractErrorLogFields(error));
-      const soft = await redirectIfAuthenticatedOrEmailBlocked({
+      const soft = await redirectIfAlreadyAuthenticated({
         context: c,
         whenAuthenticated: safeReturnTo(pending.return_to),
       });
       if (soft) {
         return soft;
       }
-      const reason =
-        error instanceof EmailNotAllowedError
-          ? EMAIL_NOT_ALLOWED_REASON
-          : error instanceof Error
-            ? error.message
-            : 'login_failed';
+      const reason = error instanceof Error ? error.message : 'login_failed';
       return c.redirect(oauthErrorRedirect(reason), 302);
     }
   });

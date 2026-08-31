@@ -1,12 +1,13 @@
 import type { OIDCConfig } from '../config';
 
-/** Stable `/?error=` reason when the signed-in email is outside the allowlist. */
-export const EMAIL_NOT_ALLOWED_REASON = 'email_not_allowed';
-
-/** Thrown when OIDC_ALLOWED_EMAILS is set and the caller's email does not match. */
+/**
+ * Thrown when OIDC_ALLOWED_EMAILS is set and the caller's email does not match.
+ * Message is intentionally the generic `login_failed` so OAuth redirects never
+ * reveal allowlist membership to the client.
+ */
 export class EmailNotAllowedError extends Error {
   constructor() {
-    super(EMAIL_NOT_ALLOWED_REASON);
+    super('login_failed');
     this.name = 'EmailNotAllowedError';
   }
 }

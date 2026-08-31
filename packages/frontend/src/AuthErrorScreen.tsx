@@ -4,12 +4,7 @@ import './authScreens.css';
 
 /** OIDC / login failure status. Mirrors the welcome page layout. */
 export function AuthErrorScreen({ reason }: { reason: string }) {
-  const message =
-    reason === 'login_failed'
-      ? 'We couldn’t complete sign-in. Please try again.'
-      : reason === 'email_not_allowed'
-        ? 'Your email is not allowed to access this TrueForge instance.'
-        : reason;
+  const message = reason === 'login_failed' ? 'We couldn’t complete sign-in. Please try again.' : reason;
   return (
     <main className="auth-screen">
       <div className="auth-screen-card">

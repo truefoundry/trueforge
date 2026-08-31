@@ -290,7 +290,7 @@ describe('auth router (auth enabled)', () => {
     });
 
     expect(callbackRes.status).toBe(302);
-    expect(callbackRes.headers.get('location')).toBe('/?error=email_not_allowed');
+    expect(callbackRes.headers.get('location')).toBe('/?error=login_failed');
     expect(setCookies(callbackRes).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`))).toBe(false);
   });
 
@@ -350,8 +350,9 @@ describe('auth router (auth enabled)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
-  it('GET /callback redirects email_not_allowed when a leftover cookie is outside the allowlist', async () => {
+  it('GET /callback clears a leftover cookie outside the allowlist without revealing why', async () => {
     // Rollout case: allowlist enabled while browsers still hold pre-allowlist id_tokens.
+    // Failure stays generic (`login_failed`) so allowlist membership is not disclosed.
     const restrictedClient = await initOidc({
       ...configuredOidc,
       OIDC_ALLOWED_EMAILS: ['*@company.com'],
@@ -369,7 +370,7 @@ describe('auth router (auth enabled)', () => {
       },
     );
     expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('/?error=email_not_allowed');
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
     expect(
       setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
     ).toBe(true);
@@ -388,7 +389,7 @@ describe('auth router (auth enabled)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
-  it('GET /callback surfaces email_not_allowed when exchange fails and the leftover cookie is blocked', async () => {
+  it('GET /callback keeps login_failed when exchange fails and the leftover cookie is blocked', async () => {
     const restrictedClient = await initOidc({
       ...configuredOidc,
       OIDC_ALLOWED_EMAILS: ['*@company.com'],
@@ -409,7 +410,7 @@ describe('auth router (auth enabled)', () => {
       headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}; ${ID_TOKEN_COOKIE}=${token}` },
     });
     expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('/?error=email_not_allowed');
+    expect(res.headers.get('location')).toBe('/?error=login_failed');
     expect(
       setCookies(res).some(cookie => cookie.startsWith(`${ID_TOKEN_COOKIE}=`) && cookie.includes('Max-Age=0')),
     ).toBe(true);
