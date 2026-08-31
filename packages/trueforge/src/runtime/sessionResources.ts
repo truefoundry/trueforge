@@ -20,7 +20,15 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+<<<<<<< HEAD
+import {
+  recordDaytonaAccessFailure,
+  toDaytonaSandboxProvider,
+  toSandboxProviderFromRecord,
+} from '../sandbox/providerUtils';
+=======
+import { recordDaytonaAccessFailure, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
+>>>>>>> fix: persist Daytona authentication failures
 import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
@@ -204,7 +212,26 @@ export async function resolveSandboxProvider({
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
-    return toSandboxProviderFromRecord({ record, tenant_id, logger });
+    if (record.manifest.type !== 'daytona') {
+      return toSandboxProviderFromRecord({ record, tenant_id, logger });
+    }
+    // Clone from the snapshot that was actually built (persisted build_ref), not a name
+    // derived from the current image — otherwise an image bump breaks creation until rebuild.
+    return toDaytonaSandboxProvider({
+      manifest: record.manifest,
+      tenant_id,
+      logger,
+      build_metadata: record.build_metadata,
+      onError: async error => {
+        await recordDaytonaAccessFailure({
+          store,
+          tenant_id,
+          error,
+          build_metadata: record.build_metadata,
+          expected_manifest: record.manifest,
+        });
+      },
+    });
   }
   if (!configuration.STANDALONE) {
     return undefined;
