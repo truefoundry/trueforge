@@ -1,8 +1,8 @@
 import type {
   AgentSpec,
   SessionMetrics,
-  SessionMetricsChartsDataResponse,
-  SessionMetricsMetersResponse,
+  SessionMetricsChartDataResponse,
+  SessionMetricsMeterResponse,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
@@ -379,7 +379,7 @@ async function fetchSessionMetricsBuckets(
 export async function getSessionMetricsMeters(
   db: Kysely<Database>,
   input: GetSessionMetricsInput,
-): Promise<SessionMetricsMetersResponse> {
+): Promise<SessionMetricsMeterResponse> {
   const aggregate = await fetchSessionMetricsAggregate(db, input);
   return buildSessionMetricsMeters(aggregate);
 }
@@ -387,7 +387,7 @@ export async function getSessionMetricsMeters(
 export async function getSessionMetricsChartData(
   db: Kysely<Database>,
   input: GetSessionMetricsChartDataInput,
-): Promise<SessionMetricsChartsDataResponse> {
+): Promise<SessionMetricsChartDataResponse> {
   const step_seconds = sessionMetricsStepSeconds(input);
   const buckets = await fetchSessionMetricsBuckets(db, input, step_seconds);
   return buildSessionMetricsChartData({ query: input, buckets, step_seconds });

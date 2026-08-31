@@ -10,10 +10,10 @@ import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } 
 import {
   CreateSessionRequestSchema,
   GetOrCreateSessionByExternalIdRequestSchema,
-  GetSessionMetricsChartsDataRequestQuerySchema,
-  GetSessionMetricsChartsDataResponseSchema,
-  GetSessionMetricsChartsResponseSchema,
-  GetSessionMetricsMetersResponseSchema,
+  GetSessionMetricsChartDataRequestQuerySchema,
+  GetSessionMetricsChartDataResponseSchema,
+  GetSessionMetricsChartResponseSchema,
+  GetSessionMetricsMeterResponseSchema,
   GetSessionMetricsRequestQuerySchema,
   GetSessionResponseSchema,
   ListSessionsRequestQuerySchema,
@@ -240,7 +240,7 @@ export const getSessionMetricsMetersRoute = createRoute({
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GetSessionMetricsMetersResponseSchema } },
+      content: { 'application/json': { schema: GetSessionMetricsMeterResponseSchema } },
       description: 'Session metric meters.',
     },
     400: {
@@ -264,7 +264,7 @@ export const getSessionMetricsChartsRoute = createRoute({
   'x-excluded': true,
   responses: {
     200: {
-      content: { 'application/json': { schema: GetSessionMetricsChartsResponseSchema } },
+      content: { 'application/json': { schema: GetSessionMetricsChartResponseSchema } },
       description: 'Session metric chart catalog.',
     },
   },
@@ -280,11 +280,11 @@ export const getSessionMetricsChartsDataRoute = createRoute({
   'x-fern-ignore': true,
   'x-excluded': true,
   request: {
-    query: GetSessionMetricsChartsDataRequestQuerySchema,
+    query: GetSessionMetricsChartDataRequestQuerySchema,
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: GetSessionMetricsChartsDataResponseSchema } },
+      content: { 'application/json': { schema: GetSessionMetricsChartDataResponseSchema } },
       description: 'Zero-filled time series for one chart.',
     },
     400: {

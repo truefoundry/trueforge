@@ -48,12 +48,12 @@ export const SessionMetricsMeterSchema = z
   .strict()
   .openapi('SessionMetricsMeter');
 
-export const SessionMetricsMetersResponseSchema = z
+export const SessionMetricsMeterResponseSchema = z
   .object({
     meters: z.array(SessionMetricsMeterSchema).length(12),
   })
   .strict()
-  .openapi('SessionMetricsMetersResponse');
+  .openapi('SessionMetricsMeterResponse');
 
 export const SessionMetricsChartNameSchema = z
   .enum(['sessions_over_time', 'sessions_cost_over_time', 'turns_over_time'])
@@ -70,12 +70,12 @@ export const SessionMetricsChartSchema = z
   .strict()
   .openapi('SessionMetricsChart');
 
-export const SessionMetricsChartsResponseSchema = z
+export const SessionMetricsChartResponseSchema = z
   .object({
     charts: z.array(SessionMetricsChartSchema).length(3),
   })
   .strict()
-  .openapi('SessionMetricsChartsResponse');
+  .openapi('SessionMetricsChartResponse');
 
 export const SessionMetricsGraphLineSchema = z
   .object({
@@ -97,13 +97,13 @@ export const SessionMetricsGraphSchema = z
   .strict()
   .openapi('SessionMetricsGraph');
 
-export const SessionMetricsChartsDataResponseSchema = z
+export const SessionMetricsChartDataResponseSchema = z
   .object({
     step: z.string(),
     graphs: z.array(SessionMetricsGraphSchema).length(1),
   })
   .strict()
-  .openapi('SessionMetricsChartsDataResponse');
+  .openapi('SessionMetricsChartDataResponse');
 
 export const SessionAgentReferenceSchema = z
   .object({
@@ -151,11 +151,11 @@ export type SessionMetrics = z.infer<typeof SessionMetricsSchema>;
 export type SessionMetricsPoint = z.infer<typeof SessionMetricsPointSchema>;
 export type SessionMetricsMeterName = z.infer<typeof SessionMetricsMeterNameSchema>;
 export type SessionMetricsMeter = z.infer<typeof SessionMetricsMeterSchema>;
-export type SessionMetricsMetersResponse = z.infer<typeof SessionMetricsMetersResponseSchema>;
+export type SessionMetricsMeterResponse = z.infer<typeof SessionMetricsMeterResponseSchema>;
 export type SessionMetricsChartName = z.infer<typeof SessionMetricsChartNameSchema>;
 export type SessionMetricsChart = z.infer<typeof SessionMetricsChartSchema>;
-export type SessionMetricsChartsResponse = z.infer<typeof SessionMetricsChartsResponseSchema>;
+export type SessionMetricsChartResponse = z.infer<typeof SessionMetricsChartResponseSchema>;
 export type SessionMetricsGraphLine = z.infer<typeof SessionMetricsGraphLineSchema>;
 export type SessionMetricsGraph = z.infer<typeof SessionMetricsGraphSchema>;
-export type SessionMetricsChartsDataResponse = z.infer<typeof SessionMetricsChartsDataResponseSchema>;
+export type SessionMetricsChartDataResponse = z.infer<typeof SessionMetricsChartDataResponseSchema>;
 export type Session = z.infer<typeof SessionSchema>;

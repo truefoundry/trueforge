@@ -1,9 +1,9 @@
 import type {
+  SessionMetricsChartDataResponse,
   SessionMetricsChartName,
-  SessionMetricsChartsDataResponse,
-  SessionMetricsChartsResponse,
+  SessionMetricsChartResponse,
   SessionMetricsGraph,
-  SessionMetricsMetersResponse,
+  SessionMetricsMeterResponse,
   SessionMetricsPoint,
 } from '../schemas/session';
 
@@ -25,7 +25,7 @@ export interface SessionMetricsChartDataBuildInput extends SessionMetricsTimeWin
   chart_name: SessionMetricsChartName;
 }
 
-export const SESSION_METRICS_CHARTS: SessionMetricsChartsResponse['charts'] = [
+export const SESSION_METRICS_CHARTS: SessionMetricsChartResponse['charts'] = [
   {
     name: 'sessions_over_time',
     display_name: 'Sessions',
@@ -137,7 +137,7 @@ export function foldSessionMetricsAggregate(rows: SessionMetricsRow[]): SessionM
   };
 }
 
-function buildMeters(aggregate: SessionMetricsAggregate): SessionMetricsMetersResponse['meters'] {
+function buildMeters(aggregate: SessionMetricsAggregate): SessionMetricsMeterResponse['meters'] {
   const costPerSession =
     aggregate.total_sessions === 0
       ? 0
@@ -306,11 +306,11 @@ function buildChartValues(input: {
   return values;
 }
 
-export function buildSessionMetricsMeters(aggregate: SessionMetricsAggregate): SessionMetricsMetersResponse {
+export function buildSessionMetricsMeters(aggregate: SessionMetricsAggregate): SessionMetricsMeterResponse {
   return { meters: buildMeters(aggregate) };
 }
 
-export function buildSessionMetricsCharts(): SessionMetricsChartsResponse {
+export function buildSessionMetricsCharts(): SessionMetricsChartResponse {
   return { charts: SESSION_METRICS_CHARTS };
 }
 
@@ -318,7 +318,7 @@ export function buildSessionMetricsChartData(input: {
   query: SessionMetricsChartDataBuildInput;
   buckets: SessionMetricsBucket[];
   step_seconds: number;
-}): SessionMetricsChartsDataResponse {
+}): SessionMetricsChartDataResponse {
   const meta = chartGraphMeta(input.query.chart_name, input.step_seconds);
   return {
     step: String(input.step_seconds),

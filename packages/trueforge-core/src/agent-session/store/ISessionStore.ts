@@ -12,9 +12,9 @@ import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type {
+  SessionMetricsChartDataResponse,
   SessionMetricsChartName,
-  SessionMetricsChartsDataResponse,
-  SessionMetricsMetersResponse,
+  SessionMetricsMeterResponse,
 } from '../schemas/session';
 import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
 
@@ -278,8 +278,8 @@ export interface ISessionStore<
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }>;
 
   /** Aggregates caller-owned sessions by named agent and inclusive creation window. */
-  getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMetersResponse>;
-  getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartsDataResponse>;
+  getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMeterResponse>;
+  getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartDataResponse>;
 
   /**
    * Creates the turn AND advances `session.last_turn_id`. Context merging is the

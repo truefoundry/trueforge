@@ -22,15 +22,15 @@ export {
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
 export {
+  SessionMetricsChartDataResponseSchema,
   SessionMetricsChartNameSchema,
+  SessionMetricsChartResponseSchema,
   SessionMetricsChartSchema,
-  SessionMetricsChartsDataResponseSchema,
-  SessionMetricsChartsResponseSchema,
   SessionMetricsGraphLineSchema,
   SessionMetricsGraphSchema,
   SessionMetricsMeterNameSchema,
+  SessionMetricsMeterResponseSchema,
   SessionMetricsMeterSchema,
-  SessionMetricsMetersResponseSchema,
   SessionMetricsPointSchema,
   SessionMetricsSchema,
   SessionSchema,
@@ -40,14 +40,14 @@ export type {
   SessionAgent,
   SessionMetrics,
   SessionMetricsChart,
+  SessionMetricsChartDataResponse,
   SessionMetricsChartName,
-  SessionMetricsChartsDataResponse,
-  SessionMetricsChartsResponse,
+  SessionMetricsChartResponse,
   SessionMetricsGraph,
   SessionMetricsGraphLine,
   SessionMetricsMeter,
   SessionMetricsMeterName,
-  SessionMetricsMetersResponse,
+  SessionMetricsMeterResponse,
   SessionMetricsPoint,
 } from './schemas/session';
 

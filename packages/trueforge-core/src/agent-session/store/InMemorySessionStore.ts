@@ -4,7 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { SessionMetricsChartsDataResponse, SessionMetricsMetersResponse } from '../schemas/session';
+import type { SessionMetricsChartDataResponse, SessionMetricsMeterResponse } from '../schemas/session';
 import type { TerminalTurnState } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
@@ -372,12 +372,12 @@ export class InMemorySessionStore<
     };
   }
 
-  async getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMetersResponse> {
+  async getSessionMetricsMeters(input: GetSessionMetricsInput): Promise<SessionMetricsMeterResponse> {
     const { aggregate } = this.collectSessionMetricsData(input);
     return buildSessionMetricsMeters(aggregate);
   }
 
-  async getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartsDataResponse> {
+  async getSessionMetricsChartData(input: GetSessionMetricsChartDataInput): Promise<SessionMetricsChartDataResponse> {
     const { buckets, step_seconds } = this.collectSessionMetricsData(input);
     return buildSessionMetricsChartData({ query: input, buckets, step_seconds });
   }

@@ -2,10 +2,10 @@
 import { z } from '@hono/zod-openapi';
 import {
   AgentSpecSchema,
+  SessionMetricsChartDataResponseSchema,
   SessionMetricsChartNameSchema,
-  SessionMetricsChartsDataResponseSchema,
-  SessionMetricsChartsResponseSchema,
-  SessionMetricsMetersResponseSchema,
+  SessionMetricsChartResponseSchema,
+  SessionMetricsMeterResponseSchema,
   SessionSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -129,31 +129,31 @@ export const GetSessionMetricsRequestQuerySchema = GetSessionMetricsRequestQuery
   refineSessionMetricsTimeWindow,
 ).openapi('GetSessionMetricsRequestQuery');
 
-export const GetSessionMetricsChartsDataRequestQuerySchema = z
+export const GetSessionMetricsChartDataRequestQuerySchema = z
   .object({
     ...GetSessionMetricsRequestQueryObjectSchema.shape,
     chart_name: SessionMetricsChartNameSchema,
   })
   .superRefine(refineSessionMetricsTimeWindow)
-  .openapi('GetSessionMetricsChartsDataRequestQuery');
+  .openapi('GetSessionMetricsChartDataRequestQuery');
 
-export const GetSessionMetricsMetersResponseSchema = z
+export const GetSessionMetricsMeterResponseSchema = z
   .object({
-    data: SessionMetricsMetersResponseSchema,
+    data: SessionMetricsMeterResponseSchema,
   })
-  .openapi('GetSessionMetricsMetersResponse');
+  .openapi('GetSessionMetricsMeterResponse');
 
-export const GetSessionMetricsChartsResponseSchema = z
+export const GetSessionMetricsChartResponseSchema = z
   .object({
-    data: SessionMetricsChartsResponseSchema,
+    data: SessionMetricsChartResponseSchema,
   })
-  .openapi('GetSessionMetricsChartsResponse');
+  .openapi('GetSessionMetricsChartResponse');
 
-export const GetSessionMetricsChartsDataResponseSchema = z
+export const GetSessionMetricsChartDataResponseSchema = z
   .object({
-    data: SessionMetricsChartsDataResponseSchema,
+    data: SessionMetricsChartDataResponseSchema,
   })
-  .openapi('GetSessionMetricsChartsDataResponse');
+  .openapi('GetSessionMetricsChartDataResponse');
 
 export const GetSessionResponseSchema = z
   .object({

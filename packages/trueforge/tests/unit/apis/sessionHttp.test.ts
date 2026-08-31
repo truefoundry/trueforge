@@ -20,9 +20,9 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import {
-  GetSessionMetricsChartsDataResponseSchema,
-  GetSessionMetricsChartsResponseSchema,
-  GetSessionMetricsMetersResponseSchema,
+  GetSessionMetricsChartDataResponseSchema,
+  GetSessionMetricsChartResponseSchema,
+  GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/session';
 
 const inlineSpec = AgentSpecSchema.parse({
@@ -169,7 +169,7 @@ describe('sessions HTTP agent binding', () => {
     const response = await app.request(`/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(200);
-    const meters = GetSessionMetricsMetersResponseSchema.parse(await response.json());
+    const meters = GetSessionMetricsMeterResponseSchema.parse(await response.json());
     expect(meters.data.meters).toHaveLength(12);
     expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
     expect(meters.data.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(0);
@@ -181,7 +181,7 @@ describe('sessions HTTP agent binding', () => {
       `/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
     );
     expect(sessionsChartResponse.status).toBe(200);
-    const sessionsChart = GetSessionMetricsChartsDataResponseSchema.parse(await sessionsChartResponse.json());
+    const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
     expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
   });
 
@@ -189,7 +189,7 @@ describe('sessions HTTP agent binding', () => {
     const response = await app.request('/metrics/charts');
 
     expect(response.status).toBe(200);
-    const payload = GetSessionMetricsChartsResponseSchema.parse(await response.json());
+    const payload = GetSessionMetricsChartResponseSchema.parse(await response.json());
     expect(payload.data.charts).toHaveLength(3);
     expect(payload.data.charts.map(chart => chart.name)).toEqual([
       'sessions_over_time',
