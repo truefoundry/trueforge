@@ -363,7 +363,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
 
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: historical.id })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: pending.id })).toBeUndefined();
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
@@ -398,7 +398,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     await deps.getAgentStore().deleteAgent({ tenant_id: TENANT, id: agent.id });
 
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
     if (pendingRun === undefined) {
       throw new Error('expected pending run before agent delete');

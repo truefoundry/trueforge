@@ -96,11 +96,6 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     this.#db = db;
   }
 
-  /**
-   * `input.forUpdate` is intentionally ignored: SQLite has no `SELECT ... FOR UPDATE`
-   * and does not need one — a write transaction holds the whole database, so the
-   * lock ordering Postgres needs is already guaranteed.
-   */
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db
@@ -110,6 +105,17 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .where('id', '=', input.id)
       .executeTakeFirst();
     return row === undefined ? undefined : toScheduleRecord(row);
+  }
+
+  /**
+   * SQLite has no `SELECT ... FOR UPDATE`. A write transaction still serializes
+   * the lock-ordering Postgres needs.
+   */
+  async getScheduleForUpdate(
+    input: GetScheduleInput,
+    transaction: Transaction<Database>,
+  ): Promise<ScheduleRecord | undefined> {
+    return this.getSchedule(input, transaction);
   }
 
   async createScheduleAndRun(
@@ -158,7 +164,10 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     // transaction must take the schedule lock before touching a run row (see the
     // lock-ordering note in `controller/scheduleDispatch.ts`). A no-op here; Postgres
     // is where it matters.
-    const previous = await this.getSchedule({ tenant_id: input.tenant_id, id: input.id, forUpdate: true }, transaction);
+    const previous =
+      transaction !== undefined
+        ? await this.getScheduleForUpdate({ tenant_id: input.tenant_id, id: input.id }, transaction)
+        : await this.getSchedule({ tenant_id: input.tenant_id, id: input.id });
     if (previous === undefined) {
       return undefined;
     }

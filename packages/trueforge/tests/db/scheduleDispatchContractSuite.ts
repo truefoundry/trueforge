@@ -328,7 +328,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
 
     expect(first).toEqual({ dispatched: 1, failed: 0 });
     expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toBeUndefined();
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toEqual(
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toEqual(
       expect.objectContaining({ id: schedule.id, status: 'paused' }),
     );
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();

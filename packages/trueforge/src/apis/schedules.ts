@@ -123,7 +123,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const listRunsHandler: RouteHandler<typeof listScheduleRunsRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
-    const schedule = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId, forUpdate: false });
+    const schedule = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
     if (schedule === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
@@ -176,7 +176,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const getHandler: RouteHandler<typeof getScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
-    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId, forUpdate: false });
+    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
     if (record === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
@@ -202,7 +202,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
     validateManifest(body.manifest);
 
-    const existing = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId, forUpdate: false });
+    const existing = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
     if (existing === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
@@ -243,7 +243,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const deleteHandler: RouteHandler<typeof deleteScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
-    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId, forUpdate: false });
+    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
     if (record === undefined) {
       return c.json({}, 200);
     }

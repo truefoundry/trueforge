@@ -97,8 +97,6 @@ export interface ListRunsInput {
 export interface GetScheduleInput {
   tenant_id: string;
   id: string;
-  /** Whether to take a row lock on the schedule (`SELECT ... FOR UPDATE`). */
-  forUpdate: boolean | undefined;
 }
 
 export interface CreateScheduleInput {
@@ -203,6 +201,11 @@ export function shouldSyncPendingRun(
 export interface IScheduleStore<TTransaction = never> {
   // --- schedule ---
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
+  /**
+   * Load one schedule while holding a row lock for the lifetime of `transaction`.
+   * Postgres: `SELECT … FOR UPDATE`. SQLite: plain read under a write txn.
+   */
+  getScheduleForUpdate(input: GetScheduleInput, transaction: TTransaction): Promise<ScheduleRecord | undefined>;
   /**
    * Inserts a schedule (`status` mirrors `manifest.status`) and syncs the pending run
    * in the same call: active adds the next run from `runFrom`; paused adds nothing.

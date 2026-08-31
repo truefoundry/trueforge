@@ -99,15 +99,26 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
 
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
-    let query = db
+    const row = await db
       .selectFrom('schedule')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id);
-    if (input.forUpdate === true) {
-      query = query.forUpdate();
-    }
-    const row = await query.executeTakeFirst();
+      .where('id', '=', input.id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toScheduleRecord(row);
+  }
+
+  async getScheduleForUpdate(
+    input: GetScheduleInput,
+    transaction: Transaction<Database>,
+  ): Promise<ScheduleRecord | undefined> {
+    const row = await transaction
+      .selectFrom('schedule')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .forUpdate()
+      .executeTakeFirst();
     return row === undefined ? undefined : toScheduleRecord(row);
   }
 
@@ -154,7 +165,10 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
   ): Promise<ScheduleWriteResult | undefined> {
     // Lock first: this transaction writes the schedule AND its runs, and every such
     // transaction must take the schedule lock before touching a run row.
-    const previous = await this.getSchedule({ tenant_id: input.tenant_id, id: input.id, forUpdate: true }, transaction);
+    const previous =
+      transaction !== undefined
+        ? await this.getScheduleForUpdate({ tenant_id: input.tenant_id, id: input.id }, transaction)
+        : await this.getSchedule({ tenant_id: input.tenant_id, id: input.id });
     if (previous === undefined) {
       return undefined;
     }
