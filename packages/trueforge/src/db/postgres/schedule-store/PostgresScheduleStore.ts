@@ -4,6 +4,7 @@ import { nextTriggerAfter } from '../../../runtime/cron';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
   type CreateScheduleInput,
@@ -13,6 +14,7 @@ import {
   type GetScheduledRunForInput,
   type GetScheduleInput,
   type IScheduleStore,
+  type ListRunsInput,
   type ListScheduledRunsInput,
   type ListSchedulesInput,
   type ScheduleRecord,
@@ -97,15 +99,26 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
 
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
-    let query = db
+    const row = await db
       .selectFrom('schedule')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id);
-    if (input.forUpdate === true) {
-      query = query.forUpdate();
-    }
-    const row = await query.executeTakeFirst();
+      .where('id', '=', input.id)
+      .executeTakeFirst();
+    return row === undefined ? undefined : toScheduleRecord(row);
+  }
+
+  async getScheduleForUpdate(
+    input: GetScheduleInput,
+    transaction: Transaction<Database>,
+  ): Promise<ScheduleRecord | undefined> {
+    const row = await transaction
+      .selectFrom('schedule')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .forUpdate()
+      .executeTakeFirst();
     return row === undefined ? undefined : toScheduleRecord(row);
   }
 
@@ -114,22 +127,33 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     transaction?: Transaction<Database>,
   ): Promise<ScheduleWriteResult> {
     const db = transaction ?? this.#db;
-    const row = await db
-      .insertInto('schedule')
-      .values({
-        id: ulid().toLowerCase(),
-        tenant_id: input.tenant_id,
-        agent_name: input.agent_name,
-        name: input.name,
-        manifest: json(input.manifest),
-        // Column mirrors the manifest so the dispatch scan and API reads share one value.
-        status: input.manifest.status,
-        created_by: input.created_by,
-        created_at: now(),
-        updated_at: now(),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    let row;
+    try {
+      row = await db
+        .insertInto('schedule')
+        .values({
+          id: ulid().toLowerCase(),
+          tenant_id: input.tenant_id,
+          agent_name: input.agent_name,
+          name: input.name,
+          manifest: json(input.manifest),
+          // Column mirrors the manifest so the dispatch scan and API reads share one value.
+          status: input.manifest.status,
+          created_by: input.created_by,
+          created_at: now(),
+          updated_at: now(),
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ScheduleNameConflictError(
+          { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
+          { cause: error },
+        );
+      }
+      throw error;
+    }
     const schedule = toScheduleRecord(row);
     const pendingRun = await this.#syncPendingRun(schedule, input.runFrom, transaction);
     return { schedule, pendingRun };
@@ -141,19 +165,33 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
   ): Promise<ScheduleWriteResult | undefined> {
     // Lock first: this transaction writes the schedule AND its runs, and every such
     // transaction must take the schedule lock before touching a run row.
-    const previous = await this.getSchedule({ tenant_id: input.tenant_id, id: input.id, forUpdate: true }, transaction);
+    const previous =
+      transaction !== undefined
+        ? await this.getScheduleForUpdate({ tenant_id: input.tenant_id, id: input.id }, transaction)
+        : await this.getSchedule({ tenant_id: input.tenant_id, id: input.id });
     if (previous === undefined) {
       return undefined;
     }
 
     const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('schedule')
-      .set({ name: input.name, manifest: json(input.manifest), status: input.manifest.status, updated_at: now() })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returningAll()
-      .executeTakeFirst();
+    let row;
+    try {
+      row = await db
+        .updateTable('schedule')
+        .set({ name: input.name, manifest: json(input.manifest), status: input.manifest.status, updated_at: now() })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('id', '=', input.id)
+        .returningAll()
+        .executeTakeFirst();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ScheduleNameConflictError(
+          { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },
+          { cause: error },
+        );
+      }
+      throw error;
+    }
     if (row === undefined) {
       return undefined;
     }
@@ -180,8 +218,24 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     if (input.agent_name !== undefined) {
       query = query.where('agent_name', '=', input.agent_name);
     }
+    if (input.created_by !== undefined) {
+      query = query.where('created_by', '=', input.created_by);
+    }
     const rows = await query.orderBy('created_at', 'desc').orderBy('id').execute();
     return rows.map(toScheduleRecord);
+  }
+
+  async listRuns(input: ListRunsInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('schedule_run')
+      .selectAll()
+      .where('tenant_id', '=', input.tenant_id)
+      .where('schedule_id', '=', input.schedule_id)
+      .orderBy('scheduled_for', 'desc')
+      .orderBy('id')
+      .execute();
+    return rows.map(toRunRecord);
   }
 
   async getRun(input: GetRunInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord | undefined> {
@@ -223,7 +277,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           scheduled_for: input.scheduled_for,
           status: input.status,
           triggered_by: input.triggered_by,
-          triggered_at: null,
+          triggered_at: input.triggered_at ?? null,
           created_at: now(),
           updated_at: now(),
         })

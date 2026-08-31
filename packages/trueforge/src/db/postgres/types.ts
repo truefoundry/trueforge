@@ -5,6 +5,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetrics,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -22,10 +23,9 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
-import type { ScheduleManifest, ScheduleStatus } from '../../schemas/schedule';
+import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
-import type { ScheduleRunStatus } from '../scheduleStore';
 
 /**
  * Trace-level state for one thread at one turn (`turn_thread.checkpoint`).
@@ -81,6 +81,7 @@ export interface SessionTable {
   last_turn_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
+  metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;
   updated_at: Date;

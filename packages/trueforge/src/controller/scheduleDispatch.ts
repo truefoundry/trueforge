@@ -4,11 +4,10 @@ import {
   type IScheduleStore,
   type ScheduleDispatchItem,
   type ScheduleRunRecord,
-  type ScheduleRunStatus,
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import { nextTriggerAfter } from '../runtime/cron';
-import { InvalidCronError } from '../schemas/schedule';
+import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
 import type { ControlLoop } from './Controller';
 
 /**
@@ -51,7 +50,7 @@ async function finishScheduledRun<TTransaction>(params: {
 }): Promise<void> {
   const { store, withTransaction, run, status, now } = params;
   await withTransaction(async txn => {
-    const latest = await store.getSchedule({ tenant_id: run.tenant_id, id: run.schedule_id, forUpdate: true }, txn);
+    const latest = await store.getScheduleForUpdate({ tenant_id: run.tenant_id, id: run.schedule_id }, txn);
 
     const updated = await store.updateRunStatus({ tenant_id: run.tenant_id, id: run.id, status }, txn);
     if (updated === undefined) {
@@ -155,7 +154,6 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
       const schedule = await store.getSchedule({
         tenant_id: run.tenant_id,
         id: run.schedule_id,
-        forUpdate: false,
       });
       // Only a deleted schedule stops a row here. `paused` deliberately does NOT:
       // status decides whether the schedule gains a NEW row, never whether an

@@ -1086,6 +1086,69 @@ await client.schedules.delete("schedule_id");
 </dl>
 </details>
 
+<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">listRuns</a>(schedule_id) -> TrueForge.ListScheduleRunsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.schedules.listRuns("schedule_id");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**schedule_id:** `string` — Immutable schedule identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SchedulesClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Sessions
 <details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Session, TrueForge.ListSessionsResponse&gt;</code></summary>
 <dl>

@@ -1551,6 +1551,20 @@
         ],
         "type": "object"
       },
+      "ListScheduleRunsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRun"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListSchedulesResponse": {
         "properties": {
           "data": {
@@ -2913,6 +2927,65 @@
           "cron"
         ],
         "type": "object"
+      },
+      "ScheduleRun": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "schedule_id": {
+            "type": "string"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleRunStatus"
+          },
+          "triggered_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triggered_by": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_id",
+          "name",
+          "scheduled_for",
+          "status",
+          "triggered_by",
+          "triggered_at",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ScheduleRunStatus": {
+        "enum": [
+          "scheduled",
+          "triggered",
+          "failed"
+        ],
+        "type": "string"
       },
       "ScheduleStatus": {
         "default": "active",
@@ -5481,7 +5554,7 @@
                 }
               }
             },
-            "description": "The schedule was modified concurrently (usually the controller advancing it). Retry."
+            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
           }
         },
         "summary": "Create a schedule",
@@ -5531,6 +5604,16 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
           }
         },
         "summary": "Delete a schedule",
@@ -5568,6 +5651,16 @@
               }
             },
             "description": "The schedule."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
           },
           "404": {
             "content": {
@@ -5636,6 +5729,16 @@
             },
             "description": "Invalid cron."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -5654,7 +5757,7 @@
                 }
               }
             },
-            "description": "The schedule was modified concurrently (usually the controller advancing it). Retry."
+            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
           }
         },
         "summary": "Update a schedule",
@@ -5665,6 +5768,65 @@
           "schedules"
         ],
         "x-fern-sdk-method-name": "update"
+      }
+    },
+    "/api/v1/schedules/{schedule_id}/runs": {
+      "get": {
+        "description": "List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListScheduleRunsResponse"
+                }
+              }
+            },
+            "description": "Runs of the schedule."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          }
+        },
+        "summary": "List runs of a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "list_runs"
       }
     },
     "/api/v1/sessions": {

@@ -13,16 +13,12 @@
  *
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
-import { ScheduleManifestSchema, type ScheduleManifest, type ScheduleStatus } from '../schemas/schedule';
-
-/**
- * Run lifecycle.
- * - `scheduled`  the one pending run; at most one per schedule, enforced by
- *                `schedule_run_pending_uq`
- * - `triggered`  taken by dispatch via `updateRunStatus`
- * - `failed`     errored, or hand-off to the executor failed
- */
-export type ScheduleRunStatus = 'scheduled' | 'triggered' | 'failed';
+import {
+  ScheduleManifestSchema,
+  type ScheduleManifest,
+  type ScheduleRunStatus,
+  type ScheduleStatus,
+} from '../schemas/schedule';
 
 /**
  * `sched-<unixSeconds>` or `manual-<token>` — one name per trigger time, which is what makes
@@ -37,7 +33,7 @@ export interface ScheduleRecord {
   tenant_id: string;
   /** Immutable FK to `agent.name` (with tenant); agent version resolves at run time. */
   agent_name: string;
-  /** Display label; not unique. */
+  /** Slug-shaped label, unique per agent (`schedule_name_uq`). */
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
@@ -89,13 +85,18 @@ export interface ListSchedulesInput {
   tenant_id: string;
   /** When set, only schedules bound to this agent name are returned. */
   agent_name?: string | undefined;
+  created_by?: string | undefined;
+}
+
+/** User-facing run listing, scoped to one schedule. */
+export interface ListRunsInput {
+  tenant_id: string;
+  schedule_id: string;
 }
 
 export interface GetScheduleInput {
   tenant_id: string;
   id: string;
-  /** Whether to take a row lock on the schedule (`SELECT ... FOR UPDATE`). */
-  forUpdate: boolean | undefined;
 }
 
 export interface CreateScheduleInput {
@@ -132,6 +133,7 @@ export interface CreateScheduleRunInput {
   scheduled_for: Date;
   triggered_by: string;
   status: ScheduleRunStatus;
+  triggered_at?: Date | null;
 }
 
 export interface ListScheduledRunsInput {
@@ -163,6 +165,24 @@ export class ScheduleRunConflictError extends Error {
   }
 }
 
+/** Schedule name already taken for this agent — violates `schedule_name_uq`. */
+export class ScheduleNameConflictError extends Error {
+  readonly tenant_id: string;
+  readonly agent_name: string;
+  readonly schedule_name: string;
+
+  constructor(
+    { tenant_id, agent_name, name }: { tenant_id: string; agent_name: string; name: string },
+    options?: ErrorOptions,
+  ) {
+    super(`Schedule name already exists for agent ${agent_name}: ${name}`, options);
+    this.name = 'ScheduleNameConflictError';
+    this.tenant_id = tenant_id;
+    this.agent_name = agent_name;
+    this.schedule_name = name;
+  }
+}
+
 /**
  * Pending run is replaced only when `status`, `cron`, or `timezone` change.
  * `name` and `task` edits leave the pending row alone.
@@ -181,6 +201,11 @@ export function shouldSyncPendingRun(
 export interface IScheduleStore<TTransaction = never> {
   // --- schedule ---
   getSchedule(input: GetScheduleInput, transaction?: TTransaction): Promise<ScheduleRecord | undefined>;
+  /**
+   * Load one schedule while holding a row lock for the lifetime of `transaction`.
+   * Postgres: `SELECT … FOR UPDATE`. SQLite: plain read under a write txn.
+   */
+  getScheduleForUpdate(input: GetScheduleInput, transaction: TTransaction): Promise<ScheduleRecord | undefined>;
   /**
    * Inserts a schedule (`status` mirrors `manifest.status`) and syncs the pending run
    * in the same call: active adds the next run from `runFrom`; paused adds nothing.
@@ -222,4 +247,8 @@ export interface IScheduleStore<TTransaction = never> {
    * Triggered / terminal rows are never returned.
    */
   listScheduledRuns(input: ListScheduledRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
+  /**
+   * Runs of one schedule (any status), newest `scheduled_for` first.
+   */
+  listRuns(input: ListRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
 }

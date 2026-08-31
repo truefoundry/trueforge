@@ -5,12 +5,19 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { UserContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import { ScheduleRunConflictError, type IScheduleStore, type ScheduleRecord } from '../db/scheduleStore';
+import {
+  ScheduleNameConflictError,
+  ScheduleRunConflictError,
+  type IScheduleStore,
+  type ScheduleRecord,
+  type ScheduleRunRecord,
+} from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createScheduleRoute,
   deleteScheduleRoute,
   getScheduleRoute,
+  listScheduleRunsRoute,
   listSchedulesRoute,
   putScheduleRoute,
 } from '../routes/scheduleRoutes';
@@ -20,6 +27,7 @@ import {
   SCHEDULE_MIN_INTERVAL_SECONDS,
   type Schedule,
   type ScheduleManifest,
+  type ScheduleRun,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
 
@@ -37,6 +45,20 @@ function toWireSchedule(record: ScheduleRecord): Schedule {
     name: record.name,
     manifest: record.manifest,
     created_by: record.created_by,
+    created_at: record.created_at,
+    updated_at: record.updated_at,
+  };
+}
+
+function toWireScheduleRun(record: ScheduleRunRecord): ScheduleRun {
+  return {
+    id: record.id,
+    schedule_id: record.schedule_id,
+    name: record.name,
+    scheduled_for: record.scheduled_for,
+    status: record.status,
+    triggered_by: record.triggered_by,
+    triggered_at: record.triggered_at,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -72,14 +94,44 @@ export function validateManifest(manifest: Pick<ScheduleManifest, 'cron' | 'time
   }
 }
 
+const FORBIDDEN_SCHEDULE_ACCESS = 'Only the schedule creator can access this schedule';
+
+/**
+ * A schedule is visible to its creator, and to any admin.
+ *
+ * The role is read directly rather than via {@link isAdmin}, which reports admin
+ * whenever auth is disabled — irrelevant here, since the sole standalone identity
+ * already carries the admin role and owns everything it created.
+ */
+function canAccessSchedule(user: UserContext, createdBy: string): boolean {
+  return user.role === 'admin' || user.userRef === createdBy;
+}
+
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
     const { agent_name: agentName } = c.req.valid('query');
+    const user = deps.resolveUserContext(c);
+    // Admins see every schedule; a regular user is scoped to their own via the
+    // store's `created_by` filter (never a client-supplied param).
     const records = await deps.scheduleStore.listSchedules({
       tenant_id: TENANT_ID,
       agent_name: agentName,
+      created_by: user.role === 'admin' ? undefined : user.userRef,
     });
     return c.json({ data: records.map(toWireSchedule) }, 200);
+  };
+
+  const listRunsHandler: RouteHandler<typeof listScheduleRunsRoute> = async c => {
+    const { schedule_id: scheduleId } = c.req.valid('param');
+    const schedule = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
+    if (schedule === undefined) {
+      return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
+    }
+    if (!canAccessSchedule(deps.resolveUserContext(c), schedule.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
+    }
+    const records = await deps.scheduleStore.listRuns({ tenant_id: TENANT_ID, schedule_id: scheduleId });
+    return c.json({ data: records.map(toWireScheduleRun) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createScheduleRoute> = async c => {
@@ -110,6 +162,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         return schedule;
       });
     } catch (error) {
+      if (error instanceof ScheduleNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
       if (error instanceof ScheduleRunConflictError) {
         return c.json({ error: { message: `${error.message}. Retry the request.` } }, 409);
       }
@@ -121,9 +176,12 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const getHandler: RouteHandler<typeof getScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
-    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId, forUpdate: false });
+    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
     if (record === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
+    }
+    if (!canAccessSchedule(deps.resolveUserContext(c), record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
     return c.json({ data: toWireSchedule(record) }, 200);
   };
@@ -135,13 +193,22 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
    * Read-modify-write if that is not what you want.
    *
    * Agent binding is immutable — a schedule that should point at a different agent is
-   * a different schedule. `name` is editable (display only; not unique).
+   * a different schedule. `name` is editable but must stay unique within the agent;
+   * renaming onto a taken name is a 409.
    */
   const putHandler: RouteHandler<typeof putScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
     const body = c.req.valid('json');
 
     validateManifest(body.manifest);
+
+    const existing = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
+    if (existing === undefined) {
+      return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
+    }
+    if (!canAccessSchedule(deps.resolveUserContext(c), existing.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
+    }
 
     let record: ScheduleRecord | undefined;
     try {
@@ -159,6 +226,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         return result?.schedule;
       });
     } catch (error) {
+      if (error instanceof ScheduleNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
       if (error instanceof ScheduleRunConflictError) {
         return c.json({ error: { message: `${error.message}. Retry the request.` } }, 409);
       }
@@ -173,12 +243,20 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const deleteHandler: RouteHandler<typeof deleteScheduleRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
+    const record = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
+    if (record === undefined) {
+      return c.json({}, 200);
+    }
+    if (!canAccessSchedule(deps.resolveUserContext(c), record.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
+    }
     await deps.scheduleStore.deleteSchedule({ tenant_id: TENANT_ID, id: scheduleId });
     return c.json({}, 200);
   };
 
   const router = new OpenAPIHono();
   router.openapi(listSchedulesRoute, listHandler);
+  router.openapi(listScheduleRunsRoute, listRunsHandler);
   router.openapi(createScheduleRoute, createHandler);
   router.openapi(getScheduleRoute, getHandler);
   router.openapi(putScheduleRoute, putHandler);

@@ -1,6 +1,6 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { IAgentStore } from '../../src/db/agentStore';
-import { cronRunName, type IScheduleStore } from '../../src/db/scheduleStore';
+import { cronRunName, ScheduleNameConflictError, type IScheduleStore } from '../../src/db/scheduleStore';
 import { nextTriggerAfter } from '../../src/runtime/cron';
 import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas/schedule';
 
@@ -173,6 +173,71 @@ export function runScheduleStoreContractSuite(deps: {
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(first);
   });
 
+  it('rejects a second schedule with the same name under one agent', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    const create = (name: string) =>
+      store.createScheduleAndRun({
+        tenant_id: TENANT,
+        agent_name: agent.name,
+        name,
+        manifest: manifest({ status: 'paused' }),
+        created_by: USER,
+        runFrom: new Date(),
+      });
+
+    await create('daily-report');
+    await expect(create('daily-report')).rejects.toBeInstanceOf(ScheduleNameConflictError);
+  });
+
+  it('allows the same schedule name under different agents', async () => {
+    const store = deps.getScheduleStore();
+    const [first, second] = [await seedAgent(), await seedAgent()];
+    const create = (agentName: string) =>
+      store.createScheduleAndRun({
+        tenant_id: TENANT,
+        agent_name: agentName,
+        name: 'daily-report',
+        manifest: manifest({ status: 'paused' }),
+        created_by: USER,
+        runFrom: new Date(),
+      });
+
+    await create(first.name);
+    await expect(create(second.name)).resolves.toBeDefined();
+  });
+
+  it('rejects renaming a schedule onto a name already taken for the agent', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_name: agent.name,
+      name: 'taken',
+      manifest: manifest({ status: 'paused' }),
+      created_by: USER,
+      runFrom: new Date(),
+    });
+    const { schedule: other } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_name: agent.name,
+      name: 'free',
+      manifest: manifest({ status: 'paused' }),
+      created_by: USER,
+      runFrom: new Date(),
+    });
+
+    await expect(
+      store.updateScheduleAndRun({
+        tenant_id: TENANT,
+        id: other.id,
+        name: 'taken',
+        manifest: manifest({ status: 'paused' }),
+        runFrom: new Date(),
+      }),
+    ).rejects.toBeInstanceOf(ScheduleNameConflictError);
+  });
+
   it('updating cron while paused leaves no pending run', async () => {
     const store = deps.getScheduleStore();
     const agent = await seedAgent();
@@ -298,7 +363,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
 
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: historical.id })).toBeUndefined();
     expect(await store.getRun({ tenant_id: TENANT, id: pending.id })).toBeUndefined();
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
@@ -333,7 +398,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     await deps.getAgentStore().deleteAgent({ tenant_id: TENANT, id: agent.id });
 
-    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id, forUpdate: false })).toBeUndefined();
+    expect(await store.getSchedule({ tenant_id: TENANT, id: schedule.id })).toBeUndefined();
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeUndefined();
     if (pendingRun === undefined) {
       throw new Error('expected pending run before agent delete');
@@ -460,6 +525,63 @@ export function runScheduleStoreContractSuite(deps: {
     expect(indexNewer).toBeGreaterThanOrEqual(0);
     expect(indexOlder).toBeGreaterThanOrEqual(0);
     expect(indexNewer).toBeLessThan(indexOlder);
+  });
+
+  it('listRuns returns newest scheduled_for first and filters by schedule_id', async () => {
+    const store = deps.getScheduleStore();
+    const agentA = await seedAgent();
+    const agentB = await seedAgent();
+    const olderSlot = new Date('2026-08-27T10:00:00.000Z');
+    const newerSlot = new Date('2026-08-27T12:00:00.000Z');
+
+    const { schedule: scheduleA } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_name: agentA.name,
+      name: 'runs-a',
+      manifest: manifest({ status: 'paused' }),
+      created_by: USER,
+      runFrom: new Date(),
+    });
+    const older = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: scheduleA.id,
+      name: cronRunName(olderSlot),
+      scheduled_for: olderSlot,
+      status: 'triggered',
+      triggered_by: USER,
+    });
+    const newer = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: scheduleA.id,
+      name: cronRunName(newerSlot),
+      scheduled_for: newerSlot,
+      status: 'scheduled',
+      triggered_by: USER,
+    });
+
+    const { schedule: scheduleB } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_name: agentB.name,
+      name: 'runs-b',
+      manifest: manifest({ status: 'paused' }),
+      created_by: USER,
+      runFrom: new Date(),
+    });
+    const otherScheduleRun = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: scheduleB.id,
+      name: cronRunName(newerSlot),
+      scheduled_for: newerSlot,
+      status: 'scheduled',
+      triggered_by: USER,
+    });
+
+    const forA = await store.listRuns({ tenant_id: TENANT, schedule_id: scheduleA.id });
+    expect(forA.map(row => row.id)).toEqual([newer.id, older.id]);
+    expect(forA.every(row => row.schedule_id === scheduleA.id)).toBe(true);
+
+    const forB = await store.listRuns({ tenant_id: TENANT, schedule_id: scheduleB.id });
+    expect(forB.map(row => row.id)).toEqual([otherScheduleRun.id]);
   });
 
   it('updateRunStatus stamps triggered_at only for triggered; returns undefined when gone', async () => {

@@ -1,10 +1,11 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { ulid } from 'ulid';
 import { nextTriggerAfter } from '../../../runtime/cron';
-import type { ScheduleManifest, ScheduleStatus } from '../../../schemas/schedule';
+import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
 import {
   cronRunName,
   parseStoredScheduleManifest,
+  ScheduleNameConflictError,
   ScheduleRunConflictError,
   shouldSyncPendingRun,
   type CreateScheduleInput,
@@ -14,11 +15,11 @@ import {
   type GetScheduledRunForInput,
   type GetScheduleInput,
   type IScheduleStore,
+  type ListRunsInput,
   type ListScheduledRunsInput,
   type ListSchedulesInput,
   type ScheduleRecord,
   type ScheduleRunRecord,
-  type ScheduleRunStatus,
   type ScheduleWriteResult,
   type UpdateScheduleInput,
   type UpdateScheduleRunStatusInput,
@@ -95,11 +96,6 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     this.#db = db;
   }
 
-  /**
-   * `input.forUpdate` is intentionally ignored: SQLite has no `SELECT ... FOR UPDATE`
-   * and does not need one — a write transaction holds the whole database, so the
-   * lock ordering Postgres needs is already guaranteed.
-   */
   async getSchedule(input: GetScheduleInput, transaction?: Transaction<Database>): Promise<ScheduleRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db
@@ -111,28 +107,50 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     return row === undefined ? undefined : toScheduleRecord(row);
   }
 
+  /**
+   * SQLite has no `SELECT ... FOR UPDATE`. A write transaction still serializes
+   * the lock-ordering Postgres needs.
+   */
+  async getScheduleForUpdate(
+    input: GetScheduleInput,
+    transaction: Transaction<Database>,
+  ): Promise<ScheduleRecord | undefined> {
+    return this.getSchedule(input, transaction);
+  }
+
   async createScheduleAndRun(
     input: CreateScheduleInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleWriteResult> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    const row = await db
-      .insertInto('schedule')
-      .values({
-        id: ulid().toLowerCase(),
-        tenant_id: input.tenant_id,
-        agent_name: input.agent_name,
-        name: input.name,
-        manifest: jsonbBind(input.manifest),
-        // Column mirrors the manifest so the dispatch scan and API reads share one value.
-        status: input.manifest.status,
-        created_by: input.created_by,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .returning(scheduleColumns)
-      .executeTakeFirstOrThrow();
+    let row;
+    try {
+      row = await db
+        .insertInto('schedule')
+        .values({
+          id: ulid().toLowerCase(),
+          tenant_id: input.tenant_id,
+          agent_name: input.agent_name,
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          // Column mirrors the manifest so the dispatch scan and API reads share one value.
+          status: input.manifest.status,
+          created_by: input.created_by,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .returning(scheduleColumns)
+        .executeTakeFirstOrThrow();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ScheduleNameConflictError(
+          { tenant_id: input.tenant_id, agent_name: input.agent_name, name: input.name },
+          { cause: error },
+        );
+      }
+      throw error;
+    }
     const schedule = toScheduleRecord(row);
     const pendingRun = await this.#syncPendingRun(schedule, input.runFrom, transaction);
     return { schedule, pendingRun };
@@ -146,24 +164,38 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     // transaction must take the schedule lock before touching a run row (see the
     // lock-ordering note in `controller/scheduleDispatch.ts`). A no-op here; Postgres
     // is where it matters.
-    const previous = await this.getSchedule({ tenant_id: input.tenant_id, id: input.id, forUpdate: true }, transaction);
+    const previous =
+      transaction !== undefined
+        ? await this.getScheduleForUpdate({ tenant_id: input.tenant_id, id: input.id }, transaction)
+        : await this.getSchedule({ tenant_id: input.tenant_id, id: input.id });
     if (previous === undefined) {
       return undefined;
     }
 
     const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('schedule')
-      .set({
-        name: input.name,
-        manifest: jsonbBind(input.manifest),
-        status: input.manifest.status,
-        updated_at: nowIso(),
-      })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returning(scheduleColumns)
-      .executeTakeFirst();
+    let row;
+    try {
+      row = await db
+        .updateTable('schedule')
+        .set({
+          name: input.name,
+          manifest: jsonbBind(input.manifest),
+          status: input.manifest.status,
+          updated_at: nowIso(),
+        })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('id', '=', input.id)
+        .returning(scheduleColumns)
+        .executeTakeFirst();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ScheduleNameConflictError(
+          { tenant_id: input.tenant_id, agent_name: previous.agent_name, name: input.name },
+          { cause: error },
+        );
+      }
+      throw error;
+    }
     if (row === undefined) {
       return undefined;
     }
@@ -224,8 +256,24 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     if (input.agent_name !== undefined) {
       query = query.where('agent_name', '=', input.agent_name);
     }
+    if (input.created_by !== undefined) {
+      query = query.where('created_by', '=', input.created_by);
+    }
     const rows = await query.orderBy('created_at', 'desc').orderBy('id').execute();
     return rows.map(toScheduleRecord);
+  }
+
+  async listRuns(input: ListRunsInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('schedule_run')
+      .select(RUN_COLUMNS)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('schedule_id', '=', input.schedule_id)
+      .orderBy('scheduled_for', 'desc')
+      .orderBy('id')
+      .execute();
+    return rows.map(toRunRecord);
   }
 
   async getRun(input: GetRunInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord | undefined> {
@@ -268,7 +316,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           scheduled_for: input.scheduled_for.toISOString(),
           status: input.status,
           triggered_by: input.triggered_by,
-          triggered_at: null,
+          triggered_at: input.triggered_at?.toISOString() ?? null,
           created_at: timestamp,
           updated_at: timestamp,
         })
