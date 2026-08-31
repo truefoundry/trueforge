@@ -1,10 +1,12 @@
 'use client';
 
-import type { ComponentType } from 'react';
+import { useState, type ComponentType } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { cn } from '../lib/cn.js';
 import type { AgentOverviewProps } from './types.js';
+
+type InstructionsView = 'markdown' | 'raw';
 
 const valueClassName = 'text-right font-mono text-primary-button-bg';
 
@@ -39,6 +41,8 @@ function displayModelName(name: string): string {
 export default function AgentOverview({ detail }: AgentOverviewProps) {
   const Markdown = useSlot('Markdown');
   const AgentOverviewCard = useSlot('AgentOverviewCard');
+  const [instructionsView, setInstructionsView] = useState<InstructionsView>('markdown');
+  const [copied, setCopied] = useState(false);
   const spec = detail.agentSpec;
   const skills = spec.skills ?? [];
   const connectors = spec.mcpServers ?? [];
@@ -47,6 +51,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
   const temperature = readRecordValue(modelParams, 'temperature');
   const config = isRecord(spec.config) ? spec.config : null;
   const sandbox = isRecord(config?.sandbox) ? config.sandbox : null;
+  const instructions = spec.instructions?.trim() ? spec.instructions : null;
   const execution = [
     ['Sandbox', typeof sandbox?.enabled === 'boolean' ? (sandbox.enabled ? 'Enabled' : 'Disabled') : undefined],
     ['Iteration limit', readRecordValue(config, 'iterationLimit', 'iteration_limit')],
@@ -60,16 +65,55 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
     ['Ask user questions', spec.config?.askUserQuestions?.enabled],
   ].filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean');
 
+  const toggleLabel = instructionsView === 'markdown' ? 'Raw' : 'Markdown';
+
   return (
     <div className="grid min-h-0 flex-1 gap-3 overflow-auto p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:overflow-hidden">
       <section className="flex min-h-64 flex-col rounded-lg border border-border bg-card-bg p-4 text-text-primary">
-        <h2 className="mb-3 flex shrink-0 items-center gap-1.5 text-sm font-semibold">
-          <Icon name="file" className="size-4 text-text-secondary" />
-          Instructions
-        </h2>
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+            <Icon name="file" className="size-4 text-text-secondary" />
+            Instructions
+          </h2>
+          {instructions ? (
+            <div
+              className="inline-flex h-7 items-stretch overflow-hidden rounded-md border border-border bg-primary-bg text-xs font-medium text-text-secondary"
+              role="group"
+              aria-label="Instructions actions"
+            >
+              <button
+                type="button"
+                aria-label={`Show ${toggleLabel}`}
+                onClick={() => setInstructionsView(view => (view === 'markdown' ? 'raw' : 'markdown'))}
+                className="cursor-pointer px-2.5 transition-colors hover:bg-ghost-button-hover hover:text-text-primary"
+              >
+                {toggleLabel}
+              </button>
+              <span className="w-px self-stretch bg-border" aria-hidden />
+              <button
+                type="button"
+                title={copied ? 'Copied!' : 'Copy'}
+                aria-label={copied ? 'Copied!' : 'Copy'}
+                onClick={() => {
+                  void navigator.clipboard.writeText(instructions).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="inline-flex cursor-pointer items-center justify-center px-2 transition-colors hover:bg-ghost-button-hover hover:text-text-primary"
+              >
+                <Icon name={copied ? 'check' : 'copy'} size={12} />
+              </button>
+            </div>
+          ) : null}
+        </div>
         <div className="min-h-0 flex-1 overflow-auto">
-          {spec.instructions?.trim() ? (
-            <Markdown content={spec.instructions} readOnly className="text-sm" />
+          {instructions ? (
+            instructionsView === 'markdown' ? (
+              <Markdown content={instructions} readOnly className="text-sm" />
+            ) : (
+              <pre className="whitespace-pre-wrap break-words font-mono text-sm text-text-primary">{instructions}</pre>
+            )
           ) : (
             <p className="text-sm text-text-secondary">No instructions for this agent.</p>
           )}

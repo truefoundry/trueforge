@@ -7,7 +7,7 @@ import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type { AgentDetail, CodeSnippet } from '@/server/types.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
-import { createMockAgentUIServer } from '../server/mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer } from '../server/mockServer.js';
 
 const detail: AgentDetail = {
   agentId: 'agent-1',
@@ -40,7 +40,7 @@ function renderPage({
   overrides?: SlotOverrides;
 } = {}) {
   const server = createMockAgentUIServer({
-    ...(withSessions ? { sessions: { getAgent, getCodeSnippets } } : {}),
+    ...(withSessions ? { sessions: createMockAgentSessionsServer({ getAgent, getCodeSnippets }) } : {}),
   });
   render(
     <SlotsProvider overrides={overrides}>

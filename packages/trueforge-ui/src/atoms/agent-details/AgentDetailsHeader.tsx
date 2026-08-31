@@ -42,7 +42,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1 text-xs text-text-secondary">
-            <button type="button" className="truncate hover:text-text-primary" onClick={onBack}>
+            <button type="button" className="cursor-pointer truncate hover:text-text-primary" onClick={onBack}>
               Agents Library
             </button>
             <Icon name="chevron-right" className="size-3 shrink-0" />

@@ -37,7 +37,7 @@ export default function AgentCodeSnippets({ snippets }: AgentCodeSnippetsProps) 
             type="button"
             aria-current={selected.language === snippet.language ? 'page' : undefined}
             className={cn(
-              'flex h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-left text-xs text-text-secondary',
+              'flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-md px-2.5 text-left text-xs text-text-secondary',
               'hover:bg-ghost-button-hover hover:text-text-primary',
               selected.language === snippet.language && 'bg-primary-button-bg/10 font-medium text-primary-button-bg',
             )}
@@ -65,7 +65,7 @@ export default function AgentCodeSnippets({ snippets }: AgentCodeSnippetsProps) 
               key={id}
               type="button"
               className={cn(
-                'relative h-10 px-3 text-xs font-medium text-text-secondary',
+                'relative h-10 cursor-pointer px-3 text-xs font-medium text-text-secondary',
                 mode === id &&
                   'text-primary-button-bg after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary-button-bg',
               )}

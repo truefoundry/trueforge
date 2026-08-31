@@ -10,7 +10,7 @@ import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
-import { createMockAgentUIServer } from '../server/mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer } from '../server/mockServer.js';
 
 beforeAll(() => {
   // jsdom does not implement HTMLDialogElement showModal/close.
@@ -107,10 +107,10 @@ describe('AgentsLibrary', () => {
   it('opens agent details from the row only when the optional server is available', async () => {
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'agent-1' }]),
-      sessions: {
+      sessions: createMockAgentSessionsServer({
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
-      },
+      }),
     });
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));

@@ -25,7 +25,7 @@ export function AgentDetailsTabs({ activeTab, onTabChange }: AgentDetailsTabsPro
           aria-selected={activeTab === tab.id}
           aria-current={activeTab === tab.id ? 'page' : undefined}
           className={cn(
-            'relative flex h-10 shrink-0 items-center gap-1.5 px-2 text-xs font-medium text-text-secondary',
+            'relative flex h-10 shrink-0 cursor-pointer items-center gap-1.5 px-2 text-xs font-medium text-text-secondary',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
             activeTab === tab.id &&
               'text-primary-button-bg after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary-button-bg',
