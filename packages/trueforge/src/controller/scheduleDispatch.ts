@@ -142,7 +142,7 @@ async function finishScheduledRun<TTransaction>(params: {
  *
  * - **pause**: drops the pending run in its own transaction, and stops the advance.
  *   It never cancels a row that still exists: whatever pause did not delete is
- *   executed (or recorded `missed`) so history has no unexplained gap.
+ *   executed (and recorded `triggered` or `failed`) so history has no unexplained gap.
  *   If pause commits first, the row is gone and there is nothing to run.
  *   If dispatch commits first, the run triggers and pause deletes the pending row
  *   dispatch just added, so triggering stops from the next tick — at most one extra run.
