@@ -3367,12 +3367,7 @@
             "type": "string"
           },
           "name": {
-            "enum": [
-              "sessions_over_time",
-              "sessions_cost_over_time",
-              "turns_over_time"
-            ],
-            "type": "string"
+            "$ref": "#/components/schemas/SessionMetricsChartName"
           }
         },
         "required": [
@@ -3382,6 +3377,15 @@
           "chart_type"
         ],
         "type": "object"
+      },
+      "SessionMetricsChartName": {
+        "description": "Session metrics chart to return.",
+        "enum": [
+          "sessions_over_time",
+          "sessions_cost_over_time",
+          "turns_over_time"
+        ],
+        "type": "string"
       },
       "SessionMetricsChartsDataResponse": {
         "additionalProperties": false,
@@ -3439,12 +3443,7 @@
             "type": "array"
           },
           "name": {
-            "enum": [
-              "sessions_over_time",
-              "sessions_cost_over_time",
-              "turns_over_time"
-            ],
-            "type": "string"
+            "$ref": "#/components/schemas/SessionMetricsChartName"
           },
           "unit": {
             "enum": [
@@ -6366,18 +6365,12 @@
             }
           },
           {
-            "description": "Chart to return.",
+            "description": "Session metrics chart to return.",
             "in": "query",
             "name": "chart_name",
             "required": true,
             "schema": {
-              "description": "Chart to return.",
-              "enum": [
-                "sessions_over_time",
-                "sessions_cost_over_time",
-                "turns_over_time"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/SessionMetricsChartName"
             }
           }
         ],
