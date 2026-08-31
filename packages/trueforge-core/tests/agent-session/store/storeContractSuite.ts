@@ -412,6 +412,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         created_by: 'user-1',
         agent: { type: 'reference', id: 'agent-abc', name: 'Agent ABC' },
         custom: null,
+        external_id: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -419,6 +420,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         created_by: 'user-2',
         agent: { type: 'reference', id: 'agent-abc', name: 'Agent ABC' },
         custom: null,
+        external_id: null,
       });
       await store.createTurn(makeCreateTurnInput({ sessionId: 'metrics-session', turnId: 'metrics-turn' }));
       const turn = mustGet(await store.getTurn({ session_id: 'metrics-session', turn_id: 'metrics-turn' }));
@@ -497,6 +499,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           created_by: 'user-1',
           agent: { type: 'reference', id: 'agent-distributions', name: 'Agent Distributions' },
           custom: null,
+          external_id: null,
         });
         for (const [index, durationMs] of definition.turnDurations.entries()) {
           const turnId = `${definition.id}-turn-${String(index)}`;
@@ -545,6 +548,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         created_by: 'user-1',
         agent: { type: 'reference', id: 'agent-inflight', name: 'Agent InFlight' },
         custom: null,
+        external_id: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -552,6 +556,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         created_by: 'user-1',
         agent: { type: 'reference', id: 'agent-inflight', name: 'Agent InFlight' },
         custom: null,
+        external_id: null,
       });
       await store.createTurn(makeCreateTurnInput({ sessionId: 'inflight-session', turnId: 'inflight-turn' }));
       await store.createTurn(makeCreateTurnInput({ sessionId: 'completed-session', turnId: 'completed-turn' }));
