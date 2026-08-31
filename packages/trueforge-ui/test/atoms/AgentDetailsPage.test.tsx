@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentDetailsPage } from '@/atoms/agent-details/AgentDetailsPage.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { AgentDetail, CodeSnippet } from '@/server/types.js';
+import type { AgentDetail, CodeSnippet, SessionEventItem, SessionListEntry } from '@/server/types.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -28,30 +29,50 @@ const snippets: CodeSnippet[] = [
   },
 ];
 
+const sessionRows: SessionListEntry[] = [
+  {
+    id: 'sess-1',
+    title: 'Release notes draft',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    lastActivityAt: '2026-01-02T00:00:00.000Z',
+    metrics: { totalTurns: 2, totalCostInUsd: 0.5, totalDurationMs: 120_000 },
+    agentName: 'release-notes-writer',
+  },
+];
+
 function renderPage({
   getAgent = vi.fn(async () => detail),
   getCodeSnippets = vi.fn(async () => snippets),
+  listSessions = vi.fn(async () => ({ data: sessionRows })),
+  listSessionEvents = vi.fn(async () => ({ data: [] as SessionEventItem[] })),
   withSessions = true,
   overrides,
+  initialEntries = ['/library/agent-1'],
 }: {
   getAgent?: () => Promise<AgentDetail>;
   getCodeSnippets?: () => Promise<CodeSnippet[]>;
+  listSessions?: () => Promise<{ data: SessionListEntry[] }>;
+  listSessionEvents?: () => Promise<{ data: SessionEventItem[] }>;
   withSessions?: boolean;
   overrides?: SlotOverrides;
+  initialEntries?: string[];
 } = {}) {
   const server = createMockAgentUIServer({
-    ...(withSessions ? { sessions: { getAgent, getCodeSnippets } } : {}),
+    ...(withSessions ? { sessions: { getAgent, getCodeSnippets, listSessions, listSessionEvents } } : {}),
   });
   render(
-    <SlotsProvider overrides={overrides}>
-      <ServerProvider server={server}>
-        <ShellModeProvider>
-          <AgentDetailsPage agentId="agent-1" />
-        </ShellModeProvider>
-      </ServerProvider>
-    </SlotsProvider>,
+    <MemoryRouter initialEntries={initialEntries}>
+      <SlotsProvider overrides={overrides}>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentDetailsPage agentId="agent-1" />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>
+    </MemoryRouter>,
   );
-  return { getAgent, getCodeSnippets };
+  return { getAgent, getCodeSnippets, listSessions, listSessionEvents };
 }
 
 describe('AgentDetailsPage', () => {
@@ -86,12 +107,15 @@ describe('AgentDetailsPage', () => {
     expect(getCodeSnippets).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the coming-soon Sessions tab without another request', async () => {
-    const { getCodeSnippets } = renderPage();
+  it('loads the Sessions tab list scoped to the agent', async () => {
+    const { listSessions } = renderPage();
     await screen.findByRole('heading', { name: 'release-notes-writer' });
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
-    expect(await screen.findByRole('heading', { name: 'Coming soon' })).toBeInTheDocument();
-    expect(getCodeSnippets).not.toHaveBeenCalled();
+    expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
+    expect(screen.getByText('Select a session to view details')).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: 'agent-1', order: 'desc', limit: 20 }),
+    );
   });
 
   it('shows the shared unavailable state without the optional server', () => {

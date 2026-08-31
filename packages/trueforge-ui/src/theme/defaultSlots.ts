@@ -13,7 +13,10 @@ import { AgentDetailsPage } from '../atoms/agent-details/AgentDetailsPage.js';
 import { AgentDetailsTabs } from '../atoms/agent-details/AgentDetailsTabs.js';
 import { AgentDetailsUnavailable } from '../atoms/agent-details/AgentDetailsUnavailable.js';
 import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
-import type { AgentCodeSnippetsProps, AgentOverviewProps } from '../atoms/agent-details/types.js';
+import { AgentSessionDetailHeader } from '../atoms/agent-details/AgentSessionDetailHeader.js';
+import { AgentSessionListRow } from '../atoms/agent-details/AgentSessionListRow.js';
+import { AgentSessionTurnHeader } from '../atoms/agent-details/AgentSessionTurnHeader.js';
+import type { AgentCodeSnippetsProps, AgentOverviewProps, AgentSessionsProps } from '../atoms/agent-details/types.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
@@ -62,11 +65,15 @@ import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
 import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
 import { WelcomeScreen } from '../atoms/WelcomeScreen.js';
+import { AgentSessionTimelineContainer } from '../containers/AgentSessionTimelineContainer.js';
 import { BrandLogo } from './brand.js';
 import type { AtomSlots } from './SlotsProvider.js';
 
 const AgentOverview: ComponentType<AgentOverviewProps> = lazy(() => import('../atoms/agent-details/AgentOverview.js'));
-const AgentSessions: ComponentType = lazy(() => import('../atoms/agent-details/AgentSessions.js'));
+const AgentSessions: ComponentType<AgentSessionsProps> = lazy(async () => {
+  const mod = await import('../atoms/agent-details/AgentSessions.js');
+  return { default: mod.AgentSessions };
+});
 const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
   () => import('../atoms/agent-details/AgentCodeSnippets.js'),
 );
@@ -135,6 +142,10 @@ export const defaultSlots = {
   AgentDetailsUnavailable,
   AgentOverview,
   AgentOverviewCard,
+  AgentSessionDetailHeader,
+  AgentSessionListRow,
+  AgentSessionTimelineContainer,
+  AgentSessionTurnHeader,
   AgentSessions,
   AgentCodeSnippets,
   AgentCodeBlock,

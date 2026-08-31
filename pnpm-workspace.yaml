@@ -30,3 +30,6 @@ overrides:
   resolve: '1.22.11'
   # Rollup 4.63.0 OOMs the frontend Vite build (Monaco + compression plugin); stay on 4.62.x.
   rollup: '4.62.2'
+
+patchedDependencies:
+  '@truefoundry/assistant-ui-runtime@0.1.21': patches/@truefoundry__assistant-ui-runtime@0.1.21.patch

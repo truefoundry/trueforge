@@ -38,6 +38,8 @@ describe('createTrueFoundryServer', () => {
     const sessions = {
       getAgent: vi.fn(),
       getCodeSnippets: vi.fn(),
+      listSessions: vi.fn(async () => ({ data: [] })),
+      listSessionEvents: vi.fn(async () => ({ data: [] })),
     };
 
     const server = createTrueFoundryServer({

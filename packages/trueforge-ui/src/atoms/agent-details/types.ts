@@ -1,6 +1,36 @@
 import type { ReactNode } from 'react';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 
+export type AgentSessionsProps = {
+  agentId: string;
+};
+
+export type AgentSessionListRowProps = {
+  title: string;
+  agentName?: string;
+  lastActivityAt: string;
+  metrics: {
+    totalTurns: number;
+    totalCostInUsd: number;
+    totalDurationMs: number;
+  };
+  active: boolean;
+  onSelect: () => void;
+};
+
+export type AgentSessionDetailHeaderProps = {
+  title: string;
+  sessionId: string;
+  onClose: () => void;
+};
+
+export type AgentSessionTurnHeaderProps = {
+  turnNumber: number;
+  totalTokens?: number;
+  durationMs?: number;
+  totalCostInUsd?: number;
+};
+
 export type AgentDetailsTab = 'overview' | 'sessions' | 'code';
 
 export type AgentDetailsPageProps = {

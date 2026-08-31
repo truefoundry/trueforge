@@ -97,7 +97,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   } else if (activeTab === 'overview') {
     content = <AgentOverview detail={detail} />;
   } else if (activeTab === 'sessions') {
-    content = <AgentSessions />;
+    content = <AgentSessions agentId={agentId} />;
   } else if (snippetsFailed) {
     content = <AgentDetailsUnavailable onBack={goBack} reason="Code samples for this agent could not be loaded." />;
   } else if (snippets === undefined) {

@@ -110,6 +110,8 @@ describe('AgentsLibrary', () => {
       sessions: {
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
+        listSessions: vi.fn(async () => ({ data: [] })),
+        listSessionEvents: vi.fn(async () => ({ data: [] })),
       },
     });
     renderLibrary(<LibraryHarness />, { server });
