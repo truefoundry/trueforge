@@ -23,7 +23,11 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toDaytonaSandboxProvider, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import {
+  recordDaytonaAccessFailure,
+  toDaytonaSandboxProvider,
+  toSandboxProviderFromRecord,
+} from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -230,6 +234,26 @@ export async function resolveSandboxProvider({
   }
 
   if (record !== undefined) {
+    if (record.manifest.type === 'daytona') {
+      return {
+        provider: toDaytonaSandboxProvider({
+          manifest: record.manifest,
+          tenant_id,
+          logger,
+          build_metadata: record.build_metadata,
+          onError: async error => {
+            await recordDaytonaAccessFailure({
+              store,
+              tenant_id,
+              error,
+              build_metadata: record.build_metadata,
+              expected_manifest: record.manifest,
+            });
+          },
+        }),
+        usesEnvironmentSnapshot: false,
+      };
+    }
     return {
       provider: toSandboxProviderFromRecord({ record, tenant_id, logger }),
       usesEnvironmentSnapshot: false,
