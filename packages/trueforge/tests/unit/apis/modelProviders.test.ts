@@ -99,6 +99,7 @@ async function createRouters(): Promise<{
       tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sessionSnapshotImporter: undefined,
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveUserContext: () => LOCAL_USER_CONTEXT,

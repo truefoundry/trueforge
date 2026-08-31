@@ -68,6 +68,7 @@ const app = createServerApp({
   sandboxProviderStore: new SqliteSandboxProviderStore(db),
   agentStore: new SqliteAgentStore(db),
   scheduleStore: new SqliteScheduleStore(db),
+  sessionSnapshotImporter: undefined,
   sessionStore,
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),

@@ -34,6 +34,7 @@ import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
+import type { ISessionSnapshotImporter } from './db/sessionSnapshotImport';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -154,6 +155,7 @@ export interface ServerDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
+  sessionSnapshotImporter: ISessionSnapshotImporter | undefined;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -271,6 +273,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
+        sessionSnapshotImporter: deps.sessionSnapshotImporter,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveUserContext,

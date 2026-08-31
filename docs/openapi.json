@@ -1395,6 +1395,229 @@
         ],
         "type": "object"
       },
+      "ImportSessionSnapshotRequest": {
+        "properties": {
+          "session": {
+            "additionalProperties": {},
+            "properties": {
+              "agent_spec": {
+                "additionalProperties": {},
+                "type": "object"
+              },
+              "created_at": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "created_by": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "custom": {
+                "additionalProperties": {},
+                "type": [
+                  "object",
+                  "null"
+                ]
+              },
+              "last_activity_timestamp_ms": {
+                "type": "number"
+              },
+              "last_turn_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "session_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "tenant_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "updated_at": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "session_id",
+              "tenant_id",
+              "created_by",
+              "agent_spec",
+              "title",
+              "last_turn_id",
+              "custom",
+              "last_activity_timestamp_ms",
+              "created_at",
+              "updated_at"
+            ],
+            "type": "object"
+          },
+          "turns": {
+            "items": {
+              "additionalProperties": {},
+              "properties": {
+                "ancestor_ids": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "checkpoint": {
+                  "properties": {
+                    "mcp_servers": {},
+                    "sandbox_info": {}
+                  },
+                  "type": "object"
+                },
+                "created_at": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "custom": {
+                  "additionalProperties": {},
+                  "type": [
+                    "object",
+                    "null"
+                  ]
+                },
+                "events": {
+                  "items": {
+                    "additionalProperties": {},
+                    "properties": {
+                      "created_at": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "id": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "created_at"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "first_turn_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "input": {
+                  "items": {},
+                  "type": "array"
+                },
+                "previous_turn_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "state": {},
+                "threads": {
+                  "items": {
+                    "additionalProperties": {},
+                    "properties": {
+                      "agent_info": {},
+                      "capability_state": {
+                        "additionalProperties": {},
+                        "type": [
+                          "object",
+                          "null"
+                        ]
+                      },
+                      "completion": {},
+                      "context": {
+                        "items": {},
+                        "type": "array"
+                      },
+                      "current_context_usage": {},
+                      "parent": {},
+                      "thread_id": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "thread_id",
+                      "context",
+                      "capability_state"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "turn_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "updated_at": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "turn_id",
+                "first_turn_id",
+                "previous_turn_id",
+                "ancestor_ids",
+                "input",
+                "checkpoint",
+                "custom",
+                "created_at",
+                "updated_at",
+                "threads",
+                "events"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "session",
+          "turns"
+        ],
+        "type": "object"
+      },
+      "ImportSessionSnapshotResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportSessionSnapshotResult"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ImportSessionSnapshotResult": {
+        "properties": {
+          "imported": {
+            "type": "boolean"
+          },
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imported",
+          "session_id"
+        ],
+        "type": "object"
+      },
       "InitialUserMessage": {
         "properties": {
           "content": {
@@ -7464,6 +7687,68 @@
           "sandboxProviders"
         ],
         "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
+    "/api/v1/settings/sessions/import": {
+      "post": {
+        "description": "Ops/backfill only. Skip if session_id exists; else insert in one transaction.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSessionSnapshotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionSnapshotResponse"
+                }
+              }
+            },
+            "description": "Skipped — already exists."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionSnapshotResponse"
+                }
+              }
+            },
+            "description": "Imported."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid body."
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Import requires Postgres (not available in standalone)."
+          }
+        },
+        "summary": "Import one historical session snapshot",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-ignore": true
       }
     },
     "/api/v1/settings/skills": {

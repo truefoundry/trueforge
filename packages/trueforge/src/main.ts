@@ -59,6 +59,7 @@ import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
+import type { ISessionSnapshotImporter } from './db/sessionSnapshotImport';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
@@ -81,6 +82,7 @@ interface ServerPersistence<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
+  sessionSnapshotImporter: ISessionSnapshotImporter | undefined;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
 }
@@ -132,6 +134,7 @@ async function createStandalonePersistence(options: {
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     agentStore: new SqliteAgentStore(db),
     scheduleStore: new SqliteScheduleStore(db),
+    sessionSnapshotImporter: undefined,
     destroyDb: () => db.destroy(),
     redis: undefined,
   };
@@ -165,6 +168,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
+      import('./db/postgres/session-store/importSessionSnapshot'),
     ]),
   ]);
   const [
@@ -176,6 +180,7 @@ async function createDistributedPersistence(options: {
     { PostgresSandboxProviderStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
+    { PostgresSessionSnapshotImporter },
   ] = postgresStores;
 
   const db = createDb({
@@ -198,6 +203,7 @@ async function createDistributedPersistence(options: {
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
     agentStore: new PostgresAgentStore(db),
     scheduleStore: new PostgresScheduleStore(db),
+    sessionSnapshotImporter: new PostgresSessionSnapshotImporter(db),
     destroyDb: () => db.destroy(),
     redis: await connectRedis({ url: redisUrl, logger }),
   };
@@ -215,6 +221,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxProviderStore,
     agentStore,
     scheduleStore,
+    sessionSnapshotImporter,
     destroyDb,
     redis,
   } = persistence;
@@ -259,6 +266,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxProviderStore,
     agentStore,
     scheduleStore,
+    sessionSnapshotImporter,
     sessionStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,

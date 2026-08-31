@@ -3,9 +3,17 @@
  */
 import { sql, type Expression, type RawBuilder } from 'kysely';
 
+function asJsonb<T>(value: unknown): RawBuilder<T> {
+  return sql`${JSON.stringify(value)}::jsonb`;
+}
+
 /** Bind a JS value as jsonb (stringified + cast). Required for arrays and for `||` / jsonb_set operands. */
 export function json<T>(value: T): RawBuilder<T> {
-  return sql`${JSON.stringify(value)}::jsonb`;
+  return asJsonb(value);
+}
+
+export function jsonUnknown<T>(value: unknown): RawBuilder<T> {
+  return asJsonb(value);
 }
 
 /**

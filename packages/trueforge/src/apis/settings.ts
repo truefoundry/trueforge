@@ -1,6 +1,6 @@
 /**
  * Admin/settings API surface under /api/v1/settings.
- * Sub-routers (model-providers, mcp-servers, skills, sandbox-providers) mount here.
+ * Sub-routers (model-providers, mcp-servers, skills, sandbox-providers, sessions) mount here.
  * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when auth is enabled).
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
@@ -9,12 +9,14 @@ import type { ResolveUserContext } from '../auth/identity';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISessionSnapshotImporter } from '../db/sessionSnapshotImport';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { createSettingsMcpServersRouter } from './mcpServers';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';
+import { createSessionImportRouter } from './sessionImport';
 import { createSkillsRouter } from './skills';
 
 export interface SettingsRouterDeps<TTransaction> {
@@ -23,6 +25,7 @@ export interface SettingsRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  sessionSnapshotImporter: ISessionSnapshotImporter | undefined;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveUserContext: ResolveUserContext;
@@ -60,6 +63,12 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       sandboxProviderStore: deps.sandboxProviderStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
+    }),
+  );
+  router.route(
+    '/sessions',
+    createSessionImportRouter({
+      sessionSnapshotImporter: deps.sessionSnapshotImporter,
     }),
   );
   return router;
