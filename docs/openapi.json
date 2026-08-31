@@ -1410,10 +1410,10 @@
         ],
         "type": "object"
       },
-      "GetSessionMetricsChartsDataResponse": {
+      "GetSessionMetricsChartDataResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/SessionMetricsChartsDataResponse"
+            "$ref": "#/components/schemas/SessionMetricsChartDataResponse"
           }
         },
         "required": [
@@ -1421,10 +1421,10 @@
         ],
         "type": "object"
       },
-      "GetSessionMetricsChartsResponse": {
+      "GetSessionMetricsChartResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/SessionMetricsChartsResponse"
+            "$ref": "#/components/schemas/SessionMetricsChartResponse"
           }
         },
         "required": [
@@ -1432,10 +1432,10 @@
         ],
         "type": "object"
       },
-      "GetSessionMetricsMetersResponse": {
+      "GetSessionMetricsMeterResponse": {
         "properties": {
           "data": {
-            "$ref": "#/components/schemas/SessionMetricsMetersResponse"
+            "$ref": "#/components/schemas/SessionMetricsMeterResponse"
           }
         },
         "required": [
@@ -3378,16 +3378,7 @@
         ],
         "type": "object"
       },
-      "SessionMetricsChartName": {
-        "description": "Session metrics chart to return.",
-        "enum": [
-          "sessions_over_time",
-          "sessions_cost_over_time",
-          "turns_over_time"
-        ],
-        "type": "string"
-      },
-      "SessionMetricsChartsDataResponse": {
+      "SessionMetricsChartDataResponse": {
         "additionalProperties": false,
         "properties": {
           "graphs": {
@@ -3406,7 +3397,16 @@
         ],
         "type": "object"
       },
-      "SessionMetricsChartsResponse": {
+      "SessionMetricsChartName": {
+        "description": "Session metrics chart to return.",
+        "enum": [
+          "sessions_over_time",
+          "sessions_cost_over_time",
+          "turns_over_time"
+        ],
+        "type": "string"
+      },
+      "SessionMetricsChartResponse": {
         "additionalProperties": false,
         "properties": {
           "charts": {
@@ -3526,7 +3526,7 @@
         ],
         "type": "object"
       },
-      "SessionMetricsMetersResponse": {
+      "SessionMetricsMeterResponse": {
         "additionalProperties": false,
         "properties": {
           "meters": {
@@ -6311,11 +6311,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsChartsResponse"
+                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
                 }
               }
             },
-            "description": "Session metric chart catalog."
+            "description": "Available session metric charts."
           }
         },
         "summary": "Get session metrics charts",
@@ -6379,7 +6379,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsChartsDataResponse"
+                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
                 }
               }
             },
@@ -6458,7 +6458,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsMetersResponse"
+                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
                 }
               }
             },
