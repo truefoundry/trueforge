@@ -121,11 +121,13 @@ export async function recordDaytonaAccessFailure({
   tenant_id,
   error,
   build_metadata,
+  expected_updated_at,
 }: {
   store: ISandboxProviderStore;
   tenant_id: string;
   error: unknown;
   build_metadata?: SandboxBuildMetadata | null;
+  expected_updated_at?: string | undefined;
 }): Promise<SandboxStatus | undefined> {
   const status_reason = isDaytonaAuthError(error)
     ? 'Daytona rejected the API key. Check the configured credentials.'
@@ -136,8 +138,12 @@ export async function recordDaytonaAccessFailure({
     return undefined;
   }
   const next: SandboxStatus = { status: 'failed', status_reason, build_metadata: build_metadata ?? null };
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-  return updated ? sandboxStatusFromRecord(updated) : next;
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_updated_at });
+  if (updated !== undefined) {
+    return sandboxStatusFromRecord(updated);
+  }
+  const current = await store.getSandboxProvider(tenant_id);
+  return current === undefined ? undefined : sandboxStatusFromRecord(current);
 }
 
 // Daytona deactivates idle snapshots after 14 days; revalidate at 13 to stay a day ahead.
@@ -197,6 +203,7 @@ export async function checkSnapshotStatus({
       tenant_id,
       error,
       build_metadata: record.build_metadata,
+      expected_updated_at: record.updated_at,
     });
     if (failed !== undefined) {
       return failed;
@@ -204,6 +211,10 @@ export async function checkSnapshotStatus({
     throw error;
   }
   const next = toSandboxStatus(build);
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-  return updated ? sandboxStatusFromRecord(updated) : next;
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_updated_at: record.updated_at });
+  if (updated !== undefined) {
+    return sandboxStatusFromRecord(updated);
+  }
+  const current = await store.getSandboxProvider(tenant_id);
+  return current === undefined ? undefined : sandboxStatusFromRecord(current);
 }

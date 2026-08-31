@@ -56,5 +56,6 @@ it('persists Daytona authentication failures instead of surfacing a settings err
     status: 'failed',
     status_reason: 'Daytona rejected the API key. Check the configured credentials.',
     build_metadata: null,
+    expected_updated_at: record.updated_at,
   });
 });

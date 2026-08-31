@@ -113,4 +113,20 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
       }),
     ).toBeUndefined();
   });
+
+  it('updateSandboxStatus ignores a stale provider version', async () => {
+    const store = getStore();
+    await store.upsertSandboxProvider(upsertInput());
+
+    expect(
+      await store.updateSandboxStatus({
+        tenant_id: TENANT,
+        status: 'failed',
+        status_reason: 'stale failure',
+        build_metadata: BUILD_METADATA,
+        expected_updated_at: '1970-01-01T00:00:00.000Z',
+      }),
+    ).toBeUndefined();
+    expect((await store.getSandboxProvider(TENANT))?.status).toBe('pending');
+  });
 }

@@ -91,7 +91,8 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
     transaction?: Transaction<Database>,
   ): Promise<SandboxProviderRecord | undefined> {
     const db = transaction ?? this.#db;
-    return await db
+    const expectedUpdatedAt = input.expected_updated_at;
+    let query = db
       .updateTable('sandbox_provider')
       .set({
         status: input.status,
@@ -99,8 +100,10 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
         build_metadata: input.build_metadata !== null ? jsonbBind(input.build_metadata) : null,
         updated_at: nowIso(),
       })
-      .where('tenant_id', '=', input.tenant_id)
-      .returning(recordColumns)
-      .executeTakeFirst();
+      .where('tenant_id', '=', input.tenant_id);
+    if (expectedUpdatedAt !== undefined) {
+      query = query.where('updated_at', '=', expectedUpdatedAt);
+    }
+    return await query.returning(recordColumns).executeTakeFirst();
   }
 }

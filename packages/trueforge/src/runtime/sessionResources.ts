@@ -20,15 +20,11 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-<<<<<<< HEAD
 import {
   recordDaytonaAccessFailure,
   toDaytonaSandboxProvider,
   toSandboxProviderFromRecord,
 } from '../sandbox/providerUtils';
-=======
-import { recordDaytonaAccessFailure, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
->>>>>>> fix: persist Daytona authentication failures
 import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
@@ -228,7 +224,7 @@ export async function resolveSandboxProvider({
           tenant_id,
           error,
           build_metadata: record.build_metadata,
-          expected_manifest: record.manifest,
+          expected_updated_at: record.updated_at,
         });
       },
     });
