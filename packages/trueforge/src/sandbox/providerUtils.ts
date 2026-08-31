@@ -86,13 +86,13 @@ export async function recordDaytonaAccessFailure({
   tenant_id,
   error,
   build_metadata,
-  expected_updated_at,
+  expected_manifest,
 }: {
   store: ISandboxProviderStore;
   tenant_id: string;
   error: unknown;
   build_metadata?: SandboxBuildMetadata | null;
-  expected_updated_at?: string | undefined;
+  expected_manifest?: SandboxProviderManifest | undefined;
 }): Promise<SandboxStatus | undefined> {
   const status_reason = isDaytonaAuthError(error)
     ? 'Daytona rejected the API key. Check the configured credentials.'
@@ -103,7 +103,7 @@ export async function recordDaytonaAccessFailure({
     return undefined;
   }
   const next: SandboxStatus = { status: 'failed', status_reason, build_metadata: build_metadata ?? null };
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_updated_at });
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_manifest });
   if (updated !== undefined) {
     return sandboxStatusFromRecord(updated);
   }
@@ -163,7 +163,7 @@ export async function checkSnapshotStatus({
       tenant_id,
       error,
       build_metadata: record.build_metadata,
-      expected_updated_at: record.updated_at,
+      expected_manifest: record.manifest,
     });
     if (failed !== undefined) {
       return failed;
@@ -171,7 +171,7 @@ export async function checkSnapshotStatus({
     throw error;
   }
   const next = toSandboxStatus(build);
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_updated_at: record.updated_at });
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_manifest: record.manifest });
   if (updated !== undefined) {
     return sandboxStatusFromRecord(updated);
   }

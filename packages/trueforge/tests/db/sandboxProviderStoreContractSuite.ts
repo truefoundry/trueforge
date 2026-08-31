@@ -114,7 +114,7 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
     ).toBeUndefined();
   });
 
-  it('updateSandboxStatus ignores a stale provider version', async () => {
+  it('updateSandboxStatus ignores a stale provider manifest', async () => {
     const store = getStore();
     await store.upsertSandboxProvider(upsertInput());
 
@@ -124,7 +124,7 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
         status: 'failed',
         status_reason: 'stale failure',
         build_metadata: BUILD_METADATA,
-        expected_updated_at: '1970-01-01T00:00:00.000Z',
+        expected_manifest: manifest({ exec_timeout_ms: 120000 }),
       }),
     ).toBeUndefined();
     expect((await store.getSandboxProvider(TENANT))?.status).toBe('pending');
