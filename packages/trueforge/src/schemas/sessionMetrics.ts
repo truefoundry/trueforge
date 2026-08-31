@@ -55,7 +55,7 @@ export const SessionMetricsMeterSchema = z
 
 export const SessionMetricsMeterResponseSchema = z
   .object({
-    meters: z.array(SessionMetricsMeterSchema).length(12),
+    meters: z.array(SessionMetricsMeterSchema),
   })
   .strict()
   .openapi('SessionMetricsMeterResponse');
@@ -77,7 +77,7 @@ export const SessionMetricsChartSchema = z
 
 export const SessionMetricsChartResponseSchema = z
   .object({
-    charts: z.array(SessionMetricsChartSchema).length(3),
+    charts: z.array(SessionMetricsChartSchema),
   })
   .strict()
   .openapi('SessionMetricsChartResponse');
@@ -97,7 +97,7 @@ export const SessionMetricsGraphSchema = z
     description: z.string(),
     unit: SessionMetricsGraphUnitSchema,
     chart_type: z.literal('line'),
-    graph_lines: z.array(SessionMetricsGraphLineSchema).length(1),
+    graph_lines: z.array(SessionMetricsGraphLineSchema),
   })
   .strict()
   .openapi('SessionMetricsGraph');
@@ -105,10 +105,74 @@ export const SessionMetricsGraphSchema = z
 export const SessionMetricsChartDataResponseSchema = z
   .object({
     step: z.string(),
-    graphs: z.array(SessionMetricsGraphSchema).length(1),
+    graphs: z.array(SessionMetricsGraphSchema),
   })
   .strict()
   .openapi('SessionMetricsChartDataResponse');
+
+/** Wire ISO-8601 (RFC 3339, offsets allowed) → Date for metrics window bounds. */
+const IsoTimestampQueryParam = z.iso
+  .datetime({ offset: true })
+  .openapi({ type: 'string', format: 'date-time' })
+  .transform(s => new Date(s));
+
+const GetSessionMetricsRequestQueryObjectSchema = z.object({
+  agent_id: z.string().min(1).max(64).describe('Named agent identifier.'),
+  start_timestamp: IsoTimestampQueryParam.describe('Inclusive lower bound on session `created_at`.'),
+  end_timestamp: IsoTimestampQueryParam.describe('Inclusive upper bound on session `created_at`.'),
+});
+
+function refineSessionMetricsTimeWindow(
+  query: { start_timestamp: Date; end_timestamp: Date },
+  ctx: z.RefinementCtx,
+): void {
+  const windowMs = query.end_timestamp.getTime() - query.start_timestamp.getTime();
+  if (windowMs < 0) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'end_timestamp must be on or after start_timestamp',
+      path: ['end_timestamp'],
+    });
+    return;
+  }
+  if (windowMs > MAX_SESSION_METRICS_WINDOW_MS) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'metrics window must not exceed 30 days',
+      path: ['end_timestamp'],
+    });
+  }
+}
+
+export const GetSessionMetricsRequestQuerySchema = GetSessionMetricsRequestQueryObjectSchema.superRefine(
+  refineSessionMetricsTimeWindow,
+).openapi('GetSessionMetricsRequestQuery');
+
+export const GetSessionMetricsChartDataRequestQuerySchema = z
+  .object({
+    ...GetSessionMetricsRequestQueryObjectSchema.shape,
+    chart_name: SessionMetricsChartNameSchema,
+  })
+  .superRefine(refineSessionMetricsTimeWindow)
+  .openapi('GetSessionMetricsChartDataRequestQuery');
+
+export const GetSessionMetricsMeterResponseSchema = z
+  .object({
+    data: SessionMetricsMeterResponseSchema,
+  })
+  .openapi('GetSessionMetricsMeterResponse');
+
+export const GetSessionMetricsChartResponseSchema = z
+  .object({
+    data: SessionMetricsChartResponseSchema,
+  })
+  .openapi('GetSessionMetricsChartResponse');
+
+export const GetSessionMetricsChartDataResponseSchema = z
+  .object({
+    data: SessionMetricsChartDataResponseSchema,
+  })
+  .openapi('GetSessionMetricsChartDataResponse');
 
 export type SessionMetricsPoint = z.infer<typeof SessionMetricsPointSchema>;
 export type SessionMetricsMeterName = z.infer<typeof SessionMetricsMeterNameSchema>;

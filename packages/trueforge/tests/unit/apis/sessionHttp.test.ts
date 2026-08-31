@@ -25,7 +25,7 @@ import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
-} from '../../../src/schemas/session';
+} from '../../../src/schemas/sessionMetrics';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },

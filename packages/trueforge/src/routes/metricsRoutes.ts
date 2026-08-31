@@ -10,7 +10,7 @@ import {
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
   GetSessionMetricsRequestQuerySchema,
-} from '../schemas/session';
+} from '../schemas/sessionMetrics';
 import { OpenApiTag } from './openapiTags';
 
 export const getSessionMetricsMetersRoute = createRoute({
