@@ -1,12 +1,3 @@
-/**
- * Wires the control loops this deployment runs.
- *
- * {@link createController} is for a process that already has a drain of its own
- * (the standalone server). {@link runController} is for a process whose only job
- * is the loops — start them, then stop on SIGTERM/SIGINT.
- *
- * This module is not a process entry point.
- */
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
 import { Controller } from './controller/Controller';
@@ -15,8 +6,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { WithTransaction } from './db/transaction';
 
 /**
- * The loops this deployment runs. Identical in both modes — only the process that owns
- * the returned controller differs, so starting and stopping is left to the caller.
+ * The loops the controller runs.
  */
 export function createController<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
