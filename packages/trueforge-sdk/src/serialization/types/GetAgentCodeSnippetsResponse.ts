@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { GetAgentCodeSnippetsResponseData } from "./GetAgentCodeSnippetsResponseData.js";
+import { AgentCodeSnippets } from "./AgentCodeSnippets.js";
 
 export const GetAgentCodeSnippetsResponse: core.serialization.ObjectSchema<
     serializers.GetAgentCodeSnippetsResponse.Raw,
     TrueForge.GetAgentCodeSnippetsResponse
 > = core.serialization.object({
-    data: GetAgentCodeSnippetsResponseData,
+    data: AgentCodeSnippets,
 });
 
 export declare namespace GetAgentCodeSnippetsResponse {
     export interface Raw {
-        data: GetAgentCodeSnippetsResponseData.Raw;
+        data: AgentCodeSnippets.Raw;
     }
 }

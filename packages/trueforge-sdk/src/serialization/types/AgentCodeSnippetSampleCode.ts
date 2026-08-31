@@ -4,15 +4,15 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const GetAgentCodeSnippetsResponseDataSnippetsItemSampleCode: core.serialization.ObjectSchema<
-    serializers.GetAgentCodeSnippetsResponseDataSnippetsItemSampleCode.Raw,
-    TrueForge.GetAgentCodeSnippetsResponseDataSnippetsItemSampleCode
+export const AgentCodeSnippetSampleCode: core.serialization.ObjectSchema<
+    serializers.AgentCodeSnippetSampleCode.Raw,
+    TrueForge.AgentCodeSnippetSampleCode
 > = core.serialization.object({
     nonStream: core.serialization.property("non_stream", core.serialization.string()),
     stream: core.serialization.string(),
 });
 
-export declare namespace GetAgentCodeSnippetsResponseDataSnippetsItemSampleCode {
+export declare namespace AgentCodeSnippetSampleCode {
     export interface Raw {
         non_stream: string;
         stream: string;

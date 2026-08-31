@@ -2,8 +2,8 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface GetAgentCodeSnippetsResponseData {
+export interface AgentCodeSnippets {
     /** Origin to pass as the TrueForge SDK `baseUrl`. */
     baseUrl: string;
-    snippets: TrueForge.GetAgentCodeSnippetsResponseDataSnippetsItem[];
+    snippets: TrueForge.AgentCodeSnippet[];
 }

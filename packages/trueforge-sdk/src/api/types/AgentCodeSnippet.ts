@@ -2,9 +2,9 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface GetAgentCodeSnippetsResponseDataSnippetsItem {
+export interface AgentCodeSnippet {
     icon: string;
     labelName: string;
     language: string;
-    sampleCode: TrueForge.GetAgentCodeSnippetsResponseDataSnippetsItemSampleCode;
+    sampleCode: TrueForge.AgentCodeSnippetSampleCode;
 }
