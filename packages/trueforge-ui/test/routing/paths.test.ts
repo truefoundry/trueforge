@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPath, matchLocation, matchPath, placesEqual, resolveRoutesConfig } from '@/routing/paths.js';
+import {
+  buildPath,
+  matchLocation,
+  matchPath,
+  placesEqual,
+  resolveRoutesConfig,
+  sanitizeSearchForPlace,
+} from '@/routing/paths.js';
 
 describe('resolveRoutesConfig', () => {
   it('applies defaults', () => {
@@ -60,6 +67,29 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'library' }, disabled)).toBeNull();
     expect(buildPath({ type: 'libraryAgent', agentId: 'x' }, disabled)).toBeNull();
     expect(buildPath({ type: 'agent', agentName: 'x' }, disabled)).toBeNull();
+  });
+});
+
+describe('sanitizeSearchForPlace', () => {
+  const sessionSearch = '?theme=dark&sessionId=sess-1&agentId=agent-1&tab=sessions&view=sessions&s_sts=1&s_ets=2';
+
+  it('clears session-owned query keys on unrelated places without dropping host keys', () => {
+    expect(sanitizeSearchForPlace({ type: 'library' }, sessionSearch)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'root' }, sessionSearch)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'session', sessionId: 'sess-2' }, sessionSearch)).toBe('?theme=dark');
+  });
+
+  it('keeps only the query state owned by the destination place', () => {
+    expect(sanitizeSearchForPlace({ type: 'sessionsBrowser' }, sessionSearch)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1&view=sessions&s_sts=1&s_ets=2',
+    );
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, sessionSearch)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1&tab=sessions',
+    );
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-2' }, sessionSearch)).toBe(
+      '?theme=dark&tab=sessions',
+    );
+    expect(sanitizeSearchForPlace({ type: 'settings' }, sessionSearch)).toBe(sessionSearch);
   });
 });
 

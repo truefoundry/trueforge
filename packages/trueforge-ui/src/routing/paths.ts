@@ -1,4 +1,4 @@
-import { readSessionShareSearch } from '../utils/sessionShareUrl.js';
+import { readSessionShareSearch, writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
 const DEFAULTS = {
@@ -69,6 +69,36 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
     case 'sessionsBrowser':
       return routes.sessionsBrowser;
   }
+}
+
+/**
+ * Remove query state owned by a different shell place while preserving host
+ * parameters. Settings is an overlay, so it retains the underlying place state.
+ */
+export function sanitizeSearchForPlace(place: RoutePlace, search: string): string {
+  if (place.type === 'settings') return search;
+
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  if (place.type === 'sessionsBrowser') {
+    writeSessionShareSearch(params, { tab: null });
+  } else if (place.type === 'libraryAgent') {
+    const share = readSessionShareSearch(search);
+    writeSessionShareSearch(params, {
+      view: null,
+      timeRange: null,
+      ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
+    });
+  } else {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+  }
+  const next = params.toString();
+  return next.length > 0 ? `?${next}` : '';
 }
 
 /** Percent-decode a segment; `null` when the URL carries a malformed escape. */

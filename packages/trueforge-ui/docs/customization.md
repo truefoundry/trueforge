@@ -123,8 +123,10 @@ Shell state stays the source of truth; the router mirrors it. Combining
 
 Notes on behaviour:
 
-- Only the pathname is owned; query string and hash are preserved across
-  navigation, so host state in `?…` survives switching sessions.
+- Hashes and host-owned query keys are preserved across navigation. Session
+  keys (`sessionId`, `agentId`, `tab`, `view`, `s_tw`, `s_sts`, `s_ets`) are
+  removed when the destination does not own them, preventing stale filters or
+  selections from leaking into unrelated routes.
 - A copied library session link is `?agentId=&sessionId=` on the current page
   (plus `/library/:agentId` when `withRouter`). Opening it lands on that
   agent's Sessions tab. Clicking an agent in the library writes `?tab=overview`

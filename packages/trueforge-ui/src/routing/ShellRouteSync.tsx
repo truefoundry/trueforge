@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
-import { buildPath, matchLocation, placesEqual } from './paths.js';
+import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
 
 /**
@@ -153,10 +153,11 @@ export function ShellRouteSync({
 
     const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
     const desiredPath = buildPath(desiredPlace, routes);
+    const desiredSearch = sanitizeSearchForPlace(desiredPlace, location.search);
     prevPlaceRef.current = desiredPlace;
-    if (desiredPath != null && desiredPath !== location.pathname) {
-      selfNavPathRef.current = desiredPath;
-      navigate({ pathname: desiredPath, search: location.search, hash: location.hash }, { replace: true });
+    if (desiredPath != null && (desiredPath !== location.pathname || desiredSearch !== location.search)) {
+      selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
+      navigate({ pathname: desiredPath, search: desiredSearch, hash: location.hash }, { replace: true });
     }
     // Boot runs once; snapshot is read imperatively here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,19 +172,20 @@ export function ShellRouteSync({
     }
     const target = buildPath(place, routes);
     if (target == null) return; // place has no configured URL (e.g. settings disabled)
+    const targetSearch = sanitizeSearchForPlace(place, location.search);
 
     const prev = prevPlaceRef.current;
     prevPlaceRef.current = place;
 
-    if (target === location.pathname) return;
+    if (target === location.pathname && targetSearch === location.search) return;
 
     // Replace when a fresh chat just acquired its session id (same place, new id).
     const replace =
       place.type === 'session' && shell.pendingSessionId == null && prev != null && prev.type !== 'session';
 
-    selfNavPathRef.current = target;
-    // Only the pathname is ours; host query/hash state rides along unchanged.
-    navigate({ pathname: target, search: location.search, hash: location.hash }, { replace });
+    selfNavPathRef.current = target !== location.pathname ? target : null;
+    // Query keys owned by other shell places are removed; host keys and hash survive.
+    navigate({ pathname: target, search: targetSearch, hash: location.hash }, { replace });
     // location.pathname intentionally excluded: only react to shell-derived place changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placeKey]);
@@ -203,8 +205,9 @@ export function ShellRouteSync({
     if (urlPlace == null) {
       // Unknown path: normalize to root.
       const rootPath = routes.root;
+      const rootSearch = sanitizeSearchForPlace({ type: 'root' }, location.search);
       selfNavPathRef.current = rootPath;
-      navigate({ pathname: rootPath, search: location.search, hash: location.hash }, { replace: true });
+      navigate({ pathname: rootPath, search: rootSearch, hash: location.hash }, { replace: true });
       applyPlace({ type: 'root' });
       return;
     }

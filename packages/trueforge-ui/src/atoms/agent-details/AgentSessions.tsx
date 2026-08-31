@@ -129,7 +129,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       sessionId: entry.id,
       ...(shareView === 'sessions'
         ? { view: 'sessions', ...(pinned == null ? {} : { timeRange: pinned }) }
-        : { agentId: agentId ?? null }),
+        : { agentId: agentId ?? null, tab: 'sessions', view: null, timeRange: null }),
     });
   };
 

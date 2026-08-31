@@ -249,7 +249,13 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     {...(sessionsServer != null && agentId != null
                       ? {
                           onOpen: () => {
-                            updateShareSearch({ tab: 'overview' });
+                            updateShareSearch({
+                              agentId,
+                              tab: 'overview',
+                              sessionId: null,
+                              view: null,
+                              timeRange: null,
+                            });
                             shell.openLibraryAgent(agentId);
                           },
                         }

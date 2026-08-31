@@ -109,6 +109,7 @@ describe('CenteredModal', () => {
 
 describe('AgentsLibrary', () => {
   it('opens agent details from the row only when the optional server is available', async () => {
+    window.history.replaceState(null, '', '/library?theme=dark&sessionId=stale&view=sessions&s_sts=1&s_ets=2');
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'agent-1' }]),
       sessions: {
@@ -123,7 +124,14 @@ describe('AgentsLibrary', () => {
 
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Open alpha-agent' }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('agent-1');
-    expect(new URL(window.location.href).searchParams.get('tab')).toBe('overview');
+    const params = new URL(window.location.href).searchParams;
+    expect(params.get('theme')).toBe('dark');
+    expect(params.get('agentId')).toBe('agent-1');
+    expect(params.get('tab')).toBe('overview');
+    expect(params.get('sessionId')).toBeNull();
+    expect(params.get('view')).toBeNull();
+    expect(params.get('s_sts')).toBeNull();
+    expect(params.get('s_ets')).toBeNull();
   });
 
   it('lists agents and selects a named agent (Try = immutable)', async () => {

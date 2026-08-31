@@ -14,6 +14,7 @@ type Shell = ReturnType<typeof useShellMode>;
 
 let shell: Shell;
 let pathname = '';
+let search = '';
 let setRemoteId: (id: string | undefined) => void = () => undefined;
 
 function CaptureShell() {
@@ -24,9 +25,11 @@ function CaptureShell() {
 function CaptureLocation() {
   const location = useLocation();
   pathname = location.pathname;
+  search = location.search;
   useEffect(() => {
     pathname = location.pathname;
-  }, [location.pathname]);
+    search = location.search;
+  }, [location.pathname, location.search]);
   return null;
 }
 
@@ -146,6 +149,15 @@ describe('ShellRouteSync', () => {
     renderSync({ initialEntries: ['/library'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
     expect(shell.libraryOpen).toBe(true);
     expect(pathname).toBe('/library');
+  });
+
+  it('clears stale session query state from the library URL while preserving host keys', () => {
+    renderSync({
+      initialEntries: ['/library?theme=dark&sessionId=sess-1&agentId=agent-1&s_sts=1&s_ets=2'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+    expect(pathname).toBe('/library');
+    expect(search).toBe('?theme=dark');
   });
 
   it('opens agent details on boot from a /library/:agentId deep link', () => {

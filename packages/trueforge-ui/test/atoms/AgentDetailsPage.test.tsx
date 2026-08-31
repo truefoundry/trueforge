@@ -152,7 +152,7 @@ describe('AgentDetailsPage', () => {
   });
 
   it('honors tab= in the URL and writes it when the user switches tabs', async () => {
-    window.history.replaceState(null, '', '/library/agent-1?tab=code');
+    window.history.replaceState(null, '', '/library/agent-1?tab=code&agentId=agent-1&sessionId=stale');
     const { getCodeSnippets } = renderPage();
     expect(await screen.findByRole('tab', { name: 'Use In Code' })).toHaveAttribute('aria-selected', 'true');
     await screen.findByText('const stream = true;');
@@ -160,7 +160,10 @@ describe('AgentDetailsPage', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
     expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
-    expect(new URL(window.location.href).searchParams.get('tab')).toBe('overview');
+    const params = new URL(window.location.href).searchParams;
+    expect(params.get('tab')).toBe('overview');
+    expect(params.get('agentId')).toBe('agent-1');
+    expect(params.get('sessionId')).toBeNull();
   });
 
   it('loads session metadata from getSession when a row is selected', async () => {

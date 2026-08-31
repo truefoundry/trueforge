@@ -69,6 +69,13 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   }, [activeTab, agentId, sessionsServer, snippets, snippetsFailed]);
 
   const goBack = () => {
+    share.updateShareSearch({
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
     shell.closeLibraryAgent();
   };
 
@@ -118,7 +125,18 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
       <AgentDetailsHeader agentId={agentId} detail={detail} onBack={goBack} />
       {sessionsServer != null && !detailFailed ? (
-        <AgentDetailsTabs activeTab={activeTab} onTabChange={tab => share.updateShareSearch({ tab })} />
+        <AgentDetailsTabs
+          activeTab={activeTab}
+          onTabChange={tab =>
+            share.updateShareSearch({
+              agentId,
+              tab,
+              view: null,
+              timeRange: null,
+              ...(tab === 'sessions' ? {} : { sessionId: null }),
+            })
+          }
+        />
       ) : null}
       {/* Tabs own their scrolling so long instructions / code samples stay inside their card. */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden" role="tabpanel">
