@@ -15,8 +15,15 @@ import { AgentDetailsUnavailable } from '../atoms/agent-details/AgentDetailsUnav
 import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
 import { AgentSessionDetailHeader } from '../atoms/agent-details/AgentSessionDetailHeader.js';
 import { AgentSessionListRow } from '../atoms/agent-details/AgentSessionListRow.js';
+import { AgentSessionMetricsStrip } from '../atoms/agent-details/AgentSessionMetricsStrip.js';
 import { AgentSessionTurnHeader } from '../atoms/agent-details/AgentSessionTurnHeader.js';
-import type { AgentCodeSnippetsProps, AgentOverviewProps, AgentSessionsProps } from '../atoms/agent-details/types.js';
+import type {
+  AgentCodeSnippetsProps,
+  AgentOverviewProps,
+  AgentSessionEventTimelineChartProps,
+  AgentSessionEventTimelineProps,
+  AgentSessionsProps,
+} from '../atoms/agent-details/types.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
@@ -77,6 +84,14 @@ const AgentSessions: ComponentType<AgentSessionsProps> = lazy(async () => {
 const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
   () => import('../atoms/agent-details/AgentCodeSnippets.js'),
 );
+const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
+  const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
+  return { default: mod.AgentSessionEventTimeline };
+});
+const AgentSessionEventTimelineChart: ComponentType<AgentSessionEventTimelineChartProps> = lazy(async () => {
+  const mod = await import('../atoms/agent-details/AgentSessionEventTimelineChart.js');
+  return { default: mod.AgentSessionEventTimelineChart };
+});
 
 // ponytail: primitives stay CSS/token-styled (not slots) — see docs/customization.md.
 // import { Button } from "../atoms/primitives/Button.js";
@@ -143,7 +158,10 @@ export const defaultSlots = {
   AgentOverview,
   AgentOverviewCard,
   AgentSessionDetailHeader,
+  AgentSessionEventTimeline,
+  AgentSessionEventTimelineChart,
   AgentSessionListRow,
+  AgentSessionMetricsStrip,
   AgentSessionTimelineContainer,
   AgentSessionTurnHeader,
   AgentSessions,

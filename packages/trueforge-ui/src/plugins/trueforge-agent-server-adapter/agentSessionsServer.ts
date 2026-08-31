@@ -67,6 +67,9 @@ function toSessionListEntry(session: TrueForgeApi.Session): SessionListEntry<Har
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     lastActivityAt: session.updatedAt,
+    // TrueForge listSessions (packages/trueforge/src/apis/sessions.ts) and SessionSchema
+    // (packages/trueforge-core/src/agent-session/schemas/session.ts) have no aggregate
+    // metrics field yet, so the UI contract stays zero until that API exists.
     metrics: {
       totalTurns: 0,
       totalCostInUsd: 0,

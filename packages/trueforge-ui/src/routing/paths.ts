@@ -1,3 +1,4 @@
+import { readSessionShareSearch } from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
 const DEFAULTS = {
@@ -122,6 +123,14 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
     return { type: 'root' };
   }
   return null;
+}
+
+/** Pathname place, or library agent from `?agentId=` when the path is root. */
+export function matchLocation(pathname: string, search: string, routes: ResolvedRoutes): RoutePlace | null {
+  const matched = matchPath(pathname, routes);
+  if (matched == null || matched.type !== 'root') return matched;
+  const { agentId } = readSessionShareSearch(search);
+  return agentId != null ? { type: 'libraryAgent', agentId } : matched;
 }
 
 export function placesEqual(a: RoutePlace, b: RoutePlace): boolean {

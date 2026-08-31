@@ -66,6 +66,13 @@ Public override surface (primitives stay theme/CSS — not slots):
   `ThreadListRowSkeleton`, `ThreadListEmptyState`, `HistoryLoader`,
   `AgentsLibrary`, `AgentsLibraryButton`, `SaveAgentButton`,
   `SelectAgentEmptyState`, `ClearChatButton`
+- **Agent details / sessions:** `AgentDetailsPage`, `AgentDetailsHeader`,
+  `AgentDetailsTabs`, `AgentDetailsUnavailable`, `AgentOverview`,
+  `AgentOverviewCard`, `AgentSessions`, `AgentSessionListRow`,
+  `AgentSessionDetailHeader`, `AgentSessionMetricsStrip`,
+  `AgentSessionTimelineContainer`, `AgentSessionEventTimeline`,
+  `AgentSessionEventTimelineChart`, `AgentSessionTurnHeader`,
+  `AgentCodeSnippets`, `AgentCodeBlock`
 - **Attachments / toasts:** `AttachmentCard`, `AttachmentPreviewDialog`,
   `AttachmentPickerButton`, `Toast`, `ToastStack`
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,
@@ -117,6 +124,9 @@ Notes on behaviour:
 
 - Only the pathname is owned; query string and hash are preserved across
   navigation, so host state in `?…` survives switching sessions.
+- A copied library session link is `?agentId=&sessionId=` on the current page
+  (plus `/library/:agentId` when `withRouter`). Opening it lands on that
+  agent's Sessions tab. The same query works when `withRouter` is off.
 - A `/sessions/:sessionId` link is resolved through `getSession` so the chat
   opens with its own agent binding and mutability rather than as a new draft.
 - Unrecognized paths (and malformed escapes) normalize to the root place.

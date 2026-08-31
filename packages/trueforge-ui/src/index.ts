@@ -366,7 +366,13 @@ export type {
   AgentDetailsUnavailableProps,
   AgentOverviewCardProps,
   AgentOverviewProps,
+  AgentSessionEventTimelineChartProps,
+  AgentSessionEventTimelineProps,
+  AgentSessionMetricsStripProps,
+  AgentSessionTurnHeaderProps,
 } from './atoms/agent-details/types.js';
+export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
+export type { SessionTurnView } from './utils/sessionTurnViews.js';
 
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';

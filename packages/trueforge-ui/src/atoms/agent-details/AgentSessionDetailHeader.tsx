@@ -1,36 +1,51 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import { Icon } from '../../icons/Icon.js';
+import { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 import { cn } from '../lib/cn.js';
+import { LightTooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionDetailHeaderProps } from './types.js';
 
-export function AgentSessionDetailHeader({ title, sessionId, onClose }: AgentSessionDetailHeaderProps) {
-  const copySessionId = async () => {
+export { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
+
+export function AgentSessionDetailHeader({ title, sessionId, agentId, onClose }: AgentSessionDetailHeaderProps) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const copySessionLink = async () => {
     try {
-      await navigator.clipboard.writeText(sessionId);
+      await navigator.clipboard.writeText(buildAgentSessionShareUrl({ sessionId, agentId }));
+      setCopied(true);
     } catch {
       // Clipboard may be unavailable; ignore.
     }
   };
 
   return (
-    <div className="flex shrink-0 items-start gap-3 border-b border-border px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <h2 className="truncate text-sm font-semibold text-text-primary">{title}</h2>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-text-secondary">
-          <code className="truncate font-mono">{sessionId}</code>
+    <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <h2 className="min-w-0 truncate text-sm font-semibold text-text-primary">{title}</h2>
+        <code className="min-w-0 truncate font-mono text-xs text-text-secondary">{sessionId}</code>
+        <LightTooltip title={copied ? 'Copied' : 'Copy session link'} dismissOnClick={false}>
           <button
             type="button"
-            aria-label="Copy session id"
+            aria-label="Copy session link"
             className={cn(
               'inline-flex size-6 shrink-0 items-center justify-center rounded-md text-text-secondary',
               'hover:bg-ghost-button-hover hover:text-text-primary',
             )}
-            onClick={() => void copySessionId()}
+            onClick={() => void copySessionLink()}
           >
-            <Icon name="copy" className="size-3.5" />
+            <Icon name="link" className="size-3.5" />
           </button>
-        </div>
+        </LightTooltip>
       </div>
       <button
         type="button"

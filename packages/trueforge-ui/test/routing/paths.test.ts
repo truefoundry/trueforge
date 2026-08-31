@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPath, matchPath, placesEqual, resolveRoutesConfig } from '@/routing/paths.js';
+import { buildPath, matchLocation, matchPath, placesEqual, resolveRoutesConfig } from '@/routing/paths.js';
 
 describe('resolveRoutesConfig', () => {
   it('applies defaults', () => {
@@ -103,6 +103,24 @@ describe('matchPath', () => {
       if (path == null) throw new Error(`Expected a path for ${place.type}`);
       expect(matchPath(path, routes)).toEqual(place);
     }
+  });
+});
+
+describe('matchLocation', () => {
+  const routes = resolveRoutesConfig();
+
+  it('opens a library agent from ?agentId= when the path is root', () => {
+    expect(matchLocation('/', '?agentId=agent-1&sessionId=sess-1', routes)).toEqual({
+      type: 'libraryAgent',
+      agentId: 'agent-1',
+    });
+  });
+
+  it('keeps a concrete pathname over the share query', () => {
+    expect(matchLocation('/sessions/sess-1', '?agentId=agent-1', routes)).toEqual({
+      type: 'session',
+      sessionId: 'sess-1',
+    });
   });
 });
 

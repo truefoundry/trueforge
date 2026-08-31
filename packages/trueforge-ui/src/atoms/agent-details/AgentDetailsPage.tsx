@@ -5,8 +5,13 @@ import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { readSessionShareSearch } from '../../utils/sessionShareUrl.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentDetailsPageProps, AgentDetailsTab } from './types.js';
+
+function initialDetailsTab(): AgentDetailsTab {
+  return readSessionShareSearch(window.location.search).sessionId != null ? 'sessions' : 'overview';
+}
 
 export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
@@ -17,7 +22,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const AgentOverview = useSlot('AgentOverview');
   const AgentSessions = useSlot('AgentSessions');
   const AgentCodeSnippets = useSlot('AgentCodeSnippets');
-  const [activeTab, setActiveTab] = useState<AgentDetailsTab>('overview');
+  const [activeTab, setActiveTab] = useState<AgentDetailsTab>(initialDetailsTab);
   const [detail, setDetail] = useState<AgentDetail>();
   const [detailFailed, setDetailFailed] = useState(false);
   const [snippets, setSnippets] = useState<CodeSnippet[]>();

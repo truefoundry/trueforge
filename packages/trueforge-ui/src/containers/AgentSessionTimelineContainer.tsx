@@ -2,13 +2,14 @@
 
 import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
 import { convertTurnsToThreadMessages } from '@truefoundry/assistant-ui-runtime';
-import type { ComponentType } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { useServer } from '../server/ServerContext.js';
 import type { AgentChatServer, SessionEventItem } from '../server/types.js';
 import type { SlotOverrides } from '../theme/SlotsProvider.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { buildSessionMetrics } from '../utils/buildSessionMetrics.js';
+import { buildSessionTimelineSegments } from '../utils/buildSessionTimelineSegments.js';
 import { createCachedListEventsBridge } from '../utils/cachedListEventsBridge.js';
 import { buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
@@ -42,18 +43,35 @@ function messagesForTurn(messages: ThreadMessageLike[], turnId: string): ThreadM
 export type AgentSessionTimelineContainerProps = {
   sessionId: string;
   events: SessionEventItem[];
+  listMetrics?: {
+    totalTurns: number;
+    totalCostInUsd: number;
+    totalDurationMs: number;
+  };
 };
 
-export function AgentSessionTimelineContainer({ sessionId, events }: AgentSessionTimelineContainerProps) {
+export function AgentSessionTimelineContainer({ sessionId, events, listMetrics }: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
+  const AgentSessionEventTimeline = useSlot('AgentSessionEventTimeline');
+  const AgentSessionMetricsStrip = useSlot('AgentSessionMetricsStrip');
   const MessageListSkeleton = useSlot('MessageListSkeleton');
   const ThreadViewportShell = useSlot('ThreadViewportShell');
 
   const [messages, setMessages] = useState<ThreadMessageLike[]>();
   const [loadFailed, setLoadFailed] = useState(false);
+  const sectionRefs = useRef(new Map<number, HTMLElement>());
 
   const turnViews = useMemo(() => buildSessionTurnViews(events), [events]);
+  const timelineSegments = useMemo(() => buildSessionTimelineSegments(turnViews), [turnViews]);
+  const sessionMetrics = useMemo(
+    () => buildSessionMetrics({ turns: turnViews, segments: timelineSegments, listMetrics }),
+    [listMetrics, timelineSegments, turnViews],
+  );
+
+  const handleSelectTurn = useCallback((index: number) => {
+    sectionRefs.current.get(index)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,9 +79,11 @@ export function AgentSessionTimelineContainer({ sessionId, events }: AgentSessio
     setLoadFailed(false);
 
     const bridge = createCachedListEventsBridge(events);
+    // Events already include every turn.created / turn.done, so skip listTurns.
     const chatServer: AgentChatServer = {
       ...server,
       listEvents: req => bridge.listEvents(req),
+      listTurns: async () => ({ data: [] }),
     };
 
     void convertTurnsToThreadMessages(chatServer, sessionId)
@@ -104,18 +124,30 @@ export function AgentSessionTimelineContainer({ sessionId, events }: AgentSessio
   }
 
   return (
-    <ThreadViewportShell className="flex-1 pb-4">
-      <div className="flex flex-col gap-4">
-        {turnViews.map(turn => (
-          <SessionTurnSection
-            key={turn.turnId}
-            turn={turn}
-            messages={messagesForTurn(messages, turn.turnId)}
-            AgentSessionTurnHeader={AgentSessionTurnHeader}
-          />
-        ))}
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-border">
+        <AgentSessionMetricsStrip metrics={sessionMetrics} />
+        <Suspense fallback={null}>
+          <AgentSessionEventTimeline turns={turnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
+        </Suspense>
       </div>
-    </ThreadViewportShell>
+      <ThreadViewportShell className="flex-1 pb-4">
+        <div className="flex flex-col gap-4">
+          {turnViews.map(turn => (
+            <SessionTurnSection
+              key={turn.turnId}
+              turn={turn}
+              messages={messagesForTurn(messages, turn.turnId)}
+              AgentSessionTurnHeader={AgentSessionTurnHeader}
+              onMount={node => {
+                if (node == null) sectionRefs.current.delete(turn.turnNumber - 1);
+                else sectionRefs.current.set(turn.turnNumber - 1, node);
+              }}
+            />
+          ))}
+        </div>
+      </ThreadViewportShell>
+    </div>
   );
 }
 
@@ -123,6 +155,7 @@ function SessionTurnSection({
   turn,
   messages,
   AgentSessionTurnHeader,
+  onMount,
 }: {
   turn: SessionTurnView;
   messages: ThreadMessageLike[];
@@ -132,13 +165,14 @@ function SessionTurnSection({
     durationMs?: number;
     totalCostInUsd?: number;
   }>;
+  onMount: (node: HTMLElement | null) => void;
 }) {
   if (!turn.showHeader && messages.length === 0) {
     return null;
   }
 
   return (
-    <section className="flex flex-col gap-2">
+    <section ref={onMount} id={`session-turn-${turn.turnNumber}`} className="flex flex-col gap-2">
       {turn.showHeader ? (
         <AgentSessionTurnHeader
           turnNumber={turn.turnNumber}

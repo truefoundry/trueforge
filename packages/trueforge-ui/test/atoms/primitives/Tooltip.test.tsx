@@ -76,6 +76,21 @@ describe('Tooltip', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('follows the cursor horizontally when followCursor is set', () => {
+    render(
+      <Tooltip content="Turn 1" side="bottom" followCursor>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Chart' });
+    fireEvent.mouseEnter(trigger, { clientX: 240 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '240px' });
+
+    fireEvent.mouseMove(trigger, { clientX: 410 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '410px' });
+  });
+
   it('opens below the trigger when side is bottom', () => {
     render(
       <Tooltip content="Below tip" side="bottom">
@@ -89,6 +104,20 @@ describe('Tooltip', () => {
     expect(tooltip).toHaveTextContent('Below tip');
     expect(tooltip).toHaveStyle({ transform: 'translate(-50%, 0)' });
     expect(tooltip.className).toMatch(/fixed/);
+  });
+
+  it('keeps the tooltip open on click when dismissOnClick is false', () => {
+    render(
+      <Tooltip content="Copy session link" dismissOnClick={false}>
+        <button>Link</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Link' });
+    fireEvent.mouseEnter(trigger);
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Copy session link');
   });
 
   it('dismisses on click while still invoking the child handler', () => {

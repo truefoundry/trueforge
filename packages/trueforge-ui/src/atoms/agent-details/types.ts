@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
+import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
+import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
+import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export type AgentSessionsProps = {
   agentId: string;
@@ -21,6 +24,7 @@ export type AgentSessionListRowProps = {
 export type AgentSessionDetailHeaderProps = {
   title: string;
   sessionId: string;
+  agentId: string;
   onClose: () => void;
 };
 
@@ -29,6 +33,23 @@ export type AgentSessionTurnHeaderProps = {
   totalTokens?: number;
   durationMs?: number;
   totalCostInUsd?: number;
+};
+
+export type AgentSessionMetricsStripProps = {
+  metrics: SessionMetrics;
+};
+
+export type AgentSessionEventTimelineProps = {
+  turns: SessionTurnView[];
+  segments: SessionEventTimelineSegment[];
+  onSelectTurn?: (index: number) => void;
+};
+
+export type AgentSessionEventTimelineChartProps = {
+  turns: SessionTurnView[];
+  segments: SessionEventTimelineSegment[];
+  hiddenTypes: ReadonlySet<SessionEventType>;
+  onSelectTurn?: (index: number) => void;
 };
 
 export type AgentDetailsTab = 'overview' | 'sessions' | 'code';

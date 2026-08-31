@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
-import { buildPath, matchPath, placesEqual } from './paths.js';
+import { buildPath, matchLocation, placesEqual } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
 
 /**
@@ -130,7 +130,7 @@ export function ShellRouteSync({
     if (bootedRef.current) return;
     bootedRef.current = true;
 
-    const urlPlace = matchPath(location.pathname, routes) ?? { type: 'root' };
+    const urlPlace = matchLocation(location.pathname, location.search, routes) ?? { type: 'root' };
     const settingsOnBoot = initialSettingsOpen || urlPlace.type === 'settings';
 
     if (urlPlace.type === 'settings') {
@@ -193,7 +193,7 @@ export function ShellRouteSync({
       selfNavPathRef.current = null;
       return;
     }
-    const urlPlace = matchPath(location.pathname, routes);
+    const urlPlace = matchLocation(location.pathname, location.search, routes);
     if (urlPlace == null) {
       // Unknown path: normalize to root.
       const rootPath = routes.root;

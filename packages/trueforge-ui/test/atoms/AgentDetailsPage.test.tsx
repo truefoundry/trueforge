@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDetailsPage } from '@/atoms/agent-details/AgentDetailsPage.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { AgentDetail, CodeSnippet, SessionEventItem, SessionListEntry } from '@/server/types.js';
+import type { AgentDetail, CodeSnippet, Session, SessionEventItem, SessionListEntry } from '@/server/types.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -46,6 +46,13 @@ function renderPage({
   getCodeSnippets = vi.fn(async () => snippets),
   listSessions = vi.fn(async () => ({ data: sessionRows })),
   listSessionEvents = vi.fn(async () => ({ data: [] as SessionEventItem[] })),
+  getSession = vi.fn(async (): Promise<Session> => ({
+    id: 'sess-1',
+    title: 'From getSession',
+    isMutable: false,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  })),
   withSessions = true,
   overrides,
   initialEntries = ['/library/agent-1'],
@@ -54,11 +61,13 @@ function renderPage({
   getCodeSnippets?: () => Promise<CodeSnippet[]>;
   listSessions?: () => Promise<{ data: SessionListEntry[] }>;
   listSessionEvents?: () => Promise<{ data: SessionEventItem[] }>;
+  getSession?: () => Promise<Session>;
   withSessions?: boolean;
   overrides?: SlotOverrides;
   initialEntries?: string[];
 } = {}) {
   const server = createMockAgentUIServer({
+    getSession,
     ...(withSessions ? { sessions: { getAgent, getCodeSnippets, listSessions, listSessionEvents } } : {}),
   });
   render(
@@ -72,10 +81,14 @@ function renderPage({
       </SlotsProvider>
     </MemoryRouter>,
   );
-  return { getAgent, getCodeSnippets, listSessions, listSessionEvents };
+  return { getAgent, getCodeSnippets, listSessions, listSessionEvents, getSession };
 }
 
 describe('AgentDetailsPage', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/');
+  });
+
   it('loads Overview and renders agent details', async () => {
     const { getAgent } = renderPage();
 
@@ -116,6 +129,34 @@ describe('AgentDetailsPage', () => {
     expect(listSessions).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: 'agent-1', order: 'desc', limit: 20 }),
     );
+  });
+
+  it('opens the Sessions tab and selected session from the share URL', async () => {
+    window.history.replaceState(null, '', '/library/agent-1?sessionId=sess-1&agentId=agent-1');
+    const { getSession, listSessionEvents } = renderPage({
+      overrides: { AgentSessionTimelineContainer: () => <div>timeline-body</div> },
+    });
+    expect(await screen.findByRole('tab', { name: 'Sessions' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => {
+      expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+      expect(listSessionEvents).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'sess-1' }));
+    });
+    expect(screen.getByText('timeline-body')).toBeInTheDocument();
+  });
+
+  it('loads session metadata from getSession when a row is selected', async () => {
+    const { getSession, listSessionEvents } = renderPage({
+      overrides: { AgentSessionTimelineContainer: () => <div>timeline-body</div> },
+    });
+    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+    fireEvent.click(await screen.findByText('Release notes draft'));
+    await waitFor(() => {
+      expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+      expect(listSessionEvents).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'sess-1' }));
+    });
+    expect(await screen.findByText('From getSession')).toBeInTheDocument();
+    expect(screen.getByText('timeline-body')).toBeInTheDocument();
   });
 
   it('shows the shared unavailable state without the optional server', () => {
