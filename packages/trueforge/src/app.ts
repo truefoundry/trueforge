@@ -17,6 +17,7 @@ import { createCatalogRouter } from './apis/catalog';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
+import { createSchedulesRouter } from './apis/schedules';
 import { createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
@@ -32,6 +33,7 @@ import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
+import type { IScheduleStore } from './db/scheduleStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -39,6 +41,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { InvalidCronError } from './schemas/schedule';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
@@ -56,6 +59,9 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
   return (error, c) => {
     if (error instanceof z.ZodError) {
       return zodErrorResponse(c, error);
+    }
+    if (error instanceof InvalidCronError) {
+      return c.json({ error: { message: error.message } }, 400);
     }
     if (error instanceof HTTPException) {
       if (error.status >= 500) {
@@ -147,6 +153,7 @@ export interface ServerDeps<TTransaction> {
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
+  scheduleStore: IScheduleStore<TTransaction>;
   sessionStore: ISessionStore;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -241,6 +248,17 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
+      }),
+    ),
+  );
+  app.route(
+    '/api/v1/schedules',
+    withAuth(
+      createSchedulesRouter({
+        scheduleStore: deps.scheduleStore,
+        agentStore: deps.agentStore,
+        withTransaction: deps.withTransaction,
+        resolveUserContext,
       }),
     ),
   );
