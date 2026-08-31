@@ -3,7 +3,12 @@
  * the resolver on {@link SessionHandle.createTurn}.
  */
 import { SessionHandle } from './SessionHandle';
-import type { CreateSessionInput, GetSessionInput, ISessionStore } from './store/ISessionStore';
+import type {
+  CreateSessionInput,
+  GetSessionByExternalIdInput,
+  GetSessionInput,
+  ISessionStore,
+} from './store/ISessionStore';
 
 export type SessionsCreateInput<TSessionCustom extends object> = Omit<CreateSessionInput<TSessionCustom>, 'custom'> & {
   custom?: TSessionCustom | undefined;
@@ -46,6 +51,23 @@ export class Sessions<
    */
   async get(input: GetSessionInput): Promise<SessionHandle<TSessionCustom, TTurnCustom> | undefined> {
     const record = await this.store.getSession(input);
+    if (!record) {
+      return undefined;
+    }
+    return new SessionHandle({
+      store: this.store,
+      session: record,
+    });
+  }
+
+  /**
+   * Returns the session bound to this tenant-scoped external id, or undefined.
+   * Read-only: does not bump last_activity_timestamp_ms.
+   */
+  async getByExternalId(
+    input: GetSessionByExternalIdInput,
+  ): Promise<SessionHandle<TSessionCustom, TTurnCustom> | undefined> {
+    const record = await this.store.getSessionByExternalId(input);
     if (!record) {
       return undefined;
     }

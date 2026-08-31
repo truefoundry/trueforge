@@ -17,6 +17,11 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    */
   title: string | null;
   /**
+   * Optional caller-supplied key, unique within a tenant when set.
+   * Null means the session has no external id.
+   */
+  external_id: string | null;
+  /**
    * Session tip — used for `previous_turn_id: 'auto'` resolution and turn
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */

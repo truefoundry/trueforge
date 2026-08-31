@@ -22,6 +22,11 @@ export type CreateSessionInput<TSessionCustom extends object = Record<string, ne
   'tenant_id' | 'session_id' | 'agent' | 'created_by'
 > & {
   custom: TSessionCustom | null;
+  /**
+   * Optional unique key within `tenant_id`. Omit or `null` for no external id.
+   * When set, unique among sessions in that tenant that also have an external id.
+   */
+  external_id?: string | null;
 };
 
 /**
@@ -39,6 +44,11 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
 export interface GetSessionInput {
   tenant_id: string;
   session_id: string;
+}
+
+export interface GetSessionByExternalIdInput {
+  tenant_id: string;
+  external_id: string;
 }
 
 export interface DeleteSessionInput {
@@ -228,6 +238,12 @@ export interface ISessionStore<
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  /**
+   * Lookup by tenant-scoped `external_id`. Missing or null external ids are not found.
+   * Does **not** bump `last_activity_timestamp_ms` (read path).
+   */
+  getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
    * PATCH semantics — update only the provided fields:

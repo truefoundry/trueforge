@@ -3,6 +3,7 @@ import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/mo
 import type {
   CreateSessionInput,
   DeleteSessionInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -13,6 +14,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
@@ -48,6 +50,7 @@ function mapRowToSessionRecord(row: {
   agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
+  external_id: string | null;
   custom: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -65,6 +68,7 @@ function mapRowToSessionRecord(row: {
     }),
     title: row.title,
     last_turn_id: row.last_turn_id,
+    external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
@@ -82,6 +86,7 @@ function sessionSelectColumns() {
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
     'last_turn_id' as const,
+    'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
     'created_at' as const,
     'updated_at' as const,
@@ -105,6 +110,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
+        external_id: input.external_id ?? null,
         created_at: now,
         updated_at: now,
         last_activity_timestamp_ms: Date.now(),
@@ -112,6 +118,10 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
+      const message = error instanceof Error ? error.message : '';
+      if (input.external_id != null && message.includes('session.external_id')) {
+        throw new SessionExternalIdConflictError(input.external_id, { cause: error });
+      }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });
     }
     throw error;
@@ -135,6 +145,24 @@ export async function getSession(
     .select(sessionSelectColumns)
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
+    .executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
+export async function getSessionByExternalId(
+  db: Kysely<Database>,
+  input: GetSessionByExternalIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db
+    .selectFrom('session')
+    .select(sessionSelectColumns)
+    .where('tenant_id', '=', input.tenant_id)
+    .where('external_id', '=', input.external_id)
     .executeTakeFirst();
 
   if (row === undefined) {

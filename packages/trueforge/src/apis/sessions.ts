@@ -32,6 +32,7 @@ import {
   cancelSessionRoute,
   createSessionRoute,
   deleteSessionRoute,
+  getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -217,6 +218,53 @@ function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy
   return userRef === createdBy;
 }
 
+/**
+ * Get-or-create the session bound to a tenant-scoped `external_id`.
+ * Idempotent and race-safe: the partial unique index guarantees at most one
+ * session per external id, so concurrent callers converge on the same row with
+ * no application-level lease.
+ *
+ * Read first; create only on a miss. A concurrent create loses with a unique
+ * violation, then we return the winning row. An existing session is returned
+ * as-is; `agent` binds only the row this call creates.
+ */
+export async function getOrCreateSessionByExternalId(params: {
+  sessions: Sessions;
+  tenant_id: string;
+  external_id: string;
+  created_by: string;
+  agent: SessionRecord['agent'];
+}): Promise<{ session: SessionHandle; created: boolean }> {
+  const { sessions, tenant_id, external_id, created_by, agent } = params;
+
+  const existing = await sessions.getByExternalId({ tenant_id, external_id });
+  if (existing !== undefined) {
+    return { session: existing, created: false };
+  }
+
+  try {
+    const session = await sessions.create({
+      tenant_id,
+      session_id: ulid().toLowerCase(),
+      created_by,
+      agent,
+      external_id,
+    });
+    return { session, created: true };
+  } catch (error) {
+    if (!(error instanceof SessionStoreConflictError)) {
+      throw error;
+    }
+    const winner = await sessions.getByExternalId({ tenant_id, external_id });
+    if (winner === undefined) {
+      // Conflict was on something other than external_id (a session_id
+      // collision), so there is no winner to hand back.
+      throw error;
+    }
+    return { session: winner, created: false };
+  }
+}
+
 /** DB-backed sessions (mounted at /api/v1/sessions). */
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
@@ -254,6 +302,44 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       agent: { type: 'inline', spec: body.agent.spec },
     });
     return c.json({ data: toWireSession(session.record) }, 201);
+  };
+
+  const getOrCreateSessionByExternalIdHandler: RouteHandler<typeof getOrCreateSessionByExternalIdRoute> = async c => {
+    const body = c.req.valid('json');
+    const user = deps.resolveUserContext(c);
+
+    // Resolved before the insert even when the session already exists: the
+    // agent binding is part of the row, so it cannot be deferred past create.
+    let agent: SessionRecord['agent'];
+    if (isSessionAgentNameRef(body.agent)) {
+      const named = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+      if (named === undefined) {
+        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
+      }
+      agent = { type: 'reference', id: named.id, name: named.name };
+    } else {
+      await validateAgentSpec({
+        spec: body.agent.spec,
+        tenant_id: TENANT_ID,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+      });
+      agent = { type: 'inline', spec: body.agent.spec };
+    }
+
+    const { session, created } = await getOrCreateSessionByExternalId({
+      sessions: deps.sessions,
+      tenant_id: TENANT_ID,
+      external_id: body.external_id,
+      created_by: user.userRef,
+      agent,
+    });
+    if (!created && !checkSessionAccess({ userRef: user.userRef, createdBy: session.record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    return c.json({ data: toWireSession(session.record) }, created ? 201 : 200);
   };
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
@@ -398,6 +484,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
+  router.openapi(getOrCreateSessionByExternalIdRoute, getOrCreateSessionByExternalIdHandler);
   router.openapi(getSessionRoute, getSessionHandler);
   router.openapi(deleteSessionRoute, deleteSessionHandler);
   router.openapi(updateSessionRoute, updateSessionHandler);

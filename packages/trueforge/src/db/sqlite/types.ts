@@ -67,6 +67,8 @@ export interface SessionTable {
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;
+  /** Optional unique key within `tenant_id` when set. */
+  external_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
   created_at: string;
   updated_at: string;

@@ -78,6 +78,11 @@ export interface SessionTable {
    *      tiny fixed-width column keeps the bump a cheap HOT update
    */
   last_turn_id: string | null;
+  /**
+   * Optional unique key within `tenant_id` (`session_external_id_uq`,
+   * partial WHERE external_id IS NOT NULL).
+   */
+  external_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
   /** top: list ordering (indexed below) */

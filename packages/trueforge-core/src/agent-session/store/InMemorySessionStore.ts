@@ -14,6 +14,7 @@ import type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -42,6 +43,7 @@ import { decodeSessionListPageToken, paginateSessionListRows } from './SessionLi
 import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
@@ -173,6 +175,14 @@ export class InMemorySessionStore<
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
+    const externalId = input.external_id ?? null;
+    if (externalId !== null) {
+      for (const stored of this.sessions.values()) {
+        if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === externalId) {
+          throw new SessionExternalIdConflictError(externalId);
+        }
+      }
+    }
     const now = new Date();
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
@@ -181,6 +191,7 @@ export class InMemorySessionStore<
       agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,
+      external_id: externalId,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
@@ -207,6 +218,15 @@ export class InMemorySessionStore<
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
     const stored = this.sessions.get(sessionKey(input.session_id));
     return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
+  }
+
+  async getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined> {
+    for (const stored of this.sessions.values()) {
+      if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === input.external_id) {
+        return deepCopy(stored.record);
+      }
+    }
+    return undefined;
   }
 
   async updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void> {
