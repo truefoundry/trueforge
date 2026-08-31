@@ -1,6 +1,7 @@
 /**
  * Session route definitions.
- * DB-backed routes mount at /api/v1/sessions.
+ * Public DB-backed routes mount at /api/v1/sessions; internal operations mount
+ * at /internal/sessions.
  * Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
@@ -65,11 +66,10 @@ export const createSessionRoute = createRoute({
 export const getOrCreateSessionByExternalIdRoute = createRoute({
   method: 'post',
   path: '/get-or-create-by-external-id',
-  tags: [OpenApiTag.AGENT_SESSIONS],
+  tags: [OpenApiTag.INTERNAL],
   summary: 'Get or create a session by external id',
-  description:
-    'Idempotent get-or-create: returns the existing session for this tenant-scoped `external_id`, or creates one',
-  'x-fern-sdk-group-name': ['sessions'],
+  description: 'Idempotent get-or-create: returns the existing session for this `external_id`, or creates one',
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
   'x-fern-sdk-method-name': 'get_or_create_by_external_id',
   request: {
     body: {

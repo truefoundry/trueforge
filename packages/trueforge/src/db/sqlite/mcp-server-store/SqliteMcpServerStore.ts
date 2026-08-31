@@ -1,7 +1,7 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import { ulid } from 'ulid';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
+import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
   McpServerNameConflictError,
@@ -83,7 +83,7 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
       return await db
         .insertInto('mcp_server')
         .values({
-          id: ulid(),
+          id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: jsonbBind(input.manifest),
@@ -108,7 +108,7 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
     return await db
       .insertInto('mcp_server')
       .values({
-        id: ulid(),
+        id: newId(),
         tenant_id: input.tenant_id,
         name: input.name,
         manifest: jsonbBind(input.manifest),

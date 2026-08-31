@@ -32,7 +32,7 @@ const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 /** The loop's name. */
 const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
-type ScheduleRunApiClient = Pick<TrueForge, 'sessions'>;
+type ScheduleRunApiClient = Pick<TrueForge, 'sessions' | 'internal'>;
 
 /**
  * Hands a due schedule run to the API:
@@ -43,7 +43,7 @@ type ScheduleRunApiClient = Pick<TrueForge, 'sessions'>;
  */
 function executeScheduledRun(client: ScheduleRunApiClient): (item: ScheduleDispatchItem) => Promise<void> {
   return async ({ run, schedule }) => {
-    const { data: session } = await client.sessions.getOrCreateByExternalId({
+    const { data: session } = await client.internal.sessions.getOrCreateByExternalId({
       externalId: run.id,
       agent: { name: schedule.agent_name },
     });

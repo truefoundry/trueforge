@@ -4,11 +4,11 @@
  */
 import type { Kysely } from 'kysely';
 import { Pool } from 'pg';
-import { ulid } from 'ulid';
 
 import { migrateTo, migrateToLatest } from '../../../src/db/migratePostgres';
 import { createDb } from '../../../src/db/postgres/client';
 import type { Database } from '../../../src/db/postgres/types';
+import { newId } from '../../../src/utils/id';
 
 const ADMIN_URL_ENV = 'PG_STORE_TESTS_ADMIN_URL';
 
@@ -59,7 +59,7 @@ export async function createPostgresTestDatabase(
     return undefined;
   }
 
-  const databaseName = `test_${ulid().toLowerCase()}`;
+  const databaseName = `test_${newId()}`;
   assertSafeDatabaseName(databaseName);
 
   const adminPool = new Pool({ connectionString: adminUrl });

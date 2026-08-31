@@ -59,7 +59,7 @@ async function tickDispatch(sessions: {
   const logger = fakeLogger();
   const loop = scheduleDispatchLoop({
     scheduleStore: store as never,
-    client: { sessions } as never,
+    client: { sessions, internal: { sessions } } as never,
     logger: logger as never,
     withTransaction: async callback => callback({} as never),
   });

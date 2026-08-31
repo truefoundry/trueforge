@@ -1,5 +1,6 @@
 /** Mintlify API Reference groups — the only OpenAPI `tags` values. */
 export enum OpenApiTag {
+  INTERNAL = 'Internal',
   AUTH = 'Auth',
   CAPABILITIES = 'Capabilities',
   MODELS = 'Models',
@@ -13,6 +14,7 @@ export enum OpenApiTag {
 
 /** Document-level tag order for `/api/v1/docs` and Mintlify. */
 export const OPENAPI_DOCUMENT_TAGS: { name: OpenApiTag }[] = [
+  { name: OpenApiTag.INTERNAL },
   { name: OpenApiTag.AUTH },
   { name: OpenApiTag.CAPABILITIES },
   { name: OpenApiTag.MODELS },

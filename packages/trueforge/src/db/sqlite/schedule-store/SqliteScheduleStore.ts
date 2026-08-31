@@ -1,7 +1,7 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import { ulid } from 'ulid';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
+import { newId } from '../../../utils/id';
 import {
   cronRunName,
   parseStoredScheduleManifest,
@@ -129,7 +129,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       row = await db
         .insertInto('schedule')
         .values({
-          id: ulid().toLowerCase(),
+          id: newId(),
           tenant_id: input.tenant_id,
           agent_name: input.agent_name,
           name: input.name,
@@ -309,7 +309,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       const row = await db
         .insertInto('schedule_run')
         .values({
-          id: ulid().toLowerCase(),
+          id: newId(),
           tenant_id: input.tenant_id,
           schedule_id: input.schedule_id,
           name: input.name,

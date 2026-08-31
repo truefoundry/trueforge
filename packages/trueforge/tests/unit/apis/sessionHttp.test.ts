@@ -3,7 +3,12 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import {
+  createInternalSessionsRouter,
+  createSessionsRouter,
+  TENANT_ID,
+  type SessionsRouterDeps,
+} from '../../../src/apis/sessions';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -62,23 +67,22 @@ describe('sessions HTTP agent binding', () => {
     });
 
     app = new OpenAPIHono();
-    app.route(
-      '/',
-      createSessionsRouter({
-        sessions,
-        sessionStore,
-        activeTurns: new ActiveTurnRegistry(),
-        modelProviderStore,
-        mcpServerStore,
-        skillStore,
-        agentStore,
-        sandboxProviderStore,
-        redis: createClient(),
-        requestReplyRouter: new RequestReplyRouter(),
-        resolveUserContext: () => LOCAL_USER_CONTEXT,
-        logger: createLogger({ silent: true }),
-      }),
-    );
+    const deps: SessionsRouterDeps = {
+      sessions,
+      sessionStore,
+      activeTurns: new ActiveTurnRegistry(),
+      modelProviderStore,
+      mcpServerStore,
+      skillStore,
+      agentStore,
+      sandboxProviderStore,
+      redis: createClient(),
+      requestReplyRouter: new RequestReplyRouter(),
+      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      logger: createLogger({ silent: true }),
+    };
+    app.route('/', createSessionsRouter(deps));
+    app.route('/internal/sessions', createInternalSessionsRouter(deps));
   });
 
   it('creates a session from an inline AgentSpec', async () => {
@@ -212,8 +216,14 @@ describe('sessions HTTP agent binding', () => {
   });
 
   it('POST get-or-create-by-external-id is idempotent and 403s for another creator', async () => {
-    const created = await app.request(
+    const publicPath = await app.request(
       '/get-or-create-by-external-id',
+      jsonInit('POST', { external_id: 'run-abc', agent: { spec: inlineSpec } }),
+    );
+    expect(publicPath.status).toBe(404);
+
+    const created = await app.request(
+      '/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', { external_id: 'run-abc', agent: { spec: inlineSpec } }),
     );
     expect(created.status).toBe(201);
@@ -223,7 +233,7 @@ describe('sessions HTTP agent binding', () => {
     expect(createdJson.data.agent.spec.instructions).toBe('inline');
 
     const again = await app.request(
-      '/get-or-create-by-external-id',
+      '/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', {
         external_id: 'run-abc',
         agent: { spec: { ...inlineSpec, instructions: 'ignored-on-get' } },
@@ -245,7 +255,7 @@ describe('sessions HTTP agent binding', () => {
       external_id: 'run-theirs',
     });
     const forbidden = await app.request(
-      '/get-or-create-by-external-id',
+      '/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', { external_id: 'run-theirs', agent: { spec: inlineSpec } }),
     );
     expect(forbidden.status).toBe(403);
