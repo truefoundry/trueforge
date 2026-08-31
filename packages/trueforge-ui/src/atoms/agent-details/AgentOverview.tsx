@@ -64,7 +64,6 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
     ['Dynamic sub-agents', spec.config?.dynamicSubAgents?.enabled],
     ['Ask user questions', spec.config?.askUserQuestions?.enabled],
   ].filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean');
-
   const toggleLabel = instructionsView === 'markdown' ? 'Raw' : 'Markdown';
 
   return (

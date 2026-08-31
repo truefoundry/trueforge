@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPath, matchPath, placesEqual, resolveRoutesConfig } from '@/routing/paths.js';
+import {
+  buildPath,
+  matchLocation,
+  matchPath,
+  placesEqual,
+  resolveRoutesConfig,
+  sanitizeSearchForPlace,
+} from '@/routing/paths.js';
 
 describe('resolveRoutesConfig', () => {
   it('applies defaults', () => {
@@ -12,6 +19,7 @@ describe('resolveRoutesConfig', () => {
       libraryAgent: '/library/:agentId',
       agent: '/agents/:agentName',
       session: '/sessions/:sessionId',
+      sessionsBrowser: '/sessions',
     });
   });
 
@@ -44,6 +52,7 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'libraryAgent', agentId: 'agent/id' }, routes)).toBe('/library/agent%2Fid');
     expect(buildPath({ type: 'agent', agentName: 'code-helper' }, routes)).toBe('/agents/code-helper');
     expect(buildPath({ type: 'session', sessionId: 'abc123' }, routes)).toBe('/sessions/abc123');
+    expect(buildPath({ type: 'sessionsBrowser' }, routes)).toBe('/sessions');
   });
 
   it('encodes param values', () => {
@@ -61,6 +70,29 @@ describe('buildPath', () => {
   });
 });
 
+describe('sanitizeSearchForPlace', () => {
+  const sessionSearch = '?theme=dark&sessionId=sess-1&agentId=agent-1&tab=sessions&view=sessions&s_sts=1&s_ets=2';
+
+  it('clears session-owned query keys on unrelated places without dropping host keys', () => {
+    expect(sanitizeSearchForPlace({ type: 'library' }, sessionSearch)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'root' }, sessionSearch)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'session', sessionId: 'sess-2' }, sessionSearch)).toBe('?theme=dark');
+  });
+
+  it('keeps only the query state owned by the destination place', () => {
+    expect(sanitizeSearchForPlace({ type: 'sessionsBrowser' }, sessionSearch)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1&view=sessions&s_sts=1&s_ets=2',
+    );
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, sessionSearch)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1&tab=sessions',
+    );
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-2' }, sessionSearch)).toBe(
+      '?theme=dark&tab=sessions',
+    );
+    expect(sanitizeSearchForPlace({ type: 'settings' }, sessionSearch)).toBe(sessionSearch);
+  });
+});
+
 describe('matchPath', () => {
   const routes = resolveRoutesConfig();
 
@@ -70,6 +102,7 @@ describe('matchPath', () => {
     expect(matchPath('/library', routes)).toEqual({ type: 'library' });
     expect(matchPath('/library/agent%2Fid', routes)).toEqual({ type: 'libraryAgent', agentId: 'agent/id' });
     expect(matchPath('/agents/a%2Fb', routes)).toEqual({ type: 'agent', agentName: 'a/b' });
+    expect(matchPath('/sessions', routes)).toEqual({ type: 'sessionsBrowser' });
     expect(matchPath('/sessions/xyz', routes)).toEqual({ type: 'session', sessionId: 'xyz' });
   });
 
@@ -98,11 +131,33 @@ describe('matchPath', () => {
       { type: 'libraryAgent' as const, agentId: 'agent id/1' },
       { type: 'agent' as const, agentName: 'weird name/1' },
       { type: 'session' as const, sessionId: 'sess 9' },
+      { type: 'sessionsBrowser' as const },
     ]) {
       const path = buildPath(place, routes);
       if (path == null) throw new Error(`Expected a path for ${place.type}`);
       expect(matchPath(path, routes)).toEqual(place);
     }
+  });
+});
+
+describe('matchLocation', () => {
+  const routes = resolveRoutesConfig();
+
+  it('opens a library agent from ?agentId= when the path is root', () => {
+    expect(matchLocation('/', '?agentId=agent-1&sessionId=sess-1', routes)).toEqual({
+      type: 'libraryAgent',
+      agentId: 'agent-1',
+    });
+  });
+
+  it('keeps a concrete pathname over the share query', () => {
+    expect(matchLocation('/sessions/sess-1', '?agentId=agent-1', routes)).toEqual({
+      type: 'session',
+      sessionId: 'sess-1',
+    });
+    expect(matchLocation('/sessions', '?agentId=agent-1&view=sessions', routes)).toEqual({
+      type: 'sessionsBrowser',
+    });
   });
 });
 

@@ -267,6 +267,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListShell = useSlot('ThreadListShell');
   const ThreadListNewButton = useSlot('ThreadListNewButton');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -323,6 +324,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const handleNewChat = () => {
     onThreadOpen?.();
     shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
       return;
@@ -352,6 +354,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
         <div className="flex flex-col gap-1">
           {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
           <AgentsLibraryButton />
+          <SessionsBrowserButton />
         </div>
       }
     >

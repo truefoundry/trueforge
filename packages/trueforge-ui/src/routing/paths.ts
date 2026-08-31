@@ -1,3 +1,4 @@
+import { readSessionShareSearch, writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
 const DEFAULTS = {
@@ -7,6 +8,7 @@ const DEFAULTS = {
   libraryAgent: '/library/:agentId',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
+  sessionsBrowser: '/sessions',
 } as const;
 
 function normalizePath(path: string): string {
@@ -31,6 +33,7 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
+    sessionsBrowser: resolveOptional(paths?.sessionsBrowser, DEFAULTS.sessionsBrowser),
   };
 }
 
@@ -63,7 +66,39 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.agent == null ? null : fillTemplate(routes.agent, place.agentName);
     case 'session':
       return routes.session == null ? null : fillTemplate(routes.session, place.sessionId);
+    case 'sessionsBrowser':
+      return routes.sessionsBrowser;
   }
+}
+
+/**
+ * Remove query state owned by a different shell place while preserving host
+ * parameters. Settings is an overlay, so it retains the underlying place state.
+ */
+export function sanitizeSearchForPlace(place: RoutePlace, search: string): string {
+  if (place.type === 'settings') return search;
+
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  if (place.type === 'sessionsBrowser') {
+    writeSessionShareSearch(params, { tab: null });
+  } else if (place.type === 'libraryAgent') {
+    const share = readSessionShareSearch(search);
+    writeSessionShareSearch(params, {
+      view: null,
+      timeRange: null,
+      ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
+    });
+  } else {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+  }
+  const next = params.toString();
+  return next.length > 0 ? `?${next}` : '';
 }
 
 /** Percent-decode a segment; `null` when the URL carries a malformed escape. */
@@ -106,6 +141,9 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
   if (routes.library != null && normalized === routes.library) {
     return { type: 'library' };
   }
+  if (routes.sessionsBrowser != null && normalized === routes.sessionsBrowser) {
+    return { type: 'sessionsBrowser' };
+  }
   if (routes.libraryAgent != null) {
     const agentId = matchTemplate(routes.libraryAgent, segments);
     if (agentId != null) return { type: 'libraryAgent', agentId };
@@ -122,6 +160,14 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
     return { type: 'root' };
   }
   return null;
+}
+
+/** Pathname place, or library agent from `?agentId=` when the path is root. */
+export function matchLocation(pathname: string, search: string, routes: ResolvedRoutes): RoutePlace | null {
+  const matched = matchPath(pathname, routes);
+  if (matched == null || matched.type !== 'root') return matched;
+  const { agentId } = readSessionShareSearch(search);
+  return agentId != null ? { type: 'libraryAgent', agentId } : matched;
 }
 
 export function placesEqual(a: RoutePlace, b: RoutePlace): boolean {

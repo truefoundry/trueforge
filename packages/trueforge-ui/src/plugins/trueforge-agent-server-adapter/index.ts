@@ -3,6 +3,7 @@
  */
 import { createTrueFoundryServer } from '../../server/createTrueFoundryServer.js';
 import type { CatalogServer } from '../../server/types.js';
+import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
 import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
 import { createModelProviderCatalog } from './catalogs/modelProviderCatalog.js';
@@ -10,9 +11,12 @@ import { createSandboxProviderCatalog } from './catalogs/sandboxProviderCatalog.
 import { createSkillCatalog } from './catalogs/skillCatalog.js';
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { createHarnessSessionsServer } from './sessionsServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
+export {
+  createHarnessAgentSessionsServer,
+  type CreateHarnessAgentSessionsServerOptions,
+} from './agentSessionsServer.js';
 export {
   createHarnessBuilderServer,
   modelProviderLogosByName,
@@ -50,13 +54,6 @@ export {
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
-export {
-  createHarnessSessionsServer,
-  toUiAgentDetail,
-  toUiCodeSnippets,
-  toUiSessionListEntry,
-  type CreateHarnessSessionsServerOptions,
-} from './sessionsServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions & {
@@ -65,7 +62,7 @@ export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions &
 };
 
 /**
- * Compose chat + builder + sessions + default settings catalogs into an `AgentUIServer`.
+ * Compose chat + builder + agent sessions + default settings catalogs into an `AgentUIServer`.
  */
 export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServerOptions = {}) {
   const { catalog: catalogOverride, ...clientOptions } = options;
@@ -82,9 +79,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
   return createTrueFoundryServer<HarnessAgentSpec>({
     chatServer: createHarnessChatServer({ client }),
     ...createHarnessBuilderServer({ client }),
-    // Keep `token` / `baseUrl` on the sessions adapter so Fern-excluded
-    // `client.fetch` paths can attach Bearer when the SDK origin check skips.
-    sessions: createHarnessSessionsServer({ ...clientOptions, client }),
     catalog,
+    sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
   });
 }

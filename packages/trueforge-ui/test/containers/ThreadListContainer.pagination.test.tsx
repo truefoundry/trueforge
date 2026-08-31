@@ -74,6 +74,7 @@ vi.mock('@assistant-ui/react', () => ({
 
 vi.mock('@/server/ServerContext.js', () => ({
   useOptionalServer: () => undefined,
+  useOptionalAgentSessionsServer: () => null,
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({

@@ -336,6 +336,7 @@ export type {
   SkillMount,
   ToolBase,
   Turn,
+  TurnDoneMetrics,
   TurnInputItem,
   TurnState,
   TurnStreamData,
@@ -366,13 +367,25 @@ export type {
   AgentDetailsUnavailableProps,
   AgentOverviewCardProps,
   AgentOverviewProps,
+  AgentSessionDetailHeaderProps,
+  AgentSessionEventTimelineChartProps,
+  AgentSessionEventTimelineProps,
+  AgentSessionListRowProps,
+  AgentSessionMetricsStripProps,
+  AgentSessionTurnHeaderProps,
+  AgentSessionsProps,
 } from './atoms/agent-details/types.js';
+export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
+export type { SessionTurnView } from './utils/sessionTurnViews.js';
 
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
 export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
 export { getErrorMessage } from './utils/getErrorMessage.js';
 
+export { AgentSessionsFilters } from './atoms/agent-details/AgentSessionsFilters.js';
+export type { AgentSessionsFiltersProps } from './atoms/agent-details/AgentSessionsFilters.js';
+export { SessionsPage } from './atoms/agent-details/SessionsPage.js';
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';
 export { AgentsLibraryButton } from './atoms/AgentsLibraryButton.js';
@@ -384,3 +397,5 @@ export type { DraftCompositeSelectorProps } from './atoms/draft/DraftCompositeSe
 export { DraftModelSelector } from './atoms/draft/DraftModelSelector.js';
 export type { DraftModelSelectorProps } from './atoms/draft/DraftModelSelector.js';
 export { SaveAgentButton } from './atoms/SaveAgentButton.js';
+export { SessionsBrowserButton } from './atoms/SessionsBrowserButton.js';
+export type { SessionsBrowserButtonProps } from './atoms/SessionsBrowserButton.js';

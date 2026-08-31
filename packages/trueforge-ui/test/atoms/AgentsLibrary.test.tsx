@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '@/atoms/AgentsLibraryButton.js';
@@ -10,7 +10,7 @@ import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
-import { createMockAgentSessionsServer, createMockAgentUIServer } from '../server/mockServer.js';
+import { createMockAgentUIServer } from '../server/mockServer.js';
 
 beforeAll(() => {
   // jsdom does not implement HTMLDialogElement showModal/close.
@@ -21,6 +21,10 @@ beforeAll(() => {
     this.removeAttribute('open');
     this.dispatchEvent(new Event('close'));
   };
+});
+
+afterEach(() => {
+  window.history.replaceState(null, '', '/');
 });
 
 function mockServer(
@@ -105,18 +109,29 @@ describe('CenteredModal', () => {
 
 describe('AgentsLibrary', () => {
   it('opens agent details from the row only when the optional server is available', async () => {
+    window.history.replaceState(null, '', '/library?theme=dark&sessionId=stale&view=sessions&s_sts=1&s_ets=2');
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'agent-1' }]),
-      sessions: createMockAgentSessionsServer({
+      sessions: {
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
-      }),
+        listSessions: vi.fn(async () => ({ data: [] })),
+        listSessionEvents: vi.fn(async () => ({ data: [] })),
+      },
     });
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Open alpha-agent' }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('agent-1');
+    const params = new URL(window.location.href).searchParams;
+    expect(params.get('theme')).toBe('dark');
+    expect(params.get('agentId')).toBe('agent-1');
+    expect(params.get('tab')).toBe('overview');
+    expect(params.get('sessionId')).toBeNull();
+    expect(params.get('view')).toBeNull();
+    expect(params.get('s_sts')).toBeNull();
+    expect(params.get('s_ets')).toBeNull();
   });
 
   it('lists agents and selects a named agent (Try = immutable)', async () => {

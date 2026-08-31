@@ -1,23 +1,26 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
 import { Skeleton } from '../primitives/Skeleton.js';
-import type { AgentDetailsPageProps, AgentDetailsTab } from './types.js';
+import type { AgentDetailsPageProps } from './types.js';
 
 export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useShellMode();
+  const share = useSessionShareSearch();
+  const activeTab = libraryAgentTabFromSearch(share, agentId);
   const AgentDetailsHeader = useSlot('AgentDetailsHeader');
   const AgentDetailsTabs = useSlot('AgentDetailsTabs');
   const AgentDetailsUnavailable = useSlot('AgentDetailsUnavailable');
   const AgentOverview = useSlot('AgentOverview');
   const AgentSessions = useSlot('AgentSessions');
   const AgentCodeSnippets = useSlot('AgentCodeSnippets');
-  const [activeTab, setActiveTab] = useState<AgentDetailsTab>('overview');
   const [detail, setDetail] = useState<AgentDetail>();
   const [detailFailed, setDetailFailed] = useState(false);
   const [snippets, setSnippets] = useState<CodeSnippet[]>();
@@ -66,6 +69,13 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   }, [activeTab, agentId, sessionsServer, snippets, snippetsFailed]);
 
   const goBack = () => {
+    share.updateShareSearch({
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
     shell.closeLibraryAgent();
   };
 
@@ -97,7 +107,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   } else if (activeTab === 'overview') {
     content = <AgentOverview detail={detail} />;
   } else if (activeTab === 'sessions') {
-    content = <AgentSessions />;
+    content = <AgentSessions agentId={agentId} />;
   } else if (snippetsFailed) {
     content = <AgentDetailsUnavailable onBack={goBack} reason="Code samples for this agent could not be loaded." />;
   } else if (snippets === undefined) {
@@ -115,7 +125,18 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
       <AgentDetailsHeader agentId={agentId} detail={detail} onBack={goBack} />
       {sessionsServer != null && !detailFailed ? (
-        <AgentDetailsTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <AgentDetailsTabs
+          activeTab={activeTab}
+          onTabChange={tab =>
+            share.updateShareSearch({
+              agentId,
+              tab,
+              view: null,
+              timeRange: null,
+              ...(tab === 'sessions' ? {} : { sessionId: null }),
+            })
+          }
+        />
       ) : null}
       {/* Tabs own their scrolling so long instructions / code samples stay inside their card. */}
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden" role="tabpanel">

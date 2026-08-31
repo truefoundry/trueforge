@@ -3,7 +3,7 @@ import type { CatalogServer } from '@/server/types.js';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createTrueFoundryServer } from '@/server/createTrueFoundryServer.js';
-import { createMockAgentSessionsServer, createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer } from './mockServer.js';
 
 describe('createTrueFoundryServer', () => {
   it('composes chat server with builder callbacks', async () => {
@@ -35,10 +35,12 @@ describe('createTrueFoundryServer', () => {
     const getMcp = vi.fn(async () => []);
     const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'agent-1' }));
-    const sessions = createMockAgentSessionsServer({
+    const sessions = {
       getAgent: vi.fn(),
       getCodeSnippets: vi.fn(),
-    });
+      listSessions: vi.fn(async () => ({ data: [] })),
+      listSessionEvents: vi.fn(async () => ({ data: [] })),
+    };
 
     const server = createTrueFoundryServer({
       chatServer,

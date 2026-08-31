@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { createMockAgentUIServer } from '../server/mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer } from '../server/mockServer.js';
 
 /** Thread list driven by the test: a local draft plus one remote session row. */
 const threadState = {
@@ -54,10 +54,12 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
 }));
 
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
+import { SessionsBrowserButton } from '@/atoms/SessionsBrowserButton.js';
 import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 import { TrueForgeUI } from '@/containers/TrueForgeUI.js';
 import { useShellMode } from '@/server/ShellModeContext.js';
+import { DEFAULT_SESSION_TIME_WINDOW_MS } from '@/utils/sessionShareUrl.js';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -181,6 +183,31 @@ describe('withRouter end to end', () => {
 
     await waitFor(() => {
       expect(window.location.pathname).toBe('/sessions/session-2');
+    });
+  });
+
+  it('keeps the latest share query when opening Sessions from an agent route', async () => {
+    window.history.replaceState(null, '', '/library/agent-1?agentId=agent-1&sessionId=stale&s_sts=1&s_ets=2');
+    render(
+      <TrueForgeUI
+        server={createMockAgentUIServer({ sessions: createMockAgentSessionsServer() })}
+        agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+        withRouter
+        layout={() => <SessionsBrowserButton />}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Sessions' }));
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/sessions');
+      const params = new URL(window.location.href).searchParams;
+      expect(params.get('view')).toBe('sessions');
+      expect(params.get('sessionId')).toBeNull();
+      expect(params.get('agentId')).toBeNull();
+      expect(params.get('s_tw')).toBe(String(DEFAULT_SESSION_TIME_WINDOW_MS));
+      expect(params.get('s_sts')).toBeNull();
+      expect(params.get('s_ets')).toBeNull();
     });
   });
 });

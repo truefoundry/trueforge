@@ -16,15 +16,12 @@ import type {
   AgentChatServer,
   ListResult,
   Session,
-  SessionEventItem,
   Turn,
-  TurnDoneMetrics,
   TurnInputItem,
-  TurnState,
-  TurnStreamingEvent,
   UserMessageContent,
 } from '../../server/types.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { toUiEventItem, toUiStreamingEvent, toUiTurnState } from './toUiTurnState.js';
 import type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
@@ -32,60 +29,6 @@ export type CreateHarnessChatServerOptions = CreateTrueForgeClientOptions & {
   /** Injected client — skips creating one from options. */
   client?: TrueForge;
 };
-
-/** Runtime requires every token field when metrics are present; SDK leaves them optional. */
-function toUiDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDoneMetrics {
-  return {
-    totalInputTokens: metrics.totalInputTokens ?? 0,
-    totalOutputTokens: metrics.totalOutputTokens ?? 0,
-    totalTokens: metrics.totalTokens ?? 0,
-    totalCacheReadTokens: metrics.totalCacheReadTokens ?? 0,
-    totalCacheWriteTokens: metrics.totalCacheWriteTokens ?? 0,
-    totalReasoningTokens: metrics.totalReasoningTokens ?? 0,
-  };
-}
-
-function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<TurnState, { status: 'running' }> {
-  if (state.status === 'done') {
-    return {
-      status: 'done',
-      completedAt: state.completedAt,
-      ...(state.output === null ? {} : { output: state.output }),
-      ...(state.requiredActions.length === 0 ? {} : { requiredActions: state.requiredActions }),
-      ...(state.metrics === undefined ? {} : { metrics: toUiDoneMetrics(state.metrics) }),
-    };
-  }
-  if (state.status === 'cancelled') {
-    return {
-      status: 'cancelled',
-      reason: state.reason,
-      completedAt: state.completedAt,
-    };
-  }
-  return {
-    status: 'error',
-    message: state.message,
-    completedAt: state.completedAt,
-  };
-}
-
-function toUiTurnState(state: TrueForgeApi.TurnState): TurnState {
-  if (state.status === 'running') return { status: 'running' };
-  return toUiTerminalTurnState(state);
-}
-
-function toUiStreamEvent(event: TrueForgeApi.TurnStreamingEvent): TurnStreamingEvent {
-  if (event.type === 'turn.done') {
-    return {
-      type: 'turn.done',
-      id: event.id,
-      createdAt: event.createdAt,
-      state: toUiTerminalTurnState(event.state),
-      ...(event.threadId === null || event.threadId === undefined ? {} : { threadId: event.threadId }),
-    };
-  }
-  return { ...event };
-}
 
 function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
   return server;
@@ -157,23 +100,6 @@ function toUiTurn(turn: TrueForgeApi.Turn): Turn {
     ...(previousTurnId === null ? {} : { previousTurnId }),
     ...(input === undefined ? {} : { input: toUiInput(input) }),
   };
-}
-
-export function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem {
-  const event = item.event;
-  if (event.type === 'turn.done') {
-    return {
-      turnId: item.turnId,
-      event: {
-        type: 'turn.done',
-        id: event.id,
-        createdAt: event.createdAt,
-        state: toUiTerminalTurnState(event.state),
-        ...(event.threadId === null || event.threadId === undefined ? {} : { threadId: event.threadId }),
-      },
-    };
-  }
-  return { turnId: item.turnId, event: { ...event } };
 }
 
 export interface HarnessPageSource<T> {
@@ -289,7 +215,7 @@ export function createHarnessChatServer(
       for await (const item of stream.withMetadata()) {
         yield {
           sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-          event: toUiStreamEvent(item.data),
+          event: toUiStreamingEvent(item.data),
         };
         fallbackSequence += 1;
       }
@@ -312,7 +238,7 @@ export function createHarnessChatServer(
       for await (const item of stream.withMetadata()) {
         yield {
           sequenceNumber: sequenceNumber(item.id, fallbackSequence),
-          event: toUiStreamEvent(item.data),
+          event: toUiStreamingEvent(item.data),
         };
         fallbackSequence += 1;
       }

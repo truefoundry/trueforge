@@ -15,7 +15,7 @@ import {
   useServerCapabilities,
 } from '@/server/ServerContext.js';
 import type { AgentUIServer, CatalogServer } from '@/server/types.js';
-import { createMockAgentSessionsServer, createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer } from './mockServer.js';
 
 const catalog: CatalogServer = {
   modelCatalog: {
@@ -168,10 +168,12 @@ describe('useCatalogServer', () => {
   });
 
   it('provides the optional agent sessions server', () => {
-    const sessions = createMockAgentSessionsServer({
+    const sessions = {
       getAgent: vi.fn(),
       getCodeSnippets: vi.fn(),
-    });
+      listSessions: vi.fn(async () => ({ data: [] })),
+      listSessionEvents: vi.fn(async () => ({ data: [] })),
+    };
     const server = createMockAgentUIServer({ sessions });
     const required = renderHook(() => useAgentSessionsServer(), { wrapper: wrap(server) });
     const optional = renderHook(() => useOptionalAgentSessionsServer(), { wrapper: wrap(server) });
