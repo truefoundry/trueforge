@@ -16,6 +16,7 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
     }),
   useTrueFoundryCancel: () => vi.fn(),
   useTrueFoundryToolResponses: () => ({ pending: [] }),
+  useTrueFoundryApprovals: () => ({ pending: [] }),
   useTrueFoundryRespondToToolApproval: () => vi.fn(),
   useTrueFoundryMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
   useTrueFoundryHistoryPagination: () => ({

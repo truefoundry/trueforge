@@ -151,6 +151,7 @@ export { ToolGroupCard } from './atoms/ToolGroupCard.js';
 export type { ToolGroupCardProps } from './atoms/ToolGroupCard.js';
 export { AgentStepsContainer } from './containers/AgentStepsContainer.js';
 export type { AgentStepsContainerProps } from './containers/AgentStepsContainer.js';
+export { ApprovalNavContainer } from './containers/ApprovalNavContainer.js';
 export { AskUserContainer } from './containers/AskUserContainer.js';
 export { AssistantMessageContainer } from './containers/AssistantMessageContainer.js';
 export { AssistantTextContainer } from './containers/AssistantTextContainer.js';
@@ -192,6 +193,8 @@ export { TrueFoundryChatProvider } from './containers/TrueFoundryChatProvider.js
 export type { TrueFoundryChatProviderProps } from './containers/TrueFoundryChatProvider.js';
 export { UserEditComposerContainer } from './containers/UserEditComposerContainer.js';
 export { UserMessageContainer } from './containers/UserMessageContainer.js';
+export { useApprovalNav } from './hooks/useApprovalNav.js';
+export type { ApprovalNavState } from './hooks/useApprovalNav.js';
 export { ComposerBusyProvider, useComposerBusyState } from './hooks/useComposerBusyState.js';
 export type { ComposerBusyState } from './hooks/useComposerBusyState.js';
 export { threadHasPendingMcpAuth, useComposerPauseView } from './hooks/useComposerPauseView.js';
@@ -210,6 +213,7 @@ export {
   trueFoundryAttachmentAdapter,
   useTrueFoundryAgentRuntime,
   useTrueFoundryAgentSpec,
+  useTrueFoundryApprovals,
   useTrueFoundryCancel,
   useTrueFoundryDownloadSandboxFile,
   useTrueFoundryHistoryPagination,
@@ -344,12 +348,15 @@ export type {
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
 export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
+export { findSubAgentAncestorsForApproval } from './utils/findApprovalAncestors.js';
 export { getErrorMessage } from './utils/getErrorMessage.js';
 
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';
 export { AgentsLibraryButton } from './atoms/AgentsLibraryButton.js';
 export type { AgentsLibraryButtonProps } from './atoms/AgentsLibraryButton.js';
+export { ApprovalNavBanner } from './atoms/ApprovalNavBanner.js';
+export type { ApprovalNavBannerProps } from './atoms/ApprovalNavBanner.js';
 export { DraftCatalogProvider, useDraftCatalog } from './atoms/draft/DraftCatalogProvider.js';
 export { DraftComposerLeftSection, DraftComposerRightSection } from './atoms/draft/DraftComposerSections.js';
 export { DraftCompositeSelector } from './atoms/draft/DraftCompositeSelector.js';

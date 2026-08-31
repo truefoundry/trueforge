@@ -8,6 +8,7 @@ import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
 
 import { AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
+import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -114,6 +115,7 @@ export const defaultSlots = {
   ThreadListNewButton,
   AgentsLibrary,
   AgentsLibraryButton,
+  ApprovalNavBanner,
   SaveAgentButton,
   SelectAgentEmptyState,
   ClearChatButton,

@@ -1,7 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 
+import { useOptionalApprovalFocus, useRegisterApprovalTarget } from '../containers/approvalFocus.js';
 import { AgentStepRow, type AgentStepStatus } from './agent-chat/AgentStepRow.js';
 import { cn } from './lib/cn.js';
 
@@ -22,6 +23,8 @@ export type ToolCallCardProps = {
   showResponseLine?: boolean;
   responseIcon?: ReactNode;
   approvalSlot?: ReactNode;
+  /** When set, this card is the scroll/flash target for approval banner navigation. */
+  approvalId?: string;
   requestSlot?: ReactNode;
   responseSlot?: ReactNode;
   highlightCard?: boolean;
@@ -46,6 +49,7 @@ export function ToolCallCard({
   showExpandChevron = true,
   showResponseLine = false,
   approvalSlot,
+  approvalId,
   requestSlot,
   responseSlot,
   highlightCard = false,
@@ -53,11 +57,16 @@ export function ToolCallCard({
   mcpServerName: _mcpServerName,
   dataTestPrefix,
 }: ToolCallCardProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const focusApi = useOptionalApprovalFocus();
+  useRegisterApprovalTarget(approvalId, () => rootRef.current);
+
   const hasApproval = !!approvalSlot;
   const hasRequest = !!requestSlot;
   const hasResponse = !!responseSlot;
   const showConnector = hasApproval || hasRequest || hasResponse;
   const isExpandable = showExpandChevron && (hasRequest || hasResponse);
+  const isFlashing = approvalId != null && focusApi?.flashingApprovalId === approvalId;
 
   let derivedStatus: AgentStepStatus = 'idle';
   if (explicitStatus) derivedStatus = explicitStatus;
@@ -73,9 +82,14 @@ export function ToolCallCard({
 
   return (
     <div
+      ref={rootRef}
+      data-approval-id={approvalId}
       className={cn(
         'aui-tool-call-card flex min-w-0 flex-col',
-        highlightCard ? 'rounded-md p-1 -mx-1' : 'mx-0 mt-2 p-0',
+        // Pending-approval cards keep top/right padding always so flash doesn't jump the layout.
+        // Left stays unpadded so the step rail stays aligned with siblings.
+        approvalId != null || highlightCard ? 'mx-0 mt-2 rounded-md pt-1.5 pr-2 pb-1' : 'mx-0 mt-2 p-0',
+        isFlashing && 'aui-approval-flash',
         className,
       )}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-tool-call-card` : undefined}

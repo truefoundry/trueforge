@@ -21,6 +21,8 @@ export type ToolApprovalOption = {
 type ToolApprovalContainerProps = {
   toolName?: string;
   argsText?: string;
+  /** Kept for call-site compat; flash/scroll target is `ToolCallCard`. */
+  approvalId?: string;
   options: ToolApprovalOption[];
   onSelectOption: (optionId: string, reason?: string) => void;
 };
@@ -28,6 +30,7 @@ type ToolApprovalContainerProps = {
 export function ToolApprovalContainer({
   toolName = '',
   argsText,
+  approvalId: _approvalId,
   options,
   onSelectOption,
 }: ToolApprovalContainerProps) {

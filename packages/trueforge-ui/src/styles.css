@@ -79,6 +79,11 @@
     --failure-text: var(--color-white);
     --warning-bg: #d97706;
     --warning-text: var(--color-white);
+    /* Figma Agents approval banner (light 6747:4232): blue-50 / blue-500 / blue-600 */
+    --approval-banner-bg: #eff6ff;
+    --approval-banner-border: #3b82f6;
+    --approval-banner-fg: #2563eb;
+    --approval-banner-accent: #3b82f6;
     --focus-ring: var(--color-black);
     --radius: 0.5rem;
     --composer-radius: 1.5rem;
@@ -142,6 +147,11 @@
     --failure-text: var(--color-white);
     --warning-bg: #fbbf24;
     --warning-text: #422006;
+    /* Figma Agents approval banner (dark 6748:1977): #202636 / blue-600 top / Base_gray/750 text */
+    --approval-banner-bg: #202636;
+    --approval-banner-border: #2563eb;
+    --approval-banner-fg: #dfdfe2;
+    --approval-banner-accent: #2563eb;
     --focus-ring: var(--color-indigo-500);
     --overlay: rgb(0 0 0 / 0.7);
     --shadow-color: #000000;
@@ -285,6 +295,10 @@
   --color-failure-text: var(--failure-text);
   --color-warning-bg: var(--warning-bg);
   --color-warning-text: var(--warning-text);
+  --color-approval-banner-bg: var(--approval-banner-bg);
+  --color-approval-banner-border: var(--approval-banner-border);
+  --color-approval-banner-fg: var(--approval-banner-fg);
+  --color-approval-banner-accent: var(--approval-banner-accent);
   --color-focus-ring: var(--focus-ring);
   --color-white: var(--color-white);
   --color-black: var(--color-black);
@@ -343,5 +357,32 @@
 @keyframes aui-bottom-sheet-enter {
   from {
     transform: translateY(100%);
+  }
+}
+
+/* Tool-approval focus flash (composer banner nav). */
+@keyframes aui-approval-flash {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  15%,
+  40%,
+  65% {
+    background-color: color-mix(in srgb, var(--approval-banner-accent) 18%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aui-approval-flash {
+    animation: aui-approval-flash 2s ease-in-out;
+    border-radius: 0.375rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aui-approval-flash {
+    background-color: color-mix(in srgb, var(--approval-banner-accent) 18%, transparent);
+    border-radius: 0.375rem;
   }
 }

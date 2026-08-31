@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { cn } from './lib/cn.js';
@@ -20,6 +22,9 @@ export type SandboxToolCallCardProps = {
   hasContent?: boolean;
   onViewModeChange?: (viewMode: 'terminal' | 'code') => void;
   durationText?: string;
+  approvalSlot?: ReactNode;
+  /** When set, this card is the scroll/flash target for approval banner navigation. */
+  approvalId?: string;
   dataTestPrefix?: string;
   className?: string;
 };
@@ -201,6 +206,8 @@ export function SandboxToolCallCard({
   hasContent = false,
   onViewModeChange,
   durationText,
+  approvalSlot,
+  approvalId,
   dataTestPrefix,
   className,
 }: SandboxToolCallCardProps) {
@@ -219,6 +226,8 @@ export function SandboxToolCallCard({
       showResponseLine={false}
       status={awaiting ? undefined : status}
       exitCode={exitCode}
+      approvalSlot={approvalSlot}
+      approvalId={approvalId}
       dataTestPrefix={dataTestPrefix}
       requestSlot={
         <SandboxBody

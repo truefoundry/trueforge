@@ -8,6 +8,7 @@ import { useSyncSessionTitle } from '../hooks/useSyncSessionTitle.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { isNewChatView } from '../utils/isNewChatView.js';
+import { ApprovalFocusProvider } from './approvalFocus.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
 import { HistoryLoaderContainer } from './HistoryLoaderContainer.js';
 import { ResumeUnavailableContainer } from './ResumeUnavailableContainer.js';
@@ -58,44 +59,46 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
 
   return (
     <ComposerBusyProvider>
-      <ThreadPrimitive.Root asChild>
-        <ThreadRootShell>
-          <ThreadPrimitive.Viewport asChild autoScroll>
-            <ThreadViewportShell isEmpty={isEmpty}>
-              {isEmpty && <WelcomeScreen heading={welcomeHeading} />}
-              {isEmpty && !isLoading && composer}
-              {isLoading ? (
-                <MessageListSkeleton />
-              ) : (
-                !isEmpty && (
-                  <>
-                    <HistoryLoaderContainer />
-                    <MessageGroup>
-                      <ThreadPrimitive.Messages>
-                        {({ message }) => (
-                          <AnimatedMessageShell>
-                            <ThreadMessage isEditing={message.role === 'user' && message.composer.isEditing} />
-                          </AnimatedMessageShell>
-                        )}
-                      </ThreadPrimitive.Messages>
-                      <ResumeUnavailableContainer />
-                    </MessageGroup>
-                  </>
-                )
-              )}
-            </ThreadViewportShell>
-          </ThreadPrimitive.Viewport>
+      <ApprovalFocusProvider>
+        <ThreadPrimitive.Root asChild>
+          <ThreadRootShell>
+            <ThreadPrimitive.Viewport asChild autoScroll>
+              <ThreadViewportShell isEmpty={isEmpty}>
+                {isEmpty && <WelcomeScreen heading={welcomeHeading} />}
+                {isEmpty && !isLoading && composer}
+                {isLoading ? (
+                  <MessageListSkeleton />
+                ) : (
+                  !isEmpty && (
+                    <>
+                      <HistoryLoaderContainer />
+                      <MessageGroup>
+                        <ThreadPrimitive.Messages>
+                          {({ message }) => (
+                            <AnimatedMessageShell>
+                              <ThreadMessage isEditing={message.role === 'user' && message.composer.isEditing} />
+                            </AnimatedMessageShell>
+                          )}
+                        </ThreadPrimitive.Messages>
+                        <ResumeUnavailableContainer />
+                      </MessageGroup>
+                    </>
+                  )
+                )}
+              </ThreadViewportShell>
+            </ThreadPrimitive.Viewport>
 
-          {!isLoading && !isEmpty && (
-            <ThreadComposerAreaShell isEmpty={isEmpty}>
-              <ThreadPrimitive.ScrollToBottom asChild>
-                <ScrollToBottomButton />
-              </ThreadPrimitive.ScrollToBottom>
-              {composer}
-            </ThreadComposerAreaShell>
-          )}
-        </ThreadRootShell>
-      </ThreadPrimitive.Root>
+            {!isLoading && !isEmpty && (
+              <ThreadComposerAreaShell isEmpty={isEmpty}>
+                <ThreadPrimitive.ScrollToBottom asChild>
+                  <ScrollToBottomButton />
+                </ThreadPrimitive.ScrollToBottom>
+                {composer}
+              </ThreadComposerAreaShell>
+            )}
+          </ThreadRootShell>
+        </ThreadPrimitive.Root>
+      </ApprovalFocusProvider>
     </ComposerBusyProvider>
   );
 }
