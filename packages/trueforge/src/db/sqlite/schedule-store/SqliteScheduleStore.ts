@@ -1,3 +1,8 @@
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import {
+  decodeOffsetPageToken,
+  paginateOffsetRows,
+} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
@@ -250,10 +255,14 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     await db.deleteFrom('schedule').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
   }
 
-  async listSchedules(input: ListSchedulesInput, transaction?: Transaction<Database>): Promise<ScheduleRecord[]> {
+  async listSchedules(
+    input: ListSchedulesInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }> {
     if (input.agent_names?.length === 0) {
-      return [];
+      return { data: [], pagination: { limit: input.limit } };
     }
+    const offset = decodeOffsetPageToken(input.page_token);
     const db = transaction ?? this.#db;
     let query = db.selectFrom('schedule').select(scheduleColumns).where('tenant_id', '=', input.tenant_id);
     if (input.agent_names !== undefined) {
@@ -262,8 +271,14 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     if (input.created_by !== undefined) {
       query = query.where('created_by', '=', input.created_by);
     }
-    const rows = await query.orderBy('created_at', 'desc').orderBy('id').execute();
-    return rows.map(toScheduleRecord);
+    const rows = await query
+      .orderBy('created_at', 'desc')
+      .orderBy('id')
+      .limit(input.limit + 1)
+      .offset(offset)
+      .execute();
+    const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
+    return { data: data.map(toScheduleRecord), pagination };
   }
 
   async listRuns(input: ListRunsInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord[]> {
