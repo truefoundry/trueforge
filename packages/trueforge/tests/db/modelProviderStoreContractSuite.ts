@@ -106,6 +106,27 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(providers.every(record => record.tenant_id === TENANT)).toBe(true);
   });
 
+  it('deleteProvider removes the row', async () => {
+    const store = getStore();
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
+
+    await store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' });
+
+    await expect(store.getProvider({ tenant_id: TENANT, name: 'anthropic' })).resolves.toBeUndefined();
+  });
+
+  it('deleteProvider is idempotent for an unknown provider and leaves other tenants untouched', async () => {
+    const store = getStore();
+    const otherTenant = await store.upsertProvider({
+      tenant_id: 'other-tenant',
+      name: 'anthropic',
+      manifest: anthropic,
+    });
+
+    await expect(store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' })).resolves.toBeUndefined();
+    await expect(store.getProvider({ tenant_id: 'other-tenant', name: 'anthropic' })).resolves.toEqual(otherTenant);
+  });
+
   it('stores custom providers with base_url', async () => {
     const store = getStore();
     const created = await store.upsertProvider({ tenant_id: TENANT, name: custom.name, manifest: custom });

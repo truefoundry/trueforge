@@ -400,6 +400,26 @@ describe('model-provider secret redaction and strict PUT', () => {
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
     expect(stored?.manifest.auth?.api_key).toBe(rotatedKey);
   });
+
+  it('DELETE /model-providers/{name} removes the provider', async () => {
+    const { settingsRouter, modelProviderStore } = await createRouters();
+    await settingsRouter.request('/model-providers', putInit(anthropicBody));
+
+    const response = await settingsRouter.request('/model-providers/anthropic', { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+
+    expect(await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' })).toBeUndefined();
+    const list = await settingsRouter.request('/model-providers');
+    expect(await list.json()).toEqual({ data: [] });
+  });
+
+  it('DELETE /model-providers/{name} is idempotent for an unknown provider', async () => {
+    const { settingsRouter } = await createRouters();
+    const response = await settingsRouter.request('/model-providers/never-existed', { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+  });
 });
 
 describe('catalog presets are configurable', () => {

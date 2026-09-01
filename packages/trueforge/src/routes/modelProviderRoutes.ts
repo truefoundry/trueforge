@@ -3,10 +3,11 @@
  * Discovery catalog lives at GET /api/v1/catalogs/model-providers.
  * Handlers are registered in apis/modelProviders.ts.
  */
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateModelProviderRequestSchema,
+  DeleteModelProviderResponseSchema,
   GetModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
   UpdateModelProviderRequestSchema,
@@ -93,6 +94,37 @@ export const putModelProviderRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
+    },
+  },
+});
+
+const ModelProviderNameParamsSchema = z.object({
+  name: z.string().min(1).describe('Model provider name.'),
+});
+
+export const deleteModelProviderRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.MODELS],
+  summary: 'Delete a model provider',
+  description: 'Permanently removes the configured model provider by name. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: ModelProviderNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteModelProviderResponseSchema } },
+      description: 'Model provider deleted.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
 });
