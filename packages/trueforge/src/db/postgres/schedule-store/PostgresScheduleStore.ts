@@ -213,10 +213,13 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
   }
 
   async listSchedules(input: ListSchedulesInput, transaction?: Transaction<Database>): Promise<ScheduleRecord[]> {
+    if (input.agent_names?.length === 0) {
+      return [];
+    }
     const db = transaction ?? this.#db;
     let query = db.selectFrom('schedule').selectAll().where('tenant_id', '=', input.tenant_id);
-    if (input.agent_name !== undefined) {
-      query = query.where('agent_name', '=', input.agent_name);
+    if (input.agent_names !== undefined) {
+      query = query.where('agent_name', 'in', [...input.agent_names]);
     }
     if (input.created_by !== undefined) {
       query = query.where('created_by', '=', input.created_by);

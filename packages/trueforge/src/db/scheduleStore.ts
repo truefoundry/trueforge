@@ -83,8 +83,8 @@ export function parseStoredScheduleManifest(manifest: unknown): ScheduleManifest
 
 export interface ListSchedulesInput {
   tenant_id: string;
-  /** When set, only schedules bound to this agent name are returned. */
-  agent_name?: string | undefined;
+  /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE agent_name IN (...)`. */
+  agent_names?: readonly string[] | undefined;
   created_by?: string | undefined;
 }
 
