@@ -127,6 +127,11 @@ const TogetherAIModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://api.together.xyz/v1',
 }).openapi('TogetherAIModelProvider');
 
+const OrcaRouterModelProviderSchema = wellKnownProviderSchema({
+  type: 'orcarouter',
+  base_url: 'https://api.orcarouter.ai/v1',
+}).openapi('OrcaRouterModelProvider');
+
 const AlibabaModelProviderSchema = wellKnownProviderSchema({
   type: 'alibaba',
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
@@ -165,6 +170,7 @@ const ModelProviderBodySchema = z
     MoonshotModelProviderSchema,
     TogetherAIModelProviderSchema,
     AlibabaModelProviderSchema,
+    OrcaRouterModelProviderSchema,
     CustomModelProviderSchema,
   ])
   .superRefine(refineModelProviderManifest);

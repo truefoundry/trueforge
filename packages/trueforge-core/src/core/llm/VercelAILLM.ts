@@ -62,6 +62,7 @@ export const VERCEL_AI_PROVIDER_NAMES = [
   'moonshot',
   'alibaba',
   'together',
+  'orcarouter',
   'custom',
 ] as const;
 
@@ -121,9 +122,9 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
 
 /**
  * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider type
- * doubles as the `providerOptions` key. Fireworks, Together and Z AI stay here rather than on their
- * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
- * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
+ * doubles as the `providerOptions` key. Fireworks, Together, Z AI and OrcaRouter stay here rather
+ * than on their own packages: those drop `json_schema`, and Fireworks also clamps efforts its
+ * models do accept. TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, model, apiKey, headers, baseUrl } = config;
@@ -195,6 +196,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'fireworks':
     case 'zai':
     case 'together':
+    case 'orcarouter':
     case 'custom': {
       return compatibleModel(config);
     }
