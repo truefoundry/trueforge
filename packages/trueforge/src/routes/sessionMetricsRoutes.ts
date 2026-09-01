@@ -33,10 +33,6 @@ export const getSessionMetricsMetersRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid timestamps or a window longer than 30 days.',
     },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Named agent not found.',
-    },
   },
 });
 
@@ -76,10 +72,6 @@ export const getSessionMetricsChartsDataRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid timestamps or a window longer than 30 days.',
-    },
-    404: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Named agent not found.',
     },
   },
 });

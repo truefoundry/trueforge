@@ -95,7 +95,6 @@ describe('sessions HTTP agent binding', () => {
       '/internal/metrics',
       createInternalMetricsRouter({
         sessionMetricsStore,
-        agentStore: deps.agentStore,
         resolveUserContext: deps.resolveUserContext,
       }),
     );

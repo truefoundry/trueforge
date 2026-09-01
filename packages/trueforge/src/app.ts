@@ -299,7 +299,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,
-        agentStore: deps.agentStore,
         resolveUserContext,
       }),
     ),
