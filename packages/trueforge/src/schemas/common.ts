@@ -53,15 +53,13 @@ export function uniqueTypes(entries: { type: string }[], ctx: z.RefinementCtx): 
 
 /**
  * Normalize a CSV query value (`?foo=a,b`) into a string list.
- * Returns `undefined` when absent/empty; non-string values are ignored.
  */
 export function parseCommaSeparatedQuery(val: unknown): string[] | undefined {
-  if (typeof val !== 'string' || val === '') {
+  if (typeof val !== 'string') {
     return undefined;
   }
-  const parts = val
+  return val
     .split(',')
     .map(part => part.trim())
     .filter(part => part.length > 0);
-  return parts.length === 0 ? undefined : parts;
 }

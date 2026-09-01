@@ -535,15 +535,6 @@ export function runScheduleStoreContractSuite(deps: {
     });
     expect(forBoth.data.map(row => row.id)).toEqual([otherAgent.schedule.id, newer.schedule.id, older.schedule.id]);
 
-    await expect(
-      store.listSchedules({
-        tenant_id: TENANT,
-        limit: 25,
-        page_token: undefined,
-        agent_names: [],
-      }),
-    ).resolves.toEqual({ data: [], pagination: { limit: 25 } });
-
     const all = await store.listSchedules({
       tenant_id: TENANT,
       limit: 25,

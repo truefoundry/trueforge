@@ -194,11 +194,10 @@ describe('schedule list agent_names filter', () => {
     const omitted = await app.request('/');
     expect(ListSchedulesResponseSchema.parse(await omitted.json()).data).toHaveLength(2);
 
-    // Empty / comma-only values normalize to no filter (same as omit).
+    // Present but empty / comma-only values fail validation.
     for (const query of ['/?agent_names=', '/?agent_names=,,,', '/?agent_names=%20,%20']) {
       const empty = await app.request(query);
-      expect(empty.status).toBe(200);
-      expect(ListSchedulesResponseSchema.parse(await empty.json()).data).toHaveLength(2);
+      expect(empty.status).toBe(400);
     }
   });
 });

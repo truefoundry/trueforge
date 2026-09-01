@@ -221,9 +221,6 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     input: ListSchedulesInput,
     transaction?: Transaction<Database>,
   ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }> {
-    if (input.agent_names?.length === 0) {
-      return { data: [], pagination: { limit: input.limit } };
-    }
     const offset = decodeOffsetPageToken(input.page_token);
     const db = transaction ?? this.#db;
     let query = db.selectFrom('schedule').selectAll().where('tenant_id', '=', input.tenant_id);

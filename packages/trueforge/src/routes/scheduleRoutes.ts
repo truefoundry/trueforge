@@ -37,10 +37,10 @@ export const ListSchedulesQuerySchema = z
       .optional()
       .openapi({
         type: 'string',
-        description: 'Filter by one or more agent names (comma-separated).',
+        description: 'Filter by one or more agent names (comma-separated). When set, at least one name is required.',
       })
       .transform(value => parseCommaSeparatedQuery(value))
-      .pipe(z.array(NameSchema).optional()),
+      .pipe(z.array(NameSchema).min(1).optional()),
   })
   .openapi('ListSchedulesQuery');
 

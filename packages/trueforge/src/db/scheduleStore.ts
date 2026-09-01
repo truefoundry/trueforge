@@ -86,7 +86,7 @@ export interface ListSchedulesInput {
   tenant_id: string;
   limit: number;
   page_token: string | undefined;
-  /** When set, only schedules for these agent names. Empty array returns no rows. */
+  /** When set, only schedules for these agent names */
   agent_names: readonly string[] | undefined;
   created_by?: string | undefined;
 }
