@@ -98,7 +98,7 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     expect(ListSchedulesResponseSchema.parse(await bobList.json()).data).toEqual([]);
 
     expect((await app.request(`/${id}/runs`)).status).toBe(403);
-    expect((await postJson(`/${id}/runs`, 'POST', {})).status).toBe(403);
+    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
     expect(mockedStartScheduleRun).not.toHaveBeenCalled();
   });
 
@@ -125,7 +125,7 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     asUser(BOB);
     expect((await app.request('/01jqzz000000000000000nope')).status).toBe(404);
     expect((await app.request('/01jqzz000000000000000nope/runs')).status).toBe(404);
-    expect((await postJson('/01jqzz000000000000000nope/runs', 'POST', {})).status).toBe(404);
+    expect((await postJson('/runs', 'POST', { schedule_id: '01jqzz000000000000000nope' })).status).toBe(404);
   });
 
   it("lets an admin see and manage any user's schedule", async () => {
@@ -249,7 +249,7 @@ describe('manual schedule run', () => {
     const pendingBefore = await scheduleStore.getScheduledRunFor({ tenant_id: TENANT_ID, schedule_id: scheduleId });
     expect(pendingBefore?.status).toBe('scheduled');
 
-    const res = await postJson(`/${scheduleId}/runs`, 'POST', {});
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(201);
     const body = CreateManualScheduleRunResponseSchema.parse(await res.json());
     expect(body.data).toEqual(
@@ -287,7 +287,7 @@ describe('manual schedule run', () => {
     const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
 
     asUser(ADMIN);
-    const res = await postJson(`/${scheduleId}/runs`, 'POST', {});
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(201);
     const body = CreateManualScheduleRunResponseSchema.parse(await res.json());
     expect(body.data.triggered_by).toBe('root');
@@ -302,7 +302,7 @@ describe('manual schedule run', () => {
     const created = await postJson('/', 'POST', scheduleBody);
     const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
 
-    const res = await postJson(`/${scheduleId}/runs`, 'POST', {});
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
 

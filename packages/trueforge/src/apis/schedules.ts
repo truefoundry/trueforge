@@ -157,7 +157,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
   };
 
   const createManualRunHandler: RouteHandler<typeof createManualScheduleRunRoute> = async c => {
-    const { schedule_id: scheduleId } = c.req.valid('param');
+    const { schedule_id: scheduleId } = c.req.valid('json');
     const user = deps.resolveUserContext(c);
 
     const schedule = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });

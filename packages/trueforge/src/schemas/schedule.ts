@@ -157,12 +157,14 @@ export const ListScheduleRunsResponseSchema = z
   .openapi('ListScheduleRunsResponse');
 
 /**
- * Empty body. Task always comes from the schedule manifest.
+ * Identify the schedule to run. Task always comes from the schedule manifest.
  */
 export const CreateManualScheduleRunRequestSchema = z
-  .object({})
+  .object({
+    schedule_id: z.string().min(1).max(64).describe('Immutable schedule identifier.'),
+  })
   .strict()
-  .describe('Empty request body. The schedule task is taken from the schedule manifest.')
+  .describe('Trigger a manual run for the given schedule. The task is taken from the schedule manifest.')
   .openapi('CreateManualScheduleRunRequest');
 
 export const CreateManualScheduleRunResponseSchema = z

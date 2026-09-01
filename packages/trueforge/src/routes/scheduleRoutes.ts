@@ -104,7 +104,7 @@ export const listScheduleRunsRoute = createRoute({
 
 export const createManualScheduleRunRoute = createRoute({
   method: 'post',
-  path: '/{schedule_id}/runs',
+  path: '/runs',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'Trigger a manual schedule run',
   description:
@@ -112,7 +112,6 @@ export const createManualScheduleRunRoute = createRoute({
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'create_manual_run',
   request: {
-    params: ScheduleIdParamsSchema,
     body: {
       content: { 'application/json': { schema: CreateManualScheduleRunRequestSchema } },
       required: true,
