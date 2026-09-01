@@ -2,6 +2,6 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface CreateManualScheduleRunResponse {
+export interface CreateScheduleRunResponse {
     data: TrueForge.ScheduleRun;
 }

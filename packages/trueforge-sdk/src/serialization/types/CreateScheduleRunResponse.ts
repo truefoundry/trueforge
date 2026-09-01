@@ -5,14 +5,14 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { ScheduleRun } from "./ScheduleRun.js";
 
-export const CreateManualScheduleRunResponse: core.serialization.ObjectSchema<
-    serializers.CreateManualScheduleRunResponse.Raw,
-    TrueForge.CreateManualScheduleRunResponse
+export const CreateScheduleRunResponse: core.serialization.ObjectSchema<
+    serializers.CreateScheduleRunResponse.Raw,
+    TrueForge.CreateScheduleRunResponse
 > = core.serialization.object({
     data: ScheduleRun,
 });
 
-export declare namespace CreateManualScheduleRunResponse {
+export declare namespace CreateScheduleRunResponse {
     export interface Raw {
         data: ScheduleRun.Raw;
     }
