@@ -4,11 +4,9 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SessionMetricsMeterUnit: core.serialization.Schema<
-    serializers.SessionMetricsMeterUnit.Raw,
-    TrueForge.SessionMetricsMeterUnit
-> = core.serialization.enum_(["count", "$", "ms"]);
+export const MetricsUnit: core.serialization.Schema<serializers.MetricsUnit.Raw, TrueForge.MetricsUnit> =
+    core.serialization.enum_(["count", "$", "ms"]);
 
-export declare namespace SessionMetricsMeterUnit {
+export declare namespace MetricsUnit {
     export type Raw = "count" | "$" | "ms";
 }

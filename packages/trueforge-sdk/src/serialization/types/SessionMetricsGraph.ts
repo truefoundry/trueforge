@@ -3,9 +3,9 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { MetricsUnit } from "./MetricsUnit.js";
 import { SessionMetricsChartName } from "./SessionMetricsChartName.js";
 import { SessionMetricsGraphLine } from "./SessionMetricsGraphLine.js";
-import { SessionMetricsGraphUnit } from "./SessionMetricsGraphUnit.js";
 
 export const SessionMetricsGraph: core.serialization.ObjectSchema<
     serializers.SessionMetricsGraph.Raw,
@@ -16,7 +16,7 @@ export const SessionMetricsGraph: core.serialization.ObjectSchema<
     displayName: core.serialization.property("display_name", core.serialization.string()),
     graphLines: core.serialization.property("graph_lines", core.serialization.list(SessionMetricsGraphLine)),
     name: SessionMetricsChartName,
-    unit: SessionMetricsGraphUnit,
+    unit: MetricsUnit,
 });
 
 export declare namespace SessionMetricsGraph {
@@ -26,6 +26,6 @@ export declare namespace SessionMetricsGraph {
         display_name: string;
         graph_lines: SessionMetricsGraphLine.Raw[];
         name: SessionMetricsChartName.Raw;
-        unit: SessionMetricsGraphUnit.Raw;
+        unit: MetricsUnit.Raw;
     }
 }
