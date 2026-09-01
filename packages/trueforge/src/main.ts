@@ -58,6 +58,7 @@ import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
+import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
@@ -72,6 +73,7 @@ import { printStandaloneStartupBanner } from './startupBanner';
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
+  sessionMetricsStore: ISessionMetricsStore;
   modelProviderStore: IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
@@ -96,6 +98,7 @@ async function createStandalonePersistence(options: {
     import('./db/migrateSqlite'),
     Promise.all([
       import('./db/sqlite/session-store/SqliteSessionStore'),
+      import('./db/sqlite/session-metrics/SqliteSessionMetricsStore'),
       import('./db/sqlite/model-provider-store/SqliteModelProviderStore'),
       import('./db/sqlite/mcp-server-store/SqliteMcpServerStore'),
       import('./db/sqlite/token-store/SqliteOAuthTokenStore'),
@@ -107,6 +110,7 @@ async function createStandalonePersistence(options: {
   ]);
   const [
     { SqliteSessionStore },
+    { SqliteSessionMetricsStore },
     { SqliteModelProviderStore },
     { SqliteMcpServerStore },
     { SqliteOAuthTokenStore },
@@ -123,6 +127,7 @@ async function createStandalonePersistence(options: {
 
   return {
     sessionStore: new SqliteSessionStore(db),
+    sessionMetricsStore: new SqliteSessionMetricsStore(db),
     modelProviderStore: new SqliteModelProviderStore(db),
     withTransaction: callback => db.transaction().execute(callback),
     mcpServerStore: new SqliteMcpServerStore(db),
@@ -157,6 +162,7 @@ async function createDistributedPersistence(options: {
     import('./runtime/redis'),
     Promise.all([
       import('./db/postgres/session-store/PostgresSessionStore'),
+      import('./db/postgres/session-metrics/PostgresSessionMetricsStore'),
       import('./db/postgres/model-provider-store/PostgresModelProviderStore'),
       import('./db/postgres/mcp-server-store/PostgresMcpServerStore'),
       import('./db/postgres/token-store/PostgresOAuthTokenStore'),
@@ -168,6 +174,7 @@ async function createDistributedPersistence(options: {
   ]);
   const [
     { PostgresSessionStore },
+    { PostgresSessionMetricsStore },
     { PostgresModelProviderStore },
     { PostgresMcpServerStore },
     { PostgresOAuthTokenStore },
@@ -189,6 +196,7 @@ async function createDistributedPersistence(options: {
 
   return {
     sessionStore: new PostgresSessionStore(db),
+    sessionMetricsStore: new PostgresSessionMetricsStore(db),
     modelProviderStore: new PostgresModelProviderStore(db),
     withTransaction: callback => db.transaction().execute(callback),
     mcpServerStore: new PostgresMcpServerStore(db),
@@ -206,6 +214,7 @@ async function createDistributedPersistence(options: {
 async function createServerRuntime<TTransaction>(persistence: ServerPersistence<TTransaction>, logger: Logger) {
   const {
     sessionStore,
+    sessionMetricsStore,
     modelProviderStore,
     withTransaction,
     mcpServerStore,
@@ -254,6 +263,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     agentStore,
     scheduleStore,
     sessionStore,
+    sessionMetricsStore,
     sessions: new Sessions({ sessionStore }),
     activeTurns,
     redis,

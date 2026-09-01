@@ -3,6 +3,7 @@
 import type { BaseClientOptions } from "../../../../BaseClient.js";
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
 import { AgentsClient } from "../resources/agents/client/Client.js";
+import { MetricsClient } from "../resources/metrics/client/Client.js";
 import { SessionsClient } from "../resources/sessions/client/Client.js";
 
 export declare namespace InternalClient {
@@ -12,6 +13,7 @@ export declare namespace InternalClient {
 export class InternalClient {
     protected readonly _options: NormalizedClientOptionsWithAuth<InternalClient.Options>;
     protected _agents: AgentsClient | undefined;
+    protected _metrics: MetricsClient | undefined;
     protected _sessions: SessionsClient | undefined;
 
     constructor(options: InternalClient.Options) {
@@ -20,6 +22,10 @@ export class InternalClient {
 
     public get agents(): AgentsClient {
         return (this._agents ??= new AgentsClient(this._options));
+    }
+
+    public get metrics(): MetricsClient {
+        return (this._metrics ??= new MetricsClient(this._options));
     }
 
     public get sessions(): SessionsClient {

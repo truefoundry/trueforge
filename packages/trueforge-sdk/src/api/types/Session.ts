@@ -10,6 +10,7 @@ export interface Session {
     createdBy: string;
     /** Unique session id. */
     id: string;
+    metrics: TrueForge.SessionMetrics;
     /** Optional human-readable title; null until set. */
     title: string | null;
     /** ISO 8601 last-update timestamp. */

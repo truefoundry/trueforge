@@ -11,7 +11,9 @@ export const SessionMetricsSchema = z
     total_duration_ms: z.number().int().nonnegative(),
     total_turns: z.number().int().nonnegative(),
   })
-  .strict();
+  .strict()
+  .describe('Rolled-up cost, duration, and turn counters for a session.')
+  .openapi('SessionMetrics');
 
 export const SessionAgentReferenceSchema = z
   .object({
@@ -48,6 +50,7 @@ export const SessionSchema = z
     created_by: z.string().describe('Caller identity that created the session (immutable).'),
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
+    metrics: SessionMetricsSchema,
   })
   .openapi('Session');
 

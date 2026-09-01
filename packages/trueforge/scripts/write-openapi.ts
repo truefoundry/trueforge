@@ -24,6 +24,7 @@ import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMc
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteScheduleStore } from '../src/db/sqlite/schedule-store/SqliteScheduleStore';
+import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
@@ -69,6 +70,7 @@ const app = createServerApp({
   agentStore: new SqliteAgentStore(db),
   scheduleStore: new SqliteScheduleStore(db),
   sessionStore,
+  sessionMetricsStore: new SqliteSessionMetricsStore(db),
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
