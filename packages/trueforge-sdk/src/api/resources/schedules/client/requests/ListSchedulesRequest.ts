@@ -9,6 +9,6 @@ export interface ListSchedulesRequest {
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;
-    /** Filter by one or more agent names (comma-separated). */
+    /** Filter by one or more agent names (comma-separated). When set, at least one name is required. */
     agentNames?: string;
 }

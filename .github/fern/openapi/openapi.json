@@ -5808,12 +5808,12 @@
             }
           },
           {
-            "description": "Filter by one or more agent names (comma-separated).",
+            "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
             "in": "query",
             "name": "agent_names",
             "required": false,
             "schema": {
-              "description": "Filter by one or more agent names (comma-separated).",
+              "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
               "type": "string"
             }
           }
