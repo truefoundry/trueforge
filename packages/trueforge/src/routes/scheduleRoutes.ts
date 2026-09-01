@@ -3,7 +3,7 @@
  * Handlers are registered in apis/schedules.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
-import { NameSchema } from '../schemas/common';
+import { NameSchema, PAGE_LIMIT, parseCommaSeparatedQuery } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateScheduleRequestSchema,
@@ -13,6 +13,7 @@ import {
   ListSchedulesResponseSchema,
   UpdateScheduleRequestSchema,
 } from '../schemas/schedule';
+import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
 export const ScheduleIdParamsSchema = z.object({
@@ -21,7 +22,25 @@ export const ScheduleIdParamsSchema = z.object({
 
 export const ListSchedulesQuerySchema = z
   .object({
-    agent_name: NameSchema.optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(PAGE_LIMIT)
+      .optional()
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+    page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
+    // comma-separated string -> array of names
+    agent_names: z
+      .string()
+      .optional()
+      .openapi({
+        type: 'string',
+        description: 'Filter by one or more agent names (comma-separated). When set, at least one name is required.',
+      })
+      .transform(value => parseCommaSeparatedQuery(value))
+      .pipe(z.array(NameSchema).min(1).optional()),
   })
   .openapi('ListSchedulesQuery');
 
@@ -30,16 +49,21 @@ export const listSchedulesRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List schedules',
-  description: 'List schedules for the tenant, newest first. Optionally filter by `agent_name`.',
+  description: 'List schedules for the tenant, newest first. Optionally filter by `agent_names`.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list',
+  'x-fern-pagination': TOKEN_PAGINATION,
   request: {
     query: ListSchedulesQuerySchema,
   },
   responses: {
     200: {
       content: { 'application/json': { schema: ListSchedulesResponseSchema } },
-      description: 'Matching schedules.',
+      description: 'Paginated matching schedules.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid query parameters or page token.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

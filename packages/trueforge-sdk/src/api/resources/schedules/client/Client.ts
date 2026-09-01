@@ -24,11 +24,12 @@ export class SchedulesClient {
     }
 
     /**
-     * List schedules for the tenant, newest first. Optionally filter by `agent_name`.
+     * List schedules for the tenant, newest first. Optionally filter by `agent_names`.
      *
      * @param {TrueForge.ListSchedulesRequest} request
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -36,82 +37,104 @@ export class SchedulesClient {
      * @example
      *     await client.schedules.list()
      */
-    public list(
+    public async list(
         request: TrueForge.ListSchedulesRequest = {},
         requestOptions?: SchedulesClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.ListSchedulesResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__list(request, requestOptions));
-    }
-
-    private async __list(
-        request: TrueForge.ListSchedulesRequest = {},
-        requestOptions?: SchedulesClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.ListSchedulesResponse>> {
-        const { agentName } = request;
-        const _queryParams: Record<string, unknown> = {
-            agent_name: agentName,
-        };
-        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
-        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
-            _authRequest.headers,
-            this._options?.headers,
-            requestOptions?.headers,
-        );
-        const _response = await (this._options.fetcher ?? core.fetcher)({
-            url: core.url.join(
-                (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)),
-                "api/v1/schedules",
-            ),
-            method: "GET",
-            headers: _headers,
-            queryString: core.url
-                .queryBuilder()
-                .addMany(_queryParams)
-                .mergeAdditional(requestOptions?.queryParams)
-                .build(),
-            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
-            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
-            abortSignal: requestOptions?.abortSignal,
-            fetchFn: this._options?.fetch,
-            logging: this._options.logging,
-        });
-        if (_response.ok) {
-            return {
-                data: serializers.ListSchedulesResponse.parseOrThrow(_response.body, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    skipValidation: true,
-                    breadcrumbsPrefix: ["response"],
-                }),
-                rawResponse: _response.rawResponse,
-            };
-        }
-
-        if (_response.error.reason === "status-code") {
-            switch (_response.error.statusCode) {
-                case 401:
-                    throw new TrueForge.UnauthorizedError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+    ): Promise<core.Page<TrueForge.Schedule, TrueForge.ListSchedulesResponse>> {
+        const list = core.HttpResponsePromise.interceptFunction(
+            async (
+                request: TrueForge.ListSchedulesRequest,
+            ): Promise<core.WithRawResponse<TrueForge.ListSchedulesResponse>> => {
+                const { limit = 25, pageToken, agentNames } = request;
+                const _queryParams: Record<string, unknown> = {
+                    limit,
+                    page_token: pageToken,
+                    agent_names: agentNames,
+                };
+                const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+                const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+                    _authRequest.headers,
+                    this._options?.headers,
+                    requestOptions?.headers,
+                );
+                const _response = await (this._options.fetcher ?? core.fetcher)({
+                    url: core.url.join(
+                        (await core.Supplier.get(this._options.baseUrl)) ??
+                            (await core.Supplier.get(this._options.environment)),
+                        "api/v1/schedules",
+                    ),
+                    method: "GET",
+                    headers: _headers,
+                    queryString: core.url
+                        .queryBuilder()
+                        .addMany(_queryParams)
+                        .mergeAdditional(requestOptions?.queryParams)
+                        .build(),
+                    timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+                    maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+                    abortSignal: requestOptions?.abortSignal,
+                    fetchFn: this._options?.fetch,
+                    logging: this._options.logging,
+                });
+                if (_response.ok) {
+                    return {
+                        data: serializers.ListSchedulesResponse.parseOrThrow(_response.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
                             allowUnrecognizedEnumValues: true,
                             skipValidation: true,
                             breadcrumbsPrefix: ["response"],
                         }),
-                        _response.rawResponse,
-                    );
-                default:
-                    throw new errors.TrueForgeError({
-                        statusCode: _response.error.statusCode,
-                        body: _response.error.body,
                         rawResponse: _response.rawResponse,
-                    });
-            }
-        }
-
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/schedules");
+                    };
+                }
+                if (_response.error.reason === "status-code") {
+                    switch (_response.error.statusCode) {
+                        case 400:
+                            throw new TrueForge.BadRequestError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
+                        case 401:
+                            throw new TrueForge.UnauthorizedError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
+                        default:
+                            throw new errors.TrueForgeError({
+                                statusCode: _response.error.statusCode,
+                                body: _response.error.body,
+                                rawResponse: _response.rawResponse,
+                            });
+                    }
+                }
+                return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/schedules");
+            },
+        );
+        const dataWithRawResponse = await list(request).withRawResponse();
+        return new core.Page<TrueForge.Schedule, TrueForge.ListSchedulesResponse>({
+            response: dataWithRawResponse.data,
+            rawResponse: dataWithRawResponse.rawResponse,
+            hasNextPage: (response) =>
+                response?.pagination.nextPageToken != null &&
+                !(typeof response?.pagination.nextPageToken === "string" && response?.pagination.nextPageToken === ""),
+            getItems: (response) => response?.data ?? [],
+            loadPage: (response) => {
+                return list(core.setObjectProperty(request, "pageToken", response?.pagination.nextPageToken));
+            },
+        });
     }
 
     /**

@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi';
+import { TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
 /**
@@ -119,7 +120,12 @@ export const UpdateScheduleRequestSchema = z
   .openapi('UpdateScheduleRequest');
 
 export const GetScheduleResponseSchema = z.object({ data: ScheduleSchema }).openapi('GetScheduleResponse');
-export const ListSchedulesResponseSchema = z.object({ data: z.array(ScheduleSchema) }).openapi('ListSchedulesResponse');
+export const ListSchedulesResponseSchema = z
+  .object({
+    data: z.array(ScheduleSchema),
+    pagination: TokenPaginationSchema,
+  })
+  .openapi('ListSchedulesResponse');
 export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteScheduleResponse');
 
 /**

@@ -2,6 +2,7 @@
  * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { UserContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
@@ -109,16 +110,25 @@ function canAccessSchedule(user: UserContext, createdBy: string): boolean {
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
-    const { agent_name: agentName } = c.req.valid('query');
+    const { agent_names: agentNames, limit, page_token: pageToken } = c.req.valid('query');
     const user = deps.resolveUserContext(c);
     // Admins see every schedule; a regular user is scoped to their own via the
     // store's `created_by` filter (never a client-supplied param).
-    const records = await deps.scheduleStore.listSchedules({
-      tenant_id: TENANT_ID,
-      agent_name: agentName,
-      created_by: user.role === 'admin' ? undefined : user.userRef,
-    });
-    return c.json({ data: records.map(toWireSchedule) }, 200);
+    try {
+      const { data, pagination } = await deps.scheduleStore.listSchedules({
+        tenant_id: TENANT_ID,
+        limit,
+        page_token: pageToken,
+        agent_names: agentNames,
+        created_by: user.role === 'admin' ? undefined : user.userRef,
+      });
+      return c.json({ data: data.map(toWireSchedule), pagination }, 200);
+    } catch (error) {
+      if (error instanceof InvalidPageTokenError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
   };
 
   const listRunsHandler: RouteHandler<typeof listScheduleRunsRoute> = async c => {

@@ -1701,10 +1701,14 @@
               "$ref": "#/components/schemas/Schedule"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -5778,14 +5782,39 @@
     },
     "/api/v1/schedules": {
       "get": {
-        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_name`.",
+        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_names`.",
         "parameters": [
           {
+            "description": "Page size. Defaults to 25",
             "in": "query",
-            "name": "agent_name",
+            "name": "limit",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/ResourceName"
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+            "in": "query",
+            "name": "agent_names",
+            "required": false,
+            "schema": {
+              "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+              "type": "string"
             }
           }
         ],
@@ -5798,7 +5827,17 @@
                 }
               }
             },
-            "description": "Matching schedules."
+            "description": "Paginated matching schedules."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -5815,6 +5854,11 @@
         "tags": [
           "Schedules"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "schedules"
         ],
