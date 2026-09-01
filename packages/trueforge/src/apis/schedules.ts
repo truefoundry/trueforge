@@ -109,13 +109,13 @@ function canAccessSchedule(user: UserContext, createdBy: string): boolean {
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
-    const { agent_name: agentName } = c.req.valid('query');
+    const { agent_names: agentNames } = c.req.valid('query');
     const user = deps.resolveUserContext(c);
     // Admins see every schedule; a regular user is scoped to their own via the
     // store's `created_by` filter (never a client-supplied param).
     const records = await deps.scheduleStore.listSchedules({
       tenant_id: TENANT_ID,
-      agent_name: agentName,
+      agent_names: agentNames,
       created_by: user.role === 'admin' ? undefined : user.userRef,
     });
     return c.json({ data: records.map(toWireSchedule) }, 200);

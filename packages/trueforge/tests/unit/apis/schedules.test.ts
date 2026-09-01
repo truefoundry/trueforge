@@ -151,3 +151,39 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     expect((await app.request(`/${aliceId}/runs`)).status).toBe(403);
   });
 });
+
+describe('schedule list agent_names filter', () => {
+  it('filters by a single agent_names value and by comma-separated agent_names', async () => {
+    const { app, asUser, agentStore, postJson } = await setup();
+    await agentStore.createAgent({
+      tenant_id: TENANT_ID,
+      name: 'reporter-two',
+      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+    });
+
+    asUser(ALICE);
+    const aliceCreated = await postJson('/', 'POST', scheduleBody);
+    const aliceId = ((await aliceCreated.json()) as { data: { id: string } }).data.id;
+    const secondCreated = await postJson('/', 'POST', {
+      ...scheduleBody,
+      agent_name: 'reporter-two',
+      name: 'daily-report-two',
+    });
+    const secondId = ((await secondCreated.json()) as { data: { id: string } }).data.id;
+
+    const single = await app.request('/?agent_names=reporter');
+    expect(single.status).toBe(200);
+    expect(ListSchedulesResponseSchema.parse(await single.json()).data.map(row => row.id)).toEqual([aliceId]);
+
+    const multi = await app.request('/?agent_names=reporter,reporter-two');
+    expect(multi.status).toBe(200);
+    expect(
+      ListSchedulesResponseSchema.parse(await multi.json())
+        .data.map(row => row.id)
+        .sort(),
+    ).toEqual([aliceId, secondId].sort());
+
+    const omitted = await app.request('/');
+    expect(ListSchedulesResponseSchema.parse(await omitted.json()).data).toHaveLength(2);
+  });
+});

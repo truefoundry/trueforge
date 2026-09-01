@@ -476,7 +476,7 @@ export function runScheduleStoreContractSuite(deps: {
     ).rejects.toThrow();
   });
 
-  it('listSchedules returns newest first and filters by agent_name', async () => {
+  it('listSchedules returns newest first and filters by agent_names', async () => {
     const store = deps.getScheduleStore();
     const agentA = await seedAgent();
     const agentB = await seedAgent();
@@ -509,12 +509,20 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom: new Date(),
     });
 
-    const forA = await store.listSchedules({ tenant_id: TENANT, agent_name: agentA.name });
+    const forA = await store.listSchedules({ tenant_id: TENANT, agent_names: [agentA.name] });
     expect(forA.map(row => row.id)).toEqual([newer.schedule.id, older.schedule.id]);
     expect(forA.every(row => row.agent_name === agentA.name)).toBe(true);
 
-    const forB = await store.listSchedules({ tenant_id: TENANT, agent_name: agentB.name });
+    const forB = await store.listSchedules({ tenant_id: TENANT, agent_names: [agentB.name] });
     expect(forB.map(row => row.id)).toEqual([otherAgent.schedule.id]);
+
+    const forBoth = await store.listSchedules({
+      tenant_id: TENANT,
+      agent_names: [agentA.name, agentB.name],
+    });
+    expect(forBoth.map(row => row.id)).toEqual([otherAgent.schedule.id, newer.schedule.id, older.schedule.id]);
+
+    await expect(store.listSchedules({ tenant_id: TENANT, agent_names: [] })).resolves.toEqual([]);
 
     const all = await store.listSchedules({ tenant_id: TENANT });
     expect(all.map(row => row.id)).toEqual(
