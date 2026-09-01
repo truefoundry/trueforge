@@ -192,7 +192,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         item: { run, schedule },
         sessions: deps.sessions,
         agentStore: deps.agentStore,
-        startTurn: turnParams => startTurnInProcess({ ...turnParams, deps: deps.turnDeps }),
+        startTurn: async turnParams => {
+          await startTurnInProcess({ ...turnParams, deps: deps.turnDeps });
+        },
       });
     } catch (error) {
       await deps.scheduleStore.updateRunStatus({
