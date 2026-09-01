@@ -37,6 +37,11 @@ export function DrawerLayout({ className }: { className?: string }) {
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen;
 
   useEffect(() => {
+    if (libraryOpen || sessionsOpen) setThreadsOpen(false);
+  }, [libraryOpen, sessionsOpen]);
+
+
+  useEffect(() => {
     if (!threadsOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setThreadsOpen(false);
