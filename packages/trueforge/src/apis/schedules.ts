@@ -40,7 +40,7 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
-import type { BeginTurnExecutionDeps } from './turns';
+import { startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -192,7 +192,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         item: { run, schedule },
         sessions: deps.sessions,
         agentStore: deps.agentStore,
-        turnDeps: deps.turnDeps,
+        startTurn: turnParams => startTurnInProcess({ ...turnParams, deps: deps.turnDeps }),
       });
     } catch (error) {
       await deps.scheduleStore.updateRunStatus({

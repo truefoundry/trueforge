@@ -1,8 +1,6 @@
-import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
+import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
-import { TENANT_ID } from '../apis/sessions';
-import { startTurnInProcess, type BeginTurnExecutionDeps } from '../apis/turns';
 import type { IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
@@ -85,22 +83,27 @@ export async function startScheduleRun(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
-  turnDeps: BeginTurnExecutionDeps;
+  startTurn: (params: {
+    session: SessionHandle;
+    input: TurnInputItem[];
+    previous_turn_id: string;
+    userRef: string;
+  }) => Promise<unknown>;
 }): Promise<void> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
-    turnDeps,
+    startTurn,
   } = params;
 
-  const named = await agentStore.getAgent({ tenant_id: TENANT_ID, name: schedule.agent_name });
+  const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
   if (named === undefined) {
     throw new ScheduleAgentNotFoundError(schedule.agent_name);
   }
 
   const { session } = await sessions.getOrCreateByExternalId({
-    tenant_id: TENANT_ID,
+    tenant_id: schedule.tenant_id,
     external_id: run.id,
     created_by: schedule.created_by,
     agent: { type: 'reference', id: named.id, name: named.name },
@@ -112,12 +115,11 @@ export async function startScheduleRun(params: {
     return;
   }
 
-  await startTurnInProcess({
+  await startTurn({
     session,
     input: [{ type: 'user.message', content: schedule.manifest.task }],
     previous_turn_id: 'none',
     userRef: schedule.created_by,
-    deps: turnDeps,
   });
 }
 
