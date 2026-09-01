@@ -45,6 +45,7 @@ export default defineConfig({
   ],
   // Single React / assistant-ui Context instance (avoids "requires an AuiProvider").
   resolve: {
+    conditions: ['trueforge-dev', 'module', 'browser', 'import'],
     alias: {
       'truefoundry-gateway-sdk/agents/private': gatewaySdkStub,
       'truefoundry-gateway-sdk/agents': gatewaySdkStub,

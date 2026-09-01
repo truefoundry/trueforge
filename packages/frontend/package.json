@@ -10,18 +10,17 @@
     "node": ">=22"
   },
   "scripts": {
-    "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
     "ui:build": "pnpm --filter @truefoundry/trueforge-ui build",
-    "predev": "pnpm run sdk:build && pnpm run ui:build",
+    "predev": "pnpm run ui:build",
     "dev": "trap 'exit 0' INT TERM; vite",
     "dev:no-watch": "pnpm run dev",
-    "prebuild": "pnpm run sdk:build && pnpm run ui:build",
+    "prebuild": "pnpm run ui:build",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "pretypecheck": "pnpm run sdk:build && pnpm run ui:build",
+    "pretypecheck": "pnpm run ui:build",
     "typecheck": "tsc --noEmit",
-    "pretest": "pnpm run sdk:build && pnpm run ui:build",
-    "test": "tsx --test \"tests/**/*.test.ts\""
+    "pretest": "pnpm run ui:build",
+    "test": "NODE_OPTIONS='--conditions=trueforge-dev' tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@assistant-ui/core": "0.2.22",

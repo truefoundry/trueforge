@@ -18,6 +18,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    conditions: ['trueforge-dev', 'module', 'browser', 'import'],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@mui/material/styles/styled': '@mui/material/styles/styled.js',
