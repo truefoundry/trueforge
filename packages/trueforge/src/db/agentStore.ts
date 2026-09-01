@@ -5,6 +5,7 @@
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
 import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentMetadata } from '../schemas/agentMetadata';
 import type { ResourceName } from '../schemas/common';
 
 export interface AgentRecord {
@@ -12,6 +13,7 @@ export interface AgentRecord {
   tenant_id: string;
   name: ResourceName;
   manifest: AgentSpec;
+  metadata: AgentMetadata;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -42,6 +44,12 @@ export interface UpdateAgentInput {
   manifest: AgentSpec;
 }
 
+export interface UpdateAgentMetadataInput {
+  tenant_id: string;
+  id: string;
+  metadata: AgentMetadata;
+}
+
 export interface DeleteAgentInput {
   tenant_id: string;
   id: string;
@@ -67,6 +75,7 @@ export interface IAgentStore<TTransaction = never> {
   createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord>;
   /** Replaces `manifest` for an existing id. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
+  updateAgentMetadata(input: UpdateAgentMetadataInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
   deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;
 }

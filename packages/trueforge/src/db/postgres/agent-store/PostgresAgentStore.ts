@@ -1,4 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
+import { EMPTY_AGENT_METADATA } from '../../../schemas/agentMetadata';
 import { newId } from '../../../utils/id';
 import {
   AgentNameConflictError,
@@ -9,6 +10,7 @@ import {
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
+  type UpdateAgentMetadataInput,
 } from '../../agentStore';
 import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -20,6 +22,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     tenant_id: row.tenant_id,
     name: row.name,
     manifest: parseStoredAgentSpec(row.manifest),
+    metadata: row.metadata,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -60,6 +63,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: json(input.manifest),
+          metadata: json(EMPTY_AGENT_METADATA),
           created_at: now(),
           updated_at: now(),
         })
@@ -80,6 +84,24 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
       .updateTable('agent')
       .set({
         manifest: json(input.manifest),
+        updated_at: now(),
+      })
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRecord(row);
+  }
+
+  async updateAgentMetadata(
+    input: UpdateAgentMetadataInput,
+    transaction?: Transaction<Database>,
+  ): Promise<AgentRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .updateTable('agent')
+      .set({
+        metadata: json(input.metadata),
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id)
