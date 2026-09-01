@@ -34,7 +34,7 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
-import { startTurnInProcess, turnExecutionErrorResponse, type BeginTurnExecutionDeps } from './turns';
+import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -200,9 +200,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       if (error instanceof ScheduleAgentNotFoundError) {
         return c.json({ error: { message: error.message } }, 404);
       }
-      const response = turnExecutionErrorResponse(c, error);
-      if (response) {
-        return response;
+      const turnError = getTurnExecutionError(error);
+      if (turnError) {
+        return c.json({ error: { message: turnError.message } }, turnError.status);
       }
       throw error;
     }

@@ -459,28 +459,34 @@ export async function startTurnInProcess(params: {
   return turn;
 }
 
+/** Mapped client error from turn execution; undefined means rethrow. */
+export interface TurnExecutionError {
+  status: 400 | 404 | 422;
+  message: string;
+}
+
 /**
- * Map errors from {@link beginTurnExecution} / {@link startTurnInProcess} to HTTP
- * responses. Returns undefined when the caller should rethrow (unexpected / 5xx).
+ * Resolve turn-start failures to HTTP status + message.
+ * Returns undefined when the caller should rethrow (unexpected / 5xx).
  */
-export function turnExecutionErrorResponse(c: Context, error: unknown): Response | undefined {
+export function getTurnExecutionError(error: unknown): TurnExecutionError | undefined {
   if (error instanceof HTTPException) {
     if (error.status === 400 || error.status === 404 || error.status === 422) {
-      return c.json({ error: { message: error.message } }, error.status);
+      return { status: error.status, message: error.message };
     }
     return undefined;
   }
   if (error instanceof SessionStoreNotFoundError) {
-    return c.json({ error: { message: error.message } }, 404);
+    return { status: 404, message: error.message };
   }
   if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
     switch (error.code) {
       case 'invalid_file_input':
-        return c.json({ error: { message: error.message } }, 400);
+        return { status: 400, message: error.message };
       case 'invalid_send_input':
       case 'agent_sandbox_required':
       case 'tool_name_collision':
-        return c.json({ error: { message: error.message } }, 422);
+        return { status: 422, message: error.message };
       case 'capability_state_error':
       case 'mcp_connection_failed':
         return undefined;
@@ -699,9 +705,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         await stream.close();
       });
     } catch (error) {
-      const response = turnExecutionErrorResponse(c, error);
-      if (response) {
-        return response;
+      const turnError = getTurnExecutionError(error);
+      if (turnError) {
+        return c.json({ error: { message: turnError.message } }, turnError.status);
       }
       throw error;
     }
