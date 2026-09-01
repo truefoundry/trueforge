@@ -187,6 +187,7 @@ export * from "./ToolCallRef.js";
 export * from "./ToolInfo.js";
 export * from "./ToolResponseEvent.js";
 export * from "./ToolResponseRequiredEvent.js";
+export * from "./TrueFoundryModelProvider.js";
 export * from "./TrueFoundrySystemToolInfo.js";
 export * from "./Turn.js";
 export * from "./TurnCreatedEvent.js";

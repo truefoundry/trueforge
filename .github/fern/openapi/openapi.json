@@ -2565,6 +2565,7 @@
             "moonshot": "#/components/schemas/MoonshotModelProvider",
             "openai": "#/components/schemas/OpenAIModelProvider",
             "together": "#/components/schemas/TogetherAIModelProvider",
+            "truefoundry": "#/components/schemas/TrueFoundryModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
@@ -2593,6 +2594,9 @@
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryModelProvider"
           },
           {
             "$ref": "#/components/schemas/CustomModelProvider"
@@ -4068,6 +4072,39 @@
           "created_at",
           "thread_id",
           "tool_calls"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the TrueFoundry AI gateway the models are invoked against.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Models exposed by this provider (at least one).",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredModel"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "models",
+          "type",
+          "base_url"
         ],
         "type": "object"
       },
@@ -5794,7 +5831,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is configured and the request has no valid no Bearer token or session cookie."
           }
         },
         "summary": "List models for chat",
@@ -6983,6 +7020,16 @@
             },
             "description": "Invalid request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -7782,6 +7829,16 @@
               }
             },
             "description": "A model provider with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create a model provider",
@@ -7826,6 +7883,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create or replace a model provider",

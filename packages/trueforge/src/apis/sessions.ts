@@ -17,6 +17,7 @@ import {
   type RouteHandler as RequestReplyRouteHandler,
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
+import type { Context } from 'hono';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
@@ -73,7 +74,7 @@ export interface SessionsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  modelProviderStore: IModelProviderStore;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   agentStore: IAgentStore;
@@ -222,7 +223,7 @@ function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy
 type InternalSessionsRouterDeps = Pick<
   SessionsRouterDeps,
   | 'sessions'
-  | 'modelProviderStore'
+  | 'resolveModelProviderStore'
   | 'mcpServerStore'
   | 'skillStore'
   | 'agentStore'
@@ -259,7 +260,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: TENANT_ID,
-        modelProviderStore: deps.modelProviderStore,
+        modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
@@ -312,7 +313,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     await validateAgentSpec({
       spec: body.agent.spec,
       tenant_id: TENANT_ID,
-      modelProviderStore: deps.modelProviderStore,
+      modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.mcpServerStore,
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
@@ -370,7 +371,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: TENANT_ID,
-        modelProviderStore: deps.modelProviderStore,
+        modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,

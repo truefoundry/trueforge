@@ -41,7 +41,7 @@ describe('buildLanguageModel', () => {
   // The compatible providers take their endpoint from the caller, which the server resolves from
   // its own defaults. Throwing here beats letting the adapter build a request against no host.
   it('demands a baseUrl from every compatible provider', () => {
-    for (const provider of ['fireworks', 'zai', 'custom'] as const) {
+    for (const provider of ['fireworks', 'zai', 'custom', 'truefoundry', 'together'] as const) {
       expect(() => buildLanguageModel(makeConfig({ provider }))).toThrow('baseUrl');
       const model: unknown = buildLanguageModel(makeConfig({ provider, baseUrl: 'http://localhost:11434/v1' }));
       if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
