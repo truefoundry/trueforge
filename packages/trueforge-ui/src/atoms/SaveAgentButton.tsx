@@ -299,7 +299,14 @@ function SaveAgentButtonContent({
       <button
         type="button"
         disabled={disabled || builder === null || agentSpec === null}
-        className={auiButtonClass({ variant: 'outline', size: 'sm', className })}
+        className={auiButtonClass({
+          variant: 'outline',
+          size: 'sm',
+          // Chrome-action triggers use the squared-off header treatment: 2px corners,
+          // roomier horizontal padding, and a card-surface fill rather than the grey
+          // secondary fill, so they read as controls layered on the topbar.
+          className: cn('gap-2 rounded-[2px] bg-card-bg px-[10px]', className),
+        })}
         onClick={() => void show()}
       >
         <Icon name="save" className="size-3.5" />

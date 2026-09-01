@@ -65,7 +65,7 @@ export function AgentsLibraryButton({ className, compact = false, onSelectAgent 
           })}
           onClick={() => setOpen(true)}
         >
-          <Icon name="robot" />
+          <Icon name="agent-2" />
           {!compact ? (
             <>
               <span className="truncate">

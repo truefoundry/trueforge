@@ -43,7 +43,13 @@ export function ComposerShell({
     <div
       data-slot="aui_composer-shell"
       className={cn(
-        'border-border/60 focus-within:border-focus-ring focus-within:ring-focus-ring/20 flex w-full flex-col gap-2 rounded-[var(--composer-radius,1.5rem)] border bg-input-box-bg p-[var(--composer-padding,8px)] shadow-sm transition-colors focus-within:ring-3',
+        'focus-within:ring-focus-ring/20 flex w-full flex-col gap-2 rounded-[12px] border border-transparent bg-card-bg p-[var(--composer-padding,8px)] shadow-[0_20px_30px_-20px_#603cff14] transition-colors focus-within:ring-3',
+        // 1px gradient hairline: the padding-box layer paints the surface, the border-box
+        // layer bleeds the violet→indigo ramp into the transparent border only.
+        '[background-clip:padding-box,border-box] [background-image:linear-gradient(var(--card-bg),var(--card-bg)),linear-gradient(to_bottom,#ede9fe,#4f46e5)] [background-origin:border-box]',
+        // The violet ramp and its glow are light-only; against the dark surface they read
+        // far louder than intended, so dark falls back to the palette's neutral hairline.
+        'dark:border-border/60 dark:shadow-none dark:[background-clip:border-box] dark:[background-image:none]',
         className,
       )}
     >
