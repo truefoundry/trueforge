@@ -5809,21 +5809,13 @@
           },
           {
             "description": "Filter by one or more agent names (comma-separated).",
-            "explode": false,
             "in": "query",
             "name": "agent_names",
             "required": false,
             "schema": {
               "description": "Filter by one or more agent names (comma-separated).",
-              "items": {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              "type": [
-                "array",
-                "null"
-              ]
-            },
-            "style": "form"
+              "type": "string"
+            }
           }
         ],
         "responses": {

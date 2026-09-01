@@ -4,7 +4,6 @@ import type { BaseClientOptions, BaseRequestOptions } from "../../../../BaseClie
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
 import { mergeHeaders } from "../../../../core/headers.js";
 import * as core from "../../../../core/index.js";
-import { toJson } from "../../../../core/json.js";
 import { mergeAdditionalBodyParameters } from "../../../../core/requestBody.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
@@ -50,7 +49,7 @@ export class SchedulesClient {
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
-                    agent_names: agentNames !== undefined ? toJson(agentNames) : undefined,
+                    agent_names: agentNames,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
@@ -69,7 +68,6 @@ export class SchedulesClient {
                     queryString: core.url
                         .queryBuilder()
                         .addMany(_queryParams)
-                        .add("agent_names", _queryParams.agent_names, { style: "comma" })
                         .mergeAdditional(requestOptions?.queryParams)
                         .build(),
                     timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
