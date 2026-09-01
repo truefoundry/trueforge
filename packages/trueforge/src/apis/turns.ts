@@ -460,6 +460,36 @@ export async function startTurnInProcess(params: {
 }
 
 /**
+ * Map errors from {@link beginTurnExecution} / {@link startTurnInProcess} to HTTP
+ * responses. Returns undefined when the caller should rethrow (unexpected / 5xx).
+ */
+export function turnExecutionErrorResponse(c: Context, error: unknown): Response | undefined {
+  if (error instanceof HTTPException) {
+    if (error.status === 400 || error.status === 404 || error.status === 422) {
+      return c.json({ error: { message: error.message } }, error.status);
+    }
+    return undefined;
+  }
+  if (error instanceof SessionStoreNotFoundError) {
+    return c.json({ error: { message: error.message } }, 404);
+  }
+  if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
+    switch (error.code) {
+      case 'invalid_file_input':
+        return c.json({ error: { message: error.message } }, 400);
+      case 'invalid_send_input':
+      case 'agent_sandbox_required':
+      case 'tool_name_collision':
+        return c.json({ error: { message: error.message } }, 422);
+      case 'capability_state_error':
+      case 'mcp_connection_failed':
+        return undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Resume cursor: `Last-Event-ID` header wins over the body value because the
  * header is updated by the SDK on every reconnect to reflect the last delivered
  * event, whereas the body is the original caller-supplied cursor and never
@@ -669,21 +699,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         await stream.close();
       });
     } catch (error) {
-      if (error instanceof SessionStoreNotFoundError) {
-        return c.json({ error: { message: error.message } }, 404);
-      }
-      if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
-        switch (error.code) {
-          case 'invalid_file_input':
-            return c.json({ error: { message: error.message } }, 400);
-          case 'invalid_send_input':
-          case 'agent_sandbox_required':
-          case 'tool_name_collision':
-            return c.json({ error: { message: error.message } }, 422);
-          case 'capability_state_error':
-          case 'mcp_connection_failed':
-            throw error;
-        }
+      const response = turnExecutionErrorResponse(c, error);
+      if (response) {
+        return response;
       }
       throw error;
     }

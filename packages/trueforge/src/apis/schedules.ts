@@ -2,14 +2,8 @@
  * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import {
-  InvalidPageTokenError,
-  SessionStoreNotFoundError,
-  type Sessions,
-} from '@truefoundry/trueforge-core/agent-session';
-import { AgentHarnessError, McpConnectionError } from '@truefoundry/trueforge-core/core';
+import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
 import type { UserContext } from '../auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
@@ -40,7 +34,7 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
-import { startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
+import { startTurnInProcess, turnExecutionErrorResponse, type BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -206,27 +200,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       if (error instanceof ScheduleAgentNotFoundError) {
         return c.json({ error: { message: error.message } }, 404);
       }
-      if (error instanceof HTTPException) {
-        if (error.status === 400 || error.status === 404 || error.status === 422) {
-          return c.json({ error: { message: error.message } }, error.status);
-        }
-        throw error;
-      }
-      if (error instanceof SessionStoreNotFoundError) {
-        return c.json({ error: { message: error.message } }, 404);
-      }
-      if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
-        switch (error.code) {
-          case 'invalid_file_input':
-            return c.json({ error: { message: error.message } }, 400);
-          case 'invalid_send_input':
-          case 'agent_sandbox_required':
-          case 'tool_name_collision':
-            return c.json({ error: { message: error.message } }, 422);
-          case 'capability_state_error':
-          case 'mcp_connection_failed':
-            throw error;
-        }
+      const response = turnExecutionErrorResponse(c, error);
+      if (response) {
+        return response;
       }
       throw error;
     }
