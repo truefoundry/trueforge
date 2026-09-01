@@ -980,6 +980,23 @@
         ],
         "type": "object"
       },
+      "CreateManualScheduleRunRequest": {
+        "additionalProperties": false,
+        "description": "Empty request body. The schedule task is taken from the schedule manifest.",
+        "properties": {},
+        "type": "object"
+      },
+      "CreateManualScheduleRunResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ScheduleRun"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "CreateModelProviderRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6178,6 +6195,103 @@
           "schedules"
         ],
         "x-fern-sdk-method-name": "list_runs"
+      },
+      "post": {
+        "description": "Start a schedule run immediately (run-now) using the schedule task. Does not replace or advance the cron pending run.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManualScheduleRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateManualScheduleRunResponse"
+                }
+              }
+            },
+            "description": "Manual run created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or turn input."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Schedule or agent not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Run name conflict (retry)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The run cannot be started (e.g. agent resources unavailable)."
+          }
+        },
+        "summary": "Trigger a manual schedule run",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "create_manual_run"
       }
     },
     "/api/v1/sessions": {
