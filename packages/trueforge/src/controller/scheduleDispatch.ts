@@ -1,5 +1,9 @@
+import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
+import { TENANT_ID } from '../apis/sessions';
+import { startTurnInProcess, type BeginTurnExecutionDeps } from '../apis/turns';
+import type { IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
   type IScheduleStore,
@@ -58,6 +62,52 @@ function executeScheduledRun(client: ScheduleRunApiClient): (item: ScheduleDispa
       previousTurnId: 'none',
     });
   };
+}
+
+/**
+ * Start a schedule run in-process: get-or-create a session keyed by `run.id`,
+ * then create a non-streaming turn with the schedule task when that session has
+ * none. Idempotent on retry. Session owner and turn `userRef` are the schedule
+ * creator so ownership stays with the schedule even when an admin triggers run-now.
+ */
+export async function startScheduleRun(params: {
+  item: ScheduleDispatchItem;
+  sessions: Sessions;
+  agentStore: IAgentStore;
+  turnDeps: BeginTurnExecutionDeps;
+}): Promise<void> {
+  const {
+    item: { run, schedule },
+    sessions,
+    agentStore,
+    turnDeps,
+  } = params;
+
+  const named = await agentStore.getAgent({ tenant_id: TENANT_ID, name: schedule.agent_name });
+  if (named === undefined) {
+    throw new Error(`Agent not found: ${schedule.agent_name}`);
+  }
+
+  const { session } = await sessions.getOrCreateByExternalId({
+    tenant_id: TENANT_ID,
+    external_id: run.id,
+    created_by: schedule.created_by,
+    agent: { type: 'reference', id: named.id, name: named.name },
+  });
+
+  // idempotency check
+  const { data: turns } = await session.listTurns({ limit: 1 });
+  if (turns.length > 0) {
+    return;
+  }
+
+  await startTurnInProcess({
+    session,
+    input: [{ type: 'user.message', content: schedule.manifest.task }],
+    previous_turn_id: 'none',
+    userRef: schedule.created_by,
+    deps: turnDeps,
+  });
 }
 
 /**
