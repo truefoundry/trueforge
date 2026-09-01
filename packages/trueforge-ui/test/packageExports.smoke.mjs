@@ -10,6 +10,13 @@ const packageRoot = fileURLToPath(new URL('..', import.meta.url));
 const tempDir = await mkdtemp(path.join(packageRoot, 'test', '.package-smoke-'));
 
 try {
+  // Packed UI still imports @truefoundry/trueforge-sdk at runtime (external).
+  // Build SDK dist here so this smoke matches npm consumers (no trueforge-dev).
+  execFileSync('pnpm', ['--filter', '@truefoundry/trueforge-sdk', 'build'], {
+    cwd: path.resolve(packageRoot, '../..'),
+    stdio: 'inherit',
+  });
+
   // create a tarball of the package
   execFileSync('pnpm', ['pack', '--pack-destination', tempDir], {
     cwd: packageRoot,

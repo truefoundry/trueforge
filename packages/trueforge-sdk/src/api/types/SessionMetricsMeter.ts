@@ -6,5 +6,5 @@ export interface SessionMetricsMeter {
     aggregateValue: number;
     description: string;
     name: TrueForge.SessionMetricsMeterName;
-    unit: TrueForge.SessionMetricsMeterUnit;
+    unit: TrueForge.MetricsUnit;
 }
