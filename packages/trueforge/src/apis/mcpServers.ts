@@ -13,6 +13,7 @@ import {
   authorizeMcpServerRoute,
   createMcpServerRoute,
   deleteAuthorizationMcpServerRoute,
+  deleteMcpServerRoute,
   getMcpServerRoute,
   listAvailableMcpServersRoute,
   listMcpServersRoute,
@@ -307,11 +308,18 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
     }
   };
 
+  const deleteHandler: RouteHandler<typeof deleteMcpServerRoute> = async c => {
+    const { name } = c.req.valid('param');
+    await deps.mcpServerStore.deleteServer({ tenant_id: TENANT_ID, name });
+    return c.json({}, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listMcpServersRoute, listHandler);
   router.openapi(createMcpServerRoute, createHandler);
   router.openapi(putMcpServerRoute, putHandler);
   router.openapi(getMcpServerRoute, getHandler);
+  router.openapi(deleteMcpServerRoute, deleteHandler);
   return router;
 }
 

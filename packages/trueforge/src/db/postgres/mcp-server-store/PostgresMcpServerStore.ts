@@ -123,6 +123,11 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
     return toRecord(row);
   }
 
+  async deleteServer(input: GetMcpServerInput, transaction?: Transaction<Database>): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db.deleteFrom('mcp_server').where('tenant_id', '=', input.tenant_id).where('name', '=', input.name).execute();
+  }
+
   async getClient(params: { id: string }, transaction?: Transaction<Database>): Promise<OAuthClientRecord | undefined> {
     const db = transaction ?? this.#db;
     const row = await db

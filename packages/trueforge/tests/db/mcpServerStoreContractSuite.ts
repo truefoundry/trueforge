@@ -137,6 +137,25 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     await expect(store.listServers({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
   });
 
+  it('deleteServer removes the row and cascade-clears its saved OAuth client', async () => {
+    const store = getStore();
+    const created = await store.upsertServer({ tenant_id: TENANT, name: 'linear', manifest: manifest() });
+    await store.saveClient({ id: created.id, record: sampleOAuthClient });
+
+    await store.deleteServer({ tenant_id: TENANT, name: 'linear' });
+
+    await expect(store.getServer({ tenant_id: TENANT, name: 'linear' })).resolves.toBeUndefined();
+    await expect(store.getClient({ id: created.id })).resolves.toBeUndefined();
+  });
+
+  it('deleteServer is idempotent for an unknown server and leaves other tenants untouched', async () => {
+    const store = getStore();
+    const otherTenant = await store.upsertServer({ tenant_id: 'other-tenant', name: 'linear', manifest: manifest() });
+
+    await expect(store.deleteServer({ tenant_id: TENANT, name: 'linear' })).resolves.toBeUndefined();
+    await expect(store.getServer({ tenant_id: 'other-tenant', name: 'linear' })).resolves.toEqual(otherTenant);
+  });
+
   it('upsert leaves oauth columns null and does not clear a saved OAuth client', async () => {
     const store = getStore();
     const created = await store.upsertServer({
