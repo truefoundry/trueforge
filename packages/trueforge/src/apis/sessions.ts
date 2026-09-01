@@ -1,5 +1,5 @@
 /**
- * DB-backed sessions API (mounted at /api/v1/sessions).
+ * DB-backed sessions APIs (mounted at /api/v1/sessions and /internal/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
@@ -18,7 +18,6 @@ import {
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
-import { ulid } from 'ulid';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { ResolveUserContext } from '../auth/identity';
@@ -32,6 +31,7 @@ import {
   cancelSessionRoute,
   createSessionRoute,
   deleteSessionRoute,
+  getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
   listSessionEventsRoute,
   listSessionsRoute,
@@ -41,6 +41,7 @@ import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
+import { newId } from '../utils/id';
 
 /** The server is single-tenant; every record lives under one fixed tenant scope. */
 export const TENANT_ID = 'default';
@@ -217,11 +218,79 @@ function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy
   return userRef === createdBy;
 }
 
+type InternalSessionsRouterDeps = Pick<
+  SessionsRouterDeps,
+  | 'sessions'
+  | 'modelProviderStore'
+  | 'mcpServerStore'
+  | 'skillStore'
+  | 'agentStore'
+  | 'sandboxProviderStore'
+  | 'resolveUserContext'
+>;
+
+function createGetOrCreateSessionByExternalIdHandler(
+  deps: InternalSessionsRouterDeps,
+): RouteHandler<typeof getOrCreateSessionByExternalIdRoute> {
+  return async c => {
+    const body = c.req.valid('json');
+    const user = deps.resolveUserContext(c);
+
+    const existing = await deps.sessions.getByExternalId({
+      tenant_id: TENANT_ID,
+      external_id: body.external_id,
+    });
+    if (existing !== undefined) {
+      if (!checkSessionAccess({ userRef: user.userRef, createdBy: existing.record.created_by })) {
+        return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+      }
+      return c.json({ data: toWireSession(existing.record) }, 200);
+    }
+
+    let agent: SessionRecord['agent'];
+    if (isSessionAgentNameRef(body.agent)) {
+      const named = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+      if (named === undefined) {
+        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
+      }
+      agent = { type: 'reference', id: named.id, name: named.name };
+    } else {
+      await validateAgentSpec({
+        spec: body.agent.spec,
+        tenant_id: TENANT_ID,
+        modelProviderStore: deps.modelProviderStore,
+        mcpServerStore: deps.mcpServerStore,
+        skillStore: deps.skillStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+      });
+      agent = { type: 'inline', spec: body.agent.spec };
+    }
+
+    const { session, created } = await deps.sessions.getOrCreateByExternalId({
+      tenant_id: TENANT_ID,
+      external_id: body.external_id,
+      created_by: user.userRef,
+      agent,
+    });
+    if (!created && !checkSessionAccess({ userRef: user.userRef, createdBy: session.record.created_by })) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    return c.json({ data: toWireSession(session.record) }, created ? 201 : 200);
+  };
+}
+
+/** Internal session operations (mounted at /internal/sessions). */
+export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
+  const router = new OpenAPIHono();
+  router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
+  return router;
+}
+
 /** DB-backed sessions (mounted at /api/v1/sessions). */
 export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
-    const sessionId = ulid().toLowerCase();
+    const sessionId = newId();
 
     if (isSessionAgentNameRef(body.agent)) {
       const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
@@ -234,6 +303,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         session_id: sessionId,
         created_by: user.userRef,
         agent: { type: 'reference', id: agent.id, name: agent.name },
+        external_id: null,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
     }
@@ -252,6 +322,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       session_id: sessionId,
       created_by: user.userRef,
       agent: { type: 'inline', spec: body.agent.spec },
+      external_id: null,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
   };

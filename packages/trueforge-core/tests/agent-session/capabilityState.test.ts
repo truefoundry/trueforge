@@ -64,6 +64,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
 
     const planV1: JsonValue = {
@@ -136,6 +137,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const planV1: JsonValue = {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
@@ -229,6 +231,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       session_id: 's1',
       created_by: 'user-1',
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),

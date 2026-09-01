@@ -1,8 +1,9 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -13,23 +14,16 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { SESSION_EXTERNAL_ID_UQ } from '../../../indexes';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
+import { isPgConstraint, isUniqueViolation } from '../../client';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
-
-function isPgUniqueViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-  if (!('code' in error)) {
-    return false;
-  }
-  return error.code === '23505';
-}
 
 type SessionCustom = Record<string, never>;
 type ProtoSessionRecord = SessionRecord<SessionCustom>;
@@ -57,7 +51,9 @@ function mapRowToSessionRecord(row: {
   agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
+  external_id: string | null;
   custom: Record<string, unknown> | null;
+  metrics: SessionMetrics;
   created_at: Date;
   updated_at: Date;
   last_activity_timestamp_ms: number;
@@ -74,7 +70,9 @@ function mapRowToSessionRecord(row: {
     }),
     title: row.title,
     last_turn_id: row.last_turn_id,
+    external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
+    metrics: row.metrics,
     created_at: row.created_at,
     updated_at: row.updated_at,
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
@@ -97,13 +95,22 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
+        external_id: input.external_id,
+        metrics: json({
+          total_cost_in_usd: 0,
+          total_duration_ms: 0,
+          total_turns: 0,
+        }),
         created_at: new Date(nowMs),
         updated_at: new Date(nowMs),
         last_activity_timestamp_ms: nowMs,
       })
       .execute();
   } catch (error) {
-    if (isPgUniqueViolation(error)) {
+    if (isUniqueViolation(error)) {
+      if (isPgConstraint(error, SESSION_EXTERNAL_ID_UQ) && input.external_id) {
+        throw new SessionExternalIdConflictError(input.external_id, { cause: error });
+      }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });
     }
     throw error;
@@ -127,6 +134,24 @@ export async function getSession(
     .selectAll()
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
+    .executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
+export async function getSessionByExternalId(
+  db: Kysely<Database>,
+  input: GetSessionByExternalIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db
+    .selectFrom('session')
+    .selectAll()
+    .where('tenant_id', '=', input.tenant_id)
+    .where('external_id', '=', input.external_id)
     .executeTakeFirst();
 
   if (row === undefined) {

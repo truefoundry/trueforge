@@ -20,7 +20,7 @@ import { chmodSync, existsSync, realpathSync, statSync } from 'node:fs';
 import { chmod, mkdir, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { createServer, type Server, type Socket } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { ulid } from 'ulid';
+import { newId } from '../../../utils/id';
 import { sandboxScripts } from '../sandboxScripts.gen.js';
 import { encodeJsonMessage, JsonMessageReader, MAX_MESSAGE_BYTES } from './frame.js';
 
@@ -94,7 +94,7 @@ export function assertCodeModeSocketParentPath(path: string): string {
  */
 export async function probeCodeModeUnixSocket(parentPath: string): Promise<{ sockPath: string }> {
   const realParent = assertCodeModeSocketParentPath(parentPath);
-  const sockPath = join(realParent, ulid().toLowerCase());
+  const sockPath = join(realParent, newId());
   await unlink(sockPath).catch(() => undefined);
   const server = createServer();
   try {
@@ -194,7 +194,7 @@ export class CodeModeUdsTransport implements CodeModeTransport {
     // Re-check: caller owns the parent dir and may have removed it after construct.
     assertCodeModeSocketParentPath(this.codeModeSocketParentPath);
 
-    const sockPath = join(this.codeModeSocketParentPath, ulid().toLowerCase());
+    const sockPath = join(this.codeModeSocketParentPath, newId());
     await unlink(sockPath).catch(() => undefined);
     const server = createServer({ allowHalfOpen: true });
     try {

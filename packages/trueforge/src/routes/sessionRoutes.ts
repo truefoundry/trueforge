@@ -1,6 +1,7 @@
 /**
  * Session route definitions.
- * DB-backed routes mount at /api/v1/sessions.
+ * Public DB-backed routes mount at /api/v1/sessions; internal operations mount
+ * at /internal/sessions.
  * Handlers are registered in apis/sessions.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
@@ -8,6 +9,7 @@ import { RequestErrorResponseSchema } from '../schemas/errors';
 import { ListSessionEventsRequestQuerySchema, ListSessionEventsResponseSchema } from '../schemas/events';
 import {
   CreateSessionRequestSchema,
+  GetOrCreateSessionByExternalIdRequestSchema,
   GetSessionResponseSchema,
   ListSessionsRequestQuerySchema,
   ListSessionsResponseSchema,
@@ -44,6 +46,53 @@ export const createSessionRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Named agent not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description:
+        'The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox).',
+    },
+  },
+});
+
+/**
+ * Idempotent get-or-create by tenant-scoped `external_id`. Internal callers
+ * (schedule dispatch) use this so a retried run reuses the same session.
+ */
+export const getOrCreateSessionByExternalIdRoute = createRoute({
+  method: 'post',
+  path: '/get-or-create-by-external-id',
+  tags: [OpenApiTag.INTERNAL],
+  summary: 'Get or create a session by external id',
+  description: 'Idempotent get-or-create: returns the existing session for this `external_id`, or creates one',
+  'x-fern-sdk-group-name': ['internal', 'sessions'],
+  'x-fern-sdk-method-name': 'get_or_create_by_external_id',
+  request: {
+    body: {
+      content: { 'application/json': { schema: GetOrCreateSessionByExternalIdRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetSessionResponseSchema } },
+      description: 'Session already existed for this external id.',
+    },
+    201: {
+      content: { 'application/json': { schema: GetSessionResponseSchema } },
+      description: 'Session created.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

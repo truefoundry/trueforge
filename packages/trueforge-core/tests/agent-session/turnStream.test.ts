@@ -32,6 +32,7 @@ describe('TurnHandle.stream()', () => {
           },
         }),
       },
+      external_id: null,
     });
     return { store, session };
   }
@@ -493,6 +494,7 @@ describe('TurnResourceResolver caches', () => {
           },
         }),
       },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),

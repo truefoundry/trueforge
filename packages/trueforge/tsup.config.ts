@@ -36,7 +36,6 @@ export default defineConfig([
     ...shared,
     entry: {
       main: 'src/main.ts',
-      controller: 'src/controller.ts',
       // Emit both engines under dist/{postgres,sqlite}/migrations/.
       // Runtime selects migrations via STANDALONE (false → postgres, true → sqlite).
       ...migrationEntries('postgres'),

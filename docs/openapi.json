@@ -45,6 +45,72 @@
         ],
         "type": "object"
       },
+      "AgentCodeSnippet": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "format": "uri",
+            "type": "string"
+          },
+          "label_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "language": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sample_code": {
+            "$ref": "#/components/schemas/AgentCodeSnippetSampleCode"
+          }
+        },
+        "required": [
+          "label_name",
+          "language",
+          "icon",
+          "sample_code"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippetSampleCode": {
+        "additionalProperties": false,
+        "properties": {
+          "non_stream": {
+            "description": "SDK sample that creates a turn without streaming.",
+            "type": "string"
+          },
+          "stream": {
+            "description": "SDK sample that streams turn events.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream",
+          "non_stream"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippets": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "format": "uri",
+            "type": "string"
+          },
+          "snippets": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCodeSnippet"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_url",
+          "snippets"
+        ],
+        "type": "object"
+      },
       "AgentInfo": {
         "properties": {
           "input": {
@@ -1180,6 +1246,17 @@
         },
         "type": "object"
       },
+      "GetAgentCodeSnippetsResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentCodeSnippets"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetAgentResponse": {
         "properties": {
           "data": {
@@ -1275,6 +1352,25 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "GetOrCreateSessionByExternalIdRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "external_id": {
+            "description": "Caller-supplied id unique within the tenant.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id",
+          "agent"
         ],
         "type": "object"
       },
@@ -4667,72 +4763,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "data": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "base_url": {
-                          "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
-                          "format": "uri",
-                          "type": "string"
-                        },
-                        "snippets": {
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "icon": {
-                                "format": "uri",
-                                "type": "string"
-                              },
-                              "label_name": {
-                                "minLength": 1,
-                                "type": "string"
-                              },
-                              "language": {
-                                "minLength": 1,
-                                "type": "string"
-                              },
-                              "sample_code": {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "non_stream": {
-                                    "description": "SDK sample that creates a turn without streaming.",
-                                    "type": "string"
-                                  },
-                                  "stream": {
-                                    "description": "SDK sample that streams turn events.",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "stream",
-                                  "non_stream"
-                                ],
-                                "type": "object"
-                              }
-                            },
-                            "required": [
-                              "label_name",
-                              "language",
-                              "icon",
-                              "sample_code"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        }
-                      },
-                      "required": [
-                        "base_url",
-                        "snippets"
-                      ],
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ],
-                  "type": "object"
+                  "$ref": "#/components/schemas/GetAgentCodeSnippetsResponse"
                 }
               }
             },
@@ -4754,7 +4785,11 @@
           "Agents"
         ],
         "x-excluded": true,
-        "x-fern-ignore": true
+        "x-fern-sdk-group-name": [
+          "internal",
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "get_code_snippets"
       }
     },
     "/api/v1/auth/callback": {
@@ -7644,6 +7679,92 @@
         ],
         "x-fern-sdk-method-name": "list"
       }
+    },
+    "/internal/sessions/get-or-create-by-external-id": {
+      "post": {
+        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session already existed for this external id."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+          }
+        },
+        "summary": "Get or create a session by external id",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
     }
   },
   "security": [
@@ -7652,6 +7773,9 @@
     }
   ],
   "tags": [
+    {
+      "name": "Internal"
+    },
     {
       "name": "Auth"
     },

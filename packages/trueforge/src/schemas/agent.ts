@@ -42,7 +42,8 @@ export const AgentCodeSnippetSampleCodeSchema = z
     stream: z.string().describe('SDK sample that streams turn events.'),
     non_stream: z.string().describe('SDK sample that creates a turn without streaming.'),
   })
-  .strict();
+  .strict()
+  .openapi('AgentCodeSnippetSampleCode');
 
 export const AgentCodeSnippetSchema = z
   .object({
@@ -51,16 +52,20 @@ export const AgentCodeSnippetSchema = z
     icon: z.url(),
     sample_code: AgentCodeSnippetSampleCodeSchema,
   })
-  .strict();
+  .strict()
+  .openapi('AgentCodeSnippet');
 
 export const AgentCodeSnippetsSchema = z
   .object({
     base_url: z.url().describe('Origin to pass as the TrueForge SDK `baseUrl`.'),
     snippets: z.array(AgentCodeSnippetSchema),
   })
-  .strict();
+  .strict()
+  .openapi('AgentCodeSnippets');
 
-export const GetAgentCodeSnippetsResponseSchema = z.object({ data: AgentCodeSnippetsSchema });
+export const GetAgentCodeSnippetsResponseSchema = z
+  .object({ data: AgentCodeSnippetsSchema })
+  .openapi('GetAgentCodeSnippetsResponse');
 
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof UpdateAgentRequestSchema>;

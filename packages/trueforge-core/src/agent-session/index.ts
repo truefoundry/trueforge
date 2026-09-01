@@ -21,8 +21,8 @@ export {
 } from './schemas/turn';
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
-export { SessionSchema } from './schemas/session';
-export type { Session, SessionAgent } from './schemas/session';
+export { SessionMetricsSchema, SessionSchema } from './schemas/session';
+export type { Session, SessionAgent, SessionMetrics } from './schemas/session';
 
 export {
   EventType,
@@ -56,6 +56,7 @@ export type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -78,6 +79,7 @@ export {
   InvalidPageTokenError,
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreConflictError,
   SessionStoreInvariantError,

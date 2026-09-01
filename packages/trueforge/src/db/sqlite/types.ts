@@ -8,6 +8,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetrics,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -67,7 +68,10 @@ export interface SessionTable {
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;
+  /** Optional unique key within `tenant_id` when set. */
+  external_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
+  metrics: JsonbColumn<SessionMetrics>;
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;

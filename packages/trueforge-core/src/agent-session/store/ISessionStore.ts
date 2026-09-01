@@ -19,7 +19,7 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id'
 > & {
   custom: TSessionCustom | null;
 };
@@ -39,6 +39,11 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
 export interface GetSessionInput {
   tenant_id: string;
   session_id: string;
+}
+
+export interface GetSessionByExternalIdInput {
+  tenant_id: string;
+  external_id: string;
 }
 
 export interface DeleteSessionInput {
@@ -230,6 +235,12 @@ export interface ISessionStore<
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
+   * Lookup by tenant-scoped `external_id`. Missing or null external ids are not found.
+   * Does **not** bump `last_activity_timestamp_ms` (read path).
+   */
+  getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  /**
    * PATCH semantics — update only the provided fields:
    * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
@@ -262,7 +273,8 @@ export interface ISessionStore<
    * row or leave `last_turn_id` pointing at a turn that was never created.
    * The implementation supplies the mechanism (session lock, row lock/tx, …).
    *
-   * Also bumps `session.last_activity_timestamp_ms` in that same atomic unit.
+   * Also bumps `session.last_activity_timestamp_ms` and increments
+   * `session.metrics.total_turns` in that same atomic unit.
    *
    * Fork semantics for `turn.previous_turn_id`:
    * - `null` — new root turn (no parent); always allowed.
@@ -281,10 +293,8 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * One tx: (a) conditionally cancel a running turn with `reason`; (b) if it
-   * did cancel, insert the caller-built `turn_done_event` — already-terminal
-   * turns skip the event insert; (c) return the now-immutable turn record.
-   * Missing turn → {@link TurnNotFoundError}.
+   * Cancel if still running (persist `turn_done` and fold cost/duration into
+   * `session.metrics`); already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
@@ -297,15 +307,9 @@ export interface ISessionStore<
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Writes the terminal state and `turn_done_event` atomically. Store contract —
-   * **first terminal write wins**:
-   * - Allowed: `running` → `done` | `cancelled` | `error`.
-   * - Rejected with **409** (or equivalent conflict): any write when status is already
-   *   terminal — including done→cancelled, cancelled→done, error→*, terminal→running.
-   * - Missing turn → 404 / not-found.
-   *
-   * Check under the same concurrency control as other turn mutations (lock/CAS) —
-   * not a racy read-then-write outside the critical section.
+   * First terminal write wins (`running` → done/cancelled/error); otherwise 409.
+   * Winning write also folds cost/duration into `session.metrics`. Missing → 404.
+   * Must use the same lock/CAS as other turn mutations.
    */
   updateTurnState(input: UpdateTurnStateInput): Promise<void>;
 

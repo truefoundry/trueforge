@@ -10,6 +10,7 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_USER_ROLE_CLAIM: 'groups',
   OIDC_ADMIN_ROLE_VALUE: 'admin',
   OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
+  OIDC_ALLOWED_EMAILS: [],
 };
 
 function user(role: UserContext['role']): UserContext {
