@@ -77,7 +77,7 @@ describe('agents router', () => {
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
     router = createAgentsRouter({
       agentStore: new SqliteAgentStore(db),
-      modelProviderStore,
+      resolveModelProviderStore: () => modelProviderStore,
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),

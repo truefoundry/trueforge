@@ -105,7 +105,7 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  modelProviderStore: IModelProviderStore;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
@@ -117,19 +117,21 @@ export interface TurnsRouterDeps {
   resolveUserContext: ResolveUserContext;
 }
 
-/** Deps needed to create a turn and drain events in-process (no HTTP). */
+/**
+ * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
+ * carries an already-resolved `modelProviderStore` (the scheduler has no request context to resolve one).
+ */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
   | 'activeTurns'
   | 'eventSubscriptions'
-  | 'modelProviderStore'
   | 'mcpServerStore'
   | 'tokenStore'
   | 'skillStore'
   | 'agentStore'
   | 'sandboxProviderStore'
   | 'logger'
->;
+> & { modelProviderStore: IModelProviderStore };
 
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
@@ -161,19 +163,19 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const { providerConfig, defaultModelParams, modelProperties } = await getModelDetails({
+      const resolved = await getModelDetails({
         tenant_id: TENANT_ID,
         name,
         store: modelProviderStore,
       });
       return {
         modelClient: new VercelAILLM({
-          providerConfig,
+          providerConfig: resolved.providerConfig,
           logger,
           signal,
         }),
-        defaultModelParams,
-        modelProperties,
+        defaultModelParams: resolved.defaultModelParams,
+        modelProperties: resolved.modelProperties,
       };
     },
     mcp: async name => {
@@ -672,7 +674,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef,
-      deps,
+      deps: { ...deps, modelProviderStore: deps.resolveModelProviderStore(c) },
     };
 
     try {

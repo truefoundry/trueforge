@@ -79,7 +79,7 @@ describe('sessions HTTP agent binding', () => {
       sessions,
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
-      modelProviderStore,
+      resolveModelProviderStore: () => modelProviderStore,
       mcpServerStore,
       skillStore,
       agentStore,
