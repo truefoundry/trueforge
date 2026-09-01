@@ -3,6 +3,7 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
+import { createInternalMetricsRouter } from '../../../src/apis/sessionMetrics';
 import {
   createInternalSessionsRouter,
   createSessionsRouter,
@@ -16,9 +17,15 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
+import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import {
+  GetSessionMetricsChartDataResponseSchema,
+  GetSessionMetricsChartResponseSchema,
+  GetSessionMetricsMeterResponseSchema,
+} from '../../../src/schemas/sessionMetrics';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -42,6 +49,7 @@ describe('sessions HTTP agent binding', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     sessionStore = new SqliteSessionStore(db);
+    const sessionMetricsStore = new SqliteSessionMetricsStore(db);
     const sessions = new Sessions({ sessionStore });
     const modelProviderStore = new SqliteModelProviderStore(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
@@ -83,6 +91,13 @@ describe('sessions HTTP agent binding', () => {
     };
     app.route('/', createSessionsRouter(deps));
     app.route('/internal/sessions', createInternalSessionsRouter(deps));
+    app.route(
+      '/internal/metrics',
+      createInternalMetricsRouter({
+        sessionMetricsStore,
+        resolveUserContext: deps.resolveUserContext,
+      }),
+    );
   });
 
   it('creates a session from an inline AgentSpec', async () => {
@@ -93,11 +108,13 @@ describe('sessions HTTP agent binding', () => {
         id: string;
         created_by: string;
         agent: { type: 'inline'; spec: { instructions?: string } };
+        metrics: unknown;
       };
     };
     expect(json.data.agent.type).toBe('inline');
     expect(json.data.agent.spec.instructions).toBe('inline');
     expect(json.data.created_by).toBe(LOCAL_USER_CONTEXT.userRef);
+    expect(json.data.metrics).toEqual({ total_cost_in_usd: 0, total_duration_ms: 0, total_turns: 0 });
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -129,6 +146,80 @@ describe('sessions HTTP agent binding', () => {
     };
     expect(listJson.data.every(row => row.agent.id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
+  });
+
+  it('returns caller-scoped metrics for a named agent', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: TENANT_ID,
+      name: 'metrics-agent',
+      manifest: inlineSpec,
+    });
+    await sessionStore.createSession({
+      tenant_id: TENANT_ID,
+      session_id: 'my-metrics-session',
+      created_by: LOCAL_USER_CONTEXT.userRef,
+      agent: { type: 'reference', id: agent.id, name: agent.name },
+      custom: null,
+      external_id: null,
+    });
+    await sessionStore.createSession({
+      tenant_id: TENANT_ID,
+      session_id: 'other-user-metrics-session',
+      created_by: 'someone-else',
+      agent: { type: 'reference', id: agent.id, name: agent.name },
+      custom: null,
+      external_id: null,
+    });
+    const start = new Date(Date.now() - 60 * 60 * 1000);
+    const end = new Date(Date.now() + 60 * 60 * 1000);
+    const query = new URLSearchParams({
+      agent_id: agent.id,
+      start_timestamp: start.toISOString(),
+      end_timestamp: end.toISOString(),
+    });
+
+    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
+
+    expect(response.status).toBe(200);
+    const meters = GetSessionMetricsMeterResponseSchema.parse(await response.json());
+    expect(meters.data.meters).toHaveLength(12);
+    expect(meters.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
+    expect(meters.data.meters.find(meter => meter.name === 'total_turns')?.aggregate_value).toBe(0);
+    expect(meters.data.meters.find(meter => meter.name === 'total_cost_in_usd')?.aggregate_value).toBe(0);
+    expect(meters.data.meters.find(meter => meter.name === 'avg_turns_per_session')?.aggregate_value).toBe(0);
+    expect(meters.data.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(0);
+
+    const sessionsChartResponse = await app.request(
+      `/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
+    );
+    expect(sessionsChartResponse.status).toBe(200);
+    const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
+    expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
+  });
+
+  it('returns the static session metrics charts', async () => {
+    const response = await app.request('/internal/metrics/charts');
+
+    expect(response.status).toBe(200);
+    const payload = GetSessionMetricsChartResponseSchema.parse(await response.json());
+    expect(payload.data.charts).toHaveLength(3);
+    expect(payload.data.charts.map(chart => chart.name)).toEqual([
+      'sessions_over_time',
+      'sessions_cost_over_time',
+      'turns_over_time',
+    ]);
+  });
+
+  it('rejects session metrics windows longer than 30 days', async () => {
+    const query = new URLSearchParams({
+      agent_id: 'agent-1',
+      start_timestamp: '2026-01-01T00:00:00.000Z',
+      end_timestamp: '2026-02-01T00:00:00.000Z',
+    });
+
+    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
+
+    expect(response.status).toBe(400);
   });
 
   it("rejects access to another user's session on get/update/delete/cancel/events and scopes list", async () => {
