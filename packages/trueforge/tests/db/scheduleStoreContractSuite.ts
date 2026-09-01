@@ -514,7 +514,6 @@ export function runScheduleStoreContractSuite(deps: {
       limit: 25,
       page_token: undefined,
       agent_names: [agentA.name],
-      created_by: undefined,
     });
     expect(forA.data.map(row => row.id)).toEqual([newer.schedule.id, older.schedule.id]);
     expect(forA.data.every(row => row.agent_name === agentA.name)).toBe(true);
@@ -525,7 +524,6 @@ export function runScheduleStoreContractSuite(deps: {
       limit: 25,
       page_token: undefined,
       agent_names: [agentB.name],
-      created_by: undefined,
     });
     expect(forB.data.map(row => row.id)).toEqual([otherAgent.schedule.id]);
 
@@ -534,7 +532,6 @@ export function runScheduleStoreContractSuite(deps: {
       limit: 25,
       page_token: undefined,
       agent_names: [agentA.name, agentB.name],
-      created_by: undefined,
     });
     expect(forBoth.data.map(row => row.id)).toEqual([otherAgent.schedule.id, newer.schedule.id, older.schedule.id]);
 
@@ -544,7 +541,6 @@ export function runScheduleStoreContractSuite(deps: {
         limit: 25,
         page_token: undefined,
         agent_names: [],
-        created_by: undefined,
       }),
     ).resolves.toEqual({ data: [], pagination: { limit: 25 } });
 
@@ -553,7 +549,6 @@ export function runScheduleStoreContractSuite(deps: {
       limit: 25,
       page_token: undefined,
       agent_names: undefined,
-      created_by: undefined,
     });
     expect(all.data.map(row => row.id)).toEqual(
       expect.arrayContaining([newer.schedule.id, older.schedule.id, otherAgent.schedule.id]),
@@ -569,7 +564,6 @@ export function runScheduleStoreContractSuite(deps: {
       limit: 2,
       page_token: undefined,
       agent_names: undefined,
-      created_by: undefined,
     });
     expect(page1.data).toHaveLength(2);
     expect(page1.pagination.limit).toBe(2);
@@ -580,7 +574,6 @@ export function runScheduleStoreContractSuite(deps: {
       limit: 2,
       page_token: page1.pagination.next_page_token,
       agent_names: undefined,
-      created_by: undefined,
     });
     expect(page2.data).toHaveLength(1);
     expect(page1.data.map(row => row.id)).not.toContain(page2.data[0]?.id);
