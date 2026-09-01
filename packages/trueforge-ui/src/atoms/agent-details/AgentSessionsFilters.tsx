@@ -100,7 +100,7 @@ export function AgentSessionsFilters({
     const startTs = fromDateTimeLocalValue(fromValue);
     const endTs = fromDateTimeLocalValue(toValue);
     if (startTs == null || endTs == null || startTs >= endTs) return;
-    const minStart = endTs - SESSION_CUSTOM_RANGE_MAX_DAYS * 24 * 60 * 60 * 1000;
+    const minStart = Date.now() - SESSION_CUSTOM_RANGE_MAX_DAYS * 24 * 60 * 60 * 1000;
     const clampedStartTs = Math.max(startTs, minStart);
     if (clampedStartTs >= endTs) return;
     onTimeRangeChange({ startTs: clampedStartTs, endTs });

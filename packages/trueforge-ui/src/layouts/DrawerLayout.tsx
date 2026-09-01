@@ -40,7 +40,6 @@ export function DrawerLayout({ className }: { className?: string }) {
     if (libraryOpen || sessionsOpen) setThreadsOpen(false);
   }, [libraryOpen, sessionsOpen]);
 
-
   useEffect(() => {
     if (!threadsOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
