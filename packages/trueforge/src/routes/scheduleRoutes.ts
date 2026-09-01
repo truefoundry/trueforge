@@ -21,7 +21,10 @@ export const ScheduleIdParamsSchema = z.object({
 
 export const ListSchedulesQuerySchema = z
   .object({
-    agent_name: NameSchema.optional(),
+    agent_names: z.preprocess(
+      val => (val === undefined || val === null || val === '' ? undefined : Array.isArray(val) ? val : [val]),
+      z.array(NameSchema).optional().describe('Filter by one or more agent names.'),
+    ),
   })
   .openapi('ListSchedulesQuery');
 
@@ -30,7 +33,7 @@ export const listSchedulesRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List schedules',
-  description: 'List schedules for the tenant, newest first. Optionally filter by `agent_name`.',
+  description: 'List schedules for the tenant, newest first. Optionally filter by `agent_names`.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list',
   request: {
