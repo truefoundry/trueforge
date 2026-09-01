@@ -44,8 +44,8 @@ COPY packages/trueforge-core/src/core/sandbox/scripts packages/trueforge-core/sr
 
 # ---------------------------------------------------------------------------
 # builder: install all deps (incl. dev) and build trueforge-core + server.
-# The server imports @truefoundry/trueforge-sdk (schedule dispatch), so the SDK
-# must be built before `pnpm --filter @truefoundry/trueforge build` (tsc).
+# SDK dist is copied into the production runner; host-dev/typecheck resolve SDK
+# from src/ via trueforge-dev. Build it here once for the image.
 # ---------------------------------------------------------------------------
 FROM workspace AS builder
 RUN pnpm install --frozen-lockfile --offline --filter @truefoundry/trueforge...
@@ -57,11 +57,12 @@ RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundr
 
 # ---------------------------------------------------------------------------
 # frontend-builder: build the UI the server serves (parallel to builder above).
+# Bundlers read SDK src/ (trueforge-dev); the UI prebuild emits the declarations
+# tsc needs, so this stage never compiles SDK JavaScript.
 # ---------------------------------------------------------------------------
 FROM workspace AS frontend-builder
 RUN pnpm install --frozen-lockfile --offline --filter frontend...
 COPY packages/trueforge-sdk packages/trueforge-sdk
-RUN pnpm --filter @truefoundry/trueforge-sdk build
 COPY packages/trueforge-ui packages/trueforge-ui
 RUN pnpm --filter @truefoundry/trueforge-ui build
 COPY packages/frontend packages/frontend

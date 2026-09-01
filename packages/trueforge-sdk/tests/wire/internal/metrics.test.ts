@@ -130,30 +130,6 @@ describe("MetricsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
-    test("get_chart_data (3)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/internal/metrics/charts-data")
-            .respondWith()
-            .statusCode(404)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.internal.metrics.getChartData({
-                agentId: "x",
-                startTimestamp: new Date("2024-01-15T09:30:00.000Z"),
-                endTimestamp: new Date("2024-01-15T09:30:00.000Z"),
-                chartName: "sessions_over_time",
-            });
-        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
-    });
-
     test("get_meters (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
@@ -212,28 +188,5 @@ describe("MetricsClient", () => {
                 endTimestamp: new Date("2024-01-15T09:30:00.000Z"),
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
-    });
-
-    test("get_meters (3)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .get("/internal/metrics/meters")
-            .respondWith()
-            .statusCode(404)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.internal.metrics.getMeters({
-                agentId: "x",
-                startTimestamp: new Date("2024-01-15T09:30:00.000Z"),
-                endTimestamp: new Date("2024-01-15T09:30:00.000Z"),
-            });
-        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 });

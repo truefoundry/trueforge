@@ -29,6 +29,7 @@
     "postinstall": "pnpm --filter @truefoundry/trueforge-core build:gen",
     "prepare": "husky || true",
     "sdk:generate": "bash scripts/generate-sdk.sh",
+    "sdk:types": "pnpm --filter @truefoundry/trueforge-sdk exec tsc --project ./tsconfig.cjs.json --emitDeclarationOnly --noCheck",
     "smoke:down": "docker compose down",
     "smoke": "docker compose up --build --wait && node -e \"Promise.all([fetch('http://127.0.0.1:8791/healthz'), fetch('http://127.0.0.1:8791/')]).then(async ([health, ui]) => { if (!health.ok) throw new Error('healthz returned ' + health.status); const html = await ui.text(); if (!ui.ok || !html.includes('id=\\\"root\\\"')) throw new Error('UI did not return its app shell'); console.log('healthz and UI OK'); })\"",
     "standalone:dev:no-watch": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge --filter frontend dev:no-watch",

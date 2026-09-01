@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ProxyOptions } from 'vite';
-import { defineConfig } from 'vite';
+import { defaultClientConditions, defineConfig } from 'vite';
 import { compression } from 'vite-plugin-compression2';
 // Maintained ESM fork of vite-plugin-monaco-editor (works with Vite 6 ESM config).
 import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm';
@@ -45,6 +45,9 @@ export default defineConfig({
   ],
   // Single React / assistant-ui Context instance (avoids "requires an AuiProvider").
   resolve: {
+    // Never add 'import'/'require' here: Vite applies those per import kind, and
+    // forcing 'import' makes CJS deps require @babel/runtime's ESM helpers.
+    conditions: ['trueforge-dev', ...defaultClientConditions],
     alias: {
       'truefoundry-gateway-sdk/agents/private': gatewaySdkStub,
       'truefoundry-gateway-sdk/agents': gatewaySdkStub,

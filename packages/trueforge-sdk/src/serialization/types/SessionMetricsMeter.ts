@@ -3,8 +3,8 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { MetricsUnit } from "./MetricsUnit.js";
 import { SessionMetricsMeterName } from "./SessionMetricsMeterName.js";
-import { SessionMetricsMeterUnit } from "./SessionMetricsMeterUnit.js";
 
 export const SessionMetricsMeter: core.serialization.ObjectSchema<
     serializers.SessionMetricsMeter.Raw,
@@ -13,7 +13,7 @@ export const SessionMetricsMeter: core.serialization.ObjectSchema<
     aggregateValue: core.serialization.property("aggregate_value", core.serialization.number()),
     description: core.serialization.string(),
     name: SessionMetricsMeterName,
-    unit: SessionMetricsMeterUnit,
+    unit: MetricsUnit,
 });
 
 export declare namespace SessionMetricsMeter {
@@ -21,6 +21,6 @@ export declare namespace SessionMetricsMeter {
         aggregate_value: number;
         description: string;
         name: SessionMetricsMeterName.Raw;
-        unit: SessionMetricsMeterUnit.Raw;
+        unit: MetricsUnit.Raw;
     }
 }

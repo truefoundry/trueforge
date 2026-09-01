@@ -8,6 +8,10 @@
     "types": "./dist/cjs/index.d.ts",
     "exports": {
         ".": {
+            "trueforge-dev": {
+                "types": "./dist/cjs/index.d.ts",
+                "default": "./src/index.ts"
+            },
             "import": {
                 "types": "./dist/esm/index.d.mts",
                 "default": "./dist/esm/index.mjs"

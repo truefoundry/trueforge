@@ -8,5 +8,5 @@ export interface SessionMetricsGraph {
     displayName: string;
     graphLines: TrueForge.SessionMetricsGraphLine[];
     name: TrueForge.SessionMetricsChartName;
-    unit: TrueForge.SessionMetricsGraphUnit;
+    unit: TrueForge.MetricsUnit;
 }

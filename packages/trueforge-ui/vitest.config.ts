@@ -18,6 +18,10 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    // Vite's client defaults plus trueforge-dev. Never add 'import'/'require':
+    // Vite applies those per import kind, and forcing 'import' makes CJS deps
+    // resolve @babel/runtime's ESM helpers and fail interop at runtime.
+    conditions: ['trueforge-dev', 'module', 'browser', 'development|production'],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@mui/material/styles/styled': '@mui/material/styles/styled.js',
