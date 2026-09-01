@@ -9,7 +9,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteScheduleStore } from '../../../src/db/sqlite/schedule-store/SqliteScheduleStore';
 import {
-  CreateManualScheduleRunResponseSchema,
+  CreateScheduleRunResponseSchema,
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
 } from '../../../src/schemas/schedule';
@@ -80,7 +80,7 @@ async function setup() {
 }
 
 describe('schedule RBAC — creator-scoped, admin sees all', () => {
-  it("hides another user's schedule from get, update, delete, list, and manual run", async () => {
+  it("hides another user's schedule from get, update, delete, list, and run trigger", async () => {
     const { app, asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -233,13 +233,13 @@ describe('schedule list agent_names filter', () => {
   });
 });
 
-describe('manual schedule run', () => {
+describe('create schedule run', () => {
   beforeEach(() => {
     mockedStartScheduleRun.mockReset();
     mockedStartScheduleRun.mockResolvedValue(undefined);
   });
 
-  it('creates a triggered manual-* run and leaves the cron pending run alone', async () => {
+  it('creates a triggered run with a manual-* name and leaves the cron pending run alone', async () => {
     const { asUser, postJson, scheduleStore } = await setup();
 
     asUser(ALICE);
@@ -251,7 +251,7 @@ describe('manual schedule run', () => {
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(201);
-    const body = CreateManualScheduleRunResponseSchema.parse(await res.json());
+    const body = CreateScheduleRunResponseSchema.parse(await res.json());
     expect(body.data).toEqual(
       expect.objectContaining({
         schedule_id: scheduleId,
@@ -289,7 +289,7 @@ describe('manual schedule run', () => {
     asUser(ADMIN);
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(201);
-    const body = CreateManualScheduleRunResponseSchema.parse(await res.json());
+    const body = CreateScheduleRunResponseSchema.parse(await res.json());
     expect(body.data.triggered_by).toBe('root');
     expect(mockedStartScheduleRun).toHaveBeenCalled();
   });
@@ -307,7 +307,7 @@ describe('manual schedule run', () => {
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
 
     const runs = await scheduleStore.listRuns({ tenant_id: TENANT_ID, schedule_id: scheduleId });
-    const manual = runs.find(r => r.name.startsWith('manual-'));
-    expect(manual?.status).toBe('failed');
+    const runNow = runs.find(r => r.name.startsWith('manual-'));
+    expect(runNow?.status).toBe('failed');
   });
 });

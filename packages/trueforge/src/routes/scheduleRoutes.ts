@@ -6,9 +6,9 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { NameSchema, PAGE_LIMIT, parseCommaSeparatedQuery } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
-  CreateManualScheduleRunRequestSchema,
-  CreateManualScheduleRunResponseSchema,
   CreateScheduleRequestSchema,
+  CreateScheduleRunRequestSchema,
+  CreateScheduleRunResponseSchema,
   DeleteScheduleResponseSchema,
   GetScheduleResponseSchema,
   ListScheduleRunsResponseSchema,
@@ -102,25 +102,25 @@ export const listScheduleRunsRoute = createRoute({
   },
 });
 
-export const createManualScheduleRunRoute = createRoute({
+export const createScheduleRunRoute = createRoute({
   method: 'post',
   path: '/runs',
   tags: [OpenApiTag.SCHEDULES],
-  summary: 'Trigger a manual schedule run',
+  summary: 'Trigger a schedule run',
   description:
-    'Start a schedule run immediately (run-now) using the schedule task. Does not replace or advance the cron pending run.',
+    'Start a schedule run immediately using the schedule task. Does not replace or advance the cron pending run.',
   'x-fern-sdk-group-name': ['schedules'],
-  'x-fern-sdk-method-name': 'create_manual_run',
+  'x-fern-sdk-method-name': 'create_run',
   request: {
     body: {
-      content: { 'application/json': { schema: CreateManualScheduleRunRequestSchema } },
+      content: { 'application/json': { schema: CreateScheduleRunRequestSchema } },
       required: true,
     },
   },
   responses: {
     201: {
-      content: { 'application/json': { schema: CreateManualScheduleRunResponseSchema } },
-      description: 'Manual run created.',
+      content: { 'application/json': { schema: CreateScheduleRunResponseSchema } },
+      description: 'Run created.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

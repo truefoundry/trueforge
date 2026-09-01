@@ -17,8 +17,8 @@ import {
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import {
-  createManualScheduleRunRoute,
   createScheduleRoute,
+  createScheduleRunRoute,
   deleteScheduleRoute,
   getScheduleRoute,
   listScheduleRunsRoute,
@@ -150,7 +150,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     return c.json({ data: records.map(toWireScheduleRun) }, 200);
   };
 
-  const createManualRunHandler: RouteHandler<typeof createManualScheduleRunRoute> = async c => {
+  const createScheduleRunHandler: RouteHandler<typeof createScheduleRunRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('json');
     const user = deps.resolveUserContext(c);
 
@@ -334,7 +334,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
   const router = new OpenAPIHono();
   router.openapi(listSchedulesRoute, listHandler);
   router.openapi(listScheduleRunsRoute, listRunsHandler);
-  router.openapi(createManualScheduleRunRoute, createManualRunHandler);
+  router.openapi(createScheduleRunRoute, createScheduleRunHandler);
   router.openapi(createScheduleRoute, createHandler);
   router.openapi(getScheduleRoute, getHandler);
   router.openapi(putScheduleRoute, putHandler);
