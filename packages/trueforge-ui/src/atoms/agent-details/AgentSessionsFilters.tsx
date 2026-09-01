@@ -31,6 +31,7 @@ export type AgentSessionsFiltersProps = {
   onAgentChange: (agentId: string | null) => void;
   onTimeRangeChange: (range: SessionTimeRange) => void;
   showAgentFilter?: boolean;
+  showCustomTimeRange?: boolean;
 };
 
 export function AgentSessionsFilters({
@@ -39,6 +40,7 @@ export function AgentSessionsFilters({
   onAgentChange,
   onTimeRangeChange,
   showAgentFilter = true,
+  showCustomTimeRange = true,
 }: AgentSessionsFiltersProps) {
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
@@ -98,7 +100,7 @@ export function AgentSessionsFilters({
     const startTs = fromDateTimeLocalValue(fromValue);
     const endTs = fromDateTimeLocalValue(toValue);
     if (startTs == null || endTs == null || startTs >= endTs) return;
-    const minStart = Date.now() - SESSION_CUSTOM_RANGE_MAX_DAYS * 24 * 60 * 60 * 1000;
+    const minStart = endTs - SESSION_CUSTOM_RANGE_MAX_DAYS * 24 * 60 * 60 * 1000;
     const clampedStartTs = Math.max(startTs, minStart);
     if (clampedStartTs >= endTs) return;
     onTimeRangeChange({ startTs: clampedStartTs, endTs });
@@ -183,18 +185,20 @@ export function AgentSessionsFilters({
               </div>
             ) : null}
             <div className="flex max-h-80 w-44 shrink-0 flex-col overflow-y-auto py-1" role="listbox">
-              <button
-                type="button"
-                className={cn(
-                  'px-3 py-2 text-left text-xs',
-                  timeRange.timeWindowMs == null
-                    ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-                    : 'text-text-primary hover:bg-ghost-button-hover',
-                )}
-                onClick={() => setCustomPickerOpen(true)}
-              >
-                Custom Time Range
-              </button>
+              {showCustomTimeRange ? (
+                <button
+                  type="button"
+                  className={cn(
+                    'px-3 py-2 text-left text-xs',
+                    timeRange.timeWindowMs == null
+                      ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                      : 'text-text-primary hover:bg-ghost-button-hover',
+                  )}
+                  onClick={() => setCustomPickerOpen(true)}
+                >
+                  Custom Time Range
+                </button>
+              ) : null}
               {SESSION_TIME_PRESETS.map(preset => (
                 <button
                   key={preset.windowMs}

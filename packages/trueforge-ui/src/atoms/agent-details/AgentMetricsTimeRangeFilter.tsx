@@ -13,6 +13,7 @@ export function AgentMetricsTimeRangeFilter({ timeRange, onTimeRangeChange }: Ag
       onAgentChange={() => undefined}
       onTimeRangeChange={onTimeRangeChange}
       showAgentFilter={false}
+      showCustomTimeRange={false}
     />
   );
 }
