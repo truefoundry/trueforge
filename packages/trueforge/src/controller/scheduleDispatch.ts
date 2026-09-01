@@ -1,3 +1,4 @@
+import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
 import {
   cronRunName,
@@ -30,6 +31,34 @@ const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 
 /** The loop's name. */
 const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
+
+type ScheduleRunApiClient = Pick<TrueForge, 'sessions' | 'internal'>;
+
+/**
+ * Hands a due schedule run to the API:
+ * 1. Get or create a session keyed by `run.id`.
+ * 2. Create a non-streaming turn only when that session has no turns.
+ *
+ * This call is hence idempotent.
+ */
+function executeScheduledRun(client: ScheduleRunApiClient): (item: ScheduleDispatchItem) => Promise<void> {
+  return async ({ run, schedule }) => {
+    const { data: session } = await client.internal.sessions.getOrCreateByExternalId({
+      externalId: run.id,
+      agent: { name: schedule.agent_name },
+    });
+
+    const turns = await client.sessions.listTurns(session.id, { limit: 1 });
+    if (turns.data.length > 0) {
+      return;
+    }
+
+    await client.sessions.createTurn(session.id, {
+      input: [{ type: 'user.message', content: schedule.manifest.task }],
+      previousTurnId: 'none',
+    });
+  };
+}
 
 /**
  * Mark the current run with `status`, then add the schedule's next scheduled run
@@ -113,7 +142,7 @@ async function finishScheduledRun<TTransaction>(params: {
  *
  * - **pause**: drops the pending run in its own transaction, and stops the advance.
  *   It never cancels a row that still exists: whatever pause did not delete is
- *   executed (or recorded `missed`) so history has no unexplained gap.
+ *   executed (and recorded `triggered` or `failed`) so history has no unexplained gap.
  *   If pause commits first, the row is gone and there is nothing to run.
  *   If dispatch commits first, the run triggers and pause deletes the pending row
  *   dispatch just added, so triggering stops from the next tick — at most one extra run.
@@ -202,41 +231,20 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
   return { dispatched, failed };
 }
 
-/**
- * Stand-in until the run executor lands: records the hand-off and drops it.
- *
- * Called before the row is marked `triggered`; if nothing commits afterward the
- * same scheduled row will be offered again on the next pass.
- *
- * TODO(executor): replace with the real executor. Note it runs in the controller's
- * process, so the dedicated deployment will need everything a turn needs — model
- * provider credentials, MCP egress, sandbox access — not just database reach.
- */
-export function logTriggeredRun(logger: Logger): (item: ScheduleDispatchItem) => void | Promise<void> {
-  return item => {
-    logger.warn('Schedule run triggered but no executor is configured; run will not execute', {
-      schedule_id: item.schedule.id,
-      run_id: item.run.id,
-      agent_name: item.schedule.agent_name,
-      scheduled_for: item.run.scheduled_for,
-    });
-  };
-}
-
-export function createScheduleDispatchLoop<TTransaction>(params: {
+export function scheduleDispatchLoop<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
-  onTriggered: (item: ScheduleDispatchItem) => void | Promise<void>;
+  client: ScheduleRunApiClient;
   logger: Logger;
   withTransaction: WithTransaction<TTransaction>;
 }): ControlLoop {
-  const { scheduleStore, withTransaction, onTriggered, logger } = params;
+  const { scheduleStore, client, withTransaction, logger } = params;
   return {
     name: SCHEDULE_DISPATCH_LOOP_NAME,
     intervalMs: SCHEDULE_DISPATCH_INTERVAL_MS,
     async tick(signal: AbortSignal): Promise<void> {
       const result = await dispatchScheduledRuns({
         store: scheduleStore,
-        onTriggered,
+        onTriggered: executeScheduledRun(client),
         logger,
         withTransaction,
         signal,

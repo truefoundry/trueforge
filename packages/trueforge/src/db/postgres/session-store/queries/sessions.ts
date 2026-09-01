@@ -19,6 +19,7 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { SESSION_EXTERNAL_ID_UQ } from '../../../indexes';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isPgConstraint, isUniqueViolation } from '../../client';
 import { json } from '../../sqlExpressions';
@@ -107,7 +108,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
-      if (isPgConstraint(error, 'session_external_id_uq') && input.external_id) {
+      if (isPgConstraint(error, SESSION_EXTERNAL_ID_UQ) && input.external_id) {
         throw new SessionExternalIdConflictError(input.external_id, { cause: error });
       }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });

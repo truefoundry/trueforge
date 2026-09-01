@@ -6,7 +6,7 @@
  *
  * The controller runs in exactly ONE process per database. In standalone mode that is
  * the server itself; when `STANDALONE=false` it is the dedicated single-replica
- * process in `src/controller.ts`. Loops are written assuming this.
+ * process. Loops are written assuming this.
  */
 import type { Logger } from 'winston';
 

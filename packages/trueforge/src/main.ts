@@ -51,8 +51,7 @@ import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
-import { Controller } from './controller/Controller';
-import { createScheduleDispatchLoop, logTriggeredRun } from './controller/scheduleDispatch';
+import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -233,16 +232,11 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
-    ? new Controller({
-        loops: [
-          createScheduleDispatchLoop({
-            scheduleStore,
-            withTransaction,
-            onTriggered: logTriggeredRun(logger),
-            logger,
-          }),
-        ],
+    ? createController({
+        scheduleStore,
+        withTransaction,
         logger,
+        baseUrl: `http://localhost:${String(configuration.PORT)}`,
       })
     : undefined;
 
@@ -268,8 +262,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     logger,
     oidcClient,
   });
-
-  controller?.start();
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
 }
@@ -353,6 +345,8 @@ try {
 
   const server = serve({ fetch: app.fetch, port: configuration.PORT, hostname: configuration.HOST }, info => {
     logger.info(`Agent server listening on http://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`);
+    // The controller calls this server over HTTP.
+    controller?.start();
   });
 
   server.on('error', (error: unknown) => {
