@@ -6,34 +6,31 @@ import { createHarnessAgentSessionsServer } from '@/plugins/trueforge-agent-serv
 
 describe('createHarnessAgentSessionsServer', () => {
   it('maps agent details and code snippets to the UI contract', async () => {
-    const request: typeof fetch = async input => {
-      const url = String(input);
-      if (url.endsWith('/code-snippets')) {
-        return Response.json({
-          data: {
-            base_url: 'https://trueforge.example',
-            snippets: [
-              {
-                label_name: 'TypeScript',
-                language: 'typescript',
-                icon: 'https://assets.example/typescript.svg',
-                sample_code: { stream: 'stream()', non_stream: 'run()' },
-              },
-            ],
+    const get = vi.fn(async () => ({
+      data: {
+        id: 'agent-1',
+        name: 'writer',
+        manifest: { model: { name: 'openai/gpt-5' }, instructions: 'Write.' },
+      },
+    }));
+    const getCodeSnippets = vi.fn(async () => ({
+      data: {
+        baseUrl: 'https://trueforge.example',
+        snippets: [
+          {
+            labelName: 'TypeScript',
+            language: 'typescript',
+            icon: 'https://assets.example/typescript.svg',
+            sampleCode: { stream: 'stream()', nonStream: 'run()' },
           },
-        });
-      }
-      return Response.json({
-        data: {
-          id: 'agent-1',
-          name: 'writer',
-          manifest: { model: { name: 'openai/gpt-5' }, instructions: 'Write.' },
-        },
-      });
-    };
+        ],
+      },
+    }));
     const server = createHarnessAgentSessionsServer({
-      baseUrl: 'https://trueforge.example',
-      fetch: request,
+      client: {
+        agents: { get },
+        internal: { agents: { getCodeSnippets } },
+      } as unknown as TrueForge,
     });
 
     assert.deepEqual(await server.getAgent({ agentId: 'agent-1' }), {
@@ -49,28 +46,8 @@ describe('createHarnessAgentSessionsServer', () => {
         sampleCode: { stream: 'stream()', nonStream: 'run()' },
       },
     ]);
-  });
-
-  it('forwards bearer auth when code snippets use the default relative base URL', async () => {
-    const request = vi.fn<typeof fetch>(async () =>
-      Response.json({
-        data: {
-          snippets: [
-            {
-              label_name: 'Python',
-              language: 'python',
-              sample_code: { stream: 'stream()', non_stream: 'run()' },
-            },
-          ],
-        },
-      }),
-    );
-    const server = createHarnessAgentSessionsServer({ baseUrl: '/', token: 'test-token', fetch: request });
-
-    await server.getCodeSnippets({ agentId: 'agent/1' });
-
-    const init = request.mock.calls[0]?.[1];
-    assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer test-token');
+    assert.deepEqual(get.mock.calls[0], ['agent-1']);
+    assert.deepEqual(getCodeSnippets.mock.calls[0], ['agent-1']);
   });
 
   it('maps listSessions and listSessionEvents onto the UI contract', async () => {

@@ -1,5 +1,5 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { AgentSessionsServer, CodeSnippet, SessionListEntry } from '../../server/types.js';
+import type { AgentSessionsServer, SessionListEntry } from '../../server/types.js';
 import { toListResult, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { toUiEventItem } from './toUiTurnState.js';
@@ -8,32 +8,6 @@ import type { HarnessAgentSpec } from './types.js';
 export type CreateHarnessAgentSessionsServerOptions = CreateTrueForgeClientOptions & {
   client?: TrueForge;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value != null;
-}
-
-function parseSnippet(value: unknown): CodeSnippet | null {
-  if (!isRecord(value) || !isRecord(value.sample_code)) return null;
-  const { label_name: labelName, language, icon, sample_code: sampleCode } = value;
-  if (
-    typeof labelName !== 'string' ||
-    typeof language !== 'string' ||
-    typeof sampleCode.stream !== 'string' ||
-    typeof sampleCode.non_stream !== 'string'
-  ) {
-    return null;
-  }
-  return {
-    labelName,
-    language,
-    ...(typeof icon === 'string' ? { icon } : {}),
-    sampleCode: {
-      stream: sampleCode.stream,
-      nonStream: sampleCode.non_stream,
-    },
-  };
-}
 
 function toIsoDate(value: string): Date {
   const date = new Date(value);
@@ -78,18 +52,8 @@ export function createHarnessAgentSessionsServer(
       };
     },
     async getCodeSnippets({ agentId }) {
-      const response = await client.fetch(
-        `api/v1/agents/${encodeURIComponent(agentId)}/code-snippets`,
-        options.token === undefined ? undefined : { headers: { Authorization: `Bearer ${options.token}` } },
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to load agent code snippets (${response.status}).`);
-      }
-      const body: unknown = await response.json();
-      if (!isRecord(body) || !isRecord(body.data) || !Array.isArray(body.data.snippets)) {
-        throw new Error('Agent code snippets response is invalid.');
-      }
-      return body.data.snippets.map(parseSnippet).filter(snippet => snippet != null);
+      const { data } = await client.internal.agents.getCodeSnippets(agentId);
+      return data.snippets;
     },
     async listSessions(requestParams = {}) {
       const page = await client.sessions.list({
