@@ -30,6 +30,7 @@ export type AgentSessionsFiltersProps = {
   timeRange: SessionTimeRange;
   onAgentChange: (agentId: string | null) => void;
   onTimeRangeChange: (range: SessionTimeRange) => void;
+  showAgentFilter?: boolean;
 };
 
 export function AgentSessionsFilters({
@@ -37,6 +38,7 @@ export function AgentSessionsFilters({
   timeRange,
   onAgentChange,
   onTimeRangeChange,
+  showAgentFilter = true,
 }: AgentSessionsFiltersProps) {
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
@@ -48,7 +50,7 @@ export function AgentSessionsFilters({
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (server == null) return undefined;
+    if (!showAgentFilter || server == null) return undefined;
     let cancelled = false;
     void searchAllAgents(server).then(
       rows => {
@@ -59,7 +61,7 @@ export function AgentSessionsFilters({
     return () => {
       cancelled = true;
     };
-  }, [server, shell?.agentsListEpoch]);
+  }, [server, shell?.agentsListEpoch, showAgentFilter]);
 
   useEffect(() => {
     setFromValue(toDateTimeLocalValue(timeRange.startTs));
@@ -106,25 +108,27 @@ export function AgentSessionsFilters({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <label className="flex items-center gap-1 text-xs text-text-secondary">
-        Agents
-        <select
-          aria-label="Filter sessions by agent"
-          className="h-8 max-w-36 rounded-md border border-border bg-primary-bg px-2 text-xs text-text-primary"
-          value={agentId ?? ''}
-          onChange={event => onAgentChange(event.target.value.length === 0 ? null : event.target.value)}
-        >
-          <option value="">All</option>
-          {agents.map(agent => {
-            const id = agent.agentId ?? agent.name;
-            return (
-              <option key={id} value={id}>
-                {agent.name}
-              </option>
-            );
-          })}
-        </select>
-      </label>
+      {showAgentFilter ? (
+        <label className="flex items-center gap-1 text-xs text-text-secondary">
+          Agents
+          <select
+            aria-label="Filter sessions by agent"
+            className="h-8 max-w-36 rounded-md border border-border bg-primary-bg px-2 text-xs text-text-primary"
+            value={agentId ?? ''}
+            onChange={event => onAgentChange(event.target.value.length === 0 ? null : event.target.value)}
+          >
+            <option value="">All</option>
+            {agents.map(agent => {
+              const id = agent.agentId ?? agent.name;
+              return (
+                <option key={id} value={id}>
+                  {agent.name}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+      ) : null}
       <div className="relative" ref={popoverRef}>
         <button
           type="button"

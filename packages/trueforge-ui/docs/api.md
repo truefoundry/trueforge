@@ -44,6 +44,13 @@ import { createTrueForgeAgentUIServer } from '@truefoundry/trueforge-ui/plugins/
 const server = createTrueForgeAgentUIServer({ baseUrl: '/', token });
 ```
 
+The Harness factory includes the optional `AgentMetricsServer` port used by the
+agent-detail Metrics tab. Custom servers can provide `metrics` with
+`getCharts`, `getMeters`, and `getChartData`; access it with
+`useAgentMetricsServer` / `useOptionalAgentMetricsServer`. The default visual
+surface is split across the `AgentMetrics`, `AgentMetricsView`,
+`AgentMetricsTimeRangeFilter`, `AgentMetricCard`, and `AgentMetricChart` slots.
+
 ## Compose
 
 | Export                                                        | Notes                           |

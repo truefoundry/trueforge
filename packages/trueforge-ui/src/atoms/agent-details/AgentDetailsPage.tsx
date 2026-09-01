@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
-import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
+import { useOptionalAgentMetricsServer, useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -12,15 +12,18 @@ import type { AgentDetailsPageProps } from './types.js';
 
 export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
+  const metricsServer = useOptionalAgentMetricsServer();
   const shell = useShellMode();
   const share = useSessionShareSearch();
   const { updateShareSearch } = share;
-  const activeTab = libraryAgentTabFromSearch(share, agentId);
+  const requestedTab = libraryAgentTabFromSearch(share, agentId);
+  const activeTab = requestedTab === 'metrics' && metricsServer == null ? 'overview' : requestedTab;
   const AgentDetailsHeader = useSlot('AgentDetailsHeader');
   const AgentDetailsTabs = useSlot('AgentDetailsTabs');
   const AgentDetailsUnavailable = useSlot('AgentDetailsUnavailable');
   const AgentOverview = useSlot('AgentOverview');
   const AgentSessions = useSlot('AgentSessions');
+  const AgentMetrics = useSlot('AgentMetrics');
   const AgentCodeSnippets = useSlot('AgentCodeSnippets');
   const [detail, setDetail] = useState<AgentDetail>();
   const [detailFailed, setDetailFailed] = useState(false);
@@ -109,6 +112,8 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
     content = <AgentOverview detail={detail} />;
   } else if (activeTab === 'sessions') {
     content = <AgentSessions agentId={agentId} />;
+  } else if (activeTab === 'metrics') {
+    content = <AgentMetrics agentId={agentId} />;
   } else if (snippetsFailed) {
     content = <AgentDetailsUnavailable onBack={goBack} reason="Code samples for this agent could not be loaded." />;
   } else if (snippets === undefined) {
@@ -128,6 +133,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
       {sessionsServer != null && !detailFailed ? (
         <AgentDetailsTabs
           activeTab={activeTab}
+          showMetrics={metricsServer != null}
           onTabChange={tab =>
             updateShareSearch({
               agentId,

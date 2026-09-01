@@ -1,21 +1,13 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { AgentSessionsServer, SessionListEntry } from '../../server/types.js';
 import { toListResult, toUiAgentSpec } from './chatServer.js';
-import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { createTrueForgeClient, parseIsoDate, type CreateTrueForgeClientOptions } from './client.js';
 import { toUiEventItem } from './toUiTurnState.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export type CreateHarnessAgentSessionsServerOptions = CreateTrueForgeClientOptions & {
   client?: TrueForge;
 };
-
-function toIsoDate(value: string): Date {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`Invalid ISO timestamp: ${value}`);
-  }
-  return date;
-}
 
 function toSessionListEntry(session: TrueForgeApi.Session): SessionListEntry<HarnessAgentSpec> {
   return {
@@ -62,8 +54,8 @@ export function createHarnessAgentSessionsServer(
         ...(requestParams.pageToken === undefined ? {} : { pageToken: requestParams.pageToken }),
         ...(requestParams.startTimestamp === undefined
           ? {}
-          : { startTimestamp: toIsoDate(requestParams.startTimestamp) }),
-        ...(requestParams.endTimestamp === undefined ? {} : { endTimestamp: toIsoDate(requestParams.endTimestamp) }),
+          : { startTimestamp: parseIsoDate(requestParams.startTimestamp) }),
+        ...(requestParams.endTimestamp === undefined ? {} : { endTimestamp: parseIsoDate(requestParams.endTimestamp) }),
         ...(requestParams.agentId === undefined || requestParams.agentId.length === 0
           ? {}
           : { agentId: requestParams.agentId }),
