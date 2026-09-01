@@ -353,4 +353,74 @@ describe('AgentsLibraryButton', () => {
     expect(screen.getByRole('button', { name: 'Agents Library' })).toBeInTheDocument();
     expect(searchAgents).not.toHaveBeenCalled();
   });
+
+  it('shows a schedules count badge for visible agents and opens schedules on click', async () => {
+    const listSchedules = vi.fn(async () => ({
+      data: [
+        {
+          id: 's1',
+          name: 'job-a',
+          agentId: 'alpha-agent',
+          agentName: 'alpha-agent',
+          task: 't',
+          cron: '0 9 * * *',
+          timezone: 'UTC',
+          status: 'paused' as const,
+          lastRunAt: null,
+        },
+        {
+          id: 's2',
+          name: 'job-b',
+          agentId: 'alpha-agent',
+          agentName: 'alpha-agent',
+          task: 't',
+          cron: '0 10 * * *',
+          timezone: 'UTC',
+          status: 'active' as const,
+          lastRunAt: null,
+        },
+      ],
+    }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        { name: 'alpha-agent', agentId: 'alpha-agent' },
+        { name: 'beta-agent', agentId: 'beta-agent' },
+      ]),
+      schedules: {
+        listSchedules,
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+      },
+    });
+
+    function SchedulesOpenProbe() {
+      const shell = useShellMode();
+      return <output data-testid="schedules-open">{shell.schedulesOpen ? 'yes' : 'no'}</output>;
+    }
+
+    renderLibrary(
+      <LibraryHarness>
+        <SchedulesOpenProbe />
+      </LibraryHarness>,
+      { server },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await waitFor(() => {
+      expect(listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['alpha-agent', 'beta-agent'], limit: 25 }),
+      );
+    });
+
+    const badge = await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
+    expect(badge).toHaveTextContent('2');
+    expect(screen.queryByRole('button', { name: /schedules for beta-agent/ })).not.toBeInTheDocument();
+
+    fireEvent.click(badge);
+    expect(screen.getByTestId('schedules-open')).toHaveTextContent('yes');
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
+    expect(new URL(window.location.href).searchParams.get('agentId')).toBeNull();
+  });
 });

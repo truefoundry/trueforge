@@ -4,12 +4,17 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   CreateScheduleRequest,
+  ListResult,
   ListSchedulesParams,
   Schedule,
   ScheduleServer,
   ScheduleStatus,
   UpdateScheduleRequest,
 } from '../../../server/types.js';
+import { toListResult } from '../chatServer.js';
+
+/** Matches API PAGE_LIMIT for schedules list. */
+const SCHEDULES_PAGE_LIMIT = 25;
 
 type AgentIndex = {
   idToName: ReadonlyMap<string, string>;
@@ -32,6 +37,17 @@ function resolveAgentName(agentId: string, index: AgentIndex): string {
   if (byId != null) return byId;
   if (index.nameToId.has(agentId)) return agentId;
   throw new Error(`Unknown agent: ${agentId}`);
+}
+
+function collectAgentIds(req?: ListSchedulesParams): string[] {
+  const ids: string[] = [];
+  if (req?.agentIds != null) {
+    for (const id of req.agentIds) {
+      if (id !== '') ids.push(id);
+    }
+  }
+  if (req?.agentId != null && req.agentId !== '') ids.push(req.agentId);
+  return [...new Set(ids)];
 }
 
 function wireStatus(manifest: TrueForgeApi.ScheduleManifest): ScheduleStatus {
@@ -71,11 +87,17 @@ export function createScheduleServer(options: { client: TrueForge }): ScheduleSe
   const { client } = options;
 
   return {
-    async listSchedules(req?: ListSchedulesParams): Promise<Schedule[]> {
+    async listSchedules(req?: ListSchedulesParams): Promise<ListResult<Schedule>> {
       const index = await loadAgentIndex(client);
-      const agentName = req?.agentId != null && req.agentId !== '' ? resolveAgentName(req.agentId, index) : undefined;
-      const { data } = await client.schedules.list(agentName === undefined ? {} : { agentName });
-      return data.map(row => toUiSchedule(row, index));
+      const agentIds = collectAgentIds(req);
+      const agentNames = agentIds.length === 0 ? undefined : agentIds.map(id => resolveAgentName(id, index)).join(',');
+      const limit = Math.min(Math.max(req?.limit ?? SCHEDULES_PAGE_LIMIT, 1), SCHEDULES_PAGE_LIMIT);
+      const page = await client.schedules.list({
+        limit,
+        ...(req?.pageToken === undefined || req.pageToken === '' ? {} : { pageToken: req.pageToken }),
+        ...(agentNames === undefined ? {} : { agentNames }),
+      });
+      return toListResult(page, row => toUiSchedule(row, index));
     },
 
     async getSchedule({ id }): Promise<Schedule> {

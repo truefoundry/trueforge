@@ -4,11 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
+import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
-import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
+import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { writeScheduleShareSearch } from '../utils/scheduleShareUrl.js';
+import { writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
+import { cn } from './lib/cn.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { DropdownMenu, DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
@@ -20,9 +23,16 @@ export type AgentsLibraryProps = {
   onSelectAgent?: (agentName: string) => void;
 };
 
+export type AgentScheduleSummary = {
+  count: number;
+  hasPaused: boolean;
+};
+
 export type AgentLibraryRowProps = {
   agent: AgentLibraryEntry;
   showEdit: boolean;
+  scheduleSummary?: AgentScheduleSummary | null;
+  onOpenSchedules?: () => void;
   onOpen?: () => void;
   onTry: () => void;
   onEdit: () => void;
@@ -38,7 +48,45 @@ function mountName(mount: object): string | null {
   return 'name' in mount && typeof mount.name === 'string' ? mount.name : null;
 }
 
-export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: AgentLibraryRowProps) {
+function AgentSchedulesBadge({
+  summary,
+  agentName,
+  onOpen,
+}: {
+  summary: AgentScheduleSummary;
+  agentName: string;
+  onOpen?: () => void;
+}) {
+  if (summary.count === 0) return null;
+  const warning = summary.hasPaused;
+  return (
+    <button
+      type="button"
+      aria-label={`${String(summary.count)} schedules for ${agentName}${warning ? ' (has paused)' : ''}`}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
+        warning
+          ? 'border-amber-600/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+          : 'border-border bg-secondary-bg text-text-secondary',
+      )}
+      onClick={onOpen}
+    >
+      <Icon name="calendar-clock" className="size-3.5 shrink-0" />
+      <span>{summary.count}</span>
+      {warning ? <Icon name="triangle-exclamation" className="size-3.5 shrink-0" /> : null}
+    </button>
+  );
+}
+
+export function AgentLibraryRow({
+  agent,
+  showEdit,
+  scheduleSummary,
+  onOpenSchedules,
+  onOpen,
+  onTry,
+  onEdit,
+}: AgentLibraryRowProps) {
   const spec = agent.agentSpec;
   const modelName = spec?.model.name;
   const skillsCount = spec?.skills?.length ?? 0;
@@ -102,6 +150,13 @@ export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: Agen
       <TableCell className="max-w-md">
         <span className="block truncate">{spec?.description?.trim() || 'No description'}</span>
       </TableCell>
+      {scheduleSummary !== undefined ? (
+        <TableCell>
+          {scheduleSummary != null ? (
+            <AgentSchedulesBadge summary={scheduleSummary} agentName={agent.name} onOpen={onOpenSchedules} />
+          ) : null}
+        </TableCell>
+      ) : null}
       <TableCell className="w-px">
         <div className="flex items-center justify-end gap-1.5">
           <button
@@ -141,16 +196,58 @@ export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: Agen
   );
 }
 
+function summarizeSchedulesByAgent(schedules: readonly Schedule[]): Map<string, AgentScheduleSummary> {
+  const map = new Map<string, AgentScheduleSummary>();
+  for (const schedule of schedules) {
+    const id = schedule.agentId;
+    const prev = map.get(id) ?? { count: 0, hasPaused: false };
+    const next = {
+      count: prev.count + 1,
+      hasPaused: prev.hasPaused || schedule.status === 'paused',
+    };
+    map.set(id, next);
+    if (schedule.agentName != null && schedule.agentName !== '' && schedule.agentName !== id) {
+      map.set(schedule.agentName, next);
+    }
+  }
+  return map;
+}
+
+async function listAllSchedulesForAgents({
+  listSchedules,
+  agentIds,
+}: {
+  listSchedules: NonNullable<ReturnType<typeof useOptionalScheduleServer>>['listSchedules'];
+  agentIds: string[];
+}): Promise<Schedule[]> {
+  if (agentIds.length === 0) return [];
+  const rows: Schedule[] = [];
+  let pageToken: string | undefined;
+  do {
+    const page = await listSchedules({
+      agentIds,
+      limit: 25,
+      ...(pageToken === undefined ? {} : { pageToken }),
+    });
+    rows.push(...page.data);
+    pageToken = page.nextPageToken;
+  } while (pageToken != null && pageToken !== '');
+  return rows;
+}
+
 export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const shell = useShellMode();
   const { updateShareSearch } = useSessionShareSearch();
   const sessionsServer = useOptionalAgentSessionsServer();
+  const scheduleServer = useOptionalScheduleServer();
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
   const [query, setQuery] = useState('');
+  const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary>>(new Map());
   const open = shell.libraryOpen;
 
   const canEdit = shell.isComposerEnabled === true;
   const agentsListEpoch = shell.agentsListEpoch;
+  const showSchedulesColumn = scheduleServer != null;
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -178,6 +275,40 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       query,
       refreshKey: agentsListEpoch,
     });
+
+  useEffect(() => {
+    if (!open || scheduleServer == null || agents.length === 0) {
+      setScheduleByAgent(new Map());
+      return;
+    }
+    let cancelled = false;
+    const agentIds = agents.map(libraryAgentId);
+    void listAllSchedulesForAgents({ listSchedules: scheduleServer.listSchedules, agentIds })
+      .then(rows => {
+        if (!cancelled) setScheduleByAgent(summarizeSchedulesByAgent(rows));
+      })
+      .catch(() => {
+        if (!cancelled) setScheduleByAgent(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agents, open, scheduleServer, agentsListEpoch]);
+
+  const openSchedulesForAgent = (agentId: string) => {
+    const url = new URL(window.location.href);
+    writeSessionShareSearch(url.searchParams, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    writeScheduleShareSearch(url.searchParams, { agent: agentId, status: null, q: null });
+    window.history.replaceState(window.history.state, '', url);
+    shell.setLibraryOpen(false);
+    shell.setSchedulesOpen(true);
+  };
 
   const handleTry = (agent: AgentLibraryEntry) => {
     closeLibrary();
@@ -243,6 +374,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[36%]">Agent name</TableHead>
                       <TableHead>Description</TableHead>
+                      {showSchedulesColumn ? <TableHead className="w-[8rem]">Schedules</TableHead> : null}
                       <TableHead className="w-px">
                         <span className="sr-only">Actions</span>
                       </TableHead>
@@ -252,12 +384,22 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     {agents.map(agent => {
                       const agentSpec = agent.agentSpec;
                       const agentId = agent.agentId;
+                      const id = libraryAgentId(agent);
                       const showEdit = canEdit && agentSpec != null;
+                      const summary = showSchedulesColumn
+                        ? (scheduleByAgent.get(id) ?? scheduleByAgent.get(agent.name) ?? { count: 0, hasPaused: false })
+                        : undefined;
                       return (
                         <SlottedAgentLibraryRow
-                          key={libraryAgentId(agent)}
+                          key={id}
                           agent={agent}
                           showEdit={showEdit}
+                          {...(summary !== undefined ? { scheduleSummary: summary } : {})}
+                          {...(showSchedulesColumn
+                            ? {
+                                onOpenSchedules: () => openSchedulesForAgent(id),
+                              }
+                            : {})}
                           {...(sessionsServer != null && agentId != null
                             ? {
                                 onOpen: () => {

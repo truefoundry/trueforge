@@ -6,6 +6,7 @@ import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleStatus } from '../../server/types.js';
+import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
@@ -21,8 +22,8 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TablePagination,
   TableRow,
+  TableTokenPagination,
 } from '../primitives/Table.js';
 import { formatCadenceSummary, formatRelativeTime } from './cadence.js';
 import { ScheduleFormDrawer } from './ScheduleFormDrawer.js';
@@ -37,6 +38,26 @@ const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | ScheduleStatus; label: strin
   { value: 'active', label: 'Active' },
   { value: 'paused', label: 'Paused' },
 ];
+
+/** API max page size for schedules list. */
+const SCHEDULES_PAGE_SIZE_OPTIONS = [10, 25] as const;
+
+function clampPageSize(size: number): number {
+  return Math.min(Math.max(size, 1), 25);
+}
+
+function filtersFromSearch(search: string): {
+  nameQuery: string;
+  statusFilter: 'all' | ScheduleStatus;
+  agentFilter: string;
+} {
+  const share = readScheduleShareSearch(search);
+  return {
+    nameQuery: share.q ?? '',
+    statusFilter: share.status ?? 'all',
+    agentFilter: share.agent ?? 'all',
+  };
+}
 
 function ScheduleRowActions({
   schedule,
@@ -86,37 +107,83 @@ export function SchedulesPage() {
   const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nameQuery, setNameQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | ScheduleStatus>('all');
-  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [nameQuery, setNameQuery] = useState(() => filtersFromSearch(window.location.search).nameQuery);
+  const [statusFilter, setStatusFilter] = useState<'all' | ScheduleStatus>(
+    () => filtersFromSearch(window.location.search).statusFilter,
+  );
+  const [agentFilter, setAgentFilter] = useState(() => filtersFromSearch(window.location.search).agentFilter);
   const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
+  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
+  const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
+  const [prevTokenStack, setPrevTokenStack] = useState<string[]>([]);
 
-  const loadSchedules = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await scheduleServer.listSchedules();
-      setSchedules(rows);
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'Failed to load schedules';
-      setError(message);
-      setSchedules([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [scheduleServer]);
+  const loadSchedules = useCallback(
+    async ({ token, size, agentId }: { token: string | undefined; size: number; agentId: string }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const page = await scheduleServer.listSchedules({
+          limit: clampPageSize(size),
+          ...(token === undefined || token === '' ? {} : { pageToken: token }),
+          ...(agentId === 'all' ? {} : { agentIds: [agentId] }),
+        });
+        setSchedules(page.data);
+        setNextPageToken(page.nextPageToken);
+      } catch (caught) {
+        const message = caught instanceof Error ? caught.message : 'Failed to load schedules';
+        setError(message);
+        setSchedules([]);
+        setNextPageToken(undefined);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [scheduleServer],
+  );
+
+  const resetToFirstPage = useCallback(
+    (next?: { size?: number; agentId?: string }) => {
+      const size = next?.size ?? pageSize;
+      const agentId = next?.agentId ?? agentFilter;
+      setPageToken(undefined);
+      setPrevTokenStack([]);
+      void loadSchedules({ token: undefined, size, agentId });
+    },
+    [agentFilter, loadSchedules, pageSize],
+  );
+
+  // Keep filters in the URL so deep links and Agents Library → Schedules work.
+  useEffect(() => {
+    replaceScheduleShareSearch({
+      agent: agentFilter === 'all' ? null : agentFilter,
+      status: statusFilter === 'all' ? null : statusFilter,
+      q: nameQuery.trim().length === 0 ? null : nameQuery,
+    });
+  }, [agentFilter, statusFilter, nameQuery]);
 
   useEffect(() => {
-    const agentId = new URLSearchParams(window.location.search).get('agentId');
-    if (agentId != null && agentId !== '') setAgentFilter(agentId);
+    const syncFromUrl = () => {
+      const next = filtersFromSearch(window.location.search);
+      setNameQuery(next.nameQuery);
+      setStatusFilter(next.statusFilter);
+      setAgentFilter(current => {
+        if (current === next.agentFilter) return current;
+        setPageToken(undefined);
+        setPrevTokenStack([]);
+        return next.agentFilter;
+      });
+    };
+    window.addEventListener('popstate', syncFromUrl);
+    return () => {
+      window.removeEventListener('popstate', syncFromUrl);
+    };
   }, []);
 
   useEffect(() => {
-    void loadSchedules();
-  }, [loadSchedules]);
+    void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter });
+  }, [agentFilter, pageSize, pageToken, loadSchedules]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,30 +207,21 @@ export function SchedulesPage() {
     return map;
   }, [agentOptions]);
 
+  // Name + status are client-side on the current server page only.
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();
     return schedules.filter(schedule => {
       if (statusFilter !== 'all' && schedule.status !== statusFilter) return false;
-      if (agentFilter !== 'all' && schedule.agentId !== agentFilter) return false;
       if (q.length > 0 && !schedule.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [schedules, nameQuery, statusFilter, agentFilter]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [nameQuery, statusFilter, agentFilter, pageSize]);
-
-  const pageRows = useMemo(() => {
-    const start = page * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
+  }, [schedules, nameQuery, statusFilter]);
 
   const handleTogglePause = async (schedule: Schedule) => {
     const nextStatus: ScheduleStatus = schedule.status === 'active' ? 'paused' : 'active';
     try {
       await scheduleServer.updateSchedule({ ...schedule, status: nextStatus });
-      await loadSchedules();
+      await loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter });
     } catch {
       // ponytail: surface via toast when the shell has one; for now list refresh is enough
     }
@@ -173,10 +231,24 @@ export function SchedulesPage() {
     setPendingDelete(null);
     try {
       await scheduleServer.deleteSchedule({ id: schedule.id });
-      await loadSchedules();
+      resetToFirstPage();
     } catch {
       // ponytail: same as pause — host can wire toast later
     }
+  };
+
+  const goNext = () => {
+    if (nextPageToken == null) return;
+    setPrevTokenStack(stack => [...stack, pageToken ?? '']);
+    setPageToken(nextPageToken);
+  };
+
+  const goPrev = () => {
+    if (prevTokenStack.length === 0) return;
+    const stack = [...prevTokenStack];
+    const prev = stack.pop();
+    setPrevTokenStack(stack);
+    setPageToken(prev === '' ? undefined : prev);
   };
 
   return (
@@ -200,7 +272,11 @@ export function SchedulesPage() {
           />
           <PopoverSelect
             value={agentFilter}
-            onValueChange={setAgentFilter}
+            onValueChange={value => {
+              setAgentFilter(value);
+              setPageToken(undefined);
+              setPrevTokenStack([]);
+            }}
             options={[
               { value: 'all', label: 'All agents' },
               ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
@@ -254,7 +330,7 @@ export function SchedulesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pageRows.map(schedule => {
+                {filtered.map(schedule => {
                   const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
                   const agentLabel = schedule.agentName ?? agentNameById.get(schedule.agentId) ?? schedule.agentId;
                   return (
@@ -287,12 +363,20 @@ export function SchedulesPage() {
                 })}
               </TableBody>
             </Table>
-            <TablePagination
-              page={page}
+            <TableTokenPagination
               pageSize={pageSize}
-              total={filtered.length}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
+              rowCount={filtered.length}
+              canPrev={prevTokenStack.length > 0}
+              canNext={nextPageToken != null}
+              onPrev={goPrev}
+              onNext={goNext}
+              pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
+              onPageSizeChange={size => {
+                const next = clampPageSize(size);
+                setPageSize(next);
+                setPageToken(undefined);
+                setPrevTokenStack([]);
+              }}
             />
           </div>
         )}
@@ -306,7 +390,7 @@ export function SchedulesPage() {
           onOpenChange={open => {
             if (!open) setDrawer({ kind: 'closed' });
           }}
-          onSaved={() => void loadSchedules()}
+          onSaved={() => resetToFirstPage()}
         />
       ) : null}
       {drawer.kind === 'edit' ? (
@@ -317,7 +401,7 @@ export function SchedulesPage() {
           onOpenChange={open => {
             if (!open) setDrawer({ kind: 'closed' });
           }}
-          onSaved={() => void loadSchedules()}
+          onSaved={() => void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter })}
         />
       ) : null}
       {pendingDelete != null ? (

@@ -53,7 +53,7 @@ function pausedSchedule(overrides: Partial<Schedule> = {}): Schedule {
 
 function mockScheduleServer(overrides: Partial<ScheduleServer> = {}): ScheduleServer {
   return {
-    listSchedules: vi.fn(async () => []),
+    listSchedules: vi.fn(async () => ({ data: [] })),
     getSchedule: vi.fn(),
     createSchedule: vi.fn(async () => pausedSchedule()),
     updateSchedule: vi.fn(async req =>

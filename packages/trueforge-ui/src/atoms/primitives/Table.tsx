@@ -144,3 +144,80 @@ export function TablePagination({
     </div>
   );
 }
+
+/** Cursor / token pagination when the API has no total count. */
+export type TableTokenPaginationProps = {
+  pageSize: number;
+  rowCount: number;
+  canPrev: boolean;
+  canNext: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onPageSizeChange: (pageSize: number) => void;
+  pageSizeOptions?: readonly number[];
+  className?: string;
+};
+
+export function TableTokenPagination({
+  pageSize,
+  rowCount,
+  canPrev,
+  canNext,
+  onPrev,
+  onNext,
+  onPageSizeChange,
+  pageSizeOptions = TABLE_PAGE_SIZE_OPTIONS,
+  className,
+}: TableTokenPaginationProps) {
+  const sizeOptions = pageSizeOptions.map(size => ({
+    value: String(size),
+    label: String(size),
+  }));
+
+  return (
+    <div
+      className={cn(
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2 text-sm',
+        className,
+      )}
+    >
+      <p className="tabular-nums" aria-live="polite">
+        {rowCount === 0 ? 'Showing 0' : `Showing ${String(rowCount)}`}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2">
+          <span className="whitespace-nowrap">Rows per page</span>
+          <PopoverSelect
+            aria-label="Rows per page"
+            className="w-[4.5rem]"
+            value={String(pageSize)}
+            options={sizeOptions}
+            onValueChange={value => {
+              onPageSizeChange(Number(value));
+            }}
+          />
+        </label>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Previous page"
+            disabled={!canPrev}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            onClick={onPrev}
+          >
+            <Icon name="chevron-left" className="size-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next page"
+            disabled={!canNext}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            onClick={onNext}
+          >
+            <Icon name="chevron-right" className="size-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

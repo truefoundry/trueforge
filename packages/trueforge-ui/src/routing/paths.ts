@@ -1,3 +1,4 @@
+import { clearScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { readSessionShareSearch, writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
@@ -85,6 +86,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   if (place.type === 'sessionsBrowser') {
     writeSessionShareSearch(params, { tab: null });
+    clearScheduleShareSearch(params);
   } else if (place.type === 'libraryAgent') {
     const share = readSessionShareSearch(search);
     writeSessionShareSearch(params, {
@@ -92,6 +94,16 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
       ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
     });
+    clearScheduleShareSearch(params);
+  } else if (place.type === 'schedules') {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    // Keep `agent` / `status` / `q` — owned by the schedules place.
   } else {
     writeSessionShareSearch(params, {
       sessionId: null,
@@ -100,6 +112,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       view: null,
       timeRange: null,
     });
+    clearScheduleShareSearch(params);
   }
   const next = params.toString();
   return next.length > 0 ? `?${next}` : '';

@@ -93,6 +93,14 @@ describe('sanitizeSearchForPlace', () => {
     );
     expect(sanitizeSearchForPlace({ type: 'settings' }, sessionSearch)).toBe(sessionSearch);
   });
+
+  it('keeps schedules filters on the schedules place and clears them elsewhere', () => {
+    const scheduleSearch = '?theme=dark&agent=alpha&status=paused&q=digest&sessionId=sess-1&agentId=agent-1';
+    expect(sanitizeSearchForPlace({ type: 'schedules' }, scheduleSearch)).toBe(
+      '?theme=dark&agent=alpha&status=paused&q=digest',
+    );
+    expect(sanitizeSearchForPlace({ type: 'library' }, scheduleSearch)).toBe('?theme=dark');
+  });
 });
 
 describe('matchPath', () => {

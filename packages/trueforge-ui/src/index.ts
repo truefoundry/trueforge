@@ -52,6 +52,7 @@ export {
   TableHeader,
   TablePagination,
   TableRow,
+  TableTokenPagination,
 } from './atoms/primitives/Table.js';
 export type {
   TableBodyProps,
@@ -61,6 +62,7 @@ export type {
   TablePaginationProps,
   TableProps,
   TableRowProps,
+  TableTokenPaginationProps,
 } from './atoms/primitives/Table.js';
 export { ScheduleFormDrawer } from './atoms/schedules/ScheduleFormDrawer.js';
 export type { ScheduleFormDrawerProps } from './atoms/schedules/ScheduleFormDrawer.js';

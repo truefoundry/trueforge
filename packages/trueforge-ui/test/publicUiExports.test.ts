@@ -97,6 +97,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'TableHead',
   'TableHeader',
   'TablePagination',
+  'TableTokenPagination',
   'TableRow',
   'ThemeProvider',
   'Thread',

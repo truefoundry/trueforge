@@ -25,6 +25,7 @@ const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prot
 const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/schedules');
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value: function showModal(this: HTMLDialogElement) {
@@ -41,6 +42,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  window.history.replaceState(null, '', '/');
   if (originalShowModal === undefined) {
     Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
   } else {
@@ -53,9 +55,14 @@ afterEach(() => {
   }
 });
 
-function renderPage(schedules: Schedule[] = sampleSchedules) {
+function renderPage(schedules: Schedule[] = sampleSchedules, listImpl?: ScheduleServer['listSchedules']) {
   const scheduleServer: ScheduleServer = {
-    listSchedules: vi.fn(async () => schedules),
+    listSchedules: vi.fn(
+      listImpl ??
+        (async () => ({
+          data: schedules,
+        })),
+    ),
     getSchedule: vi.fn(),
     createSchedule: vi.fn(),
     updateSchedule: vi.fn(),
@@ -75,19 +82,86 @@ function renderPage(schedules: Schedule[] = sampleSchedules) {
 
 describe('SchedulesPage', () => {
   it('lists schedules in the table', async () => {
-    renderPage();
+    const { scheduleServer } = renderPage();
     expect(await screen.findByRole('heading', { name: 'Scheduled Agents' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'daily-digest' })).toBeInTheDocument();
     });
     expect(screen.getAllByText('demo-agent').length).toBeGreaterThan(0);
     expect(screen.getByText('Never')).toBeInTheDocument();
-    expect(screen.getByText('Showing 1–1 of 1')).toBeInTheDocument();
+    expect(screen.getByText('Showing 1')).toBeInTheDocument();
+    expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }));
   });
 
   it('shows empty state when there are no schedules', async () => {
     renderPage([]);
     expect(await screen.findByText('No schedules yet. Create one to get started.')).toBeInTheDocument();
+  });
+
+  it('requests the next page token when Next is clicked', async () => {
+    const listSchedules = vi
+      .fn()
+      .mockResolvedValueOnce({ data: sampleSchedules, nextPageToken: 'page-2' })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            ...sampleSchedules[0],
+            id: 's2',
+            name: 'weekly-digest',
+          },
+        ],
+      });
+    renderPage(sampleSchedules, listSchedules);
+
+    expect(await screen.findByRole('button', { name: 'daily-digest' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+
+    await waitFor(() => {
+      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 10 }));
+    });
+    expect(await screen.findByRole('button', { name: 'weekly-digest' })).toBeInTheDocument();
+  });
+
+  it('filters by agent via agentIds', async () => {
+    const { scheduleServer } = renderPage();
+    await screen.findByRole('button', { name: 'daily-digest' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter by agent' }));
+    fireEvent.click(screen.getByRole('option', { name: 'demo-agent' }));
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+      );
+    });
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
+  });
+
+  it('seeds filters from the URL and writes status and search to the query', async () => {
+    window.history.replaceState(null, '', '/schedules?agent=demo-agent&status=paused&q=daily');
+    const { scheduleServer } = renderPage([
+      {
+        ...sampleSchedules[0],
+        status: 'paused',
+      },
+    ]);
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+      );
+    });
+    expect(screen.getByPlaceholderText('Search schedules by name')).toHaveValue('daily');
+    expect(screen.getByRole('button', { name: 'Filter by status' })).toHaveTextContent('Paused');
+
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: 'digest' },
+    });
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('q')).toBe('digest');
+    });
+    expect(new URL(window.location.href).searchParams.get('status')).toBe('paused');
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
   });
 
   it('deletes only after the confirmation dialog is accepted', async () => {
