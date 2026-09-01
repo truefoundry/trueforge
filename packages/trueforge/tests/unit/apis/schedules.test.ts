@@ -183,7 +183,22 @@ describe('schedule list agent_names filter', () => {
         .sort(),
     ).toEqual([aliceId, secondId].sort());
 
+    const withGaps = await app.request('/?agent_names=reporter,,reporter-two');
+    expect(withGaps.status).toBe(200);
+    expect(
+      ListSchedulesResponseSchema.parse(await withGaps.json())
+        .data.map(row => row.id)
+        .sort(),
+    ).toEqual([aliceId, secondId].sort());
+
     const omitted = await app.request('/');
     expect(ListSchedulesResponseSchema.parse(await omitted.json()).data).toHaveLength(2);
+
+    // Empty / comma-only values normalize to no filter (same as omit).
+    for (const query of ['/?agent_names=', '/?agent_names=,,,', '/?agent_names=%20,%20']) {
+      const empty = await app.request(query);
+      expect(empty.status).toBe(200);
+      expect(ListSchedulesResponseSchema.parse(await empty.json()).data).toHaveLength(2);
+    }
   });
 });

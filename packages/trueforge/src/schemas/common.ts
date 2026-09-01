@@ -19,7 +19,6 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
-/** Sessions and turns, schedules, list page size (default = max). */
 export const PAGE_LIMIT = 25;
 /** Session/turn event list page size (default = max). */
 export const EVENTS_PAGE_LIMIT = 100;

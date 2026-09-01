@@ -87,7 +87,7 @@ export interface ListSchedulesInput {
   limit: number;
   page_token: string | undefined;
   /** When set, only schedules for these agent names. Empty array returns no rows. */
-  agent_names?: readonly string[] | undefined;
+  agent_names: readonly string[] | undefined;
   created_by?: string | undefined;
 }
 
