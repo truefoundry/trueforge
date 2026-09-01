@@ -86,7 +86,7 @@ export interface ListSchedulesInput {
   tenant_id: string;
   limit: number;
   page_token: string | undefined;
-  /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE agent_name IN (...)`. */
+  /** When set, only schedules for these agent names. Empty array returns no rows. */
   agent_names?: readonly string[] | undefined;
   created_by?: string | undefined;
 }
