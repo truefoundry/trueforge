@@ -38,6 +38,17 @@ const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
 type ScheduleRunApiClient = Pick<TrueForge, 'sessions' | 'internal'>;
 
+/** Schedule's bound agent name is missing from the agent store. */
+export class ScheduleAgentNotFoundError extends Error {
+  readonly agent_name: string;
+
+  constructor(agent_name: string, options?: ErrorOptions) {
+    super(`Agent not found: ${agent_name}`, options);
+    this.name = 'ScheduleAgentNotFoundError';
+    this.agent_name = agent_name;
+  }
+}
+
 /**
  * Hands a due schedule run to the API:
  * 1. Get or create a session keyed by `run.id`.
@@ -85,7 +96,7 @@ export async function startScheduleRun(params: {
 
   const named = await agentStore.getAgent({ tenant_id: TENANT_ID, name: schedule.agent_name });
   if (named === undefined) {
-    throw new Error(`Agent not found: ${schedule.agent_name}`);
+    throw new ScheduleAgentNotFoundError(schedule.agent_name);
   }
 
   const { session } = await sessions.getOrCreateByExternalId({

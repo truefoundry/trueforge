@@ -11,7 +11,7 @@ import { AgentHarnessError, McpConnectionError } from '@truefoundry/trueforge-co
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { UserContext } from '../auth/identity';
-import { startScheduleRun } from '../controller/scheduleDispatch';
+import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {
   manualRunName,
@@ -201,6 +201,9 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         status: 'failed',
       });
 
+      if (error instanceof ScheduleAgentNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
       if (error instanceof HTTPException) {
         if (error.status === 400 || error.status === 404 || error.status === 422) {
           return c.json({ error: { message: error.message } }, error.status);
