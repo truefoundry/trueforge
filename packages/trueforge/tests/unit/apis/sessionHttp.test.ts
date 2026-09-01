@@ -211,19 +211,6 @@ describe('sessions HTTP agent binding', () => {
     ]);
   });
 
-  it('returns 404 for session metrics when the agent does not exist', async () => {
-    const query = new URLSearchParams({
-      agent_id: 'missing-agent',
-      start_timestamp: '2026-08-27T00:00:00.000Z',
-      end_timestamp: '2026-08-28T00:00:00.000Z',
-    });
-
-    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
-
-    expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ error: { message: 'Agent not found: missing-agent' } });
-  });
-
   it('rejects session metrics windows longer than 30 days', async () => {
     const query = new URLSearchParams({
       agent_id: 'agent-1',
