@@ -11,7 +11,8 @@ export type RoutePlace =
   | { type: 'settings' }
   | { type: 'library' }
   | { type: 'libraryAgent'; agentId: string }
-  | { type: 'sessionsBrowser' };
+  | { type: 'sessionsBrowser' }
+  | { type: 'schedules' };
 
 /**
  * Host-facing route path customization. Only honored when `withRouter`.
@@ -30,6 +31,8 @@ export type RoutesConfig = {
     library?: string | false;
     /** Agent detail under the library. Default `'/library/:agentId'`. */
     libraryAgent?: string | false;
+    /** Schedules page. `false` keeps schedules overlay-only (no URL). Default `'/schedules'`. */
+    schedules?: string | false;
     /** Immutable "Try" agent. `false` disables. Default `'/agents/:agentName'`. */
     agent?: string | false;
     /** Session deep link. `false` disables. Default `'/sessions/:sessionId'`. */
@@ -46,6 +49,7 @@ export type ResolvedRoutes = {
   settings: string | null;
   library: string | null;
   libraryAgent: string | null;
+  schedules: string | null;
   agent: string | null;
   session: string | null;
   sessionsBrowser: string | null;
@@ -57,6 +61,7 @@ export type ShellSnapshot = {
   libraryOpen: boolean;
   sessionsOpen: boolean;
   libraryAgentId: string | null;
+  schedulesOpen: boolean;
   pendingSessionId?: string;
   /** Remote id of the active thread once a fresh chat is persisted. */
   activeRemoteId?: string;

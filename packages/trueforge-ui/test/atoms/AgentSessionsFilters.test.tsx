@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentSessionsFilters } from '@/atoms/agent-details/AgentSessionsFilters.js';
@@ -25,6 +25,8 @@ describe('AgentSessionsFilters', () => {
         />
       </ServerProvider>,
     );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter sessions by agent' }));
 
     await waitFor(() => expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument());
     expect(searchAgents).toHaveBeenNthCalledWith(1, { limit: 50, offset: 0 });

@@ -145,6 +145,7 @@ function ThreadListItemRow({
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
           shell?.setSessionsOpen(false);
+          shell?.setSchedulesOpen(false);
 
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
           const sessionMutable = threadListItemIsMutable(custom);
@@ -269,6 +270,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListNewButton = useSlot('ThreadListNewButton');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SchedulesButton = useSlot('SchedulesButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -331,6 +333,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
       return;
     }
     shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -356,6 +359,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
           {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
           <AgentsLibraryButton />
           <SessionsBrowserButton />
+          <SchedulesButton />
         </div>
       }
     >

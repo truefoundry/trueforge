@@ -1,6 +1,19 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+'use client';
+
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { cn } from '../lib/cn.js';
+
+/** Keep portaled chrome under ThemeProvider so preset/custom CSS vars still apply. */
+function themePortalRoot(from: HTMLElement | null): HTMLElement {
+  // A native <dialog> opened with showModal() renders in the top layer, above any
+  // z-index. When the trigger lives inside one, portal into the dialog so the
+  // menu joins the top layer instead of rendering behind the modal.
+  const dialog = from?.closest('dialog');
+  if (dialog instanceof HTMLElement) return dialog;
+  return from?.closest('.aui-theme-root') ?? document.body;
+}
 
 export type DropdownMenuProps = {
   trigger: React.ReactNode;
@@ -11,16 +24,44 @@ export type DropdownMenuProps = {
 
 export function DropdownMenu({ trigger, children, align = 'end', className }: DropdownMenuProps) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+
+    const update = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + 4,
+        left: align === 'end' ? rect.right : rect.left,
+      });
+    };
+
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [open, align]);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      if (containerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -30,7 +71,7 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
     if (!open) return;
     const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
     first?.focus();
-  }, [open]);
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open) return;
@@ -82,25 +123,35 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
       })
     : trigger;
 
+  const menu =
+    open && pos != null
+      ? createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            style={{
+              top: pos.top,
+              left: pos.left,
+              transform: align === 'end' ? 'translateX(-100%)' : undefined,
+            }}
+            className={cn(
+              'fixed z-[200] min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
+              'text-text-primary shadow-md',
+              className,
+            )}
+            onClick={() => setOpen(false)}
+          >
+            {children}
+          </div>,
+          themePortalRoot(containerRef.current),
+        )
+      : null;
+
   return (
     <div ref={containerRef} className="relative inline-flex">
       <div onClick={() => setOpen(v => !v)}>{triggerEl}</div>
-      {open && (
-        <div
-          ref={menuRef}
-          id={menuId}
-          role="menu"
-          className={cn(
-            'absolute top-full z-50 mt-1 min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
-            'text-text-primary shadow-md',
-            align === 'end' ? 'right-0' : 'left-0',
-            className,
-          )}
-          onClick={() => setOpen(false)}
-        >
-          {children}
-        </div>
-      )}
+      {menu}
     </div>
   );
 }

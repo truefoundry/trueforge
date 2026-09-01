@@ -2,7 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AgentBuilderCapabilitiesResponse, AgentSessionsServer, AgentUIServer, CatalogServer } from './types.js';
+import type {
+  AgentBuilderCapabilitiesResponse,
+  AgentSessionsServer,
+  AgentUIServer,
+  CatalogServer,
+  ScheduleServer,
+} from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
 const ServerCapabilitiesContext = createContext<{
@@ -91,4 +97,16 @@ export function useAgentSessionsServer(): AgentSessionsServer {
 
 export function useOptionalAgentSessionsServer(): AgentSessionsServer | null {
   return useOptionalServer()?.sessions ?? null;
+}
+
+export function useScheduleServer(): ScheduleServer {
+  const server = useServer();
+  if (server.schedules == null) {
+    throw new Error('useScheduleServer requires AgentUIServer.schedules. Pass schedules to createTrueFoundryServer.');
+  }
+  return server.schedules;
+}
+
+export function useOptionalScheduleServer(): ScheduleServer | null {
+  return useOptionalServer()?.schedules ?? null;
 }
