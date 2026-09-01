@@ -21,12 +21,18 @@ describe("SchedulesClient", () => {
                     updated_at: "2024-01-15T09:30:00Z",
                 },
             ],
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
-        server.mockEndpoint().get("/api/v1/schedules").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server
+            .mockEndpoint({ once: false })
+            .get("/api/v1/schedules")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
 
-        const response = await client.schedules.list();
-        expect(response).toEqual({
+        const expected = {
             data: [
                 {
                     agentName: "agent_name",
@@ -41,10 +47,34 @@ describe("SchedulesClient", () => {
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
             ],
-        });
+            pagination: {
+                limit: 1,
+                nextPageToken: "next_page_token",
+                previousPageToken: "previous_page_token",
+            },
+        };
+        const page = await client.schedules.list();
+
+        expect(expected.data).toEqual(page.data);
+        expect(page.hasNextPage()).toBe(true);
+        const nextPage = await page.getNextPage();
+        expect(expected.data).toEqual(nextPage.data);
     });
 
     test("list (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server.mockEndpoint().get("/api/v1/schedules").respondWith().statusCode(400).jsonBody(rawResponseBody).build();
+
+        await expect(async () => {
+            return await client.schedules.list();
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("list (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 

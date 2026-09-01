@@ -7,5 +7,10 @@ import type * as TrueForge from "../../../../index.js";
  *     {}
  */
 export interface ListSchedulesRequest {
-    agentName?: TrueForge.ResourceName;
+    /** Page size. Defaults to 25 */
+    limit?: number;
+    /** Opaque token from a previous response `next_page_token`. */
+    pageToken?: string;
+    /** Filter by one or more agent names (comma-separated). */
+    agentNames?: TrueForge.ResourceName[] | null;
 }

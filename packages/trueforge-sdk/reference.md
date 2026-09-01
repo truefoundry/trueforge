@@ -750,7 +750,7 @@ await client.models.list();
 </details>
 
 ## Schedules
-<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">list</a>({ ...params }) -> TrueForge.ListSchedulesResponse</code></summary>
+<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Schedule, TrueForge.ListSchedulesResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -762,7 +762,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List schedules for the tenant, newest first. Optionally filter by `agent_name`.
+List schedules for the tenant, newest first. Optionally filter by `agent_names`.
 </dd>
 </dl>
 </dd>
