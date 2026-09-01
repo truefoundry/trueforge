@@ -90,7 +90,7 @@ function toConnectError(error: unknown): McpConnectionError {
     return error;
   }
   if (isAuthError(error)) {
-    return new McpConnectionError('upstream returned 401 Unauthorized (check x-tfy-mcp-headers credentials)', 401, {
+    return new McpConnectionError('upstream returned 401 Unauthorized', 401, {
       cause: error,
     });
   }
