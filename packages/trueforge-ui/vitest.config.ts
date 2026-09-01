@@ -1,7 +1,6 @@
 /** Vitest: jsdom for React containers; MUI alias for CJS/ESM dual-package quirk. */
 import { fileURLToPath } from 'node:url';
 
-import { defaultClientConditions } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import { defineConfig } from 'vitest/config';
 
@@ -19,7 +18,10 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    conditions: ['trueforge-dev', ...defaultClientConditions],
+    // Vite's client defaults plus trueforge-dev. Never add 'import'/'require':
+    // Vite applies those per import kind, and forcing 'import' makes CJS deps
+    // resolve @babel/runtime's ESM helpers and fail interop at runtime.
+    conditions: ['trueforge-dev', 'module', 'browser', 'development|production'],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@mui/material/styles/styled': '@mui/material/styles/styled.js',

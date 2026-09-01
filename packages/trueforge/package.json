@@ -44,6 +44,7 @@
     "pack:dry": "pnpm pack --dry-run",
     "predev:no-watch": "pnpm --filter @truefoundry/trueforge-core build:gen && pnpm run build:gen",
     "predev": "pnpm --filter @truefoundry/trueforge-core build:gen && pnpm run build:gen",
+    "pretypecheck": "pnpm -w run sdk:types",
     "test:eventsub": "jest --config jest.eventsub.config.cjs",
     "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
     "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",

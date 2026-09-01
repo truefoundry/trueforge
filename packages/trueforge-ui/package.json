@@ -66,6 +66,7 @@
     "test": "vitest run && pnpm test:package",
     "test:package": "pnpm build && node test/packageExports.smoke.mjs",
     "test:coverage": "vitest run --coverage",
+    "pretypecheck": "pnpm -w run sdk:types",
     "typecheck": "tsc --noEmit && tsc --noEmit -p test/tsconfig.json",
     "lint": "eslint src test --ext .ts,.tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\" \"test/**/*.{ts,tsx}\" \"*.md\" \"docs/**/*.md\" --config ../../.prettierrc"

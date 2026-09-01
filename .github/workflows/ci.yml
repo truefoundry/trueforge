@@ -111,7 +111,7 @@ jobs:
 
   # Order matters for fail-fast and lint correctness:
   # - format first (cheapest signal)
-  # - typecheck next (root `sdk:types` emits SDK .d.ts once; core resolves from src/)
+  # - typecheck next (package pretypecheck emits SDK .d.ts; core resolves from src/)
   # - lint after typecheck (type-aware eslint reuses those declarations)
   # - build last (full emit; SDK JS built once via the root graph, still always-on as a ship gate)
   typecheck-and-build:
