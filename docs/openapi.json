@@ -2202,6 +2202,19 @@
         ],
         "type": "object"
       },
+      "MetricsUnit": {
+        "enum": [
+          "count",
+          "$",
+          "ms"
+        ],
+        "type": "string",
+        "x-fern-enum": {
+          "$": {
+            "name": "USD"
+          }
+        }
+      },
       "Model": {
         "properties": {
           "name": {
@@ -3446,7 +3459,7 @@
             "$ref": "#/components/schemas/SessionMetricsChartName"
           },
           "unit": {
-            "$ref": "#/components/schemas/SessionMetricsGraphUnit"
+            "$ref": "#/components/schemas/MetricsUnit"
           }
         },
         "required": [
@@ -3478,18 +3491,6 @@
         ],
         "type": "object"
       },
-      "SessionMetricsGraphUnit": {
-        "enum": [
-          "count",
-          "$"
-        ],
-        "type": "string",
-        "x-fern-enum": {
-          "$": {
-            "name": "USD"
-          }
-        }
-      },
       "SessionMetricsMeter": {
         "additionalProperties": false,
         "properties": {
@@ -3518,7 +3519,7 @@
             "type": "string"
           },
           "unit": {
-            "$ref": "#/components/schemas/SessionMetricsMeterUnit"
+            "$ref": "#/components/schemas/MetricsUnit"
           }
         },
         "required": [
@@ -3543,19 +3544,6 @@
           "meters"
         ],
         "type": "object"
-      },
-      "SessionMetricsMeterUnit": {
-        "enum": [
-          "count",
-          "$",
-          "ms"
-        ],
-        "type": "string",
-        "x-fern-enum": {
-          "$": {
-            "name": "USD"
-          }
-        }
       },
       "SessionMetricsPoint": {
         "additionalProperties": false,
