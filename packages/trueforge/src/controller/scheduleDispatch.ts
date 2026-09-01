@@ -88,7 +88,7 @@ export async function startScheduleRun(params: {
     input: TurnInputItem[];
     previous_turn_id: string;
     userRef: string;
-  }) => Promise<unknown>;
+  }) => Promise<void>;
 }): Promise<void> {
   const {
     item: { run, schedule },
