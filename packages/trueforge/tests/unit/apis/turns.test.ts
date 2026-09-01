@@ -132,6 +132,7 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
+            session_id: 's1',
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
             record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
             createTurn: () =>
