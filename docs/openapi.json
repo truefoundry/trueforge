@@ -8046,16 +8046,6 @@
               }
             },
             "description": "Invalid timestamps or a window longer than 30 days."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Named agent not found."
           }
         },
         "summary": "Get session metrics chart data",
@@ -8128,16 +8118,6 @@
               }
             },
             "description": "Invalid timestamps or a window longer than 30 days."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Named agent not found."
           }
         },
         "summary": "Get session metrics meters",
