@@ -4,7 +4,12 @@ import { useEffect, useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
-import { auiSelectMenuClass, auiSelectOptionClass, auiSelectTriggerClass } from '../lib/selectClasses.js';
+import {
+  auiSelectMenuClass,
+  auiSelectOptionClass,
+  auiSelectPrefixTriggerClass,
+  auiSelectTriggerClass,
+} from '../lib/selectClasses.js';
 
 export type PopoverSelectOption<T extends string> = {
   value: T;
@@ -17,6 +22,8 @@ type CommonPopoverSelectProps<T extends string> = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** When set, renders a labeled chip trigger (label | value chip + chevron). */
+  prefix?: string;
   'aria-label': string;
 };
 
@@ -126,7 +133,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        className={auiSelectTriggerClass()}
+        className={props.prefix != null ? auiSelectPrefixTriggerClass() : auiSelectTriggerClass()}
         onClick={() => setOpen(value => !value)}
         onKeyDown={event => {
           if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
@@ -135,8 +142,22 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
           }
         }}
       >
-        <span className="truncate">{triggerLabel}</span>
-        <Icon name="chevron-down" className="size-4 shrink-0" />
+        {props.prefix != null ? (
+          <>
+            <span className="text-text-primary shrink-0 border-r border-border px-3 font-semibold">{props.prefix}</span>
+            <span className="flex min-w-0 flex-1 items-center justify-between gap-2 px-2">
+              <span className="bg-primary-button-bg/10 text-text-primary truncate rounded px-2 py-0.5 text-sm">
+                {triggerLabel}
+              </span>
+              <Icon name="chevron-down" className="text-text-secondary size-4 shrink-0" />
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="truncate">{triggerLabel}</span>
+            <Icon name="chevron-down" className="size-4 shrink-0" />
+          </>
+        )}
       </button>
 
       {open ? (

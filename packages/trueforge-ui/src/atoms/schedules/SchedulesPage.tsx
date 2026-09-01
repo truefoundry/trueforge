@@ -183,8 +183,8 @@ export function SchedulesPage() {
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <Icon name="calendar" className="text-text-primary size-4" />
-          <h1 className="text-text-primary truncate text-sm font-semibold">Scheduled Agents</h1>
+          <Icon name="calendar-clock" className="text-text-primary size-4" />
+          <h1 className="text-text-primary truncate text-md font-semibold">Scheduled Agents</h1>
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">

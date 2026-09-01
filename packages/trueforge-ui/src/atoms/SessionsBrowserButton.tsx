@@ -49,7 +49,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
           shell.setSessionsOpen(true);
         }}
       >
-        <Icon name="clock-rotate-left" />
+        <Icon name="message-square-text" />
         {!compact ? (
           <>
             <span className="truncate">Sessions</span>

@@ -8,13 +8,19 @@ export function ScheduleStatusBadge({ status }: { status: ScheduleStatus }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
         active
-          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-          : 'bg-text-secondary/15 text-text-secondary',
+          ? 'border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300'
+          : 'border-border bg-secondary-bg text-text-secondary',
       )}
     >
-      <span className={cn('size-1.5 rounded-full', active ? 'bg-emerald-600' : 'bg-text-secondary')} aria-hidden />
+      <span
+        className={cn(
+          'size-1.5 shrink-0 rounded-full',
+          active ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-text-secondary',
+        )}
+        aria-hidden
+      />
       {active ? 'Active' : 'Paused'}
     </span>
   );

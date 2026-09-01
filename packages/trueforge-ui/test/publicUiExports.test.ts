@@ -55,6 +55,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ScheduleFormDrawer',
   'ScheduleFormFields',
   'ScheduleStatusBadge',
+  'TestScheduleScreen',
   'SchedulesButton',
   'SchedulesPage',
   'Markdown',

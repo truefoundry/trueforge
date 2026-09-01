@@ -111,19 +111,17 @@ export function AgentSessionsFilters({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <span className="flex items-center gap-1 text-xs text-text-secondary">
-        Agents
-        <PopoverSelect
-          aria-label="Filter sessions by agent"
-          className="w-36"
-          value={agentId ?? ''}
-          options={[
-            { value: '', label: 'All' },
-            ...agents.map(agent => ({ value: agent.agentId ?? agent.name, label: agent.name })),
-          ]}
-          onValueChange={value => onAgentChange(value.length === 0 ? null : value)}
-        />
-      </span>
+      <PopoverSelect
+        aria-label="Filter sessions by agent"
+        prefix="Agents"
+        className="min-w-[12rem]"
+        value={agentId ?? ''}
+        options={[
+          { value: '', label: 'All' },
+          ...agents.map(agent => ({ value: agent.agentId ?? agent.name, label: agent.name })),
+        ]}
+        onValueChange={value => onAgentChange(value.length === 0 ? null : value)}
+      />
       <div className="relative" ref={popoverRef}>
         <button
           type="button"

@@ -33,6 +33,7 @@ function mockServer(
     agentId: string;
     agentSpec?: {
       model: { name: string };
+      description?: string;
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
@@ -122,7 +123,7 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Open alpha-agent' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open alpha-agent' }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('agent-1');
     const params = new URL(window.location.href).searchParams;
     expect(params.get('theme')).toBe('dark');
@@ -173,10 +174,10 @@ describe('AgentsLibrary', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Edit agent writer' })).toBeInTheDocument();
-    });
-    expect(screen.queryByRole('button', { name: 'Edit agent try-only' })).not.toBeInTheDocument();
+    const actions = await screen.findByRole('button', { name: 'Actions for writer' });
+    fireEvent.click(actions);
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actions for try-only' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
   });
 
@@ -229,7 +230,7 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent writer' })).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: 'Edit agent writer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actions for writer' })).not.toBeInTheDocument();
   });
 
   it('shows create-one guidance when there are no agents yet', async () => {
@@ -259,13 +260,13 @@ describe('AgentsLibrary', () => {
     expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
 
-  it('closes via the back button', () => {
+  it('closes via Escape', () => {
     renderLibrary(<LibraryHarness />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Agents Library' })).not.toBeInTheDocument();
   });
 });

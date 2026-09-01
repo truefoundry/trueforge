@@ -52,4 +52,21 @@ describe('PopoverSelect', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
+
+  it('renders a prefixed chip trigger', () => {
+    render(
+      <PopoverSelect
+        aria-label="Filter by agent"
+        prefix="Agents"
+        options={[{ value: 'a', label: 'alpha' }]}
+        value="a"
+        onValueChange={() => undefined}
+      />,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Filter by agent' });
+    expect(trigger).toHaveTextContent('Agents');
+    expect(trigger).toHaveTextContent('alpha');
+    expect(trigger.querySelector('.border-r')).not.toBeNull();
+  });
 });

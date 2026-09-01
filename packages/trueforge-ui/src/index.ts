@@ -68,6 +68,8 @@ export { ScheduleFormFields } from './atoms/schedules/ScheduleFormFields.js';
 export type { ScheduleFormFieldsProps } from './atoms/schedules/ScheduleFormFields.js';
 export { SchedulesPage } from './atoms/schedules/SchedulesPage.js';
 export { ScheduleStatusBadge } from './atoms/schedules/ScheduleStatusBadge.js';
+export { TestScheduleScreen } from './atoms/schedules/TestScheduleScreen.js';
+export type { ScheduleMcpMount, TestScheduleScreenProps } from './atoms/schedules/TestScheduleScreen.js';
 export { SchedulesButton } from './atoms/SchedulesButton.js';
 export type { SchedulesButtonProps } from './atoms/SchedulesButton.js';
 export { Icon } from './icons/Icon.js';

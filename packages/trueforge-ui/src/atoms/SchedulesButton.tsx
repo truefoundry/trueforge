@@ -37,7 +37,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
         })}
         onClick={() => shell.setSchedulesOpen(!open)}
       >
-        <Icon name="calendar" />
+        <Icon name="calendar-clock" />
         {!compact ? (
           <>
             <span className="truncate">Schedules</span>
