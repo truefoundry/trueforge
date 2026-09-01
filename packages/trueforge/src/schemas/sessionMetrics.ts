@@ -31,16 +31,12 @@ export const SessionMetricsMeterNameSchema = z.enum([
 ]);
 
 /** Wire value `$` needs a Fern-safe identifier for SDK codegen. */
-const SESSION_METRICS_USD_FERN_ENUM = {
+const METRICS_USD_FERN_ENUM = {
   $: { name: 'USD' },
 } as const;
 
-export const SessionMetricsMeterUnitSchema = z.enum(['count', '$', 'ms']).openapi('SessionMetricsMeterUnit', {
-  'x-fern-enum': SESSION_METRICS_USD_FERN_ENUM,
-});
-
-export const SessionMetricsGraphUnitSchema = z.enum(['count', '$']).openapi('SessionMetricsGraphUnit', {
-  'x-fern-enum': SESSION_METRICS_USD_FERN_ENUM,
+export const MetricsUnitSchema = z.enum(['count', '$', 'ms']).openapi('MetricsUnit', {
+  'x-fern-enum': METRICS_USD_FERN_ENUM,
 });
 
 export const SessionMetricsMeterSchema = z
@@ -48,7 +44,7 @@ export const SessionMetricsMeterSchema = z
     name: SessionMetricsMeterNameSchema,
     aggregate_value: z.number().nonnegative(),
     description: z.string(),
-    unit: SessionMetricsMeterUnitSchema,
+    unit: MetricsUnitSchema,
   })
   .strict()
   .openapi('SessionMetricsMeter');
@@ -95,7 +91,7 @@ export const SessionMetricsGraphSchema = z
     name: SessionMetricsChartNameSchema,
     display_name: z.string(),
     description: z.string(),
-    unit: SessionMetricsGraphUnitSchema,
+    unit: MetricsUnitSchema,
     chart_type: z.literal('line'),
     graph_lines: z.array(SessionMetricsGraphLineSchema),
   })
@@ -176,6 +172,7 @@ export const GetSessionMetricsChartDataResponseSchema = z
 
 export type SessionMetricsPoint = z.infer<typeof SessionMetricsPointSchema>;
 export type SessionMetricsMeterName = z.infer<typeof SessionMetricsMeterNameSchema>;
+export type MetricsUnit = z.infer<typeof MetricsUnitSchema>;
 export type SessionMetricsMeter = z.infer<typeof SessionMetricsMeterSchema>;
 export type SessionMetricsMeterResponse = z.infer<typeof SessionMetricsMeterResponseSchema>;
 export type SessionMetricsChartName = z.infer<typeof SessionMetricsChartNameSchema>;

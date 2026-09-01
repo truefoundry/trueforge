@@ -21,23 +21,8 @@ export interface InternalMetricsRouterDeps {
 export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
   const router = new OpenAPIHono();
 
-  const requireNamedAgentForSessionMetrics = async (
-    agent_id: string,
-    c: Parameters<RouteHandler<typeof getSessionMetricsMetersRoute>>[0],
-  ) => {
-    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agent_id });
-    if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${agent_id}` } }, 404);
-    }
-    return null;
-  };
-
   const getSessionMetricsMetersHandler: RouteHandler<typeof getSessionMetricsMetersRoute> = async c => {
     const query = c.req.valid('query');
-    const missingAgent = await requireNamedAgentForSessionMetrics(query.agent_id, c);
-    if (missingAgent !== null) {
-      return missingAgent;
-    }
     const user = deps.resolveUserContext(c);
     const metrics = await deps.sessionMetricsStore.getSessionMetricsMeters({
       tenant_id: TENANT_ID,
@@ -55,10 +40,6 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
 
   const getSessionMetricsChartsDataHandler: RouteHandler<typeof getSessionMetricsChartsDataRoute> = async c => {
     const query = c.req.valid('query');
-    const missingAgent = await requireNamedAgentForSessionMetrics(query.agent_id, c);
-    if (missingAgent !== null) {
-      return missingAgent;
-    }
     const user = deps.resolveUserContext(c);
     const chartData = await deps.sessionMetricsStore.getSessionMetricsChartData({
       tenant_id: TENANT_ID,
