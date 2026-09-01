@@ -31,16 +31,16 @@ export const ListSchedulesQuerySchema = z
       .default(PAGE_LIMIT)
       .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
-    agent_names: z.preprocess(
-      parseCommaSeparatedQuery,
-      z
-        .array(NameSchema)
-        .optional()
-        .openapi({
-          description: 'Filter by one or more agent names (comma-separated).',
-          param: { style: 'form', explode: false },
-        }),
-    ),
+    // comma-separated string -> array of names
+    agent_names: z
+      .string()
+      .optional()
+      .openapi({
+        type: 'string',
+        description: 'Filter by one or more agent names (comma-separated).',
+      })
+      .transform(value => parseCommaSeparatedQuery(value))
+      .pipe(z.array(NameSchema).optional()),
   })
   .openapi('ListSchedulesQuery');
 
