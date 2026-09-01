@@ -37,6 +37,20 @@ async function setup() {
     createSchedulesRouter({
       scheduleStore,
       agentStore,
+      sessions: {
+        getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
+      } as never,
+      turnDeps: {
+        activeTurns: {} as never,
+        eventSubscriptions: {} as never,
+        modelProviderStore: {} as never,
+        mcpServerStore: {} as never,
+        tokenStore: {} as never,
+        skillStore: {} as never,
+        agentStore,
+        sandboxProviderStore: {} as never,
+        logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
+      },
       withTransaction: callback => db.transaction().execute(callback),
       resolveUserContext: () => current,
     }),

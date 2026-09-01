@@ -14,6 +14,7 @@
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { randomUUID } from 'node:crypto';
 import {
   ScheduleManifestSchema,
   type ScheduleManifest,
@@ -27,6 +28,11 @@ import {
  */
 export function cronRunName(scheduledFor: Date): string {
   return `sched-${String(Math.floor(scheduledFor.getTime() / 1000))}`;
+}
+
+/** Unique run name for an immediate (run-now) trigger. */
+export function manualRunName(): string {
+  return `manual-${randomUUID()}`;
 }
 
 export interface ScheduleRecord {

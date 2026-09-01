@@ -260,6 +260,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createSchedulesRouter({
         scheduleStore: deps.scheduleStore,
         agentStore: deps.agentStore,
+        sessions: deps.sessions,
+        turnDeps: {
+          activeTurns: deps.activeTurns,
+          eventSubscriptions: deps.eventSubscriptions,
+          modelProviderStore: deps.modelProviderStore,
+          mcpServerStore: deps.mcpServerStore,
+          tokenStore: deps.tokenStore,
+          skillStore: deps.skillStore,
+          agentStore: deps.agentStore,
+          sandboxProviderStore: deps.sandboxProviderStore,
+          logger: deps.logger,
+        },
         withTransaction: deps.withTransaction,
         resolveUserContext,
       }),

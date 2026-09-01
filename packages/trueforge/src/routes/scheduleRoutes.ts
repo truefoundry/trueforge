@@ -6,6 +6,8 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { NameSchema, PAGE_LIMIT, parseCommaSeparatedQuery } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateManualScheduleRunRequestSchema,
+  CreateManualScheduleRunResponseSchema,
   CreateScheduleRequestSchema,
   DeleteScheduleResponseSchema,
   GetScheduleResponseSchema,
@@ -96,6 +98,50 @@ export const listScheduleRunsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Not found.',
+    },
+  },
+});
+
+export const createManualScheduleRunRoute = createRoute({
+  method: 'post',
+  path: '/{schedule_id}/runs',
+  tags: [OpenApiTag.SCHEDULES],
+  summary: 'Trigger a manual schedule run',
+  description:
+    'Start a schedule run immediately (run-now) using the schedule task. Does not replace or advance the cron pending run.',
+  'x-fern-sdk-group-name': ['schedules'],
+  'x-fern-sdk-method-name': 'create_manual_run',
+  request: {
+    params: ScheduleIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: CreateManualScheduleRunRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      content: { 'application/json': { schema: CreateManualScheduleRunResponseSchema } },
+      description: 'Manual run created.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request or turn input.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The caller is not the schedule creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Schedule or agent not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Run name conflict (retry).',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The run cannot be started (e.g. agent resources unavailable).',
     },
   },
 });

@@ -2,11 +2,19 @@
  * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
+import {
+  InvalidPageTokenError,
+  SessionStoreNotFoundError,
+  type Sessions,
+} from '@truefoundry/trueforge-core/agent-session';
+import { AgentHarnessError, McpConnectionError } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { UserContext } from '../auth/identity';
+import { startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {
+  manualRunName,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   type IScheduleStore,
@@ -15,6 +23,7 @@ import {
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
 import {
+  createManualScheduleRunRoute,
   createScheduleRoute,
   deleteScheduleRoute,
   getScheduleRoute,
@@ -31,10 +40,13 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
+import type { BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
+  sessions: Sessions;
+  turnDeps: BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveUserContext: (c: Context) => UserContext;
 }
@@ -142,6 +154,80 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     }
     const records = await deps.scheduleStore.listRuns({ tenant_id: TENANT_ID, schedule_id: scheduleId });
     return c.json({ data: records.map(toWireScheduleRun) }, 200);
+  };
+
+  const createManualRunHandler: RouteHandler<typeof createManualScheduleRunRoute> = async c => {
+    const { schedule_id: scheduleId } = c.req.valid('param');
+    const user = deps.resolveUserContext(c);
+
+    const schedule = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
+    if (schedule === undefined) {
+      return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
+    }
+    if (!canAccessSchedule(user, schedule.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
+    }
+
+    const now = new Date();
+    let run: ScheduleRunRecord;
+    try {
+      run = await deps.scheduleStore.createRun({
+        tenant_id: TENANT_ID,
+        schedule_id: schedule.id,
+        name: manualRunName(),
+        scheduled_for: now,
+        status: 'triggered',
+        triggered_by: user.userRef,
+        triggered_at: now,
+      });
+    } catch (error) {
+      if (error instanceof ScheduleRunConflictError) {
+        return c.json({ error: { message: `${error.message}. Retry the request.` } }, 409);
+      }
+      throw error;
+    }
+
+    try {
+      await startScheduleRun({
+        item: { run, schedule },
+        sessions: deps.sessions,
+        agentStore: deps.agentStore,
+        turnDeps: deps.turnDeps,
+      });
+    } catch (error) {
+      await deps.scheduleStore.updateRunStatus({
+        tenant_id: TENANT_ID,
+        id: run.id,
+        status: 'failed',
+      });
+
+      if (error instanceof HTTPException) {
+        if (error.status === 400 || error.status === 404 || error.status === 422) {
+          return c.json({ error: { message: error.message } }, error.status);
+        }
+        throw error;
+      }
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
+        switch (error.code) {
+          case 'invalid_file_input':
+            return c.json({ error: { message: error.message } }, 400);
+          case 'invalid_send_input':
+          case 'agent_sandbox_required':
+          case 'tool_name_collision':
+            return c.json({ error: { message: error.message } }, 422);
+          case 'capability_state_error':
+          case 'mcp_connection_failed':
+            throw error;
+        }
+      }
+      throw error;
+    }
+
+    const latest = await deps.scheduleStore.getRun({ tenant_id: TENANT_ID, id: run.id });
+    return c.json({ data: toWireScheduleRun(latest ?? run) }, 201);
   };
 
   const createHandler: RouteHandler<typeof createScheduleRoute> = async c => {
@@ -267,6 +353,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
   const router = new OpenAPIHono();
   router.openapi(listSchedulesRoute, listHandler);
   router.openapi(listScheduleRunsRoute, listRunsHandler);
+  router.openapi(createManualScheduleRunRoute, createManualRunHandler);
   router.openapi(createScheduleRoute, createHandler);
   router.openapi(getScheduleRoute, getHandler);
   router.openapi(putScheduleRoute, putHandler);

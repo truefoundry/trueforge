@@ -156,6 +156,19 @@ export const ListScheduleRunsResponseSchema = z
   .object({ data: z.array(ScheduleRunSchema) })
   .openapi('ListScheduleRunsResponse');
 
+/**
+ * Empty body. Task always comes from the schedule manifest.
+ */
+export const CreateManualScheduleRunRequestSchema = z
+  .object({})
+  .strict()
+  .describe('Empty request body. The schedule task is taken from the schedule manifest.')
+  .openapi('CreateManualScheduleRunRequest');
+
+export const CreateManualScheduleRunResponseSchema = z
+  .object({ data: ScheduleRunSchema })
+  .openapi('CreateManualScheduleRunResponse');
+
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;
 export type ScheduleRunStatus = z.infer<typeof ScheduleRunStatusSchema>;
 export type ScheduleManifest = z.infer<typeof ScheduleManifestSchema>;
@@ -163,3 +176,4 @@ export type Schedule = z.infer<typeof ScheduleSchema>;
 export type ScheduleRun = z.infer<typeof ScheduleRunSchema>;
 export type CreateScheduleRequest = z.infer<typeof CreateScheduleRequestSchema>;
 export type UpdateScheduleRequest = z.infer<typeof UpdateScheduleRequestSchema>;
+export type CreateManualScheduleRunRequest = z.infer<typeof CreateManualScheduleRunRequestSchema>;
