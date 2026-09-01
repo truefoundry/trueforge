@@ -320,6 +320,21 @@ describe('AgentDetailsPage', () => {
     expect(screen.getByText('timeline-body')).toBeInTheDocument();
   });
 
+  it('passes session API metrics into the selected session detail', async () => {
+    renderPage({
+      overrides: {
+        AgentSessionTimelineContainer: ({ listMetrics }) => (
+          <div>{`${String(listMetrics?.totalTurns)} turns, ${String(listMetrics?.totalDurationMs)}ms, $${String(listMetrics?.totalCostInUsd)}`}</div>
+        ),
+      },
+    });
+    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+    fireEvent.click(await screen.findByText('Release notes draft'));
+
+    expect(await screen.findByText('2 turns, 120000ms, $0.5')).toBeInTheDocument();
+  });
+
   it('shows the shared unavailable state without the optional server', () => {
     renderPage({ withSessions: false });
     expect(screen.getByRole('heading', { name: 'Agent details unavailable' })).toBeInTheDocument();
