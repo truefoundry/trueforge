@@ -1,6 +1,7 @@
 /** Vitest: jsdom for React containers; MUI alias for CJS/ESM dual-package quirk. */
 import { fileURLToPath } from 'node:url';
 
+import { defaultClientConditions } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import { defineConfig } from 'vitest/config';
 
@@ -18,7 +19,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    conditions: ['trueforge-dev', 'module', 'browser', 'import'],
+    conditions: ['trueforge-dev', ...defaultClientConditions],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@mui/material/styles/styled': '@mui/material/styles/styled.js',
