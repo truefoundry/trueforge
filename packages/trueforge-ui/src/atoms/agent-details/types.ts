@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
+import type { LibraryAgentTab } from '../../utils/sessionShareUrl.js';
 import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export type AgentSessionsProps = {
@@ -59,7 +60,7 @@ export type AgentSessionEventTimelineChartProps = {
   onSelectTurn?: (index: number) => void;
 };
 
-export type AgentDetailsTab = 'overview' | 'sessions' | 'code';
+export type AgentDetailsTab = LibraryAgentTab;
 
 export type AgentDetailsPageProps = {
   agentId: string;

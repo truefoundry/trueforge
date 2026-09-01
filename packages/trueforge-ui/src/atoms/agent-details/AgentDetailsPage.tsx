@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
@@ -14,6 +14,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useShellMode();
   const share = useSessionShareSearch();
+  const { updateShareSearch } = share;
   const activeTab = libraryAgentTabFromSearch(share, agentId);
   const AgentDetailsHeader = useSlot('AgentDetailsHeader');
   const AgentDetailsTabs = useSlot('AgentDetailsTabs');
@@ -26,15 +27,26 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const [snippets, setSnippets] = useState<CodeSnippet[]>();
   const [snippetsFailed, setSnippetsFailed] = useState(false);
 
+  const goBack = useCallback(() => {
+    updateShareSearch({
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    shell.closeLibraryAgent();
+  }, [shell, updateShareSearch]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.stopImmediatePropagation();
-      shell.closeLibraryAgent();
+      goBack();
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [shell]);
+  }, [goBack]);
 
   useEffect(() => {
     if (sessionsServer == null) return;
@@ -67,17 +79,6 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
       cancelled = true;
     };
   }, [activeTab, agentId, sessionsServer, snippets, snippetsFailed]);
-
-  const goBack = () => {
-    share.updateShareSearch({
-      sessionId: null,
-      agentId: null,
-      tab: null,
-      view: null,
-      timeRange: null,
-    });
-    shell.closeLibraryAgent();
-  };
 
   let content;
   if (sessionsServer == null) {
@@ -128,7 +129,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
         <AgentDetailsTabs
           activeTab={activeTab}
           onTabChange={tab =>
-            share.updateShareSearch({
+            updateShareSearch({
               agentId,
               tab,
               view: null,

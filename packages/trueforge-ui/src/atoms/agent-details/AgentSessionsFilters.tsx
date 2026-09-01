@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useOptionalServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { AgentLibraryEntry } from '../../server/types.js';
+import type { AgentBuilderServer, AgentLibraryEntry } from '../../server/types.js';
 import { SESSION_CUSTOM_RANGE_MAX_DAYS, type SessionTimeRange } from '../../utils/sessionShareUrl.js';
 import {
   formatSessionTimePresetLabel,
@@ -15,6 +15,15 @@ import {
 } from '../../utils/sessionTimePresets.js';
 import { cn } from '../lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from '../lib/useSearchAgentsList.js';
+
+async function searchAllAgents(
+  server: Pick<AgentBuilderServer, 'searchAgents'>,
+  offset = 0,
+): Promise<AgentLibraryEntry[]> {
+  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
+  if (rows.length < SEARCH_AGENTS_PAGE_SIZE) return rows;
+  return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
+}
 
 export type AgentSessionsFiltersProps = {
   agentId: string | null;
@@ -41,7 +50,7 @@ export function AgentSessionsFilters({
   useEffect(() => {
     if (server == null) return undefined;
     let cancelled = false;
-    void server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE }).then(
+    void searchAllAgents(server).then(
       rows => {
         if (!cancelled) setAgents(rows);
       },

@@ -144,18 +144,18 @@ describe('matchLocation', () => {
   const routes = resolveRoutesConfig();
 
   it('opens a library agent from ?agentId= when the path is root', () => {
-    expect(matchLocation('/', '?agentId=agent-1&sessionId=sess-1', routes)).toEqual({
+    expect(matchLocation({ pathname: '/', search: '?agentId=agent-1&sessionId=sess-1', routes })).toEqual({
       type: 'libraryAgent',
       agentId: 'agent-1',
     });
   });
 
   it('keeps a concrete pathname over the share query', () => {
-    expect(matchLocation('/sessions/sess-1', '?agentId=agent-1', routes)).toEqual({
+    expect(matchLocation({ pathname: '/sessions/sess-1', search: '?agentId=agent-1', routes })).toEqual({
       type: 'session',
       sessionId: 'sess-1',
     });
-    expect(matchLocation('/sessions', '?agentId=agent-1&view=sessions', routes)).toEqual({
+    expect(matchLocation({ pathname: '/sessions', search: '?agentId=agent-1&view=sessions', routes })).toEqual({
       type: 'sessionsBrowser',
     });
   });

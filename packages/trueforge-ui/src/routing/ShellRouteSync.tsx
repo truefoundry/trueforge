@@ -134,7 +134,11 @@ export function ShellRouteSync({
     if (bootedRef.current) return;
     bootedRef.current = true;
 
-    const urlPlace = matchLocation(location.pathname, location.search, routes) ?? { type: 'root' };
+    const urlPlace = matchLocation({
+      pathname: location.pathname,
+      search: location.search,
+      routes,
+    }) ?? { type: 'root' };
     const settingsOnBoot = initialSettingsOpen || urlPlace.type === 'settings';
 
     if (urlPlace.type === 'settings') {
@@ -204,7 +208,11 @@ export function ShellRouteSync({
       selfNavPathRef.current = null;
       return;
     }
-    const urlPlace = matchLocation(location.pathname, location.search, routes);
+    const urlPlace = matchLocation({
+      pathname: location.pathname,
+      search: location.search,
+      routes,
+    });
     if (urlPlace == null) {
       // Unknown path: normalize to root.
       const rootPath = routes.root;

@@ -245,6 +245,25 @@ describe('AgentDetailsPage', () => {
     expect(params.get('sessionId')).toBeNull();
   });
 
+  it('clears agent share state when Escape closes details', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/?agentId=agent-1&tab=sessions&sessionId=sess-1&view=sessions&s_tw=2592000000',
+    );
+    renderPage({ initialEntries: ['/?agentId=agent-1&tab=sessions&sessionId=sess-1&view=sessions&s_tw=2592000000'] });
+    await screen.findByRole('heading', { name: 'release-notes-writer' });
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    const params = new URL(window.location.href).searchParams;
+    expect(params.get('agentId')).toBeNull();
+    expect(params.get('tab')).toBeNull();
+    expect(params.get('sessionId')).toBeNull();
+    expect(params.get('view')).toBeNull();
+    expect(params.get('s_tw')).toBeNull();
+  });
+
   it('loads session metadata from getSession when a row is selected', async () => {
     const { getSession, listSessionEvents } = renderPage({
       overrides: { AgentSessionTimelineContainer: () => <div>timeline-body</div> },
