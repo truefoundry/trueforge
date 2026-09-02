@@ -9,7 +9,7 @@ import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import configuration from '../../../src/config';
-import { McpServerWithAuthStore } from '../../../src/db/mcpServerStore';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
