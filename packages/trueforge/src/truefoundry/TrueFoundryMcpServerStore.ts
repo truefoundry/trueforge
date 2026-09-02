@@ -10,12 +10,14 @@ import {
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import type { McpServerManifest } from '../schemas/mcpServer';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import {
+  mapSfyMcpServers,
+  parseSfyMcpServerSummary,
   resolveMcpProxyUrl,
   type SfyMcpServerSummary,
-  type TrueFoundryServiceFoundryServerClient,
-} from './TrueFoundryServiceFoundryServerClient';
+} from './mapSfyMcpServers';
+import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
+import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
@@ -49,8 +51,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
     void transaction;
-    const server = await this.#client.getMcpServerByName(this.#accessToken, input.name);
-    if (server === undefined) {
+    const row = await this.#client.getMcpServerByName(this.#accessToken, input.name);
+    if (row === undefined) {
+      return undefined;
+    }
+    const server = parseSfyMcpServerSummary(row);
+    if (server.name !== input.name) {
       return undefined;
     }
     const gatewayUrl = resolveDefaultGatewayUrl(await this.#client.listGatewayInstallations(this.#accessToken));
@@ -94,12 +100,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   async #records(tenant_id: string): Promise<McpServerRecord[]> {
-    const [servers, installations] = await Promise.all([
+    const [rows, installations] = await Promise.all([
       this.#client.listMcpServers(this.#accessToken),
       this.#client.listGatewayInstallations(this.#accessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
-    return servers
+    return mapSfyMcpServers({ rows })
       .map(server => toRecord({ tenant_id, server, gatewayUrl }))
       .sort((left, right) => left.name.localeCompare(right.name));
   }
