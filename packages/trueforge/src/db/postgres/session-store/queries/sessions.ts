@@ -1,4 +1,5 @@
-import type { AgentSpec, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetadata, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -42,6 +43,10 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
+function parseSessionMetadata(value: unknown): SessionMetadata {
+  return SessionMetadataSchema.parse(value);
+}
+
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
@@ -53,6 +58,7 @@ function mapRowToSessionRecord(row: {
   last_turn_id: string | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
+  metadata: SessionMetadata;
   metrics: SessionMetrics;
   created_at: Date;
   updated_at: Date;
@@ -72,8 +78,7 @@ function mapRowToSessionRecord(row: {
     last_turn_id: row.last_turn_id,
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
-    // Column + parse wired in db-impl; default until migration lands.
-    metadata: {},
+    metadata: parseSessionMetadata(row.metadata),
     metrics: row.metrics,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -84,8 +89,6 @@ function mapRowToSessionRecord(row: {
 export async function createSession(db: Kysely<Database>, input: CreateSessionInput<SessionCustom>): Promise<void> {
   const columns = sessionAgentToColumns(input.agent);
   const nowMs = Date.now();
-  // Persist metadata once the session.metadata column exists (db-impl).
-  void input.metadata;
 
   try {
     await db
@@ -99,6 +102,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
+        metadata: json(input.metadata),
         external_id: input.external_id,
         metrics: json({
           total_cost_in_usd: 0,
@@ -168,8 +172,7 @@ export async function getSessionByExternalId(
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
   const agent = input.agent;
   const title = input.title;
-  // Persist metadata once the session.metadata column exists (db-impl).
-  void input.metadata;
+  const metadata = input.metadata;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -198,6 +201,12 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
         return qb;
       }
       return qb.set({ title });
+    })
+    .$if(metadata !== undefined, qb => {
+      if (metadata === undefined) {
+        return qb;
+      }
+      return qb.set({ metadata: json(metadata) });
     })
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)

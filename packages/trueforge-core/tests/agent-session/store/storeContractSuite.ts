@@ -296,6 +296,50 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(after).last_activity_timestamp_ms).toBeGreaterThan(mustGet(before).last_activity_timestamp_ms);
     });
 
+    it('updateSession replaces metadata when set and leaves it when omitted', async () => {
+      const store = createStore();
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { a: '1' },
+        external_id: null,
+      });
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: undefined,
+        metadata: { b: '2' },
+      });
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({
+        b: '2',
+      });
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: 'keep-meta',
+        metadata: undefined,
+      });
+      const afterOmit = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterOmit.title).toBe('keep-meta');
+      expect(afterOmit.metadata).toEqual({ b: '2' });
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: undefined,
+        metadata: {},
+      });
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({});
+    });
+
     it('createSession conflict when session already exists', async () => {
       const store = createStore();
       await seedSession(store);
