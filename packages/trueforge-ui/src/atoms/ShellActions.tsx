@@ -5,8 +5,8 @@ import { useOptionalCatalogServer, useServerCapabilities } from '../server/Serve
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { Button } from './primitives/Button.js';
 
 export function ShellActions({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
@@ -17,26 +17,28 @@ export function ShellActions({ className }: { className?: string }) {
 
   return (
     <div className={cn('flex shrink-0 items-center gap-1 text-text-primary', className)}>
-      <button
+      <Button.Ghost
         type="button"
         aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
         title={mode === 'dark' ? 'Light theme' : 'Dark theme'}
-        className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+        size="small"
+        className="aspect-square px-0"
         onClick={() => setTheme(mode === 'dark' ? 'light' : 'dark')}
       >
         <Icon name={mode === 'dark' ? 'sun' : 'moon'} />
-      </button>
+      </Button.Ghost>
       {shell != null && catalog != null && capabilities?.settings?.enabled !== false ? (
-        <button
+        <Button.Ghost
           type="button"
           aria-label="Settings"
           title="Settings"
           aria-expanded={shell.settingsOpen}
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+          size="small"
+          className="aspect-square px-0"
           onClick={() => shell.setSettingsOpen(true)}
         >
           <Icon name="settings" />
-        </button>
+        </Button.Ghost>
       ) : null}
       <ActionSlot />
     </div>

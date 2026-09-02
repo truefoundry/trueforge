@@ -3,9 +3,9 @@
 import type { ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { formatRelativeShort } from './lib/threadListMeta.js';
+import { Button } from './primitives/Button.js';
 
 export type ThreadListRowProps = {
   title: string;
@@ -44,18 +44,15 @@ export function ThreadListRow({
         className,
       )}
     >
-      <button
+      <Button.Ghost
         type="button"
         onClick={onSelect}
         style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
-        className={auiButtonClass({
-          variant: 'ghost',
-          className: cn(
-            '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-md px-2.5 py-1.5 text-left font-normal shadow-none',
-            'bg-transparent hover:bg-transparent hover:text-inherit',
-            active ? 'text-dropdown-selected-item-text' : 'text-inherit',
-          ),
-        })}
+        className={cn(
+          '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-md px-2.5 py-1.5 text-left font-normal shadow-none',
+          'bg-transparent hover:bg-transparent hover:text-inherit',
+          active ? 'text-dropdown-selected-item-text' : 'text-inherit',
+        )}
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-text-primary">{title}</span>
@@ -66,7 +63,7 @@ export function ThreadListRow({
             </span>
           ) : null}
         </span>
-      </button>
+      </Button.Ghost>
       {hasTrailing ? (
         <div className="relative mr-1 flex size-7 shrink-0 items-center justify-center">
           {relative != null ? (

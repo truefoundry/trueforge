@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { Button } from './primitives/Button.js';
 import { Dialog, DialogContent } from './primitives/Dialog.js';
 
 export type AttachmentPreviewDialogProps = {
@@ -19,14 +19,14 @@ export function AttachmentPreviewDialog({ previewSrc, children }: AttachmentPrev
 
   return (
     <>
-      <button
+      <Button.Ghost
         type="button"
         aria-label="Open attachment preview"
         onClick={() => setOpen(true)}
-        className="block max-w-full cursor-pointer border-0 bg-transparent p-0 text-left"
+        className="block h-auto max-w-full border-0 bg-transparent p-0 text-left shadow-none hover:bg-transparent"
       >
         {children}
-      </button>
+      </Button.Ghost>
       <Dialog
         open={open}
         onOpenChange={setOpen}
@@ -35,15 +35,16 @@ export function AttachmentPreviewDialog({ previewSrc, children }: AttachmentPrev
       >
         <DialogContent className="relative p-2">
           <span className="absolute top-2 right-2 z-10 inline-flex">
-            <button
+            <Button.Ghost
               type="button"
               aria-label="Close"
               title="Close"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              size="small"
+              className="aspect-square px-0"
               onClick={() => setOpen(false)}
             >
               <Icon name="xmark" />
-            </button>
+            </Button.Ghost>
           </span>
           <div className="bg-primary-bg relative mx-auto flex max-h-[80dvh] w-full items-center justify-center overflow-hidden">
             <img

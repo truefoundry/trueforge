@@ -5,8 +5,8 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { ShellActions } from '../atoms/ShellActions.js';
-import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import { Button } from '../atoms/primitives/Button.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
@@ -83,15 +83,16 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
       ) : (
         <>
           <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-            <button
+            <Button.Ghost
               type="button"
               aria-label="Sessions"
               title="Sessions"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              size="small"
+              className="aspect-square px-0"
               onClick={() => setView('list')}
             >
               <Icon name="clock-rotate-left" />
-            </button>
+            </Button.Ghost>
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
             <ClearChatButton />

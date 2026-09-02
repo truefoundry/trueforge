@@ -73,7 +73,13 @@ describe('draft composer sections', () => {
     render(<DraftSections />);
 
     expect(await screen.findByTitle('Select model')).toHaveTextContent('gpt-4.1');
-    expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
+    const reasoningSelector = await screen.findByTitle('Select reasoning effort');
+    expect(reasoningSelector).toHaveTextContent('high');
+
+    fireEvent.click(reasoningSelector);
+    const selectedEffort = screen.getByRole('option', { name: 'high' });
+    expect(selectedEffort).toHaveAttribute('aria-selected', 'true');
+    expect(selectedEffort).toHaveClass('hover:bg-dropdown-selected-item-bg');
   });
 
   it('propagates disabled and running state to composed controls', async () => {

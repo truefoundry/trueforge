@@ -3,9 +3,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
-import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
+import { Button } from '@/atoms/primitives/Button.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
 import { useOptionalCatalogServer, useOptionalRefreshServerCapabilities } from '@/server/ServerContext.js';
@@ -99,15 +99,16 @@ const TruefoundrySettingsBuilder = () => {
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
-        <button
+        <Button.Ghost
           type="button"
           aria-label="Back"
           title="Back"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+          size="small"
+          className="aspect-square px-0"
           onClick={closeSettings}
         >
           <Icon name="arrow-left" />
-        </button>
+        </Button.Ghost>
         <h1 className="text-lg font-semibold tracking-tight text-text-primary">Settings</h1>
       </header>
 
@@ -120,18 +121,18 @@ const TruefoundrySettingsBuilder = () => {
           )}
         >
           {sections.map(item => (
-            <button
+            <Button.Ghost
               key={item.id}
               type="button"
               aria-current={section === item.id ? 'page' : undefined}
               {...(compact ? { title: item.label } : {})}
               className={cn(
-                'flex min-h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                'min-h-9 h-auto justify-normal items-center gap-2 px-3 text-sm shadow-none',
                 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring',
                 // Narrow panels cannot fit fixed-width tabs, so tabs split the row instead.
                 compact ? 'min-w-0 flex-1 justify-center gap-1.5 px-1.5' : 'shrink-0',
                 section === item.id
-                  ? 'bg-primary-button-bg text-primary-button-text'
+                  ? 'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-bg'
                   : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {
@@ -140,7 +141,7 @@ const TruefoundrySettingsBuilder = () => {
             >
               <Icon name={item.icon} className="h-4 w-4 shrink-0" />
               {compact ? <span className="truncate">{item.label}</span> : item.label}
-            </button>
+            </Button.Ghost>
           ))}
         </nav>
 

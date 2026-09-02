@@ -152,24 +152,22 @@ export function AskUserPrompt({
         ) : null}
         {!readOnly && isMultiQuestion && (
           <div className="flex items-center gap-1">
-            <IconButton
+            <IconButton.Ghost
               aria-label="Previous question"
-              variant="ghost"
               onClick={() => onCurrentQuestionIndexChange?.(Math.max(0, currentQuestionIndex - 1))}
               disabled={currentQuestionIndex === 0}
               className="text-text-primary"
             >
               <Icon name="chevron-left" size="0.75em" />
-            </IconButton>
-            <IconButton
+            </IconButton.Ghost>
+            <IconButton.Ghost
               aria-label="Next question"
-              variant="ghost"
               onClick={() => onCurrentQuestionIndexChange?.(Math.min(totalQuestions - 1, currentQuestionIndex + 1))}
               disabled={currentQuestionIndex === totalQuestions - 1}
               className="text-text-primary"
             >
               <Icon name="chevron-right" size="0.75em" />
-            </IconButton>
+            </IconButton.Ghost>
             <div className="ml-1 rounded bg-primary-button-bg/20 px-2 py-1 font-sans text-xs font-medium text-text-primary">
               <span> {currentQuestionIndex + 1} </span> <span> of </span> <span> {totalQuestions} </span>
             </div>
@@ -253,13 +251,13 @@ export function AskUserPrompt({
               <span />
             )}
             {isNextStep ? (
-              <Button type="button" size="sm" onClick={goToNextQuestion} disabled={isSubmitDisabled}>
+              <Button.Primary type="button" size="small" onClick={goToNextQuestion} disabled={isSubmitDisabled}>
                 Next
-              </Button>
+              </Button.Primary>
             ) : (
-              <Button type="button" size="sm" onClick={onSubmit} disabled={isSubmitAllDisabled}>
+              <Button.Primary type="button" size="small" onClick={onSubmit} disabled={isSubmitAllDisabled}>
                 Submit
-              </Button>
+              </Button.Primary>
             )}
           </div>
         )}

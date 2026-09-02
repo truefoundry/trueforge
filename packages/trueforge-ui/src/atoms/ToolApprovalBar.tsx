@@ -46,10 +46,10 @@ const DEFAULT_DENY_OPTIONS: ApprovalOption[] = [
   { id: 'deny', label: 'Deny', variant: 'secondary', requiresReason: true },
 ];
 
-function optionVariant(option: ApprovalOption): 'default' | 'secondary' | 'destructive' {
-  if (option.variant === 'destructive') return 'destructive';
-  if (option.variant === 'secondary') return 'secondary';
-  return 'default';
+function optionButton(option: ApprovalOption): typeof Button.Primary {
+  if (option.variant === 'destructive') return Button.Destructive;
+  if (option.variant === 'secondary') return Button.Secondary;
+  return Button.Primary;
 }
 
 export function ToolApprovalBar({
@@ -105,47 +105,46 @@ export function ToolApprovalBar({
               )}
             </div>
             {!isDecided && !readOnly && selectedDenyOption && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={interactionsLocked}
-                onClick={() => onDenyOptionChange?.(null)}
-              >
+              <Button.Secondary size="small" disabled={interactionsLocked} onClick={() => onDenyOptionChange?.(null)}>
                 Back
-              </Button>
+              </Button.Secondary>
             )}
           </div>
           {!isDecided && !readOnly && !selectedDenyOption && (
             <div className="flex gap-2">
-              {approveOptions.map(option => (
-                <Button
-                  key={option.id}
-                  size="sm"
-                  variant={optionVariant(option)}
-                  disabled={interactionsLocked}
-                  onClick={() => onSelect(option.id)}
-                >
-                  {option.variant === 'primary' && <Icon name="check" size="0.75rem" />}
-                  {option.label}
-                </Button>
-              ))}
-              {denyOptions.map(option => (
-                <Button
-                  key={option.id}
-                  size="sm"
-                  variant={optionVariant(option)}
-                  disabled={interactionsLocked}
-                  onClick={() => {
-                    if (option.requiresReason) {
-                      onDenyOptionChange?.(option.id);
-                    } else {
-                      onSelect(option.id);
-                    }
-                  }}
-                >
-                  {option.label}
-                </Button>
-              ))}
+              {approveOptions.map(option => {
+                const OptionButton = optionButton(option);
+                return (
+                  <OptionButton
+                    key={option.id}
+                    size="small"
+                    disabled={interactionsLocked}
+                    onClick={() => onSelect(option.id)}
+                  >
+                    {option.variant === 'primary' && <Icon name="check" size="0.75rem" />}
+                    {option.label}
+                  </OptionButton>
+                );
+              })}
+              {denyOptions.map(option => {
+                const OptionButton = optionButton(option);
+                return (
+                  <OptionButton
+                    key={option.id}
+                    size="small"
+                    disabled={interactionsLocked}
+                    onClick={() => {
+                      if (option.requiresReason) {
+                        onDenyOptionChange?.(option.id);
+                      } else {
+                        onSelect(option.id);
+                      }
+                    }}
+                  >
+                    {option.label}
+                  </OptionButton>
+                );
+              })}
             </div>
           )}
         </div>
@@ -187,9 +186,9 @@ export function ToolApprovalBar({
                 'focus:outline-none focus:ring-1 focus:ring-focus-ring',
               )}
             />
-            <Button size="sm" disabled={interactionsLocked} onClick={onReasonSubmit}>
+            <Button.Primary size="small" disabled={interactionsLocked} onClick={onReasonSubmit}>
               Submit
-            </Button>
+            </Button.Primary>
           </div>
           {showReasonError && (
             <span id="aui-denial-reason-error" className="text-xs text-failure-bg" role="alert">

@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from './lib/useSearchAgentsList.js';
+import { Button } from './primitives/Button.js';
 
 export type AgentsLibraryButtonProps = {
   className?: string;
@@ -45,19 +45,16 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
 
   return (
     <div className={cn('relative min-w-0', compact ? 'w-8' : 'w-full', className)}>
-      <button
+      <Button.Ghost
         type="button"
         aria-label={compact ? 'Agents Library' : undefined}
         title={compact ? 'Agents Library' : undefined}
         aria-current={libraryOpen ? 'page' : undefined}
-        className={auiButtonClass({
-          variant: 'ghost',
-          className: cn(
-            'h-8 rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
-            compact ? 'w-8 !justify-center p-0' : 'w-full !justify-start px-2.5',
-            libraryOpen && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
-          ),
-        })}
+        className={cn(
+          'h-8 rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+          compact ? 'w-8 !justify-center p-0' : 'w-full !justify-start px-2.5',
+          libraryOpen && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+        )}
         onClick={() => shell?.setLibraryOpen(true)}
       >
         <Icon name="robot" />
@@ -70,7 +67,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
             <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
           </>
         ) : null}
-      </button>
+      </Button.Ghost>
     </div>
   );
 }

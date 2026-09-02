@@ -1,11 +1,8 @@
 # Public API
 
 Curated exports from `@truefoundry/trueforge-ui`. Design-system primitives
-(`CenteredModal`, `Switch`, …) are owned in this package. Low-level controls
-like `Button` / `IconButton` are styled via theme tokens / CSS (not
-`SlotsProvider` slots); their **prop types** (`ButtonProps`, `IconButtonProps`,
-…) are exported for hosts that build around those contracts. Component
-**values** appear below only when they are part of the public surface.
+(`Button`, `CenteredModal`, `Switch`, …) are owned in this package. Low-level
+controls are styled via theme tokens / CSS rather than `SlotsProvider` slots.
 
 ## Quick start
 
@@ -81,10 +78,22 @@ surface is split across the `AgentMetrics`, `AgentMetricsView`,
 
 ## Types for overrides
 
-| Export                                         | Notes                                                            |
-| ---------------------------------------------- | ---------------------------------------------------------------- |
-| `ButtonProps`, `ButtonSize`, `IconButtonProps` | Prop contracts for in-package primitives (tokens/CSS, not slots) |
-| Atom `*Props` types                            | Per-atom override shapes                                         |
+| Export                                       | Notes                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `Button`                                     | `Button.Primary`, `.Secondary`, `.Ghost`, or `.Destructive`; no direct `<Button />` |
+| `ButtonProps`, `ButtonSize`, `ButtonVariant` | Button prop contracts (`small`, `medium`, or `large`)                               |
+| `IconButton`                                 | Matching compound variants for square icon-only buttons                             |
+| `IconButtonProps`                            | Icon button prop contract                                                           |
+| Atom `*Props` types                          | Per-atom override shapes                                                            |
+
+```tsx
+<Button.Primary size="medium" type="submit">
+  Save
+</Button.Primary>
+<Button.Ghost size="small" onClick={onCancel}>
+  Cancel
+</Button.Ghost>
+```
 
 ## Styles
 

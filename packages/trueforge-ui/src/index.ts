@@ -32,9 +32,11 @@ export type {
 
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
+export { Button } from './atoms/primitives/Button.js';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './atoms/primitives/Button.js';
 export { CenteredModal } from './atoms/primitives/CenteredModal.js';
 export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
+export { IconButton } from './atoms/primitives/IconButton.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
 export { Switch } from './atoms/primitives/Switch.js';
 export type { SwitchProps, SwitchSize } from './atoms/primitives/Switch.js';

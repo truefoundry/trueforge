@@ -160,9 +160,9 @@ export function ToolCallContentBlock({
           <DialogContent className="flex h-[80vh] max-w-4xl flex-col">
             <DialogHeader className="flex flex-row items-center justify-between gap-2">
               <DialogTitle>{title}</DialogTitle>
-              <IconButton variant="ghost" onClick={() => onFullscreenChange?.(false)} aria-label="Minimize">
+              <IconButton.Ghost onClick={() => onFullscreenChange?.(false)} aria-label="Minimize">
                 <Icon name="compress" size="0.875em" />
-              </IconButton>
+              </IconButton.Ghost>
             </DialogHeader>
             <div className="min-h-0 flex-1">
               <JsonEditor content={content} height="100%" />

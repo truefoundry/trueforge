@@ -57,17 +57,17 @@ track (orthogonal to [`docs/server.md`](./server.md)).
 
 ### Primitives (slot defaults today)
 
-| Current (tfy)      | Target (in-repo shadcn-style)                                              |
-| ------------------ | -------------------------------------------------------------------------- |
-| `Button`           | `Button` (variants: default, secondary, ghost, destructive, outline, size) |
-| `IconButton`       | `Button` size=`icon` **or** thin `IconButton` wrapper                      |
-| `Modal` / `Dialog` | `Dialog` (+ sheet if drawer needs it)                                      |
-| `Accordion*`       | `Accordion`                                                                |
-| `LightTooltip`     | `Tooltip`                                                                  |
-| `Skeleton`         | `Skeleton`                                                                 |
-| `Avatar*`          | `Avatar`                                                                   |
-| `Spinner`          | small `Spinner` / loader (FA or inline SVG)                                |
-| `DropdownMenu`     | `DropdownMenu`                                                             |
+| Current (tfy)      | Target (in-repo shadcn-style)                                     |
+| ------------------ | ----------------------------------------------------------------- |
+| `Button`           | Compound `Button.Primary`, `.Secondary`, `.Ghost`, `.Destructive` |
+| `IconButton`       | Compound icon-only variants matching `Button`                     |
+| `Modal` / `Dialog` | `Dialog` (+ sheet if drawer needs it)                             |
+| `Accordion*`       | `Accordion`                                                       |
+| `LightTooltip`     | `Tooltip`                                                         |
+| `Skeleton`         | `Skeleton`                                                        |
+| `Avatar*`          | `Avatar`                                                          |
+| `Spinner`          | small `Spinner` / loader (FA or inline SVG)                       |
+| `DropdownMenu`     | `DropdownMenu`                                                    |
 
 ### Feature atoms that wrap tfy molecules
 

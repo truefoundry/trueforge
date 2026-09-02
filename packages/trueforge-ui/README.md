@@ -614,20 +614,20 @@ See [docs/server.md](./docs/server.md) for the full method list and BYO guidance
 
 ## Exports
 
-| Export                                                             | Kind       | Purpose                                                      |
-| ------------------------------------------------------------------ | ---------- | ------------------------------------------------------------ |
-| `TrueForgeUI`                                                      | Component  | Root component — accepts all props above                     |
-| `TrueForgeServerConfig`                                            | Type       | `server` prop: `truefoundry` / `trueforge` / `AgentUIServer` |
-| `createTrueFoundryServer`                                          | Function   | Compose chat + builder into `AgentUIServer`                  |
-| `Thread`, `ThreadListContainer`, `BrandLogo`                       | Components | Layout primitives for custom layouts                         |
-| `resolveBrandChrome`, `useBrandName`, `useBrand`                   | Helpers    | Brand chrome look + name for custom layouts                  |
-| Composer / message / tool atoms                                    | Components | Overridable, themeable building blocks                       |
-| `SlotsProvider`, `useSlot`, `useTheme`                             | API        | Overrides + theme mode                                       |
-| `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`           | Types      | Resolved server contract                                     |
-| `ThemeConfig`, `LayoutProp`, `SlotOverrides`, `AgentSpec`, …       | Types      | Configuration contracts                                      |
-| `@truefoundry/trueforge-ui/styles.css`                             | CSS        | Optional; auto-injected by `ThemeProvider`                   |
-| `@truefoundry/trueforge-ui/assistant-ui`                           | Entry      | Shared `useAui` / `useAuiState` (single instance)            |
-| `@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter` | Entry      | `createTrueForgeAgentUIServer` + Harness catalogs / chat     |
+| Export                                                               | Kind       | Purpose                                                      |
+| -------------------------------------------------------------------- | ---------- | ------------------------------------------------------------ |
+| `TrueForgeUI`                                                        | Component  | Root component — accepts all props above                     |
+| `TrueForgeServerConfig`                                              | Type       | `server` prop: `truefoundry` / `trueforge` / `AgentUIServer` |
+| `createTrueFoundryServer`                                            | Function   | Compose chat + builder into `AgentUIServer`                  |
+| `Thread`, `ThreadListContainer`, `BrandLogo`, `Button`, `IconButton` | Components | Layout and themed UI primitives                              |
+| `resolveBrandChrome`, `useBrandName`, `useBrand`                     | Helpers    | Brand chrome look + name for custom layouts                  |
+| Composer / message / tool atoms                                      | Components | Overridable, themeable building blocks                       |
+| `SlotsProvider`, `useSlot`, `useTheme`                               | API        | Overrides + theme mode                                       |
+| `AgentUIServer`, `AgentChatServer`, `AgentBuilderServer`             | Types      | Resolved server contract                                     |
+| `ThemeConfig`, `LayoutProp`, `SlotOverrides`, `AgentSpec`, …         | Types      | Configuration contracts                                      |
+| `@truefoundry/trueforge-ui/styles.css`                               | CSS        | Optional; auto-injected by `ThemeProvider`                   |
+| `@truefoundry/trueforge-ui/assistant-ui`                             | Entry      | Shared `useAui` / `useAuiState` (single instance)            |
+| `@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter`   | Entry      | `createTrueForgeAgentUIServer` + Harness catalogs / chat     |
 
 Curated public API: [docs/api.md](./docs/api.md).
 

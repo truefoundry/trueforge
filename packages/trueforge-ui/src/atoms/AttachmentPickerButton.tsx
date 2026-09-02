@@ -1,25 +1,22 @@
 import type { ComponentProps } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { Button } from './primitives/Button.js';
 
 export type AttachmentPickerButtonProps = Omit<ComponentProps<'button'>, 'children' | 'aria-label'>;
 
 export function AttachmentPickerButton({ className, ...props }: AttachmentPickerButtonProps) {
   return (
-    <button
+    <Button.Ghost
       type="button"
       aria-label="Add Attachment"
       title="Add Attachment"
-      className={auiButtonClass({
-        variant: 'ghost',
-        size: 'icon',
-        className: `size-7 rounded-full p-1 ${className ?? ''}`,
-      })}
+      size="small"
+      className={`aspect-square size-7 rounded-full px-0 p-1 ${className ?? ''}`}
       {...props}
     >
       <Icon name="paperclip" />
-    </button>
+    </Button.Ghost>
   );
 }
 

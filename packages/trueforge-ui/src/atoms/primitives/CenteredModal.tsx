@@ -3,10 +3,10 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useCompactOverlayStyle } from '../lib/useCompactOverlayStyle.js';
+import { Button } from './Button.js';
 
 export type CenteredModalProps = {
   open: boolean;
@@ -99,15 +99,16 @@ export function CenteredModal({
             </p>
           ) : null}
         </div>
-        <button
+        <Button.Ghost
           type="button"
           aria-label="Close"
           title="Close"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+          size="small"
+          className="aspect-square px-0"
           onClick={() => onOpenChange(false)}
         >
           <Icon name="xmark" />
-        </button>
+        </Button.Ghost>
       </header>
       <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">{children}</div>
     </dialog>

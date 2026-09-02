@@ -8,9 +8,9 @@ import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
+import { Button } from './primitives/Button.js';
 import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import { Tooltip } from './primitives/Tooltip.js';
@@ -94,13 +94,10 @@ export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: Agen
       ) : null}
       <span className="flex shrink-0 items-center gap-1.5">
         {showEdit ? (
-          <button
+          <Button.Ghost
             type="button"
             aria-label={`Edit agent ${agent.name}`}
-            className={auiButtonClass({
-              variant: 'ghost',
-              size: 'sm',
-            })}
+            size="small"
             onClick={event => {
               event.stopPropagation();
               onEdit();
@@ -108,15 +105,12 @@ export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: Agen
           >
             <Icon name="pencil" className="size-3.5" />
             Edit
-          </button>
+          </Button.Ghost>
         ) : null}
-        <button
+        <Button.Secondary
           type="button"
           aria-label={`Try agent ${agent.name}`}
-          className={auiButtonClass({
-            variant: 'outline',
-            size: 'sm',
-          })}
+          size="small"
           onClick={event => {
             event.stopPropagation();
             onTry();
@@ -124,7 +118,7 @@ export function AgentLibraryRow({ agent, showEdit, onOpen, onTry, onEdit }: Agen
         >
           <Icon name="play" className="size-3.5" />
           Try
-        </button>
+        </Button.Secondary>
       </span>
     </div>
   );
@@ -194,15 +188,16 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
-        <button
+        <Button.Ghost
           type="button"
           aria-label="Back"
           title="Back"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+          size="small"
+          className="aspect-square px-0"
           onClick={closeLibrary}
         >
           <Icon name="arrow-left" />
-        </button>
+        </Button.Ghost>
         <h1 className="text-lg font-semibold tracking-tight text-text-primary">Agents Library</h1>
       </header>
 

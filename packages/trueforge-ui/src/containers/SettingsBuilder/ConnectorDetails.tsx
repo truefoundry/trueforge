@@ -66,21 +66,21 @@ function ExpandableDescription({ text }: { text: string }) {
         {expanded && canExpand ? (
           <>
             {' '}
-            <button
+            <Button.Ghost
               type="button"
-              className="cursor-pointer font-mono text-xs font-medium text-text-primary/80 hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+              className="h-auto bg-transparent p-0 font-mono text-xs text-text-primary/80 shadow-none hover:bg-transparent hover:text-text-primary"
               aria-expanded
               onClick={() => setExpanded(false)}
             >
               Show less
-            </button>
+            </Button.Ghost>
           </>
         ) : null}
       </p>
       {!expanded && canExpand ? (
-        <button
+        <Button.Ghost
           type="button"
-          className="absolute top-0.5 right-0 cursor-pointer bg-card-bg pl-1.5 font-mono text-xs font-medium leading-4 text-text-primary/80 hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+          className="absolute top-0.5 right-0 h-auto bg-card-bg p-0 pl-1.5 font-mono text-xs leading-4 text-text-primary/80 shadow-none hover:bg-card-bg hover:text-text-primary"
           aria-expanded={false}
           onClick={() => setExpanded(true)}
         >
@@ -88,7 +88,7 @@ function ExpandableDescription({ text }: { text: string }) {
             …
           </span>
           <span className="ml-1">Read more</span>
-        </button>
+        </Button.Ghost>
       ) : null}
     </div>
   );
@@ -151,14 +151,14 @@ const ConnectorDetails = ({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <button
+      <Button.Ghost
         type="button"
         onClick={onBack}
-        className="mb-3 inline-flex w-fit items-center gap-1 rounded-md py-1 pr-2 text-sm text-text-secondary hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring"
+        className="mb-3 h-auto w-fit gap-1 bg-transparent py-1 pr-2 pl-0 text-sm font-normal text-text-secondary shadow-none hover:bg-transparent hover:text-text-primary"
       >
         <Icon name="chevron-left" className="size-3.5" />
         Connectors
-      </button>
+      </Button.Ghost>
 
       <div className="flex flex-1 flex-col overflow-y-auto pb-1">
         <header className="flex items-start gap-3">
@@ -194,9 +194,8 @@ const ConnectorDetails = ({
           </div>
 
           {connector.auth.type === 'dcr' && !connector.authenticated ? (
-            <Button
-              variant="outline"
-              size="sm"
+            <Button.Secondary
+              size="small"
               type="button"
               disabled={busy || connecting}
               onClick={() => {
@@ -206,11 +205,11 @@ const ConnectorDetails = ({
               }}
             >
               {connecting ? 'Connecting…' : 'Connect'}
-            </Button>
+            </Button.Secondary>
           ) : connector.auth.type === 'dcr' && !connector.requiresAuth ? (
-            <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onDisconnect}>
+            <Button.Secondary size="small" type="button" disabled={busy} onClick={onDisconnect}>
               Disconnect
-            </Button>
+            </Button.Secondary>
           ) : null}
         </header>
 

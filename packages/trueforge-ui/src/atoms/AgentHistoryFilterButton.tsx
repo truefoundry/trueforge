@@ -6,12 +6,12 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
 import { useIsMobile } from './lib/useIsMobile.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { BottomSheet } from './primitives/BottomSheet.js';
+import { Button } from './primitives/Button.js';
 import { DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
 
@@ -156,7 +156,7 @@ export function AgentHistoryFilterButton() {
 
   return (
     <div className="relative shrink-0">
-      <button
+      <Button.Ghost
         ref={buttonRef}
         type="button"
         aria-label={selected != null ? `Filter chat history by agent (${selected})` : 'Filter chat history by agent'}
@@ -164,14 +164,11 @@ export function AgentHistoryFilterButton() {
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         title="Filter by agent"
-        className={auiButtonClass({
-          variant: 'ghost',
-          size: 'icon',
-          className: cn(
-            'relative size-7 shrink-0 text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text',
-            selected != null && 'text-text-primary',
-          ),
-        })}
+        size="small"
+        className={cn(
+          'relative aspect-square size-7 shrink-0 px-0 text-text-secondary hover:bg-ghost-button-hover hover:text-ghost-button-text',
+          selected != null && 'text-text-primary',
+        )}
         onClick={() => setOpen(v => !v)}
       >
         <Icon name="funnel" className="size-3.5" />
@@ -182,7 +179,7 @@ export function AgentHistoryFilterButton() {
             data-testid="history-filter-active-dot"
           />
         ) : null}
-      </button>
+      </Button.Ghost>
       {useSheet && open ? (
         <BottomSheet open onOpenChange={setOpen} id={menuId} aria-label="Filter agents">
           <div className="flex min-h-0 flex-1 flex-col p-2" role="menu">

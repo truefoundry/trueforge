@@ -4,11 +4,11 @@ import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefou
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Button } from '../primitives/Button.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { hasReasoningEfforts, modelPatchWithReasoningEffort, resolveReasoningEffort } from './reasoningEffort.js';
 
@@ -82,15 +82,15 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
         {efforts.map(effort => {
           const active = effort === resolved;
           return (
-            <button
+            <Button.Ghost
               key={effort}
               type="button"
               role="option"
               aria-selected={active}
               className={cn(
-                'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                'h-auto w-full items-center justify-start px-2 py-2 text-left text-sm font-normal shadow-none',
                 active
-                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+                  ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text hover:bg-dropdown-selected-item-bg'
                   : 'hover:bg-ghost-button-hover',
               )}
               onClick={() => {
@@ -106,7 +106,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
               }}
             >
               <span className="truncate font-medium">{effort}</span>
-            </button>
+            </Button.Ghost>
           );
         })}
       </div>
@@ -115,26 +115,20 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
 
   return (
     <div ref={containerRef} className="relative">
-      <button
+      <Button.Ghost
         type="button"
         disabled={disabled || isRunning}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         title="Select reasoning effort"
-        className={auiButtonClass({
-          variant: 'ghost',
-          size: 'sm',
-          className: cn(
-            'h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium',
-            'hover:bg-ghost-button-hover',
-          ),
-        })}
+        size="small"
+        className="h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium hover:bg-ghost-button-hover"
         onClick={() => setOpen(v => !v)}
       >
         <span className="truncate">{resolved}</span>
         <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
-      </button>
+      </Button.Ghost>
 
       {open ? (
         isMobile || compactLayout ? (

@@ -554,25 +554,24 @@ const CustomModelProviderForm = ({
               })}
             </div>
 
-            <Button
-              variant="secondary"
-              size="sm"
+            <Button.Secondary
+              size="small"
               type="button"
               className="mt-4 w-fit"
               onClick={() => setModels(current => [...current, createEmptyModelRow()])}
             >
               <Icon name="plus" className="size-3.5" />
               Add model
-            </Button>
+            </Button.Secondary>
           </fieldset>
         </div>
 
         {/* Sticky footer */}
         <div className="shrink-0 space-y-3 border-t border-border px-5 py-4">
           {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
-          <Button type="submit" size="lg" disabled={!visibleValid || busy} className="w-full">
+          <Button.Primary type="submit" size="large" disabled={!visibleValid || busy} className="w-full">
             {isEditMode ? 'Save changes' : 'Add provider'}
-          </Button>
+          </Button.Primary>
         </div>
       </form>
     </CenteredModal>

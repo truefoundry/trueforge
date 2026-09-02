@@ -1,5 +1,5 @@
 import { Icon } from '../../icons/Icon.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
+import { Button } from '../primitives/Button.js';
 import type { AgentDetailsUnavailableProps } from './types.js';
 
 export function AgentDetailsUnavailable({ onBack, reason }: AgentDetailsUnavailableProps) {
@@ -14,10 +14,10 @@ export function AgentDetailsUnavailable({ onBack, reason }: AgentDetailsUnavaila
           {reason ?? 'The agent details could not be loaded. Please try again later.'}
         </p>
       </div>
-      <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })} onClick={onBack}>
+      <Button.Secondary type="button" size="small" onClick={onBack}>
         <Icon name="arrow-left" className="size-3.5" />
         Back to Agents Library
-      </button>
+      </Button.Secondary>
     </div>
   );
 }

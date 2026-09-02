@@ -31,28 +31,21 @@ export function UserMessageActionBar({
   return (
     <div className={cn('aui-user-action-bar-root animate-in fade-in flex items-center gap-1 duration-200', className)}>
       <MessageTimestamp createdAt={createdAt} className="mr-1" />
-      <IconButton
-        aria-label="Try again"
-        tooltip="Try again"
-        variant="ghost"
-        className={actionBtnClass}
-        onClick={onRetry}
-      >
+      <IconButton.Ghost aria-label="Try again" tooltip="Try again" className={actionBtnClass} onClick={onRetry}>
         <Icon name="rotate-right" size="0.875em" />
-      </IconButton>
-      <IconButton
+      </IconButton.Ghost>
+      <IconButton.Ghost
         aria-label="Edit"
         tooltip="Edit"
-        variant="ghost"
         className={actionBtnClass}
         disabled={editDisabled}
         onClick={onEdit}
       >
         <Icon name="pencil" size="0.875em" />
-      </IconButton>
-      <IconButton aria-label="Copy" tooltip="Copy" variant="ghost" className={actionBtnClass} onClick={onCopy}>
+      </IconButton.Ghost>
+      <IconButton.Ghost aria-label="Copy" tooltip="Copy" className={actionBtnClass} onClick={onCopy}>
         <Icon name={isCopied ? 'check' : 'clone'} size="0.875em" />
-      </IconButton>
+      </IconButton.Ghost>
     </div>
   );
 }

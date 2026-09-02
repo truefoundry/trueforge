@@ -256,9 +256,9 @@ const ConfigureSandboxForm = ({
 
         <div className="mt-6 space-y-3">
           {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
-          <Button type="submit" size="lg" disabled={!isValid || busy} className="w-full shrink-0">
+          <Button.Primary type="submit" size="large" disabled={!isValid || busy} className="w-full shrink-0">
             Save
-          </Button>
+          </Button.Primary>
         </div>
       </form>
     </CenteredModal>

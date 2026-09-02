@@ -11,7 +11,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
-import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import {
@@ -22,6 +21,7 @@ import {
 } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
+import { Button } from '../atoms/primitives/Button.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -53,26 +53,24 @@ function ThreadListItemDeleteMenu() {
     setPortalContainer(themeRoot instanceof HTMLElement ? themeRoot : undefined);
   }, []);
 
-  const moreButtonClass = auiButtonClass({
-    variant: 'ghost',
-    size: 'icon',
-    className: 'size-7 shrink-0 text-text-secondary hover:bg-transparent hover:text-text-primary',
-  });
+  const moreButtonClass =
+    'inline-flex aspect-square size-7 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-md bg-ghost-button-bg px-0 text-xs font-medium text-text-secondary transition-colors hover:bg-transparent hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50';
 
   if (useSheet) {
     return (
       <>
-        <button
+        <Button.Ghost
           type="button"
           aria-label="Session actions"
           title="Session actions"
           aria-haspopup="dialog"
           aria-expanded={sheetOpen}
+          size="small"
           className={moreButtonClass}
           onClick={() => setSheetOpen(true)}
         >
           <Icon name="ellipsis" className="size-3.5" />
-        </button>
+        </Button.Ghost>
         {sheetOpen ? (
           <BottomSheet open onOpenChange={setSheetOpen} aria-label="Session actions">
             <div className="flex flex-col gap-1 p-2" role="menu">
@@ -229,10 +227,10 @@ function ChatHistorySection({ children, viewportRef }: { children: ReactNode; vi
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 px-1 py-1">
-        <button
+        <Button.Ghost
           type="button"
           aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-sm font-medium text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary"
+          className="h-auto min-w-0 flex-1 justify-start gap-1 px-1.5 py-1 text-left text-sm text-text-secondary shadow-none hover:bg-ghost-button-hover hover:text-text-primary"
           onClick={() => setExpanded(v => !v)}
         >
           <span className="truncate">Chat History</span>
@@ -240,7 +238,7 @@ function ChatHistorySection({ children, viewportRef }: { children: ReactNode; vi
             name="chevron-down"
             className={cn('size-3.5 shrink-0 transition-transform', !expanded && '-rotate-90')}
           />
-        </button>
+        </Button.Ghost>
         {showFilter ? <AgentHistoryFilterButton /> : null}
       </div>
       {expanded ? (

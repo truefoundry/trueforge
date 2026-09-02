@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { CompactLayoutProvider } from '../atoms/lib/CompactLayoutContext.js';
+import { Button } from '../atoms/primitives/Button.js';
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { StackChatPanel } from './StackChatPanel.js';
@@ -55,25 +55,26 @@ export function WidgetLayout({ className }: { className?: string }) {
           <CompactLayoutProvider>
             <StackChatPanel
               threadHeaderEnd={
-                <button
+                <Button.Ghost
                   type="button"
                   aria-label="Close"
                   title="Close"
-                  className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                  size="small"
+                  className="aspect-square px-0"
                   onClick={() => setOpen(false)}
                 >
                   <Icon name="xmark" />
-                </button>
+                </Button.Ghost>
               }
             />
           </CompactLayoutProvider>
         </div>
       ) : null}
-      {/* Native FAB: inline colors beat host unlayered Tailwind (SDK utilities are layered). */}
-      <button
+      {/* Inline colors beat host unlayered Tailwind (SDK utilities are layered). */}
+      <Button.Primary
         ref={fabRef}
         type="button"
-        className="pointer-events-auto absolute right-[max(1.25rem,env(safe-area-inset-right,0px))] bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] z-20 flex size-14 cursor-pointer items-center justify-center rounded-full text-sm font-medium shadow-[0_8px_24px_color-mix(in_oklab,var(--primary-button-bg)_45%,transparent)]"
+        className="pointer-events-auto absolute right-[max(1.25rem,env(safe-area-inset-right,0px))] bottom-[max(1.25rem,env(safe-area-inset-bottom,0px))] z-20 size-14 rounded-full px-0 shadow-[0_8px_24px_color-mix(in_oklab,var(--primary-button-bg)_45%,transparent)]"
         style={{
           backgroundColor: 'var(--primary-button-bg)',
           color: 'var(--primary-button-text)',
@@ -89,7 +90,7 @@ export function WidgetLayout({ className }: { className?: string }) {
         ) : (
           <BrandLogo variant="icon" className="size-6" />
         )}
-      </button>
+      </Button.Primary>
     </div>
   );
 }

@@ -18,9 +18,9 @@ import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvi
 import { CatalogRow, ConnectorConnectButton, isUnauthenticatedDcrConnector } from './draft/DraftCompositeSelector.js';
 import { displayModelLabel, DraftModelCatalogPanel, ProviderMark } from './draft/DraftModelCatalogPanel.js';
 import { modelPatchWithReasoningEffort } from './draft/reasoningEffort.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { auiInputClass } from './lib/inputClasses.js';
+import { Button } from './primitives/Button.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 import { Tooltip } from './primitives/Tooltip.js';
 
@@ -56,15 +56,16 @@ function ConfigSection({
     <div className="mb-3">
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-text-secondary text-xs font-semibold tracking-wide uppercase">{label}</span>
-        <button
+        <Button.Ghost
           type="button"
           aria-label={`Edit ${label}`}
           disabled={disabled}
-          className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
+          size="small"
+          className="aspect-square size-7 px-0"
           onClick={onEdit}
         >
           <Icon name="pencil" className="size-3.5" />
-        </button>
+        </Button.Ghost>
       </div>
       {children}
     </div>
@@ -90,12 +91,13 @@ function PreloadToggle({ on, disabled, onToggle }: { on: boolean; disabled: bool
         </div>
       }
     >
-      <button
+      <Button.Ghost
         type="button"
         aria-label={label}
         aria-pressed={on}
         disabled={disabled}
         onClick={onToggle}
+        size="small"
         className={cn(
           'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md border',
           'transition-[color,background-color,border-color,transform] active:scale-90',
@@ -107,7 +109,7 @@ function PreloadToggle({ on, disabled, onToggle }: { on: boolean; disabled: bool
         )}
       >
         <Icon name="book-open" className="size-3.5" />
-      </button>
+      </Button.Ghost>
     </Tooltip>
   );
 }
@@ -296,15 +298,16 @@ function SaveAgentButtonContent({
 
   return (
     <>
-      <button
+      <Button.Secondary
         type="button"
         disabled={disabled || builder === null || agentSpec === null}
-        className={auiButtonClass({ variant: 'outline', size: 'sm', className })}
+        size="small"
+        className={className}
         onClick={() => void show()}
       >
         <Icon name="save" className="size-3.5" />
         {triggerLabel}
-      </button>
+      </Button.Secondary>
 
       <CenteredModal
         open={open}
@@ -394,22 +397,16 @@ function SaveAgentButtonContent({
             </div>
 
             <div className="bg-card-bg sticky bottom-0 z-10 flex shrink-0 justify-end gap-2 border-t border-border px-5 py-4">
-              <button
-                type="button"
-                disabled={saving}
-                className={auiButtonClass({ variant: 'secondary' })}
-                onClick={close}
-              >
+              <Button.Secondary type="button" disabled={saving} onClick={close}>
                 Cancel
-              </button>
-              <button
+              </Button.Secondary>
+              <Button.Primary
                 type="button"
                 disabled={saving || !name.trim() || !draftSpec.model.name.trim()}
-                className={auiButtonClass({ variant: 'default' })}
                 onClick={() => void save()}
               >
                 {saving ? 'Saving…' : 'Save changes'}
-              </button>
+              </Button.Primary>
             </div>
           </div>
         ) : null}
@@ -551,9 +548,8 @@ function SaveAgentButtonContent({
               </>
             )}
             <div className="bg-card-bg sticky bottom-0 z-10 flex shrink-0 justify-end border-t border-border px-5 py-4">
-              <button
+              <Button.Primary
                 type="button"
-                className={auiButtonClass({ variant: 'default' })}
                 onClick={() => {
                   setEditor(null);
                   setSearch('');
@@ -561,7 +557,7 @@ function SaveAgentButtonContent({
                 }}
               >
                 Continue
-              </button>
+              </Button.Primary>
             </div>
           </div>
         ) : null}

@@ -8,12 +8,12 @@ import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { readAgentCapabilities, withAgentCapabilities } from './agentCapabilities.js';
 import { DraftCapabilitiesPanel } from './DraftCapabilitiesPanel.js';
@@ -115,17 +115,17 @@ export function CatalogRow({
   }
 
   return (
-    <button
+    <Button.Ghost
       type="button"
       role="menuitemcheckbox"
       aria-checked={checked}
       disabled={disabled}
-      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      className="h-auto w-full items-center justify-start gap-2 bg-transparent px-2 py-2 text-left font-normal shadow-none hover:bg-ghost-button-hover disabled:hover:bg-transparent"
       onClick={onToggle}
     >
       {content}
       {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : <Checkbox checked={checked} />}
-    </button>
+    </Button.Ghost>
   );
 }
 
@@ -149,11 +149,11 @@ export function ConnectorConnectButton({
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
 
   return (
-    <button
+    <Button.Secondary
       type="button"
       aria-label={`Connect ${connector.name}`}
       disabled={isOAuthLoading}
-      className={auiButtonClass({ variant: 'secondary', size: 'sm' })}
+      size="small"
       onKeyDown={event => {
         event.stopPropagation();
       }}
@@ -165,7 +165,7 @@ export function ConnectorConnectButton({
       }}
     >
       {isOAuthLoading ? 'Connecting...' : 'Connect'}
-    </button>
+    </Button.Secondary>
   );
 }
 
@@ -416,11 +416,11 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (
-            <button
+            <Button.Ghost
               key={t.id}
               type="button"
               className={cn(
-                'text-text-secondary flex flex-1 items-center justify-center gap-1.5 px-2 py-2.5 text-xs font-medium',
+                'h-auto flex-1 items-center justify-center gap-1.5 rounded-none bg-transparent px-2 py-2.5 text-xs font-medium shadow-none hover:bg-transparent',
                 active && 'text-primary-button-bg border-b-2 border-primary-button-bg',
               )}
               onClick={() => {
@@ -433,7 +433,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               {count != null && count > 0 ? (
                 <span className="bg-secondary-bg rounded px-1 text-[10px]">{count}</span>
               ) : null}
-            </button>
+            </Button.Ghost>
           );
         })}
       </div>
@@ -585,18 +585,15 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5">
       {hasValidModel ? (
         <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
-          <button
+          <Button.Ghost
             type="button"
             disabled={disabled || isRunning}
             aria-label={`Tools (${toolsCount})`}
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            className={auiButtonClass({
-              variant: 'ghost',
-              size: 'sm',
-              className: 'h-8 gap-1.5 rounded-md px-2 text-xs',
-            })}
+            size="small"
+            className="h-8 gap-1.5 rounded-md px-2 text-xs"
             onClick={() => {
               if (open) {
                 setOpenAndFlush(false);
@@ -610,21 +607,22 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
               {toolsCount}
             </span>
-          </button>
+          </Button.Ghost>
         </Tooltip>
       ) : null}
 
       {onAttach ? (
         <Tooltip content="Attach a file">
-          <button
+          <Button.Ghost
             type="button"
             disabled={disabled || isRunning}
             aria-label="Attach a file"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            size="small"
+            className="aspect-square px-0"
             onClick={onAttach}
           >
             <Icon name="paperclip" />
-          </button>
+          </Button.Ghost>
         </Tooltip>
       ) : null}
 

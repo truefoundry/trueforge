@@ -3,9 +3,9 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
-import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
+import { Button } from '../atoms/primitives/Button.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { Thread } from '../containers/Thread.js';
@@ -115,30 +115,32 @@ export function SidebarLayout({ className }: { className?: string }) {
               <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
             ) : null}
           </div>
-          <button
+          <Button.Ghost
             type="button"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-expanded={!collapsed}
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            size="small"
+            className="aspect-square px-0"
             onClick={() => setDesktopCollapsed(value => !value)}
           >
             <Icon name={collapsed ? 'panel-left-open' : 'panel-left-close'} />
-          </button>
+          </Button.Ghost>
         </div>
 
         {/* Keep both trees mounted; toggle with `hidden` so AgentsLibraryButton does not remount. */}
         <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 px-3" hidden={!collapsed} aria-label="Sidebar">
           {shell?.isNewChatEnabled !== false ? (
-            <button
+            <Button.Ghost
               type="button"
               aria-label="Start new chat"
               title="New chat"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              size="small"
+              className="aspect-square px-0"
               onClick={handleNewChat}
             >
               <Icon name="square-pen" />
-            </button>
+            </Button.Ghost>
           ) : null}
           <AgentsLibraryButton compact />
           <SessionsBrowserButton compact />
@@ -170,16 +172,17 @@ export function SidebarLayout({ className }: { className?: string }) {
         >
           {!overlayOpen ? (
             <>
-              <button
+              <Button.Ghost
                 ref={menuBtnRef}
                 type="button"
                 aria-label="Sessions"
                 aria-expanded={mobileNavOpen}
-                className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
+                size="small"
+                className="aspect-square px-0 md:hidden"
                 onClick={() => setMobileNavOpen(true)}
               >
                 <Icon name="bars" />
-              </button>
+              </Button.Ghost>
               <NamedAgentHeaderLabel />
               <span className="min-w-0 flex-1" />
               <ClearChatButton />
@@ -227,10 +230,10 @@ export function SidebarLayout({ className }: { className?: string }) {
       {/* Mobile sessions drawer */}
       {mobileNavOpen ? (
         <>
-          <button
+          <Button.Ghost
             type="button"
             aria-label="Close sessions"
-            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
+            className="absolute inset-0 z-[9] h-auto rounded-none bg-[var(--overlay)] p-0 shadow-none hover:bg-[var(--overlay)] md:hidden"
             onClick={() => setMobileNavOpen(false)}
           />
           <div

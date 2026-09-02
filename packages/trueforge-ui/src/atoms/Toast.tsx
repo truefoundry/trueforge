@@ -4,8 +4,8 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { Button } from './primitives/Button.js';
 
 export type ToastProps = {
   title: string;
@@ -59,25 +59,27 @@ export function Toast({ title, description, open, onOpenChange, variant = 'error
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {variant === 'error' ? (
-              <button
+              <Button.Ghost
                 type="button"
                 aria-label="Copy"
                 title="Copy"
-                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                size="small"
+                className="aspect-square px-0"
                 onClick={handleCopy}
               >
                 <Icon name={copied ? 'check' : 'clone'} />
-              </button>
+              </Button.Ghost>
             ) : null}
-            <button
+            <Button.Ghost
               type="button"
               aria-label="Close"
               title="Close"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              size="small"
+              className="aspect-square px-0"
               onClick={() => onOpenChange(false)}
             >
               <Icon name="xmark" />
-            </button>
+            </Button.Ghost>
           </div>
         </div>
         {description ? (

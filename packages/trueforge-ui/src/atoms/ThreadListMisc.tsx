@@ -1,25 +1,22 @@
 import type { ComponentProps, ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { Button } from './primitives/Button.js';
 import { Skeleton } from './primitives/Skeleton.js';
 
 export type ThreadListNewButtonProps = ComponentProps<'button'>;
 
 export function ThreadListNewButton({ className, children, style, ...rest }: ThreadListNewButtonProps) {
   return (
-    <button
+    <Button.Ghost
       type="button"
       aria-label="Start new chat"
       style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)', ...style }}
-      className={auiButtonClass({
-        variant: 'ghost',
-        className: cn(
-          '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
-          className,
-        ),
-      })}
+      className={cn(
+        '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+        className,
+      )}
       {...rest}
     >
       {children ?? (
@@ -28,7 +25,7 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
           New Chat
         </>
       )}
-    </button>
+    </Button.Ghost>
   );
 }
 

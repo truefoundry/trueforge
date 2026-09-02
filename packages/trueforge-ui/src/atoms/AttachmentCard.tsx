@@ -2,9 +2,9 @@
 
 import { USER_MESSAGE_ATTACHMENT_PREVIEW_REM } from '../constants/attachments.js';
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { Avatar, AvatarFallback, AvatarImage } from './primitives/Avatar.js';
+import { Button } from './primitives/Button.js';
 
 export { USER_MESSAGE_ATTACHMENT_PREVIEW_REM };
 
@@ -72,19 +72,16 @@ export function AttachmentCard({
       </div>
       <span className="text-text-primary min-w-0 truncate text-sm">{name}</span>
       {onRemove && (
-        <button
+        <Button.Ghost
           type="button"
+          size="small"
           aria-label="Remove file"
           title="Remove file"
-          className={auiButtonClass({
-            variant: 'ghost',
-            size: 'icon',
-            className: 'size-6 shrink-0 rounded-full',
-          })}
+          className="size-6 shrink-0 rounded-full p-0"
           onClick={onRemove}
         >
           <Icon name="xmark" />
-        </button>
+        </Button.Ghost>
       )}
     </div>
   );

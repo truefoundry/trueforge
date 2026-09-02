@@ -157,8 +157,7 @@ const SkillSettings = () => {
           <div className="min-w-0 flex-1">
             <SearchInput query={query} setQuery={setQuery} placeholder="Search skills" />
           </div>
-          <Button
-            variant="secondary"
+          <Button.Secondary
             type="button"
             className="shrink-0"
             disabled={busy}
@@ -169,7 +168,7 @@ const SkillSettings = () => {
           >
             <Icon name="github" className="size-4" />
             Import from GitHub
-          </Button>
+          </Button.Secondary>
         </div>
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto pb-1">
@@ -190,9 +189,8 @@ const SkillSettings = () => {
                     name: skill.name,
                     description: skill.description,
                     action: skillCatalog.deleteSkill ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <Button.Secondary
+                        size="small"
                         type="button"
                         disabled={busy}
                         aria-label={`Remove ${skill.name}`}
@@ -201,7 +199,7 @@ const SkillSettings = () => {
                         }}
                       >
                         Remove
-                      </Button>
+                      </Button.Secondary>
                     ) : null,
                   }),
                 )}
@@ -224,9 +222,8 @@ const SkillSettings = () => {
                     name: entry.name,
                     description: entry.description,
                     action: (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <Button.Secondary
+                        size="small"
                         type="button"
                         disabled={busy}
                         aria-label={`Enable ${entry.name}`}
@@ -235,7 +232,7 @@ const SkillSettings = () => {
                         }}
                       >
                         Enable
-                      </Button>
+                      </Button.Secondary>
                     ),
                   }),
                 )}

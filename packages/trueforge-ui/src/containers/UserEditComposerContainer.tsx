@@ -49,13 +49,13 @@ export function UserEditComposerContainer() {
           }
           footer={
             <div className="flex items-center justify-end gap-2">
-              <Button variant="secondary" type="button" disabled={cancelDisabled} onClick={cancel}>
+              <Button.Secondary type="button" disabled={cancelDisabled} onClick={cancel}>
                 Cancel
-              </Button>
+              </Button.Secondary>
               <ComposerPrimitive.Send asChild>
-                <Button type="submit" disabled={sendDisabled || isRunning}>
+                <Button.Primary type="submit" disabled={sendDisabled || isRunning}>
                   Save &amp; Rerun
-                </Button>
+                </Button.Primary>
               </ComposerPrimitive.Send>
             </div>
           }

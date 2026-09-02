@@ -22,9 +22,9 @@ export function MessageActionBar({ isCopied, onCopy, createdAt, className }: Mes
       className={cn('aui-assistant-action-bar-root animate-in fade-in flex items-center gap-1 duration-200', className)}
     >
       <MessageTimestamp createdAt={createdAt} className="mr-1" />
-      <IconButton aria-label="Copy" tooltip="Copy" variant="ghost" className={actionBtnClass} onClick={onCopy}>
+      <IconButton.Ghost aria-label="Copy" tooltip="Copy" className={actionBtnClass} onClick={onCopy}>
         <Icon name={isCopied ? 'check' : 'clone'} size="0.875em" />
-      </IconButton>
+      </IconButton.Ghost>
     </div>
   );
 }

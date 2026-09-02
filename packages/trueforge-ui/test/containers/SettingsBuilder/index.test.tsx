@@ -108,7 +108,9 @@ describe('TruefoundrySettingsBuilder', () => {
     const { rerender } = render(<TestShell server={createServer()} />);
     await openSettings();
 
-    expect(screen.getByRole('button', { name: 'Models' })).toHaveAttribute('aria-current', 'page');
+    const selectedSection = screen.getByRole('button', { name: 'Models' });
+    expect(selectedSection).toHaveAttribute('aria-current', 'page');
+    expect(selectedSection).toHaveClass('hover:bg-primary-button-bg');
     expect(screen.getByRole('button', { name: 'Connectors' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sandbox' })).not.toBeInTheDocument();

@@ -1,7 +1,7 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
+import { Button } from '../primitives/Button.js';
 
 export function DraftCatalogEmptyState({
   loading,
@@ -16,17 +16,14 @@ export function DraftCatalogEmptyState({
 }) {
   if (!loading && onOpenSettings) {
     return (
-      <button
+      <Button.Ghost
         type="button"
-        className={auiButtonClass({
-          variant: 'ghost',
-          className: 'text-text-secondary w-full justify-center gap-1 py-4 text-xs',
-        })}
+        className="h-auto w-full justify-center gap-1 py-4 text-xs text-text-secondary"
         onClick={onOpenSettings}
       >
         Please configure {settingsTarget} in the <span className="underline">settings</span>
         <Icon name="chevron-right" className="size-3" />
-      </button>
+      </Button.Ghost>
     );
   }
 

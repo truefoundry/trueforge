@@ -297,9 +297,8 @@ const SandboxSettings = () => {
                             </Tooltip>
                           ) : null}
                           {entry.snapshotSyncStatus.status === 'failed' ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <Button.Ghost
+                              size="small"
                               type="button"
                               disabled={busy}
                               onClick={() => {
@@ -307,11 +306,10 @@ const SandboxSettings = () => {
                               }}
                             >
                               Retry
-                            </Button>
+                            </Button.Ghost>
                           ) : null}
-                          <Button
-                            variant="secondary"
-                            size="sm"
+                          <Button.Secondary
+                            size="small"
                             type="button"
                             disabled={busy}
                             onClick={() => {
@@ -321,12 +319,11 @@ const SandboxSettings = () => {
                             }}
                           >
                             Update
-                          </Button>
+                          </Button.Secondary>
 
                           {sandboxCatalog.deleteSandboxProvider ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                            <Button.Ghost
+                              size="small"
                               className="text-text-secondary"
                               type="button"
                               disabled={busy}
@@ -335,7 +332,7 @@ const SandboxSettings = () => {
                               }}
                             >
                               Remove
-                            </Button>
+                            </Button.Ghost>
                           ) : null}
                         </div>
                       </article>
@@ -375,8 +372,7 @@ const SandboxSettings = () => {
                           </div>
                         </div>
 
-                        <Button
-                          variant="secondary"
+                        <Button.Secondary
                           type="button"
                           disabled={busy}
                           onClick={() => {
@@ -386,7 +382,7 @@ const SandboxSettings = () => {
                           }}
                         >
                           Configure
-                        </Button>
+                        </Button.Secondary>
                       </article>
                     ))}
                   </div>

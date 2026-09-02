@@ -5,8 +5,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { ShellActions } from '../atoms/ShellActions.js';
-import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import { Button } from '../atoms/primitives/Button.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
@@ -94,26 +94,28 @@ export function DrawerLayout({ className }: { className?: string }) {
         {!overlayOpen ? (
           <>
             {shell?.isNewChatEnabled !== false ? (
-              <button
+              <Button.Ghost
                 type="button"
                 aria-label="New chat"
                 title="New chat"
-                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                size="small"
+                className="aspect-square px-0"
                 onClick={handleNewChat}
               >
                 <Icon name="plus" />
-              </button>
+              </Button.Ghost>
             ) : null}
-            <button
+            <Button.Ghost
               ref={threadsBtnRef}
               type="button"
               aria-label="Sessions"
               aria-expanded={threadsOpen}
-              className="text-text-secondary hover:text-text-primary inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
+              size="small"
+              className="aspect-square size-8 px-0 text-text-secondary hover:text-text-primary"
               onClick={() => setThreadsOpen(v => !v)}
             >
               <Icon name="clock-rotate-left" />
-            </button>
+            </Button.Ghost>
           </>
         ) : null}
       </header>
@@ -148,10 +150,10 @@ export function DrawerLayout({ className }: { className?: string }) {
       </div>
       {threadsOpen ? (
         <>
-          <button
+          <Button.Ghost
             type="button"
             aria-label="Close sessions"
-            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)]"
+            className="absolute inset-0 z-[9] h-auto rounded-none bg-[var(--overlay)] p-0 shadow-none hover:bg-[var(--overlay)]"
             onClick={() => setThreadsOpen(false)}
           />
           <div
