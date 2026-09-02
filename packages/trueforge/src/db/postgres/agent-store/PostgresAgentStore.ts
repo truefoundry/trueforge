@@ -10,7 +10,6 @@ import {
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
-  type UpdateAgentMetadataInput,
 } from '../../agentStore';
 import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -79,29 +78,15 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    if (input.manifest === undefined && input.metadata === undefined) {
+      throw new Error('updateAgent requires manifest and/or metadata');
+    }
     const db = transaction ?? this.#db;
     const row = await db
       .updateTable('agent')
       .set({
-        manifest: json(input.manifest),
-        updated_at: now(),
-      })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returningAll()
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRecord(row);
-  }
-
-  async updateAgentMetadata(
-    input: UpdateAgentMetadataInput,
-    transaction?: Transaction<Database>,
-  ): Promise<AgentRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('agent')
-      .set({
-        metadata: json(input.metadata),
+        ...(input.manifest === undefined ? {} : { manifest: json(input.manifest) }),
+        ...(input.metadata === undefined ? {} : { metadata: json(input.metadata) }),
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id)

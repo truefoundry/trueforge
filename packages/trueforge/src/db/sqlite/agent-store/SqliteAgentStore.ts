@@ -11,7 +11,6 @@ import {
   type GetAgentInput,
   type IAgentStore,
   type UpdateAgentInput,
-  type UpdateAgentMetadataInput,
 } from '../../agentStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -99,29 +98,15 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    if (input.manifest === undefined && input.metadata === undefined) {
+      throw new Error('updateAgent requires manifest and/or metadata');
+    }
     const db = transaction ?? this.#db;
     const row = await db
       .updateTable('agent')
       .set({
-        manifest: jsonbBind(input.manifest),
-        updated_at: nowIso(),
-      })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returning(recordColumns)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRecord(row);
-  }
-
-  async updateAgentMetadata(
-    input: UpdateAgentMetadataInput,
-    transaction?: Transaction<Database>,
-  ): Promise<AgentRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('agent')
-      .set({
-        metadata: jsonbBind(input.metadata),
+        ...(input.manifest === undefined ? {} : { manifest: jsonbBind(input.manifest) }),
+        ...(input.metadata === undefined ? {} : { metadata: jsonbBind(input.metadata) }),
         updated_at: nowIso(),
       })
       .where('tenant_id', '=', input.tenant_id)
