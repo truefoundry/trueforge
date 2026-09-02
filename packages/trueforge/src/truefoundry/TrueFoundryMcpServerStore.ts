@@ -51,7 +51,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
     void transaction;
-    const row = await this.#client.getMcpServerByName(this.#accessToken, input.name);
+    const row = await this.#client.getMcpServerByName({ accessToken: this.#accessToken, name: input.name });
     if (row === undefined) {
       return undefined;
     }
@@ -130,7 +130,7 @@ function toManifest(server: SfyMcpServerSummary, gatewayUrl: string): McpServerM
   return {
     type: 'truefoundry',
     name: server.name,
-    url: resolveMcpProxyUrl(server.proxyUrl, gatewayUrl),
+    url: resolveMcpProxyUrl({ proxyUrl: server.proxyUrl, gatewayBaseURL: gatewayUrl }),
     description: server.description,
     ...(server.authType === 'oauth2' ? { auth: { type: 'dcr' as const } } : {}),
   };

@@ -122,12 +122,15 @@ export class TrueFoundryServiceFoundryServerClient {
    * Returns the first raw row, or `undefined` when the tenant has no match.
    * Callers parse with {@link parseSfyMcpServerSummary}.
    */
-  async getMcpServerByName(accessToken: string, name: string): Promise<unknown> {
+  async getMcpServerByName(input: { accessToken: string; name: string }): Promise<unknown> {
     const filter = JSON.stringify({
       op: 'and',
-      values: [{ field: 'name', op: 'EQUAL', value: name }],
+      values: [{ field: 'name', op: 'EQUAL', value: input.name }],
     });
-    const payload = await this.#getJson(this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }), accessToken);
+    const payload = await this.#getJson(
+      this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }),
+      input.accessToken,
+    );
     const rows = readDataArray(payload);
     return rows[0];
   }

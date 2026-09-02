@@ -75,10 +75,10 @@ export function mapSfyMcpServers(input: { rows: readonly unknown[] }): SfyMcpSer
 }
 
 /** Substitute `{{mcpProxyBaseURL}}` in an SFY proxy URL template. */
-export function resolveMcpProxyUrl(proxyUrl: string, gatewayBaseURL: string): string {
-  const base = gatewayBaseURL.replace(/\/+$/, '');
-  if (!proxyUrl.includes(MCP_PROXY_BASE_URL_TEMPLATE)) {
-    return proxyUrl;
+export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: string }): string {
+  const base = input.gatewayBaseURL.replace(/\/+$/, '');
+  if (!input.proxyUrl.includes(MCP_PROXY_BASE_URL_TEMPLATE)) {
+    return input.proxyUrl;
   }
-  return proxyUrl.replaceAll(MCP_PROXY_BASE_URL_TEMPLATE, base);
+  return input.proxyUrl.replaceAll(MCP_PROXY_BASE_URL_TEMPLATE, base);
 }
