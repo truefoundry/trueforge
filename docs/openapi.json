@@ -1056,14 +1056,7 @@
             "$ref": "#/components/schemas/CreateSessionAgent"
           },
           "metadata": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SessionMetadata"
-              },
-              {
-                "description": "Caller-owned session metadata."
-              }
-            ]
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "required": [
@@ -3395,7 +3388,7 @@
           "maxLength": 128,
           "type": "string"
         },
-        "description": "Caller-owned metadata.",
+        "description": "Caller-owned session metadata",
         "type": "object"
       },
       "SessionMetrics": {
@@ -4657,14 +4650,7 @@
             "$ref": "#/components/schemas/SessionAgentSpecBody"
           },
           "metadata": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SessionMetadata"
-              },
-              {
-                "description": "Full replace of session metadata when set; omit to leave unchanged. Empty object clears."
-              }
-            ]
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "type": "object"
