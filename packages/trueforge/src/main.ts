@@ -56,7 +56,8 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
-import type { IMcpServerStore } from './db/mcpServerStore';
+import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
+import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -81,7 +82,7 @@ interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
   resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (c?: Context) => IMcpServerStore<TTransaction>;
+  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
@@ -117,27 +118,33 @@ function buildResolveModelProviderStore<TTransaction>(options: {
 }
 
 /**
- * Per-request MCP store resolver. In TrueFoundry mode every request gets a token-bound
- * store over a shared (mTLS) ServiceFoundry client; otherwise the persistence store is reused as-is.
+ * Per-request MCP store resolver. Local mode wraps DB persistence with
+ * {@link McpServerWithAuthStore}. TrueFoundry mode returns a token-bound
+ * {@link TrueFoundryMcpServerStore} (implements auth UX stubs); without request
+ * context (scheduler / OAuth callback) falls back to the local with-auth store.
  */
 function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
   logger: Logger;
-}): (c?: Context) => IMcpServerStore<TTransaction> {
+}): (c?: Context) => IMcpServerWithAuthStore<TTransaction> {
+  const withAuthPersistence = new McpServerWithAuthStore<TTransaction>({
+    store: options.persistenceStore,
+    tokenStore: options.tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  });
   if (!isTrueFoundryModeEnabled(configuration)) {
-    return () => options.persistenceStore;
+    return () => withAuthPersistence;
   }
   const client = new TrueFoundryServiceFoundryServerClient({
     serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
     logger: options.logger,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
   });
-  // No request context (e.g. the scheduler / OAuth callback) means no caller token, so
-  // TrueFoundry MCP servers are unavailable there; fall back to the persistence store.
   return c =>
     c
       ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
-      : options.persistenceStore;
+      : withAuthPersistence;
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
@@ -179,6 +186,7 @@ async function createStandalonePersistence(options: {
   logger.info(`Standalone mode: sqlite at ${sqlitePath}`);
   logger.info('Standalone mode: executor peering disabled and Redis unused');
 
+  const tokenStore = new SqliteOAuthTokenStore(db);
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
@@ -188,10 +196,11 @@ async function createStandalonePersistence(options: {
     }),
     resolveMcpServerStore: buildResolveMcpServerStore({
       persistenceStore: new SqliteMcpServerStore(db),
+      tokenStore,
       logger,
     }),
     withTransaction: callback => db.transaction().execute(callback),
-    tokenStore: new SqliteOAuthTokenStore(db),
+    tokenStore,
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     agentStore: new SqliteAgentStore(db),
@@ -254,6 +263,7 @@ async function createDistributedPersistence(options: {
   logger.info('Distributed mode: postgres');
   logger.info(`Executor id: ${executorId}`);
 
+  const tokenStore = new PostgresOAuthTokenStore(db);
   return {
     sessionStore: new PostgresSessionStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
@@ -263,10 +273,11 @@ async function createDistributedPersistence(options: {
     }),
     resolveMcpServerStore: buildResolveMcpServerStore({
       persistenceStore: new PostgresMcpServerStore(db),
+      tokenStore,
       logger,
     }),
     withTransaction: callback => db.transaction().execute(callback),
-    tokenStore: new PostgresOAuthTokenStore(db),
+    tokenStore,
     skillStore: new PostgresSkillStore(db),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
     agentStore: new PostgresAgentStore(db),

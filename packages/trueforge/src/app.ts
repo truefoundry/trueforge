@@ -31,7 +31,7 @@ import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
 import configuration from './config';
 import type { IAgentStore } from './db/agentStore';
-import type { IMcpServerStore } from './db/mcpServerStore';
+import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
@@ -174,7 +174,7 @@ export interface ServerDeps<TTransaction> {
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
    * Called without a context (e.g. the scheduler / OAuth callback) it returns the DB persistence store.
    */
-  resolveMcpServerStore: (c?: Context) => IMcpServerStore<TTransaction>;
+  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;

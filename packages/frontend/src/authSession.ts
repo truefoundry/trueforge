@@ -1,15 +1,14 @@
 /**
- * Session helpers: SDK `auth.me()` plus POST `/api/v1/auth/logout`.
- * Login is not on the SDK (browser redirect to `/api/v1/auth/login`).
+ * Session helpers: SDK `auth.me()` plus POST logout under the public API base.
+ * Login is not on the SDK (browser redirect to the login href).
  */
 import { TrueForge as TrueForgeClient, type TrueForge } from '@truefoundry/trueforge-sdk';
 import { AUTH_LOGOUT_HREF, createAuthAwareFetch } from './authFetch';
-
-const DEFAULT_BASE_URL = '/';
+import { API_BASE_URL } from './publicPath';
 
 /** Authenticated API client — 401 redirects to OIDC login. */
 const authClient = new TrueForgeClient({
-  baseUrl: DEFAULT_BASE_URL,
+  baseUrl: API_BASE_URL,
   fetch: createAuthAwareFetch(),
 });
 
@@ -18,7 +17,7 @@ const authClient = new TrueForgeClient({
  * redirect on 401, so the welcome gate can observe the unauthenticated state.
  */
 const probeClient = new TrueForgeClient({
-  baseUrl: DEFAULT_BASE_URL,
+  baseUrl: API_BASE_URL,
   fetch: globalThis.fetch.bind(globalThis),
 });
 

@@ -1,14 +1,18 @@
 import { HTTPException } from 'hono/http-exception';
 import {
+  McpServerNotFoundError,
+  type AuthorizeMcpServerInput,
   type CreateMcpServerInput,
+  type DeleteMcpAuthorizationInput,
   type GetMcpServerInput,
-  type IMcpServerStore,
+  type IMcpServerWithAuthStore,
   type ListMcpServersInput,
   type McpServerRecord,
+  type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from '../db/mcpServerStore';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import type { McpServerManifest } from '../schemas/mcpServer';
+import { resolveMcpAuthStatus, type McpAuthStatus, type McpServerManifest } from '../schemas/mcpServer';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
@@ -26,8 +30,9 @@ function managed(): never {
 /**
  * Read-only MCP registry backed by ServiceFoundry + the tenant AI Gateway.
  * Writes and local OAuth client columns are not supported — configure servers in TrueFoundry.
+ * Connect UX auth methods are stubbed for v1 (live SFY authorize is a follow-up).
  */
-export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerStore<TTransaction> {
+export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #accessToken: string;
 
@@ -97,6 +102,35 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     void params;
     void transaction;
     return managed();
+  }
+
+  async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
+    const out = new Map<string, McpAuthStatus>();
+    for (const record of input.records) {
+      out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
+    }
+    return out;
+  }
+
+  async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
+    void input.redirectURL;
+    void input.returnTo;
+    void input.userRef;
+    const record = await this.getServer({ tenant_id: input.tenant_id, name: input.name });
+    if (record === undefined) {
+      throw new McpServerNotFoundError(input.name);
+    }
+    // TODO: Replace stub with live ServiceFoundry authorize / Connect when wired.
+    return resolveMcpAuthStatus({ manifest: record.manifest });
+  }
+
+  async deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void> {
+    void input.userRef;
+    const record = await this.getServer({ tenant_id: input.tenant_id, name: input.name });
+    if (record === undefined) {
+      throw new McpServerNotFoundError(input.name);
+    }
+    // No local token store for TrueFoundry-managed MCP (v1).
   }
 
   async #records(tenant_id: string): Promise<McpServerRecord[]> {
