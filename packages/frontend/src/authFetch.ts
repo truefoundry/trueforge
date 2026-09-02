@@ -2,17 +2,17 @@
  * Browser auth entry points. Login and logout are not SDK methods (cookie session).
  * On any HTTP 401, redirect to OIDC login (session required).
  *
- * API paths stay at `/api/...` even when the UI is mounted under a public path
- * (Caddy strips `/trueforge` before Harness). Pass `return_to` so post-login
- * lands back under that UI path.
+ * Auth URLs share `VITE_BASE_PATH` with the UI (e.g. `/trueforge/api/v1/auth/...`).
+ * Caddy strips that prefix before Harness. Pass `return_to` so post-login lands
+ * back under the UI path.
  */
-import { UI_BASE_PATH } from './publicPath';
+import { apiPath, UI_BASE_PATH } from './publicPath';
 
 /** Browser entry for OIDC login (not available as an SDK method). */
-export const AUTH_LOGIN_HREF = '/api/v1/auth/login';
+export const AUTH_LOGIN_HREF = apiPath('/api/v1/auth/login');
 
 /** Clears the local session cookie (not available as an SDK method). */
-export const AUTH_LOGOUT_HREF = '/api/v1/auth/logout';
+export const AUTH_LOGOUT_HREF = apiPath('/api/v1/auth/logout');
 
 /** Login URL with a same-origin `return_to` (defaults to the UI home). */
 export function buildLoginHref(returnTo: string = UI_BASE_PATH): string {
