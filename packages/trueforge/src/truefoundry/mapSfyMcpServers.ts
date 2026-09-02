@@ -26,7 +26,6 @@ const IsoInstantSchema = z.union([z.string().min(1), z.date()]).transform((value
 const SfyMcpServerRowSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  tenantName: z.string().min(1),
   proxyUrl: z.string().min(1),
   createdAt: IsoInstantSchema.optional(),
   updatedAt: IsoInstantSchema.optional(),
@@ -45,7 +44,6 @@ const SfyMcpServerRowSchema = z.object({
 export interface SfyMcpServerSummary {
   id: string;
   name: string;
-  tenantName: string;
   /** May contain `{{mcpProxyBaseURL}}`; callers must run {@link resolveMcpProxyUrl}. */
   proxyUrl: string;
   description: string;
@@ -61,7 +59,6 @@ export function parseSfyMcpServerSummary(row: unknown): SfyMcpServerSummary {
   return {
     id: parsed.id,
     name: parsed.name,
-    tenantName: parsed.tenantName,
     proxyUrl: parsed.proxyUrl,
     description: parsed.manifest?.description ?? parsed.name,
     authType: parsed.manifest?.auth_data?.type,

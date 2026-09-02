@@ -11,7 +11,6 @@ import {
 const BASE_ROW = {
   id: 'mcp-1',
   name: 'github',
-  tenantName: 'acme',
   proxyUrl: `${MCP_PROXY_BASE_URL_TEMPLATE}/mcp-server/github`,
   createdAt: '2026-01-15T12:00:00.000Z',
   updatedAt: '2026-01-16T12:00:00.000Z',
@@ -21,7 +20,6 @@ function summary(overrides: Partial<SfyMcpServerSummary> = {}): SfyMcpServerSumm
   return {
     id: 'mcp-1',
     name: 'github',
-    tenantName: 'acme',
     proxyUrl: `${MCP_PROXY_BASE_URL_TEMPLATE}/mcp-server/github`,
     description: 'GitHub MCP',
     authType: undefined,
@@ -44,7 +42,6 @@ describe('parseSfyMcpServerSummary', () => {
     ).toEqual({
       id: 'mcp-1',
       name: 'github',
-      tenantName: 'acme',
       proxyUrl: `${MCP_PROXY_BASE_URL_TEMPLATE}/mcp-server/github`,
       description: 'GitHub tools',
       authType: 'oauth2',
