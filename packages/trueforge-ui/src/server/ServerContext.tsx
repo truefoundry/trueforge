@@ -8,6 +8,7 @@ import type {
   AgentSessionsServer,
   AgentUIServer,
   CatalogServer,
+  ScheduleServer,
 } from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
@@ -109,4 +110,16 @@ export function useAgentMetricsServer(): AgentMetricsServer {
 
 export function useOptionalAgentMetricsServer(): AgentMetricsServer | null {
   return useOptionalServer()?.metrics ?? null;
+}
+
+export function useScheduleServer(): ScheduleServer {
+  const server = useServer();
+  if (server.schedules == null) {
+    throw new Error('useScheduleServer requires AgentUIServer.schedules. Pass schedules to createTrueFoundryServer.');
+  }
+  return server.schedules;
+}
+
+export function useOptionalScheduleServer(): ScheduleServer | null {
+  return useOptionalServer()?.schedules ?? null;
 }

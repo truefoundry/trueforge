@@ -60,7 +60,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
         })}
         onClick={() => shell?.setLibraryOpen(true)}
       >
-        <Icon name="robot" />
+        <Icon name="bot" />
         {!compact ? (
           <>
             <span className="truncate">

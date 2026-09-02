@@ -132,12 +132,13 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const showDelete = canDeleteSession && remoteId != null;
+  const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
 
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
         title={title ?? 'New Chat'}
-        active={id === mainThreadId}
+        active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         lastMessageAt={lastMessageAt}
         onSelect={() => {
@@ -145,6 +146,7 @@ function ThreadListItemRow({
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
           shell?.setSessionsOpen(false);
+          shell?.setSchedulesOpen(false);
 
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
           const sessionMutable = threadListItemIsMutable(custom);
@@ -269,6 +271,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListNewButton = useSlot('ThreadListNewButton');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SchedulesButton = useSlot('SchedulesButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -331,6 +334,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
       return;
     }
     shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -356,6 +360,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
           {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
           <AgentsLibraryButton />
           <SessionsBrowserButton />
+          <SchedulesButton />
         </div>
       }
     >

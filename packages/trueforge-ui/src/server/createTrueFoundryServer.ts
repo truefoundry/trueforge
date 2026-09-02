@@ -12,6 +12,7 @@ import type {
   ModelSelection,
   SaveAgentRequest,
   SaveAgentResult,
+  ScheduleServer,
   SearchAgentsParams,
 } from './types.js';
 
@@ -26,6 +27,7 @@ export type CreateTrueFoundryServerOptions<
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
+  TSchedules extends ScheduleServer = ScheduleServer,
 > = {
   /** Chat port — e.g. from `@truefoundry/agent-server-adapter`. */
   chatServer: AgentChatServer<TSpec>;
@@ -42,6 +44,8 @@ export type CreateTrueFoundryServerOptions<
   sessions?: TSessions;
   /** Optional aggregate metrics + chart port. */
   metrics?: TMetrics;
+  /** Schedules listing + CRUD. Optional. */
+  schedules?: TSchedules;
 };
 
 export type TrueFoundryServer<
@@ -55,11 +59,13 @@ export type TrueFoundryServer<
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
+  TSchedules extends ScheduleServer = ScheduleServer,
 > = AgentChatServer<TSpec> &
   AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
     catalog?: TCatalog;
     sessions?: TSessions;
     metrics?: TMetrics;
+    schedules?: TSchedules;
   };
 
 /**
@@ -78,6 +84,7 @@ export function createTrueFoundryServer<
   TCapabilities extends AgentBuilderCapabilitiesResponse = AgentBuilderCapabilitiesResponse,
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
+  TSchedules extends ScheduleServer = ScheduleServer,
 >(
   opts: CreateTrueFoundryServerOptions<
     TSpec,
@@ -89,9 +96,22 @@ export function createTrueFoundryServer<
     TCatalog,
     TCapabilities,
     TSessions,
-    TMetrics
+    TMetrics,
+    TSchedules
   >,
-): TrueFoundryServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCatalog, TCapabilities, TSessions, TMetrics> {
+): TrueFoundryServer<
+  TSpec,
+  TModel,
+  TSkill,
+  TMcp,
+  TAgent,
+  TSave,
+  TCatalog,
+  TCapabilities,
+  TSessions,
+  TMetrics,
+  TSchedules
+> {
   const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> = {
     getCapabilities: opts.getCapabilities,
     getModels: opts.getModels,
@@ -118,13 +138,15 @@ export function createTrueFoundryServer<
     TCatalog,
     TCapabilities,
     TSessions,
-    TMetrics
+    TMetrics,
+    TSchedules
   > = {
     ...opts.chatServer,
     ...builder,
     ...(opts.catalog != null ? { catalog: opts.catalog } : {}),
     ...(opts.sessions != null ? { sessions: opts.sessions } : {}),
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
+    ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
   };
   return server;
 }

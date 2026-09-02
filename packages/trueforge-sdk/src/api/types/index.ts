@@ -156,6 +156,7 @@ export * from "./SessionAgentReference.js";
 export * from "./SessionAgentSpecBody.js";
 export * from "./SessionEvent.js";
 export * from "./SessionEventItem.js";
+export * from "./SessionMetadata.js";
 export * from "./SessionMetrics.js";
 export * from "./SessionMetricsChart.js";
 export * from "./SessionMetricsChartDataResponse.js";

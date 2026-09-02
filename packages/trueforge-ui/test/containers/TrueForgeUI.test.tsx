@@ -60,7 +60,7 @@ import { SidebarLayout } from '@/layouts/SidebarLayout.js';
 import { StackChatPanel } from '@/layouts/StackChatPanel.js';
 import { WidgetLayout } from '@/layouts/WidgetLayout.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import { ShellModeProvider } from '@/server/ShellModeContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
@@ -298,6 +298,55 @@ describe('StackChatPanel', () => {
 
     expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Sessions')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['dock/widget', StackChatPanel],
+    ['drawer', DrawerLayout],
+  ] as const)('%s can return to chat after opening schedules', async (_name, Layout) => {
+    const server = createMockAgentUIServer({
+      schedules: {
+        listSchedules: vi.fn(async () => ({ data: [] })),
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    function OpenSchedules() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.setSchedulesOpen(true)}>
+          Open schedules
+        </button>
+      );
+    }
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+            <RuntimeHarness messages={[]}>
+              <OpenSchedules />
+              <div className="h-96">
+                <Layout />
+              </div>
+            </RuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open schedules' }));
+    expect(await screen.findByRole('heading', { name: 'Scheduled Agents' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chat' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Scheduled Agents' })).not.toBeInTheDocument();
+    });
   });
 });
 

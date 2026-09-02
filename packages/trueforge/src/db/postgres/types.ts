@@ -5,6 +5,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetadata,
   SessionMetrics,
   TurnInputItem,
   TurnState,
@@ -20,6 +21,7 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
+import type { AgentMetadata } from '../../schemas/agentMetadata';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
@@ -86,6 +88,8 @@ export interface SessionTable {
   external_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
+  /** Caller-owned metadata; always present (DEFAULT '{}'). */
+  metadata: JSONColumnType<SessionMetadata, SessionMetadata, SessionMetadata>;
   metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;
@@ -372,6 +376,8 @@ export interface AgentTable {
   name: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
+  /** `agent.metadata` jsonb; default `{}` for existing rows */
+  metadata: JSONColumnType<AgentMetadata, AgentMetadata, AgentMetadata>;
   created_at: Date;
   updated_at: Date;
 }

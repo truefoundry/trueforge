@@ -26,6 +26,8 @@ describe('AgentSessionsFilters', () => {
       </ServerProvider>,
     );
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter sessions by agent' }));
+
     await waitFor(() => expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument());
     expect(searchAgents).toHaveBeenNthCalledWith(1, { limit: 50, offset: 0 });
     expect(searchAgents).toHaveBeenNthCalledWith(2, { limit: 50, offset: 50 });

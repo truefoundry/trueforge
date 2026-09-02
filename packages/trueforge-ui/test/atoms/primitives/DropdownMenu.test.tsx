@@ -115,4 +115,23 @@ describe('DropdownMenu', () => {
     expect(screen.getByRole('menuitem', { name: 'Rename item' })).toHaveAttribute('name', 'rename');
     expect(screen.getByRole('separator', { name: 'More actions' })).toHaveAttribute('data-divider', 'actions');
   });
+
+  it('portals the menu outside an overflow-hidden ancestor', () => {
+    render(
+      <div data-testid="clipped" style={{ overflow: 'hidden', height: 24 }}>
+        <DropdownMenu trigger={<button>Actions</button>}>
+          <DropdownMenuItem>Edit</DropdownMenuItem>
+          <DropdownMenuItem>Resume</DropdownMenuItem>
+          <DropdownMenuItem>Delete</DropdownMenuItem>
+        </DropdownMenu>
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+
+    const menu = screen.getByRole('menu');
+    expect(menu).toBeInTheDocument();
+    expect(screen.getByTestId('clipped').contains(menu)).toBe(false);
+    expect(menu.className).toContain('fixed');
+  });
 });
