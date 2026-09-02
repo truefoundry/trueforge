@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Pass the caller's TrueFoundry access token as Bearer when invoking gateway-managed MCP (tools/list and turns).
+TrueFoundry MCP invoke headers are owned by the MCP store (`resolveInvokeHeaders`), so gateway Bearer comes from the request-scoped store rather than being threaded through turn/tools APIs.

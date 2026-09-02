@@ -83,7 +83,7 @@ export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: st
 
 /**
  * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` for Connect UX only (UI keys off auth type).
- * Invoke uses the caller's TF access token in getMcpConnection — not wire `header` auth.
+ * Invoke Bearer comes from the MCP store's `resolveInvokeHeaders` — not wire `header` auth.
  */
 export function toTrueFoundryMcpManifest(input: {
   server: SfyMcpServerSummary;

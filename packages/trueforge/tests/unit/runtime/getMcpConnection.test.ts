@@ -211,7 +211,7 @@ describe('getMcpConnection', () => {
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 
-  it('passes the caller TF token as Bearer for truefoundry servers (even when wire auth is dcr)', async () => {
+  it('skips local DCR for truefoundry servers even when wire auth is dcr', async () => {
     await mcpServerStore.upsertServer({
       tenant_id: TENANT_ID,
       name: 'tfy-mcp',
@@ -231,36 +231,11 @@ describe('getMcpConnection', () => {
       tokenStore,
       clientName: 'test-client',
       userRef: LOCAL_USER_CONTEXT.userRef,
-      accessToken: 'tf-access-token',
     });
     expect(connection).toEqual({
       url: 'https://gateway.example/mcp-server/tfy-mcp',
-      headers: { Authorization: 'Bearer tf-access-token' },
+      headers: {},
     });
-  });
-
-  it('rejects truefoundry invoke without an access token', async () => {
-    await mcpServerStore.upsertServer({
-      tenant_id: TENANT_ID,
-      name: 'tfy-mcp-no-token',
-      manifest: {
-        type: 'truefoundry',
-        name: 'tfy-mcp-no-token',
-        url: 'https://gateway.example/mcp-server/tfy-mcp-no-token',
-        description: 'TrueFoundry-managed MCP.',
-      },
-    });
-
-    await expect(
-      getMcpConnection({
-        tenant_id: TENANT_ID,
-        name: 'tfy-mcp-no-token',
-        store: mcpServerStore,
-        tokenStore,
-        clientName: 'test-client',
-        userRef: LOCAL_USER_CONTEXT.userRef,
-      }),
-    ).rejects.toMatchObject({ status: 401 });
   });
 
   it('returns undefined when the server is not registered', async () => {

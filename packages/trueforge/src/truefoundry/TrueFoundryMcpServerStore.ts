@@ -41,6 +41,11 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#accessToken = input.accessToken;
   }
 
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
+    void record;
+    return { Authorization: `Bearer ${this.#accessToken}` };
+  }
+
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
     void transaction;
     if (input.names?.length === 0) {

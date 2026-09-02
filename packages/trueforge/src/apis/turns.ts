@@ -30,7 +30,6 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { ResolveUserContext, UserContext } from '../auth/identity';
-import { readAccessToken } from '../auth/middleware';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -146,7 +145,6 @@ function createTurnResolver(deps: {
   signal: AbortSignal;
   userRef: string;
   sessionId: string;
-  accessToken?: string;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -159,7 +157,6 @@ function createTurnResolver(deps: {
     signal,
     userRef,
     sessionId,
-    accessToken,
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
@@ -186,7 +183,6 @@ function createTurnResolver(deps: {
         tokenStore,
         clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         userRef,
-        ...(accessToken !== undefined ? { accessToken } : {}),
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
@@ -373,10 +369,8 @@ export async function beginTurnExecution(params: {
   previous_turn_id: string | undefined;
   userRef: string;
   deps: BeginTurnExecutionDeps;
-  /** Caller TF token for gateway MCP invoke; omitted for scheduler / no-request paths. */
-  accessToken?: string;
 }): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, deps, accessToken } = params;
+  const { session, input, previous_turn_id: previousTurnId, userRef, deps } = params;
   const sessionId = session.session_id;
 
   const abortController = new AbortController();
@@ -391,7 +385,6 @@ export async function beginTurnExecution(params: {
     signal: abortController.signal,
     userRef,
     sessionId,
-    ...(accessToken !== undefined ? { accessToken } : {}),
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -447,7 +440,6 @@ export async function startTurnInProcess(params: {
   previous_turn_id: string | undefined;
   userRef: string;
   deps: BeginTurnExecutionDeps;
-  accessToken?: string;
 }): Promise<TurnHandle> {
   const { turn, drainInput } = await beginTurnExecution(params);
 
@@ -674,7 +666,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const userRef = deps.resolveUserContext(c).userRef;
-    const accessToken = readAccessToken(c);
     const turnParams = {
       session,
       input: body.input,
@@ -685,7 +676,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
       },
-      ...(accessToken !== undefined ? { accessToken } : {}),
     };
 
     try {

@@ -113,6 +113,12 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+  /**
+   * Static HTTP headers for MCP invoke (tools/list, turns).
+   * Local DCR is handled separately in {@link getMcpConnection}; this covers
+   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
+   */
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
 }
 
 /**

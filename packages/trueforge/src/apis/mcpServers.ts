@@ -3,7 +3,6 @@ import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } 
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
-import { readAccessToken } from '../auth/middleware';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration from '../config';
 import {
@@ -355,8 +354,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
-    const accessToken = readAccessToken(c);
-    // Same url + header resolution as turn execution (TF gateway Bearer, DCR, or static headers).
+    // Same url + header resolution as turn execution (store Bearer, DCR, or static headers).
     const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
       name,
@@ -364,7 +362,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       tokenStore: deps.tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       userRef,
-      ...(accessToken !== undefined ? { accessToken } : {}),
     });
     if (connection === undefined) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);

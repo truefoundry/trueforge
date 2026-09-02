@@ -26,7 +26,6 @@ import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
-import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
@@ -134,10 +133,9 @@ function dcrHeadersResolver(params: {
 
 /**
  * Load MCP url + headers for a configured server.
- * - `truefoundry`: AI Gateway proxy — pass the caller's TF access token as Bearer
- *   (wire `auth: dcr` is Connect UX only; do not use local DCR for invoke).
- * - `remote` + `dcr`: resolveMcpAuth via the harness token store.
- * - header / no-auth: resolveConfiguredMcpRequestHeaders.
+ * - Local `remote` + `dcr`: resolveMcpAuth via the harness token store.
+ * - Otherwise: {@link IMcpServerStore.resolveInvokeHeaders}
+ *   (TrueFoundry gateway Bearer, configured header auth, or `{}`).
  * Returns undefined when the server is not registered — callers choose the response.
  */
 export async function getMcpConnection({
@@ -147,7 +145,6 @@ export async function getMcpConnection({
   tokenStore,
   clientName,
   userRef,
-  accessToken,
 }: {
   tenant_id: string;
   name: string;
@@ -155,25 +152,13 @@ export async function getMcpConnection({
   tokenStore: IOAuthTokenStore;
   clientName: string;
   userRef: string;
-  /** Required when `manifest.type` is `truefoundry` (gateway invoke). */
-  accessToken?: string;
 }): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
   }
-  if (record.manifest.type === 'truefoundry') {
-    if (accessToken === undefined || accessToken.length === 0) {
-      throw new HTTPException(401, {
-        message: 'Authentication token required to call TrueFoundry-managed MCP servers',
-      });
-    }
-    return {
-      url: record.manifest.url,
-      headers: { Authorization: `Bearer ${accessToken}` },
-    };
-  }
-  if (record.manifest.auth?.type === 'dcr') {
+  // TrueFoundry wire `dcr` is Connect UX only — invoke uses store Bearer, not local DCR.
+  if (record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr') {
     return {
       url: record.manifest.url,
       headers: dcrHeadersResolver({
@@ -187,7 +172,7 @@ export async function getMcpConnection({
   }
   return {
     url: record.manifest.url,
-    headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+    headers: store.resolveInvokeHeaders(record),
   };
 }
 
