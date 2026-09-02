@@ -476,7 +476,7 @@ export function runScheduleStoreContractSuite(deps: {
     ).rejects.toThrow();
   });
 
-  it('listSchedules returns newest first and filters by agent_name', async () => {
+  it('listSchedules returns newest first and filters by agent_names', async () => {
     const store = deps.getScheduleStore();
     const agentA = await seedAgent();
     const agentB = await seedAgent();
@@ -509,22 +509,67 @@ export function runScheduleStoreContractSuite(deps: {
       runFrom: new Date(),
     });
 
-    const forA = await store.listSchedules({ tenant_id: TENANT, agent_name: agentA.name });
-    expect(forA.map(row => row.id)).toEqual([newer.schedule.id, older.schedule.id]);
-    expect(forA.every(row => row.agent_name === agentA.name)).toBe(true);
+    const forA = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 25,
+      page_token: undefined,
+      agent_names: [agentA.name],
+    });
+    expect(forA.data.map(row => row.id)).toEqual([newer.schedule.id, older.schedule.id]);
+    expect(forA.data.every(row => row.agent_name === agentA.name)).toBe(true);
+    expect(forA.pagination.next_page_token).toBeUndefined();
 
-    const forB = await store.listSchedules({ tenant_id: TENANT, agent_name: agentB.name });
-    expect(forB.map(row => row.id)).toEqual([otherAgent.schedule.id]);
+    const forB = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 25,
+      page_token: undefined,
+      agent_names: [agentB.name],
+    });
+    expect(forB.data.map(row => row.id)).toEqual([otherAgent.schedule.id]);
 
-    const all = await store.listSchedules({ tenant_id: TENANT });
-    expect(all.map(row => row.id)).toEqual(
+    const forBoth = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 25,
+      page_token: undefined,
+      agent_names: [agentA.name, agentB.name],
+    });
+    expect(forBoth.data.map(row => row.id)).toEqual([otherAgent.schedule.id, newer.schedule.id, older.schedule.id]);
+
+    const all = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 25,
+      page_token: undefined,
+      agent_names: undefined,
+    });
+    expect(all.data.map(row => row.id)).toEqual(
       expect.arrayContaining([newer.schedule.id, older.schedule.id, otherAgent.schedule.id]),
     );
-    const indexNewer = all.findIndex(row => row.id === newer.schedule.id);
-    const indexOlder = all.findIndex(row => row.id === older.schedule.id);
+    const indexNewer = all.data.findIndex(row => row.id === newer.schedule.id);
+    const indexOlder = all.data.findIndex(row => row.id === older.schedule.id);
     expect(indexNewer).toBeGreaterThanOrEqual(0);
     expect(indexOlder).toBeGreaterThanOrEqual(0);
     expect(indexNewer).toBeLessThan(indexOlder);
+
+    const page1 = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 2,
+      page_token: undefined,
+      agent_names: undefined,
+    });
+    expect(page1.data).toHaveLength(2);
+    expect(page1.pagination.limit).toBe(2);
+    expect(page1.pagination.next_page_token).toEqual(expect.any(String));
+
+    const page2 = await store.listSchedules({
+      tenant_id: TENANT,
+      limit: 2,
+      page_token: page1.pagination.next_page_token,
+      agent_names: undefined,
+    });
+    expect(page2.data).toHaveLength(1);
+    expect(page1.data.map(row => row.id)).not.toContain(page2.data[0]?.id);
+    expect(page2.pagination.previous_page_token).toEqual(expect.any(String));
+    expect(page2.pagination.next_page_token).toBeUndefined();
   });
 
   it('listRuns returns newest scheduled_for first and filters by schedule_id', async () => {

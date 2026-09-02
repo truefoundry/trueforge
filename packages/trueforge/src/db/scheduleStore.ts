@@ -13,6 +13,8 @@
  *
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { randomUUID } from 'node:crypto';
 import {
   ScheduleManifestSchema,
   type ScheduleManifest,
@@ -26,6 +28,11 @@ import {
  */
 export function cronRunName(scheduledFor: Date): string {
   return `sched-${String(Math.floor(scheduledFor.getTime() / 1000))}`;
+}
+
+/** Unique run name for an immediate (run-now) trigger. */
+export function manualRunName(): string {
+  return `manual-${randomUUID()}`;
 }
 
 export interface ScheduleRecord {
@@ -83,8 +90,10 @@ export function parseStoredScheduleManifest(manifest: unknown): ScheduleManifest
 
 export interface ListSchedulesInput {
   tenant_id: string;
-  /** When set, only schedules bound to this agent name are returned. */
-  agent_name?: string | undefined;
+  limit: number;
+  page_token: string | undefined;
+  /** When set, only schedules for these agent names */
+  agent_names: readonly string[] | undefined;
   created_by?: string | undefined;
 }
 
@@ -222,7 +231,10 @@ export interface IScheduleStore<TTransaction = never> {
   ): Promise<ScheduleWriteResult | undefined>;
   /** Deletes by immutable id; runs cascade. Idempotent if already missing. */
   deleteSchedule(input: DeleteScheduleInput, transaction?: TTransaction): Promise<void>;
-  listSchedules(input: ListSchedulesInput, transaction?: TTransaction): Promise<ScheduleRecord[]>;
+  listSchedules(
+    input: ListSchedulesInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }>;
 
   // --- schedule_run ---
   /** One run by immutable id. */

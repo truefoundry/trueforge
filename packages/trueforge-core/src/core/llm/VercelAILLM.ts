@@ -63,6 +63,7 @@ export const VERCEL_AI_PROVIDER_NAMES = [
   'alibaba',
   'together',
   'custom',
+  'truefoundry',
 ] as const;
 
 export type VercelAIProviderName = (typeof VERCEL_AI_PROVIDER_NAMES)[number];
@@ -195,7 +196,8 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'fireworks':
     case 'zai':
     case 'together':
-    case 'custom': {
+    case 'custom':
+    case 'truefoundry': {
       return compatibleModel(config);
     }
     default: {

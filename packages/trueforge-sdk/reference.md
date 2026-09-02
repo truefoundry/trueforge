@@ -750,7 +750,7 @@ await client.models.list();
 </details>
 
 ## Schedules
-<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">list</a>({ ...params }) -> TrueForge.ListSchedulesResponse</code></summary>
+<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Schedule, TrueForge.ListSchedulesResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -762,7 +762,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List schedules for the tenant, newest first. Optionally filter by `agent_name`.
+List schedules for the tenant, newest first. Optionally filter by `agent_names`.
 </dd>
 </dl>
 </dd>
@@ -864,6 +864,71 @@ await client.schedules.create({
 <dd>
 
 **request:** `TrueForge.CreateScheduleRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SchedulesClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">createRun</a>({ ...params }) -> TrueForge.CreateScheduleRunResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Start a schedule run immediately using the schedule task. Does not replace or advance the cron pending run.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.schedules.createRun({
+    scheduleId: "schedule_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.CreateScheduleRunRequest` 
     
 </dd>
 </dl>

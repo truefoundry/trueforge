@@ -6,6 +6,7 @@ import {
   type CreateModelProviderInput,
   type GetModelProviderInput,
   type IModelProviderStore,
+  type ListModelProvidersInput,
   type ModelProviderRecord,
   type UpsertModelProviderInput,
 } from '../../modelProviderStore';
@@ -31,12 +32,15 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     this.#db = db;
   }
 
-  async listProviders(tenantId: string, transaction?: Transaction<Database>): Promise<ModelProviderRecord[]> {
+  async listProviders(
+    input: ListModelProvidersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord[]> {
     const db = transaction ?? this.#db;
     return await db
       .selectFrom('model_provider')
       .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
+      .where('tenant_id', '=', input.tenant_id)
       .orderBy('name')
       .execute();
   }
@@ -121,7 +125,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirstOrThrow();
   }
 
-  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
-    return flattenProviderModels(await this.listProviders(tenantId, transaction));
+  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
+    return flattenProviderModels(await this.listProviders(input, transaction));
   }
 }

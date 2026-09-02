@@ -21,12 +21,18 @@ describe("SchedulesClient", () => {
                     updated_at: "2024-01-15T09:30:00Z",
                 },
             ],
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
-        server.mockEndpoint().get("/api/v1/schedules").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
+        server
+            .mockEndpoint({ once: false })
+            .get("/api/v1/schedules")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
 
-        const response = await client.schedules.list();
-        expect(response).toEqual({
+        const expected = {
             data: [
                 {
                     agentName: "agent_name",
@@ -41,10 +47,34 @@ describe("SchedulesClient", () => {
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
             ],
-        });
+            pagination: {
+                limit: 1,
+                nextPageToken: "next_page_token",
+                previousPageToken: "previous_page_token",
+            },
+        };
+        const page = await client.schedules.list();
+
+        expect(expected.data).toEqual(page.data);
+        expect(page.hasNextPage()).toBe(true);
+        const nextPage = await page.getNextPage();
+        expect(expected.data).toEqual(nextPage.data);
     });
 
     test("list (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server.mockEndpoint().get("/api/v1/schedules").respondWith().statusCode(400).jsonBody(rawResponseBody).build();
+
+        await expect(async () => {
+            return await client.schedules.list();
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("list (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -160,6 +190,161 @@ describe("SchedulesClient", () => {
                 name: "xy",
             });
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
+    test("create_run (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { schedule_id: "schedule_id" };
+        const rawResponseBody = {
+            data: {
+                created_at: "2024-01-15T09:30:00Z",
+                id: "id",
+                name: "name",
+                schedule_id: "schedule_id",
+                scheduled_for: "2024-01-15T09:30:00Z",
+                status: "scheduled",
+                triggered_at: "2024-01-15T09:30:00Z",
+                triggered_by: "triggered_by",
+                updated_at: "2024-01-15T09:30:00Z",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules/runs")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.schedules.createRun({
+            scheduleId: "schedule_id",
+        });
+        expect(response).toEqual({
+            data: {
+                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                id: "id",
+                name: "name",
+                scheduleId: "schedule_id",
+                scheduledFor: new Date("2024-01-15T09:30:00.000Z"),
+                status: "scheduled",
+                triggeredAt: new Date("2024-01-15T09:30:00.000Z"),
+                triggeredBy: "triggered_by",
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+            },
+        });
+    });
+
+    test("create_run (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { schedule_id: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules/runs")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.createRun({
+                scheduleId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create_run (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { schedule_id: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules/runs")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.createRun({
+                scheduleId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create_run (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { schedule_id: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules/runs")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.createRun({
+                scheduleId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("create_run (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { schedule_id: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules/runs")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.createRun({
+                scheduleId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
+    test("create_run (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { schedule_id: "x" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/schedules/runs")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.createRun({
+                scheduleId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
     test("get (1)", async () => {

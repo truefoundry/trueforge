@@ -318,6 +318,8 @@ export interface OIDCConfig {
 export interface SharedServerConfiguration {
   /** Log level. Env: `LOG_LEVEL`. */
   LOG_LEVEL: string;
+  /** Log one line per HTTP request (except `/healthz`). Env: `ACCESS_LOGS`. Default true. */
+  ACCESS_LOGS: boolean;
   /** Node environment. Env: `NODE_ENV`. */
   NODE_ENV: string | undefined;
   /** HTTP port the server listens on. Env: `PORT`. */
@@ -430,6 +432,25 @@ export interface SharedServerConfiguration {
    * outside standalone development. Env: `PUBLIC_BASE_URL`.
    */
   PUBLIC_BASE_URL: string;
+  /**
+   * When set, models are listed from the TrueFoundry ServiceFoundry server and invoked
+   * via the AI Gateway with the caller's token. Unset = local model-provider store.
+   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+   */
+  TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
+  /**
+   * Present this pod's client certificate on outbound calls to the ServiceFoundry server (internal
+   * mutual TLS) and upgrade a mesh-direct peer URL from http to https. Off by default, so an
+   * unconfigured deployment keeps calling over plain HTTP exactly as before.
+   * Env: `TRUEFOUNDRY_MTLS_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_MTLS_ENABLED: boolean;
+  /**
+   * Directory holding the internal mTLS material used when `TRUEFOUNDRY_MTLS_ENABLED` is true — the
+   * cert triple `tls.crt` / `tls.key` / `ca.crt`, so one chart value configures every component.
+   * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
+   */
+  TRUEFOUNDRY_MTLS_CERTS_DIR: string;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -513,6 +534,7 @@ const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
 
 const shared: SharedServerConfiguration = {
   LOG_LEVEL: getEnv('LOG_LEVEL', { defaultValue: 'info' }) ?? 'info',
+  ACCESS_LOGS: parseBoolean({ envKey: 'ACCESS_LOGS', raw: getEnv('ACCESS_LOGS'), defaultValue: true }),
   NODE_ENV: getEnv('NODE_ENV'),
   PORT: port,
   HOST: host,
@@ -587,6 +609,14 @@ const shared: SharedServerConfiguration = {
     defaultValue: 500,
   }),
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
+  TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
+  TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
+    envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
+    raw: getEnv('TRUEFOUNDRY_MTLS_ENABLED'),
+    defaultValue: false,
+  }),
+  TRUEFOUNDRY_MTLS_CERTS_DIR:
+    getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
 };
 
 const configuration: ServerConfiguration = standalone
@@ -624,6 +654,24 @@ export function isOidcConfigured(
   value: ServerConfiguration,
 ): value is DistributedServerConfiguration & { OIDC: OIDCConfig } {
   return !value.STANDALONE && value.OIDC !== undefined;
+}
+
+/**
+ * TrueFoundry mode: trueforge is backed by the ServiceFoundry server (models today, MCP and other
+ * resources later) rather than its local catalog. Gated on `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+ */
+export function isTrueFoundryModeEnabled(
+  config: ServerConfiguration = configuration,
+): config is ServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
+  return config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
+}
+
+// TrueFoundry mode authenticates each caller with their own gateway token, so browser SSO must be
+// off — the two auth models are mutually exclusive.
+if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) {
+  throw new Error(
+    'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL (TrueFoundry mode) and OIDC (SSO) cannot both be enabled at once.',
+  );
 }
 
 /**
