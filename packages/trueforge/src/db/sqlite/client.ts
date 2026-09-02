@@ -123,6 +123,7 @@ function applyPragmas(database: Database.Database): void {
  */
 const JSON_RESULT_COLUMNS = new Set([
   'agent_spec',
+  'repository',
   'custom',
   'metadata',
   'metrics',

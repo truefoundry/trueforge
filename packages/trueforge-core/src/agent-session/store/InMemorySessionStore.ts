@@ -201,6 +201,7 @@ export class InMemorySessionStore<
         total_turns: 0,
       },
       metadata: deepCopy(input.metadata),
+      repository: input.repository !== null ? deepCopy(input.repository) : null,
       custom: input.custom !== null ? deepCopy(input.custom) : null,
     };
     this.sessions.set(key, { record, turnIds: [] });

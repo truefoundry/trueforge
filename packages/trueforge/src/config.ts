@@ -38,6 +38,8 @@ const DEFAULT_POSTGRES_DB = 'trueforge';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+const DEFAULT_REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS = 10_000;
+const DEFAULT_REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES = 65_536;
 
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
 const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
@@ -167,6 +169,41 @@ function resolveOptionalPathEnv(envKey: string): string | undefined {
     return undefined;
   }
   return path.resolve(override);
+}
+
+function resolveOptionalHttpUrl(options: { envKey: string; raw: string | undefined }): string | undefined {
+  const { envKey, raw } = options;
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch (error) {
+    throw new Error(`Environment variable ${envKey} must be a valid HTTP(S) URL.`, { cause: error });
+  }
+  if (
+    (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
+    parsed.username !== '' ||
+    parsed.password !== ''
+  ) {
+    throw new Error(`Environment variable ${envKey} must be an HTTP(S) URL without embedded credentials.`);
+  }
+  return parsed.href;
+}
+
+function resolveOptionalAuthorization(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  try {
+    new Headers({ authorization: raw });
+  } catch (error) {
+    throw new Error('Environment variable REPOSITORY_CREDENTIAL_RESOLVER_AUTHORIZATION is not a valid header value.', {
+      cause: error,
+    });
+  }
+  return raw;
 }
 
 /**
@@ -459,6 +496,14 @@ export interface SharedServerConfiguration {
    * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
+  /** Optional external resolver endpoint for repository Git credentials. */
+  REPOSITORY_CREDENTIAL_RESOLVER_URL: string | undefined;
+  /** Optional complete Authorization header value sent only to the resolver. */
+  REPOSITORY_CREDENTIAL_RESOLVER_AUTHORIZATION: string | undefined;
+  /** Max milliseconds for one external repository credential resolution. Default 10000. */
+  REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS: number;
+  /** Max bytes accepted from the external resolver. Default 65536. */
+  REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES: number;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -627,6 +672,23 @@ const shared: SharedServerConfiguration = {
   }),
   TRUEFOUNDRY_MTLS_CERTS_DIR:
     getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
+  REPOSITORY_CREDENTIAL_RESOLVER_URL: resolveOptionalHttpUrl({
+    envKey: 'REPOSITORY_CREDENTIAL_RESOLVER_URL',
+    raw: getEnv('REPOSITORY_CREDENTIAL_RESOLVER_URL'),
+  }),
+  REPOSITORY_CREDENTIAL_RESOLVER_AUTHORIZATION: resolveOptionalAuthorization(
+    getEnv('REPOSITORY_CREDENTIAL_RESOLVER_AUTHORIZATION'),
+  ),
+  REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS',
+    raw: getEnv('REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS'),
+    defaultValue: DEFAULT_REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS,
+  }),
+  REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES: parsePositiveInt({
+    envKey: 'REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES',
+    raw: getEnv('REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES'),
+    defaultValue: DEFAULT_REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES,
+  }),
 };
 
 const configuration: ServerConfiguration = standalone

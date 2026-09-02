@@ -74,6 +74,8 @@ export class TurnResourceResolver<
       mcpConnectTimeoutMs: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
+      /** Force sandbox provisioning for session-owned resources such as a repository checkout. */
+      sandboxRequired?: boolean | undefined;
       /**
        * Named-agent lookup (registry id → live AgentSpec). Required when a
        * session is bound by reference; omit only if all sessions use inline agents.
@@ -118,7 +120,7 @@ export class TurnResourceResolver<
     signal: AbortSignal;
     tracing: AgentTracing;
   }): Promise<Sandbox | undefined> {
-    if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) {
+    if (!this.deps.sandboxProvider || (!specWantsSandbox(input.spec) && this.deps.sandboxRequired !== true)) {
       return undefined;
     }
     this.#sandbox = await this.deps.sandboxProvider({

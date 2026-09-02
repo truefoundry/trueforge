@@ -1,5 +1,5 @@
-import { OpenAPIHono } from '@hono/zod-openapi';
-import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { OpenAPIHono, z } from '@hono/zod-openapi';
+import { AgentSpecSchema, Sessions, SessionSchema } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
@@ -21,6 +21,7 @@ import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metric
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
@@ -44,6 +45,10 @@ describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
   let sessionStore: SqliteSessionStore;
+
+  afterEach(() => {
+    setCachedLocalSandboxSupport(undefined);
+  });
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
@@ -122,6 +127,47 @@ describe('sessions HTTP agent binding', () => {
     expect(missing.status).toBe(404);
   });
 
+  it('creates and returns a repository-backed session', async () => {
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    const repository = {
+      url: 'https://github.com/example/repository.git',
+      ref: 'main',
+      path: 'workspace/repository',
+      access: 'read_write',
+      credential_provider_ref: 'github-app:installation-123',
+    };
+    const response = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec }, repository }));
+
+    expect(response.status).toBe(201);
+    const payload = z.object({ data: SessionSchema }).parse(await response.json()).data;
+    expect(payload.repository).toEqual(repository);
+  });
+
+  it('rejects a repository-backed session when no sandbox provider is available', async () => {
+    const response = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        repository: {
+          url: 'https://github.com/example/repository.git',
+          ref: 'main',
+          path: 'workspace/repository',
+          access: 'read_only',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(422);
+    await expect(response.text()).resolves.toBe(
+      'repository checkouts require a sandbox provider — configure via PUT /settings/sandbox-providers',
+    );
+  });
+
   it('creates a named session and filters list by agent_id', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: TENANT_ID,
@@ -161,6 +207,7 @@ describe('sessions HTTP agent binding', () => {
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
       metadata: {},
+      repository: null,
       external_id: null,
     });
     await sessionStore.createSession({
@@ -170,6 +217,7 @@ describe('sessions HTTP agent binding', () => {
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
       metadata: {},
+      repository: null,
       external_id: null,
     });
     const start = new Date(Date.now() - 60 * 60 * 1000);
@@ -232,6 +280,7 @@ describe('sessions HTTP agent binding', () => {
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
       metadata: {},
+      repository: null,
       external_id: null,
     });
 
@@ -399,6 +448,7 @@ describe('sessions HTTP agent binding', () => {
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
       metadata: {},
+      repository: null,
       external_id: 'run-theirs',
     });
     const forbidden = await app.request(

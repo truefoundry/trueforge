@@ -63,6 +63,7 @@ async function setup() {
         skillStore: {} as never,
         agentStore,
         sandboxProviderStore: {} as never,
+        resolveRepositoryCredentials: () => Promise.resolve(null),
         logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
       },
       withTransaction: callback => db.transaction().execute(callback),

@@ -7,6 +7,7 @@ import type {
   PersistedTurnEvent,
   SessionMetadata,
   SessionMetrics,
+  SessionRepository,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -90,6 +91,8 @@ export interface SessionTable {
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
   /** Caller-owned metadata; always present (DEFAULT '{}'). */
   metadata: JSONColumnType<SessionMetadata, SessionMetadata, SessionMetadata>;
+  /** Sandbox checkout metadata only; resolved credentials are never stored. */
+  repository: JSONColumnType<SessionRepository, SessionRepository, SessionRepository> | null;
   metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;

@@ -64,6 +64,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
       resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRepositoryCredentials: () => Promise.resolve(null),
     }),
   );
 

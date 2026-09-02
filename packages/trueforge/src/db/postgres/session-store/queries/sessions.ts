@@ -1,5 +1,10 @@
-import type { AgentSpec, SessionMetadata, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
-import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  AgentSpec,
+  SessionMetadata,
+  SessionMetrics,
+  SessionRepository,
+} from '@truefoundry/trueforge-core/agent-session';
+import { SessionMetadataSchema, SessionRepositorySchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -47,6 +52,10 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
   return SessionMetadataSchema.parse(value);
 }
 
+function parseSessionRepository(value: unknown): SessionRepository | null {
+  return value === null ? null : SessionRepositorySchema.parse(value);
+}
+
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
@@ -59,6 +68,7 @@ function mapRowToSessionRecord(row: {
   external_id: string | null;
   custom: Record<string, unknown> | null;
   metadata: SessionMetadata;
+  repository: SessionRepository | null;
   metrics: SessionMetrics;
   created_at: Date;
   updated_at: Date;
@@ -79,6 +89,7 @@ function mapRowToSessionRecord(row: {
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
     metadata: parseSessionMetadata(row.metadata),
+    repository: parseSessionRepository(row.repository),
     metrics: row.metrics,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -103,6 +114,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         title: null,
         custom: input.custom !== null ? json(input.custom) : null,
         metadata: json(input.metadata),
+        repository: input.repository !== null ? json(input.repository) : null,
         external_id: input.external_id,
         metrics: json({
           total_cost_in_usd: 0,

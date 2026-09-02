@@ -43,6 +43,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { rejectUnconfiguredRepositoryCredentials, type ResolveRepositoryCredentials } from './runtime/sessionResources';
 import { InvalidCronError } from './schemas/schedule';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
@@ -194,6 +195,8 @@ export interface ServerDeps<TTransaction> {
   logger: Logger;
   /** Discovered openid-client configuration; undefined when browser login is disabled. */
   oidcClient: Configuration | undefined;
+  /** Resolves short-lived Git credentials per turn; credential material is never persisted. */
+  resolveRepositoryCredentials?: ResolveRepositoryCredentials | undefined;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -299,6 +302,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           agentStore: deps.agentStore,
           sandboxProviderStore: deps.sandboxProviderStore,
           logger: deps.logger,
+          resolveRepositoryCredentials: deps.resolveRepositoryCredentials ?? rejectUnconfiguredRepositoryCredentials,
         },
         withTransaction: deps.withTransaction,
         resolveUserContext,
@@ -378,6 +382,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         logger: deps.logger,
         resolveUserContext: resolveUserContext,
+        resolveRepositoryCredentials: deps.resolveRepositoryCredentials ?? rejectUnconfiguredRepositoryCredentials,
       }),
     ),
   );

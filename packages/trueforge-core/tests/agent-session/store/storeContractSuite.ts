@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { MAIN_THREAD_ID } from '../../../src/agent-session/models/TurnRecord';
 import type { PersistedTurnEvent } from '../../../src/agent-session/schemas/events';
 import { EventType } from '../../../src/agent-session/schemas/events';
+import type { SessionRepository } from '../../../src/agent-session/schemas/session';
 import { CancellationReason } from '../../../src/agent-session/schemas/turn';
-import type { ISessionStore } from '../../../src/agent-session/store/ISessionStore';
+import type { CreateSessionInput, ISessionStore } from '../../../src/agent-session/store/ISessionStore';
 import { decodeSessionEventPageToken } from '../../../src/agent-session/store/SessionEventPageToken';
 import {
   PreviousTurnRunningError,
@@ -69,6 +70,13 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   const missingSessionId = 'missing-session';
   const missingTurnId = 'missing-turn';
 
+  async function createSession(
+    store: ISessionStore,
+    input: Omit<CreateSessionInput, 'repository'> & { repository?: CreateSessionInput['repository'] | undefined },
+  ): Promise<void> {
+    await store.createSession({ ...input, repository: input.repository ?? null });
+  }
+
   async function finishTurn(store: ISessionStore, turnId: string) {
     const state = makeDoneTurnState();
     await store.updateTurnState({
@@ -80,13 +88,14 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   }
 
   async function seedSession(store: ISessionStore, agentSpec = makeAgentSpec()) {
-    await store.createSession({
+    await createSession(store, {
       tenant_id: tenant,
       session_id: sessionId,
       created_by: 'user-1',
       agent: { type: 'inline', spec: agentSpec },
       custom: null,
       metadata: {},
+      repository: null,
       external_id: null,
     });
   }
@@ -187,13 +196,14 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('createSession persists created_by', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 'created-by-session',
         created_by: 'alice@example.com',
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
+        repository: null,
         external_id: null,
       });
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'created-by-session' }));
@@ -213,9 +223,34 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(listed.data.find(s => s.session_id === 'created-by-session')?.created_by).toBe('alice@example.com');
     });
 
+    it('persists repository metadata without credential material', async () => {
+      const store = createStore();
+      const repository: SessionRepository = {
+        url: 'https://github.com/example/repository.git',
+        ref: 'feature/work',
+        path: 'workspace/repository',
+        access: 'read_write',
+        credential_provider_ref: 'github-app:installation-123',
+      };
+      await createSession(store, {
+        tenant_id: tenant,
+        session_id: 'repository-session',
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        repository,
+      });
+
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'repository-session' }));
+      expect(session.repository).toEqual(repository);
+      expect(JSON.stringify(session)).not.toContain('credential-store-content');
+    });
+
     it('persists reference agents and listSessions filters by agent_id', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 'named-1',
         created_by: 'user-1',
@@ -244,7 +279,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('rejects agent updates on sessions bound by agent_id', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 'named-1',
         created_by: 'user-1',
@@ -299,7 +334,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     it('createSession persists metadata for getSession', async () => {
       const store = createStore();
       const metadata = { env: 'prod', ticket: 'T-1' };
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: sessionId,
         created_by: 'user-1',
@@ -314,7 +349,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('updateSession replaces metadata when set and leaves it when omitted', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: sessionId,
         created_by: 'user-1',
@@ -366,13 +401,14 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await expect(
-        store.createSession({
+        createSession(store, {
           tenant_id: 'other',
           session_id: sessionId,
           created_by: 'user-1',
           agent: { type: 'inline', spec: makeAgentSpec() },
           custom: null,
           metadata: {},
+          repository: null,
           external_id: null,
         }),
       ).rejects.toBeInstanceOf(SessionStoreConflictError);
@@ -387,7 +423,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('createSession persists external_id and getSessionByExternalId finds it', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: sessionId,
         created_by: 'user-1',
@@ -406,7 +442,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('createSession unique external_id within a tenant; nulls and other tenants do not collide', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 's-a',
         created_by: 'user-1',
@@ -418,7 +454,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       // Specifically the external-id arm, not just any conflict: get-or-create
       // treats this rejection as its normal repeat-call path.
       await expect(
-        store.createSession({
+        createSession(store, {
           tenant_id: tenant,
           session_id: 's-b',
           created_by: 'user-1',
@@ -429,7 +465,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ).rejects.toBeInstanceOf(SessionExternalIdConflictError);
 
-      await store.createSession({
+      await createSession(store, {
         tenant_id: 'other',
         session_id: 's-c',
         created_by: 'user-1',
@@ -438,7 +474,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         metadata: {},
         external_id: 'shared-key',
       });
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 's-d',
         created_by: 'user-1',
@@ -447,7 +483,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         metadata: {},
         external_id: null,
       });
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 's-e',
         created_by: 'user-1',
@@ -460,7 +496,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('getSessionByExternalId does not bump last_activity_timestamp_ms', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: sessionId,
         created_by: 'user-1',
@@ -480,7 +516,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     it('removes all session data, is idempotent, and is a no-op when tenant_id does not match', async () => {
       const store = createStore();
       await seedSession(store);
-      await store.createSession({
+      await createSession(store, {
         tenant_id: 'other',
         session_id: 'other-session',
         created_by: 'user-1',
@@ -665,7 +701,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       const nested = `${sessionId}:nested`;
       await seedSession(store);
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: nested,
         created_by: 'user-1',
@@ -796,7 +832,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   describe('listSessions', () => {
     async function seedThreeSessions(store: ISessionStore) {
       for (const id of ['sa', 'sb', 'sc']) {
-        await store.createSession({
+        await createSession(store, {
           tenant_id: tenant,
           session_id: id,
           created_by: 'user-1',
@@ -812,7 +848,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     it('lists newest-first by default, asc on request, scoped to tenant', async () => {
       const store = createStore();
       await seedThreeSessions(store);
-      await store.createSession({
+      await createSession(store, {
         tenant_id: 'other',
         session_id: 'sx',
         created_by: 'user-1',
@@ -967,7 +1003,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
     it('filters by created_by', async () => {
       const store = createStore();
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 'alice-session',
         created_by: 'alice',
@@ -976,7 +1012,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         metadata: {},
         external_id: null,
       });
-      await store.createSession({
+      await createSession(store, {
         tenant_id: tenant,
         session_id: 'bob-session',
         created_by: 'bob',

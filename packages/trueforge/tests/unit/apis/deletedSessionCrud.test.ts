@@ -66,6 +66,7 @@ describe('public CRUD after session deletion', () => {
         sandboxProviderStore,
         logger: createLogger({ silent: true }),
         resolveUserContext: () => LOCAL_USER_CONTEXT,
+        resolveRepositoryCredentials: () => Promise.resolve(null),
       }),
     );
 
@@ -82,6 +83,7 @@ describe('public CRUD after session deletion', () => {
       },
       custom: null,
       metadata: {},
+      repository: null,
       external_id: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);

@@ -22,6 +22,9 @@ export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgen
 export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
 export type { AgentInputUserMessage } from './runtime/UserInputMessage';
 
+export { SessionRepositorySchema } from './sandbox/RepositoryCheckout';
+export type { SessionRepository } from './sandbox/RepositoryCheckout';
+
 // Capability contracts
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
 export type {

@@ -14,10 +14,11 @@ import { SessionExternalIdConflictError } from './store/SessionStoreErrors';
 
 export type SessionsCreateInput<TSessionCustom extends object> = Omit<
   CreateSessionInput<TSessionCustom>,
-  'custom' | 'metadata'
+  'custom' | 'metadata' | 'repository'
 > & {
   custom?: TSessionCustom | undefined;
   metadata?: CreateSessionInput<TSessionCustom>['metadata'] | undefined;
+  repository?: CreateSessionInput<TSessionCustom>['repository'] | undefined;
 };
 
 export class Sessions<
@@ -38,6 +39,7 @@ export class Sessions<
       ...input,
       custom: input.custom ?? null,
       metadata: input.metadata ?? {},
+      repository: input.repository ?? null,
     });
     const record = await this.store.getSession({
       tenant_id: input.tenant_id,

@@ -33,6 +33,7 @@ export function runSessionMetricsStoreContractSuite(
         agent: { type: 'reference', id: 'agent-abc', name: 'Agent ABC' },
         custom: null,
         metadata: {},
+        repository: null,
         external_id: null,
       });
       await sessionStore.createSession({
@@ -42,6 +43,7 @@ export function runSessionMetricsStoreContractSuite(
         agent: { type: 'reference', id: 'agent-abc', name: 'Agent ABC' },
         custom: null,
         metadata: {},
+        repository: null,
         external_id: null,
       });
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'metrics-session', turnId: 'metrics-turn' }));
@@ -122,6 +124,7 @@ export function runSessionMetricsStoreContractSuite(
           agent: { type: 'reference', id: 'agent-distributions', name: 'Agent Distributions' },
           custom: null,
           metadata: {},
+          repository: null,
           external_id: null,
         });
         for (const [index, durationMs] of definition.turnDurations.entries()) {
@@ -172,6 +175,7 @@ export function runSessionMetricsStoreContractSuite(
         agent: { type: 'reference', id: 'agent-inflight', name: 'Agent InFlight' },
         custom: null,
         metadata: {},
+        repository: null,
         external_id: null,
       });
       await sessionStore.createSession({
@@ -181,6 +185,7 @@ export function runSessionMetricsStoreContractSuite(
         agent: { type: 'reference', id: 'agent-inflight', name: 'Agent InFlight' },
         custom: null,
         metadata: {},
+        repository: null,
         external_id: null,
       });
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'inflight-session', turnId: 'inflight-turn' }));

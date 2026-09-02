@@ -72,6 +72,7 @@ import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { createExternalRepositoryCredentialResolver } from './runtime/repositoryCredentialResolver';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
@@ -315,6 +316,15 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     logger.warn('Auth is disabled; browser login is off');
   }
   const oidcClient = await initOidc(oidc);
+  const resolveRepositoryCredentials =
+    configuration.REPOSITORY_CREDENTIAL_RESOLVER_URL === undefined
+      ? undefined
+      : createExternalRepositoryCredentialResolver({
+          endpoint: new URL(configuration.REPOSITORY_CREDENTIAL_RESOLVER_URL),
+          authorization: configuration.REPOSITORY_CREDENTIAL_RESOLVER_AUTHORIZATION,
+          timeoutMs: configuration.REPOSITORY_CREDENTIAL_RESOLVER_TIMEOUT_MS,
+          maxResponseBytes: configuration.REPOSITORY_CREDENTIAL_RESOLVER_MAX_RESPONSE_BYTES,
+        });
 
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
@@ -348,6 +358,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     eventSubscriptions,
     logger,
     oidcClient,
+    ...(resolveRepositoryCredentials === undefined ? {} : { resolveRepositoryCredentials }),
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
