@@ -12,6 +12,9 @@ import { AgentDetailsHeader } from '../atoms/agent-details/AgentDetailsHeader.js
 import { AgentDetailsPage } from '../atoms/agent-details/AgentDetailsPage.js';
 import { AgentDetailsTabs } from '../atoms/agent-details/AgentDetailsTabs.js';
 import { AgentDetailsUnavailable } from '../atoms/agent-details/AgentDetailsUnavailable.js';
+import { AgentMetricCard } from '../atoms/agent-details/AgentMetricCard.js';
+import { AgentMetricsTimeRangeFilter } from '../atoms/agent-details/AgentMetricsTimeRangeFilter.js';
+import { AgentMetricsView } from '../atoms/agent-details/AgentMetricsView.js';
 import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
 import { AgentSessionDetailHeader } from '../atoms/agent-details/AgentSessionDetailHeader.js';
 import { AgentSessionListRow } from '../atoms/agent-details/AgentSessionListRow.js';
@@ -21,6 +24,7 @@ import { AgentSessionTurnHeader } from '../atoms/agent-details/AgentSessionTurnH
 import { SessionsPage } from '../atoms/agent-details/SessionsPage.js';
 import type {
   AgentCodeSnippetsProps,
+  AgentMetricChartProps,
   AgentOverviewProps,
   AgentSessionEventTimelineChartProps,
   AgentSessionEventTimelineProps,
@@ -75,6 +79,7 @@ import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
 import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
 import { WelcomeScreen } from '../atoms/WelcomeScreen.js';
+import { AgentMetricsContainer } from '../containers/AgentMetricsContainer.js';
 import { AgentSessionTimelineContainer } from '../containers/AgentSessionTimelineContainer.js';
 import { BrandLogo } from './brand.js';
 import type { AtomSlots } from './SlotsProvider.js';
@@ -94,6 +99,10 @@ const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> =
 const AgentSessionEventTimelineChart: ComponentType<AgentSessionEventTimelineChartProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimelineChart.js');
   return { default: mod.AgentSessionEventTimelineChart };
+});
+const AgentMetricChart: ComponentType<AgentMetricChartProps> = lazy(async () => {
+  const mod = await import('../atoms/agent-details/AgentMetricChart.js');
+  return { default: mod.AgentMetricChart };
 });
 
 // ponytail: primitives stay CSS/token-styled (not slots) — see docs/customization.md.
@@ -161,6 +170,11 @@ export const defaultSlots = {
   AgentDetailsUnavailable,
   AgentOverview,
   AgentOverviewCard,
+  AgentMetrics: AgentMetricsContainer,
+  AgentMetricsView,
+  AgentMetricsTimeRangeFilter,
+  AgentMetricCard,
+  AgentMetricChart,
   AgentSessionDetailHeader,
   AgentSessionsFilters,
   SessionsPage,

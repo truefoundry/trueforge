@@ -1,4 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
+import { EMPTY_AGENT_METADATA } from '../../../schemas/agentMetadata';
 import { newId } from '../../../utils/id';
 import {
   AgentNameConflictError,
@@ -20,6 +21,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     tenant_id: row.tenant_id,
     name: row.name,
     manifest: parseStoredAgentSpec(row.manifest),
+    metadata: row.metadata,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -60,6 +62,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: json(input.manifest),
+          metadata: json(EMPTY_AGENT_METADATA),
           created_at: now(),
           updated_at: now(),
         })
@@ -75,11 +78,15 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    if (input.manifest === undefined && input.metadata === undefined) {
+      throw new Error('updateAgent requires manifest and/or metadata');
+    }
     const db = transaction ?? this.#db;
     const row = await db
       .updateTable('agent')
       .set({
-        manifest: json(input.manifest),
+        ...(input.manifest === undefined ? {} : { manifest: json(input.manifest) }),
+        ...(input.metadata === undefined ? {} : { metadata: json(input.metadata) }),
         updated_at: now(),
       })
       .where('tenant_id', '=', input.tenant_id)

@@ -69,6 +69,8 @@ Public override surface (primitives stay theme/CSS — not slots):
 - **Agent details / sessions:** `AgentDetailsPage`, `AgentDetailsHeader`,
   `AgentDetailsTabs`, `AgentDetailsUnavailable`, `AgentOverview`,
   `AgentOverviewCard`, `AgentSessions`, `AgentSessionsFilters`, `SessionsPage`,
+  `AgentMetrics`, `AgentMetricsView`, `AgentMetricsTimeRangeFilter`,
+  `AgentMetricCard`, `AgentMetricChart`,
   `AgentSessionListRow`, `AgentSessionDetailHeader`, `AgentSessionMetricsStrip`,
   `AgentSessionTimelineContainer`, `AgentSessionEventTimeline`,
   `AgentSessionEventTimelineChart`, `AgentSessionTurnHeader`,
@@ -99,7 +101,8 @@ Places mirrored to the URL:
 - `/sessions/:sessionId` — a specific chat session
 - `/settings` — settings overlay (closing navigates to the chat place below it)
 - `/library` — Agents Library
-- `/library/:agentId` — agent details. `?tab=overview|sessions|code` selects the tab (default Overview)
+- `/library/:agentId` — agent details. `?tab=overview|sessions|code|metrics` selects the tab (default Overview);
+  Metrics is available when the server provides the optional `metrics` port
 
 Customize the paths (only honored when `withRouter`). Set any entry to `false`
 to keep that place overlay-only with no URL:

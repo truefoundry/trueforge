@@ -7,7 +7,14 @@ import { AgentDetailsPage } from '@/atoms/agent-details/AgentDetailsPage.js';
 import { AgentSessions } from '@/atoms/agent-details/AgentSessions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { AgentDetail, CodeSnippet, Session, SessionEventItem, SessionListEntry } from '@/server/types.js';
+import type {
+  AgentDetail,
+  AgentMetricsServer,
+  CodeSnippet,
+  Session,
+  SessionEventItem,
+  SessionListEntry,
+} from '@/server/types.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -67,6 +74,7 @@ function renderPage({
     updatedAt: '2026-01-02T00:00:00.000Z',
   })),
   withSessions = true,
+  metrics,
   overrides,
   initialEntries = ['/library/agent-1'],
 }: {
@@ -76,12 +84,14 @@ function renderPage({
   listSessionEvents?: () => Promise<{ data: SessionEventItem[] }>;
   getSession?: () => Promise<Session>;
   withSessions?: boolean;
+  metrics?: AgentMetricsServer;
   overrides?: SlotOverrides;
   initialEntries?: string[];
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
     ...(withSessions ? { sessions: { getAgent, getCodeSnippets, listSessions, listSessionEvents } } : {}),
+    ...(metrics == null ? {} : { metrics }),
   });
   render(
     <MemoryRouter initialEntries={initialEntries}>
@@ -115,6 +125,37 @@ describe('AgentDetailsPage', () => {
   it('renders tab bodies through SlotProvider overrides', async () => {
     renderPage({ overrides: { AgentOverview: () => <div>Custom overview</div> } });
     expect(await screen.findByText('Custom overview')).toBeInTheDocument();
+  });
+
+  it('shows the Metrics tab when supported and renders it through slots', async () => {
+    renderPage({
+      metrics: {
+        getCharts: vi.fn(async () => []),
+        getMeters: vi.fn(async () => []),
+        getChartData: vi.fn(async () => ({ step: '3600', graphs: [] })),
+      },
+      overrides: { AgentMetrics: () => <div>Custom metrics</div> },
+    });
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Metrics' }));
+    expect(screen.getByText('Custom metrics')).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('metrics');
+  });
+
+  it('honors tab=metrics when the metrics port is available', async () => {
+    window.history.replaceState(null, '', '/library/agent-1?tab=metrics');
+    renderPage({
+      initialEntries: ['/library/agent-1?tab=metrics'],
+      metrics: {
+        getCharts: vi.fn(async () => []),
+        getMeters: vi.fn(async () => []),
+        getChartData: vi.fn(async () => ({ step: '3600', graphs: [] })),
+      },
+      overrides: { AgentMetrics: () => <div>Metrics deep link</div> },
+    });
+
+    expect(await screen.findByRole('tab', { name: 'Metrics' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Metrics deep link')).toBeInTheDocument();
   });
 
   it('loads code snippets lazily and retains them across tab changes', async () => {
@@ -277,6 +318,21 @@ describe('AgentDetailsPage', () => {
     });
     expect(await screen.findByText('From getSession')).toBeInTheDocument();
     expect(screen.getByText('timeline-body')).toBeInTheDocument();
+  });
+
+  it('passes session API metrics into the selected session detail', async () => {
+    renderPage({
+      overrides: {
+        AgentSessionTimelineContainer: ({ listMetrics }) => (
+          <div>{`${String(listMetrics?.totalTurns)} turns, ${String(listMetrics?.totalDurationMs)}ms, $${String(listMetrics?.totalCostInUsd)}`}</div>
+        ),
+      },
+    });
+    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+    fireEvent.click(await screen.findByText('Release notes draft'));
+
+    expect(await screen.findByText('2 turns, 120000ms, $0.5')).toBeInTheDocument();
   });
 
   it('shows the shared unavailable state without the optional server', () => {
