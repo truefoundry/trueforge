@@ -78,6 +78,7 @@ export interface SfyMcpServerSummary {
   /** May contain `{{mcpProxyBaseURL}}`; callers must run {@link resolveMcpProxyUrl}. */
   proxyUrl: string;
   description: string;
+  authType: string | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -95,6 +96,8 @@ export function parseSfyMcpServerSummary(row: unknown): SfyMcpServerSummary | un
   }
   const manifest = isRecord(row['manifest']) ? row['manifest'] : undefined;
   const description = readString(manifest?.['description']) ?? name;
+  const authData = isRecord(manifest?.['auth_data']) ? manifest['auth_data'] : undefined;
+  const authType = readString(authData?.['type']);
   const now = new Date().toISOString();
   return {
     id,
@@ -102,6 +105,7 @@ export function parseSfyMcpServerSummary(row: unknown): SfyMcpServerSummary | un
     tenantName,
     proxyUrl,
     description,
+    authType,
     createdAt: readIsoTimestamp(row['createdAt']) ?? now,
     updatedAt: readIsoTimestamp(row['updatedAt']) ?? now,
   };

@@ -1,7 +1,8 @@
 /**
  * DB-backed configured MCP servers: one row per server per tenant,
  * identity as columns plus a Zod-validated `McpServerManifest` jsonb document.
- * Implementations: PostgresMcpServerStore and SqliteMcpServerStore.
+ * Implementations: PostgresMcpServerStore, SqliteMcpServerStore, and
+ * TrueFoundryMcpServerStore (read-only ServiceFoundry listing).
  *
  * Also owns the DCR registration columns (`oauth_server` / `oauth_client`) via
  * `IOAuthClientStore` — those are not a separate persistence root.
