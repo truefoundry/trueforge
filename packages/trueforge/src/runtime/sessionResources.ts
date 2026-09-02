@@ -134,7 +134,9 @@ function dcrHeadersResolver(params: {
 
 /**
  * Load MCP url + headers for a configured server.
- * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
+ * - `truefoundry`: gateway proxy URL + caller Bearer (never local DCR).
+ * - `remote` + `dcr`: resolveMcpAuth via the harness token store.
+ * - header / no-auth: resolveConfiguredMcpRequestHeaders.
  * Returns undefined when the server is not registered — callers choose the response.
  */
 export async function getMcpConnection({
@@ -144,6 +146,7 @@ export async function getMcpConnection({
   tokenStore,
   clientName,
   userRef,
+  accessToken,
 }: {
   tenant_id: string;
   name: string;
@@ -151,10 +154,25 @@ export async function getMcpConnection({
   tokenStore: IOAuthTokenStore;
   clientName: string;
   userRef: string;
+  /** Required when the server is `type: truefoundry` (caller TrueFoundry token). */
+  accessToken?: string;
 }): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
+  }
+  // Must run before the local `auth.type === 'dcr'` branch — TF oauth2 maps to wire `dcr`
+  // but invoke uses the caller token against the gateway, not the harness OAuth store.
+  if (record.manifest.type === 'truefoundry') {
+    if (accessToken === undefined || accessToken === '') {
+      throw new HTTPException(401, {
+        message: 'Authentication token required to call TrueFoundry MCP servers',
+      });
+    }
+    return {
+      url: record.manifest.url,
+      headers: { Authorization: `Bearer ${accessToken}` },
+    };
   }
   if (record.manifest.auth?.type === 'dcr') {
     return {

@@ -30,7 +30,8 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { ResolveUserContext, UserContext } from '../auth/identity';
-import configuration from '../config';
+import { requireAccessToken } from '../auth/middleware';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -125,7 +126,11 @@ export interface TurnsRouterDeps {
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
   'activeTurns' | 'eventSubscriptions' | 'tokenStore' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
-> & { modelProviderStore: IModelProviderStore; mcpServerStore: IMcpServerStore };
+> & {
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+  accessToken?: string;
+};
 
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
@@ -142,6 +147,7 @@ function createTurnResolver(deps: {
   signal: AbortSignal;
   userRef: string;
   sessionId: string;
+  accessToken: string | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -154,6 +160,7 @@ function createTurnResolver(deps: {
     signal,
     userRef,
     sessionId,
+    accessToken,
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
@@ -180,6 +187,7 @@ function createTurnResolver(deps: {
         tokenStore,
         clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         userRef,
+        ...(accessToken !== undefined ? { accessToken } : {}),
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
@@ -382,6 +390,7 @@ export async function beginTurnExecution(params: {
     signal: abortController.signal,
     userRef,
     sessionId,
+    accessToken: deps.accessToken,
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -672,6 +681,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
+        ...(isTrueFoundryModeEnabled(configuration) ? { accessToken: requireAccessToken(c) } : {}),
       },
     };
 

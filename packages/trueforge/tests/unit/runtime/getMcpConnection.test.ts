@@ -152,6 +152,59 @@ describe('getMcpConnection', () => {
     });
   });
 
+  it('returns caller Bearer headers for truefoundry servers without local DCR', async () => {
+    await mcpServerStore.upsertServer({
+      tenant_id: TENANT_ID,
+      name: 'tf-mcp',
+      manifest: {
+        type: 'truefoundry',
+        name: 'tf-mcp',
+        url: 'https://gateway.example/mcp-proxy/tf-mcp',
+        description: 'TrueFoundry-managed MCP.',
+        // Wire shape mirrors SFY oauth2 → dcr; invoke must still use caller Bearer.
+        auth: { type: 'dcr' },
+      },
+    });
+
+    const connection = await getMcpConnection({
+      tenant_id: TENANT_ID,
+      name: 'tf-mcp',
+      store: mcpServerStore,
+      tokenStore,
+      clientName: 'test-client',
+      userRef: LOCAL_USER_CONTEXT.userRef,
+      accessToken: 'caller-tfy-token',
+    });
+    expect(connection).toEqual({
+      url: 'https://gateway.example/mcp-proxy/tf-mcp',
+      headers: { Authorization: 'Bearer caller-tfy-token' },
+    });
+  });
+
+  it('rejects truefoundry servers when the caller access token is missing', async () => {
+    await mcpServerStore.upsertServer({
+      tenant_id: TENANT_ID,
+      name: 'tf-mcp-no-token',
+      manifest: {
+        type: 'truefoundry',
+        name: 'tf-mcp-no-token',
+        url: 'https://gateway.example/mcp-proxy/tf-mcp-no-token',
+        description: 'TrueFoundry-managed MCP.',
+      },
+    });
+
+    await expect(
+      getMcpConnection({
+        tenant_id: TENANT_ID,
+        name: 'tf-mcp-no-token',
+        store: mcpServerStore,
+        tokenStore,
+        clientName: 'test-client',
+        userRef: LOCAL_USER_CONTEXT.userRef,
+      }),
+    ).rejects.toMatchObject({ status: 401 });
+  });
+
   it('returns empty static headers when the server has no auth', async () => {
     await mcpServerStore.upsertServer({
       tenant_id: TENANT_ID,

@@ -4,6 +4,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
+import { requireAccessToken } from '../auth/middleware';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
 import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
@@ -396,7 +397,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
-    // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
+    // Same url + header resolution as turn execution (TF Bearer, DCR via resolveMcpAuth, header/no-auth static).
     const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
       name,
@@ -404,6 +405,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       tokenStore: deps.tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       userRef,
+      ...(isTrueFoundryModeEnabled(configuration) ? { accessToken: requireAccessToken(c) } : {}),
     });
     if (connection === undefined) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
