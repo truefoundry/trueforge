@@ -6,10 +6,12 @@ import type {
   ExecResult,
   SandboxBuild,
   SandboxExecParams,
+  SandboxFileDownload,
   SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import {
   absolutizeRelativeExecEnv,
+  boundedFileStream,
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
   SandboxNotAvailableError,
@@ -42,6 +44,8 @@ import {
   runSupervisorSession,
   SANDBOX_VENV_DIR,
   srtHostBinaryNames,
+  startSupervisorStdoutStream,
+  SupervisorStreamError,
   type LocalSandboxPlatform,
   type SessionResult,
 } from '../core/hostRun.js';
@@ -446,15 +450,6 @@ export class LocalSandboxProvider implements SandboxProvider {
     return this.pythonC(code, relPath);
   }
 
-  private base64EncodeCommand(relPath: string): string {
-    const code = [
-      'import base64, sys',
-      'p = sys.argv[1]',
-      'sys.stdout.write(base64.b64encode(open(p, "rb").read()).decode("ascii"))',
-    ].join('\n');
-    return this.pythonC(code, relPath);
-  }
-
   buildImage(): Promise<SandboxBuild> {
     return Promise.resolve(LocalSandboxProvider.readyBuild);
   }
@@ -677,7 +672,11 @@ export class LocalSandboxProvider implements SandboxProvider {
     return 'git_downloader.py';
   }
 
-  async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
+  async downloadFile(params: {
+    sandboxId: string;
+    path: string;
+    signal?: AbortSignal | undefined;
+  }): Promise<SandboxFileDownload> {
     this.ensureSandboxRoot(params.sandboxId);
     await this.ensureSrt();
     await this.ensureVenv(params.sandboxId);
@@ -691,18 +690,50 @@ export class LocalSandboxProvider implements SandboxProvider {
     if (info.size > this.fileMaxBytesForDownload) {
       throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
     }
-    const result = await this.runSandboxCommand({
+
+    // Raw bytes stream out under the same SRT wrap as exec. `/bin/cat` is absolute like the
+    // upload command: the jail PATH prefers Homebrew, where a stale Cellar cat can be ENOENT.
+    const supervised = await startSupervisorStdoutStream({
       sandboxRootPath,
-      command: this.base64EncodeCommand(relPath),
+      command: `/bin/cat ${shellEscape(relPath)}`,
+      shell: this.support.shell,
+      platform: this.support.platform,
+      timeoutMs: this.defaultExecTimeoutSeconds * 1000,
     });
-    if (result.exitCode !== 0) {
-      throw new SandboxFileNotFoundError(params.path);
+    if (params.signal !== undefined) {
+      params.signal.addEventListener(
+        'abort',
+        () => {
+          supervised.abort();
+        },
+        { once: true },
+      );
     }
-    const buf = Buffer.from(result.stdoutText.trim(), 'base64');
-    if (buf.length > this.fileMaxBytesForDownload) {
-      throw new SandboxFileTooLargeError(params.path, buf.length, this.fileMaxBytesForDownload);
-    }
-    return buf;
+
+    let emitted = 0;
+    const chunks = async function* (): AsyncGenerator<Uint8Array> {
+      try {
+        for await (const chunk of supervised.chunks()) {
+          emitted += chunk.byteLength;
+          yield chunk;
+        }
+      } catch (error) {
+        // Failing before any byte mirrors the buffered behavior: the stat raced a deletion.
+        if (error instanceof SupervisorStreamError && emitted === 0) {
+          throw new SandboxFileNotFoundError(params.path);
+        }
+        throw error;
+      }
+    };
+
+    return {
+      size: info.size,
+      stream: boundedFileStream({
+        path: params.path,
+        maxBytes: this.fileMaxBytesForDownload,
+        chunks,
+      }),
+    };
   }
 
   /** Payload on stdin so large uploads stay off argv. */

@@ -1,7 +1,10 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import type { SandboxProvider } from '@truefoundry/trueforge-core/core';
+import { SandboxFileNotFoundError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
+import { makeCreateTurnInput } from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
@@ -16,6 +19,14 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
+import { resolveSandboxProvider } from '../../../src/runtime/sessionResources';
+
+jest.mock('../../../src/runtime/sessionResources', () => ({
+  ...jest.requireActual('../../../src/runtime/sessionResources'),
+  resolveSandboxProvider: jest.fn(),
+}));
+
+const mockedResolveSandboxProvider = jest.mocked(resolveSandboxProvider);
 
 /** Parsed rather than built literally, so config defaults match what the create route stores. */
 function agentSpec(): AgentSpec {
@@ -50,7 +61,7 @@ async function buildApp() {
     }),
   );
 
-  return { app, sessions };
+  return { app, sessions, sessionStore };
 }
 
 function downloadUrl({
@@ -119,6 +130,98 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
     const response = await app.request(downloadUrl({ sessionId: session.session_id, path: '/workspace/report.pdf' }));
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe('download-sandbox-file streaming', () => {
+  const RAW_SANDBOX_ID = 'raw-sbx-id';
+
+  /** Session with one turn whose snapshot carries a sandbox id, so the route reaches the provider. */
+  async function buildSessionWithSandboxTurn(): Promise<{ app: OpenAPIHono; sessionId: string }> {
+    const { app, sessions, sessionStore } = await buildApp();
+    const session = await sessions.create({
+      tenant_id: TENANT_ID,
+      session_id: 'with-sbx-turn',
+      created_by: LOCAL_USER_CONTEXT.userRef,
+      agent: { type: 'inline', spec: agentSpec() },
+    });
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.session_id, turnId: 'turn-1' }));
+    await sessionStore.patchSandboxInfo({
+      session_id: session.session_id,
+      turn_id: 'turn-1',
+      sandbox_info: { sandbox_id: RAW_SANDBOX_ID },
+    });
+    return { app, sessionId: session.session_id };
+  }
+
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it('streams bytes to the client progressively with exact headers', async () => {
+    const encoder = new TextEncoder();
+    let releaseSecondChunk: (() => void) | undefined;
+    const secondChunkGated = new Promise<void>(resolve => {
+      releaseSecondChunk = resolve;
+    });
+    const downloadFile = jest.fn(async () => ({
+      size: 11,
+      stream: new ReadableStream<Uint8Array>({
+        async start(controller) {
+          controller.enqueue(encoder.encode('part-one-'));
+          await secondChunkGated;
+          controller.enqueue(encoder.encode('tail'));
+          controller.close();
+        },
+      }),
+    }));
+    mockedResolveSandboxProvider.mockResolvedValue({ type: 'test', downloadFile } as unknown as SandboxProvider);
+
+    const { app, sessionId } = await buildSessionWithSandboxTurn();
+    // The handler returns as soon as headers exist; the body keeps streaming after this resolves.
+    const response = await app.request(downloadUrl({ sessionId, path: '/workspace/report.pdf' }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('application/octet-stream');
+    expect(response.headers.get('Content-Length')).toBe('11');
+    expect(response.headers.get('Content-Disposition')).toBe(toContentDisposition('/workspace/report.pdf'));
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(downloadFile).toHaveBeenCalledWith({
+      sandboxId: RAW_SANDBOX_ID,
+      path: '/workspace/report.pdf',
+      signal: expect.anything(),
+    });
+
+    const body = response.body;
+    if (!body) {
+      throw new Error('response has no body');
+    }
+    const reader = body.getReader();
+    // The producer is parked on secondChunkGated: receiving the first chunk here proves
+    // bytes reach the client before the whole file has been produced.
+    const first = await reader.read();
+    expect(Buffer.from(first.value).toString()).toBe('part-one-');
+
+    releaseSecondChunk?.();
+    const second = await reader.read();
+    const done = await reader.read();
+    expect(done.done).toBe(true);
+    expect(Buffer.from(first.value).toString() + Buffer.from(second.value).toString()).toBe('part-one-tail');
+  });
+
+  it('maps provider SandboxError rejections to their status before any body starts', async () => {
+    mockedResolveSandboxProvider.mockResolvedValue({
+      type: 'test',
+      downloadFile: jest.fn(async () => {
+        throw new SandboxFileNotFoundError('/workspace/gone.txt');
+      }),
+    } as unknown as SandboxProvider);
+
+    const { app, sessionId } = await buildSessionWithSandboxTurn();
+    const response = await app.request(downloadUrl({ sessionId, path: '/workspace/gone.txt' }));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: { message: 'File not found: /workspace/gone.txt' } });
   });
 });
 

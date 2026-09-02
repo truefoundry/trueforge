@@ -71,17 +71,6 @@ export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
 }
 
 /**
- * Copies into a standalone ArrayBuffer for the response body: a pooled Buffer's
- * backing store is shared and typed as ArrayBufferLike, which is not a body.
- * Bounded by SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD.
- */
-function toArrayBuffer(content: Buffer): ArrayBuffer {
-  const buffer = new ArrayBuffer(content.byteLength);
-  new Uint8Array(buffer).set(content);
-  return buffer;
-}
-
-/**
  * Builds the Content-Disposition telling the browser to save the file under its sandbox name.
  *
  * A sandbox file can be named in any script, but an HTTP header can only carry bytes, so a name
@@ -603,11 +592,18 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
       }
 
-      // TODO: stream the body instead of buffering the whole file in memory.
-      const content = await provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
-      return c.body(toArrayBuffer(content), 200, {
+      // Stat + stream-open errors reject above with a JSON status; bytes flow incrementally so
+      // peak memory tracks chunk size, and `req.raw.signal` stops provider reads on disconnect.
+      // Once the body has started, mid-stream failures can only surface as a truncated response,
+      // detectable by the client against Content-Length.
+      const download = await provider.downloadFile({
+        sandboxId: rawSandboxId(sandboxId),
+        path,
+        signal: c.req.raw.signal,
+      });
+      return c.body(download.stream, 200, {
         'Content-Type': 'application/octet-stream',
-        'Content-Length': String(content.byteLength),
+        'Content-Length': String(download.size),
         'Content-Disposition': toContentDisposition(path),
         'Cache-Control': 'private, no-store',
       });

@@ -64,6 +64,21 @@ export interface SandboxBuild {
   metadata: SandboxBuildMetadata | null;
 }
 
+/** An opened sandbox file ready to be streamed to a client. */
+export interface SandboxFileDownload {
+  /**
+   * Byte count from the provider's pre-download stat. Drives the response Content-Length;
+   * providers enforce this same bound again while streaming in case the file changed.
+   */
+  size: number;
+  /**
+   * File bytes, single consumption. Domain errors raised before the first byte propagate to the
+   * caller as a rejected promise (mappable HTTP statuses); anything failing after that surfaces
+   * as an errored stream — a truncated body the client can detect against Content-Length.
+   */
+  stream: ReadableStream<Uint8Array>;
+}
+
 export interface SandboxProvider {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
@@ -93,8 +108,17 @@ export interface SandboxProvider {
   getSkillsDir(sandboxId: string): string;
   /** Path the git skill downloader script is written to before it runs. */
   getGitDownloaderPath(sandboxId: string): string;
-  /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
-  downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;
+  /**
+   * Opens a file for streaming download. Implementations stat first (path checks, is-dir,
+   * max-size) so domain errors reject before any byte moves, then hand back an incremental
+   * stream — peak memory stays bounded by chunk size rather than file size.
+   * `signal` aborts provider reads once the HTTP client goes away mid-stream.
+   */
+  downloadFile(params: {
+    sandboxId: string;
+    path: string;
+    signal?: AbortSignal | undefined;
+  }): Promise<SandboxFileDownload>;
   /** Uploads a file to the sandbox. */
   uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void>;
 
