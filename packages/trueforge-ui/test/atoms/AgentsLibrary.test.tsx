@@ -63,15 +63,24 @@ function renderLibrary(
   );
 }
 
-function LibraryHarness({ children, onSelectAgent }: { children?: ReactNode; onSelectAgent?: (name: string) => void }) {
+function LibraryHarness({
+  children,
+  onSelectAgent,
+  withToaster = false,
+}: {
+  children?: ReactNode;
+  onSelectAgent?: (name: string) => void;
+  withToaster?: boolean;
+}) {
   const shell = useShellMode();
+  const library = <AgentsLibrary onSelectAgent={onSelectAgent} />;
   return (
     <>
       <button type="button" onClick={() => shell.setLibraryOpen(true)}>
         Open library
       </button>
       <output data-testid="library-agent-id">{shell.libraryAgentId ?? ''}</output>
-      <AgentsLibrary onSelectAgent={onSelectAgent} />
+      {withToaster ? <ToasterProvider>{library}</ToasterProvider> : library}
       {children}
     </>
   );
@@ -158,14 +167,17 @@ describe('AgentsLibrary', () => {
   });
 
   it('shows Edit when composer is enabled and agentSpec is present', async () => {
-    const server = mockServer([
-      {
-        name: 'writer',
-        agentId: 'writer-id',
-        agentSpec: { model: { name: 'openai-main/gpt-4.1' }, skills: [{ id: 's1', name: 'Skill' }] },
-      },
-      { name: 'try-only', agentId: 'try-only' },
-    ]);
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'writer',
+          agentId: 'writer-id',
+          agentSpec: { model: { name: 'openai-main/gpt-4.1' }, skills: [{ id: 's1', name: 'Skill' }] },
+        },
+        { name: 'try-only', agentId: 'try-only' },
+      ]),
+      deleteAgent: vi.fn(async () => {}),
+    });
 
     renderLibrary(<LibraryHarness />, {
       server,
@@ -174,10 +186,12 @@ describe('AgentsLibrary', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Edit agent writer' })).toBeInTheDocument();
-    });
-    expect(screen.queryByRole('button', { name: 'Edit agent try-only' })).not.toBeInTheDocument();
+    const writerActions = await screen.findByRole('button', { name: 'Agent actions for writer' });
+    fireEvent.click(writerActions);
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Manage Schedules/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Clone/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
   });
 
@@ -230,26 +244,19 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent writer' })).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: 'Edit agent writer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Agent actions for writer' })).not.toBeInTheDocument();
   });
 
   it('hides Delete when the server does not support deleting agents', async () => {
     const server = mockServer([{ name: 'writer', agentId: 'writer-id' }]);
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent writer' })).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: 'Delete agent writer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Agent actions for writer' })).not.toBeInTheDocument();
   });
 
   it('confirms deletion, calls the server port, and refreshes the library', async () => {
@@ -260,22 +267,11 @@ describe('AgentsLibrary', () => {
     const deleteAgent = vi.fn(async () => {});
     const server = createMockAgentUIServer({ searchAgents, deleteAgent });
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ToasterProvider>
-            <ShellModeProvider>
-              <AgentsLibrary open onOpenChange={() => undefined} />
-            </ShellModeProvider>
-          </ToasterProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness withToaster />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete agent writer' })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete agent writer' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Agent actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
     expect(screen.getByRole('dialog', { name: 'Delete writer?' })).toBeInTheDocument();
     expect(screen.getByText('Existing chats will stay in your history.', { exact: false })).toBeInTheDocument();
@@ -285,10 +281,11 @@ describe('AgentsLibrary', () => {
       expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
       expect(searchAgents).toHaveBeenCalledTimes(2);
     });
-    expect(screen.queryByRole('button', { name: 'Delete agent writer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Agent actions for writer' })).not.toBeInTheDocument();
     const successToast = await screen.findByRole('alert');
     expect(successToast).toHaveTextContent('writer deleted');
-    expect(successToast.closest('dialog')).toHaveAttribute('aria-label', 'Agents Library');
+    expect(successToast).toBeVisible();
+    expect(successToast.closest('dialog')).toBeNull();
   });
 
   it('allows cancellation and keeps a failed deletion available for retry', async () => {
@@ -300,31 +297,24 @@ describe('AgentsLibrary', () => {
       deleteAgent,
     });
 
-    render(
-      <SlotsProvider>
-        <ServerProvider server={server}>
-          <ShellModeProvider>
-            <AgentsLibrary open onOpenChange={() => undefined} />
-          </ShellModeProvider>
-        </ServerProvider>
-      </SlotsProvider>,
-    );
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Delete agent writer' })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete agent writer' }));
+    const actions = await screen.findByRole('button', { name: 'Agent actions for writer' });
+    fireEvent.click(actions);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(deleteAgent).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete agent writer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Agent actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Delete request failed');
     });
     expect(screen.getByRole('dialog', { name: 'Delete writer?' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete agent writer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agent actions for writer' })).toBeInTheDocument();
   });
 
   it('shows create-one guidance when there are no agents yet', async () => {
