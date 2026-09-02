@@ -48,6 +48,25 @@ function mountName(mount: object): string | null {
   return 'name' in mount && typeof mount.name === 'string' ? mount.name : null;
 }
 
+function AgentSchedulesEmptyState({ agentName, onOpen }: { agentName: string; onOpen?: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Add schedule for ${agentName}`}
+      className="text-text-secondary hover:text-primary-button-bg cursor-pointer text-sm font-medium"
+      onClick={onOpen}
+    >
+      <span aria-hidden className="md:group-hover:hidden">
+        -
+      </span>
+      <span aria-hidden className="hidden items-center gap-1 md:group-hover:inline-flex">
+        <Icon name="plus" className="size-3.5 shrink-0" />
+        Schedule
+      </span>
+    </button>
+  );
+}
+
 function AgentSchedulesBadge({
   summary,
   agentName,
@@ -57,14 +76,13 @@ function AgentSchedulesBadge({
   agentName: string;
   onOpen?: () => void;
 }) {
-  if (summary.count === 0) return null;
   const warning = summary.hasPaused;
   return (
     <button
       type="button"
       aria-label={`${String(summary.count)} schedules for ${agentName}${warning ? ' (has paused)' : ''}`}
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
+        'inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
         warning
           ? 'border-amber-600/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
           : 'border-border bg-secondary-bg text-text-secondary',
@@ -98,8 +116,10 @@ export function AgentLibraryRow({
   const connectorsTitle = mcpNames.length ? `Connectors: ${mcpNames.join(', ')}` : `${mcpCount} connectors`;
   const skillsTitle = skillNames.length ? `Skills: ${skillNames.join(', ')}` : `${skillsCount} skills`;
 
+  const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
+
   return (
-    <TableRow>
+    <TableRow className={hasNoSchedules ? 'group' : undefined}>
       <TableCell className="text-text-primary font-medium">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="bg-primary-bg text-text-secondary inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
@@ -147,13 +167,12 @@ export function AgentLibraryRow({
           </div>
         </div>
       </TableCell>
-      <TableCell className="max-w-md">
-        <span className="block truncate">{spec?.description?.trim() || 'No description'}</span>
-      </TableCell>
       {scheduleSummary !== undefined ? (
         <TableCell>
-          {scheduleSummary != null ? (
+          {scheduleSummary != null && scheduleSummary.count > 0 ? (
             <AgentSchedulesBadge summary={scheduleSummary} agentName={agent.name} onOpen={onOpenSchedules} />
+          ) : scheduleSummary != null ? (
+            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onOpenSchedules} />
           ) : null}
         </TableCell>
       ) : null}
@@ -372,8 +391,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[36%]">Agent name</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead>Agent name</TableHead>
                       {showSchedulesColumn ? <TableHead className="w-[8rem]">Schedules</TableHead> : null}
                       <TableHead className="w-px">
                         <span className="sr-only">Actions</span>

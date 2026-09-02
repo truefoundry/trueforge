@@ -132,12 +132,13 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const showDelete = canDeleteSession && remoteId != null;
+  const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
 
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
         title={title ?? 'New Chat'}
-        active={id === mainThreadId}
+        active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         lastMessageAt={lastMessageAt}
         onSelect={() => {

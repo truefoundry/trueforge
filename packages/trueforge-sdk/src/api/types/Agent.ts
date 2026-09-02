@@ -3,8 +3,10 @@
 import type * as TrueForge from "../index.js";
 
 export interface Agent {
+    createdAt: Date;
     /** Immutable server-generated agent identifier. */
     id: string;
     manifest: TrueForge.AgentSpec;
     name: TrueForge.ResourceName;
+    updatedAt: Date;
 }

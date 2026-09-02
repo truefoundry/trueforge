@@ -69,4 +69,21 @@ describe('PopoverSelect', () => {
     expect(trigger).toHaveTextContent('alpha');
     expect(trigger.querySelector('.border-r')).not.toBeNull();
   });
+
+  it('opens the menu above the trigger when menuPlacement is top', () => {
+    render(
+      <PopoverSelect
+        aria-label="Timezone"
+        menuPlacement="top"
+        options={[{ value: 'UTC', label: 'UTC' }]}
+        value="UTC"
+        onValueChange={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Timezone' }));
+
+    expect(screen.getByRole('listbox').className).toContain('bottom-full');
+    expect(screen.getByRole('listbox').className).toContain('mb-1');
+  });
 });

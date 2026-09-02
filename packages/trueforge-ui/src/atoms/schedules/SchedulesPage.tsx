@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
-import type { Schedule, ScheduleStatus } from '../../server/types.js';
+import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
+import { cn } from '../lib/cn.js';
 import { SEARCH_AGENTS_PAGE_SIZE } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
@@ -25,8 +27,9 @@ import {
   TableRow,
   TableTokenPagination,
 } from '../primitives/Table.js';
-import { formatCadenceSummary, formatRelativeTime } from './cadence.js';
+import { formatCadenceSummary } from './cadence.js';
 import { ScheduleFormDrawer } from './ScheduleFormDrawer.js';
+import { ScheduleLastRunsCell } from './ScheduleLastRunsCell.js';
 import { ScheduleStatusBadge } from './ScheduleStatusBadge.js';
 
 type AgentOption = { agentId: string; name: string };
@@ -61,49 +64,69 @@ function filtersFromSearch(search: string): {
 
 function ScheduleRowActions({
   schedule,
+  running,
+  onRunNow,
   onEdit,
   onTogglePause,
   onDelete,
 }: {
   schedule: Schedule;
+  running: boolean;
+  onRunNow: () => void;
   onEdit: () => void;
   onTogglePause: () => void;
   onDelete: () => void;
 }) {
   return (
-    <DropdownMenu
-      align="end"
-      trigger={
-        <button
-          type="button"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-          aria-label={`Actions for ${schedule.name}`}
-        >
-          <Icon name="ellipsis" className="size-4" />
-        </button>
-      }
-    >
-      <DropdownMenuItem onClick={onEdit}>
-        <Icon name="pencil" className="size-3.5" />
-        Edit
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={onTogglePause}>
-        <Icon name={schedule.status === 'active' ? 'pause' : 'play'} className="size-3.5" />
-        {schedule.status === 'active' ? 'Pause' : 'Resume'}
-      </DropdownMenuItem>
-      <DropdownMenuItem className="text-failure-bg focus:text-failure-bg" onClick={onDelete}>
-        <Icon name="trash" className="size-3.5" />
-        Delete
-      </DropdownMenuItem>
-    </DropdownMenu>
+    <div className="inline-flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        disabled={running}
+        aria-label={`Run now ${schedule.name}`}
+        className={auiButtonClass({ variant: 'outline', size: 'sm' })}
+        onClick={onRunNow}
+      >
+        <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
+        Run now
+      </button>
+      <DropdownMenu
+        align="end"
+        trigger={
+          <button
+            type="button"
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            aria-label={`Actions for ${schedule.name}`}
+          >
+            <Icon name="ellipsis" className="size-4" />
+          </button>
+        }
+      >
+        <DropdownMenuItem onClick={onEdit}>
+          <Icon name="pencil" className="size-3.5" />
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onTogglePause}>
+          <Icon name={schedule.status === 'active' ? 'pause' : 'play'} className="size-3.5" />
+          {schedule.status === 'active' ? 'Pause' : 'Resume'}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-failure-bg focus:text-failure-bg" onClick={onDelete}>
+          <Icon name="trash" className="size-3.5" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenu>
+    </div>
   );
 }
 
 export function SchedulesPage() {
   const scheduleServer = useScheduleServer();
   const server = useServer();
+  const toaster = useToasterOptional();
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [runsByScheduleId, setRunsByScheduleId] = useState<Record<string, ScheduleRun[]>>({});
+  const [runsLoading, setRunsLoading] = useState(false);
+  const [runningScheduleIds, setRunningScheduleIds] = useState<ReadonlySet<string>>(() => new Set());
   const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +142,33 @@ export function SchedulesPage() {
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [prevTokenStack, setPrevTokenStack] = useState<string[]>([]);
 
+  const loadRunsForSchedules = useCallback(
+    async (rows: Schedule[]) => {
+      if (rows.length === 0) {
+        setRunsByScheduleId({});
+        return;
+      }
+      setRunsLoading(true);
+      try {
+        const results = await Promise.allSettled(
+          rows.map(schedule => scheduleServer.listScheduleRuns({ scheduleId: schedule.id })),
+        );
+        setRunsByScheduleId(
+          Object.fromEntries(
+            rows.map((schedule, index) => {
+              const result = results[index];
+              const runs = result?.status === 'fulfilled' ? result.value : [];
+              return [schedule.id, runs] as const;
+            }),
+          ),
+        );
+      } finally {
+        setRunsLoading(false);
+      }
+    },
+    [scheduleServer],
+  );
+
   const loadSchedules = useCallback(
     async ({ token, size, agentId }: { token: string | undefined; size: number; agentId: string }) => {
       setLoading(true);
@@ -131,16 +181,18 @@ export function SchedulesPage() {
         });
         setSchedules(page.data);
         setNextPageToken(page.nextPageToken);
+        void loadRunsForSchedules(page.data);
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : 'Failed to load schedules';
         setError(message);
         setSchedules([]);
+        setRunsByScheduleId({});
         setNextPageToken(undefined);
       } finally {
         setLoading(false);
       }
     },
-    [scheduleServer],
+    [scheduleServer, loadRunsForSchedules],
   );
 
   const resetToFirstPage = useCallback(
@@ -224,6 +276,24 @@ export function SchedulesPage() {
       await loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter });
     } catch {
       // ponytail: surface via toast when the shell has one; for now list refresh is enough
+    }
+  };
+
+  const handleRunNow = async (schedule: Schedule) => {
+    setRunningScheduleIds(prev => new Set(prev).add(schedule.id));
+    try {
+      await scheduleServer.createScheduleRun({ scheduleId: schedule.id });
+      toaster?.showSuccess({ title: 'Run started' });
+      const runs = await scheduleServer.listScheduleRuns({ scheduleId: schedule.id });
+      setRunsByScheduleId(prev => ({ ...prev, [schedule.id]: runs }));
+    } catch (caught) {
+      toaster?.showError(caught);
+    } finally {
+      setRunningScheduleIds(prev => {
+        const next = new Set(prev);
+        next.delete(schedule.id);
+        return next;
+      });
     }
   };
 
@@ -323,7 +393,7 @@ export function SchedulesPage() {
                   <TableHead>Agent</TableHead>
                   <TableHead>Cadence</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Last run</TableHead>
+                  <TableHead>Last 5 runs</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -349,10 +419,18 @@ export function SchedulesPage() {
                       <TableCell>
                         <ScheduleStatusBadge status={schedule.status} />
                       </TableCell>
-                      <TableCell>{formatRelativeTime(schedule.lastRunAt)}</TableCell>
+                      <TableCell>
+                        {runsLoading ? (
+                          <span className="text-text-secondary text-sm">…</span>
+                        ) : (
+                          <ScheduleLastRunsCell runs={runsByScheduleId[schedule.id] ?? []} />
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <ScheduleRowActions
                           schedule={schedule}
+                          running={runningScheduleIds.has(schedule.id)}
+                          onRunNow={() => void handleRunNow(schedule)}
                           onEdit={() => setDrawer({ kind: 'edit', schedule })}
                           onTogglePause={() => void handleTogglePause(schedule)}
                           onDelete={() => setPendingDelete(schedule)}

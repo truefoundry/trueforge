@@ -22,6 +22,8 @@ type CommonPopoverSelectProps<T extends string> = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Which edge of the trigger the menu opens toward. Default `bottom`. */
+  menuPlacement?: 'top' | 'bottom';
   /** When set, renders a labeled chip trigger (label | value chip + chevron). */
   prefix?: string;
   'aria-label': string;
@@ -123,6 +125,8 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
     triggerRef.current?.focus();
   };
 
+  const menuPlacement = props.menuPlacement ?? 'bottom';
+
   return (
     <div ref={rootRef} className={cn('relative', props.className)}>
       <button
@@ -167,7 +171,10 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
           role="listbox"
           aria-label={props['aria-label']}
           aria-multiselectable={props.multiple || undefined}
-          className={auiSelectMenuClass('left-0 min-w-full')}
+          className={cn(
+            auiSelectMenuClass('left-0 min-w-full'),
+            menuPlacement === 'top' && 'top-auto bottom-full mt-0 mb-1',
+          )}
         >
           {props.options.map(option => {
             const selected = isSelected(option.value);

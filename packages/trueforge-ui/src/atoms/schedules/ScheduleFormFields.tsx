@@ -205,6 +205,7 @@ export function ScheduleFormFields({
           value={values.timezone}
           options={TIMEZONE_OPTIONS}
           onValueChange={value => set('timezone', value)}
+          menuPlacement="top"
         />
       </div>
 

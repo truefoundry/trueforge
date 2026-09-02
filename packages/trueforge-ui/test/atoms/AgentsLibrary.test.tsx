@@ -392,6 +392,8 @@ describe('AgentsLibraryButton', () => {
         createSchedule: vi.fn(),
         updateSchedule: vi.fn(),
         deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
       },
     });
 
@@ -416,11 +418,16 @@ describe('AgentsLibraryButton', () => {
 
     const badge = await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
     expect(badge).toHaveTextContent('2');
-    expect(screen.queryByRole('button', { name: /schedules for beta-agent/ })).not.toBeInTheDocument();
+    const addSchedule = screen.getByRole('button', { name: 'Add schedule for beta-agent' });
+    expect(addSchedule).toHaveTextContent('-');
 
-    fireEvent.click(badge);
+    fireEvent.click(addSchedule);
     expect(screen.getByTestId('schedules-open')).toHaveTextContent('yes');
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('beta-agent');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
+    fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
-    expect(new URL(window.location.href).searchParams.get('agentId')).toBeNull();
   });
 });

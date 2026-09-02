@@ -68,6 +68,8 @@ export { ScheduleFormDrawer } from './atoms/schedules/ScheduleFormDrawer.js';
 export type { ScheduleFormDrawerProps } from './atoms/schedules/ScheduleFormDrawer.js';
 export { ScheduleFormFields } from './atoms/schedules/ScheduleFormFields.js';
 export type { ScheduleFormFieldsProps } from './atoms/schedules/ScheduleFormFields.js';
+export { ScheduleLastRunsCell } from './atoms/schedules/ScheduleLastRunsCell.js';
+export { ScheduleRunChip } from './atoms/schedules/ScheduleRunChip.js';
 export { SchedulesPage } from './atoms/schedules/SchedulesPage.js';
 export { ScheduleStatusBadge } from './atoms/schedules/ScheduleStatusBadge.js';
 export { TestScheduleScreen } from './atoms/schedules/TestScheduleScreen.js';

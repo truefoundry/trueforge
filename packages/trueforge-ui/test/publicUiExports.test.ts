@@ -54,6 +54,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'MCP_AUTH_POPUP_CHANNEL',
   'ScheduleFormDrawer',
   'ScheduleFormFields',
+  'ScheduleLastRunsCell',
+  'ScheduleRunChip',
   'ScheduleStatusBadge',
   'TestScheduleScreen',
   'SchedulesButton',

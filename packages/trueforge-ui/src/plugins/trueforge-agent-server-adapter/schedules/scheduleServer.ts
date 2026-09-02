@@ -4,9 +4,11 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
   CreateScheduleRequest,
+  CreateScheduleRunRequest,
   ListResult,
   ListSchedulesParams,
   Schedule,
+  ScheduleRun,
   ScheduleServer,
   ScheduleStatus,
   UpdateScheduleRequest,
@@ -83,6 +85,23 @@ function toWireManifest(input: {
   };
 }
 
+function toIsoInstant(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString();
+  return value;
+}
+
+function toUiScheduleRun(wire: TrueForgeApi.ScheduleRun): ScheduleRun {
+  return {
+    id: wire.id,
+    scheduleId: wire.scheduleId,
+    name: wire.name,
+    scheduledFor: toIsoInstant(wire.scheduledFor),
+    status: wire.status,
+    triggeredAt: wire.triggeredAt == null ? null : toIsoInstant(wire.triggeredAt),
+    triggeredBy: wire.triggeredBy,
+  };
+}
+
 export function createScheduleServer(options: { client: TrueForge }): ScheduleServer {
   const { client } = options;
 
@@ -128,6 +147,16 @@ export function createScheduleServer(options: { client: TrueForge }): ScheduleSe
 
     async deleteSchedule({ id }): Promise<void> {
       await client.schedules.delete(id);
+    },
+
+    async listScheduleRuns({ scheduleId }): Promise<ScheduleRun[]> {
+      const { data } = await client.schedules.listRuns(scheduleId);
+      return data.map(toUiScheduleRun);
+    },
+
+    async createScheduleRun(req: CreateScheduleRunRequest): Promise<ScheduleRun> {
+      const { data } = await client.schedules.createRun({ scheduleId: req.scheduleId });
+      return toUiScheduleRun(data);
     },
   };
 }

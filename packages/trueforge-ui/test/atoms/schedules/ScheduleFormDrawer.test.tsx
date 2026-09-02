@@ -60,6 +60,16 @@ function mockScheduleServer(overrides: Partial<ScheduleServer> = {}): ScheduleSe
       pausedSchedule({ ...req, agentId: 'demo-agent', agentName: 'demo-agent', lastRunAt: null }),
     ),
     deleteSchedule: vi.fn(),
+    listScheduleRuns: vi.fn(async () => []),
+    createScheduleRun: vi.fn(async () => ({
+      id: 'run-1',
+      scheduleId: 'new',
+      name: 'manual-test',
+      scheduledFor: '2024-06-01T12:00:00.000Z',
+      status: 'triggered' as const,
+      triggeredAt: '2024-06-01T12:00:01.000Z',
+      triggeredBy: 'alice',
+    })),
     ...overrides,
   };
 }
@@ -162,8 +172,33 @@ describe('ScheduleFormDrawer', () => {
     expect(await screen.findByRole('heading', { name: 'Test Schedule' })).toBeInTheDocument();
     expect(screen.getByText('Schedule saved as paused')).toBeInTheDocument();
     expect(screen.getByText('Slack 1234')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Run Test' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Run Test' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Activate Anyway' })).toBeInTheDocument();
+  });
+
+  it('starts a test run from the test screen', async () => {
+    const createScheduleRun = vi.fn(async () => ({
+      id: 'run-1',
+      scheduleId: 'new',
+      name: 'manual-test',
+      scheduledFor: '2024-06-01T12:00:00.000Z',
+      status: 'triggered' as const,
+      triggeredAt: '2024-06-01T12:00:01.000Z',
+      triggeredBy: 'alice',
+    }));
+    renderDrawer({
+      scheduleServer: mockScheduleServer({ createScheduleRun }),
+      initialAgentId: 'demo-agent',
+    });
+
+    await saveCreateForm();
+    fireEvent.click(await screen.findByRole('button', { name: 'Run Test' }));
+
+    await waitFor(() => {
+      expect(createScheduleRun).toHaveBeenCalledWith({ scheduleId: 'new' });
+    });
+    expect(screen.getByText('Test run started')).toBeInTheDocument();
+    expect(screen.getByText('Manual test')).toBeInTheDocument();
   });
 
   it('edits a created schedule without creating a duplicate', async () => {

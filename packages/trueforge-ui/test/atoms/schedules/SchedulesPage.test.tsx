@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SchedulesPage } from '@/atoms/schedules/SchedulesPage.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { Schedule, ScheduleServer } from '@/server/types.js';
+import type { Schedule, ScheduleRun, ScheduleServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 const sampleSchedules: Schedule[] = [
@@ -55,7 +55,11 @@ afterEach(() => {
   }
 });
 
-function renderPage(schedules: Schedule[] = sampleSchedules, listImpl?: ScheduleServer['listSchedules']) {
+function renderPage(
+  schedules: Schedule[] = sampleSchedules,
+  overrides: Partial<ScheduleServer> = {},
+  listImpl?: ScheduleServer['listSchedules'],
+) {
   const scheduleServer: ScheduleServer = {
     listSchedules: vi.fn(
       listImpl ??
@@ -67,6 +71,9 @@ function renderPage(schedules: Schedule[] = sampleSchedules, listImpl?: Schedule
     createSchedule: vi.fn(),
     updateSchedule: vi.fn(),
     deleteSchedule: vi.fn(),
+    listScheduleRuns: vi.fn(async () => []),
+    createScheduleRun: vi.fn(),
+    ...overrides,
   };
   const server = createMockAgentUIServer({
     searchAgents: vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
@@ -88,7 +95,7 @@ describe('SchedulesPage', () => {
       expect(screen.getByRole('button', { name: 'daily-digest' })).toBeInTheDocument();
     });
     expect(screen.getAllByText('demo-agent').length).toBeGreaterThan(0);
-    expect(screen.getByText('Never')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Showing 1')).toBeInTheDocument();
     expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }));
   });
@@ -111,7 +118,7 @@ describe('SchedulesPage', () => {
           },
         ],
       });
-    renderPage(sampleSchedules, listSchedules);
+    renderPage(sampleSchedules, {}, listSchedules);
 
     expect(await screen.findByRole('button', { name: 'daily-digest' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
@@ -141,8 +148,15 @@ describe('SchedulesPage', () => {
     window.history.replaceState(null, '', '/schedules?agent=demo-agent&status=paused&q=daily');
     const { scheduleServer } = renderPage([
       {
-        ...sampleSchedules[0],
+        id: 's1',
+        name: 'daily-digest',
+        agentId: 'demo-agent',
+        agentName: 'demo-agent',
+        task: 'summarize',
+        cron: '0 9 * * *',
+        timezone: 'UTC',
         status: 'paused',
+        lastRunAt: null,
       },
     ]);
 
@@ -162,6 +176,82 @@ describe('SchedulesPage', () => {
     });
     expect(new URL(window.location.href).searchParams.get('status')).toBe('paused');
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
+  });
+
+  it('shows run history chips with tooltip labels', async () => {
+    renderPage(sampleSchedules, {
+      listScheduleRuns: vi.fn(async (): Promise<ScheduleRun[]> => [
+        {
+          id: 'run-failed',
+          scheduleId: 's1',
+          name: 'sched-123',
+          scheduledFor: '2024-06-01T10:00:00.000Z',
+          status: 'failed',
+          triggeredAt: '2024-06-01T10:00:01.000Z',
+          triggeredBy: 'alice',
+        },
+        {
+          id: 'run-ok',
+          scheduleId: 's1',
+          name: 'manual-abc',
+          scheduledFor: '2024-06-02T10:00:00.000Z',
+          status: 'triggered',
+          triggeredAt: '2024-06-02T10:00:01.000Z',
+          triggeredBy: 'alice',
+        },
+        {
+          id: 'run-pending',
+          scheduleId: 's1',
+          name: 'sched-999',
+          scheduledFor: '2024-12-31T10:00:00.000Z',
+          status: 'scheduled',
+          triggeredAt: null,
+          triggeredBy: 'alice',
+        },
+      ]),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Failed run at/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Completed run at/i)).toBeInTheDocument();
+    });
+  });
+
+  it('runs a schedule now from the table actions', async () => {
+    const createScheduleRun = vi.fn(async () => ({
+      id: 'run-manual',
+      scheduleId: 's1',
+      name: 'manual-abc',
+      scheduledFor: '2024-06-02T10:00:00.000Z',
+      status: 'triggered' as const,
+      triggeredAt: '2024-06-02T10:00:01.000Z',
+      triggeredBy: 'alice',
+    }));
+    const listScheduleRuns = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'run-manual',
+          scheduleId: 's1',
+          name: 'manual-abc',
+          scheduledFor: '2024-06-02T10:00:00.000Z',
+          status: 'triggered' as const,
+          triggeredAt: '2024-06-02T10:00:01.000Z',
+          triggeredBy: 'alice',
+        },
+      ]);
+    const { scheduleServer } = renderPage(sampleSchedules, { createScheduleRun, listScheduleRuns });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Run now daily-digest' }));
+
+    await waitFor(() => {
+      expect(createScheduleRun).toHaveBeenCalledWith({ scheduleId: 's1' });
+    });
+    await waitFor(() => {
+      expect(listScheduleRuns).toHaveBeenCalledTimes(2);
+    });
+    expect(scheduleServer.createScheduleRun).toHaveBeenCalledWith({ scheduleId: 's1' });
   });
 
   it('deletes only after the confirmation dialog is accepted', async () => {

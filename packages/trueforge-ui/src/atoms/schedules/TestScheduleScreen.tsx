@@ -1,17 +1,19 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
-import { useOptionalCatalogServer } from '../../server/ServerContext.js';
-import type { ConnectorState, Schedule } from '../../server/types.js';
+import { useOptionalCatalogServer, useScheduleServer } from '../../server/ServerContext.js';
+import type { ConnectorState, Schedule, ScheduleRun } from '../../server/types.js';
 import { useDraftCatalog } from '../draft/DraftCatalogProvider.js';
 import { ConnectorConnectButton } from '../draft/DraftCompositeSelector.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
-import { formatCadenceSummary } from './cadence.js';
+import { formatCadenceSummary, formatRelativeTime } from './cadence.js';
+import { ScheduleRunChip } from './ScheduleRunChip.js';
+import { runTypeLabel } from './scheduleRuns.js';
 import { ScheduleStatusBadge } from './ScheduleStatusBadge.js';
 
 export type ScheduleMcpMount = {
@@ -51,9 +53,25 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 export function TestScheduleScreen({ schedule, agentName, mcpMounts, onEditConfiguration }: TestScheduleScreenProps) {
+  const scheduleServer = useScheduleServer();
   const toaster = useToasterOptional();
   const { connectors, ensureLoaded, refreshConnectors, loading, error } = useDraftCatalog();
+  const [running, setRunning] = useState(false);
+  const [lastTestRun, setLastTestRun] = useState<ScheduleRun | null>(null);
   const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
+
+  const handleRunTest = async () => {
+    setRunning(true);
+    try {
+      const run = await scheduleServer.createScheduleRun({ scheduleId: schedule.id });
+      setLastTestRun(run);
+      toaster?.showSuccess({ title: 'Test run started' });
+    } catch (caught) {
+      toaster?.showError(caught);
+    } finally {
+      setRunning(false);
+    }
+  };
 
   useEffect(() => {
     ensureLoaded();
@@ -135,17 +153,29 @@ export function TestScheduleScreen({ schedule, agentName, mcpMounts, onEditConfi
           <h3 className="text-text-secondary text-[10px] font-semibold tracking-wide uppercase">Test Run</h3>
           <button
             type="button"
-            disabled
-            title="Test runs are not available yet"
-            className={auiButtonClass({ variant: 'default', size: 'sm', className: 'opacity-60' })}
+            disabled={running}
+            onClick={() => void handleRunTest()}
+            className={auiButtonClass({ variant: 'default', size: 'sm' })}
           >
-            <Icon name="play" className="size-3.5" />
+            <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
             Run Test
           </button>
         </div>
-        <p className="text-text-secondary px-3 py-3 text-sm">
-          Schedule test runs are not wired yet. You can still connect tools and activate the schedule.
-        </p>
+        {lastTestRun == null ? (
+          <p className="text-text-secondary px-3 py-3 text-sm">
+            Run a one-off test using the schedule task. This does not change the cron pending run.
+          </p>
+        ) : (
+          <div className="flex items-center gap-3 px-3 py-3">
+            <ScheduleRunChip run={lastTestRun} />
+            <div className="min-w-0 text-sm">
+              <p className="text-text-primary font-medium">{runTypeLabel(lastTestRun.name)}</p>
+              <p className="text-text-secondary">
+                {formatRelativeTime(lastTestRun.triggeredAt ?? lastTestRun.scheduledFor)}
+              </p>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

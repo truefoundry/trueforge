@@ -26,6 +26,10 @@
       "Agent": {
         "additionalProperties": false,
         "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "id": {
             "description": "Immutable server-generated agent identifier.",
             "minLength": 1,
@@ -36,12 +40,18 @@
           },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
           }
         },
         "required": [
           "id",
           "name",
-          "manifest"
+          "manifest",
+          "created_at",
+          "updated_at"
         ],
         "type": "object"
       },
