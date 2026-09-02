@@ -72,6 +72,8 @@ function mapRowToSessionRecord(row: {
     last_turn_id: row.last_turn_id,
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
+    // Column + parse wired in db-impl; default until migration lands.
+    metadata: {},
     metrics: row.metrics,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -82,6 +84,8 @@ function mapRowToSessionRecord(row: {
 export async function createSession(db: Kysely<Database>, input: CreateSessionInput<SessionCustom>): Promise<void> {
   const columns = sessionAgentToColumns(input.agent);
   const nowMs = Date.now();
+  // Persist metadata once the session.metadata column exists (db-impl).
+  void input.metadata;
 
   try {
     await db
@@ -164,6 +168,8 @@ export async function getSessionByExternalId(
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
   const agent = input.agent;
   const title = input.title;
+  // Persist metadata once the session.metadata column exists (db-impl).
+  void input.metadata;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });

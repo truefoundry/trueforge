@@ -147,6 +147,10 @@ export class SessionHandle<
     return this.session.custom;
   }
 
+  get metadata(): SessionRecord<TSessionCustom>['metadata'] {
+    return this.session.metadata;
+  }
+
   get record(): SessionRecord<TSessionCustom> {
     return this.session;
   }

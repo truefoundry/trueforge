@@ -384,6 +384,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         session_id: sessionId,
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: undefined,
+        metadata: undefined,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {

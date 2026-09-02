@@ -160,6 +160,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: LOCAL_USER_CONTEXT.userRef,
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
+      metadata: {},
       external_id: null,
     });
     await sessionStore.createSession({
@@ -168,6 +169,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
+      metadata: {},
       external_id: null,
     });
     const start = new Date(Date.now() - 60 * 60 * 1000);
@@ -229,6 +231,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      metadata: {},
       external_id: null,
     });
 
@@ -343,6 +346,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      metadata: {},
       external_id: 'run-theirs',
     });
     const forbidden = await app.request(
