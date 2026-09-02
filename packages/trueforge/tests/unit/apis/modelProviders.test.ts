@@ -94,7 +94,7 @@ async function createRouters(): Promise<{
   const modelProviderStore = new SqliteModelProviderStore(db);
   return {
     settingsRouter: createSettingsRouter({
-      modelProviderStore,
+      resolveModelProviderStore: () => modelProviderStore,
       mcpServerStore: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),
@@ -110,7 +110,7 @@ async function createRouters(): Promise<{
       sandboxCatalog: SandboxCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
-      modelProviderStore,
+      resolveModelProviderStore: () => modelProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
     }),
     modelProviderStore,
@@ -382,7 +382,10 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(updateBody.data.manifest.models).toHaveLength(2);
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth?.api_key).toBe('sk-ant-secret');
+    if (!stored || !('auth' in stored.manifest)) {
+      throw new Error('expected stored anthropic provider with auth');
+    }
+    expect(stored.manifest.auth?.api_key).toBe('sk-ant-secret');
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
@@ -398,7 +401,10 @@ describe('model-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth?.api_key).toBe(rotatedKey);
+    if (!stored || !('auth' in stored.manifest)) {
+      throw new Error('expected stored anthropic provider with auth');
+    }
+    expect(stored.manifest.auth?.api_key).toBe(rotatedKey);
   });
 });
 

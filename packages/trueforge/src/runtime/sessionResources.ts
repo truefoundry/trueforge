@@ -27,6 +27,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
   url: string;
@@ -49,6 +50,7 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
  * Load turn-ready model config and defaults for a configured FQN (`provider/model`).
  * Malformed FQN or missing provider/model → HTTPException(422).
  */
+
 export async function getModelDetails({
   tenant_id,
   name,
@@ -61,6 +63,7 @@ export async function getModelDetails({
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
   modelProperties: AgentDefinition['modelProperties'];
+  reasoningEfforts: ReasoningEffort[] | undefined;
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -82,19 +85,19 @@ export async function getModelDetails({
   }
   // Provider types are adapter names, so this assignment is what keeps them so: a type with no
   // `buildLanguageModel` case fails to compile here.
-  const { type, base_url } = provider.manifest;
+  const { type, base_url: baseUrl } = provider.manifest;
   return {
     providerConfig: {
       provider: { type, name: provider.name },
       model: { id: model.model_id, name: model.name },
       name,
-      baseUrl: base_url,
-      // Custom providers may omit auth; adapters still require a string.
+      baseUrl,
       apiKey: provider.manifest.auth?.api_key ?? '',
       headers: {},
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
     modelProperties: { contextLength: model.properties.context_length },
+    reasoningEfforts: model.properties.reasoning_efforts,
   };
 }
 
@@ -306,27 +309,14 @@ export async function validateAgentSpec({
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
 }): Promise<void> {
-  const parsed = parseModelFqn(spec.model.name);
-  if (parsed === undefined) {
-    throw new HTTPException(422, {
-      message: `Model name must be a fully qualified "provider/model": ${spec.model.name}`,
-    });
-  }
-  const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
-  if (provider === undefined) {
-    throw new HTTPException(422, {
-      message: `Unknown model "${spec.model.name}" — provider not configured`,
-    });
-  }
-  const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
-  if (model === undefined) {
-    throw new HTTPException(422, {
-      message: `Unknown model "${spec.model.name}" — not configured on provider`,
-    });
-  }
+  const resolved = await getModelDetails({
+    tenant_id,
+    name: spec.model.name,
+    store: modelProviderStore,
+  });
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
-    const efforts = model.properties.reasoning_efforts;
+    const efforts = resolved.reasoningEfforts;
     if (!efforts?.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
         message: efforts

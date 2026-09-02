@@ -211,6 +211,10 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
     },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid Bearer token or auth cookie',
+    },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Caller is not the session creator.',

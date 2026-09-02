@@ -58,7 +58,7 @@ const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
-  modelProviderStore: new SqliteModelProviderStore(db),
+  resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   withTransaction: callback => db.transaction().execute(callback),
   mcpCatalog: McpCatalog.load(),
   mcpServerStore: new SqliteMcpServerStore(db),

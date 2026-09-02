@@ -51,7 +51,7 @@ describe('turns', () => {
           sessions,
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore: new SqliteModelProviderStore(db),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           mcpServerStore: new SqliteMcpServerStore(db),
           tokenStore: new SqliteOAuthTokenStore(db),
           skillStore: new SqliteSkillStore(db),
@@ -132,6 +132,7 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
+            session_id: 's1',
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
             record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
             createTurn: () =>
@@ -169,7 +170,7 @@ describe('turns', () => {
           sessions,
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore,
+          resolveModelProviderStore: () => modelProviderStore,
           agentStore: new SqliteAgentStore(db),
           mcpServerStore: new SqliteMcpServerStore(db),
           tokenStore: new SqliteOAuthTokenStore(db),
@@ -269,7 +270,7 @@ describe('turns', () => {
           sessions,
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore,
+          resolveModelProviderStore: () => modelProviderStore,
           mcpServerStore: new SqliteMcpServerStore(db),
           tokenStore: new SqliteOAuthTokenStore(db),
           skillStore: new SqliteSkillStore(db),

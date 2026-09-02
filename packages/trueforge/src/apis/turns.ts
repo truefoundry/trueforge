@@ -9,6 +9,8 @@ import {
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
+  type SessionHandle,
+  type TurnHandle,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -103,7 +105,7 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  modelProviderStore: IModelProviderStore;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
@@ -114,6 +116,22 @@ export interface TurnsRouterDeps {
   logger: Logger;
   resolveUserContext: ResolveUserContext;
 }
+
+/**
+ * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
+ * carries an already-resolved `modelProviderStore` (the scheduler has no request context to resolve one).
+ */
+export type BeginTurnExecutionDeps = Pick<
+  TurnsRouterDeps,
+  | 'activeTurns'
+  | 'eventSubscriptions'
+  | 'mcpServerStore'
+  | 'tokenStore'
+  | 'skillStore'
+  | 'agentStore'
+  | 'sandboxProviderStore'
+  | 'logger'
+> & { modelProviderStore: IModelProviderStore };
 
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
@@ -145,19 +163,19 @@ function createTurnResolver(deps: {
   } = deps;
   return new TurnResourceResolver({
     llm: async name => {
-      const { providerConfig, defaultModelParams, modelProperties } = await getModelDetails({
+      const resolved = await getModelDetails({
         tenant_id: TENANT_ID,
         name,
         store: modelProviderStore,
       });
       return {
         modelClient: new VercelAILLM({
-          providerConfig,
+          providerConfig: resolved.providerConfig,
           logger,
           signal,
         }),
-        defaultModelParams,
-        modelProperties,
+        defaultModelParams: resolved.defaultModelParams,
+        modelProperties: resolved.modelProperties,
       };
     },
     mcp: async name => {
@@ -334,6 +352,151 @@ export async function drainTurnEvents(input: {
   }
 }
 
+/** Inputs for {@link drainTurnEvents} produced by {@link beginTurnExecution}. */
+export interface TurnEventDrainInput {
+  trackedStream: AsyncIterable<TurnStreamingEvent>;
+  turnEventStream: EventSubscription<TurnStreamingEvent>;
+  sessionId: string;
+  turnId: string;
+  maxExecutionTimer: NodeJS.Timeout;
+  logger: Logger;
+}
+
+/**
+ * Shared create-turn engine: persist the turn, start execution, and return the
+ * drain inputs. Does not wait for events and does not write HTTP/SSE.
+ */
+export async function beginTurnExecution(params: {
+  session: SessionHandle;
+  input: TurnInputItem[] | undefined;
+  previous_turn_id: string | undefined;
+  userRef: string;
+  deps: BeginTurnExecutionDeps;
+}): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
+  const { session, input, previous_turn_id: previousTurnId, userRef, deps } = params;
+  const sessionId = session.session_id;
+
+  const abortController = new AbortController();
+  const resolver = createTurnResolver({
+    mcpServerStore: deps.mcpServerStore,
+    tokenStore: deps.tokenStore,
+    skillStore: deps.skillStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    agentStore: deps.agentStore,
+    modelProviderStore: deps.modelProviderStore,
+    logger: deps.logger,
+    signal: abortController.signal,
+    userRef,
+    sessionId,
+  });
+
+  // First turn only: derive the title from the first user message. The store
+  // never overwrites an existing title.
+  const title = session.record.last_turn_id ? undefined : deriveSessionTitle(input);
+
+  const turn = await session.createTurn({
+    turn_id: mintPeeredTurnId(configuration.EXECUTOR_ID),
+    input,
+    previous_turn_id: previousTurnId,
+    signal: abortController.signal,
+    resolver,
+    update_session_title_if_not_exist: title,
+  });
+
+  const maxExecutionTimer = setTimeout(() => {
+    if (!abortController.signal.aborted) {
+      abortController.abort(CancellationReason.ServerExecutionTimeout);
+    }
+  }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
+  maxExecutionTimer.unref();
+
+  const trackedStream = deps.activeTurns.track({
+    sessionId,
+    turnId: turn.id,
+    abortController,
+    stream: turn.stream(),
+  });
+
+  // Held for the whole turn; the stream's sequence counter dies with it.
+  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
+
+  return {
+    turn,
+    drainInput: {
+      trackedStream,
+      turnEventStream,
+      sessionId,
+      turnId: turn.id,
+      maxExecutionTimer,
+      logger: deps.logger,
+    },
+  };
+}
+
+/**
+ * Non-stream create-turn: begin execution and resolve once the first event is
+ * dual-written so immediate subscribe cannot 412. Same as `stream: false`.
+ */
+export async function startTurnInProcess(params: {
+  session: SessionHandle;
+  input: TurnInputItem[] | undefined;
+  previous_turn_id: string | undefined;
+  userRef: string;
+  deps: BeginTurnExecutionDeps;
+}): Promise<TurnHandle> {
+  const { turn, drainInput } = await beginTurnExecution(params);
+
+  // Same unawaited drain scheduling as Hono streamSSE's run(cb).
+  const { promise: firstEventDualWritten, resolve: markFirstEventDualWritten } = Promise.withResolvers<undefined>();
+  void drainTurnEvents({
+    ...drainInput,
+    onEvent: () => {
+      markFirstEventDualWritten(undefined);
+      return Promise.resolve();
+    },
+  }).finally(() => {
+    markFirstEventDualWritten(undefined);
+  });
+  await firstEventDualWritten;
+  return turn;
+}
+
+/** Mapped client error from turn execution; undefined means rethrow. */
+export interface TurnExecutionError {
+  status: 400 | 404 | 422;
+  message: string;
+}
+
+/**
+ * Resolve turn-start failures to HTTP status + message.
+ * Returns undefined when the caller should rethrow (unexpected / 5xx).
+ */
+export function getTurnExecutionError(error: unknown): TurnExecutionError | undefined {
+  if (error instanceof HTTPException) {
+    if (error.status === 400 || error.status === 404 || error.status === 422) {
+      return { status: error.status, message: error.message };
+    }
+    return undefined;
+  }
+  if (error instanceof SessionStoreNotFoundError) {
+    return { status: 404, message: error.message };
+  }
+  if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
+    switch (error.code) {
+      case 'invalid_file_input':
+        return { status: 400, message: error.message };
+      case 'invalid_send_input':
+      case 'agent_sandbox_required':
+      case 'tool_name_collision':
+        return { status: 422, message: error.message };
+      case 'capability_state_error':
+      case 'mcp_connection_failed':
+        return undefined;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Resume cursor: `Last-Event-ID` header wins over the body value because the
  * header is updated by the SDK on every reconnect to reflect the last delivered
@@ -505,117 +668,51 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
-    const abortController = new AbortController();
-    const resolver = createTurnResolver({
-      mcpServerStore: deps.mcpServerStore,
-      tokenStore: deps.tokenStore,
-      skillStore: deps.skillStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
-      agentStore: deps.agentStore,
-      modelProviderStore: deps.modelProviderStore,
-      logger: deps.logger,
-      signal: abortController.signal,
-      userRef: deps.resolveUserContext(c).userRef,
-      sessionId,
-    });
+    const userRef = deps.resolveUserContext(c).userRef;
+    const turnParams = {
+      session,
+      input: body.input,
+      previous_turn_id: body.previous_turn_id,
+      userRef,
+      deps: { ...deps, modelProviderStore: deps.resolveModelProviderStore(c) },
+    };
 
-    // First turn only: derive the title from the first user message. The store
-    // never overwrites an existing title.
-    const title = session.record.last_turn_id ? undefined : deriveSessionTitle(body.input);
-
-    let turn;
     try {
-      turn = await session.createTurn({
-        turn_id: mintPeeredTurnId(configuration.EXECUTOR_ID),
-        input: body.input,
-        previous_turn_id: body.previous_turn_id,
-        signal: abortController.signal,
-        resolver,
-        update_session_title_if_not_exist: title,
+      // Non-stream: wait for first dual-write, return JSON (also used by schedule run-now).
+      if (!body.stream) {
+        const turn = await startTurnInProcess(turnParams);
+        return c.json({ data: toWireTurn(turn.record) }, 200);
+      }
+
+      // Stream: same engine; HTTP handler owns writing each event to SSE.
+      const { drainInput } = await beginTurnExecution(turnParams);
+      let shouldWriteToSSEStream = true;
+      return streamSSE(c, async stream => {
+        stream.onAbort(() => {
+          shouldWriteToSSEStream = false;
+        });
+        await drainTurnEvents({
+          ...drainInput,
+          onEvent: async (event, sequenceNumber) => {
+            if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
+              try {
+                await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+              } catch (error) {
+                deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                shouldWriteToSSEStream = false;
+              }
+            }
+          },
+        });
+        await stream.close();
       });
     } catch (error) {
-      if (error instanceof SessionStoreNotFoundError) {
-        return c.json({ error: { message: error.message } }, 404);
-      }
-      if (error instanceof AgentHarnessError && !(error instanceof McpConnectionError)) {
-        switch (error.code) {
-          case 'invalid_file_input':
-            return c.json({ error: { message: error.message } }, 400);
-          case 'invalid_send_input':
-          case 'agent_sandbox_required':
-          case 'tool_name_collision':
-            return c.json({ error: { message: error.message } }, 422);
-          case 'capability_state_error':
-          case 'mcp_connection_failed':
-            throw error;
-        }
+      const turnError = getTurnExecutionError(error);
+      if (turnError) {
+        return c.json({ error: { message: turnError.message } }, turnError.status);
       }
       throw error;
     }
-
-    const maxExecutionTimer = setTimeout(() => {
-      if (!abortController.signal.aborted) {
-        abortController.abort(CancellationReason.ServerExecutionTimeout);
-      }
-    }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
-    maxExecutionTimer.unref();
-
-    const trackedStream = deps.activeTurns.track({
-      sessionId,
-      turnId: turn.id,
-      abortController,
-      stream: turn.stream(),
-    });
-
-    // Held for the whole turn; the stream's sequence counter dies with it.
-    const turnEventStream = deps.eventSubscriptions.get(turnStreamId(TENANT_ID, sessionId, turn.id));
-    const drainInput = {
-      trackedStream,
-      turnEventStream,
-      sessionId,
-      turnId: turn.id,
-      maxExecutionTimer,
-      logger: deps.logger,
-    };
-
-    // Non-stream: same unawaited drain scheduling as Hono streamSSE's run(cb).
-    // Wait until the first dual-write (turn.created) so immediate subscribeToTurn
-    // cannot 412 before the resumable stream exists.
-    if (!body.stream) {
-      const { promise: firstEventDualWritten, resolve: markFirstEventDualWritten } = Promise.withResolvers<undefined>();
-      void drainTurnEvents({
-        ...drainInput,
-        onEvent: () => {
-          markFirstEventDualWritten(undefined);
-          return Promise.resolve();
-        },
-      }).finally(() => {
-        markFirstEventDualWritten(undefined);
-      });
-      await firstEventDualWritten;
-      return c.json({ data: toWireTurn(turn.record) }, 200);
-    }
-
-    let shouldWriteToSSEStream = true;
-    return streamSSE(c, async stream => {
-      stream.onAbort(() => {
-        shouldWriteToSSEStream = false;
-      });
-      await drainTurnEvents({
-        ...drainInput,
-        onEvent: async (event, sequenceNumber) => {
-          if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
-            try {
-              await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
-            } catch (error) {
-              deps.logger.error('SSE stream write error', extractErrorLogFields(error));
-              shouldWriteToSSEStream = false;
-            }
-          }
-        },
-      });
-      await stream.close();
-    });
   };
 
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {

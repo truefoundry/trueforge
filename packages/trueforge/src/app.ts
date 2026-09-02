@@ -48,6 +48,23 @@ import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
 
+/** One line per request: method, path, status, duration. Skips `/healthz`. */
+export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
+  return async (c, next) => {
+    const started = performance.now();
+    await next();
+    if (c.req.path === '/healthz') {
+      return;
+    }
+    logger.info('request', {
+      method: c.req.method,
+      path: c.req.path,
+      status: c.res.status,
+      duration_ms: Math.round(performance.now() - started),
+    });
+  };
+}
+
 /** Hono bodyLimit wrapper that returns the API error envelope on 413. */
 export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHandler {
   return bodyLimit({
@@ -148,7 +165,11 @@ export interface ServerDeps<TTransaction> {
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
-  modelProviderStore: IModelProviderStore<TTransaction>;
+  /**
+   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
+   * Called without a context (e.g. the scheduler) it returns the DB persistence store.
+   */
+  resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -175,6 +196,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authEnabled = deps.oidcClient != null;
 
+  if (configuration.ACCESS_LOGS) {
+    app.use('*', createAccessLogMiddleware(deps.logger));
+  }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
@@ -194,7 +218,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/models',
     withAuth(
       createModelsRouter({
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         withTransaction: deps.withTransaction,
       }),
     ),
@@ -246,7 +270,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createAgentsRouter({
         agentStore: deps.agentStore,
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
@@ -260,6 +284,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createSchedulesRouter({
         scheduleStore: deps.scheduleStore,
         agentStore: deps.agentStore,
+        sessions: deps.sessions,
+        turnDeps: {
+          activeTurns: deps.activeTurns,
+          eventSubscriptions: deps.eventSubscriptions,
+          modelProviderStore: deps.resolveModelProviderStore(),
+          mcpServerStore: deps.mcpServerStore,
+          tokenStore: deps.tokenStore,
+          skillStore: deps.skillStore,
+          agentStore: deps.agentStore,
+          sandboxProviderStore: deps.sandboxProviderStore,
+          logger: deps.logger,
+        },
         withTransaction: deps.withTransaction,
         resolveUserContext,
       }),
@@ -269,7 +305,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/settings',
     withAdminAuth(
       createSettingsRouter({
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
@@ -285,7 +321,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
@@ -310,7 +346,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
@@ -329,7 +365,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         mcpServerStore: deps.mcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,

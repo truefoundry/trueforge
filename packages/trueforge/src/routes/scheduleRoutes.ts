@@ -7,6 +7,8 @@ import { NameSchema, PAGE_LIMIT, parseCommaSeparatedQuery } from '../schemas/com
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateScheduleRequestSchema,
+  CreateScheduleRunRequestSchema,
+  CreateScheduleRunResponseSchema,
   DeleteScheduleResponseSchema,
   GetScheduleResponseSchema,
   ListScheduleRunsResponseSchema,
@@ -96,6 +98,49 @@ export const listScheduleRunsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Not found.',
+    },
+  },
+});
+
+export const createScheduleRunRoute = createRoute({
+  method: 'post',
+  path: '/runs',
+  tags: [OpenApiTag.SCHEDULES],
+  summary: 'Trigger a schedule run',
+  description:
+    'Start a schedule run immediately using the schedule task. Does not replace or advance the cron pending run.',
+  'x-fern-sdk-group-name': ['schedules'],
+  'x-fern-sdk-method-name': 'create_run',
+  request: {
+    body: {
+      content: { 'application/json': { schema: CreateScheduleRunRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      content: { 'application/json': { schema: CreateScheduleRunResponseSchema } },
+      description: 'Run created.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request or turn input.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The caller is not the schedule creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Schedule or agent not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Run name conflict (retry).',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The run cannot be started (e.g. agent resources unavailable).',
     },
   },
 });

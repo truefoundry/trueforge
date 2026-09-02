@@ -254,6 +254,54 @@ describe("ModelProvidersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
+    test("create (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            manifest: {
+                auth: { api_key: "x" },
+                models: [
+                    { model_id: "x", name: "xy", properties: {} },
+                    { model_id: "x", name: "xy", properties: {} },
+                ],
+                type: "alibaba",
+            },
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/model-providers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.create({
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    models: [
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
+    });
+
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
@@ -367,5 +415,53 @@ describe("ModelProvidersClient", () => {
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create_or_update (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            manifest: {
+                auth: { api_key: "x" },
+                models: [
+                    { model_id: "x", name: "xy", properties: {} },
+                    { model_id: "x", name: "xy", properties: {} },
+                ],
+                type: "alibaba",
+            },
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/settings/model-providers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.modelProviders.createOrUpdate({
+                manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
+                    models: [
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                        {
+                            modelId: "x",
+                            name: "xy",
+                            properties: {},
+                        },
+                    ],
+                    type: "alibaba",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
     });
 });

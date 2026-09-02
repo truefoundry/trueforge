@@ -10,6 +10,7 @@
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import type { Context } from 'hono';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -21,9 +22,10 @@ import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
+let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
 
 try {
-  ({ default: configuration, isOidcConfigured } = await import('./config'));
+  ({ default: configuration, isOidcConfigured, isTrueFoundryModeEnabled } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -45,6 +47,7 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { requireAccessToken } from './auth/middleware';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -69,12 +72,14 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
+import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
-  modelProviderStore: IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -84,6 +89,30 @@ interface ServerPersistence<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
+}
+
+/**
+ * Per-request model-provider store resolver. In TrueFoundry mode every request gets a token-bound
+ * store over a shared (mTLS) ServiceFoundry client; otherwise the persistence store is reused as-is.
+ */
+function buildResolveModelProviderStore<TTransaction>(options: {
+  persistenceStore: IModelProviderStore<TTransaction>;
+  logger: Logger;
+}): (c?: Context) => IModelProviderStore<TTransaction> {
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return () => options.persistenceStore;
+  }
+  const client = new TrueFoundryServiceFoundryServerClient({
+    serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+    logger: options.logger,
+    tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+  });
+  // No request context (e.g. the scheduler) means no caller token, so TrueFoundry models are
+  // unavailable there; fall back to the persistence store.
+  return c =>
+    c
+      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      : options.persistenceStore;
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
@@ -128,7 +157,10 @@ async function createStandalonePersistence(options: {
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
-    modelProviderStore: new SqliteModelProviderStore(db),
+    resolveModelProviderStore: buildResolveModelProviderStore({
+      persistenceStore: new SqliteModelProviderStore(db),
+      logger,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
     mcpServerStore: new SqliteMcpServerStore(db),
     tokenStore: new SqliteOAuthTokenStore(db),
@@ -197,7 +229,10 @@ async function createDistributedPersistence(options: {
   return {
     sessionStore: new PostgresSessionStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
-    modelProviderStore: new PostgresModelProviderStore(db),
+    resolveModelProviderStore: buildResolveModelProviderStore({
+      persistenceStore: new PostgresModelProviderStore(db),
+      logger,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
     mcpServerStore: new PostgresMcpServerStore(db),
     tokenStore: new PostgresOAuthTokenStore(db),
@@ -215,7 +250,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const {
     sessionStore,
     sessionMetricsStore,
-    modelProviderStore,
+    resolveModelProviderStore,
     withTransaction,
     mcpServerStore,
     tokenStore,
@@ -254,7 +289,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     mcpCatalog: McpCatalog.load(),
     skillCatalog: SkillCatalog.load(),
     sandboxCatalog: SandboxCatalog.load(),
-    modelProviderStore,
+    resolveModelProviderStore,
     withTransaction,
     mcpServerStore,
     tokenStore,
