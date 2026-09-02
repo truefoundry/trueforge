@@ -1,11 +1,10 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
+import configuration from '../config';
 import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
 import { createMcpOAuthClient, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
@@ -31,7 +30,6 @@ import type {
   UpdateMcpServerRequest,
 } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../truefoundry/trueFoundryManaged';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -146,10 +144,6 @@ function localDcrServerIds(records: McpServerRecord[]): string[] {
     .map(record => record.id);
 }
 
-function rejectTrueFoundryManagedWrites(): never {
-  throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
-}
-
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
@@ -177,9 +171,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   };
 
   const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
-    if (isTrueFoundryModeEnabled(configuration)) {
-      rejectTrueFoundryManagedWrites();
-    }
     const body: CreateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
 
@@ -242,9 +233,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
-    if (isTrueFoundryModeEnabled(configuration)) {
-      rejectTrueFoundryManagedWrites();
-    }
     const userRef = deps.resolveUserContext(c).userRef;
     const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
