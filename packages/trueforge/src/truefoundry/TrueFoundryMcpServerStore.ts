@@ -61,9 +61,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       return undefined;
     }
     const server = parseSfyMcpServerSummary(row);
-    if (server.name !== input.name) {
-      return undefined;
-    }
     const gatewayUrl = resolveDefaultGatewayUrl(await this.#client.listGatewayInstallations(this.#accessToken));
     return toRecord({ tenant_id: input.tenant_id, server, gatewayUrl });
   }
@@ -139,9 +136,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       this.#client.listGatewayInstallations(this.#accessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
-    return mapSfyMcpServers({ rows })
-      .map(server => toRecord({ tenant_id, server, gatewayUrl }))
-      .sort((left, right) => left.name.localeCompare(right.name));
+    return mapSfyMcpServers({ rows }).map(server => toRecord({ tenant_id, server, gatewayUrl }));
   }
 }
 
