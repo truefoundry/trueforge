@@ -1,11 +1,17 @@
 /**
- * ServiceFoundry MCP list rows → lean summaries (Zod, fail loudly — same pattern as mapEnabledModels).
+ * ServiceFoundry MCP list rows and auth responses → harness shapes (Zod, fail loudly).
  */
 import { z } from 'zod';
-import type { McpServerManifest } from '../schemas/mcpServer';
+import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
 
 /** Placeholder in SFY `proxyUrl` replaced with the tenant gateway base URL. */
 export const MCP_PROXY_BASE_URL_TEMPLATE = '{{mcpProxyBaseURL}}';
+
+/** SFY subject types for auth status / delete. */
+export type SfyMcpAuthSubjectType = 'user' | 'virtualaccount';
+
+/** SFY per-subject auth record kinds for DELETE /mcp/:id/auth. */
+export type SfyMcpAuthSource = 'oauth' | 'auth-override';
 
 const IsoInstantSchema = z.union([z.string().min(1), z.date()]).transform((value, ctx) => {
   if (value instanceof Date) {
@@ -40,6 +46,27 @@ const SfyMcpServerRowSchema = z.object({
     })
     .optional(),
 });
+
+const SfyMcpAuthStatusAuthenticatedSchema = z.object({ status: z.literal('authenticated') });
+const SfyMcpAuthStatusNotRequiredSchema = z.object({ status: z.literal('authentication_not_required') });
+/** Status-only: needs auth, no consent URL (SFY `MCPServerAuthStatusAuthRequired`). */
+const SfyMcpAuthStatusRequiredSchema = z.object({ status: z.literal('authentication_required') });
+/** Authorize: same as status required + consent URL (SFY `MCPServerAuthorizeAuthRequired`). */
+const SfyMcpAuthorizeRequiredSchema = SfyMcpAuthStatusRequiredSchema.extend({
+  authorization_endpoint: z.url(),
+});
+
+const SfyMcpAuthStatusSchema = z.discriminatedUnion('status', [
+  SfyMcpAuthStatusAuthenticatedSchema,
+  SfyMcpAuthStatusRequiredSchema,
+  SfyMcpAuthStatusNotRequiredSchema,
+]);
+
+const SfyMcpAuthorizeResultSchema = z.discriminatedUnion('status', [
+  SfyMcpAuthStatusAuthenticatedSchema,
+  SfyMcpAuthorizeRequiredSchema,
+  SfyMcpAuthStatusNotRequiredSchema,
+]);
 
 export interface SfyMcpServerSummary {
   id: string;
@@ -96,4 +123,31 @@ export function toTrueFoundryMcpManifest(input: {
     description: input.server.description,
     ...(input.server.authType === 'oauth2' ? { auth: { type: 'dcr' as const } } : {}),
   };
+}
+
+function toHarnessAuthStatus(
+  payload: z.infer<typeof SfyMcpAuthStatusSchema> | z.infer<typeof SfyMcpAuthorizeResultSchema>,
+): McpAuthStatus {
+  switch (payload.status) {
+    case 'authenticated':
+      return { status: 'authenticated' };
+    case 'authentication_not_required':
+      return { status: 'not_required' };
+    case 'authentication_required': {
+      if ('authorization_endpoint' in payload) {
+        return { status: 'auth_required', authorization_url: payload.authorization_endpoint };
+      }
+      return { status: 'auth_required' };
+    }
+  }
+}
+
+/** Parse + map `GET v1/mcp/:id/auth/status`. */
+export function parseSfyMcpAuthStatus(payload: unknown): McpAuthStatus {
+  return toHarnessAuthStatus(SfyMcpAuthStatusSchema.parse(payload));
+}
+
+/** Parse + map `GET v1/mcp/:id/authorize` (requires consent URL when auth is required). */
+export function parseSfyMcpAuthorizeResult(payload: unknown): McpAuthStatus {
+  return toHarnessAuthStatus(SfyMcpAuthorizeResultSchema.parse(payload));
 }
