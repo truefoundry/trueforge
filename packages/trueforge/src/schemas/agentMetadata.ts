@@ -1,11 +1,7 @@
 /**
- * Agent-row metadata jsonb with a strict whitelist (empty until keys are added).
+ * Agent-row metadata jsonb (internal only; not on the public Agent API).
+ * Empty until keys are whitelisted here.
  */
-import { z } from '@hono/zod-openapi';
-
-/** `agent.metadata` jsonb; unknown keys are rejected until whitelisted. */
-export const AgentMetadataSchema = z.object({}).strict().openapi('AgentMetadata');
-
-export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
+export type AgentMetadata = Record<string, never>;
 
 export const EMPTY_AGENT_METADATA: AgentMetadata = {};

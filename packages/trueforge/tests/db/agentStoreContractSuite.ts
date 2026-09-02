@@ -80,6 +80,37 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgent({ tenant_id: TENANT, name: 'research' })).toEqual(updated);
   });
 
+  it('updateAgentMetadata replaces metadata but keeps id, name, manifest, and created_at', async () => {
+    const store = getStore();
+    const created = await store.createAgent({
+      tenant_id: TENANT,
+      name: 'research',
+      manifest: manifest(),
+    });
+
+    const updated = await store.updateAgentMetadata({
+      tenant_id: TENANT,
+      id: created.id,
+      metadata: {},
+    });
+
+    expect(updated).toEqual(
+      expect.objectContaining({
+        id: created.id,
+        name: 'research',
+        manifest: created.manifest,
+        metadata: {},
+        created_at: created.created_at,
+      }),
+    );
+    expect(updated).toBeDefined();
+    if (updated === undefined) {
+      throw new Error('expected updateAgentMetadata to return a record');
+    }
+    expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
+    expect(await store.getAgent({ tenant_id: TENANT, id: created.id })).toEqual(updated);
+  });
+
   it('updateAgentMetadata returns undefined for unknown ids', async () => {
     const store = getStore();
     expect(
