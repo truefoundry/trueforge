@@ -6,8 +6,8 @@ import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
-import { wrapLocalMcpServerStore } from '../../../src/db/LocalAuthMcpServerStore';
-import type { IMcpServerStore } from '../../../src/db/mcpServerStore';
+import configuration from '../../../src/config';
+import { McpServerWithAuthStore, type IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -77,7 +77,7 @@ describe('MCP OAuth authorize + callback', () => {
   let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
   let oauthRouter: ReturnType<typeof createMcpOAuthRouter>;
-  let mcpServerStore: IMcpServerStore;
+  let mcpServerStore: IMcpServerWithAuthStore;
   let tokenStore: SqliteOAuthTokenStore;
   let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
   let logger: ReturnType<typeof winston.createLogger>;
@@ -86,9 +86,10 @@ describe('MCP OAuth authorize + callback', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     tokenStore = new SqliteOAuthTokenStore(db);
-    mcpServerStore = wrapLocalMcpServerStore({
+    mcpServerStore = new McpServerWithAuthStore({
       store: new SqliteMcpServerStore(db),
       tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     });
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });

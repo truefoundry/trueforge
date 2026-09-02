@@ -7,7 +7,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
-import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
@@ -20,7 +20,7 @@ import { createSkillsRouter } from './skills';
 
 export interface SettingsRouterDeps<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
-  mcpServerStore: IMcpServerStore<TTransaction>;
+  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;

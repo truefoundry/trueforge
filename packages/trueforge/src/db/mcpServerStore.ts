@@ -1,22 +1,26 @@
 /**
- * DB-backed configured MCP servers: one row per server per tenant,
- * identity as columns plus a Zod-validated `McpServerManifest` jsonb document.
- * Implementations: PostgresMcpServerStore and SqliteMcpServerStore.
+ * Configured MCP servers: one row per server per tenant, identity as columns plus a
+ * Zod-validated `McpServerManifest` jsonb document.
  *
- * Also owns the DCR registration columns (`oauth_server` / `oauth_client`) via
- * `IOAuthClientStore` — those are not a separate persistence root.
+ * - {@link IMcpServerStore}: DB CRUD + DCR client columns (`IOAuthClientStore`).
+ *   Implemented by PostgresMcpServerStore / SqliteMcpServerStore.
+ * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
+ *   {@link McpServerWithAuthStore} composes an {@link IMcpServerStore} + a token store.
  *
  * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
  */
+import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
   OAuthToken as ContractOAuthToken,
   IOAuthClientStore,
+  IOAuthTokenStore,
+  OAuthClientRecord,
 } from '../mcp/auth/types';
 import type { ResourceName } from '../schemas/common';
-import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
+import { resolveMcpAuthStatus, type McpAuthStatus, type McpServerManifest } from '../schemas/mcpServer';
 
 export interface McpServerRecord {
   id: string;
@@ -50,17 +54,6 @@ export function optionalMcpAccessToken(accessToken: string | undefined): { acces
     return {};
   }
   return { accessToken };
-}
-
-/** Thrown by stores that do not implement a given operation (e.g. raw DB store auth methods). */
-export class McpServerStoreNotImplementedError extends Error {
-  readonly operation: string;
-
-  constructor(operation: string) {
-    super(`MCP server store does not implement ${operation}`);
-    this.name = 'McpServerStoreNotImplementedError';
-    this.operation = operation;
-  }
 }
 
 export interface CreateMcpServerInput {
@@ -121,6 +114,7 @@ export interface DeleteMcpAuthorizationInput {
   accessToken?: string;
 }
 
+/** Row persistence + DCR client columns — no authorize/status/revoke. */
 export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
@@ -137,11 +131,15 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+}
 
-  /**
-   * Wire `auth_status` for Connect UX, keyed by server name.
-   * Local auth: batch token lookup. Remote-backed stores may call an upstream status API.
-   */
+/**
+ * Settings/MCP API store: persistence plus Connect UX auth.
+ * McpServerWithAuthStore implements via a token store; remote-backed stores may call
+ * an upstream status/authorize API instead.
+ */
+export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServerStore<TTransaction> {
+  /** Wire `auth_status` for Connect UX, keyed by server name. */
   resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>>;
 
   /** Start or resume authorization; returns `auth_required` + URL or `authenticated`. */
@@ -149,6 +147,112 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
 
   /** Revoke this subject's authorization for the named server. */
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
+}
+
+/**
+ * Wraps a DB-backed {@link IMcpServerStore} with local DCR authorize / status / revoke
+ * so API handlers can call auth methods on the store without depending on a token store.
+ */
+export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
+  readonly #store: IMcpServerStore<TTransaction>;
+  readonly #tokenStore: IOAuthTokenStore<TTransaction>;
+  readonly #clientName: string;
+
+  constructor(input: {
+    store: IMcpServerStore<TTransaction>;
+    tokenStore: IOAuthTokenStore<TTransaction>;
+    clientName: string;
+  }) {
+    this.#store = input.store;
+    this.#tokenStore = input.tokenStore;
+    this.#clientName = input.clientName;
+  }
+
+  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
+    return this.#store.listServers(input, transaction);
+  }
+
+  getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
+    return this.#store.getServer(input, transaction);
+  }
+
+  getServerForUpdate(input: GetMcpServerInput, transaction: TTransaction): Promise<McpServerRecord | undefined> {
+    return this.#store.getServerForUpdate(input, transaction);
+  }
+
+  createServer(input: CreateMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
+    return this.#store.createServer(input, transaction);
+  }
+
+  upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
+    return this.#store.upsertServer(input, transaction);
+  }
+
+  saveClient(params: { id: string; record: OAuthClientRecord }, transaction?: TTransaction): Promise<void> {
+    return this.#store.saveClient(params, transaction);
+  }
+
+  getClient(params: { id: string }, transaction?: TTransaction): Promise<OAuthClientRecord | undefined> {
+    return this.#store.getClient(params, transaction);
+  }
+
+  deleteClient(params: { id: string }, transaction?: TTransaction): Promise<void> {
+    return this.#store.deleteClient(params, transaction);
+  }
+
+  async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
+    void input.accessToken;
+    const dcrIds = input.records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
+    const tokens = await this.#tokenStore.getTokens({ ids: dcrIds, userRef: input.userRef });
+    const out = new Map<string, McpAuthStatus>();
+    for (const record of input.records) {
+      const token = tokens.get(record.id);
+      out.set(
+        record.name,
+        resolveMcpAuthStatus({
+          manifest: record.manifest,
+          ...(token !== undefined ? { token } : {}),
+        }),
+      );
+    }
+    return out;
+  }
+
+  async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
+    void input.accessToken;
+    void input.redirectURL;
+    const record = await this.#store.getServer({ tenant_id: input.tenant_id, name: input.name });
+    if (record === undefined) {
+      throw new McpServerNotFoundError(input.name);
+    }
+    if (record.manifest.auth?.type !== 'dcr') {
+      return resolveMcpAuthStatus({ manifest: record.manifest });
+    }
+    const result = await resolveMcpAuth({
+      tokenStore: this.#tokenStore,
+      mcpServerStore: this.#store,
+      serverId: record.id,
+      userRef: input.userRef,
+      mcpServerUrl: record.manifest.url,
+      mcpServerName: record.name,
+      clientName: this.#clientName,
+      ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
+    });
+    return isMcpAuthRequired(result)
+      ? { status: 'auth_required', authorization_url: result.authUrl.href }
+      : { status: 'authenticated' };
+  }
+
+  async deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void> {
+    void input.accessToken;
+    const record = await this.#store.getServer({ tenant_id: input.tenant_id, name: input.name });
+    if (record === undefined) {
+      throw new McpServerNotFoundError(input.name);
+    }
+    if (record.manifest.auth?.type === 'dcr') {
+      await this.#tokenStore.deleteToken({ id: record.id, userRef: input.userRef });
+    }
+  }
 }
 
 /**

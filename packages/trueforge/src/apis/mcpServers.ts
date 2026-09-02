@@ -7,7 +7,7 @@ import configuration from '../config';
 import {
   McpServerNameConflictError,
   McpServerNotFoundError,
-  type IMcpServerStore,
+  type IMcpServerWithAuthStore,
   type McpServerRecord,
 } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
@@ -37,7 +37,7 @@ import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretVal
 import { TENANT_ID } from './sessions';
 
 export interface McpServersRouterDeps<TTransaction> {
-  mcpServerStore: IMcpServerStore<TTransaction>;
+  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -100,7 +100,7 @@ function resolveMcpServerManifestForWrite({
 }
 
 async function toConfiguredMcpServer<TTransaction>(params: {
-  store: IMcpServerStore<TTransaction>;
+  store: IMcpServerWithAuthStore<TTransaction>;
   record: McpServerRecord;
   userRef: string;
 }): Promise<ConfiguredMcpServer> {

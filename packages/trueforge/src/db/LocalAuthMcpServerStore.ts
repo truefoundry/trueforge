@@ -2,7 +2,6 @@
  * Wraps a DB-backed {@link IMcpServerStore} with local DCR authorize / status / revoke
  * so API handlers can call auth methods on the store without depending on a token store.
  */
-import configuration from '../config';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -13,13 +12,14 @@ import {
   type DeleteMcpAuthorizationInput,
   type GetMcpServerInput,
   type IMcpServerStore,
+  type IMcpServerWithAuthStore,
   type ListMcpServersInput,
   type McpServerRecord,
   type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from './mcpServerStore';
 
-export class LocalAuthMcpServerStore<TTransaction = never> implements IMcpServerStore<TTransaction> {
+export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #store: IMcpServerStore<TTransaction>;
   readonly #tokenStore: IOAuthTokenStore<TTransaction>;
   readonly #clientName: string;
@@ -119,16 +119,4 @@ export class LocalAuthMcpServerStore<TTransaction = never> implements IMcpServer
       await this.#tokenStore.deleteToken({ id: record.id, userRef: input.userRef });
     }
   }
-}
-
-/** Convenience for main wiring. */
-export function wrapLocalMcpServerStore<TTransaction>(input: {
-  store: IMcpServerStore<TTransaction>;
-  tokenStore: IOAuthTokenStore<TTransaction>;
-}): LocalAuthMcpServerStore<TTransaction> {
-  return new LocalAuthMcpServerStore({
-    store: input.store,
-    tokenStore: input.tokenStore,
-    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-  });
 }
