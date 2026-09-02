@@ -59,9 +59,10 @@ export default defineConfig({
     port: PORT,
     // Fail if FRONTEND_PORT is taken — never silently hop to 3001/3010/etc.
     strictPort: true,
-    // The Harness SDK already targets the server's /api routes.
+    // Proxy both public SDK routes and internal UI-only routes to the Harness.
     proxy: {
       '/api': apiProxy,
+      '/internal': apiProxy,
     },
   },
 });

@@ -32,4 +32,21 @@ describe('AgentSessionsFilters', () => {
     expect(searchAgents).toHaveBeenNthCalledWith(1, { limit: 50, offset: 0 });
     expect(searchAgents).toHaveBeenNthCalledWith(2, { limit: 50, offset: 50 });
   });
+
+  it('can hide the custom time range option', () => {
+    const endTs = Date.parse('2026-08-01T00:00:00');
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: endTs - 24 * 60 * 60 * 1000, endTs, timeWindowMs: 24 * 60 * 60 * 1000 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        showAgentFilter={false}
+        showCustomTimeRange={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Last 24 hours' }));
+    expect(screen.queryByRole('button', { name: 'Custom Time Range' })).not.toBeInTheDocument();
+  });
 });

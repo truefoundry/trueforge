@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import type {
   AgentBuilderCapabilitiesResponse,
+  AgentMetricsServer,
   AgentSessionsServer,
   AgentUIServer,
   CatalogServer,
@@ -97,6 +98,18 @@ export function useAgentSessionsServer(): AgentSessionsServer {
 
 export function useOptionalAgentSessionsServer(): AgentSessionsServer | null {
   return useOptionalServer()?.sessions ?? null;
+}
+
+export function useAgentMetricsServer(): AgentMetricsServer {
+  const metrics = useServer().metrics;
+  if (metrics == null) {
+    throw new Error('useAgentMetricsServer requires AgentUIServer.metrics.');
+  }
+  return metrics;
+}
+
+export function useOptionalAgentMetricsServer(): AgentMetricsServer | null {
+  return useOptionalServer()?.metrics ?? null;
 }
 
 export function useScheduleServer(): ScheduleServer {

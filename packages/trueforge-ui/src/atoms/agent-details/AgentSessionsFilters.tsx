@@ -35,6 +35,8 @@ export type AgentSessionsFiltersProps = {
   timeRange: SessionTimeRange;
   onAgentChange: (agentId: string | null) => void;
   onTimeRangeChange: (range: SessionTimeRange) => void;
+  showAgentFilter?: boolean;
+  showCustomTimeRange?: boolean;
 };
 
 export function AgentSessionsFilters({
@@ -42,6 +44,8 @@ export function AgentSessionsFilters({
   timeRange,
   onAgentChange,
   onTimeRangeChange,
+  showAgentFilter = true,
+  showCustomTimeRange = true,
 }: AgentSessionsFiltersProps) {
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
@@ -53,7 +57,7 @@ export function AgentSessionsFilters({
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (server == null) return undefined;
+    if (!showAgentFilter || server == null) return undefined;
     let cancelled = false;
     void searchAllAgents(server).then(
       rows => {
@@ -64,7 +68,7 @@ export function AgentSessionsFilters({
     return () => {
       cancelled = true;
     };
-  }, [server, shell?.agentsListEpoch]);
+  }, [server, shell?.agentsListEpoch, showAgentFilter]);
 
   useEffect(() => {
     setFromValue(toDateTimeLocalValue(timeRange.startTs));
@@ -111,17 +115,19 @@ export function AgentSessionsFilters({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <PopoverSelect
-        aria-label="Filter sessions by agent"
-        prefix="Agents"
-        className="min-w-[12rem]"
-        value={agentId ?? ''}
-        options={[
-          { value: '', label: 'All' },
-          ...agents.map(agent => ({ value: agent.agentId ?? agent.name, label: agent.name })),
-        ]}
-        onValueChange={value => onAgentChange(value.length === 0 ? null : value)}
-      />
+      {showAgentFilter ? (
+        <PopoverSelect
+          aria-label="Filter sessions by agent"
+          prefix="Agents"
+          className="min-w-[12rem]"
+          value={agentId ?? ''}
+          options={[
+            { value: '', label: 'All' },
+            ...agents.map(agent => ({ value: agent.agentId ?? agent.name, label: agent.name })),
+          ]}
+          onValueChange={value => onAgentChange(value.length === 0 ? null : value)}
+        />
+      ) : null}
       <div className="relative" ref={popoverRef}>
         <button
           type="button"
@@ -173,22 +179,24 @@ export function AgentSessionsFilters({
               </div>
             ) : null}
             <div className="flex max-h-80 w-44 shrink-0 flex-col overflow-y-auto p-1" role="listbox">
-              <button
-                type="button"
-                role="option"
-                aria-selected={timeRange.timeWindowMs == null}
-                className={auiSelectOptionClass()}
-                onClick={() => setCustomPickerOpen(true)}
-              >
-                <span className="min-w-0 flex-1 truncate">Custom Time Range</span>
-                <Icon
-                  name="check"
-                  className={cn(
-                    'ml-auto size-4 shrink-0',
-                    timeRange.timeWindowMs == null ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
-              </button>
+              {showCustomTimeRange ? (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={timeRange.timeWindowMs == null}
+                  className={auiSelectOptionClass()}
+                  onClick={() => setCustomPickerOpen(true)}
+                >
+                  <span className="min-w-0 flex-1 truncate">Custom Time Range</span>
+                  <Icon
+                    name="check"
+                    className={cn(
+                      'ml-auto size-4 shrink-0',
+                      timeRange.timeWindowMs == null ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                </button>
+              ) : null}
               {SESSION_TIME_PRESETS.map(preset => {
                 const selected = timeRange.timeWindowMs === preset.windowMs;
                 return (
