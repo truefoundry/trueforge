@@ -1,9 +1,6 @@
 /**
  * Wraps a DB-backed {@link IMcpServerStore} with local DCR authorize / status / revoke
  * so API handlers can call auth methods on the store without depending on a token store.
- *
- * Lives outside {@link ./mcpServerStore} so DB store contract tests do not load `mcpDcr`
- * (MCP SDK ESM) through the persistence module.
  */
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';

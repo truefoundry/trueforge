@@ -80,15 +80,12 @@ export class McpServerNotFoundError extends Error {
 export interface ResolveMcpAuthStatusesInput {
   records: readonly McpServerRecord[];
   userRef: string;
-  /** Optional caller credential for remote-backed stores; ignored by local auth. */
-  accessToken?: string;
 }
 
 export interface AuthorizeMcpServerInput {
   tenant_id: string;
   name: string;
   userRef: string;
-  accessToken?: string;
   /** Relative same-origin path for local DCR pending-auth return. */
   returnTo?: string;
   /** Absolute redirect URL when a remote auth backend needs a full callback URL. */
@@ -99,7 +96,6 @@ export interface DeleteMcpAuthorizationInput {
   tenant_id: string;
   name: string;
   userRef: string;
-  accessToken?: string;
 }
 
 /** Row persistence + DCR client columns — no authorize/status/revoke. */
