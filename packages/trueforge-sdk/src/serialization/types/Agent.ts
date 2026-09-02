@@ -8,20 +8,16 @@ import { ResourceName } from "./ResourceName.js";
 
 export const Agent: core.serialization.ObjectSchema<serializers.Agent.Raw, TrueForge.Agent> = core.serialization.object(
     {
-        createdAt: core.serialization.property("created_at", core.serialization.date()),
         id: core.serialization.string(),
         manifest: AgentSpec,
         name: ResourceName,
-        updatedAt: core.serialization.property("updated_at", core.serialization.date()),
     },
 );
 
 export declare namespace Agent {
     export interface Raw {
-        created_at: string;
         id: string;
         manifest: AgentSpec.Raw;
         name: ResourceName.Raw;
-        updated_at: string;
     }
 }

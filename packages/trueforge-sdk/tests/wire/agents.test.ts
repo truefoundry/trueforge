@@ -9,17 +9,7 @@ describe("AgentsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = {
-            data: [
-                {
-                    created_at: "2024-01-15T09:30:00Z",
-                    id: "id",
-                    manifest: { model: { name: "name" } },
-                    name: "name",
-                    updated_at: "2024-01-15T09:30:00Z",
-                },
-            ],
-        };
+        const rawResponseBody = { data: [{ id: "id", manifest: { model: { name: "name" } }, name: "name" }] };
 
         server.mockEndpoint().get("/api/v1/agents").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -27,7 +17,6 @@ describe("AgentsClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    createdAt: new Date("2024-01-15T09:30:00.000Z"),
                     id: "id",
                     manifest: {
                         model: {
@@ -35,7 +24,6 @@ describe("AgentsClient", () => {
                         },
                     },
                     name: "name",
-                    updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
             ],
         });
@@ -60,7 +48,6 @@ describe("AgentsClient", () => {
         const rawRequestBody = { manifest: { model: { name: "name" } }, name: "name" };
         const rawResponseBody = {
             data: {
-                created_at: "2024-01-15T09:30:00Z",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -71,7 +58,6 @@ describe("AgentsClient", () => {
                     skills: [{ name: "name" }],
                 },
                 name: "name",
-                updated_at: "2024-01-15T09:30:00Z",
             },
         };
 
@@ -94,7 +80,6 @@ describe("AgentsClient", () => {
         });
         expect(response).toEqual({
             data: {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -122,7 +107,6 @@ describe("AgentsClient", () => {
                     ],
                 },
                 name: "name",
-                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
     });
@@ -214,7 +198,6 @@ describe("AgentsClient", () => {
 
         const rawResponseBody = {
             data: {
-                created_at: "2024-01-15T09:30:00Z",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -225,7 +208,6 @@ describe("AgentsClient", () => {
                     skills: [{ name: "name" }],
                 },
                 name: "name",
-                updated_at: "2024-01-15T09:30:00Z",
             },
         };
 
@@ -240,7 +222,6 @@ describe("AgentsClient", () => {
         const response = await client.agents.get("agent_id");
         expect(response).toEqual({
             data: {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -268,7 +249,6 @@ describe("AgentsClient", () => {
                     ],
                 },
                 name: "name",
-                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
     });
@@ -298,7 +278,6 @@ describe("AgentsClient", () => {
         const rawRequestBody = { manifest: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
-                created_at: "2024-01-15T09:30:00Z",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -309,7 +288,6 @@ describe("AgentsClient", () => {
                     skills: [{ name: "name" }],
                 },
                 name: "name",
-                updated_at: "2024-01-15T09:30:00Z",
             },
         };
 
@@ -331,7 +309,6 @@ describe("AgentsClient", () => {
         });
         expect(response).toEqual({
             data: {
-                createdAt: new Date("2024-01-15T09:30:00.000Z"),
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -359,7 +336,6 @@ describe("AgentsClient", () => {
                     ],
                 },
                 name: "name",
-                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
     });
