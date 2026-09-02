@@ -32,11 +32,6 @@ const SfyMcpServerRowSchema = z.object({
   manifest: z
     .object({
       description: z.string().min(1).optional(),
-      auth_data: z
-        .object({
-          type: z.string().min(1).optional(),
-        })
-        .optional(),
     })
     .optional(),
 });
@@ -48,7 +43,6 @@ export interface SfyMcpServerSummary {
   /** May contain `{{mcpProxyBaseURL}}`; callers must run {@link resolveMcpProxyUrl}. */
   proxyUrl: string;
   description: string;
-  authType: string | undefined;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,7 +57,6 @@ export function parseSfyMcpServerSummary(row: unknown): SfyMcpServerSummary {
     tenantName: parsed.tenantName,
     proxyUrl: parsed.proxyUrl,
     description: parsed.manifest?.description ?? parsed.name,
-    authType: parsed.manifest?.auth_data?.type,
     createdAt: parsed.createdAt ?? now,
     updatedAt: parsed.updatedAt ?? now,
   };

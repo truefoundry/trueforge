@@ -4,7 +4,6 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
-import { requireAccessToken } from '../auth/middleware';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration, { isTrueFoundryModeEnabled } from '../config';
 import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
@@ -405,7 +404,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       tokenStore: deps.tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       userRef,
-      ...(isTrueFoundryModeEnabled(configuration) ? { accessToken: requireAccessToken(c) } : {}),
     });
     if (connection === undefined) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
