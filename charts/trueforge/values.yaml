@@ -73,9 +73,9 @@ controller:
   command:
     - node
     - node_modules/@truefoundry/trueforge/dist/controller-main.js
-  # Base URL the controller uses to reach the server (CONTROLLER_SERVER_BASE_URL).
+  # Base URL the controller uses to reach the server (SERVER_URL).
   # Empty → the in-cluster server Service (http://<fullname>:<service.port>).
-  serverBaseUrl: ""
+  serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
   resources:

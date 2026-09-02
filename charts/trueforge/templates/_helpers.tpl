@@ -73,11 +73,11 @@ app.kubernetes.io/component: controller
 
 {{/*
 Base URL the controller uses to reach the server API. Defaults to the in-cluster
-server Service when controller.serverBaseUrl is empty.
+server Service when controller.serverUrl is empty.
 */}}
-{{- define "trueforge.controller.serverBaseUrl" -}}
-{{- if .Values.controller.serverBaseUrl -}}
-{{- .Values.controller.serverBaseUrl -}}
+{{- define "trueforge.controller.serverUrl" -}}
+{{- if .Values.controller.serverUrl -}}
+{{- .Values.controller.serverUrl -}}
 {{- else -}}
 {{- printf "http://%s:%v" (include "trueforge.fullname" .) .Values.service.port -}}
 {{- end -}}

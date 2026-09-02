@@ -100,8 +100,9 @@ services:
       STANDALONE: 'false'
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      # Reaches the server over the compose network (not the host mapping).
-      CONTROLLER_SERVER_BASE_URL: http://server:8790
+      # The controller is its own container, so localhost would be itself; `server` is
+      # the compose DNS name that resolves to the server container.
+      SERVER_URL: http://server:8790
     env_file:
       - path: packages/trueforge/.env
         required: true
