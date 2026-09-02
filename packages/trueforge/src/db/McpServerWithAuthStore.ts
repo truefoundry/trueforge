@@ -67,7 +67,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }
 
   async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
-    void input.accessToken;
     const dcrIds = input.records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
     const tokens = await this.#tokenStore.getTokens({ ids: dcrIds, userRef: input.userRef });
     const out = new Map<string, McpAuthStatus>();
@@ -85,7 +84,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }
 
   async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
-    void input.accessToken;
     void input.redirectURL;
     const record = await this.#store.getServer({ tenant_id: input.tenant_id, name: input.name });
     if (record === undefined) {
@@ -110,7 +108,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }
 
   async deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void> {
-    void input.accessToken;
     const record = await this.#store.getServer({ tenant_id: input.tenant_id, name: input.name });
     if (record === undefined) {
       throw new McpServerNotFoundError(input.name);
