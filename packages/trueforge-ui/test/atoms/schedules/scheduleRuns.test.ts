@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isManualRun, lastHistoricalRuns, runChipKind } from '@/atoms/schedules/scheduleRuns.js';
+import { isManualRun, lastHistoricalRuns, runChipKind, runStatusLabel } from '@/atoms/schedules/scheduleRuns.js';
 import type { ScheduleRun } from '@/server/types.js';
 
 const run = (overrides: Partial<ScheduleRun>): ScheduleRun => ({
@@ -23,6 +23,7 @@ describe('scheduleRuns helpers', () => {
     expect(runChipKind('failed')).toBe('failed');
     expect(runChipKind('triggered')).toBe('success');
     expect(runChipKind('scheduled')).toBe('success');
+    expect(runStatusLabel('triggered')).toBe('Triggered');
   });
 
   it('returns up to five historical runs oldest-first', () => {

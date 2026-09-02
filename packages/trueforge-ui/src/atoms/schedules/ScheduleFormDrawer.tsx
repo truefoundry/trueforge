@@ -8,6 +8,7 @@ import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
+import { mountName } from '../lib/mountName.js';
 import { searchAllAgents } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
 import { SideDrawer } from '../primitives/SideDrawer.js';
@@ -31,10 +32,6 @@ export type ScheduleFormDrawerProps = {
 };
 
 type DrawerView = { kind: 'form'; saved?: Schedule } | { kind: 'test'; schedule: Schedule };
-
-function mountName(mount: object): string | null {
-  return 'name' in mount && typeof mount.name === 'string' ? mount.name : null;
-}
 
 function ScheduleFormDrawerBody({
   open,

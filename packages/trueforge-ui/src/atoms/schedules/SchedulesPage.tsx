@@ -144,9 +144,9 @@ export function SchedulesPage() {
   const loadGenRef = useRef(0);
 
   const loadRunsForSchedules = useCallback(
-    async (rows: Schedule[]) => {
+    async ({ rows, gen }: { rows: Schedule[]; gen: number }) => {
       if (rows.length === 0) {
-        setRunsByScheduleId({});
+        if (gen === loadGenRef.current) setRunsByScheduleId({});
         return;
       }
       setRunsLoading(true);
@@ -154,6 +154,7 @@ export function SchedulesPage() {
         const results = await Promise.allSettled(
           rows.map(schedule => scheduleServer.listScheduleRuns({ scheduleId: schedule.id })),
         );
+        if (gen !== loadGenRef.current) return;
         setRunsByScheduleId(
           Object.fromEntries(
             rows.map((schedule, index) => {
@@ -164,7 +165,7 @@ export function SchedulesPage() {
           ),
         );
       } finally {
-        setRunsLoading(false);
+        if (gen === loadGenRef.current) setRunsLoading(false);
       }
     },
     [scheduleServer],
@@ -184,7 +185,7 @@ export function SchedulesPage() {
         if (gen !== loadGenRef.current) return;
         setSchedules(page.data);
         setNextPageToken(page.nextPageToken);
-        void loadRunsForSchedules(page.data);
+        void loadRunsForSchedules({ rows: page.data, gen });
       } catch (caught) {
         if (gen !== loadGenRef.current) return;
         const message = caught instanceof Error ? caught.message : 'Failed to load schedules';

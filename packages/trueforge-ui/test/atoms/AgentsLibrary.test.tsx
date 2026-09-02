@@ -430,4 +430,36 @@ describe('AgentsLibraryButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
   });
+
+  it('does not show an empty-schedules action before schedule counts load', async () => {
+    let resolveSchedules: (value: { data: [] }) => void = () => undefined;
+    const listSchedules = vi.fn(
+      () =>
+        new Promise<{ data: [] }>(resolve => {
+          resolveSchedules = resolve;
+        }),
+    );
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'alpha-agent' }]),
+      schedules: {
+        listSchedules,
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await screen.findByRole('button', { name: 'Try agent alpha-agent' });
+    expect(screen.getByLabelText('Schedule count unavailable for alpha-agent')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add schedule for alpha-agent' })).not.toBeInTheDocument();
+
+    resolveSchedules({ data: [] });
+    expect(await screen.findByRole('button', { name: 'Add schedule for alpha-agent' })).toBeInTheDocument();
+  });
 });

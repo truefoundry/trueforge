@@ -67,7 +67,7 @@ function pad2(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
-function formatClock(hour: number, minute: number): string {
+function formatClock({ hour, minute }: { hour: number; minute: number }): string {
   const period = hour >= 12 ? 'PM' : 'AM';
   const h12 = hour % 12 === 0 ? 12 : hour % 12;
   return `${String(h12)}:${pad2(minute)} ${period}`;
@@ -96,11 +96,13 @@ export function formatCadenceSummary(input: { cron: string; timezone: string }):
   const parts = input.cron.trim().split(/\s+/);
   if (parts.length !== 5) return input.cron;
 
-  const [minuteRaw, hourRaw, , , dowRaw] = parts;
+  const [minuteRaw, hourRaw, dayOfMonthRaw, monthRaw, dowRaw] = parts;
+  if (dayOfMonthRaw !== '*' || monthRaw !== '*') return input.cron;
+
   const minute = Number(minuteRaw);
   const hour = Number(hourRaw);
 
-  if (hourRaw === '*' && minuteRaw !== undefined && !Number.isNaN(minute)) {
+  if (hourRaw === '*' && dowRaw === '*' && minuteRaw !== undefined && !Number.isNaN(minute)) {
     return `Hourly at :${pad2(minute)} ${abbr}`;
   }
 
@@ -111,7 +113,7 @@ export function formatCadenceSummary(input: { cron: string; timezone: string }):
     !Number.isNaN(hour) &&
     !Number.isNaN(minute)
   ) {
-    return `Daily ${formatClock(hour, minute)} ${abbr}`;
+    return `Daily ${formatClock({ hour, minute })} ${abbr}`;
   }
 
   if (
@@ -121,7 +123,7 @@ export function formatCadenceSummary(input: { cron: string; timezone: string }):
     !Number.isNaN(hour) &&
     !Number.isNaN(minute)
   ) {
-    return `Weekdays ${formatClock(hour, minute)} ${abbr}`;
+    return `Weekdays ${formatClock({ hour, minute })} ${abbr}`;
   }
 
   if (
@@ -135,9 +137,9 @@ export function formatCadenceSummary(input: { cron: string; timezone: string }):
     const labels = dowRaw.split(',').map(d => WEEKDAY_OPTIONS.find(w => w.value === Number(d))?.label ?? d);
     if (labels.length === 1) {
       const day = labels[0] === 'Mon' ? 'Monday' : labels[0];
-      return `Every ${day} ${formatClock(hour, minute)} ${abbr}`;
+      return `Every ${day} ${formatClock({ hour, minute })} ${abbr}`;
     }
-    return `${labels.join(', ')} ${formatClock(hour, minute)} ${abbr}`;
+    return `${labels.join(', ')} ${formatClock({ hour, minute })} ${abbr}`;
   }
 
   return input.cron;
@@ -178,7 +180,7 @@ export function cronToFormValues(input: {
     };
   }
 
-  if (hourRaw === '*' && !Number.isNaN(minute)) {
+  if (hourRaw === '*' && dowRaw === '*' && !Number.isNaN(minute)) {
     return {
       ...base,
       name: input.name,

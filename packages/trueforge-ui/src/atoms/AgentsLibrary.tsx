@@ -12,6 +12,7 @@ import { writeScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
+import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { DropdownMenu, DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
@@ -42,10 +43,6 @@ export type AgentLibraryRowProps = {
 function displayModelLabel(modelName: string): string {
   const slash = modelName.lastIndexOf('/');
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
-}
-
-function mountName(mount: object): string | null {
-  return 'name' in mount && typeof mount.name === 'string' ? mount.name : null;
 }
 
 function AgentSchedulesEmptyState({ agentName, onOpen }: { agentName: string; onOpen?: () => void }) {
@@ -173,7 +170,11 @@ export function AgentLibraryRow({
             <AgentSchedulesBadge summary={scheduleSummary} agentName={agent.name} onOpen={onOpenSchedules} />
           ) : scheduleSummary != null ? (
             <AgentSchedulesEmptyState agentName={agent.name} onOpen={onOpenSchedules} />
-          ) : null}
+          ) : (
+            <span className="text-text-secondary text-sm" aria-label={`Schedule count unavailable for ${agent.name}`}>
+              —
+            </span>
+          )}
         </TableCell>
       ) : null}
       <TableCell className="w-px">
@@ -261,7 +262,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const scheduleServer = useOptionalScheduleServer();
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
   const [query, setQuery] = useState('');
-  const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary>>(new Map());
+  const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary> | null>(null);
   const open = shell.libraryOpen;
 
   const canEdit = shell.isComposerEnabled === true;
@@ -297,17 +298,18 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
 
   useEffect(() => {
     if (!open || scheduleServer == null || agents.length === 0) {
-      setScheduleByAgent(new Map());
+      setScheduleByAgent(null);
       return;
     }
     let cancelled = false;
+    setScheduleByAgent(null);
     const agentIds = agents.map(libraryAgentId);
     void listAllSchedulesForAgents({ listSchedules: scheduleServer.listSchedules, agentIds })
       .then(rows => {
         if (!cancelled) setScheduleByAgent(summarizeSchedulesByAgent(rows));
       })
       .catch(() => {
-        if (!cancelled) setScheduleByAgent(new Map());
+        if (!cancelled) setScheduleByAgent(null);
       });
     return () => {
       cancelled = true;
@@ -405,7 +407,9 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                       const id = libraryAgentId(agent);
                       const showEdit = canEdit && agentSpec != null;
                       const summary = showSchedulesColumn
-                        ? (scheduleByAgent.get(id) ?? scheduleByAgent.get(agent.name) ?? { count: 0, hasPaused: false })
+                        ? (scheduleByAgent?.get(id) ??
+                          scheduleByAgent?.get(agent.name) ??
+                          (scheduleByAgent == null ? null : { count: 0, hasPaused: false }))
                         : undefined;
                       return (
                         <SlottedAgentLibraryRow

@@ -11,7 +11,7 @@ export function runChipKind(status: ScheduleRunStatus): 'success' | 'failed' {
 
 export function runStatusLabel(status: ScheduleRunStatus): string {
   if (status === 'failed') return 'Failed';
-  if (status === 'triggered') return 'Completed';
+  if (status === 'triggered') return 'Triggered';
   return 'Scheduled';
 }
 

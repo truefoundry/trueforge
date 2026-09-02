@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SchedulesPage } from '@/atoms/schedules/SchedulesPage.js';
@@ -133,6 +133,42 @@ describe('SchedulesPage', () => {
     expect(await screen.findByRole('button', { name: 'weekly-digest' })).toBeInTheDocument();
   });
 
+  it('ignores run history returned for a stale schedules page', async () => {
+    let resolveFirstRuns: (runs: ScheduleRun[]) => void = () => undefined;
+    const listSchedules = vi
+      .fn()
+      .mockResolvedValueOnce({ data: sampleSchedules, nextPageToken: 'page-2' })
+      .mockResolvedValueOnce({
+        data: [{ ...sampleSchedules[0], id: 's2', name: 'weekly-digest' }],
+      });
+    const listScheduleRuns = vi.fn(({ scheduleId }: { scheduleId: string }) => {
+      if (scheduleId !== 's1') return Promise.resolve([]);
+      return new Promise<ScheduleRun[]>(resolve => {
+        resolveFirstRuns = resolve;
+      });
+    });
+    renderPage(sampleSchedules, { listScheduleRuns }, listSchedules);
+
+    await screen.findByRole('button', { name: 'daily-digest' });
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByRole('button', { name: 'weekly-digest' })).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirstRuns([
+        {
+          id: 'stale-run',
+          scheduleId: 's1',
+          name: 'manual-stale',
+          scheduledFor: '2024-06-01T10:00:00.000Z',
+          status: 'failed',
+          triggeredAt: '2024-06-01T10:00:01.000Z',
+          triggeredBy: 'alice',
+        },
+      ]);
+    });
+    expect(screen.queryByLabelText(/Failed run at/i)).not.toBeInTheDocument();
+  });
+
   it('filters by agent via agentIds', async () => {
     const { scheduleServer } = renderPage();
     await screen.findByRole('button', { name: 'daily-digest' });
@@ -217,7 +253,7 @@ describe('SchedulesPage', () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Failed run at/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Completed run at/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Triggered run at/i)).toBeInTheDocument();
     });
   });
 

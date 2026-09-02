@@ -4,16 +4,7 @@ import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'reac
 import { createPortal } from 'react-dom';
 
 import { cn } from '../lib/cn.js';
-
-/** Keep portaled chrome under ThemeProvider so preset/custom CSS vars still apply. */
-function themePortalRoot(from: HTMLElement | null): HTMLElement {
-  // A native <dialog> opened with showModal() renders in the top layer, above any
-  // z-index. When the trigger lives inside one, portal into the dialog so the
-  // menu joins the top layer instead of rendering behind the modal.
-  const dialog = from?.closest('dialog');
-  if (dialog instanceof HTMLElement) return dialog;
-  return from?.closest('.aui-theme-root') ?? document.body;
-}
+import { themePortalRoot } from '../lib/themePortalRoot.js';
 
 export type DropdownMenuProps = {
   trigger: React.ReactNode;
