@@ -12,8 +12,12 @@ import type {
 } from './store/ISessionStore';
 import { SessionExternalIdConflictError } from './store/SessionStoreErrors';
 
-export type SessionsCreateInput<TSessionCustom extends object> = Omit<CreateSessionInput<TSessionCustom>, 'custom'> & {
+export type SessionsCreateInput<TSessionCustom extends object> = Omit<
+  CreateSessionInput<TSessionCustom>,
+  'custom' | 'metadata'
+> & {
   custom?: TSessionCustom | undefined;
+  metadata?: CreateSessionInput<TSessionCustom>['metadata'] | undefined;
 };
 
 export class Sessions<
@@ -33,6 +37,7 @@ export class Sessions<
     await this.store.createSession({
       ...input,
       custom: input.custom ?? null,
+      metadata: input.metadata ?? {},
     });
     const record = await this.store.getSession({
       tenant_id: input.tenant_id,

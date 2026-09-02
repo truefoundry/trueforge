@@ -5,6 +5,33 @@
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 
+/** Max key length for session metadata (aligned with LLM gateway HeaderMetadata). */
+const SESSION_METADATA_MAX_KEY_LENGTH = 32;
+/** Max value length for session metadata (aligned with LLM gateway HeaderMetadata). */
+const SESSION_METADATA_MAX_VALUE_LENGTH = 128;
+/** Max number of keys in session metadata. */
+const SESSION_METADATA_MAX_KEYS = 50;
+
+export const SessionMetadataSchema = z
+  .record(
+    z
+      .string()
+      .min(1)
+      .max(SESSION_METADATA_MAX_KEY_LENGTH)
+      .describe(`Metadata key; 1–${String(SESSION_METADATA_MAX_KEY_LENGTH)} characters.`),
+    z
+      .string()
+      .max(SESSION_METADATA_MAX_VALUE_LENGTH)
+      .describe(`Metadata value; at most ${String(SESSION_METADATA_MAX_VALUE_LENGTH)} characters.`),
+  )
+  .refine(m => Object.keys(m).length <= SESSION_METADATA_MAX_KEYS, {
+    message: `at most ${String(SESSION_METADATA_MAX_KEYS)} metadata keys`,
+  })
+  .describe('Caller-owned session metadata')
+  .openapi('SessionMetadata');
+
+export type SessionMetadata = z.infer<typeof SessionMetadataSchema>;
+
 export const SessionMetricsSchema = z
   .object({
     total_cost_in_usd: z.number().nonnegative(),
@@ -51,6 +78,7 @@ export const SessionSchema = z
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,
+    metadata: SessionMetadataSchema,
   })
   .openapi('Session');
 

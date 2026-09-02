@@ -16,6 +16,7 @@ describe("SessionsClient", () => {
                     created_at: "created_at",
                     created_by: "created_by",
                     id: "id",
+                    metadata: { key: "value" },
                     metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                     title: "title",
                     updated_at: "updated_at",
@@ -46,6 +47,9 @@ describe("SessionsClient", () => {
                     createdAt: "created_at",
                     createdBy: "created_by",
                     id: "id",
+                    metadata: {
+                        key: "value",
+                    },
                     metrics: {
                         totalCostInUsd: 1.1,
                         totalDurationMs: 1,
@@ -92,6 +96,7 @@ describe("SessionsClient", () => {
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
+                metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 title: "title",
                 updated_at: "updated_at",
@@ -125,6 +130,9 @@ describe("SessionsClient", () => {
                 createdAt: "created_at",
                 createdBy: "created_by",
                 id: "id",
+                metadata: {
+                    key: "value",
+                },
                 metrics: {
                     totalCostInUsd: 1.1,
                     totalDurationMs: 1,
@@ -218,6 +226,7 @@ describe("SessionsClient", () => {
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
+                metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 title: "title",
                 updated_at: "updated_at",
@@ -246,6 +255,9 @@ describe("SessionsClient", () => {
                 createdAt: "created_at",
                 createdBy: "created_by",
                 id: "id",
+                metadata: {
+                    key: "value",
+                },
                 metrics: {
                     totalCostInUsd: 1.1,
                     totalDurationMs: 1,
@@ -334,6 +346,7 @@ describe("SessionsClient", () => {
                 created_at: "created_at",
                 created_by: "created_by",
                 id: "id",
+                metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 title: "title",
                 updated_at: "updated_at",
@@ -363,6 +376,9 @@ describe("SessionsClient", () => {
                 createdAt: "created_at",
                 createdBy: "created_by",
                 id: "id",
+                metadata: {
+                    key: "value",
+                },
                 metrics: {
                     totalCostInUsd: 1.1,
                     totalDurationMs: 1,

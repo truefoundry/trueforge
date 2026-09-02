@@ -112,10 +112,10 @@ describe('SessionsPage', () => {
     renderPage();
     const timeButton = await screen.findByRole('button', { name: 'Last 30 days' });
     fireEvent.click(timeButton);
-    expect(screen.getByRole('button', { name: 'Custom Time Range' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Custom Time Range' })).toBeInTheDocument();
     expect(screen.queryByText('Select Time Range')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Custom Time Range' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Custom Time Range' }));
     expect(screen.getByText('Select Time Range')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
   });
@@ -125,7 +125,7 @@ describe('SessionsPage', () => {
     const listSessions = vi.fn(async () => ({ data: [namedRow, draftRow] }));
     renderPage({ listSessions });
     fireEvent.click(await screen.findByRole('button', { name: 'Last 30 days' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Custom Time Range' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Custom Time Range' }));
     fireEvent.change(screen.getByLabelText('From'), {
       target: { value: toDateTimeLocalValue(Date.parse('2026-05-01T00:00:00.000Z')) },
     });

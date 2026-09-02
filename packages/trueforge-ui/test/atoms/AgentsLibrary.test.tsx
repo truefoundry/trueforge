@@ -33,6 +33,7 @@ function mockServer(
     agentId: string;
     agentSpec?: {
       model: { name: string };
+      description?: string;
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
@@ -122,7 +123,7 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Open alpha-agent' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Open alpha-agent' }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('agent-1');
     const params = new URL(window.location.href).searchParams;
     expect(params.get('theme')).toBe('dark');
@@ -173,10 +174,10 @@ describe('AgentsLibrary', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Edit agent writer' })).toBeInTheDocument();
-    });
-    expect(screen.queryByRole('button', { name: 'Edit agent try-only' })).not.toBeInTheDocument();
+    const actions = await screen.findByRole('button', { name: 'Actions for writer' });
+    fireEvent.click(actions);
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actions for try-only' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
   });
 
@@ -229,7 +230,7 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent writer' })).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: 'Edit agent writer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actions for writer' })).not.toBeInTheDocument();
   });
 
   it('shows create-one guidance when there are no agents yet', async () => {
@@ -259,13 +260,13 @@ describe('AgentsLibrary', () => {
     expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
 
-  it('closes via the back button', () => {
+  it('closes via Escape', () => {
     renderLibrary(<LibraryHarness />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Agents Library' })).not.toBeInTheDocument();
   });
 });
@@ -351,5 +352,114 @@ describe('AgentsLibraryButton', () => {
 
     expect(screen.getByRole('button', { name: 'Agents Library' })).toBeInTheDocument();
     expect(searchAgents).not.toHaveBeenCalled();
+  });
+
+  it('shows a schedules count badge for visible agents and opens schedules on click', async () => {
+    const listSchedules = vi.fn(async () => ({
+      data: [
+        {
+          id: 's1',
+          name: 'job-a',
+          agentId: 'alpha-agent',
+          agentName: 'alpha-agent',
+          task: 't',
+          cron: '0 9 * * *',
+          timezone: 'UTC',
+          status: 'paused' as const,
+          lastRunAt: null,
+        },
+        {
+          id: 's2',
+          name: 'job-b',
+          agentId: 'alpha-agent',
+          agentName: 'alpha-agent',
+          task: 't',
+          cron: '0 10 * * *',
+          timezone: 'UTC',
+          status: 'active' as const,
+          lastRunAt: null,
+        },
+      ],
+    }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        { name: 'alpha-agent', agentId: 'alpha-agent' },
+        { name: 'beta-agent', agentId: 'beta-agent' },
+      ]),
+      schedules: {
+        listSchedules,
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    function SchedulesOpenProbe() {
+      const shell = useShellMode();
+      return <output data-testid="schedules-open">{shell.schedulesOpen ? 'yes' : 'no'}</output>;
+    }
+
+    renderLibrary(
+      <LibraryHarness>
+        <SchedulesOpenProbe />
+      </LibraryHarness>,
+      { server },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await waitFor(() => {
+      expect(listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['alpha-agent', 'beta-agent'], limit: 25 }),
+      );
+    });
+
+    const badge = await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
+    expect(badge).toHaveTextContent('2');
+    const addSchedule = screen.getByRole('button', { name: 'Add schedule for beta-agent' });
+    expect(addSchedule).toHaveTextContent('-');
+
+    fireEvent.click(addSchedule);
+    expect(screen.getByTestId('schedules-open')).toHaveTextContent('yes');
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('beta-agent');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
+    fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
+  });
+
+  it('does not show an empty-schedules action before schedule counts load', async () => {
+    let resolveSchedules: (value: { data: [] }) => void = () => undefined;
+    const listSchedules = vi.fn(
+      () =>
+        new Promise<{ data: [] }>(resolve => {
+          resolveSchedules = resolve;
+        }),
+    );
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'alpha-agent' }]),
+      schedules: {
+        listSchedules,
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await screen.findByRole('button', { name: 'Try agent alpha-agent' });
+    expect(screen.getByLabelText('Schedule count unavailable for alpha-agent')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add schedule for alpha-agent' })).not.toBeInTheDocument();
+
+    resolveSchedules({ data: [] });
+    expect(await screen.findByRole('button', { name: 'Add schedule for alpha-agent' })).toBeInTheDocument();
   });
 });

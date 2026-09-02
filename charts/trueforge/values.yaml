@@ -1,6 +1,5 @@
 # Default values for the trueforge chart.
 
-replicaCount: 1
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
@@ -34,13 +33,6 @@ securityContext:
       - ALL
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
-# Rolling update controls (omit keys you do not want to set).
-strategy: {}
-# strategy:
-#   type: RollingUpdate
-#   rollingUpdate:
-#     maxUnavailable: 0
-#     maxSurge: 1
 
 service:
   type: ClusterIP
@@ -50,6 +42,14 @@ service:
 # Server runtime configuration. Keys map to environment variables read in
 # packages/trueforge/src/config.ts.
 server:
+  # Number of server replicas (ignored when autoscaling.enabled is true).
+  replicaCount: 1
+  # Rolling update strategy for the server Deployment.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   # Container port the server listens on (PORT).
   port: 8790
   # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
@@ -61,6 +61,32 @@ server:
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
+# Schedule controller. A dedicated, single-replica Deployment that runs the
+# periodic control loops (schedule dispatch). It MUST run as exactly one replica
+# per database, so it is never autoscaled. It calls the server API over HTTP and
+# reuses the server's Postgres/Redis env; it exposes no port and no Service.
+controller:
+  # Set false to skip the controller Deployment (schedules will not fire).
+  enabled: true
+  # Container command. Runs the controller entry from the published package inside
+  # the image (root Dockerfile layout: /app/node_modules/@truefoundry/trueforge).
+  command:
+    - node
+    - node_modules/@truefoundry/trueforge/dist/controller-main.js
+  # Base URL the controller uses to reach the server (SERVER_URL).
+  # Empty → the in-cluster server Service (http://<fullname>:<service.port>).
+  serverUrl: ""
+  # Extra env for the controller only; same item shape as server.extraEnv.
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+      ephemeral-storage: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 256Mi
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
 # { valueFrom: { secretKeyRef: ... } }.

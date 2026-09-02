@@ -69,14 +69,16 @@ function jsonInit(method: string, body: unknown): RequestInit {
 
 describe('agents router', () => {
   let router: ReturnType<typeof createAgentsRouter>;
+  let agentStore: SqliteAgentStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
+    agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
-      agentStore: new SqliteAgentStore(db),
+      agentStore,
       resolveModelProviderStore: () => modelProviderStore,
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
@@ -105,6 +107,10 @@ describe('agents router', () => {
         },
       },
     });
+    expect(createdJson.data).not.toHaveProperty('metadata');
+
+    const beforePut = await agentStore.getAgent({ tenant_id: 'default', id: createdJson.data.id });
+    expect(beforePut?.metadata).toEqual({});
 
     const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
@@ -112,6 +118,19 @@ describe('agents router', () => {
     expect(updatedJson.data.id).toBe(createdJson.data.id);
     expect(updatedJson.data.name).toBe('research');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
+    expect(updatedJson.data).not.toHaveProperty('metadata');
+
+    const afterPut = await agentStore.getAgent({ tenant_id: 'default', id: createdJson.data.id });
+    expect(afterPut?.metadata).toEqual(beforePut?.metadata);
+  });
+
+  it('PUT rejects metadata in the request body', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'no-meta' }));
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const put = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', { ...updateBody, metadata: {} }));
+    expect(put.status).toBe(400);
   });
 
   it('GET and PUT return 404 for unknown ids', async () => {

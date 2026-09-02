@@ -36,6 +36,7 @@
     "standalone:dev": "STANDALONE=true NODE_ENV=development pnpm --parallel --filter @truefoundry/trueforge-core --filter @truefoundry/trueforge --filter frontend dev",
     "standalone:start": "STANDALONE=true NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
     "start": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start",
+    "start:controller": "STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start:controller",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
     "test:frontend": "pnpm --filter frontend test",
     "test:chart-version": "bash tests/scripts/resolve-chart-version.test.sh",

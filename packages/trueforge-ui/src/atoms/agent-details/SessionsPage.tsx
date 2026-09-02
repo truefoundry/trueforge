@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
+import { Icon } from '../../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import {
@@ -52,20 +53,25 @@ export function SessionsPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <h1 className="text-lg font-semibold tracking-tight text-text-primary">Agent Sessions</h1>
-        <AgentSessionsFilters
-          agentId={agentFilter}
-          timeRange={timeRange}
-          onAgentChange={nextAgentId => {
-            setAgentFilter(nextAgentId);
-            updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
-          }}
-          onTimeRangeChange={nextRange => {
-            setTimeRange(nextRange);
-            updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
-          }}
-        />
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-6">
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon name="message-square-text" className="text-text-primary size-4" />
+          <h1 className="text-text-primary truncate text-md font-semibold">Agent Sessions</h1>
+        </div>
+        <div className="ml-auto">
+          <AgentSessionsFilters
+            agentId={agentFilter}
+            timeRange={timeRange}
+            onAgentChange={nextAgentId => {
+              setAgentFilter(nextAgentId);
+              updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
+            }}
+            onTimeRangeChange={nextRange => {
+              setTimeRange(nextRange);
+              updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
+            }}
+          />
+        </div>
       </div>
       <div className="min-h-0 flex-1">
         {sessionsServer == null ? (

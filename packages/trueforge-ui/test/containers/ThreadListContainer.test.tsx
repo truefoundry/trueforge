@@ -13,6 +13,7 @@ import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -182,5 +183,58 @@ describe('ThreadListContainer', () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
+  });
+
+  it('clears chat selection highlight while a sidebar top nav tab is open', () => {
+    function OpenSchedulesButton() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.setSchedulesOpen(true)}>
+          Open schedules tab
+        </button>
+      );
+    }
+
+    const server = createMockAgentUIServer({
+      schedules: {
+        listSchedules: vi.fn(async () => ({ data: [] })),
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+          <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
+            <ThreadListRuntimeHarness
+              threadList={{
+                threadId: 'thread-1',
+                threads: [
+                  {
+                    status: 'regular',
+                    id: 'thread-1',
+                    title: 'Current session',
+                  },
+                ],
+              }}
+            >
+              <CompactLayoutProvider>
+                <OpenSchedulesButton />
+                <ThreadListContainer />
+              </CompactLayoutProvider>
+            </ThreadListRuntimeHarness>
+          </SlotsProvider>
+        </ShellModeProvider>
+      </ServerProvider>,
+    );
+
+    expect(screen.getByTestId('thread-row-Current session')).toHaveAttribute('data-active', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Open schedules tab' }));
+    expect(screen.getByTestId('thread-row-Current session')).toHaveAttribute('data-active', 'false');
   });
 });

@@ -19,7 +19,7 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id' | 'metadata'
 > & {
   custom: TSessionCustom | null;
 };
@@ -27,6 +27,7 @@ export type CreateSessionInput<TSessionCustom extends object = Record<string, ne
 /**
  * PATCH fields for an existing session; `undefined` fields are left unchanged.
  * `agent` may be set only on inline sessions, and only as an inline arm (`{ type: 'inline', spec }`).
+ * `metadata` when set fully replaces the stored map (`{}` clears).
  */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
@@ -34,6 +35,7 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
 > & {
   agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'inline' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
+  metadata: SessionRecord<TSessionCustom>['metadata'] | undefined;
 };
 
 export interface GetSessionInput {
@@ -244,6 +246,7 @@ export interface ISessionStore<
    * PATCH semantics — update only the provided fields:
    * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
+   * - metadata: full replace of the caller-owned string map when set.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;

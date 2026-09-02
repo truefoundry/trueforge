@@ -160,6 +160,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: LOCAL_USER_CONTEXT.userRef,
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
+      metadata: {},
       external_id: null,
     });
     await sessionStore.createSession({
@@ -168,6 +169,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
+      metadata: {},
       external_id: null,
     });
     const start = new Date(Date.now() - 60 * 60 * 1000);
@@ -229,6 +231,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      metadata: {},
       external_id: null,
     });
 
@@ -306,6 +309,58 @@ describe('sessions HTTP agent binding', () => {
     expect(patchedJson.data.agent.spec.instructions).toBe('updated');
   });
 
+  it('create and PATCH round-trip session metadata', async () => {
+    const created = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'dev', ticket: 'T-1' } }),
+    );
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as {
+      data: { id: string; metadata: Record<string, string> };
+    };
+    expect(createdJson.data.metadata).toEqual({ env: 'dev', ticket: 'T-1' });
+
+    const omitPatch = await app.request(`/${createdJson.data.id}`, jsonInit('PATCH', {}));
+    expect(omitPatch.status).toBe(200);
+    const omitJson = (await omitPatch.json()) as { data: { metadata: Record<string, string> } };
+    expect(omitJson.data.metadata).toEqual({ env: 'dev', ticket: 'T-1' });
+
+    const replace = await app.request(`/${createdJson.data.id}`, jsonInit('PATCH', { metadata: { env: 'prod' } }));
+    expect(replace.status).toBe(200);
+    const replaceJson = (await replace.json()) as { data: { metadata: Record<string, string> } };
+    expect(replaceJson.data.metadata).toEqual({ env: 'prod' });
+
+    const clear = await app.request(`/${createdJson.data.id}`, jsonInit('PATCH', { metadata: {} }));
+    expect(clear.status).toBe(200);
+    const clearJson = (await clear.json()) as { data: { metadata: Record<string, string> } };
+    expect(clearJson.data.metadata).toEqual({});
+
+    const omittedCreate = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(omittedCreate.status).toBe(201);
+    const omittedJson = (await omittedCreate.json()) as { data: { metadata: Record<string, string> } };
+    expect(omittedJson.data.metadata).toEqual({});
+  });
+
+  it('rejects invalid session metadata on create', async () => {
+    const tooLongKey = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { ['k'.repeat(33)]: 'v' },
+      }),
+    );
+    expect(tooLongKey.status).toBe(400);
+
+    const tooLongValue = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { k: 'v'.repeat(129) },
+      }),
+    );
+    expect(tooLongValue.status).toBe(400);
+  });
+
   it('POST get-or-create-by-external-id is idempotent and 403s for another creator', async () => {
     const publicPath = await app.request(
       '/get-or-create-by-external-id',
@@ -343,6 +398,7 @@ describe('sessions HTTP agent binding', () => {
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      metadata: {},
       external_id: 'run-theirs',
     });
     const forbidden = await app.request(

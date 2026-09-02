@@ -18,6 +18,9 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { useBrand } from '../theme/ThemeProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
+const SchedulesPage = lazy(() =>
+  import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
 
 // Survives ChatProvider remounts when openDraft / selectAgent bumps runtimeKey.
 let desktopCollapsed = false;
@@ -36,6 +39,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SessionsPage = useSlot('SessionsPage');
+  const SchedulesButton = useSlot('SchedulesButton');
   const ClearChatButton = useSlot('ClearChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
@@ -56,7 +60,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen;
+  const schedulesOpen = shell?.schedulesOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
   const hasChatHeaderContent = useChatHeaderContentVisible();
 
   useEffect(() => {
@@ -91,6 +96,7 @@ export function SidebarLayout({ className }: { className?: string }) {
       return;
     }
     shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -142,6 +148,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           ) : null}
           <AgentsLibraryButton compact />
           <SessionsBrowserButton compact />
+          <SchedulesButton compact />
         </nav>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" hidden={collapsed}>
           <ThreadListContainer />
@@ -216,6 +223,22 @@ export function SidebarLayout({ className }: { className?: string }) {
             <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
           ) : libraryOpen ? (
             <AgentsLibrary onSelectAgent={() => setMobileNavOpen(false)} />
+          ) : schedulesOpen ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <SchedulesPage />
+            </Suspense>
           ) : isIdle ? (
             <SelectAgentEmptyState />
           ) : (

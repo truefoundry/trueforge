@@ -1,4 +1,5 @@
-import type { AgentSpec, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetadata, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -41,6 +42,10 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
+function parseSessionMetadata(value: unknown): SessionMetadata {
+  return SessionMetadataSchema.parse(value);
+}
+
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
@@ -52,6 +57,7 @@ function mapRowToSessionRecord(row: {
   last_turn_id: string | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
+  metadata: SessionMetadata;
   metrics: SessionMetrics;
   created_at: string;
   updated_at: string;
@@ -71,6 +77,7 @@ function mapRowToSessionRecord(row: {
     last_turn_id: row.last_turn_id,
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
+    metadata: parseSessionMetadata(row.metadata),
     metrics: row.metrics,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
@@ -90,6 +97,7 @@ function sessionSelectColumns() {
     'last_turn_id' as const,
     'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+    jsonText<SessionMetadata>(sql.ref('metadata')).as('metadata'),
     jsonText<SessionMetrics>(sql.ref('metrics')).as('metrics'),
     'created_at' as const,
     'updated_at' as const,
@@ -113,6 +121,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
+        metadata: jsonbBind(input.metadata),
         external_id: input.external_id,
         metrics: jsonbBind({
           total_cost_in_usd: 0,
@@ -192,6 +201,7 @@ export async function getSessionByExternalId(
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
   const agent = input.agent;
   const title = input.title;
+  const metadata = input.metadata;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -217,6 +227,9 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   }
   if (title !== undefined) {
     qb = qb.set({ title });
+  }
+  if (metadata !== undefined) {
+    qb = qb.set({ metadata: jsonbBind(metadata) });
   }
 
   const result = await qb.executeTakeFirst();

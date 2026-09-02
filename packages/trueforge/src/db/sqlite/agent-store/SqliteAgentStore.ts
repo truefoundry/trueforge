@@ -1,5 +1,6 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
+import { EMPTY_AGENT_METADATA, type AgentMetadata } from '../../../schemas/agentMetadata';
 import { newId } from '../../../utils/id';
 import {
   AgentNameConflictError,
@@ -15,13 +16,14 @@ import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
 
-/** Column list projecting the JSONB manifest as parsed JSON (see JSON_RESULT_COLUMNS). */
+/** Column list projecting JSONB columns as parsed JSON (see JSON_RESULT_COLUMNS). */
 function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
   return [
     'id' as const,
     'tenant_id' as const,
     'name' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
+    jsonText<AgentMetadata>(eb.ref('metadata')).as('metadata'),
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -32,6 +34,7 @@ function toRecord(row: {
   tenant_id: string;
   name: AgentRecord['name'];
   manifest: AgentSpec;
+  metadata: AgentMetadata;
   created_at: string;
   updated_at: string;
 }): AgentRecord {
@@ -79,6 +82,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: jsonbBind(input.manifest),
+          metadata: jsonbBind(EMPTY_AGENT_METADATA),
           created_at: timestamp,
           updated_at: timestamp,
         })
@@ -94,11 +98,15 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
+    if (input.manifest === undefined && input.metadata === undefined) {
+      throw new Error('updateAgent requires manifest and/or metadata');
+    }
     const db = transaction ?? this.#db;
     const row = await db
       .updateTable('agent')
       .set({
-        manifest: jsonbBind(input.manifest),
+        ...(input.manifest === undefined ? {} : { manifest: jsonbBind(input.manifest) }),
+        ...(input.metadata === undefined ? {} : { metadata: jsonbBind(input.metadata) }),
         updated_at: nowIso(),
       })
       .where('tenant_id', '=', input.tenant_id)

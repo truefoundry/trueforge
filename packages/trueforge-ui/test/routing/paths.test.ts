@@ -17,6 +17,7 @@ describe('resolveRoutesConfig', () => {
       settings: '/settings',
       library: '/library',
       libraryAgent: '/library/:agentId',
+      schedules: '/schedules',
       agent: '/agents/:agentName',
       session: '/sessions/:sessionId',
       sessionsBrowser: '/sessions',
@@ -50,6 +51,7 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'settings' }, routes)).toBe('/settings');
     expect(buildPath({ type: 'library' }, routes)).toBe('/library');
     expect(buildPath({ type: 'libraryAgent', agentId: 'agent/id' }, routes)).toBe('/library/agent%2Fid');
+    expect(buildPath({ type: 'schedules' }, routes)).toBe('/schedules');
     expect(buildPath({ type: 'agent', agentName: 'code-helper' }, routes)).toBe('/agents/code-helper');
     expect(buildPath({ type: 'session', sessionId: 'abc123' }, routes)).toBe('/sessions/abc123');
     expect(buildPath({ type: 'sessionsBrowser' }, routes)).toBe('/sessions');
@@ -91,6 +93,14 @@ describe('sanitizeSearchForPlace', () => {
     );
     expect(sanitizeSearchForPlace({ type: 'settings' }, sessionSearch)).toBe(sessionSearch);
   });
+
+  it('keeps schedules filters on the schedules place and clears them elsewhere', () => {
+    const scheduleSearch = '?theme=dark&agent=alpha&status=paused&q=digest&sessionId=sess-1&agentId=agent-1';
+    expect(sanitizeSearchForPlace({ type: 'schedules' }, scheduleSearch)).toBe(
+      '?theme=dark&agent=alpha&status=paused&q=digest',
+    );
+    expect(sanitizeSearchForPlace({ type: 'library' }, scheduleSearch)).toBe('?theme=dark');
+  });
 });
 
 describe('matchPath', () => {
@@ -101,6 +111,7 @@ describe('matchPath', () => {
     expect(matchPath('/settings', routes)).toEqual({ type: 'settings' });
     expect(matchPath('/library', routes)).toEqual({ type: 'library' });
     expect(matchPath('/library/agent%2Fid', routes)).toEqual({ type: 'libraryAgent', agentId: 'agent/id' });
+    expect(matchPath('/schedules', routes)).toEqual({ type: 'schedules' });
     expect(matchPath('/agents/a%2Fb', routes)).toEqual({ type: 'agent', agentName: 'a/b' });
     expect(matchPath('/sessions', routes)).toEqual({ type: 'sessionsBrowser' });
     expect(matchPath('/sessions/xyz', routes)).toEqual({ type: 'session', sessionId: 'xyz' });
@@ -129,6 +140,7 @@ describe('matchPath', () => {
       { type: 'settings' as const },
       { type: 'library' as const },
       { type: 'libraryAgent' as const, agentId: 'agent id/1' },
+      { type: 'schedules' as const },
       { type: 'agent' as const, agentName: 'weird name/1' },
       { type: 'session' as const, sessionId: 'sess 9' },
       { type: 'sessionsBrowser' as const },
