@@ -433,6 +433,14 @@ export interface SharedServerConfiguration {
    */
   PUBLIC_BASE_URL: string;
   /**
+   * Base URL the controller uses to reach the server's HTTP API when it runs as its
+   * own process (`STANDALONE=false`, `dist/controller-main.js`). The control loops call
+   * the server over HTTP. Env: `SERVER_URL`. Default: `http://localhost:$PORT`,
+   * so in-cluster deployments MUST point this at the server Service. Unused in standalone
+   * mode, where the server process owns the controller and targets itself on localhost.
+   */
+  SERVER_URL: string;
+  /**
    * When set, models are listed from the TrueFoundry ServiceFoundry server and invoked
    * via the AI Gateway with the caller's token. Unset = local model-provider store.
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
@@ -609,6 +617,8 @@ const shared: SharedServerConfiguration = {
     defaultValue: 500,
   }),
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
+  SERVER_URL:
+    getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
   TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
     envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
