@@ -3,6 +3,7 @@
  */
 import { createTrueFoundryServer } from '../../server/createTrueFoundryServer.js';
 import type { CatalogServer } from '../../server/types.js';
+import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
 import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
@@ -13,6 +14,7 @@ import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import type { HarnessAgentSpec } from './types.js';
 
+export { createHarnessAgentMetricsServer, type CreateHarnessAgentMetricsServerOptions } from './agentMetricsServer.js';
 export {
   createHarnessAgentSessionsServer,
   type CreateHarnessAgentSessionsServerOptions,
@@ -81,5 +83,6 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     ...createHarnessBuilderServer({ client }),
     catalog,
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
+    metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
   });
 }
