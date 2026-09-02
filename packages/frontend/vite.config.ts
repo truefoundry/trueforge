@@ -16,6 +16,18 @@ if (!Number.isInteger(PORT)) {
   throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
 }
 
+/** Optional public path (e.g. `/trueforge`). Empty/unset → `/`. Vite requires a trailing slash. */
+function resolveViteBase(raw: string | undefined): string {
+  const trimmed = raw?.trim();
+  if (trimmed === undefined || trimmed === '' || trimmed === '/') {
+    return '/';
+  }
+  const withLead = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLead.endsWith('/') ? withLead : `${withLead}/`;
+}
+
+const BASE = resolveViteBase(process.env.VITE_BASE_PATH);
+
 const apiProxy: ProxyOptions = {
   target: SERVER,
   changeOrigin: true,
@@ -31,6 +43,7 @@ const apiProxy: ProxyOptions = {
 };
 
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     monacoEditorPlugin({
