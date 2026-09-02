@@ -160,6 +160,10 @@ export function resolveMcpAuthStatus({
   manifest: McpServerManifest;
   token?: OAuthToken;
 }): McpAuthStatus {
+  // TODO: Replace stub with live ServiceFoundry auth status when Connect /authorize is wired.
+  if (manifest.type === 'truefoundry') {
+    return { status: 'authenticated' };
+  }
   if (manifest.auth?.type === 'dcr') {
     return token ? { status: 'authenticated' } : { status: 'auth_required' };
   }

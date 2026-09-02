@@ -1,10 +1,11 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
 import { createMcpOAuthClient, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
@@ -30,6 +31,7 @@ import type {
   UpdateMcpServerRequest,
 } from '../schemas/mcpServer';
 import { resolveMcpAuthStatus } from '../schemas/mcpServer';
+import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../truefoundry/trueFoundryManaged';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
@@ -99,7 +101,7 @@ function resolveMcpServerManifestForWrite({
 /**
  * `token` is the calling user's DCR access token for this server (keyed by `record.id` +
  * `userRef`), or undefined for header/no-auth servers and DCR servers that have never
- * authorized for this user. Only DCR reads it.
+ * authorized for this user. Only local `remote` + `dcr` reads it; `truefoundry` stubs authenticated.
  */
 function toConfiguredMcpServer({
   record,
@@ -137,14 +139,23 @@ function toAvailableMcpServer({
   };
 }
 
+/** Local DCR token rows only — TrueFoundry MCP never uses the harness token store. */
+function localDcrServerIds(records: McpServerRecord[]): string[] {
+  return records
+    .filter(record => record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr')
+    .map(record => record.id);
+}
+
+function rejectTrueFoundryManagedWrites(): never {
+  throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
+}
+
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
     const records = await deps.resolveMcpServerStore(c).listServers({ tenant_id: TENANT_ID, names: undefined });
-    // Only DCR servers have tokens; batch the lookup for this user.
-    const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
-    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
+    const tokens = await deps.tokenStore.getTokens({ ids: localDcrServerIds(records), userRef });
     return c.json(
       { data: records.map(record => toConfiguredMcpServer({ record, token: tokens.get(record.id) })) },
       200,
@@ -159,13 +170,16 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
     let token: OAuthToken | undefined;
-    if (record.manifest.auth?.type === 'dcr') {
+    if (record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr') {
       token = await deps.tokenStore.getToken({ id: record.id, userRef });
     }
     return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
+    if (isTrueFoundryModeEnabled(configuration)) {
+      rejectTrueFoundryManagedWrites();
+    }
     const body: CreateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
 
@@ -228,6 +242,9 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
+    if (isTrueFoundryModeEnabled(configuration)) {
+      rejectTrueFoundryManagedWrites();
+    }
     const userRef = deps.resolveUserContext(c).userRef;
     const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
@@ -326,6 +343,11 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
 
+    // TODO: Replace stub with live ServiceFoundry authorize / Connect when wired.
+    if (record.manifest.type === 'truefoundry') {
+      return c.json({ status: 'authenticated' } satisfies McpAuthStatus, 200);
+    }
+
     if (record.manifest.auth?.type !== 'dcr') {
       return c.json(resolveMcpAuthStatus({ manifest: record.manifest }), 200);
     }
@@ -422,6 +444,10 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
+    // TrueFoundry MCP: no local token to clear (upstream OAuth out of v1).
+    if (record.manifest.type === 'truefoundry') {
+      return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
+    }
     // DCR: drop this user's token only — keep oauth_server / oauth_client so re-authorize can skip DCR.
     // Header / no-auth: no-op.
     if (record.manifest.auth?.type === 'dcr') {
@@ -434,8 +460,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   router.openapi(listAvailableMcpServersRoute, async c => {
     const userRef = deps.resolveUserContext(c).userRef;
     const records = await deps.resolveMcpServerStore(c).listServers({ tenant_id: TENANT_ID, names: undefined });
-    const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
-    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
+    const tokens = await deps.tokenStore.getTokens({ ids: localDcrServerIds(records), userRef });
     return c.json(
       {
         data: records.map(record => toAvailableMcpServer({ record, token: tokens.get(record.id) })),
