@@ -296,6 +296,22 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(after).last_activity_timestamp_ms).toBeGreaterThan(mustGet(before).last_activity_timestamp_ms);
     });
 
+    it('createSession persists metadata for getSession', async () => {
+      const store = createStore();
+      const metadata = { env: 'prod', ticket: 'T-1' };
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata,
+        external_id: null,
+      });
+
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual(metadata);
+    });
+
     it('updateSession replaces metadata when set and leaves it when omitted', async () => {
       const store = createStore();
       await store.createSession({
