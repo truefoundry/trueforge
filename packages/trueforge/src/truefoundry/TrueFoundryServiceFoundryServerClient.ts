@@ -20,6 +20,8 @@ const ListResponseSchema = z.union([
   }),
 ]);
 
+type ListResponse = z.infer<typeof ListResponseSchema>;
+
 const ServiceFoundryErrorSchema = z.object({
   message: z.union([z.string(), z.array(z.string())]).optional(),
 });
@@ -33,20 +35,12 @@ async function readServiceFoundryErrorMessage(
   return Array.isArray(message) ? message.join(', ') : message;
 }
 
-function readDataArray(payload: unknown): unknown[] {
-  const parsed = ListResponseSchema.safeParse(payload);
-  if (!parsed.success) {
-    return [];
-  }
-  return Array.isArray(parsed.data) ? parsed.data : parsed.data.data;
+function listPage(response: ListResponse): unknown[] {
+  return Array.isArray(response) ? response : response.data;
 }
 
-function readPaginationTotal(payload: unknown): number | undefined {
-  const parsed = ListResponseSchema.safeParse(payload);
-  if (!parsed.success || Array.isArray(parsed.data)) {
-    return undefined;
-  }
-  return parsed.data.pagination?.total;
+function listPaginationTotal(response: ListResponse): number | undefined {
+  return Array.isArray(response) ? undefined : response.pagination?.total;
 }
 
 export class TrueFoundryServiceFoundryServerClient {
@@ -76,8 +70,9 @@ export class TrueFoundryServiceFoundryServerClient {
         }),
         accessToken,
       );
-      const page = readDataArray(payload);
-      const total = readPaginationTotal(payload);
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      const total = listPaginationTotal(response);
       items.push(...page);
       if (total === undefined || items.length >= total || page.length === 0) {
         break;
@@ -106,8 +101,9 @@ export class TrueFoundryServiceFoundryServerClient {
         }),
         accessToken,
       );
-      const page = readDataArray(payload);
-      const total = readPaginationTotal(payload);
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      const total = listPaginationTotal(response);
       items.push(...page);
       if (total === undefined || items.length >= total || page.length === 0) {
         break;
@@ -131,8 +127,28 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }),
       input.accessToken,
     );
-    const rows = readDataArray(payload);
+    const rows = listPage(this.#parseListResponse(payload));
+    if (rows.length > 1) {
+      this.#logger?.warn('TrueFoundry ServiceFoundry MCP name filter returned multiple rows', {
+        name: input.name,
+        count: rows.length,
+      });
+    }
     return rows[0];
+  }
+
+  #parseListResponse(payload: unknown): ListResponse {
+    const parsed = ListResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.#logger?.error('TrueFoundry ServiceFoundry server returned an unexpected list response', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry server returned an unexpected list response',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
   }
 
   #url(path: string, search?: Record<string, string>): URL {
