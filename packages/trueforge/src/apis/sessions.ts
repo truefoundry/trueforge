@@ -67,6 +67,7 @@ export function toWireSession(record: SessionRecord): Session {
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
     metrics: record.metrics,
+    metadata: {},
   };
 }
 
