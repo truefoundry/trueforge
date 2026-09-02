@@ -7626,6 +7626,16 @@
               }
             },
             "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create an MCP server",
@@ -7680,6 +7690,16 @@
               }
             },
             "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create or replace an MCP server",

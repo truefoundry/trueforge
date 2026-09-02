@@ -1,14 +1,22 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
+import { requireAccessToken } from '../auth/middleware';
 import { safeReturnTo } from '../auth/safeReturnTo';
-import configuration from '../config';
-import { McpServerNameConflictError, type IMcpServerStore, type McpServerRecord } from '../db/mcpServerStore';
+import configuration, { getPublicBaseUrl, isTrueFoundryModeEnabled } from '../config';
+import {
+  McpServerNameConflictError,
+  McpServerNotFoundError,
+  optionalMcpAccessToken,
+  type IMcpServerStore,
+  type McpServerRecord,
+} from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
-import { createMcpOAuthClient, isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import { createMcpOAuthClient } from '../mcp/auth/mcpDcr';
 import { mcpOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
-import type { IOAuthTokenStore, OAuthClientRecord, OAuthToken } from '../mcp/auth/types';
+import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import {
   authorizeMcpServerRoute,
   createMcpServerRoute,
@@ -28,9 +36,25 @@ import type {
   McpServerManifest,
   UpdateMcpServerRequest,
 } from '../schemas/mcpServer';
-import { resolveMcpAuthStatus } from '../schemas/mcpServer';
+import { respondTrueFoundryManaged } from '../truefoundry/trueFoundryManaged';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
+
+/** Absolute redirect URL for SFY consent when `return_to` is a same-origin relative path. */
+function authorizeRedirectUrl(returnTo: string | undefined): string | undefined {
+  if (returnTo === undefined) {
+    return undefined;
+  }
+  return new URL(returnTo, `${getPublicBaseUrl()}/`).href;
+}
+
+/** Caller token when TrueFoundry mode needs it; omitted for local DB stores. */
+function requestAccessToken(c: Parameters<typeof requireAccessToken>[0]): string | undefined {
+  if (!isTrueFoundryModeEnabled()) {
+    return undefined;
+  }
+  return requireAccessToken(c);
+}
 
 export interface McpServersRouterDeps<TTransaction> {
   mcpServerStore: IMcpServerStore<TTransaction>;
@@ -95,44 +119,21 @@ function resolveMcpServerManifestForWrite({
   };
 }
 
-/**
- * `token` is the calling user's DCR access token for this server (keyed by `record.id` +
- * `userRef`), or undefined for header/no-auth servers and DCR servers that have never
- * authorized for this user. Only DCR reads it.
- */
-function toConfiguredMcpServer({
-  record,
-  token,
-}: {
+async function toConfiguredMcpServer<TTransaction>(params: {
+  store: IMcpServerStore<TTransaction>;
   record: McpServerRecord;
-  token: OAuthToken | undefined;
-}): ConfiguredMcpServer {
+  userRef: string;
+  accessToken?: string | undefined;
+}): Promise<ConfiguredMcpServer> {
+  const statuses = await params.store.resolveAuthStatuses({
+    records: [params.record],
+    userRef: params.userRef,
+    ...optionalMcpAccessToken(params.accessToken),
+  });
   return {
-    name: record.name,
-    manifest: redactMcpServerManifest(record.manifest),
-    auth_status: resolveMcpAuthStatus({
-      manifest: record.manifest,
-      ...(token !== undefined ? { token } : {}),
-    }),
-  };
-}
-
-function toAvailableMcpServer({
-  record,
-  token,
-}: {
-  record: McpServerRecord;
-  token: OAuthToken | undefined;
-}): AvailableMcpServer {
-  const authType = record.manifest.auth?.type;
-  return {
-    name: record.name,
-    url: record.manifest.url,
-    ...(authType !== undefined ? { auth: { type: authType } } : {}),
-    auth_status: resolveMcpAuthStatus({
-      manifest: record.manifest,
-      ...(token !== undefined ? { token } : {}),
-    }),
+    name: params.record.name,
+    manifest: redactMcpServerManifest(params.record.manifest),
+    auth_status: statuses.get(params.record.name) ?? { status: 'auth_required' },
   };
 }
 
@@ -140,31 +141,47 @@ function toAvailableMcpServer({
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
-    // Only DCR servers have tokens; batch the lookup for this user.
-    const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
-    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
-    return c.json(
-      { data: records.map(record => toConfiguredMcpServer({ record, token: tokens.get(record.id) })) },
-      200,
-    );
+    const accessToken = requestAccessToken(c);
+    const records = await deps.mcpServerStore.listServers({
+      tenant_id: TENANT_ID,
+      names: undefined,
+      ...optionalMcpAccessToken(accessToken),
+    });
+    const statuses = await deps.mcpServerStore.resolveAuthStatuses({
+      records,
+      userRef,
+      ...optionalMcpAccessToken(accessToken),
+    });
+    const data: ConfiguredMcpServer[] = records.map(record => ({
+      name: record.name,
+      manifest: redactMcpServerManifest(record.manifest),
+      auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
+    }));
+    return c.json({ data }, 200);
   };
 
   const getHandler: RouteHandler<typeof getMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
-    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
+    const accessToken = requestAccessToken(c);
+    const record = await deps.mcpServerStore.getServer({
+      tenant_id: TENANT_ID,
+      name,
+      ...optionalMcpAccessToken(accessToken),
+    });
     if (!record) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
-    let token: OAuthToken | undefined;
-    if (record.manifest.auth?.type === 'dcr') {
-      token = await deps.tokenStore.getToken({ id: record.id, userRef });
-    }
-    return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
+    return c.json(
+      { data: await toConfiguredMcpServer({ store: deps.mcpServerStore, record, userRef, accessToken }) },
+      200,
+    );
   };
 
   const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
+    if (isTrueFoundryModeEnabled()) {
+      return respondTrueFoundryManaged(c);
+    }
     const body: CreateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
 
@@ -217,7 +234,16 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
         return saved;
       });
 
-      return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 201);
+      return c.json(
+        {
+          data: await toConfiguredMcpServer({
+            store: deps.mcpServerStore,
+            record,
+            userRef: deps.resolveUserContext(c).userRef,
+          }),
+        },
+        201,
+      );
     } catch (error) {
       if (error instanceof McpServerNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
@@ -227,6 +253,9 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
+    if (isTrueFoundryModeEnabled()) {
+      return respondTrueFoundryManaged(c);
+    }
     const userRef = deps.resolveUserContext(c).userRef;
     const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
@@ -287,11 +316,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
         return saved;
       });
 
-      // A re-upsert preserves `id`, so a DCR server may already carry a token from a prior authorize
-      // (unless this PUT changed the URL and cleared all tokens above).
-      const token =
-        record.manifest.auth?.type === 'dcr' ? await deps.tokenStore.getToken({ id: record.id, userRef }) : undefined;
-      return c.json({ data: toConfiguredMcpServer({ record, token }) }, 200);
+      return c.json({ data: await toConfiguredMcpServer({ store: deps.mcpServerStore, record, userRef }) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'Header secret is required' } }, 400);
@@ -321,38 +346,30 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const { name } = c.req.valid('param');
     const { return_to: returnTo } = c.req.valid('query');
     const userRef = deps.resolveUserContext(c).userRef;
-    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
-    if (!record) {
-      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
-    }
-
-    if (record.manifest.auth?.type !== 'dcr') {
-      return c.json(resolveMcpAuthStatus({ manifest: record.manifest }), 200);
-    }
 
     if (returnTo && safeReturnTo(returnTo) !== returnTo) {
       return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
     }
 
     try {
-      // Reuses a usable/refreshable token when present; only builds an auth URL when needed.
-      // Client is usually already registered at create/put; concurrent Connect races are harmless
-      // (last saveClient wins; rare orphan AS registration).
-      const result = await resolveMcpAuth({
-        tokenStore: deps.tokenStore,
-        mcpServerStore: deps.mcpServerStore,
-        serverId: record.id,
+      const accessToken = requestAccessToken(c);
+      const redirectURL = authorizeRedirectUrl(returnTo);
+      const authStatus: McpAuthStatus = await deps.mcpServerStore.authorize({
+        tenant_id: TENANT_ID,
+        name,
         userRef,
-        mcpServerUrl: record.manifest.url,
-        mcpServerName: record.name,
-        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        ...optionalMcpAccessToken(accessToken),
         ...(returnTo !== undefined ? { returnTo } : {}),
+        ...(redirectURL !== undefined ? { redirectURL } : {}),
       });
-      const authStatus: McpAuthStatus = isMcpAuthRequired(result)
-        ? { status: 'auth_required', authorization_url: result.authUrl.href }
-        : { status: 'authenticated' };
       return c.json(authStatus, 200);
     } catch (error) {
+      if (error instanceof McpServerNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      if (error instanceof HTTPException) {
+        throw error;
+      }
       if (error instanceof McpConnectionError) {
         deps.logger.warn(`MCP authorize failed for "${name}"`, extractErrorLogFields(error));
         if (error.statusCode === 400) {
@@ -374,6 +391,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
+    const accessToken = requestAccessToken(c) ?? '';
     // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
     const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
@@ -382,6 +400,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       tokenStore: deps.tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       userRef,
+      ...optionalMcpAccessToken(accessToken),
     });
     if (connection === undefined) {
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
@@ -418,30 +437,60 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const deleteAuthorizationHandler: RouteHandler<typeof deleteAuthorizationMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
-    const record = await deps.mcpServerStore.getServer({ tenant_id: TENANT_ID, name });
-    if (!record) {
-      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    const accessToken = requestAccessToken(c);
+    try {
+      const record = await deps.mcpServerStore.getServer({
+        tenant_id: TENANT_ID,
+        name,
+        ...optionalMcpAccessToken(accessToken),
+      });
+      if (!record) {
+        return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+      }
+      await deps.mcpServerStore.deleteAuthorization({
+        tenant_id: TENANT_ID,
+        name,
+        userRef,
+        ...optionalMcpAccessToken(accessToken),
+      });
+      return c.json(
+        {
+          data: await toConfiguredMcpServer({ store: deps.mcpServerStore, record, userRef, accessToken }),
+        },
+        200,
+      );
+    } catch (error) {
+      if (error instanceof McpServerNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      throw error;
     }
-    // DCR: drop this user's token only — keep oauth_server / oauth_client so re-authorize can skip DCR.
-    // Header / no-auth: no-op.
-    if (record.manifest.auth?.type === 'dcr') {
-      await deps.tokenStore.deleteToken({ id: record.id, userRef });
-    }
-    return c.json({ data: toConfiguredMcpServer({ record, token: undefined }) }, 200);
   };
 
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const records = await deps.mcpServerStore.listServers({ tenant_id: TENANT_ID, names: undefined });
-    const dcrIds = records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
-    const tokens = await deps.tokenStore.getTokens({ ids: dcrIds, userRef });
-    return c.json(
-      {
-        data: records.map(record => toAvailableMcpServer({ record, token: tokens.get(record.id) })),
-      },
-      200,
-    );
+    const accessToken = requestAccessToken(c);
+    const records = await deps.mcpServerStore.listServers({
+      tenant_id: TENANT_ID,
+      names: undefined,
+      ...optionalMcpAccessToken(accessToken),
+    });
+    const statuses = await deps.mcpServerStore.resolveAuthStatuses({
+      records,
+      userRef,
+      ...optionalMcpAccessToken(accessToken),
+    });
+    const data: AvailableMcpServer[] = records.map(record => {
+      const authType = record.manifest.auth?.type;
+      return {
+        name: record.name,
+        url: record.manifest.url,
+        ...(authType !== undefined ? { auth: { type: authType } } : {}),
+        auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
+      };
+    });
+    return c.json({ data }, 200);
   });
   router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(authorizeMcpServerRoute, authorizeHandler);

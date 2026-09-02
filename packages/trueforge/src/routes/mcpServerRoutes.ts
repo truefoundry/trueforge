@@ -13,6 +13,7 @@ import {
   McpAuthStatusSchema,
   UpdateMcpServerRequestSchema,
 } from '../schemas/mcpServer';
+import { trueFoundryManagedResponse } from '../truefoundry/trueFoundryManaged';
 import { OpenApiTag } from './openapiTags';
 
 /** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
@@ -122,6 +123,7 @@ export const createMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
+    424: trueFoundryManagedResponse,
   },
 });
 
@@ -154,6 +156,7 @@ export const putMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
+    424: trueFoundryManagedResponse,
   },
 });
 

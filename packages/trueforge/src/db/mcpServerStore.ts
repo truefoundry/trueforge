@@ -16,7 +16,7 @@ import type {
   IOAuthClientStore,
 } from '../mcp/auth/types';
 import type { ResourceName } from '../schemas/common';
-import type { McpServerManifest } from '../schemas/mcpServer';
+import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
 
 export interface McpServerRecord {
   id: string;
@@ -32,12 +32,35 @@ export interface McpServerRecord {
 export interface GetMcpServerInput {
   tenant_id: string;
   name: string;
+  /** Caller token; required by the TrueFoundry store, ignored by DB stores. */
+  accessToken?: string;
 }
 
 export interface ListMcpServersInput {
   tenant_id: string;
   /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
   names: readonly string[] | undefined;
+  /** Caller token; required by the TrueFoundry store, ignored by DB stores. */
+  accessToken?: string;
+}
+
+/** Spread into read inputs so `accessToken` is omitted when unset/blank. */
+export function optionalMcpAccessToken(accessToken: string | undefined): { accessToken?: string } {
+  if (accessToken === undefined || accessToken.length === 0) {
+    return {};
+  }
+  return { accessToken };
+}
+
+/** Thrown by stores that do not persist MCP server configuration (TrueFoundry). */
+export class McpServerStoreNotImplementedError extends Error {
+  readonly operation: string;
+
+  constructor(operation: string) {
+    super(`MCP server store does not implement ${operation}`);
+    this.name = 'McpServerStoreNotImplementedError';
+    this.operation = operation;
+  }
 }
 
 export interface CreateMcpServerInput {
@@ -62,6 +85,42 @@ export class McpServerNameConflictError extends Error {
   }
 }
 
+/** Thrown when authorize/revoke/status targets an unknown server name. */
+export class McpServerNotFoundError extends Error {
+  readonly server_name: string;
+
+  constructor(name: string) {
+    super(`MCP server not found: ${name}`);
+    this.name = 'McpServerNotFoundError';
+    this.server_name = name;
+  }
+}
+
+export interface ResolveMcpAuthStatusesInput {
+  records: readonly McpServerRecord[];
+  userRef: string;
+  /** Caller token; required by the TrueFoundry store, ignored by local auth. */
+  accessToken?: string;
+}
+
+export interface AuthorizeMcpServerInput {
+  tenant_id: string;
+  name: string;
+  userRef: string;
+  accessToken?: string;
+  /** Relative same-origin path for local DCR pending-auth return. */
+  returnTo?: string;
+  /** Absolute redirect URL for TrueFoundry SFY consent return. */
+  redirectURL?: string;
+}
+
+export interface DeleteMcpAuthorizationInput {
+  tenant_id: string;
+  name: string;
+  userRef: string;
+  accessToken?: string;
+}
+
 export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
@@ -78,6 +137,18 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+
+  /**
+   * Wire `auth_status` for Connect UX, keyed by server name.
+   * Local: batch token lookup. TrueFoundry: SFY `/auth/status` (refresh-aware).
+   */
+  resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>>;
+
+  /** Start or resume authorization; returns `auth_required` + URL or `authenticated`. */
+  authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus>;
+
+  /** Revoke this subject's authorization for the named server. */
+  deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
 }
 
 /**

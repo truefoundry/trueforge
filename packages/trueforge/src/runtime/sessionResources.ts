@@ -16,7 +16,7 @@ import {
 import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -133,8 +133,47 @@ function dcrHeadersResolver(params: {
 }
 
 /**
+ * TrueFoundry path: talk to the gateway proxy with the caller's Bearer token.
+ * When upstream OAuth is still required, ask the store to authorize and pause the turn.
+ */
+function trueFoundryHeadersResolver(params: {
+  store: IMcpServerStore;
+  record: McpServerRecord;
+  tenant_id: string;
+  userRef: string;
+  accessToken: string;
+}): RemoteMcpHeaders {
+  const { store, record, tenant_id, userRef, accessToken } = params;
+  return async () => {
+    if (record.manifest.auth?.type === 'dcr') {
+      const status = await store.authorize({
+        tenant_id,
+        name: record.name,
+        userRef,
+        accessToken,
+      });
+      if (status.status === 'auth_required') {
+        const authUrl = status.authorization_url;
+        if (authUrl === undefined || authUrl.length === 0) {
+          throw new HTTPException(422, {
+            message: `MCP server "${record.name}" requires authentication but no authorization URL was returned`,
+          });
+        }
+        return {
+          authRequired: {
+            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
+          },
+        };
+      }
+    }
+    return { headers: { Authorization: `Bearer ${accessToken}` } };
+  };
+}
+
+/**
  * Load MCP url + headers for a configured server.
  * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
+ * TrueFoundry mode uses the gateway proxy URL + caller Bearer (and store authorize for upstream OAuth).
  * Returns undefined when the server is not registered — callers choose the response.
  */
 export async function getMcpConnection({
@@ -144,6 +183,7 @@ export async function getMcpConnection({
   tokenStore,
   clientName,
   userRef,
+  accessToken,
 }: {
   tenant_id: string;
   name: string;
@@ -151,11 +191,30 @@ export async function getMcpConnection({
   tokenStore: IOAuthTokenStore;
   clientName: string;
   userRef: string;
+  /** Caller token for TrueFoundry-backed stores; ignored by DB stores. */
+  accessToken?: string;
 }): Promise<McpConnection | undefined> {
-  const record = await store.getServer({ tenant_id, name });
+  const record = await store.getServer({
+    tenant_id,
+    name,
+    ...(accessToken !== undefined && accessToken.length > 0 ? { accessToken } : {}),
+  });
   if (record === undefined) {
     return undefined;
   }
+
+  if (isTrueFoundryModeEnabled()) {
+    if (accessToken === undefined || accessToken.length === 0) {
+      throw new HTTPException(401, {
+        message: 'Authentication token required to call TrueFoundry MCP servers',
+      });
+    }
+    return {
+      url: record.manifest.url,
+      headers: trueFoundryHeadersResolver({ store, record, tenant_id, userRef, accessToken }),
+    };
+  }
+
   if (record.manifest.auth?.type === 'dcr') {
     return {
       url: record.manifest.url,
@@ -301,6 +360,7 @@ export async function validateAgentSpec({
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
+  accessToken,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -308,6 +368,8 @@ export async function validateAgentSpec({
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  /** Caller token for TrueFoundry-backed MCP stores; ignored by DB stores. */
+  accessToken?: string;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -330,7 +392,13 @@ export async function validateAgentSpec({
   if (requestedMcpServers.length > 0) {
     const names = requestedMcpServers.map(server => server.name);
     const configuredNames = new Set(
-      (await mcpServerStore.listServers({ tenant_id, names })).map(record => record.name),
+      (
+        await mcpServerStore.listServers({
+          tenant_id,
+          names,
+          ...(accessToken !== undefined && accessToken.length > 0 ? { accessToken } : {}),
+        })
+      ).map(record => record.name),
     );
     const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
     if (unknown !== undefined) {

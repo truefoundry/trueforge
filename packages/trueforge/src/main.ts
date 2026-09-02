@@ -56,6 +56,7 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
+import { wrapLocalMcpServerStore } from './db/LocalAuthMcpServerStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -252,7 +253,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     resolveModelProviderStore,
     withTransaction,
-    mcpServerStore,
+    mcpServerStore: persistenceMcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,
@@ -261,6 +262,19 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     destroyDb,
     redis,
   } = persistence;
+
+  let mcpServerStore: IMcpServerStore<TTransaction> = wrapLocalMcpServerStore({
+    store: persistenceMcpServerStore,
+    tokenStore,
+  });
+  if (configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined) {
+    const { TrueFoundryMcpServerStore } = await import('./truefoundry/TrueFoundryMcpServerStore');
+    mcpServerStore = new TrueFoundryMcpServerStore<TTransaction>({
+      serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+      logger,
+      tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+    });
+  }
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();

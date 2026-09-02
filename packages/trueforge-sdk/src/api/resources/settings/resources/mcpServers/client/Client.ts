@@ -124,6 +124,7 @@ export class McpServersClient {
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.FailedDependencyError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -228,6 +229,17 @@ export class McpServersClient {
                         }),
                         _response.rawResponse,
                     );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -248,6 +260,7 @@ export class McpServersClient {
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.FailedDependencyError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -332,6 +345,17 @@ export class McpServersClient {
                     );
                 case 422:
                     throw new TrueForge.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

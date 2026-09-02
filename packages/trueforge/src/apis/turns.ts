@@ -186,6 +186,7 @@ function createTurnResolver(deps: {
         tokenStore,
         clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         userRef,
+        ...optionalAccessToken(accessToken),
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
