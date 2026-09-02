@@ -34,7 +34,7 @@ export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is Sessi
 export const CreateSessionRequestSchema = z
   .object({
     agent: CreateSessionAgentSchema,
-    metadata: SessionMetadataSchema.optional().describe('Caller-owned session metadata.'),
+    metadata: SessionMetadataSchema.optional(),
   })
   .strict()
   .openapi('CreateSessionRequest');
@@ -51,9 +51,7 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
 export const UpdateSessionRequestSchema = z
   .object({
     agent: SessionAgentSpecBodySchema.optional(),
-    metadata: SessionMetadataSchema.optional().describe(
-      'Full replace of session metadata when set; omit to leave unchanged. Empty object clears.',
-    ),
+    metadata: SessionMetadataSchema.optional(),
   })
   .strict()
   .openapi('UpdateSessionRequest');

@@ -78,7 +78,7 @@ export const SessionSchema = z
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,
-    metadata: SessionMetadataSchema.describe('Caller-owned metadata.'),
+    metadata: SessionMetadataSchema,
   })
   .openapi('Session');
 
