@@ -10,10 +10,12 @@ export const UpdateSessionRequest: core.serialization.Schema<
     TrueForge.UpdateSessionRequest
 > = core.serialization.object({
     agent: SessionAgentSpecBody.optional(),
+    metadata: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
 });
 
 export declare namespace UpdateSessionRequest {
     export interface Raw {
         agent?: SessionAgentSpecBody.Raw | null;
+        metadata?: Record<string, string> | null;
     }
 }

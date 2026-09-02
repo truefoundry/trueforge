@@ -10,10 +10,12 @@ export const CreateSessionRequest: core.serialization.Schema<
     TrueForge.CreateSessionRequest
 > = core.serialization.object({
     agent: CreateSessionAgent,
+    metadata: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
 });
 
 export declare namespace CreateSessionRequest {
     export interface Raw {
         agent: CreateSessionAgent.Raw;
+        metadata?: Record<string, string> | null;
     }
 }

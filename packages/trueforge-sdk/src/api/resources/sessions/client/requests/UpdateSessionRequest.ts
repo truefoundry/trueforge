@@ -8,4 +8,6 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface UpdateSessionRequest {
     agent?: TrueForge.SessionAgentSpecBody;
+    /** Full replace of session metadata when set; omit to leave unchanged. Empty object clears. */
+    metadata?: Record<string, string>;
 }

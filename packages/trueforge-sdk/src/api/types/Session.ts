@@ -10,6 +10,7 @@ export interface Session {
     createdBy: string;
     /** Unique session id. */
     id: string;
+    metadata: TrueForge.SessionMetadata;
     metrics: TrueForge.SessionMetrics;
     /** Optional human-readable title; null until set. */
     title: string | null;

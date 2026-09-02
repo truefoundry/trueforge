@@ -12,4 +12,6 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface CreateSessionRequest {
     agent: TrueForge.CreateSessionAgent;
+    /** Caller-owned session metadata. */
+    metadata?: Record<string, string>;
 }
