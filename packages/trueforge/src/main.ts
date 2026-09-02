@@ -72,6 +72,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 
@@ -80,8 +81,8 @@ interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
   resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (c?: Context) => IMcpServerStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
-  mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -112,6 +113,30 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   return c =>
     c
       ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      : options.persistenceStore;
+}
+
+/**
+ * Per-request MCP store resolver. In TrueFoundry mode every request gets a token-bound
+ * store over a shared (mTLS) ServiceFoundry client; otherwise the persistence store is reused as-is.
+ */
+function buildResolveMcpServerStore<TTransaction>(options: {
+  persistenceStore: IMcpServerStore<TTransaction>;
+  logger: Logger;
+}): (c?: Context) => IMcpServerStore<TTransaction> {
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return () => options.persistenceStore;
+  }
+  const client = new TrueFoundryServiceFoundryServerClient({
+    serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+    logger: options.logger,
+    tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+  });
+  // No request context (e.g. the scheduler / OAuth callback) means no caller token, so
+  // TrueFoundry MCP servers are unavailable there; fall back to the persistence store.
+  return c =>
+    c
+      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
       : options.persistenceStore;
 }
 
@@ -161,8 +186,11 @@ async function createStandalonePersistence(options: {
       persistenceStore: new SqliteModelProviderStore(db),
       logger,
     }),
+    resolveMcpServerStore: buildResolveMcpServerStore({
+      persistenceStore: new SqliteMcpServerStore(db),
+      logger,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
-    mcpServerStore: new SqliteMcpServerStore(db),
     tokenStore: new SqliteOAuthTokenStore(db),
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
@@ -233,8 +261,11 @@ async function createDistributedPersistence(options: {
       persistenceStore: new PostgresModelProviderStore(db),
       logger,
     }),
+    resolveMcpServerStore: buildResolveMcpServerStore({
+      persistenceStore: new PostgresMcpServerStore(db),
+      logger,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
-    mcpServerStore: new PostgresMcpServerStore(db),
     tokenStore: new PostgresOAuthTokenStore(db),
     skillStore: new PostgresSkillStore(db),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
@@ -251,8 +282,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionStore,
     sessionMetricsStore,
     resolveModelProviderStore,
+    resolveMcpServerStore,
     withTransaction,
-    mcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,
@@ -290,8 +321,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     skillCatalog: SkillCatalog.load(),
     sandboxCatalog: SandboxCatalog.load(),
     resolveModelProviderStore,
+    resolveMcpServerStore,
     withTransaction,
-    mcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,

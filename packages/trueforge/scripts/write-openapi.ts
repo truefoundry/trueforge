@@ -61,7 +61,7 @@ const app = createServerApp({
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   withTransaction: callback => db.transaction().execute(callback),
   mcpCatalog: McpCatalog.load(),
-  mcpServerStore: new SqliteMcpServerStore(db),
+  resolveMcpServerStore: () => new SqliteMcpServerStore(db),
   tokenStore: new SqliteOAuthTokenStore(db),
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),

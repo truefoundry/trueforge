@@ -95,7 +95,7 @@ async function createRouters(): Promise<{
   return {
     settingsRouter: createSettingsRouter({
       resolveModelProviderStore: () => modelProviderStore,
-      mcpServerStore: new SqliteMcpServerStore(db),
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),

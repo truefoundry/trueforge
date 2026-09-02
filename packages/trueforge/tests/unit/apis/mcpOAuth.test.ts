@@ -88,14 +88,14 @@ describe('MCP OAuth authorize + callback', () => {
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
       resolveUserContext: () => LOCAL_USER_CONTEXT,
     });
     mcpServersRouter = createMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
@@ -222,7 +222,7 @@ describe('MCP OAuth authorize + callback', () => {
 
   it('authorize for one user does not authenticate another user on the same server', async () => {
     const otherRouter = createMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,

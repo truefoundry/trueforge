@@ -80,7 +80,7 @@ describe('sessions HTTP agent binding', () => {
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => modelProviderStore,
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       skillStore,
       agentStore,
       sandboxProviderStore,
