@@ -508,7 +508,7 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
-For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.
+Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.
 </dd>
 </dl>
 </dd>
@@ -579,7 +579,7 @@ await client.mcpServers.authorize("name");
 <dl>
 <dd>
 
-For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).
+Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. No-op when the server does not use stored OAuth tokens.
 </dd>
 </dl>
 </dd>
@@ -2963,7 +2963,7 @@ await client.settings.mcpServers.create({
 <dl>
 <dd>
 
-Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
+Create or replace by `name`. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
