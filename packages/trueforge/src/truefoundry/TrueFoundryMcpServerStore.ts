@@ -12,12 +12,12 @@ import {
   type UpsertMcpServerInput,
 } from '../db/mcpServerStore';
 import type { OAuthClientRecord } from '../mcp/auth/types';
-import { resolveMcpAuthStatus, type McpAuthStatus, type McpServerManifest } from '../schemas/mcpServer';
+import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
   parseSfyMcpServerSummary,
-  resolveMcpProxyUrl,
+  toTrueFoundryMcpManifest,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
@@ -150,22 +150,8 @@ function toRecord(input: { tenant_id: string; server: SfyMcpServerSummary; gatew
     id: input.server.id,
     tenant_id: input.tenant_id,
     name: input.server.name,
-    manifest: toManifest(input.server, input.gatewayUrl),
+    manifest: toTrueFoundryMcpManifest({ server: input.server, gatewayUrl: input.gatewayUrl }),
     created_at: input.server.createdAt,
     updated_at: input.server.updatedAt,
-  };
-}
-
-/**
- * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` for Connect UX only (UI keys off auth type).
- * Invoke Bearer is intentionally not embedded as `header` auth — that breaks the UI and is a follow-up PR.
- */
-function toManifest(server: SfyMcpServerSummary, gatewayUrl: string): McpServerManifest {
-  return {
-    type: 'truefoundry',
-    name: server.name,
-    url: resolveMcpProxyUrl({ proxyUrl: server.proxyUrl, gatewayBaseURL: gatewayUrl }),
-    description: server.description,
-    ...(server.authType === 'oauth2' ? { auth: { type: 'dcr' as const } } : {}),
   };
 }

@@ -2,6 +2,7 @@
  * ServiceFoundry MCP list rows → lean summaries (Zod, fail loudly — same pattern as mapEnabledModels).
  */
 import { z } from 'zod';
+import type { McpServerManifest } from '../schemas/mcpServer';
 
 /** Placeholder in SFY `proxyUrl` replaced with the tenant gateway base URL. */
 export const MCP_PROXY_BASE_URL_TEMPLATE = '{{mcpProxyBaseURL}}';
@@ -81,4 +82,21 @@ export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: st
     return input.proxyUrl;
   }
   return input.proxyUrl.replaceAll(MCP_PROXY_BASE_URL_TEMPLATE, base);
+}
+
+/**
+ * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` for Connect UX only (UI keys off auth type).
+ * Invoke Bearer is intentionally not embedded as `header` auth — that breaks the UI and is a follow-up PR.
+ */
+export function toTrueFoundryMcpManifest(input: {
+  server: SfyMcpServerSummary;
+  gatewayUrl: string;
+}): McpServerManifest {
+  return {
+    type: 'truefoundry',
+    name: input.server.name,
+    url: resolveMcpProxyUrl({ proxyUrl: input.server.proxyUrl, gatewayBaseURL: input.gatewayUrl }),
+    description: input.server.description,
+    ...(input.server.authType === 'oauth2' ? { auth: { type: 'dcr' as const } } : {}),
+  };
 }
