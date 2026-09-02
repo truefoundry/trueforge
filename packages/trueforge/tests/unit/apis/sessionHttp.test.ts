@@ -90,9 +90,9 @@ describe('sessions HTTP agent binding', () => {
       logger: createLogger({ silent: true }),
     };
     app.route('/', createSessionsRouter(deps));
-    app.route('/internal/sessions', createInternalSessionsRouter(deps));
+    app.route('/api/internal/sessions', createInternalSessionsRouter(deps));
     app.route(
-      '/internal/metrics',
+      '/api/internal/metrics',
       createInternalMetricsRouter({
         sessionMetricsStore,
         resolveUserContext: deps.resolveUserContext,
@@ -180,7 +180,7 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: end.toISOString(),
     });
 
-    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/api/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(200);
     const meters = GetSessionMetricsMeterResponseSchema.parse(await response.json());
@@ -192,7 +192,7 @@ describe('sessions HTTP agent binding', () => {
     expect(meters.data.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(0);
 
     const sessionsChartResponse = await app.request(
-      `/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
+      `/api/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
     );
     expect(sessionsChartResponse.status).toBe(200);
     const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
@@ -200,7 +200,7 @@ describe('sessions HTTP agent binding', () => {
   });
 
   it('returns the static session metrics charts', async () => {
-    const response = await app.request('/internal/metrics/charts');
+    const response = await app.request('/api/internal/metrics/charts');
 
     expect(response.status).toBe(200);
     const payload = GetSessionMetricsChartResponseSchema.parse(await response.json());
@@ -219,7 +219,7 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: '2026-02-01T00:00:00.000Z',
     });
 
-    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/api/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(400);
   });
@@ -369,7 +369,7 @@ describe('sessions HTTP agent binding', () => {
     expect(publicPath.status).toBe(404);
 
     const created = await app.request(
-      '/internal/sessions/get-or-create-by-external-id',
+      '/api/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', { external_id: 'run-abc', agent: { spec: inlineSpec } }),
     );
     expect(created.status).toBe(201);
@@ -379,7 +379,7 @@ describe('sessions HTTP agent binding', () => {
     expect(createdJson.data.agent.spec.instructions).toBe('inline');
 
     const again = await app.request(
-      '/internal/sessions/get-or-create-by-external-id',
+      '/api/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', {
         external_id: 'run-abc',
         agent: { spec: { ...inlineSpec, instructions: 'ignored-on-get' } },
@@ -402,7 +402,7 @@ describe('sessions HTTP agent binding', () => {
       external_id: 'run-theirs',
     });
     const forbidden = await app.request(
-      '/internal/sessions/get-or-create-by-external-id',
+      '/api/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', { external_id: 'run-theirs', agent: { spec: inlineSpec } }),
     );
     expect(forbidden.status).toBe(403);

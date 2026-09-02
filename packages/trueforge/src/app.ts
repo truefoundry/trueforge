@@ -321,7 +321,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
-    '/internal/sessions',
+    '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
@@ -335,7 +335,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
-    '/internal/metrics',
+    '/api/internal/metrics',
     withAuth(
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,

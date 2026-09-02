@@ -1,5 +1,5 @@
 /**
- * Internal session metrics route definitions (mounted at /internal/metrics).
+ * Internal session metrics route definitions (mounted at /api/internal/metrics).
  * Handlers are registered in apis/sessionMetrics.ts.
  */
 import { createRoute } from '@hono/zod-openapi';

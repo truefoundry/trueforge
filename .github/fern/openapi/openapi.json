@@ -4836,6 +4836,271 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/internal/metrics/charts": {
+      "get": {
+        "description": "List available session metric charts.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
+                }
+              }
+            },
+            "description": "Available session metric charts."
+          }
+        },
+        "summary": "Get session metrics charts",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "list_charts"
+      }
+    },
+    "/api/internal/metrics/charts-data": {
+      "get": {
+        "description": "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Session metrics chart to return.",
+            "in": "query",
+            "name": "chart_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SessionMetricsChartName"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
+                }
+              }
+            },
+            "description": "Zero-filled time series for one chart."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics chart data",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_chart_data"
+      }
+    },
+    "/api/internal/metrics/meters": {
+      "get": {
+        "description": "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
+                }
+              }
+            },
+            "description": "Session metric meters."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics meters",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/sessions/get-or-create-by-external-id": {
+      "post": {
+        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session already existed for this external id."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+          }
+        },
+        "summary": "Get or create a session by external id",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "description": "All configured agents for the tenant.",
@@ -8219,271 +8484,6 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/internal/metrics/charts": {
-      "get": {
-        "description": "List available session metric charts.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
-                }
-              }
-            },
-            "description": "Available session metric charts."
-          }
-        },
-        "summary": "Get session metrics charts",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "metrics"
-        ],
-        "x-fern-sdk-method-name": "list_charts"
-      }
-    },
-    "/internal/metrics/charts-data": {
-      "get": {
-        "description": "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
-        "parameters": [
-          {
-            "description": "Named agent identifier.",
-            "in": "query",
-            "name": "agent_id",
-            "required": true,
-            "schema": {
-              "description": "Named agent identifier.",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive lower bound on session `created_at`.",
-            "in": "query",
-            "name": "start_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive lower bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive upper bound on session `created_at`.",
-            "in": "query",
-            "name": "end_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive upper bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Session metrics chart to return.",
-            "in": "query",
-            "name": "chart_name",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SessionMetricsChartName"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
-                }
-              }
-            },
-            "description": "Zero-filled time series for one chart."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid timestamps or a window longer than 30 days."
-          }
-        },
-        "summary": "Get session metrics chart data",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "metrics"
-        ],
-        "x-fern-sdk-method-name": "get_chart_data"
-      }
-    },
-    "/internal/metrics/meters": {
-      "get": {
-        "description": "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
-        "parameters": [
-          {
-            "description": "Named agent identifier.",
-            "in": "query",
-            "name": "agent_id",
-            "required": true,
-            "schema": {
-              "description": "Named agent identifier.",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive lower bound on session `created_at`.",
-            "in": "query",
-            "name": "start_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive lower bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive upper bound on session `created_at`.",
-            "in": "query",
-            "name": "end_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive upper bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
-                }
-              }
-            },
-            "description": "Session metric meters."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid timestamps or a window longer than 30 days."
-          }
-        },
-        "summary": "Get session metrics meters",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "metrics"
-        ],
-        "x-fern-sdk-method-name": "get_meters"
-      }
-    },
-    "/internal/sessions/get-or-create-by-external-id": {
-      "post": {
-        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionResponse"
-                }
-              }
-            },
-            "description": "Session already existed for this external id."
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionResponse"
-                }
-              }
-            },
-            "description": "Session created."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid request body."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Caller is not the session creator."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Named agent not found."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
-          }
-        },
-        "summary": "Get or create a session by external id",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "sessions"
-        ],
-        "x-fern-sdk-method-name": "get_or_create_by_external_id"
       }
     }
   },

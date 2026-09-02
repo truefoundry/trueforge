@@ -1,5 +1,5 @@
 /**
- * DB-backed sessions APIs (mounted at /api/v1/sessions and /internal/sessions).
+ * DB-backed sessions APIs (mounted at /api/v1/sessions and /api/internal/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
@@ -282,7 +282,7 @@ function createGetOrCreateSessionByExternalIdHandler(
   };
 }
 
-/** Internal session operations (mounted at /internal/sessions). */
+/** Internal session operations (mounted at /api/internal/sessions). */
 export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
   const router = new OpenAPIHono();
   router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));

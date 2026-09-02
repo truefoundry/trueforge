@@ -14,7 +14,7 @@ describe('createHarnessAgentMetricsServer', () => {
     const fetch = vi.fn(async (input: Request | string | URL) => {
       const url = new URL(input instanceof Request ? input.url : input);
       const path = url.pathname;
-      if (path === '/internal/metrics/charts') {
+      if (path === '/api/internal/metrics/charts') {
         return Response.json({
           data: {
             charts: [
@@ -28,7 +28,7 @@ describe('createHarnessAgentMetricsServer', () => {
           },
         });
       }
-      if (path === '/internal/metrics/meters') {
+      if (path === '/api/internal/metrics/meters') {
         return Response.json({
           data: {
             meters: [
@@ -108,7 +108,7 @@ describe('createHarnessAgentMetricsServer', () => {
 
     const meterInput = fetch.mock.calls[1]?.[0];
     const meterUrl = new URL(meterInput instanceof Request ? meterInput.url : String(meterInput));
-    assert.equal(meterUrl.pathname, '/internal/metrics/meters');
+    assert.equal(meterUrl.pathname, '/api/internal/metrics/meters');
     assert.deepEqual(Object.fromEntries(meterUrl.searchParams), {
       agent_id: 'agent-1',
       start_timestamp: range.startTimestamp,

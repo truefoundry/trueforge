@@ -5,7 +5,7 @@
 
 Wire fields stay `snake_case`. New endpoints MUST follow this; renames of shipped schemas break `packages/trueforge-sdk`.
 
-**Paths:** plural kebab under `/api/v1/{collection}`, nested `/…/{id}/{subcollection}`, settings `/api/v1/settings/{collection}`, catalogs `/api/v1/catalogs/{collection}`. Ids as `{resource}_id`; name-keyed ops use `{name}` — do not mix id and name across verbs for one resource.
+**Paths:** plural kebab under `/api/v1/{collection}`, nested `/…/{id}/{subcollection}`, settings `/api/v1/settings/{collection}`, catalogs `/api/v1/catalogs/{collection}`, internal `/api/internal/{collection}`. Ids as `{resource}_id`; name-keyed ops use `{name}` — do not mix id and name across verbs for one resource.
 
 If a settings resource is one-per-tenant (e.g. sandbox provider), keep the plural path `/api/v1/settings/sandbox-providers` for URL consistency, but Fern methods are `get`/`create_or_update` returning a single object — not `list` returning an array.
 
