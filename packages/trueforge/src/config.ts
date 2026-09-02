@@ -618,8 +618,7 @@ const shared: SharedServerConfiguration = {
   }),
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
   SERVER_URL:
-    getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ??
-    `http://localhost:${String(port)}`,
+    getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
   TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
     envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
