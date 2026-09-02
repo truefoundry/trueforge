@@ -60,7 +60,30 @@ export default defineRailway(_ctx => {
     },
   });
 
+  // Schedule controller: a second service off the same repo/image that runs the
+  // periodic control loops (schedule dispatch). Must run as exactly one replica.
+  // It talks to Postgres and hands due runs to the app over Railway's private
+  // network (CONTROLLER_SERVER_BASE_URL); it needs no public domain or healthcheck.
+  const controller = service('trueforge-controller', {
+    source: github('truefoundry/trueforge'),
+    startCommand: 'node dist/controller-main.js',
+    replicas: 1,
+    deploy: {
+      restartPolicyType: 'ON_FAILURE',
+      restartPolicyMaxRetries: 5,
+      // Above GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not cut off loop drain.
+      drainingSeconds: 35,
+    },
+    env: {
+      RAILWAY_DOCKERFILE_PATH: 'Dockerfile.dev',
+      STANDALONE: 'false',
+      DATABASE_URL: db.env.DATABASE_URL,
+      // Reaches the app over Railway private networking (no public egress).
+      CONTROLLER_SERVER_BASE_URL: 'http://${{trueforge.RAILWAY_PRIVATE_DOMAIN}}:${{trueforge.PORT}}',
+    },
+  });
+
   return project('trueforge', {
-    resources: [group('TrueForge', [db, cache, app])],
+    resources: [group('TrueForge', [db, cache, app, controller])],
   });
 });
