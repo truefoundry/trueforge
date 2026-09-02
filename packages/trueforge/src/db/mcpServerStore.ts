@@ -9,9 +9,6 @@
  *
  * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
- *
- * Keep this module free of `mcpDcr` / MCP SDK imports so DB store Jest configs
- * (which do not transform that ESM graph) can load persistence types and mappers.
  */
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
