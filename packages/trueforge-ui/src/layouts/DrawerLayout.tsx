@@ -41,8 +41,8 @@ export function DrawerLayout({ className }: { className?: string }) {
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
 
   useEffect(() => {
-    if (libraryOpen || sessionsOpen) setThreadsOpen(false);
-  }, [libraryOpen, sessionsOpen]);
+    if (libraryOpen || sessionsOpen || schedulesOpen) setThreadsOpen(false);
+  }, [libraryOpen, sessionsOpen, schedulesOpen]);
 
   useEffect(() => {
     if (!threadsOpen) return;

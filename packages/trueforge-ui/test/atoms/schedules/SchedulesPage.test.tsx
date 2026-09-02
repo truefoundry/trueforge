@@ -3,8 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SchedulesPage } from '@/atoms/schedules/SchedulesPage.js';
+import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { Schedule, ScheduleRun, ScheduleServer } from '@/server/types.js';
+import type { AgentUIServer, Schedule, ScheduleRun, ScheduleServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
 const sampleSchedules: Schedule[] = [
@@ -59,6 +60,7 @@ function renderPage(
   schedules: Schedule[] = sampleSchedules,
   overrides: Partial<ScheduleServer> = {},
   listImpl?: ScheduleServer['listSchedules'],
+  searchAgents?: AgentUIServer['searchAgents'],
 ) {
   const scheduleServer: ScheduleServer = {
     listSchedules: vi.fn(
@@ -76,12 +78,14 @@ function renderPage(
     ...overrides,
   };
   const server = createMockAgentUIServer({
-    searchAgents: vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
+    searchAgents: searchAgents ?? vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
     schedules: scheduleServer,
   });
   render(
     <ServerProvider server={server}>
-      <SchedulesPage />
+      <ToasterProvider>
+        <SchedulesPage />
+      </ToasterProvider>
     </ServerProvider>,
   );
   return { scheduleServer };
@@ -274,5 +278,56 @@ describe('SchedulesPage', () => {
     await waitFor(() => {
       expect(scheduleServer.deleteSchedule).toHaveBeenCalledWith({ id: 's1' });
     });
+  });
+
+  it('toasts when pause or delete fails', async () => {
+    const updateSchedule = vi.fn(async () => {
+      throw new Error('pause failed');
+    });
+    const deleteSchedule = vi.fn(async () => {
+      throw new Error('delete failed');
+    });
+    renderPage(sampleSchedules, { updateSchedule, deleteSchedule });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for daily-digest' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pause' }));
+
+    expect(await screen.findByText('pause failed')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for daily-digest' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(await screen.findByText('delete failed')).toBeInTheDocument();
+  });
+
+  it('keeps pagination when name filter matches nothing on the current page', async () => {
+    renderPage(sampleSchedules, {}, async () => ({
+      data: sampleSchedules,
+      nextPageToken: 'page-2',
+    }));
+
+    await screen.findByRole('button', { name: 'daily-digest' });
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: 'nope' },
+    });
+
+    expect(await screen.findByText('No schedules match your filters.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+  });
+
+  it('loads every page of agents for the filter', async () => {
+    const agents = Array.from({ length: 51 }, (_, index) => ({
+      agentId: `agent-${String(index + 1)}`,
+      name: `Agent ${String(index + 1)}`,
+    }));
+    const searchAgents = vi.fn(async ({ limit = 50, offset = 0 } = {}) => agents.slice(offset, offset + limit));
+    renderPage(sampleSchedules, {}, undefined, searchAgents);
+
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenCalledTimes(2);
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Filter by agent' }));
+    expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument();
   });
 });

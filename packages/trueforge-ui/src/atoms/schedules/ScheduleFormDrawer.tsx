@@ -8,7 +8,7 @@ import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
-import { SEARCH_AGENTS_PAGE_SIZE } from '../lib/useSearchAgentsList.js';
+import { searchAllAgents } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
 import { SideDrawer } from '../primitives/SideDrawer.js';
 import {
@@ -62,8 +62,7 @@ function ScheduleFormDrawerBody({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void server
-      .searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE })
+    void searchAllAgents(server)
       .then(rows => {
         if (cancelled) return;
         setAgents(rows);

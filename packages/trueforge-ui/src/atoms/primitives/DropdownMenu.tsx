@@ -27,6 +27,7 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const focusedOpenRef = useRef(false);
   const menuId = useId();
 
   useLayoutEffect(() => {
@@ -67,10 +68,16 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  // Menu mounts only after `pos` is set; focus once per open, not on every scroll/resize pos rewrite.
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      focusedOpenRef.current = false;
+      return;
+    }
+    if (pos == null || focusedOpenRef.current) return;
     const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])');
     first?.focus();
+    focusedOpenRef.current = true;
   }, [open, pos]);
 
   useEffect(() => {

@@ -3,13 +3,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useOptionalServer } from '../../server/ServerContext.js';
-import type { AgentLibraryEntry } from '../../server/types.js';
+import type { AgentBuilderServer, AgentLibraryEntry } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useDebouncedValue } from './useDebouncedValue.js';
 
 export const SEARCH_AGENTS_PAGE_SIZE = 50;
 const DEFAULT_DEBOUNCE_MS = 300;
 const LOAD_MORE_ROOT_MARGIN = '48px';
+
+/** Drain every `searchAgents` page (offset pagination). */
+export async function searchAllAgents(
+  server: Pick<AgentBuilderServer, 'searchAgents'>,
+  offset = 0,
+): Promise<AgentLibraryEntry[]> {
+  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
+  if (rows.length < SEARCH_AGENTS_PAGE_SIZE) return rows;
+  return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
+}
 
 export type UseSearchAgentsListOptions = {
   /** When false, no fetches run. */
