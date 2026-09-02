@@ -202,7 +202,7 @@ describe('getMcpConnection', () => {
         clientName: 'test-client',
         userRef: LOCAL_USER_CONTEXT.userRef,
       }),
-    ).rejects.toMatchObject({ status: 401 });
+    ).rejects.toMatchObject({ status: 422 });
   });
 
   it('returns empty static headers when the server has no auth', async () => {

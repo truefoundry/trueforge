@@ -165,7 +165,7 @@ export async function getMcpConnection({
   // but invoke uses the caller token against the gateway, not the harness OAuth store.
   if (record.manifest.type === 'truefoundry') {
     if (accessToken === undefined || accessToken === '') {
-      throw new HTTPException(401, {
+      throw new HTTPException(422, {
         message: 'Authentication token required to call TrueFoundry MCP servers',
       });
     }
