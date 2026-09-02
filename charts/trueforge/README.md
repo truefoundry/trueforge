@@ -195,7 +195,7 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `replicaCount`        | `1`                                 | Number of server replicas.            |
+| `server.replicaCount` | `1`                                 | Number of server replicas.            |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). |
@@ -211,7 +211,10 @@ extraObjects:
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Container CPU, memory, and ephemeral-storage requests/limits. |
 
-Also available (defaults inert): `strategy`, `priorityClassName`,
+The server uses a RollingUpdate strategy by default (`server.strategy`); the
+controller is fixed to a single replica with `Recreate` and exposes neither.
+
+Also available (defaults inert): `priorityClassName`,
 `topologySpreadConstraints`, `initContainers`, `extraContainers`,
 `extraVolumes`, `extraVolumeMounts`, `service.annotations`, `service.labels`,
 `startupProbe`.

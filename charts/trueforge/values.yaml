@@ -1,6 +1,5 @@
 # Default values for the trueforge chart.
 
-replicaCount: 1
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
@@ -34,13 +33,6 @@ securityContext:
       - ALL
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
-# Rolling update controls (omit keys you do not want to set).
-strategy: {}
-# strategy:
-#   type: RollingUpdate
-#   rollingUpdate:
-#     maxUnavailable: 0
-#     maxSurge: 1
 
 service:
   type: ClusterIP
@@ -50,6 +42,14 @@ service:
 # Server runtime configuration. Keys map to environment variables read in
 # packages/trueforge/src/config.ts.
 server:
+  # Number of server replicas (ignored when autoscaling.enabled is true).
+  replicaCount: 1
+  # Rolling update strategy for the server Deployment.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   # Container port the server listens on (PORT).
   port: 8790
   # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
