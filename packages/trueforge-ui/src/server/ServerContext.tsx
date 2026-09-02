@@ -2,7 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AgentBuilderCapabilitiesResponse, AgentSessionsServer, AgentUIServer, CatalogServer } from './types.js';
+import type {
+  AgentBuilderCapabilitiesResponse,
+  AgentMetricsServer,
+  AgentSessionsServer,
+  AgentUIServer,
+  CatalogServer,
+} from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
 const ServerCapabilitiesContext = createContext<{
@@ -91,4 +97,16 @@ export function useAgentSessionsServer(): AgentSessionsServer {
 
 export function useOptionalAgentSessionsServer(): AgentSessionsServer | null {
   return useOptionalServer()?.sessions ?? null;
+}
+
+export function useAgentMetricsServer(): AgentMetricsServer {
+  const metrics = useServer().metrics;
+  if (metrics == null) {
+    throw new Error('useAgentMetricsServer requires AgentUIServer.metrics.');
+  }
+  return metrics;
+}
+
+export function useOptionalAgentMetricsServer(): AgentMetricsServer | null {
+  return useOptionalServer()?.metrics ?? null;
 }

@@ -239,8 +239,10 @@ export {
 export type { CustomActionRendererProps, CustomActionRenderers } from './server/CustomActionRenderersContext.js';
 export {
   ServerProvider,
+  useAgentMetricsServer,
   useAgentSessionsServer,
   useCatalogServer,
+  useOptionalAgentMetricsServer,
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
   useOptionalServer,
@@ -262,6 +264,16 @@ export type {
   AgentChatServer,
   AgentDetail,
   AgentLibraryEntry,
+  AgentMetricChartData,
+  AgentMetricChartDataRequest,
+  AgentMetricChartDefinition,
+  AgentMetricChartType,
+  AgentMetricGraph,
+  AgentMetricGraphLine,
+  AgentMetricMeter,
+  AgentMetricPoint,
+  AgentMetricRangeRequest,
+  AgentMetricsServer,
   AgentSessionsServer,
   AgentSkill,
   AgentSpec,
@@ -356,6 +368,10 @@ export { AgentDetailsHeader } from './atoms/agent-details/AgentDetailsHeader.js'
 export { AgentDetailsPage } from './atoms/agent-details/AgentDetailsPage.js';
 export { AgentDetailsTabs } from './atoms/agent-details/AgentDetailsTabs.js';
 export { AgentDetailsUnavailable } from './atoms/agent-details/AgentDetailsUnavailable.js';
+export { AgentMetricCard } from './atoms/agent-details/AgentMetricCard.js';
+export { AgentMetricChart } from './atoms/agent-details/AgentMetricChart.js';
+export { AgentMetricsTimeRangeFilter } from './atoms/agent-details/AgentMetricsTimeRangeFilter.js';
+export { AgentMetricsView } from './atoms/agent-details/AgentMetricsView.js';
 export { AgentOverviewCard } from './atoms/agent-details/AgentOverviewCard.js';
 export type {
   AgentCodeBlockProps,
@@ -365,6 +381,12 @@ export type {
   AgentDetailsTab,
   AgentDetailsTabsProps,
   AgentDetailsUnavailableProps,
+  AgentMetricCardProps,
+  AgentMetricChartProps,
+  AgentMetricChartResult,
+  AgentMetricsProps,
+  AgentMetricsTimeRangeFilterProps,
+  AgentMetricsViewProps,
   AgentOverviewCardProps,
   AgentOverviewProps,
   AgentSessionDetailHeaderProps,
@@ -375,6 +397,7 @@ export type {
   AgentSessionTurnHeaderProps,
   AgentSessionsProps,
 } from './atoms/agent-details/types.js';
+export { AgentMetricsContainer } from './containers/AgentMetricsContainer.js';
 export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
 export type { SessionTurnView } from './utils/sessionTurnViews.js';
 

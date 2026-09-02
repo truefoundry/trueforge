@@ -34,3 +34,11 @@ export function createTrueForgeClient(options: CreateTrueForgeClientOptions = {}
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
   });
 }
+
+export function parseIsoDate(value: string): Date {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid ISO timestamp: ${value}`);
+  }
+  return date;
+}
