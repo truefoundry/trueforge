@@ -67,6 +67,7 @@ export function toWireSession(record: SessionRecord): Session {
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
     metrics: record.metrics,
+    metadata: record.metadata,
   };
 }
 
@@ -305,6 +306,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         session_id: sessionId,
         created_by: user.userRef,
         agent: { type: 'reference', id: agent.id, name: agent.name },
+        metadata: body.metadata,
         external_id: null,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
@@ -324,6 +326,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       session_id: sessionId,
       created_by: user.userRef,
       agent: { type: 'inline', spec: body.agent.spec },
+      metadata: body.metadata,
       external_id: null,
     });
     return c.json({ data: toWireSession(session.record) }, 201);
@@ -383,6 +386,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         session_id: sessionId,
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: undefined,
+        metadata: body.metadata,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {

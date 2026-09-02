@@ -8,6 +8,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetadata,
   SessionMetrics,
   TurnInputItem,
   TurnState,
@@ -72,6 +73,7 @@ export interface SessionTable {
   /** Optional unique key within `tenant_id` when set. */
   external_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
+  metadata: JsonbColumn<SessionMetadata>;
   metrics: JsonbColumn<SessionMetrics>;
   created_at: string;
   updated_at: string;

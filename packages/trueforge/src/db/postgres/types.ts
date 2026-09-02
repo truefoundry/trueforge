@@ -5,6 +5,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetadata,
   SessionMetrics,
   TurnInputItem,
   TurnState,
@@ -87,6 +88,8 @@ export interface SessionTable {
   external_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
+  /** Caller-owned metadata; always present (DEFAULT '{}'). */
+  metadata: JSONColumnType<SessionMetadata, SessionMetadata, SessionMetadata>;
   metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;

@@ -1,4 +1,4 @@
-import type { SessionAgent, SessionMetrics } from '../schemas/session';
+import type { SessionAgent, SessionMetadata, SessionMetrics } from '../schemas/session';
 
 /**
  * Session persistence record. Agent binding is a single discriminated `agent`
@@ -36,5 +36,6 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    */
   last_activity_timestamp_ms: number;
   metrics: SessionMetrics;
+  metadata: SessionMetadata;
   custom: TCustom | null;
 }

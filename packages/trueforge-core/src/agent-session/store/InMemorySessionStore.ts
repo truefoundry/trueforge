@@ -200,6 +200,7 @@ export class InMemorySessionStore<
         total_duration_ms: 0,
         total_turns: 0,
       },
+      metadata: deepCopy(input.metadata),
       custom: input.custom !== null ? deepCopy(input.custom) : null,
     };
     this.sessions.set(key, { record, turnIds: [] });
@@ -248,6 +249,9 @@ export class InMemorySessionStore<
     }
     if (input.title !== undefined) {
       stored.record.title = input.title;
+    }
+    if (input.metadata !== undefined) {
+      stored.record.metadata = deepCopy(input.metadata);
     }
     const now = Date.now();
     stored.record.updated_at = new Date(now);

@@ -1054,6 +1054,9 @@
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "required": [
@@ -3189,6 +3192,9 @@
             "description": "Unique session id.",
             "type": "string"
           },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
+          },
           "metrics": {
             "$ref": "#/components/schemas/SessionMetrics"
           },
@@ -3211,7 +3217,8 @@
           "created_by",
           "created_at",
           "updated_at",
-          "metrics"
+          "metrics",
+          "metadata"
         ],
         "type": "object"
       },
@@ -3373,6 +3380,15 @@
           "turn_id",
           "event"
         ],
+        "type": "object"
+      },
+      "SessionMetadata": {
+        "additionalProperties": {
+          "description": "Metadata value; at most 128 characters.",
+          "maxLength": 128,
+          "type": "string"
+        },
+        "description": "Caller-owned session metadata",
         "type": "object"
       },
       "SessionMetrics": {
@@ -4632,6 +4648,9 @@
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/SessionAgentSpecBody"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "type": "object"

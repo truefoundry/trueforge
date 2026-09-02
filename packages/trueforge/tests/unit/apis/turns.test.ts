@@ -41,6 +41,7 @@ describe('turns', () => {
           }),
         },
         custom: null,
+        metadata: {},
         external_id: null,
       });
 
