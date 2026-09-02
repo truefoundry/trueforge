@@ -1,10 +1,11 @@
 /**
- * DB-backed configured MCP servers: one row per server per tenant,
- * identity as columns plus a Zod-validated `McpServerManifest` jsonb document.
- * Implementations: PostgresMcpServerStore and SqliteMcpServerStore.
+ * Configured MCP servers: one row per server per tenant, identity as columns plus a
+ * Zod-validated `McpServerManifest` jsonb document.
  *
- * Also owns the DCR registration columns (`oauth_server` / `oauth_client`) via
- * `IOAuthClientStore` — those are not a separate persistence root.
+ * - {@link IMcpServerStore}: DB CRUD + DCR client columns (`IOAuthClientStore`).
+ *   Implemented by PostgresMcpServerStore / SqliteMcpServerStore.
+ * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
+ *   {@link McpServerWithAuthStore} (separate module) composes an {@link IMcpServerStore} + a token store.
  *
  * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
@@ -16,7 +17,7 @@ import type {
   IOAuthClientStore,
 } from '../mcp/auth/types';
 import type { ResourceName } from '../schemas/common';
-import type { McpServerManifest } from '../schemas/mcpServer';
+import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
 
 export interface McpServerRecord {
   id: string;
@@ -62,6 +63,39 @@ export class McpServerNameConflictError extends Error {
   }
 }
 
+/** Thrown when authorize/revoke/status targets an unknown server name. */
+export class McpServerNotFoundError extends Error {
+  readonly server_name: string;
+
+  constructor(name: string) {
+    super(`MCP server not found: ${name}`);
+    this.name = 'McpServerNotFoundError';
+    this.server_name = name;
+  }
+}
+
+export interface ResolveMcpAuthStatusesInput {
+  records: readonly McpServerRecord[];
+  userRef: string;
+}
+
+export interface AuthorizeMcpServerInput {
+  tenant_id: string;
+  name: string;
+  userRef: string;
+  /** Relative same-origin path for local DCR pending-auth return. */
+  returnTo?: string;
+  /** Absolute redirect URL when a remote auth backend needs a full callback URL. */
+  redirectURL?: string;
+}
+
+export interface DeleteMcpAuthorizationInput {
+  tenant_id: string;
+  name: string;
+  userRef: string;
+}
+
+/** Row persistence + DCR client columns — no authorize/status/revoke. */
 export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
@@ -78,6 +112,22 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+}
+
+/**
+ * Settings/MCP API store: persistence plus Connect UX auth.
+ * McpServerWithAuthStore implements via a token store; remote-backed stores may call
+ * an upstream status/authorize API instead.
+ */
+export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServerStore<TTransaction> {
+  /** Wire `auth_status` for Connect UX, keyed by server name. */
+  resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>>;
+
+  /** Start or resume authorization; returns `auth_required` + URL or `authenticated`. */
+  authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus>;
+
+  /** Revoke this subject's authorization for the named server. */
+  deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
 }
 
 /**

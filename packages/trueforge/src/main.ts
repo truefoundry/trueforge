@@ -56,7 +56,8 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
-import type { IMcpServerStore } from './db/mcpServerStore';
+import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
+import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -252,7 +253,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     resolveModelProviderStore,
     withTransaction,
-    mcpServerStore,
+    mcpServerStore: persistenceMcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,
@@ -261,6 +262,12 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     destroyDb,
     redis,
   } = persistence;
+
+  const mcpServerStore: IMcpServerWithAuthStore<TTransaction> = new McpServerWithAuthStore({
+    store: persistenceMcpServerStore,
+    tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  });
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();

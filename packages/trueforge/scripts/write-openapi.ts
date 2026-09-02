@@ -18,6 +18,8 @@ import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../src/catalog/SkillCatalog';
+import configuration from '../src/config';
+import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -56,13 +58,18 @@ function canonicalise(value: unknown): unknown {
 // Unconnected stand-ins suffice: route registration never reads a dependency.
 const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
+const tokenStore = new SqliteOAuthTokenStore(db);
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   withTransaction: callback => db.transaction().execute(callback),
   mcpCatalog: McpCatalog.load(),
-  mcpServerStore: new SqliteMcpServerStore(db),
-  tokenStore: new SqliteOAuthTokenStore(db),
+  mcpServerStore: new McpServerWithAuthStore({
+    store: new SqliteMcpServerStore(db),
+    tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  }),
+  tokenStore,
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
   sandboxCatalog: SandboxCatalog.load(),

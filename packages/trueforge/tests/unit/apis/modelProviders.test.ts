@@ -8,6 +8,8 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import configuration from '../../../src/config';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -92,11 +94,16 @@ async function createRouters(): Promise<{
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
+  const tokenStore = new SqliteOAuthTokenStore(db);
   return {
     settingsRouter: createSettingsRouter({
       resolveModelProviderStore: () => modelProviderStore,
-      mcpServerStore: new SqliteMcpServerStore(db),
-      tokenStore: new SqliteOAuthTokenStore(db),
+      mcpServerStore: new McpServerWithAuthStore({
+        store: new SqliteMcpServerStore(db),
+        tokenStore,
+        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+      }),
+      tokenStore,
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
