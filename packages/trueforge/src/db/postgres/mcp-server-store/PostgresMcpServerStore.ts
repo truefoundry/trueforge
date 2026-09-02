@@ -1,15 +1,20 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
+import type { McpAuthStatus } from '../../../schemas/mcpServer';
 import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
   McpServerNameConflictError,
+  McpServerStoreNotImplementedError,
   toStoredOAuthClientRecord,
+  type AuthorizeMcpServerInput,
   type CreateMcpServerInput,
+  type DeleteMcpAuthorizationInput,
   type GetMcpServerInput,
   type IMcpServerStore,
   type ListMcpServersInput,
   type McpServerRecord,
+  type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from '../../mcpServerStore';
 import { isUniqueViolation } from '../client';
@@ -162,5 +167,18 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
       })
       .where('id', '=', params.id)
       .execute();
+  }
+
+  /** Use {@link LocalAuthMcpServerStore} in production; raw Postgres store has no token access. */
+  resolveAuthStatuses(_input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
+    return Promise.reject(new McpServerStoreNotImplementedError('resolveAuthStatuses'));
+  }
+
+  authorize(_input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
+    return Promise.reject(new McpServerStoreNotImplementedError('authorize'));
+  }
+
+  deleteAuthorization(_input: DeleteMcpAuthorizationInput): Promise<void> {
+    return Promise.reject(new McpServerStoreNotImplementedError('deleteAuthorization'));
   }
 }

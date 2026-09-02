@@ -56,6 +56,7 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
+import { wrapLocalMcpServerStore } from './db/LocalAuthMcpServerStore';
 import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -252,7 +253,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     resolveModelProviderStore,
     withTransaction,
-    mcpServerStore,
+    mcpServerStore: persistenceMcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,
@@ -261,6 +262,13 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     destroyDb,
     redis,
   } = persistence;
+
+  // Auth status / authorize / revoke live on the store so alternate backends can
+  // implement the same surface; DB stores get local DCR via this wrapper.
+  const mcpServerStore: IMcpServerStore<TTransaction> = wrapLocalMcpServerStore({
+    store: persistenceMcpServerStore,
+    tokenStore,
+  });
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
