@@ -4,6 +4,7 @@
  * Auth is applied at the /api/v1/settings mount boundary in app.ts (admin when auth is enabled).
  */
 import { OpenAPIHono } from '@hono/zod-openapi';
+import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { ResolveUserContext } from '../auth/identity';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -18,7 +19,7 @@ import { createSandboxProvidersRouter } from './sandboxProviders';
 import { createSkillsRouter } from './skills';
 
 export interface SettingsRouterDeps<TTransaction> {
-  modelProviderStore: IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
@@ -33,7 +34,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/model-providers',
     createModelProvidersRouter({
-      modelProviderStore: deps.modelProviderStore,
+      resolveModelProviderStore: deps.resolveModelProviderStore,
       withTransaction: deps.withTransaction,
     }),
   );

@@ -21,6 +21,9 @@ export function DrawerLayout({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
   const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
+  const AgentDetailsPage = useSlot('AgentDetailsPage');
+  const AgentsLibrary = useSlot('AgentsLibrary');
+  const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [threadsOpen, setThreadsOpen] = useState(false);
@@ -30,6 +33,9 @@ export function DrawerLayout({ className }: { className?: string }) {
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
+  const libraryOpen = shell?.libraryOpen === true;
+  const sessionsOpen = shell?.sessionsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen;
 
   useEffect(() => {
     if (!threadsOpen) return;
@@ -56,6 +62,8 @@ export function DrawerLayout({ className }: { className?: string }) {
   }, [threadsOpen]);
 
   const handleNewChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
     } else {
@@ -69,7 +77,7 @@ export function DrawerLayout({ className }: { className?: string }) {
     <div className={cn('relative flex h-full min-h-0 w-full flex-col bg-primary-bg', className)}>
       {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
       <header className="flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
-        {!settingsOpen ? (
+        {!overlayOpen ? (
           <>
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
@@ -81,7 +89,7 @@ export function DrawerLayout({ className }: { className?: string }) {
           <span className="min-w-0 flex-1" />
         )}
         <ShellActions key="shell-actions" />
-        {!settingsOpen ? (
+        {!overlayOpen ? (
           <>
             {shell?.isNewChatEnabled !== false ? (
               <button
@@ -124,6 +132,12 @@ export function DrawerLayout({ className }: { className?: string }) {
           >
             <TruefoundrySettingsBuilder />
           </Suspense>
+        ) : sessionsOpen ? (
+          <SessionsPage />
+        ) : libraryOpen && shell?.libraryAgentId != null ? (
+          <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+        ) : libraryOpen ? (
+          <AgentsLibrary onSelectAgent={() => setThreadsOpen(false)} />
         ) : isIdle ? (
           <SelectAgentEmptyState />
         ) : (

@@ -10,24 +10,23 @@
     "node": ">=22"
   },
   "scripts": {
-    "sdk:build": "pnpm --filter @truefoundry/trueforge-sdk build",
     "ui:build": "pnpm --filter @truefoundry/trueforge-ui build",
-    "predev": "pnpm run sdk:build && pnpm run ui:build",
+    "predev": "pnpm run ui:build",
     "dev": "trap 'exit 0' INT TERM; vite",
     "dev:no-watch": "pnpm run dev",
-    "prebuild": "pnpm run sdk:build && pnpm run ui:build",
+    "prebuild": "pnpm run ui:build",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "pretypecheck": "pnpm run sdk:build && pnpm run ui:build",
+    "pretypecheck": "pnpm run ui:build",
     "typecheck": "tsc --noEmit",
-    "pretest": "pnpm run sdk:build && pnpm run ui:build",
-    "test": "tsx --test \"tests/**/*.test.ts\""
+    "pretest": "pnpm run ui:build",
+    "test": "NODE_OPTIONS='--conditions=trueforge-dev' tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@assistant-ui/core": "0.2.22",
     "@assistant-ui/react": "0.14.27",
     "@assistant-ui/store": "0.2.21",
-    "@truefoundry/assistant-ui-runtime": "0.1.21",
+    "@truefoundry/assistant-ui-runtime": "0.1.22",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
     "monaco-editor": "^0.52.0",

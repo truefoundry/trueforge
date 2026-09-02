@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
@@ -63,6 +64,16 @@ type ShellModeContextValue = {
   settingsOpen: boolean;
   settingsSection: SettingsSection;
   setSettingsOpen: (open: boolean, section?: SettingsSection) => void;
+  /** Agents Library main-pane overlay (sidebar layout). */
+  libraryOpen: boolean;
+  libraryAgentId: string | null;
+  setLibraryAgentId: (id: string | null) => void;
+  setLibraryOpen: (open: boolean) => void;
+  /** All-user sessions browser (includes drafts). */
+  sessionsOpen: boolean;
+  setSessionsOpen: (open: boolean) => void;
+  openLibraryAgent: (agentId: string) => void;
+  closeLibraryAgent: () => void;
   /**
    * Bind from the Agents Library (Try = immutable, Edit = mutable + agentSpec).
    * Prefer this over `selectAgent` / `openDraft` when both fields are available.
@@ -184,18 +195,63 @@ export function ShellModeProvider({
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
   const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
+  const [libraryOpenState, setLibraryOpenState] = useState(false);
+  const [sessionsOpenState, setSessionsOpenState] = useState(false);
+  const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const settingsEnabled = capabilities?.settings?.enabled !== false;
   const settingsOpen = settingsEnabled && settingsOpenState;
+  const libraryOpen = isLibraryEnabled && libraryOpenState;
+  const sessionsOpen = sessionsOpenState;
+  const setSessionsOpen = useCallback((open: boolean) => {
+    if (open) {
+      setSettingsOpenState(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+    } else {
+      replaceSessionShareSearch({ view: null });
+    }
+    setSessionsOpenState(open);
+  }, []);
+  const setLibraryOpen = useCallback(
+    (open: boolean) => {
+      if (!isLibraryEnabled) return;
+      if (open) {
+        setSettingsOpenState(false);
+        setSessionsOpen(false);
+      }
+      setLibraryAgentId(null);
+      setLibraryOpenState(open);
+    },
+    [isLibraryEnabled, setSessionsOpen],
+  );
+  const openLibraryAgent = useCallback(
+    (agentId: string) => {
+      if (!isLibraryEnabled) return;
+      setSettingsOpenState(false);
+      setSessionsOpen(false);
+      setLibraryOpenState(true);
+      setLibraryAgentId(agentId);
+    },
+    [isLibraryEnabled, setSessionsOpen],
+  );
+  const closeLibraryAgent = useCallback(() => {
+    setLibraryAgentId(null);
+  }, []);
   const setSettingsOpen = useCallback(
     (open: boolean, section?: SettingsSection) => {
       if (section !== undefined) {
         setSettingsSection(section);
       }
+      if (open) {
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSessionsOpen(false);
+      }
       setSettingsOpenState(settingsEnabled && open);
     },
-    [settingsEnabled],
+    [setSessionsOpen, settingsEnabled],
   );
 
   useEffect(() => {
@@ -236,6 +292,9 @@ export function ShellModeProvider({
       if (req.isMutable) {
         if (!isComposerEnabled) return;
         setSettingsOpen(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSessionsOpen(false);
         setPendingSessionId(undefined);
         setMode({
           status: 'active',
@@ -252,6 +311,9 @@ export function ShellModeProvider({
       const agentName = req.agentName ?? req.agentId;
       if (agentName == null) return;
       setSettingsOpen(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+      setSessionsOpen(false);
       setPendingSessionId(undefined);
       setMode({
         status: 'active',
@@ -262,7 +324,7 @@ export function ShellModeProvider({
       });
       bumpEpoch(false);
     },
-    [isComposerEnabled, isLibraryEnabled, bumpEpoch, setSettingsOpen],
+    [isComposerEnabled, isLibraryEnabled, bumpEpoch, setSettingsOpen, setSessionsOpen],
   );
 
   const bindMutableAgent = useCallback(
@@ -318,6 +380,9 @@ export function ShellModeProvider({
       isMutable?: boolean;
     }) => {
       setSettingsOpen(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+      setSessionsOpen(false);
       setPendingSessionId(sessionId);
       const isMutable = isMutableOpt ?? agentName == null;
       if (isMutable) {
@@ -345,7 +410,7 @@ export function ShellModeProvider({
       });
       bumpEpoch(false);
     },
-    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, bumpEpoch, setSettingsOpen],
+    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, bumpEpoch, setSettingsOpen, setSessionsOpen],
   );
 
   const clearChat = useCallback(() => {
@@ -372,6 +437,8 @@ export function ShellModeProvider({
     if (!isLibraryEnabled || isComposerEnabled) return;
     setPendingSessionId(undefined);
     setSettingsOpen(false);
+    setLibraryOpenState(false);
+    setLibraryAgentId(null);
     setMode({ status: 'idle' });
     bumpEpoch(false);
   }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, bumpEpoch]);
@@ -397,6 +464,14 @@ export function ShellModeProvider({
       settingsOpen,
       settingsSection,
       setSettingsOpen,
+      libraryOpen,
+      libraryAgentId,
+      setLibraryAgentId,
+      setLibraryOpen,
+      sessionsOpen,
+      setSessionsOpen,
+      openLibraryAgent,
+      closeLibraryAgent,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,
@@ -422,6 +497,13 @@ export function ShellModeProvider({
       settingsOpen,
       settingsSection,
       setSettingsOpen,
+      libraryOpen,
+      libraryAgentId,
+      setLibraryOpen,
+      sessionsOpen,
+      setSessionsOpen,
+      openLibraryAgent,
+      closeLibraryAgent,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,

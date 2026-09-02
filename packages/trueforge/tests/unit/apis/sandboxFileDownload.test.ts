@@ -38,7 +38,7 @@ async function buildApp() {
       sessions,
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
-      modelProviderStore: new SqliteModelProviderStore(db),
+      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
       mcpServerStore: new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),

@@ -31,7 +31,11 @@ export function SidebarLayout({ className }: { className?: string }) {
   const brandName = useBrandName();
   const chrome = resolveBrandChrome(brand);
   const BrandLogo = useSlot('BrandLogo');
+  const AgentDetailsPage = useSlot('AgentDetailsPage');
+  const AgentsLibrary = useSlot('AgentsLibrary');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SessionsPage = useSlot('SessionsPage');
   const ClearChatButton = useSlot('ClearChatButton');
   const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
@@ -51,6 +55,9 @@ export function SidebarLayout({ className }: { className?: string }) {
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
+  const libraryOpen = shell?.libraryOpen === true;
+  const sessionsOpen = shell?.sessionsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen;
   const hasChatHeaderContent = useChatHeaderContentVisible();
 
   useEffect(() => {
@@ -78,6 +85,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   }, [mobileNavOpen]);
 
   const handleNewChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
       return;
@@ -133,6 +142,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             </button>
           ) : null}
           <AgentsLibraryButton compact />
+          <SessionsBrowserButton compact />
         </nav>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" hidden={collapsed}>
           <ThreadListContainer />
@@ -156,10 +166,10 @@ export function SidebarLayout({ className }: { className?: string }) {
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
             // (empty untitled draft). Mobile still needs Sessions + ShellActions.
-            (settingsOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
+            (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
-          {!settingsOpen ? (
+          {!overlayOpen ? (
             <>
               <button
                 ref={menuBtnRef}
@@ -202,6 +212,12 @@ export function SidebarLayout({ className }: { className?: string }) {
             >
               <TruefoundrySettingsBuilder />
             </Suspense>
+          ) : sessionsOpen ? (
+            <SessionsPage />
+          ) : libraryOpen && shell?.libraryAgentId != null ? (
+            <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+          ) : libraryOpen ? (
+            <AgentsLibrary onSelectAgent={() => setMobileNavOpen(false)} />
           ) : isIdle ? (
             <SelectAgentEmptyState />
           ) : (

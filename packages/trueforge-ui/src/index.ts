@@ -239,7 +239,9 @@ export {
 export type { CustomActionRendererProps, CustomActionRenderers } from './server/CustomActionRenderersContext.js';
 export {
   ServerProvider,
+  useAgentSessionsServer,
   useCatalogServer,
+  useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
   useOptionalServer,
   useServer,
@@ -258,13 +260,17 @@ export type {
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
   AgentChatServer,
+  AgentDetail,
   AgentLibraryEntry,
+  AgentSessionsServer,
   AgentSkill,
   AgentSpec,
   AgentUIServer,
   ApprovalDecision,
   AuthenticateConnectorRequest,
   CatalogServer,
+  CodeSnippet,
+  CodeSnippetSampleCode,
   ConnectorAuth,
   ConnectorAuthApiKey,
   ConnectorAuthNone,
@@ -290,6 +296,7 @@ export type {
   GithubSkill,
   ImportGithubSkillRequest,
   ListResult,
+  ListSessionEventsParams,
   ListSessionsOrder,
   ListSessionsParams,
   McpServerMount,
@@ -320,6 +327,8 @@ export type {
   SelectRegistrySkillRequest,
   Session,
   SessionEventItem,
+  SessionListEntry,
+  SessionListMetrics,
   SkillBase,
   SkillCatalogEntry,
   SkillCatalogServer,
@@ -327,6 +336,7 @@ export type {
   SkillMount,
   ToolBase,
   Turn,
+  TurnDoneMetrics,
   TurnInputItem,
   TurnState,
   TurnStreamData,
@@ -341,11 +351,41 @@ export type {
   UserToolResponseEvent,
 } from './server/types.js';
 
+export { AgentCodeBlock } from './atoms/agent-details/AgentCodeBlock.js';
+export { AgentDetailsHeader } from './atoms/agent-details/AgentDetailsHeader.js';
+export { AgentDetailsPage } from './atoms/agent-details/AgentDetailsPage.js';
+export { AgentDetailsTabs } from './atoms/agent-details/AgentDetailsTabs.js';
+export { AgentDetailsUnavailable } from './atoms/agent-details/AgentDetailsUnavailable.js';
+export { AgentOverviewCard } from './atoms/agent-details/AgentOverviewCard.js';
+export type {
+  AgentCodeBlockProps,
+  AgentCodeSnippetsProps,
+  AgentDetailsHeaderProps,
+  AgentDetailsPageProps,
+  AgentDetailsTab,
+  AgentDetailsTabsProps,
+  AgentDetailsUnavailableProps,
+  AgentOverviewCardProps,
+  AgentOverviewProps,
+  AgentSessionDetailHeaderProps,
+  AgentSessionEventTimelineChartProps,
+  AgentSessionEventTimelineProps,
+  AgentSessionListRowProps,
+  AgentSessionMetricsStripProps,
+  AgentSessionTurnHeaderProps,
+  AgentSessionsProps,
+} from './atoms/agent-details/types.js';
+export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
+export type { SessionTurnView } from './utils/sessionTurnViews.js';
+
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
 export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
 export { getErrorMessage } from './utils/getErrorMessage.js';
 
+export { AgentSessionsFilters } from './atoms/agent-details/AgentSessionsFilters.js';
+export type { AgentSessionsFiltersProps } from './atoms/agent-details/AgentSessionsFilters.js';
+export { SessionsPage } from './atoms/agent-details/SessionsPage.js';
 export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';
 export { AgentsLibraryButton } from './atoms/AgentsLibraryButton.js';
@@ -359,3 +399,5 @@ export type { DraftModelSelectorProps } from './atoms/draft/DraftModelSelector.j
 export { GenerateInstructionsButton } from './atoms/GenerateInstructionsButton.js';
 export type { GenerateInstructionsButtonProps } from './atoms/GenerateInstructionsButton.js';
 export { SaveAgentButton } from './atoms/SaveAgentButton.js';
+export { SessionsBrowserButton } from './atoms/SessionsBrowserButton.js';
+export type { SessionsBrowserButtonProps } from './atoms/SessionsBrowserButton.js';

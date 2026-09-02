@@ -64,8 +64,15 @@ Public override surface (primitives stay theme/CSS — not slots):
   `ChatFileDownload`, `MonacoEditorCore`, `CodeEditor`
 - **Thread list:** `ThreadListShell`, `ThreadListNewButton`, `ThreadListRow`,
   `ThreadListRowSkeleton`, `ThreadListEmptyState`, `HistoryLoader`,
-  `AgentsLibrary`, `AgentsLibraryButton`, `SaveAgentButton`,
-  `SelectAgentEmptyState`, `ClearChatButton`
+  `AgentsLibrary`, `AgentsLibraryButton`, `SessionsBrowserButton`,
+  `SaveAgentButton`, `SelectAgentEmptyState`, `ClearChatButton`
+- **Agent details / sessions:** `AgentDetailsPage`, `AgentDetailsHeader`,
+  `AgentDetailsTabs`, `AgentDetailsUnavailable`, `AgentOverview`,
+  `AgentOverviewCard`, `AgentSessions`, `AgentSessionsFilters`, `SessionsPage`,
+  `AgentSessionListRow`, `AgentSessionDetailHeader`, `AgentSessionMetricsStrip`,
+  `AgentSessionTimelineContainer`, `AgentSessionEventTimeline`,
+  `AgentSessionEventTimelineChart`, `AgentSessionTurnHeader`,
+  `AgentCodeSnippets`, `AgentCodeBlock`
 - **Attachments / toasts:** `AttachmentCard`, `AttachmentPreviewDialog`,
   `AttachmentPickerButton`, `Toast`, `ToastStack`
 - **Tools / prompts:** `ToolCallCard`, `ToolCallContentBlock`,
@@ -88,8 +95,11 @@ Places mirrored to the URL:
 
 - `/` — new chat / library landing (mode-dependent)
 - `/agents/:agentName` — immutable "Try" of a library agent
+- `/sessions` — all-user Sessions browser (named agents and drafts)
 - `/sessions/:sessionId` — a specific chat session
 - `/settings` — settings overlay (closing navigates to the chat place below it)
+- `/library` — Agents Library
+- `/library/:agentId` — agent details. `?tab=overview|sessions|code` selects the tab (default Overview)
 
 Customize the paths (only honored when `withRouter`). Set any entry to `false`
 to keep that place overlay-only with no URL:
@@ -100,12 +110,12 @@ to keep that place overlay-only with no URL:
   withRouter
   routes={{
     basename: '/app',
-    paths: { session: '/chats/:sessionId', settings: false },
+    paths: { session: '/chats/:sessionId', libraryAgent: '/library/:agentId', settings: false },
   }}
 />
 ```
 
-Custom `agent` / `session` templates must keep their `:param` segment, or the
+Custom `agent` / `session` / `libraryAgent` templates must keep their `:param` segment, or the
 place can be written to the URL but not read back.
 
 Shell state stays the source of truth; the router mirrors it. Combining
@@ -113,8 +123,20 @@ Shell state stays the source of truth; the router mirrors it. Combining
 
 Notes on behaviour:
 
-- Only the pathname is owned; query string and hash are preserved across
-  navigation, so host state in `?…` survives switching sessions.
+- Hashes and host-owned query keys are preserved across navigation. Session
+  keys (`sessionId`, `agentId`, `tab`, `view`, `s_tw`, `s_sts`, `s_ets`) are
+  removed when the destination does not own them, preventing stale filters or
+  selections from leaking into unrelated routes.
+- A copied library session link is `?agentId=&sessionId=` on the current page
+  (plus `/library/:agentId` when `withRouter`). Opening it lands on that
+  agent's Sessions tab. Clicking an agent in the library writes `?tab=overview`
+  so a leftover chat `sessionId` does not open Sessions. The same query works
+  when `withRouter` is off.
+- The all-user Sessions page is `/sessions` when `withRouter` is on, or
+  `?view=sessions` when it is off. Agent and time filters live in the query
+  (`agentId`, `s_tw` for a relative window, or `s_sts`/`s_ets` for an absolute
+  range). Opening a session pins `s_sts`/`s_ets` around `created_at` (±5 min)
+  so a refresh still finds that row on page 1 without scrolling the list.
 - A `/sessions/:sessionId` link is resolved through `getSession` so the chat
   opens with its own agent binding and mutability rather than as a new draft.
 - Unrecognized paths (and malformed escapes) normalize to the root place.

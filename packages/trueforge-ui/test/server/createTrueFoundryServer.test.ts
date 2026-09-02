@@ -35,6 +35,12 @@ describe('createTrueFoundryServer', () => {
     const getMcp = vi.fn(async () => []);
     const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'agent-1' }));
+    const sessions = {
+      getAgent: vi.fn(),
+      getCodeSnippets: vi.fn(),
+      listSessions: vi.fn(async () => ({ data: [] })),
+      listSessionEvents: vi.fn(async () => ({ data: [] })),
+    };
 
     const server = createTrueFoundryServer({
       chatServer,
@@ -44,11 +50,13 @@ describe('createTrueFoundryServer', () => {
       getMcp,
       searchAgents,
       saveAgent,
+      sessions,
     });
 
     expect(server.createSession).toBe(chatServer.createSession);
     expect(server.listSessions).toBe(chatServer.listSessions);
     expect(server.catalog).toBeUndefined();
+    expect(server.sessions).toBe(sessions);
 
     await expect(server.getCapabilities()).resolves.toEqual(capabilities);
     await expect(server.getModels()).resolves.toHaveLength(1);

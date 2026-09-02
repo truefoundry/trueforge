@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 import * as sdk from '@/index.js';
 
 const expectedRuntimeExports: Array<keyof typeof sdk> = [
+  'AgentCodeBlock',
+  'AgentDetailsHeader',
+  'AgentDetailsPage',
+  'AgentDetailsTabs',
+  'AgentDetailsUnavailable',
+  'AgentOverviewCard',
+  'AgentSessionsFilters',
   'AgentStepsCard',
   'AgentStepsContainer',
   'AgentsLibrary',
@@ -67,6 +74,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ScrollToBottomButton',
   'SelectAgentEmptyState',
   'ServerProvider',
+  'SessionsBrowserButton',
+  'SessionsPage',
   'ShellActionsActionSlot',
   'ShellModeProvider',
   'SlotsProvider',
@@ -116,6 +125,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'shellIsMutable',
   'threadHasPendingMcpAuth',
   'trueFoundryAttachmentAdapter',
+  'useAgentSessionsServer',
   'useAui',
   'useAuiState',
   'useBrand',
@@ -128,6 +138,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useToaster',
   'useToasterOptional',
   'useMCPAuth',
+  'useOptionalAgentSessionsServer',
   'useOptionalCatalogServer',
   'useOptionalContentClassNames',
   'useOptionalCustomActionRenderers',

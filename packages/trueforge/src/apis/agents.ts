@@ -3,6 +3,7 @@
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { Context } from 'hono';
 import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -24,7 +25,7 @@ import { TENANT_ID } from './sessions';
 
 export interface AgentsRouterDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
-  modelProviderStore: IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -43,14 +44,16 @@ function toWireAgent(record: AgentRecord): Agent {
 async function validateManifest<TTransaction>({
   spec,
   deps,
+  store,
 }: {
   spec: AgentSpec;
   deps: AgentsRouterDeps<TTransaction>;
+  store: IModelProviderStore<TTransaction>;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
     spec,
     tenant_id: TENANT_ID,
-    modelProviderStore: deps.modelProviderStore,
+    modelProviderStore: store,
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
@@ -66,7 +69,11 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
     const body: CreateAgentRequest = c.req.valid('json');
-    const manifest = await validateManifest({ spec: body.manifest, deps });
+    const manifest = await validateManifest({
+      spec: body.manifest,
+      deps,
+      store: deps.resolveModelProviderStore(c),
+    });
     try {
       const record = await deps.agentStore.createAgent({
         tenant_id: TENANT_ID,
@@ -117,7 +124,11 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
     const body = c.req.valid('json');
-    const manifest = await validateManifest({ spec: body.manifest, deps });
+    const manifest = await validateManifest({
+      spec: body.manifest,
+      deps,
+      store: deps.resolveModelProviderStore(c),
+    });
     const record = await deps.agentStore.updateAgent({
       tenant_id: TENANT_ID,
       id: agentId,

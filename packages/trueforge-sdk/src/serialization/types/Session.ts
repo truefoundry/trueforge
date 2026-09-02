@@ -4,6 +4,7 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { SessionAgent } from "./SessionAgent.js";
+import { SessionMetrics } from "./SessionMetrics.js";
 
 export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, TrueForge.Session> =
     core.serialization.object({
@@ -11,6 +12,7 @@ export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, T
         createdAt: core.serialization.property("created_at", core.serialization.string()),
         createdBy: core.serialization.property("created_by", core.serialization.string()),
         id: core.serialization.string(),
+        metrics: SessionMetrics,
         title: core.serialization.string().nullable(),
         updatedAt: core.serialization.property("updated_at", core.serialization.string()),
     });
@@ -21,6 +23,7 @@ export declare namespace Session {
         created_at: string;
         created_by: string;
         id: string;
+        metrics: SessionMetrics.Raw;
         title?: string | null;
         updated_at: string;
     }

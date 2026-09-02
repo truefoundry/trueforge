@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
-import { buildPath, matchPath, placesEqual } from './paths.js';
+import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
 
 /**
@@ -29,6 +29,9 @@ export function ShellRouteSync({
 
   const snapshot: ShellSnapshot = {
     settingsOpen: shell.settingsOpen,
+    libraryOpen: shell.libraryOpen,
+    sessionsOpen: shell.sessionsOpen,
+    libraryAgentId: shell.libraryAgentId,
     pendingSessionId: shell.pendingSessionId,
     activeRemoteId,
     mode: shell.mode,
@@ -87,15 +90,27 @@ export function ShellRouteSync({
         case 'settings':
           shell.setSettingsOpen(true);
           return;
+        case 'library':
+          shell.setLibraryOpen(true);
+          return;
+        case 'sessionsBrowser':
+          shell.setSessionsOpen(true);
+          return;
+        case 'libraryAgent':
+          shell.openLibraryAgent(target.agentId);
+          return;
         case 'session':
+          shell.setLibraryOpen(false);
           if (shell.pendingSessionId === target.sessionId || activeRemoteId === target.sessionId) return;
           openSession(target.sessionId);
           return;
         case 'agent':
+          shell.setLibraryOpen(false);
           shell.selectLibraryAgent({ isMutable: false, agentName: target.agentName });
           return;
         case 'root':
           shell.setSettingsOpen(false);
+          shell.setLibraryOpen(false);
           switch (shell.agentConfigMode) {
             case 'AgentLibrary':
               shell.openLibraryHome();
@@ -119,11 +134,21 @@ export function ShellRouteSync({
     if (bootedRef.current) return;
     bootedRef.current = true;
 
-    const urlPlace = matchPath(location.pathname, routes) ?? { type: 'root' };
+    const urlPlace = matchLocation({
+      pathname: location.pathname,
+      search: location.search,
+      routes,
+    }) ?? { type: 'root' };
     const settingsOnBoot = initialSettingsOpen || urlPlace.type === 'settings';
 
     if (urlPlace.type === 'settings') {
       shell.setSettingsOpen(true);
+    } else if (urlPlace.type === 'library') {
+      shell.setLibraryOpen(true);
+    } else if (urlPlace.type === 'sessionsBrowser') {
+      shell.setSessionsOpen(true);
+    } else if (urlPlace.type === 'libraryAgent') {
+      shell.openLibraryAgent(urlPlace.agentId);
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
@@ -132,10 +157,11 @@ export function ShellRouteSync({
 
     const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
     const desiredPath = buildPath(desiredPlace, routes);
+    const desiredSearch = sanitizeSearchForPlace(desiredPlace, location.search);
     prevPlaceRef.current = desiredPlace;
-    if (desiredPath != null && desiredPath !== location.pathname) {
-      selfNavPathRef.current = desiredPath;
-      navigate({ pathname: desiredPath, search: location.search, hash: location.hash }, { replace: true });
+    if (desiredPath != null && (desiredPath !== location.pathname || desiredSearch !== location.search)) {
+      selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
+      navigate({ pathname: desiredPath, search: desiredSearch, hash: location.hash }, { replace: true });
     }
     // Boot runs once; snapshot is read imperatively here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,19 +176,23 @@ export function ShellRouteSync({
     }
     const target = buildPath(place, routes);
     if (target == null) return; // place has no configured URL (e.g. settings disabled)
+    const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
+    const browserPathname = `${basename}${location.pathname}` || '/';
+    const latestSearch = window.location.pathname === browserPathname ? window.location.search : location.search;
+    const targetSearch = sanitizeSearchForPlace(place, latestSearch);
 
     const prev = prevPlaceRef.current;
     prevPlaceRef.current = place;
 
-    if (target === location.pathname) return;
+    if (target === location.pathname && targetSearch === location.search) return;
 
     // Replace when a fresh chat just acquired its session id (same place, new id).
     const replace =
       place.type === 'session' && shell.pendingSessionId == null && prev != null && prev.type !== 'session';
 
-    selfNavPathRef.current = target;
-    // Only the pathname is ours; host query/hash state rides along unchanged.
-    navigate({ pathname: target, search: location.search, hash: location.hash }, { replace });
+    selfNavPathRef.current = target !== location.pathname ? target : null;
+    // Query keys owned by other shell places are removed; host keys and hash survive.
+    navigate({ pathname: target, search: targetSearch, hash: location.hash }, { replace });
     // location.pathname intentionally excluded: only react to shell-derived place changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placeKey]);
@@ -178,18 +208,29 @@ export function ShellRouteSync({
       selfNavPathRef.current = null;
       return;
     }
-    const urlPlace = matchPath(location.pathname, routes);
+    const urlPlace = matchLocation({
+      pathname: location.pathname,
+      search: location.search,
+      routes,
+    });
     if (urlPlace == null) {
       // Unknown path: normalize to root.
       const rootPath = routes.root;
+      const rootSearch = sanitizeSearchForPlace({ type: 'root' }, location.search);
       selfNavPathRef.current = rootPath;
-      navigate({ pathname: rootPath, search: location.search, hash: location.hash }, { replace: true });
+      navigate({ pathname: rootPath, search: rootSearch, hash: location.hash }, { replace: true });
       applyPlace({ type: 'root' });
       return;
     }
     if (urlPlace.type !== 'settings' && shell.settingsOpen) {
       // Leaving settings via Back to a chat place.
       shell.setSettingsOpen(false);
+    }
+    if (urlPlace.type !== 'library' && urlPlace.type !== 'libraryAgent' && shell.libraryOpen) {
+      shell.setLibraryOpen(false);
+    }
+    if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
+      shell.setSessionsOpen(false);
     }
     applyPlace(urlPlace);
     // eslint-disable-next-line react-hooks/exhaustive-deps

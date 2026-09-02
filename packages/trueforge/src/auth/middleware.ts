@@ -2,7 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 import { toUserContext, type IdTokenClaims } from './claims';
-import { readIdTokenCookie } from './cookies';
+import { readAccessTokenCookie, readIdTokenCookie } from './cookies';
 import { LOCAL_USER_CONTEXT, isAdmin, type UserContext } from './identity';
 import { getOidcVerify } from './oidc';
 
@@ -15,11 +15,11 @@ declare module 'hono' {
 const AUTH_HEADER_TYPE = 'Bearer';
 
 /**
- * OIDC ID token from `Authorization: Bearer <jwt>` when present.
+ * Bearer token from `Authorization: Bearer <token>` when present.
  * Case-insensitive scheme; rejects empty credentials. Non-Bearer schemes → undefined
  * so cookie auth can still apply.
  */
-export function readBearerIdToken(c: Context): string | undefined {
+export function readBearerToken(c: Context): string | undefined {
   const header = c.req.header('Authorization')?.trim();
   if (!header) {
     return undefined;
@@ -32,11 +32,19 @@ export function readBearerIdToken(c: Context): string | undefined {
   return token.length > 0 ? token : undefined;
 }
 
+export function requireAccessToken(c: Context): string {
+  const token = readBearerToken(c) ?? readAccessTokenCookie({ context: c }) ?? readIdTokenCookie({ context: c });
+  if (!token) {
+    throw new HTTPException(401, { message: 'Authentication token required to list or call TrueFoundry models' });
+  }
+  return token;
+}
+
 /**
  * Prefer Bearer over the browser cookie when both are sent (explicit API auth wins).
  */
 export function readIdToken(c: Context): string | undefined {
-  return readBearerIdToken(c) ?? readIdTokenCookie({ context: c });
+  return readBearerToken(c) ?? readIdTokenCookie({ context: c });
 }
 
 /**

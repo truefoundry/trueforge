@@ -111,9 +111,9 @@ jobs:
 
   # Order matters for fail-fast and lint correctness:
   # - format first (cheapest signal)
-  # - typecheck next (types + sdk/ui pretypecheck so .d.ts exist)
-  # - lint after typecheck (type-aware eslint resolves workspace packages via dist)
-  # - build last (full emit; not required for lint, still always-on as a ship gate)
+  # - typecheck next (package pretypecheck emits SDK .d.ts; core resolves from src/)
+  # - lint after typecheck (type-aware eslint reuses those declarations)
+  # - build last (full emit; SDK JS built once via the root graph, still always-on as a ship gate)
   typecheck-and-build:
     name: Format, Typecheck, Lint and Build
     runs-on: ubuntu-latest
@@ -148,7 +148,7 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # After typecheck so trueforge-ui and sdk .d.ts exist for type-aware eslint.
+      # After typecheck so trueforge-ui and SDK .d.ts exist for type-aware eslint.
       - name: Lint
         run: pnpm lint:ci
 

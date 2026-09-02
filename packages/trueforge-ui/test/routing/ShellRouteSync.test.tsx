@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { useEffect, useState } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -14,6 +14,7 @@ type Shell = ReturnType<typeof useShellMode>;
 
 let shell: Shell;
 let pathname = '';
+let search = '';
 let setRemoteId: (id: string | undefined) => void = () => undefined;
 
 function CaptureShell() {
@@ -24,9 +25,11 @@ function CaptureShell() {
 function CaptureLocation() {
   const location = useLocation();
   pathname = location.pathname;
+  search = location.search;
   useEffect(() => {
     pathname = location.pathname;
-  }, [location.pathname]);
+    search = location.search;
+  }, [location.pathname, location.search]);
   return null;
 }
 
@@ -85,6 +88,32 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/');
   });
 
+  it('mirrors library open/close through history', () => {
+    renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    act(() => shell.setLibraryOpen(true));
+    expect(pathname).toBe('/library');
+    act(() => shell.setLibraryOpen(false));
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors library agent detail through history', () => {
+    renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    act(() => shell.openLibraryAgent('agent/id'));
+    expect(pathname).toBe('/library/agent%2Fid');
+    expect(shell.libraryAgentId).toBe('agent/id');
+    act(() => shell.closeLibraryAgent());
+    expect(pathname).toBe('/library');
+  });
+
+  it('closes the library when selecting a session from the overlay', () => {
+    renderSync({ initialEntries: ['/library'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    expect(shell.libraryOpen).toBe(true);
+    expect(pathname).toBe('/library');
+    act(() => shell.openHistorySession({ sessionId: 'sess-1', isMutable: false, agentName: 'helper' }));
+    expect(shell.libraryOpen).toBe(false);
+    expect(pathname).toBe('/sessions/sess-1');
+  });
+
   it('replaces to the session path when a fresh chat acquires a remote id', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -113,6 +142,35 @@ describe('ShellRouteSync', () => {
     renderSync({ initialEntries: ['/settings'] });
     expect(shell.settingsOpen).toBe(true);
     act(() => shell.setSettingsOpen(false));
+    expect(pathname).toBe('/');
+  });
+
+  it('opens library on boot from a /library deep link', () => {
+    renderSync({ initialEntries: ['/library'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    expect(shell.libraryOpen).toBe(true);
+    expect(pathname).toBe('/library');
+  });
+
+  it('clears stale session query state from the library URL while preserving host keys', async () => {
+    renderSync({
+      initialEntries: ['/library?theme=dark&sessionId=sess-1&agentId=agent-1&s_sts=1&s_ets=2'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+    expect(pathname).toBe('/library');
+    await waitFor(() => expect(search).toBe('?theme=dark'));
+  });
+
+  it('opens agent details on boot from a /library/:agentId deep link', () => {
+    renderSync({ initialEntries: ['/library/agent-7'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    expect(shell.libraryOpen).toBe(true);
+    expect(shell.libraryAgentId).toBe('agent-7');
+    expect(pathname).toBe('/library/agent-7');
+  });
+
+  it('returns to the chat place when a /library deep link is closed', () => {
+    renderSync({ initialEntries: ['/library'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    expect(shell.libraryOpen).toBe(true);
+    act(() => shell.setLibraryOpen(false));
     expect(pathname).toBe('/');
   });
 });

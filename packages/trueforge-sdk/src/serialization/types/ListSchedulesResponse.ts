@@ -4,16 +4,19 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { Schedule } from "./Schedule.js";
+import { TokenPagination } from "./TokenPagination.js";
 
 export const ListSchedulesResponse: core.serialization.ObjectSchema<
     serializers.ListSchedulesResponse.Raw,
     TrueForge.ListSchedulesResponse
 > = core.serialization.object({
     data: core.serialization.list(Schedule),
+    pagination: TokenPagination,
 });
 
 export declare namespace ListSchedulesResponse {
     export interface Raw {
         data: Schedule.Raw[];
+        pagination: TokenPagination.Raw;
     }
 }

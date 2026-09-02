@@ -8,6 +8,10 @@
     "types": "./dist/cjs/index.d.ts",
     "exports": {
         ".": {
+            "trueforge-dev": {
+                "types": "./dist/cjs/index.d.ts",
+                "default": "./src/index.ts"
+            },
             "import": {
                 "types": "./dist/esm/index.d.mts",
                 "default": "./dist/esm/index.mjs"
@@ -193,6 +197,17 @@
                 "default": "./dist/cjs/api/resources/internal/resources/agents/exports.js"
             },
             "default": "./dist/cjs/api/resources/internal/resources/agents/exports.js"
+        },
+        "./internal/metrics": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/metrics/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/metrics/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/metrics/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
         },
         "./internal/sessions": {
             "import": {

@@ -1,4 +1,8 @@
-import { scheduleDispatchLoop } from '../../../src/controller/scheduleDispatch';
+import {
+  ScheduleAgentNotFoundError,
+  scheduleDispatchLoop,
+  startScheduleRun,
+} from '../../../src/controller/scheduleDispatch';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
 
@@ -118,5 +122,73 @@ describe('scheduleDispatchLoop', () => {
       'Failed to hand off triggered run',
       expect.objectContaining({ run_id: 'run-1' }),
     );
+  });
+});
+
+describe('startScheduleRun', () => {
+  const startTurn = jest.fn().mockResolvedValue({ id: 'turn-1' });
+
+  beforeEach(() => {
+    startTurn.mockClear();
+    startTurn.mockResolvedValue({ id: 'turn-1' });
+  });
+
+  it('get-or-creates a session and starts a turn with the schedule task', async () => {
+    const dispatchItem = item();
+    const listTurns = jest.fn().mockResolvedValue({ data: [] });
+    const session = { listTurns };
+    const getOrCreateByExternalId = jest.fn().mockResolvedValue({ session, created: true });
+    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+
+    await startScheduleRun({
+      item: dispatchItem,
+      sessions: { getOrCreateByExternalId } as never,
+      agentStore: { getAgent } as never,
+      startTurn,
+    });
+
+    expect(getAgent).toHaveBeenCalledWith({ tenant_id: 'default', name: 'reporter' });
+    expect(getOrCreateByExternalId).toHaveBeenCalledWith({
+      tenant_id: 'default',
+      external_id: 'run-1',
+      created_by: 'tester',
+      agent: { type: 'reference', id: 'agent-1', name: 'reporter' },
+    });
+    expect(startTurn).toHaveBeenCalledWith({
+      session,
+      input: [{ type: 'user.message', content: 'Write the report' }],
+      previous_turn_id: 'none',
+      userRef: 'tester',
+    });
+  });
+
+  it('does not start a turn when the session already has one', async () => {
+    const listTurns = jest.fn().mockResolvedValue({ data: [{ turn_id: 'turn-1' }] });
+    const getOrCreateByExternalId = jest.fn().mockResolvedValue({
+      session: { listTurns },
+      created: false,
+    });
+    const getAgent = jest.fn().mockResolvedValue({ id: 'agent-1', name: 'reporter' });
+
+    await startScheduleRun({
+      item: item(),
+      sessions: { getOrCreateByExternalId } as never,
+      agentStore: { getAgent } as never,
+      startTurn,
+    });
+
+    expect(startTurn).not.toHaveBeenCalled();
+  });
+
+  it('throws when the schedule agent is missing', async () => {
+    await expect(
+      startScheduleRun({
+        item: item(),
+        sessions: { getOrCreateByExternalId: jest.fn() } as never,
+        agentStore: { getAgent: jest.fn().mockResolvedValue(undefined) } as never,
+        startTurn,
+      }),
+    ).rejects.toBeInstanceOf(ScheduleAgentNotFoundError);
+    expect(startTurn).not.toHaveBeenCalled();
   });
 });

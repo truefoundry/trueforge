@@ -1,7 +1,7 @@
 import type { RoutePlace, ShellSnapshot } from './types.js';
 
 /**
- * The chat place implied by shell state, ignoring the settings overlay.
+ * The chat place implied by shell state, ignoring overlay routes (settings, library).
  * SingleAgent canonicalizes to `root` so `/` and `/agents/{name}` alias.
  */
 export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
@@ -19,8 +19,13 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
   return { type: 'root' };
 }
 
-/** Full place including the settings overlay, which wins over the chat place. */
+/** Full place including overlay routes, which win over the chat place. */
 export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
   if (snapshot.settingsOpen) return { type: 'settings' };
+  if (snapshot.sessionsOpen) return { type: 'sessionsBrowser' };
+  if (snapshot.libraryOpen && snapshot.libraryAgentId != null) {
+    return { type: 'libraryAgent', agentId: snapshot.libraryAgentId };
+  }
+  if (snapshot.libraryOpen) return { type: 'library' };
   return deriveChatPlace(snapshot);
 }

@@ -2,10 +2,13 @@
  * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { UserContext } from '../auth/identity';
+import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {
+  manualRunName,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   type IScheduleStore,
@@ -15,6 +18,7 @@ import {
 import type { WithTransaction } from '../db/transaction';
 import {
   createScheduleRoute,
+  createScheduleRunRoute,
   deleteScheduleRoute,
   getScheduleRoute,
   listScheduleRunsRoute,
@@ -30,10 +34,13 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { TENANT_ID } from './sessions';
+import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
+  sessions: Sessions;
+  turnDeps: BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveUserContext: (c: Context) => UserContext;
 }
@@ -109,16 +116,25 @@ function canAccessSchedule(user: UserContext, createdBy: string): boolean {
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
-    const { agent_name: agentName } = c.req.valid('query');
+    const { agent_names: agentNames, limit, page_token: pageToken } = c.req.valid('query');
     const user = deps.resolveUserContext(c);
     // Admins see every schedule; a regular user is scoped to their own via the
     // store's `created_by` filter (never a client-supplied param).
-    const records = await deps.scheduleStore.listSchedules({
-      tenant_id: TENANT_ID,
-      agent_name: agentName,
-      created_by: user.role === 'admin' ? undefined : user.userRef,
-    });
-    return c.json({ data: records.map(toWireSchedule) }, 200);
+    try {
+      const { data, pagination } = await deps.scheduleStore.listSchedules({
+        tenant_id: TENANT_ID,
+        limit,
+        page_token: pageToken,
+        agent_names: agentNames,
+        created_by: user.role === 'admin' ? undefined : user.userRef,
+      });
+      return c.json({ data: data.map(toWireSchedule), pagination }, 200);
+    } catch (error) {
+      if (error instanceof InvalidPageTokenError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
   };
 
   const listRunsHandler: RouteHandler<typeof listScheduleRunsRoute> = async c => {
@@ -132,6 +148,67 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     }
     const records = await deps.scheduleStore.listRuns({ tenant_id: TENANT_ID, schedule_id: scheduleId });
     return c.json({ data: records.map(toWireScheduleRun) }, 200);
+  };
+
+  const createScheduleRunHandler: RouteHandler<typeof createScheduleRunRoute> = async c => {
+    const { schedule_id: scheduleId } = c.req.valid('json');
+    const user = deps.resolveUserContext(c);
+
+    const schedule = await deps.scheduleStore.getSchedule({ tenant_id: TENANT_ID, id: scheduleId });
+    if (schedule === undefined) {
+      return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
+    }
+    if (!canAccessSchedule(user, schedule.created_by)) {
+      return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
+    }
+
+    const now = new Date();
+    let run: ScheduleRunRecord;
+    try {
+      run = await deps.scheduleStore.createRun({
+        tenant_id: TENANT_ID,
+        schedule_id: schedule.id,
+        name: manualRunName(),
+        scheduled_for: now,
+        status: 'triggered',
+        triggered_by: user.userRef,
+        triggered_at: now,
+      });
+    } catch (error) {
+      if (error instanceof ScheduleRunConflictError) {
+        return c.json({ error: { message: `${error.message}. Retry the request.` } }, 409);
+      }
+      throw error;
+    }
+
+    try {
+      await startScheduleRun({
+        item: { run, schedule },
+        sessions: deps.sessions,
+        agentStore: deps.agentStore,
+        startTurn: async turnParams => {
+          await startTurnInProcess({ ...turnParams, deps: deps.turnDeps });
+        },
+      });
+    } catch (error) {
+      await deps.scheduleStore.updateRunStatus({
+        tenant_id: TENANT_ID,
+        id: run.id,
+        status: 'failed',
+      });
+
+      if (error instanceof ScheduleAgentNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      const turnError = getTurnExecutionError(error);
+      if (turnError) {
+        return c.json({ error: { message: turnError.message } }, turnError.status);
+      }
+      throw error;
+    }
+
+    const latest = await deps.scheduleStore.getRun({ tenant_id: TENANT_ID, id: run.id });
+    return c.json({ data: toWireScheduleRun(latest ?? run) }, 201);
   };
 
   const createHandler: RouteHandler<typeof createScheduleRoute> = async c => {
@@ -257,6 +334,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
   const router = new OpenAPIHono();
   router.openapi(listSchedulesRoute, listHandler);
   router.openapi(listScheduleRunsRoute, listRunsHandler);
+  router.openapi(createScheduleRunRoute, createScheduleRunHandler);
   router.openapi(createScheduleRoute, createHandler);
   router.openapi(getScheduleRoute, getHandler);
   router.openapi(putScheduleRoute, putHandler);

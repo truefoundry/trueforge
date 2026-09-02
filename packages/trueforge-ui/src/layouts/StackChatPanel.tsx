@@ -32,10 +32,15 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
   const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
+  const AgentDetailsPage = useSlot('AgentDetailsPage');
+  const AgentsLibrary = useSlot('AgentsLibrary');
+  const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
+  const libraryOpen = shell?.libraryOpen === true;
+  const sessionsOpen = shell?.sessionsOpen === true;
 
   useEffect(() => {
     if (isIdle) return;
@@ -61,6 +66,18 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
           >
             <TruefoundrySettingsBuilder />
           </Suspense>
+        </div>
+      ) : sessionsOpen ? (
+        <div className="min-h-0 flex-1">
+          <SessionsPage />
+        </div>
+      ) : libraryOpen && shell?.libraryAgentId != null ? (
+        <div className="min-h-0 flex-1">
+          <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+        </div>
+      ) : libraryOpen ? (
+        <div className="min-h-0 flex-1">
+          <AgentsLibrary onSelectAgent={() => setView('thread')} />
         </div>
       ) : view === 'list' ? (
         <ThreadListContainer onThreadOpen={() => setView('thread')} />

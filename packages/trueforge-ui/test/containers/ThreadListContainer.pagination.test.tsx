@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 
-const { loadMore } = vi.hoisted(() => ({
+const { loadMore, setSessionsOpen } = vi.hoisted(() => ({
   loadMore: vi.fn().mockResolvedValue(undefined),
+  setSessionsOpen: vi.fn(),
 }));
 
 let resizeCallback: ResizeObserverCallback | undefined;
@@ -74,6 +75,7 @@ vi.mock('@assistant-ui/react', () => ({
 
 vi.mock('@/server/ServerContext.js', () => ({
   useOptionalServer: () => undefined,
+  useOptionalAgentSessionsServer: () => null,
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
@@ -83,6 +85,8 @@ vi.mock('@/server/ShellModeContext.js', () => ({
     isComposerEnabled: false,
     mode: { status: 'active', isMutable: false, agentName: 'agent', agentId: 'agent', locked: false },
     setSettingsOpen: vi.fn(),
+    setLibraryOpen: vi.fn(),
+    setSessionsOpen,
     selectLibraryAgent: vi.fn(),
     openDraft: vi.fn(),
     openHistorySession: vi.fn(),
@@ -113,9 +117,18 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   loadMore.mockReset().mockResolvedValue(undefined);
+  setSessionsOpen.mockReset();
 });
 
 describe('ThreadListContainer pagination', () => {
+  it('closes Sessions when selecting a thread', () => {
+    render(<ThreadListContainer />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session' }));
+
+    expect(setSessionsOpen).toHaveBeenCalledWith(false);
+  });
+
   it('remeasures when a hidden viewport becomes visible', async () => {
     loadMore.mockClear();
     const { container } = render(<ThreadListContainer />);

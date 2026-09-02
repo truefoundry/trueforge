@@ -58,6 +58,25 @@ groups:
               provenance: true
             engines:
               node: '>=22'
+            # Merged onto Fern's dist import/require map. Workspace loaders opt in
+            # with --conditions=trueforge-dev / customConditions. Never name this
+            # "development" (Vite/webpack auto-activate it; src/ is not published).
+            #
+            # Runtime loads src/ (no build); types stay on the generated .d.ts.
+            # Generated source is not exactOptionalPropertyTypes-clean, and pointing
+            # `types` at src/ would pull it into every consumer's tsc program.
+            exports:
+              ".":
+                "trueforge-dev":
+                  types: "./dist/cjs/index.d.ts"
+                  default: "./src/index.ts"
+                import:
+                  types: "./dist/esm/index.d.mts"
+                  default: "./dist/esm/index.mjs"
+                require:
+                  types: "./dist/cjs/index.d.ts"
+                  default: "./dist/cjs/index.js"
+                default: "./dist/cjs/index.js"
           allowExtraFields: true
           allowCustomFetcher: true
           enableInlineTypes: false

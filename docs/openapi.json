@@ -1012,6 +1012,33 @@
         ],
         "type": "object"
       },
+      "CreateScheduleRunRequest": {
+        "additionalProperties": false,
+        "description": "Trigger an immediate run for the given schedule. The task is taken from the schedule manifest.",
+        "properties": {
+          "schedule_id": {
+            "description": "Immutable schedule identifier.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id"
+        ],
+        "type": "object"
+      },
+      "CreateScheduleRunResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ScheduleRun"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "CreateSessionAgent": {
         "anyOf": [
           {
@@ -1410,6 +1437,39 @@
         ],
         "type": "object"
       },
+      "GetSessionMetricsChartDataResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionMetricsChartDataResponse"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSessionMetricsChartResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionMetricsChartResponse"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSessionMetricsMeterResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionMetricsMeterResponse"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetSessionResponse": {
         "properties": {
           "data": {
@@ -1668,10 +1728,14 @@
               "$ref": "#/components/schemas/Schedule"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -2169,6 +2233,19 @@
         ],
         "type": "object"
       },
+      "MetricsUnit": {
+        "enum": [
+          "count",
+          "$",
+          "ms"
+        ],
+        "type": "string",
+        "x-fern-enum": {
+          "$": {
+            "name": "USD"
+          }
+        }
+      },
       "Model": {
         "properties": {
           "name": {
@@ -2488,6 +2565,7 @@
             "moonshot": "#/components/schemas/MoonshotModelProvider",
             "openai": "#/components/schemas/OpenAIModelProvider",
             "together": "#/components/schemas/TogetherAIModelProvider",
+            "truefoundry": "#/components/schemas/TrueFoundryModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
@@ -2516,6 +2594,9 @@
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryModelProvider"
           },
           {
             "$ref": "#/components/schemas/CustomModelProvider"
@@ -3108,6 +3189,9 @@
             "description": "Unique session id.",
             "type": "string"
           },
+          "metrics": {
+            "$ref": "#/components/schemas/SessionMetrics"
+          },
           "title": {
             "description": "Optional human-readable title; null until set.",
             "type": [
@@ -3126,7 +3210,8 @@
           "title",
           "created_by",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "metrics"
         ],
         "type": "object"
       },
@@ -3287,6 +3372,228 @@
         "required": [
           "turn_id",
           "event"
+        ],
+        "type": "object"
+      },
+      "SessionMetrics": {
+        "additionalProperties": false,
+        "description": "Rolled-up cost, duration, and turn counters for a session.",
+        "properties": {
+          "total_cost_in_usd": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "total_duration_ms": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_turns": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_cost_in_usd",
+          "total_duration_ms",
+          "total_turns"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsChart": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_type": {
+            "enum": [
+              "line"
+            ],
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/SessionMetricsChartName"
+          }
+        },
+        "required": [
+          "name",
+          "display_name",
+          "description",
+          "chart_type"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsChartDataResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "graphs": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsGraph"
+            },
+            "type": "array"
+          },
+          "step": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "graphs"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsChartName": {
+        "description": "Session metrics chart to return.",
+        "enum": [
+          "sessions_over_time",
+          "sessions_cost_over_time",
+          "turns_over_time"
+        ],
+        "type": "string"
+      },
+      "SessionMetricsChartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "charts": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsChart"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "charts"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsGraph": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_type": {
+            "enum": [
+              "line"
+            ],
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "graph_lines": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsGraphLine"
+            },
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/SessionMetricsChartName"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/MetricsUnit"
+          }
+        },
+        "required": [
+          "name",
+          "display_name",
+          "description",
+          "unit",
+          "chart_type",
+          "graph_lines"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsGraphLine": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsPoint"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "values"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsMeter": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregate_value": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "enum": [
+              "total_sessions",
+              "total_cost_in_usd",
+              "total_turns",
+              "cost_per_session_in_usd",
+              "avg_turns_per_session",
+              "min_turns_per_session",
+              "max_turns_per_session",
+              "median_turns_per_session",
+              "min_session_duration_ms",
+              "max_session_duration_ms",
+              "median_session_duration_ms",
+              "p95_session_duration_ms"
+            ],
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/MetricsUnit"
+          }
+        },
+        "required": [
+          "name",
+          "aggregate_value",
+          "description",
+          "unit"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsMeterResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "meters": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsMeter"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "meters"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "value": {
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "timestamp",
+          "value"
         ],
         "type": "object"
       },
@@ -3765,6 +4072,39 @@
           "created_at",
           "thread_id",
           "tool_calls"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the TrueFoundry AI gateway the models are invoked against.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Models exposed by this provider (at least one).",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredModel"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "models",
+          "type",
+          "base_url"
         ],
         "type": "object"
       },
@@ -5491,7 +5831,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is configured and the request has no valid no Bearer token or session cookie."
           }
         },
         "summary": "List models for chat",
@@ -5506,14 +5846,39 @@
     },
     "/api/v1/schedules": {
       "get": {
-        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_name`.",
+        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_names`.",
         "parameters": [
           {
+            "description": "Page size. Defaults to 25",
             "in": "query",
-            "name": "agent_name",
+            "name": "limit",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/ResourceName"
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+            "in": "query",
+            "name": "agent_names",
+            "required": false,
+            "schema": {
+              "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+              "type": "string"
             }
           }
         ],
@@ -5526,7 +5891,17 @@
                 }
               }
             },
-            "description": "Matching schedules."
+            "description": "Paginated matching schedules."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -5543,6 +5918,11 @@
         "tags": [
           "Schedules"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "schedules"
         ],
@@ -5600,6 +5980,91 @@
           "schedules"
         ],
         "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/schedules/runs": {
+      "post": {
+        "description": "Start a schedule run immediately using the schedule task. Does not replace or advance the cron pending run.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateScheduleRunResponse"
+                }
+              }
+            },
+            "description": "Run created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or turn input."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Schedule or agent not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Run name conflict (retry)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The run cannot be started (e.g. agent resources unavailable)."
+          }
+        },
+        "summary": "Trigger a schedule run",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "create_run"
       }
     },
     "/api/v1/schedules/{schedule_id}": {
@@ -6555,6 +7020,16 @@
             },
             "description": "Invalid request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -7354,6 +7829,16 @@
               }
             },
             "description": "A model provider with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create a model provider",
@@ -7398,6 +7883,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create or replace a model provider",
@@ -7678,6 +8173,185 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/internal/metrics/charts": {
+      "get": {
+        "description": "List available session metric charts.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
+                }
+              }
+            },
+            "description": "Available session metric charts."
+          }
+        },
+        "summary": "Get session metrics charts",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "list_charts"
+      }
+    },
+    "/internal/metrics/charts-data": {
+      "get": {
+        "description": "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Session metrics chart to return.",
+            "in": "query",
+            "name": "chart_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SessionMetricsChartName"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
+                }
+              }
+            },
+            "description": "Zero-filled time series for one chart."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics chart data",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_chart_data"
+      }
+    },
+    "/internal/metrics/meters": {
+      "get": {
+        "description": "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
+                }
+              }
+            },
+            "description": "Session metric meters."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics meters",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_meters"
       }
     },
     "/internal/sessions/get-or-create-by-external-id": {
