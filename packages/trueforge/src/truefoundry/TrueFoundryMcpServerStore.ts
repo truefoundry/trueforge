@@ -60,12 +60,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       return undefined;
     }
     const gatewayUrl = resolveDefaultGatewayUrl(await this.#client.listGatewayInstallations(this.#accessToken));
-    return toRecord({
-      tenant_id: input.tenant_id,
-      server,
-      gatewayUrl,
-      accessToken: this.#accessToken,
-    });
+    return toRecord({ tenant_id: input.tenant_id, server, gatewayUrl });
   }
 
   getServerForUpdate(input: GetMcpServerInput, transaction: TTransaction): Promise<McpServerRecord | undefined> {
@@ -111,49 +106,32 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
     return mapSfyMcpServers({ rows })
-      .map(server => toRecord({ tenant_id, server, gatewayUrl, accessToken: this.#accessToken }))
+      .map(server => toRecord({ tenant_id, server, gatewayUrl }))
       .sort((left, right) => left.name.localeCompare(right.name));
   }
 }
 
-function toRecord(input: {
-  tenant_id: string;
-  server: SfyMcpServerSummary;
-  gatewayUrl: string;
-  accessToken: string;
-}): McpServerRecord {
+function toRecord(input: { tenant_id: string; server: SfyMcpServerSummary; gatewayUrl: string }): McpServerRecord {
   return {
     id: input.server.id,
     tenant_id: input.tenant_id,
     name: input.server.name,
-    manifest: toManifest({
-      server: input.server,
-      gatewayUrl: input.gatewayUrl,
-      accessToken: input.accessToken,
-    }),
+    manifest: toManifest(input.server, input.gatewayUrl),
     created_at: input.server.createdAt,
     updated_at: input.server.updatedAt,
   };
 }
 
 /**
- * Gateway proxy as `url`. Caller Bearer is attached as header auth on the in-memory
- * manifest (same pattern as TrueFoundry model providers' `auth.api_key`) so invoke
- * paths stay token-free. Never local DCR — SFY Connect UX is stubbed via auth_status.
+ * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` for Connect UX only (UI keys off auth type).
+ * Invoke Bearer is intentionally not embedded as `header` auth — that breaks the UI and is a follow-up PR.
  */
-function toManifest(input: {
-  server: SfyMcpServerSummary;
-  gatewayUrl: string;
-  accessToken: string;
-}): McpServerManifest {
+function toManifest(server: SfyMcpServerSummary, gatewayUrl: string): McpServerManifest {
   return {
     type: 'truefoundry',
-    name: input.server.name,
-    url: resolveMcpProxyUrl({ proxyUrl: input.server.proxyUrl, gatewayBaseURL: input.gatewayUrl }),
-    description: input.server.description,
-    auth: {
-      type: 'header',
-      headers: { Authorization: `Bearer ${input.accessToken}` },
-    },
+    name: server.name,
+    url: resolveMcpProxyUrl({ proxyUrl: server.proxyUrl, gatewayBaseURL: gatewayUrl }),
+    description: server.description,
+    ...(server.authType === 'oauth2' ? { auth: { type: 'dcr' as const } } : {}),
   };
 }

@@ -134,7 +134,6 @@ function dcrHeadersResolver(params: {
 
 /**
  * Load MCP url + headers for a configured server.
- * - `truefoundry`: gateway proxy URL + header auth from the token-bound store (never local DCR).
  * - `remote` + `dcr`: resolveMcpAuth via the harness token store.
  * - header / no-auth: resolveConfiguredMcpRequestHeaders.
  * Returns undefined when the server is not registered — callers choose the response.
@@ -157,14 +156,6 @@ export async function getMcpConnection({
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
-  }
-  // Must run before the local `auth.type === 'dcr'` branch — TrueFoundry-managed
-  // servers never use the harness OAuth store (invoke auth lives on the manifest).
-  if (record.manifest.type === 'truefoundry') {
-    return {
-      url: record.manifest.url,
-      headers: resolveConfiguredMcpRequestHeaders(record.manifest),
-    };
   }
   if (record.manifest.auth?.type === 'dcr') {
     return {

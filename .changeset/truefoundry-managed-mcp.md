@@ -3,4 +3,4 @@
 "@truefoundry/trueforge-sdk": patch
 ---
 
-Add TrueFoundry-managed MCP registry (SFY list/get, gateway proxy + caller Bearer, create/update 424).
+Add TrueFoundry-managed MCP list/get (SFY registry, gateway proxy URL, create/update 424).

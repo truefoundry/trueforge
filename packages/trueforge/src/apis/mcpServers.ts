@@ -384,7 +384,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
     const userRef = deps.resolveUserContext(c).userRef;
-    // Same url + header resolution as turn execution (TF Bearer, DCR via resolveMcpAuth, header/no-auth static).
+    // Same url + header resolution as turn execution (DCR via resolveMcpAuth, header/no-auth static).
     const connection = await getMcpConnection({
       tenant_id: TENANT_ID,
       name,
