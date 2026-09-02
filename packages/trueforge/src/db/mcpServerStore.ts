@@ -36,24 +36,12 @@ export interface McpServerRecord {
 export interface GetMcpServerInput {
   tenant_id: string;
   name: string;
-  /** Optional caller credential for remote-backed stores; ignored by DB stores. */
-  accessToken?: string;
 }
 
 export interface ListMcpServersInput {
   tenant_id: string;
   /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
   names: readonly string[] | undefined;
-  /** Optional caller credential for remote-backed stores; ignored by DB stores. */
-  accessToken?: string;
-}
-
-/** Spread into read inputs so `accessToken` is omitted when unset/blank. */
-export function optionalMcpAccessToken(accessToken: string | undefined): { accessToken?: string } {
-  if (accessToken === undefined || accessToken.length === 0) {
-    return {};
-  }
-  return { accessToken };
 }
 
 export interface CreateMcpServerInput {

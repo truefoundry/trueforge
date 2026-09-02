@@ -262,8 +262,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     redis,
   } = persistence;
 
-  // Auth status / authorize / revoke live on the store so alternate backends can
-  // implement the same surface; DB stores get local DCR via McpServerWithAuthStore.
   const mcpServerStore: IMcpServerWithAuthStore<TTransaction> = new McpServerWithAuthStore({
     store: persistenceMcpServerStore,
     tokenStore,
