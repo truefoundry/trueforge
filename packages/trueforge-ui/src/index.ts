@@ -36,8 +36,46 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './atoms/primitives/
 export { CenteredModal } from './atoms/primitives/CenteredModal.js';
 export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
+export { PopoverSelect } from './atoms/primitives/PopoverSelect.js';
+export type { PopoverSelectOption, PopoverSelectProps } from './atoms/primitives/PopoverSelect.js';
+export { SideDrawer } from './atoms/primitives/SideDrawer.js';
+export type { SideDrawerAnchor, SideDrawerProps, SideDrawerSize } from './atoms/primitives/SideDrawer.js';
 export { Switch } from './atoms/primitives/Switch.js';
 export type { SwitchProps, SwitchSize } from './atoms/primitives/Switch.js';
+export {
+  DEFAULT_TABLE_PAGE_SIZE,
+  TABLE_PAGE_SIZE_OPTIONS,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TablePagination,
+  TableRow,
+  TableTokenPagination,
+} from './atoms/primitives/Table.js';
+export type {
+  TableBodyProps,
+  TableCellProps,
+  TableHeadProps,
+  TableHeaderProps,
+  TablePaginationProps,
+  TableProps,
+  TableRowProps,
+  TableTokenPaginationProps,
+} from './atoms/primitives/Table.js';
+export { ScheduleFormDrawer } from './atoms/schedules/ScheduleFormDrawer.js';
+export type { ScheduleFormDrawerProps } from './atoms/schedules/ScheduleFormDrawer.js';
+export { ScheduleFormFields } from './atoms/schedules/ScheduleFormFields.js';
+export type { ScheduleFormFieldsProps } from './atoms/schedules/ScheduleFormFields.js';
+export { ScheduleLastRunsCell } from './atoms/schedules/ScheduleLastRunsCell.js';
+export { ScheduleRunChip } from './atoms/schedules/ScheduleRunChip.js';
+export { SchedulesPage } from './atoms/schedules/SchedulesPage.js';
+export { ScheduleStatusBadge } from './atoms/schedules/ScheduleStatusBadge.js';
+export { TestScheduleScreen } from './atoms/schedules/TestScheduleScreen.js';
+export type { ScheduleMcpMount, TestScheduleScreenProps } from './atoms/schedules/TestScheduleScreen.js';
+export { SchedulesButton } from './atoms/SchedulesButton.js';
+export type { SchedulesButtonProps } from './atoms/SchedulesButton.js';
 export { Icon } from './icons/Icon.js';
 export type { IconProps } from './icons/Icon.js';
 
@@ -239,11 +277,15 @@ export {
 export type { CustomActionRendererProps, CustomActionRenderers } from './server/CustomActionRenderersContext.js';
 export {
   ServerProvider,
+  useAgentMetricsServer,
   useAgentSessionsServer,
   useCatalogServer,
+  useOptionalAgentMetricsServer,
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalScheduleServer,
   useOptionalServer,
+  useScheduleServer,
   useServer,
   useServerCapabilities,
 } from './server/ServerContext.js';
@@ -262,6 +304,16 @@ export type {
   AgentChatServer,
   AgentDetail,
   AgentLibraryEntry,
+  AgentMetricChartData,
+  AgentMetricChartDataRequest,
+  AgentMetricChartDefinition,
+  AgentMetricChartType,
+  AgentMetricGraph,
+  AgentMetricGraphLine,
+  AgentMetricMeter,
+  AgentMetricPoint,
+  AgentMetricRangeRequest,
+  AgentMetricsServer,
   AgentSessionsServer,
   AgentSkill,
   AgentSpec,
@@ -356,6 +408,10 @@ export { AgentDetailsHeader } from './atoms/agent-details/AgentDetailsHeader.js'
 export { AgentDetailsPage } from './atoms/agent-details/AgentDetailsPage.js';
 export { AgentDetailsTabs } from './atoms/agent-details/AgentDetailsTabs.js';
 export { AgentDetailsUnavailable } from './atoms/agent-details/AgentDetailsUnavailable.js';
+export { AgentMetricCard } from './atoms/agent-details/AgentMetricCard.js';
+export { AgentMetricChart } from './atoms/agent-details/AgentMetricChart.js';
+export { AgentMetricsTimeRangeFilter } from './atoms/agent-details/AgentMetricsTimeRangeFilter.js';
+export { AgentMetricsView } from './atoms/agent-details/AgentMetricsView.js';
 export { AgentOverviewCard } from './atoms/agent-details/AgentOverviewCard.js';
 export type {
   AgentCodeBlockProps,
@@ -365,6 +421,12 @@ export type {
   AgentDetailsTab,
   AgentDetailsTabsProps,
   AgentDetailsUnavailableProps,
+  AgentMetricCardProps,
+  AgentMetricChartProps,
+  AgentMetricChartResult,
+  AgentMetricsProps,
+  AgentMetricsTimeRangeFilterProps,
+  AgentMetricsViewProps,
   AgentOverviewCardProps,
   AgentOverviewProps,
   AgentSessionDetailHeaderProps,
@@ -375,6 +437,7 @@ export type {
   AgentSessionTurnHeaderProps,
   AgentSessionsProps,
 } from './atoms/agent-details/types.js';
+export { AgentMetricsContainer } from './containers/AgentMetricsContainer.js';
 export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
 export type { SessionTurnView } from './utils/sessionTurnViews.js';
 

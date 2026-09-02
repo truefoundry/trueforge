@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { Icon } from '../../icons/Icon.js';
 import { useOptionalServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { AgentBuilderServer, AgentLibraryEntry } from '../../server/types.js';
+import type { AgentLibraryEntry } from '../../server/types.js';
 import { SESSION_CUSTOM_RANGE_MAX_DAYS, type SessionTimeRange } from '../../utils/sessionShareUrl.js';
 import {
   formatSessionTimePresetLabel,
@@ -13,23 +14,20 @@ import {
   SESSION_TIME_PRESETS,
   toDateTimeLocalValue,
 } from '../../utils/sessionTimePresets.js';
+import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
-import { SEARCH_AGENTS_PAGE_SIZE } from '../lib/useSearchAgentsList.js';
-
-async function searchAllAgents(
-  server: Pick<AgentBuilderServer, 'searchAgents'>,
-  offset = 0,
-): Promise<AgentLibraryEntry[]> {
-  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
-  if (rows.length < SEARCH_AGENTS_PAGE_SIZE) return rows;
-  return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
-}
+import { auiInputClass } from '../lib/inputClasses.js';
+import { auiSelectMenuClass, auiSelectOptionClass, auiSelectTriggerClass } from '../lib/selectClasses.js';
+import { searchAllAgents } from '../lib/useSearchAgentsList.js';
+import { PopoverSelect } from '../primitives/PopoverSelect.js';
 
 export type AgentSessionsFiltersProps = {
   agentId: string | null;
   timeRange: SessionTimeRange;
   onAgentChange: (agentId: string | null) => void;
   onTimeRangeChange: (range: SessionTimeRange) => void;
+  showAgentFilter?: boolean;
+  showCustomTimeRange?: boolean;
 };
 
 export function AgentSessionsFilters({
@@ -37,6 +35,8 @@ export function AgentSessionsFilters({
   timeRange,
   onAgentChange,
   onTimeRangeChange,
+  showAgentFilter = true,
+  showCustomTimeRange = true,
 }: AgentSessionsFiltersProps) {
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
@@ -48,7 +48,7 @@ export function AgentSessionsFilters({
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (server == null) return undefined;
+    if (!showAgentFilter || server == null) return undefined;
     let cancelled = false;
     void searchAllAgents(server).then(
       rows => {
@@ -59,7 +59,7 @@ export function AgentSessionsFilters({
     return () => {
       cancelled = true;
     };
-  }, [server, shell?.agentsListEpoch]);
+  }, [server, shell?.agentsListEpoch, showAgentFilter]);
 
   useEffect(() => {
     setFromValue(toDateTimeLocalValue(timeRange.startTs));
@@ -106,31 +106,25 @@ export function AgentSessionsFilters({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <label className="flex items-center gap-1 text-xs text-text-secondary">
-        Agents
-        <select
+      {showAgentFilter ? (
+        <PopoverSelect
           aria-label="Filter sessions by agent"
-          className="h-8 max-w-36 rounded-md border border-border bg-primary-bg px-2 text-xs text-text-primary"
+          prefix="Agents"
+          className="min-w-[12rem]"
           value={agentId ?? ''}
-          onChange={event => onAgentChange(event.target.value.length === 0 ? null : event.target.value)}
-        >
-          <option value="">All</option>
-          {agents.map(agent => {
-            const id = agent.agentId ?? agent.name;
-            return (
-              <option key={id} value={id}>
-                {agent.name}
-              </option>
-            );
-          })}
-        </select>
-      </label>
+          options={[
+            { value: '', label: 'All' },
+            ...agents.map(agent => ({ value: agent.agentId ?? agent.name, label: agent.name })),
+          ]}
+          onValueChange={value => onAgentChange(value.length === 0 ? null : value)}
+        />
+      ) : null}
       <div className="relative" ref={popoverRef}>
         <button
           type="button"
           aria-expanded={menuOpen}
           aria-haspopup="listbox"
-          className="h-8 min-w-36 rounded-md border border-border bg-primary-bg px-2 text-left text-xs text-text-primary"
+          className={auiSelectTriggerClass('min-w-36')}
           onClick={() => {
             setMenuOpen(open => {
               if (open) setCustomPickerOpen(false);
@@ -138,10 +132,11 @@ export function AgentSessionsFilters({
             });
           }}
         >
-          {timeLabel}
+          <span className="truncate">{timeLabel}</span>
+          <Icon name="chevron-down" className="size-4 shrink-0" />
         </button>
         {menuOpen ? (
-          <div className="absolute right-0 z-20 mt-1 flex overflow-hidden rounded-md border border-border bg-card-bg shadow-md">
+          <div className={auiSelectMenuClass('right-0 flex max-h-none overflow-y-visible p-0')}>
             {customPickerOpen ? (
               <div className="flex w-64 min-w-0 flex-col gap-2 border-r border-border p-3">
                 <div className="text-sm font-medium text-text-primary">Select Time Range</div>
@@ -151,7 +146,7 @@ export function AgentSessionsFilters({
                   <input
                     type="datetime-local"
                     step="1"
-                    className="h-8 rounded-md border border-border bg-primary-bg px-2 text-xs text-text-primary"
+                    className={auiInputClass('h-9')}
                     value={fromValue}
                     onChange={event => setFromValue(event.target.value)}
                   />
@@ -161,7 +156,7 @@ export function AgentSessionsFilters({
                   <input
                     type="datetime-local"
                     step="1"
-                    className="h-8 rounded-md border border-border bg-primary-bg px-2 text-xs text-text-primary"
+                    className={auiInputClass('h-9')}
                     value={toValue}
                     onChange={event => setToValue(event.target.value)}
                   />
@@ -169,52 +164,58 @@ export function AgentSessionsFilters({
                 <p className="text-xs text-text-secondary">
                   Timezone: <span className="font-medium text-text-primary">{formatTimezoneOffsetLabel()}</span>
                 </p>
-                <button
-                  type="button"
-                  className="mt-auto h-8 rounded-md bg-primary-button-bg px-3 text-xs font-medium text-primary-button-text"
-                  onClick={applyCustom}
-                >
+                <button type="button" className={auiButtonClass({ className: 'mt-auto' })} onClick={applyCustom}>
                   Apply
                 </button>
               </div>
             ) : null}
-            <div className="flex max-h-80 w-44 shrink-0 flex-col overflow-y-auto py-1" role="listbox">
-              <button
-                type="button"
-                className={cn(
-                  'px-3 py-2 text-left text-xs',
-                  timeRange.timeWindowMs == null
-                    ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-                    : 'text-text-primary hover:bg-ghost-button-hover',
-                )}
-                onClick={() => setCustomPickerOpen(true)}
-              >
-                Custom Time Range
-              </button>
-              {SESSION_TIME_PRESETS.map(preset => (
+            <div className="flex max-h-80 w-44 shrink-0 flex-col overflow-y-auto p-1" role="listbox">
+              {showCustomTimeRange ? (
                 <button
-                  key={preset.windowMs}
                   type="button"
-                  className={cn(
-                    'px-3 py-2 text-left text-xs',
-                    timeRange.timeWindowMs === preset.windowMs
-                      ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-                      : 'text-text-primary hover:bg-ghost-button-hover',
-                  )}
-                  onClick={() => {
-                    const endTs = Date.now();
-                    onTimeRangeChange({
-                      startTs: endTs - preset.windowMs,
-                      endTs,
-                      timeWindowMs: preset.windowMs,
-                    });
-                    setMenuOpen(false);
-                    setCustomPickerOpen(false);
-                  }}
+                  role="option"
+                  aria-selected={timeRange.timeWindowMs == null}
+                  className={auiSelectOptionClass()}
+                  onClick={() => setCustomPickerOpen(true)}
                 >
-                  {preset.label}
+                  <span className="min-w-0 flex-1 truncate">Custom Time Range</span>
+                  <Icon
+                    name="check"
+                    className={cn(
+                      'ml-auto size-4 shrink-0',
+                      timeRange.timeWindowMs == null ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
                 </button>
-              ))}
+              ) : null}
+              {SESSION_TIME_PRESETS.map(preset => {
+                const selected = timeRange.timeWindowMs === preset.windowMs;
+                return (
+                  <button
+                    key={preset.windowMs}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className={auiSelectOptionClass()}
+                    onClick={() => {
+                      const endTs = Date.now();
+                      onTimeRangeChange({
+                        startTs: endTs - preset.windowMs,
+                        endTs,
+                        timeWindowMs: preset.windowMs,
+                      });
+                      setMenuOpen(false);
+                      setCustomPickerOpen(false);
+                    }}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{preset.label}</span>
+                    <Icon
+                      name="check"
+                      className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+                    />
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : null}

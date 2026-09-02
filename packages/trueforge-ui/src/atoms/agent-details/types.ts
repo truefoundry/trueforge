@@ -1,8 +1,14 @@
 import type { ReactNode } from 'react';
-import type { AgentDetail, CodeSnippet } from '../../server/types.js';
+import type {
+  AgentDetail,
+  AgentMetricChartDefinition,
+  AgentMetricGraph,
+  AgentMetricMeter,
+  CodeSnippet,
+} from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
-import type { LibraryAgentTab } from '../../utils/sessionShareUrl.js';
+import type { LibraryAgentTab, SessionTimeRange } from '../../utils/sessionShareUrl.js';
 import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export type AgentSessionsProps = {
@@ -75,6 +81,42 @@ export type AgentDetailsHeaderProps = {
 export type AgentDetailsTabsProps = {
   activeTab: AgentDetailsTab;
   onTabChange: (tab: AgentDetailsTab) => void;
+  showMetrics?: boolean;
+};
+
+export type AgentMetricsProps = {
+  agentId: string;
+};
+
+export type AgentMetricChartResult = {
+  definition: AgentMetricChartDefinition;
+  graphs?: AgentMetricGraph[];
+  error?: string;
+};
+
+export type AgentMetricsViewProps = {
+  meters?: AgentMetricMeter[];
+  meterError?: string;
+  charts: AgentMetricChartResult[];
+  chartsLoading: boolean;
+  chartsError?: string;
+  timeRange: SessionTimeRange;
+  onTimeRangeChange: (range: SessionTimeRange) => void;
+};
+
+export type AgentMetricsTimeRangeFilterProps = {
+  timeRange: SessionTimeRange;
+  onTimeRangeChange: (range: SessionTimeRange) => void;
+};
+
+export type AgentMetricCardProps = {
+  meter: AgentMetricMeter;
+};
+
+export type AgentMetricChartProps = {
+  graph?: AgentMetricGraph;
+  definition: AgentMetricChartDefinition;
+  error?: string;
 };
 
 export type AgentOverviewProps = {

@@ -3,6 +3,7 @@
  */
 import { createTrueFoundryServer } from '../../server/createTrueFoundryServer.js';
 import type { CatalogServer } from '../../server/types.js';
+import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
 import { createHarnessBuilderServer } from './builderServer.js';
 import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
@@ -11,8 +12,10 @@ import { createSandboxProviderCatalog } from './catalogs/sandboxProviderCatalog.
 import { createSkillCatalog } from './catalogs/skillCatalog.js';
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { createScheduleServer } from './schedules/scheduleServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
+export { createHarnessAgentMetricsServer, type CreateHarnessAgentMetricsServerOptions } from './agentMetricsServer.js';
 export {
   createHarnessAgentSessionsServer,
   type CreateHarnessAgentSessionsServerOptions,
@@ -55,6 +58,7 @@ export {
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
+export { createScheduleServer } from './schedules/scheduleServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions & {
@@ -82,5 +86,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     ...createHarnessBuilderServer({ client }),
     catalog,
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
+    metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
+    schedules: createScheduleServer({ client }),
   });
 }

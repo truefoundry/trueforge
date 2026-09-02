@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 
-const { loadMore, setSessionsOpen } = vi.hoisted(() => ({
+const { loadMore, setSchedulesOpen, setSessionsOpen } = vi.hoisted(() => ({
   loadMore: vi.fn().mockResolvedValue(undefined),
+  setSchedulesOpen: vi.fn(),
   setSessionsOpen: vi.fn(),
 }));
 
@@ -76,6 +77,7 @@ vi.mock('@assistant-ui/react', () => ({
 vi.mock('@/server/ServerContext.js', () => ({
   useOptionalServer: () => undefined,
   useOptionalAgentSessionsServer: () => null,
+  useOptionalScheduleServer: () => null,
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
@@ -86,6 +88,7 @@ vi.mock('@/server/ShellModeContext.js', () => ({
     mode: { status: 'active', isMutable: false, agentName: 'agent', agentId: 'agent', locked: false },
     setSettingsOpen: vi.fn(),
     setLibraryOpen: vi.fn(),
+    setSchedulesOpen,
     setSessionsOpen,
     selectLibraryAgent: vi.fn(),
     openDraft: vi.fn(),

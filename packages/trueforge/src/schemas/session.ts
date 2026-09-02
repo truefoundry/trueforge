@@ -1,6 +1,11 @@
 /** Server session wire schemas. Core Session lives in agentSession. */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecSchema, SessionSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import {
+  AgentSpecSchema,
+  SessionMetadataSchema,
+  SessionSchema,
+  TokenPaginationSchema,
+} from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema, PAGE_LIMIT } from './common';
 
 /** Create arm: bind by unique registry agent name. */
@@ -29,6 +34,7 @@ export function isSessionAgentNameRef(agent: CreateSessionAgent): agent is Sessi
 export const CreateSessionRequestSchema = z
   .object({
     agent: CreateSessionAgentSchema,
+    metadata: SessionMetadataSchema.optional(),
   })
   .strict()
   .openapi('CreateSessionRequest');
@@ -45,6 +51,7 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
 export const UpdateSessionRequestSchema = z
   .object({
     agent: SessionAgentSpecBodySchema.optional(),
+    metadata: SessionMetadataSchema.optional(),
   })
   .strict()
   .openapi('UpdateSessionRequest');

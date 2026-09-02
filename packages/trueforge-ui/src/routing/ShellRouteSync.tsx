@@ -32,6 +32,7 @@ export function ShellRouteSync({
     libraryOpen: shell.libraryOpen,
     sessionsOpen: shell.sessionsOpen,
     libraryAgentId: shell.libraryAgentId,
+    schedulesOpen: shell.schedulesOpen,
     pendingSessionId: shell.pendingSessionId,
     activeRemoteId,
     mode: shell.mode,
@@ -99,6 +100,9 @@ export function ShellRouteSync({
         case 'libraryAgent':
           shell.openLibraryAgent(target.agentId);
           return;
+        case 'schedules':
+          shell.setSchedulesOpen(true);
+          return;
         case 'session':
           shell.setLibraryOpen(false);
           if (shell.pendingSessionId === target.sessionId || activeRemoteId === target.sessionId) return;
@@ -111,6 +115,7 @@ export function ShellRouteSync({
         case 'root':
           shell.setSettingsOpen(false);
           shell.setLibraryOpen(false);
+          shell.setSchedulesOpen(false);
           switch (shell.agentConfigMode) {
             case 'AgentLibrary':
               shell.openLibraryHome();
@@ -149,6 +154,8 @@ export function ShellRouteSync({
       shell.setSessionsOpen(true);
     } else if (urlPlace.type === 'libraryAgent') {
       shell.openLibraryAgent(urlPlace.agentId);
+    } else if (urlPlace.type === 'schedules') {
+      shell.setSchedulesOpen(true);
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
@@ -231,6 +238,10 @@ export function ShellRouteSync({
     }
     if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
       shell.setSessionsOpen(false);
+    }
+    if (urlPlace.type !== 'schedules' && shell.schedulesOpen) {
+      // Leaving schedules via Back to a chat place.
+      shell.setSchedulesOpen(false);
     }
     applyPlace(urlPlace);
     // eslint-disable-next-line react-hooks/exhaustive-deps

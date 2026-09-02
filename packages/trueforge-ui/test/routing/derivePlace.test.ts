@@ -9,6 +9,7 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     libraryOpen: false,
     sessionsOpen: false,
     libraryAgentId: null,
+    schedulesOpen: false,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -37,6 +38,14 @@ describe('derivePlace', () => {
 
   it('settings overlay wins over library', () => {
     expect(derivePlace(snap({ settingsOpen: true, libraryOpen: true }))).toEqual({ type: 'settings' });
+  });
+
+  it('schedules overlay wins over chat when settings is closed', () => {
+    expect(derivePlace(snap({ schedulesOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'schedules' });
+  });
+
+  it('settings wins over schedules when both are open', () => {
+    expect(derivePlace(snap({ settingsOpen: true, schedulesOpen: true }))).toEqual({ type: 'settings' });
   });
 
   it('pendingSessionId maps to a session while no thread has reported yet', () => {

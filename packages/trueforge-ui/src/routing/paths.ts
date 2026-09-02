@@ -1,3 +1,4 @@
+import { clearScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { readSessionShareSearch, writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
@@ -6,6 +7,7 @@ const DEFAULTS = {
   settings: '/settings',
   library: '/library',
   libraryAgent: '/library/:agentId',
+  schedules: '/schedules',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
   sessionsBrowser: '/sessions',
@@ -31,6 +33,7 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     settings: resolveOptional(paths?.settings, DEFAULTS.settings),
     library: resolveOptional(paths?.library, DEFAULTS.library),
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
+    schedules: resolveOptional(paths?.schedules, DEFAULTS.schedules),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
     sessionsBrowser: resolveOptional(paths?.sessionsBrowser, DEFAULTS.sessionsBrowser),
@@ -62,6 +65,8 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.library;
     case 'libraryAgent':
       return routes.libraryAgent == null ? null : fillTemplate(routes.libraryAgent, place.agentId);
+    case 'schedules':
+      return routes.schedules;
     case 'agent':
       return routes.agent == null ? null : fillTemplate(routes.agent, place.agentName);
     case 'session':
@@ -81,6 +86,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
   const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
   if (place.type === 'sessionsBrowser') {
     writeSessionShareSearch(params, { tab: null });
+    clearScheduleShareSearch(params);
   } else if (place.type === 'libraryAgent') {
     const share = readSessionShareSearch(search);
     writeSessionShareSearch(params, {
@@ -88,6 +94,16 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
       ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
     });
+    clearScheduleShareSearch(params);
+  } else if (place.type === 'schedules') {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    // Keep `agent` / `status` / `q` — owned by the schedules place.
   } else {
     writeSessionShareSearch(params, {
       sessionId: null,
@@ -96,6 +112,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       view: null,
       timeRange: null,
     });
+    clearScheduleShareSearch(params);
   }
   const next = params.toString();
   return next.length > 0 ? `?${next}` : '';
@@ -147,6 +164,9 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
   if (routes.libraryAgent != null) {
     const agentId = matchTemplate(routes.libraryAgent, segments);
     if (agentId != null) return { type: 'libraryAgent', agentId };
+  }
+  if (routes.schedules != null && normalized === routes.schedules) {
+    return { type: 'schedules' };
   }
   if (routes.agent != null) {
     const agentName = matchTemplate(routes.agent, segments);
