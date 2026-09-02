@@ -264,12 +264,15 @@ describe('ThemeProvider', () => {
   });
 
   it('preserves the semibold TrueFoundry welcome heading', () => {
-    render(
+    const { container } = render(
       <ThemeProvider theme={{ preset: 'trueforge', mode: 'light' }}>
         <WelcomeScreen />
       </ThemeProvider>,
     );
 
+    expect(getThemeRoot(container).style.getPropertyValue('--font-agent-ui')).toBe(
+      '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    );
     expect(screen.getByRole('heading', { name: 'How can I help you today?' })).toHaveClass('font-semibold');
   });
 

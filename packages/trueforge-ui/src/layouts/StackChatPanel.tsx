@@ -15,6 +15,9 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
+const SchedulesPage = lazy(() =>
+  import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
 
 export type StackChatPanelProps = {
   className?: string;
@@ -40,6 +43,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
+  const schedulesOpen = shell?.schedulesOpen === true;
 
   useEffect(() => {
     if (isIdle) return;
@@ -78,6 +82,24 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         <div className="min-h-0 flex-1">
           <AgentsLibrary onSelectAgent={() => setView('thread')} />
         </div>
+      ) : schedulesOpen ? (
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div
+                className="flex h-full items-center justify-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Spinner size={28} className="text-text-primary" />
+                <span className="sr-only">Loading</span>
+              </div>
+            }
+          >
+            <SchedulesPage />
+          </Suspense>
+        </div>
       ) : view === 'list' ? (
         <ThreadListContainer onThreadOpen={() => setView('thread')} />
       ) : (
@@ -102,7 +124,23 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         </>
       )}
       {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
-      <footer className="flex shrink-0 justify-end border-t border-border px-2 py-1.5">
+      <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
+        {libraryOpen || schedulesOpen ? (
+          <button
+            type="button"
+            className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+            onClick={() => {
+              shell?.setLibraryOpen(false);
+              shell?.setSchedulesOpen(false);
+              setView('thread');
+            }}
+          >
+            <Icon name="arrow-left" />
+            Back to chat
+          </button>
+        ) : (
+          <span />
+        )}
         <ShellActions key="shell-actions" />
       </footer>
     </div>

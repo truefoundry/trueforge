@@ -55,6 +55,7 @@ import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
+import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { SessionsBrowserButton } from '../atoms/SessionsBrowserButton.js';
@@ -187,6 +188,7 @@ export const defaultSlots = {
   AgentSessions,
   AgentCodeSnippets,
   AgentCodeBlock,
+  SchedulesButton,
   SaveAgentButton,
   SelectAgentEmptyState,
   ClearChatButton,

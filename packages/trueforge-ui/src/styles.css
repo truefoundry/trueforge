@@ -156,14 +156,15 @@
  * brand names and sidebars), while `.aui-root` covers standalone thread
  * shells and consumer slot overrides. `.font-sans-flex` remains available
  * for explicitly portaled surfaces. All three override `--font-sans`.
- * Override `--font-agent-ui` in host CSS to brand the font (the SDK
- * stylesheet does not load webfonts from a CDN).
+ * Override `--font-agent-ui` in host CSS to brand the font. Default face is
+ * Google Sans (loaded once via `ensureStyles`).
  */
 .aui-theme-root,
 .aui-root,
 .font-sans-flex {
   --font-sans: var(
     --font-agent-ui,
+    'Google Sans',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -175,6 +176,7 @@
   );
   font-family: var(
     --font-agent-ui,
+    'Google Sans',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -310,6 +312,9 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Between text-sm (0.875rem) and text-lg (1.125rem); Tailwind has no default text-md. */
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
 }
 
 /* Monaco embeds: blend into surrounding cards (transparent editor chrome). */

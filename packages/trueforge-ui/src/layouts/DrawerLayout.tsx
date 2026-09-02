@@ -15,6 +15,9 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
+const SchedulesPage = lazy(() =>
+  import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
 
 export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
@@ -34,11 +37,12 @@ export function DrawerLayout({ className }: { className?: string }) {
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen;
+  const schedulesOpen = shell?.schedulesOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
 
   useEffect(() => {
-    if (libraryOpen || sessionsOpen) setThreadsOpen(false);
-  }, [libraryOpen, sessionsOpen]);
+    if (libraryOpen || sessionsOpen || schedulesOpen) setThreadsOpen(false);
+  }, [libraryOpen, sessionsOpen, schedulesOpen]);
 
   useEffect(() => {
     if (!threadsOpen) return;
@@ -71,6 +75,7 @@ export function DrawerLayout({ className }: { className?: string }) {
       shell.openDraft();
     } else {
       shell?.setSettingsOpen(false);
+      shell?.setSchedulesOpen(false);
       aui.threads().switchToNewThread();
     }
     setThreadsOpen(false);
@@ -86,6 +91,21 @@ export function DrawerLayout({ className }: { className?: string }) {
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
             <SaveAgentButton />
+          </>
+        ) : libraryOpen || schedulesOpen ? (
+          <>
+            <button
+              type="button"
+              className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+              onClick={() => {
+                shell?.setLibraryOpen(false);
+                shell?.setSchedulesOpen(false);
+              }}
+            >
+              <Icon name="arrow-left" />
+              Back to chat
+            </button>
+            <span className="min-w-0 flex-1" />
           </>
         ) : (
           <span className="min-w-0 flex-1" />
@@ -140,6 +160,22 @@ export function DrawerLayout({ className }: { className?: string }) {
           <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
         ) : libraryOpen ? (
           <AgentsLibrary onSelectAgent={() => setThreadsOpen(false)} />
+        ) : schedulesOpen ? (
+          <Suspense
+            fallback={
+              <div
+                className="flex h-full items-center justify-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Spinner size={28} className="text-text-primary" />
+                <span className="sr-only">Loading</span>
+              </div>
+            }
+          >
+            <SchedulesPage />
+          </Suspense>
         ) : isIdle ? (
           <SelectAgentEmptyState />
         ) : (
