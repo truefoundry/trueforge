@@ -104,12 +104,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     return managed();
   }
 
-  async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
+  resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
     const out = new Map<string, McpAuthStatus>();
     for (const record of input.records) {
       out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
     }
-    return out;
+    return Promise.resolve(out);
   }
 
   async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
