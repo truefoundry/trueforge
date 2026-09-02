@@ -395,7 +395,7 @@ export function SchedulesPage() {
                 No schedules match your filters.
               </div>
             ) : (
-              <Table>
+              <Table className="min-w-[48rem]">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Name</TableHead>

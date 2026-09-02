@@ -50,6 +50,18 @@ function PaginatedDemo({ rows }: { rows: string[] }) {
 }
 
 describe('Table', () => {
+  it('does not force narrow tables to desktop width', () => {
+    render(
+      <Table aria-label="Compact table">
+        <TableBody />
+      </Table>,
+    );
+
+    const table = screen.getByRole('table', { name: 'Compact table' });
+    expect(table).toHaveClass('min-w-full');
+    expect(table).not.toHaveClass('min-w-[48rem]');
+  });
+
   it('renders header and body cells', () => {
     render(
       <Table>

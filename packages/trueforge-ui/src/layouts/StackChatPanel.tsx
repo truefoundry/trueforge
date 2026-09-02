@@ -124,7 +124,23 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         </>
       )}
       {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
-      <footer className="flex shrink-0 justify-end border-t border-border px-2 py-1.5">
+      <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
+        {libraryOpen || schedulesOpen ? (
+          <button
+            type="button"
+            className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+            onClick={() => {
+              shell?.setLibraryOpen(false);
+              shell?.setSchedulesOpen(false);
+              setView('thread');
+            }}
+          >
+            <Icon name="arrow-left" />
+            Back to chat
+          </button>
+        ) : (
+          <span />
+        )}
         <ShellActions key="shell-actions" />
       </footer>
     </div>

@@ -92,6 +92,21 @@ export function DrawerLayout({ className }: { className?: string }) {
             <ClearChatButton />
             <SaveAgentButton />
           </>
+        ) : libraryOpen || schedulesOpen ? (
+          <>
+            <button
+              type="button"
+              className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+              onClick={() => {
+                shell?.setLibraryOpen(false);
+                shell?.setSchedulesOpen(false);
+              }}
+            >
+              <Icon name="arrow-left" />
+              Back to chat
+            </button>
+            <span className="min-w-0 flex-1" />
+          </>
         ) : (
           <span className="min-w-0 flex-1" />
         )}
