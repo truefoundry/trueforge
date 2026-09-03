@@ -3,10 +3,9 @@
 import type * as TrueForge from "../index.js";
 
 export interface GetMeResponse {
-    /** User email from the ID token when connected; `"default"` when anonymous. */
-    email: string;
-    /** Caller role. */
-    role: string;
-    /** Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login. */
-    type: TrueForge.GetMeResponseType;
+    /** Whether the caller has admin privileges. */
+    isAdmin: boolean;
+    subject: TrueForge.GetMeSubject;
+    /** Tenant scope for the authenticated caller. */
+    tenantId: string;
 }

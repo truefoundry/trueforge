@@ -1342,27 +1342,48 @@
       },
       "GetMeResponse": {
         "properties": {
-          "email": {
-            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+          "is_admin": {
+            "description": "Whether the caller has admin privileges.",
+            "type": "boolean"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/GetMeSubject"
+          },
+          "tenant_id": {
+            "description": "Tenant scope for the authenticated caller.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "subject",
+          "is_admin"
+        ],
+        "type": "object"
+      },
+      "GetMeSubject": {
+        "properties": {
+          "display_name": {
+            "description": "Human-readable name for the caller.",
             "type": "string"
           },
-          "role": {
-            "description": "Caller role.",
+          "id": {
+            "description": "Stable subject identifier for the caller.",
             "type": "string"
           },
           "type": {
-            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
+            "description": "Subject kind: interactive user or virtual account.",
             "enum": [
-              "default",
-              "oidc-connected"
+              "user",
+              "virtualaccount"
             ],
             "type": "string"
           }
         },
         "required": [
+          "id",
           "type",
-          "email",
-          "role"
+          "display_name"
         ],
         "type": "object"
       },
@@ -4823,14 +4844,14 @@
     "securitySchemes": {
       "BearerAuth": {
         "bearerFormat": "JWT",
-        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "description": "Caller credential (`Authorization: Bearer <token>`). Required on protected routes when auth is enabled. Browser sessions may use the HttpOnly `id_token` or `accessToken` cookie instead.",
         "scheme": "bearer",
         "type": "http"
       }
     }
   },
   "info": {
-    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
     "version": "0.2.0-rc.0"
   },
@@ -5529,7 +5550,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.",
+        "description": "Returns the authenticated caller identity (`tenant_id`, `subject`, `is_admin`). When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
         "responses": {
           "200": {
             "content": {
@@ -5539,7 +5560,7 @@
                 }
               }
             },
-            "description": "Session type and identity for the current request."
+            "description": "Caller identity for the current request."
           },
           "401": {
             "content": {
@@ -5549,7 +5570,7 @@
                 }
               }
             },
-            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer token."
           }
         },
         "summary": "Current session",
