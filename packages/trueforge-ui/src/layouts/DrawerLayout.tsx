@@ -108,7 +108,7 @@ export function DrawerLayout({ className }: { className?: string }) {
                 className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
                 onClick={handleNewAgent}
               >
-                <Icon name="robot" />
+                <Icon name="agent-2" />
               </button>
             ) : null}
           </>

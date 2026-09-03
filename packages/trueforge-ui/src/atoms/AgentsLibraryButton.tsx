@@ -62,7 +62,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
         })}
         onClick={() => shell?.setLibraryOpen(true)}
       >
-        <Icon name="agent-2" size={compact ? 16 : undefined} />
+        <Icon name="library-big" size={compact ? 16 : undefined} />
         {compact ? (
           <span className="text-center">Agents</span>
         ) : (

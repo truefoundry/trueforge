@@ -8,7 +8,7 @@ export type NamedAgentHeaderState = {
   name: string;
   isEditing: boolean;
   /** New Chat vs New Agent / named-agent differentiation. */
-  icon: 'square-pen' | 'robot';
+  icon: 'square-pen' | 'agent-2';
   /** When true, prefer a non-empty thread/session title over `name`. */
   allowThreadTitle: boolean;
 };
@@ -23,7 +23,7 @@ export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
     return {
       name: identity,
       isEditing: shell.mode.isMutable,
-      icon: 'robot',
+      icon: 'agent-2',
       allowThreadTitle: false,
     };
   }
@@ -34,7 +34,7 @@ export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   return {
     name: isCreateAgent ? 'New Agent' : 'New Chat',
     isEditing: false,
-    icon: isCreateAgent ? 'robot' : 'square-pen',
+    icon: isCreateAgent ? 'agent-2' : 'square-pen',
     allowThreadTitle: true,
   };
 }

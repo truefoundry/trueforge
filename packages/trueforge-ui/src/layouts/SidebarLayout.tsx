@@ -106,7 +106,7 @@ function SidebarNav(): ReactNode {
           })}
           onClick={handleNewAgent}
         >
-          <Icon name="robot" size={16} />
+          <Icon name="agent-2" size={16} />
           <span className="text-center">New Agent</span>
         </button>
       ) : null}
