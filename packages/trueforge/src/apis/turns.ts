@@ -32,7 +32,7 @@ import type { Logger } from 'winston';
 import type { ResolveUserContext, UserContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
-import type { IMcpServerStore } from '../db/mcpServerStore';
+import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
@@ -106,7 +106,7 @@ export interface TurnsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context) => IMcpServerStore;
+  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   agentStore: IAgentStore;
@@ -127,7 +127,7 @@ export type BeginTurnExecutionDeps = Pick<
   'activeTurns' | 'eventSubscriptions' | 'tokenStore' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
 > & {
   modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
+  mcpServerStore: IMcpServerWithAuthStore;
 };
 
 /**
@@ -135,7 +135,7 @@ export type BeginTurnExecutionDeps = Pick<
  * the same way: async factories over the corresponding stores.
  */
 function createTurnResolver(deps: {
-  mcpServerStore: IMcpServerStore;
+  mcpServerStore: IMcpServerWithAuthStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;

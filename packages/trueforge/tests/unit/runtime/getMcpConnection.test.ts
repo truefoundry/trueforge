@@ -1,5 +1,7 @@
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
+import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -9,14 +11,18 @@ import { getMcpConnection } from '../../../src/runtime/sessionResources';
 
 describe('getMcpConnection', () => {
   let db: ReturnType<typeof createSqliteDb>;
-  let mcpServerStore: SqliteMcpServerStore;
+  let mcpServerStore: IMcpServerWithAuthStore;
   let tokenStore: SqliteOAuthTokenStore;
 
   beforeAll(async () => {
     db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
-    mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
+    mcpServerStore = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: 'test-client',
+    });
   });
 
   it('returns an async DCR headers resolver keyed by server name on authRequired', async () => {
