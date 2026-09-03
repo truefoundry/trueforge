@@ -106,7 +106,7 @@ export interface TurnsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
+  resolveMcpServerStore: (c: Context) => IMcpServerStore;
   tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   agentStore: IAgentStore;
@@ -119,19 +119,16 @@ export interface TurnsRouterDeps {
 
 /**
  * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
- * carries an already-resolved `modelProviderStore` (the scheduler has no request context to resolve one).
+ * carries already-resolved `modelProviderStore` / `mcpServerStore` (the scheduler has no request
+ * context to resolve them).
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  | 'activeTurns'
-  | 'eventSubscriptions'
-  | 'mcpServerStore'
-  | 'tokenStore'
-  | 'skillStore'
-  | 'agentStore'
-  | 'sandboxProviderStore'
-  | 'logger'
-> & { modelProviderStore: IModelProviderStore };
+  'activeTurns' | 'eventSubscriptions' | 'tokenStore' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
+> & {
+  modelProviderStore: IModelProviderStore;
+  mcpServerStore: IMcpServerStore;
+};
 
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
@@ -674,7 +671,11 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef,
-      deps: { ...deps, modelProviderStore: deps.resolveModelProviderStore(c) },
+      deps: {
+        ...deps,
+        modelProviderStore: deps.resolveModelProviderStore(c),
+        mcpServerStore: deps.resolveMcpServerStore(c),
+      },
     };
 
     try {

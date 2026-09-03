@@ -61,6 +61,9 @@ RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundr
 # tsc needs, so this stage never compiles SDK JavaScript.
 # ---------------------------------------------------------------------------
 FROM workspace AS frontend-builder
+# Optional UI public path for reverse-proxy mounts (e.g. /trueforge). See VITE_BASE_PATH.
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 RUN pnpm install --frozen-lockfile --offline --filter frontend...
 COPY packages/trueforge-sdk packages/trueforge-sdk
 COPY packages/trueforge-ui packages/trueforge-ui

@@ -211,6 +211,33 @@ describe('getMcpConnection', () => {
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 
+  it('skips local DCR for truefoundry servers even when wire auth is dcr', async () => {
+    await mcpServerStore.upsertServer({
+      tenant_id: TENANT_ID,
+      name: 'tfy-mcp',
+      manifest: {
+        type: 'truefoundry',
+        name: 'tfy-mcp',
+        url: 'https://gateway.example/mcp-server/tfy-mcp',
+        description: 'TrueFoundry-managed MCP.',
+        auth: { type: 'dcr' },
+      },
+    });
+
+    const connection = await getMcpConnection({
+      tenant_id: TENANT_ID,
+      name: 'tfy-mcp',
+      store: mcpServerStore,
+      tokenStore,
+      clientName: 'test-client',
+      userRef: LOCAL_USER_CONTEXT.userRef,
+    });
+    expect(connection).toEqual({
+      url: 'https://gateway.example/mcp-server/tfy-mcp',
+      headers: {},
+    });
+  });
+
   it('returns undefined when the server is not registered', async () => {
     await expect(
       getMcpConnection({

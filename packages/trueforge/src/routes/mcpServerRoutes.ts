@@ -13,6 +13,7 @@ import {
   McpAuthStatusSchema,
   UpdateMcpServerRequestSchema,
 } from '../schemas/mcpServer';
+import { trueFoundryManagedResponse } from '../truefoundry/trueFoundryManaged';
 import { OpenApiTag } from './openapiTags';
 
 /** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
@@ -122,6 +123,7 @@ export const createMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
+    424: trueFoundryManagedResponse,
   },
 });
 
@@ -131,8 +133,7 @@ export const putMcpServerRoute = createRoute({
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Create or replace an MCP server',
   description:
-    'Create or replace by `name`. Does not start DCR or change oauth client columns. ' +
-    'Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
+    'Create or replace by `name`. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
@@ -154,6 +155,7 @@ export const putMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
+    424: trueFoundryManagedResponse,
   },
 });
 
@@ -218,10 +220,9 @@ export const authorizeMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
-    'For servers without auth returns not_required, and for header credentials returns authenticated ' +
-    '(no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token ' +
-    'exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. ' +
-    'Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.',
+    'Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a ' +
+    'usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the ' +
+    'OAuth callback redirects the browser; without it the callback returns JSON.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,
@@ -262,16 +263,15 @@ export const deleteAuthorizationMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'delete_authorization',
   description:
-    'For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status ' +
-    'auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. ' +
-    'No-op for header or no-auth servers (returns the server unchanged).',
+    'Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. ' +
+    'No-op when the server does not use stored OAuth tokens.',
   request: {
     params: McpServerNameParamsSchema,
   },
   responses: {
     200: {
       content: { 'application/json': { schema: GetMcpServerResponseSchema } },
-      description: 'The MCP server after disconnect (auth_required for dcr).',
+      description: 'The MCP server after disconnect.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

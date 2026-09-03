@@ -12,10 +12,13 @@ import { probeSession, type SessionState } from './authSession';
 import { parseAuthErrorReason, shouldShowAuthErrorScreen, stripAuthErrorSearch } from './authStatusSearch';
 import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
+import { API_BASE_URL, uiRouterBasename } from './publicPath';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
-const bootClient = createTrueForgeClient({ fetch: authAwareFetch });
+// UI + API share `VITE_BASE_PATH` / `BASE_URL`; Caddy strips it before Harness.
+const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
+const routerBasename = uiRouterBasename();
 
 type BootState =
   | { status: 'loading' }
@@ -161,9 +164,10 @@ export function App() {
   return (
     <div className="app-root">
       <TrueForgeUI
-        server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }}
+        server={{ type: 'trueforge', baseUrl: API_BASE_URL, fetch: authAwareFetch }}
         layout="sidebar"
         withRouter
+        {...(routerBasename ? { routes: { basename: routerBasename } } : {})}
         agentConfig={{
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,

@@ -1,5 +1,5 @@
 /**
- * DB-backed sessions APIs (mounted at /api/v1/sessions and /internal/sessions).
+ * DB-backed sessions APIs (mounted at /api/v1/sessions and /api/internal/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
@@ -87,7 +87,7 @@ export interface SessionsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  mcpServerStore: IMcpServerStore;
+  resolveMcpServerStore: (c: Context) => IMcpServerStore;
   skillStore: ISkillStore;
   agentStore: IAgentStore;
   sandboxProviderStore: ISandboxProviderStore;
@@ -236,7 +236,7 @@ type InternalSessionsRouterDeps = Pick<
   SessionsRouterDeps,
   | 'sessions'
   | 'resolveModelProviderStore'
-  | 'mcpServerStore'
+  | 'resolveMcpServerStore'
   | 'skillStore'
   | 'agentStore'
   | 'sandboxProviderStore'
@@ -273,7 +273,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         spec: body.agent.spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.mcpServerStore,
+        mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
       });
@@ -293,7 +293,7 @@ function createGetOrCreateSessionByExternalIdHandler(
   };
 }
 
-/** Internal session operations (mounted at /internal/sessions). */
+/** Internal session operations (mounted at /api/internal/sessions). */
 export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
   const router = new OpenAPIHono();
   router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
@@ -327,7 +327,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       spec: body.agent.spec,
       tenant_id: TENANT_ID,
       modelProviderStore: deps.resolveModelProviderStore(c),
-      mcpServerStore: deps.mcpServerStore,
+      mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
     });
@@ -386,7 +386,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         spec: body.agent.spec,
         tenant_id: TENANT_ID,
         modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.mcpServerStore,
+        mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
       });

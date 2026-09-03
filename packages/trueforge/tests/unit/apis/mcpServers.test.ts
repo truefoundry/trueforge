@@ -7,6 +7,9 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import configuration from '../../../src/config';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
+import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -83,7 +86,7 @@ describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
-  let mcpServerStore: SqliteMcpServerStore;
+  let mcpServerStore: IMcpServerWithAuthStore;
   let tokenStore: SqliteOAuthTokenStore;
   let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
   let logger: ReturnType<typeof winston.createLogger>;
@@ -97,12 +100,16 @@ describe('mcp-servers routers', () => {
     }) as typeof fetch;
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
-    mcpServerStore = new SqliteMcpServerStore(db);
     tokenStore = new SqliteOAuthTokenStore(db);
+    mcpServerStore = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+    });
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
@@ -115,7 +122,7 @@ describe('mcp-servers routers', () => {
       sandboxCatalog: SandboxCatalog.load(),
     });
     mcpServersRouter = createMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
@@ -605,7 +612,7 @@ describe('mcp-servers routers', () => {
     });
 
     const otherRouter = createMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,

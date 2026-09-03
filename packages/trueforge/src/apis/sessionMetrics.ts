@@ -1,5 +1,5 @@
 /**
- * Internal session metrics APIs (mounted at /internal/metrics).
+ * Internal session metrics APIs (mounted at /api/internal/metrics).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ResolveUserContext } from '../auth/identity';
