@@ -293,6 +293,35 @@ describe('AgentConfigEditors', () => {
     });
   });
 
+  it('allows browsing but not adding an unauthenticated non-DCR connector', async () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[{ id: 'private', name: 'Private', authenticated: false }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={async () => [{ id: 'secret.read', name: 'secret.read' }]}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Private/ }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /secret.read/ })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Enable all tools' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Select Private' })).toBeDisabled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('groups selected tools across MCP servers and summarizes all-tools mounts', async () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },

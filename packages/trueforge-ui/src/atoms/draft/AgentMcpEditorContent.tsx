@@ -48,6 +48,9 @@ export function AgentMcpEditorContent({
   const activeMount = selectedConnector
     ? mcpMounts.find(item => item.id === selectedConnector.id || item.name === selectedConnector.name)
     : undefined;
+  const canAddActiveConnector =
+    selectedConnector !== undefined &&
+    (selectedConnector.authenticated === true || isUnauthenticatedDcrConnector(selectedConnector));
   const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
   const filteredConnectors = connectors
@@ -79,6 +82,7 @@ export function AgentMcpEditorContent({
   const toggleTool = (toolName: string) => {
     if (!selectedConnector) return;
     if (!activeMount) {
+      if (!canAddActiveConnector) return;
       onChange({
         ...spec,
         mcpServers: [
@@ -171,6 +175,7 @@ export function AgentMcpEditorContent({
                 Enable all tools
                 <Switch
                   checked={activeMount !== undefined && enabledTools === 'all'}
+                  disabled={activeMount === undefined && !canAddActiveConnector}
                   onCheckedChange={enabled => {
                     if (activeMount) {
                       if (enabled) {
@@ -178,7 +183,7 @@ export function AgentMcpEditorContent({
                       } else {
                         removeMount(activeMount.id);
                       }
-                    } else if (enabled) {
+                    } else if (enabled && canAddActiveConnector) {
                       onChange({
                         ...spec,
                         mcpServers: [
@@ -221,6 +226,7 @@ export function AgentMcpEditorContent({
                   title={tool.name}
                   description={tool.description}
                   checked={enabledTools === 'all' || enabledTools.includes(tool.name)}
+                  disabled={activeMount === undefined && !canAddActiveConnector}
                   onToggle={() => toggleTool(tool.name)}
                 />
               ))}
