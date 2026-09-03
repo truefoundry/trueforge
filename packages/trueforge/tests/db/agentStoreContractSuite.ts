@@ -3,11 +3,7 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { AgentSpecSchema, type AgentSpec, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
-import {
-  AgentExternalIdConflictError,
-  AgentNameConflictError,
-  type IAgentStore,
-} from '../../src/db/agentStore';
+import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../../src/db/agentStore';
 
 const TENANT = 'default';
 

@@ -6,7 +6,6 @@ import type {
 } from '@truefoundry/trueforge-core/agent-session';
 import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
-import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
@@ -26,6 +25,7 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
+import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
