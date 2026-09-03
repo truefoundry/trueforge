@@ -34,7 +34,12 @@ import { getEffectiveUserIdFromAccessTokenSubject, parseAccessTokenSubject } fro
 
 export type TrueFoundryMcpApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
-  'getMcpServerByName' | 'listMcpServers' | 'listGatewayInstallations' | 'getMcpAuthorize' | 'deleteMcpAuth'
+  | 'getMcpServerByName'
+  | 'listMcpServers'
+  | 'listGatewayInstallations'
+  | 'getMcpAuthorize'
+  | 'getMcpAuthStatus'
+  | 'deleteMcpAuth'
 >;
 
 function managed(): never {
@@ -62,7 +67,7 @@ export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; retur
 /**
  * Read-only MCP registry backed by ServiceFoundry + the tenant AI Gateway.
  * Writes and local OAuth client columns are not supported — configure servers in TrueFoundry.
- * Authorize / revoke call SFY; list auth_status stays stubbed (no N× status calls).
+ * Authorize / revoke call SFY; list auth_status may stay stubbed (`stub: true`) to avoid N× status calls.
  */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
@@ -173,13 +178,36 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     return managed();
   }
 
-  resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
-    // List stays stubbed — avoid N× SFY auth/status calls. Live status is via authorize / getAuthStatus.
+  async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
+    void input.userRef;
     const out = new Map<string, McpAuthStatus>();
+
+    // TODO: remove `stub` once SFY supports batch auth/status (or we accept N× round-trips on list).
+    // List passes stub:true because one SFY call per server is too expensive today.
+    if (input.stub === true) {
+      for (const record of input.records) {
+        out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
+      }
+      return out;
+    }
+
     for (const record of input.records) {
+      if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
+        const subject = parseAccessTokenSubject(this.#accessToken);
+        out.set(
+          record.name,
+          await this.#client.getMcpAuthStatus({
+            accessToken: this.#accessToken,
+            mcpServerId: record.id,
+            subjectId: getEffectiveUserIdFromAccessTokenSubject(subject),
+            subjectType: subject.subjectType,
+          }),
+        );
+        continue;
+      }
       out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
     }
-    return Promise.resolve(out);
+    return out;
   }
 
   async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {

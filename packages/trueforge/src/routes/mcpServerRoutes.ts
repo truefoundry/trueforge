@@ -104,7 +104,7 @@ export const getMcpServerRoute = createRoute({
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Get a single MCP server by name',
   description:
-    'A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.',
+    'A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'get',
   request: {

@@ -167,7 +167,7 @@ export function resolveMcpAuthStatus({
   manifest: McpServerManifest;
   token?: OAuthToken;
 }): McpAuthStatus {
-  // TrueFoundry list/get stays stubbed authenticated; live status is via authorize.
+  // TrueFoundry list stub (`stub: true`): treat as authenticated until batch auth/status exists.
   if (manifest.type === 'truefoundry') {
     return { status: 'authenticated' };
   }

@@ -39,6 +39,7 @@ function createMockClient(): MockClient {
     listMcpServers: jest.fn(),
     listGatewayInstallations: jest.fn(),
     getMcpAuthorize: jest.fn(),
+    getMcpAuthStatus: jest.fn(),
     deleteMcpAuth: jest.fn(),
   };
 }
@@ -49,6 +50,7 @@ function createStore(input?: { accessToken?: string; client?: MockClient }) {
   client.listGatewayInstallations.mockResolvedValue(GATEWAY_INSTALLATIONS);
   client.listMcpServers.mockResolvedValue([SFY_ROW]);
   client.getMcpAuthorize.mockResolvedValue({ status: 'authenticated' });
+  client.getMcpAuthStatus.mockResolvedValue({ status: 'authenticated' });
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
@@ -213,11 +215,39 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('resolveAuthStatuses', () => {
-    it('stubs truefoundry servers as authenticated', async () => {
-      const { store } = createStore();
-      const record = dcrRecord();
-      const statuses = await store.resolveAuthStatuses({ records: [record], userRef: 'user-1' });
+    it('stubs truefoundry servers when stub is true', async () => {
+      const { store, client } = createStore();
+      const statuses = await store.resolveAuthStatuses({
+        records: [dcrRecord(), dcrRecord({ name: 'slack' })],
+        userRef: 'user-1',
+        stub: true,
+      });
+      expect(client.getMcpAuthStatus).not.toHaveBeenCalled();
       expect(statuses.get('github')).toEqual({ status: 'authenticated' });
+      expect(statuses.get('slack')).toEqual({ status: 'authenticated' });
+    });
+
+    it('calls SFY auth/status by default (stub omitted)', async () => {
+      const { store, client } = createStore();
+      client.getMcpAuthStatus.mockResolvedValue({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/authorize',
+      });
+      const statuses = await store.resolveAuthStatuses({
+        records: [dcrRecord()],
+        userRef: 'user-1',
+      });
+      expect(client.getMcpAuthStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mcpServerId: 'mcp-id-1',
+          subjectId: 'user-1',
+          subjectType: 'user',
+        }),
+      );
+      expect(statuses.get('github')).toEqual({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/authorize',
+      });
     });
   });
 

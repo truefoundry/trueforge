@@ -82,6 +82,11 @@ export class McpServerNotFoundError extends Error {
 export interface ResolveMcpAuthStatusesInput {
   records: readonly McpServerRecord[];
   userRef: string;
+  /**
+   * When true, remote-backed stores may skip per-server upstream status calls (list UX).
+   * Defaults to false (live status). Local token-backed stores ignore this.
+   */
+  stub?: boolean;
 }
 
 export interface AuthorizeMcpServerInput {
