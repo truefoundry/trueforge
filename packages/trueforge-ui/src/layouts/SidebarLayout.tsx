@@ -32,7 +32,7 @@ const SchedulesPage = lazy(() =>
 );
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
-const railWidthClassName = 'w-20';
+const railWidthClassName = 'w-18';
 
 const railActionButtonClassName =
   'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text';
@@ -77,7 +77,7 @@ function SidebarNav(): ReactNode {
   };
 
   return (
-    <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 p-2" aria-label="Sidebar">
+    <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 p-1" aria-label="Sidebar">
       {showNewActions ? (
         <button
           type="button"
@@ -217,7 +217,9 @@ export function SidebarLayout({ className }: { className?: string }) {
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
             // (empty untitled draft). Mobile still needs the menu button.
-            (overlayOpen || shell?.agentConfigOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
+            // Keep visible while Agent Config is open so New Agent / title stay in chrome;
+            // SaveAgentButton is omitted below to avoid duplicating the drawer's save control.
+            (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
           {!overlayOpen ? (
