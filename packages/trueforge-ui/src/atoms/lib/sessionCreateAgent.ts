@@ -1,5 +1,5 @@
-/** Session metadata key for New Chat vs New Agent builder intent. */
-export const IS_CREATE_AGENT_METADATA_KEY = 'isCreateAgent';
+/** Session metadata key for New Chat vs New Agent builder intent (wire/jsonb snake_case). */
+export const IS_CREATE_AGENT_METADATA_KEY = 'is_create_agent';
 
 /** Wire metadata values are strings (`SessionMetadataSchema`). */
 export function isCreateAgentMetadataValue(isCreateAgent: boolean): 'true' | 'false' {

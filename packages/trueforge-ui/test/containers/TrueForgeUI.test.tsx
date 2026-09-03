@@ -368,7 +368,7 @@ describe('SidebarLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Navigation' }));
 
     const drawer = screen.getByRole('dialog', { name: 'Navigation' });
-    expect(drawer).toHaveClass('w-20');
+    expect(drawer).toHaveClass('w-18');
     expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
     expect(within(drawer).queryByText('Acme')).not.toBeInTheDocument();
     expect(within(drawer).getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
