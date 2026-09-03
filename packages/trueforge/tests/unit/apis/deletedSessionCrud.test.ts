@@ -76,7 +76,11 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 's1',
-      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       agent: {
         type: 'inline',
         spec: AgentSpecSchema.parse({

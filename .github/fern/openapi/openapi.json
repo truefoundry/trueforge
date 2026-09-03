@@ -26,6 +26,9 @@
       "Agent": {
         "additionalProperties": false,
         "properties": {
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
           "id": {
             "description": "Immutable server-generated agent identifier.",
             "minLength": 1,
@@ -41,7 +44,8 @@
         "required": [
           "id",
           "name",
-          "manifest"
+          "manifest",
+          "created_by_subject"
         ],
         "type": "object"
       },
@@ -1100,6 +1104,33 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "CreatedBySubject": {
+        "additionalProperties": false,
+        "description": "Who created this resource.",
+        "properties": {
+          "subject_display_name": {
+            "description": "Display name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_id": {
+            "description": "Subject id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_type": {
+            "description": "Subject type.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "subject_type",
+          "subject_display_name"
+        ],
         "type": "object"
       },
       "CronExpression": {
@@ -3114,8 +3145,8 @@
             "format": "date-time",
             "type": "string"
           },
-          "created_by": {
-            "type": "string"
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
           },
           "id": {
             "type": "string"
@@ -3136,7 +3167,7 @@
           "agent_name",
           "name",
           "manifest",
-          "created_by",
+          "created_by_subject",
           "created_at",
           "updated_at"
         ],
@@ -3173,6 +3204,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
           "id": {
             "type": "string"
           },
@@ -3196,9 +3230,6 @@
               "null"
             ]
           },
-          "triggered_by": {
-            "type": "string"
-          },
           "updated_at": {
             "format": "date-time",
             "type": "string"
@@ -3210,7 +3241,7 @@
           "name",
           "scheduled_for",
           "status",
-          "triggered_by",
+          "created_by_subject",
           "triggered_at",
           "created_at",
           "updated_at"
@@ -3242,9 +3273,8 @@
             "description": "ISO 8601 creation timestamp.",
             "type": "string"
           },
-          "created_by": {
-            "description": "Caller identity that created the session (immutable).",
-            "type": "string"
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
           },
           "id": {
             "description": "Unique session id.",
@@ -3272,7 +3302,7 @@
           "id",
           "agent",
           "title",
-          "created_by",
+          "created_by_subject",
           "created_at",
           "updated_at",
           "metrics",
@@ -6713,7 +6743,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -6884,7 +6914,7 @@
     },
     "/api/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.",
+        "description": "Delete a session and all related turns, events, and internal state. Only the session creator may delete it. Idempotent if already gone.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6924,7 +6954,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID. Only the session creator (`created_by`) may fetch it.",
+        "description": "Fetch a session by ID. Only the session creator may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6981,7 +7011,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
+        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7070,7 +7100,7 @@
     },
     "/api/v1/sessions/{session_id}/cancel": {
       "post": {
-        "description": "Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.",
+        "description": "Cancel the running last turn for a session. Only the session creator may cancel.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7149,7 +7179,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7256,7 +7286,7 @@
     },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
-        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.",
+        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator may list turns.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7351,7 +7381,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nOnly the session creator (`created_by`) may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
+        "description": "Create a turn within a session and execute it.\nOnly the session creator may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7486,7 +7516,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.",
+        "description": "Fetch a single turn by ID. Only the session creator may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7556,7 +7586,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/download-sandbox-file": {
       "get": {
-        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator may download.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7688,7 +7718,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
-        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.",
+        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7805,7 +7835,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
             "description": "Session identifier.",

@@ -30,9 +30,13 @@ function toPutRemoteAgentPayload({
     name,
     description: manifest.instructions ?? name,
     model: manifest.model.name,
-    ...(manifest.mcp_servers === undefined ? {} : { mcp_servers: manifest.mcp_servers.map(server => server.name) }),
+    mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
   };
 }
+
+type TrueFoundryAgentInner<TTransaction> = IAgentStore<TTransaction> & {
+  withTransaction<T>(fn: (transaction: TTransaction) => Promise<T>): Promise<T>;
+};
 
 /**
  *   create:  createDB(null) → putRemote → updateDB(external_id) | on put/update fail → deleteDB (+ deleteRemote if put ok)
@@ -42,12 +46,12 @@ function toPutRemoteAgentPayload({
 export class TrueFoundryAgentStore<
   TTransaction extends Transaction<Database> = Transaction<Database>,
 > implements IAgentStore<TTransaction> {
-  readonly #inner: IAgentStore<TTransaction>;
+  readonly #inner: TrueFoundryAgentInner<TTransaction>;
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #accessToken: string;
 
   constructor(input: {
-    inner: IAgentStore<TTransaction>;
+    inner: TrueFoundryAgentInner<TTransaction>;
     client: TrueFoundryServiceFoundryServerClient;
     accessToken: string;
   }) {
@@ -56,27 +60,30 @@ export class TrueFoundryAgentStore<
     this.#accessToken = input.accessToken;
   }
 
-  listAgents(input: ListAgentsInput, transaction: TTransaction): Promise<AgentRecord[]> {
+  listAgents(input: ListAgentsInput, transaction?: TTransaction): Promise<AgentRecord[]> {
     return this.#inner.listAgents(input, transaction);
   }
 
-  getAgent(input: GetAgentInput, transaction: TTransaction): Promise<AgentRecord | undefined> {
+  getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined> {
     return this.#inner.getAgent(input, transaction);
   }
 
   // Serializes updates for this tenant ID and agent id.
   // Prevents concurrent MCP writes from desyncing the remote agent.
-  async #withUpdateLock<T>(
+  #withUpdateLock<T>(
     input: { tenant_id: string; id: string },
-    transaction: TTransaction,
+    transaction: TTransaction | undefined,
     fn: (transaction: TTransaction) => Promise<T>,
   ): Promise<T> {
-    const key = `tf:agent:${input.tenant_id}:${input.id}`;
-    await sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`.execute(transaction);
-    return fn(transaction);
+    const run = async (txn: TTransaction) => {
+      const key = `tf:agent:${input.tenant_id}:${input.id}`;
+      await sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`.execute(txn);
+      return fn(txn);
+    };
+    return transaction !== undefined ? run(transaction) : this.#inner.withTransaction(run);
   }
 
-  async createAgent(input: CreateAgentInput, transaction: TTransaction): Promise<AgentRecord> {
+  async createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord> {
     // Lets the DB unique constraint pick one winner for this tenant ID and name.
     // Prevents concurrent requests from both creating the same remote agent.
     const created = await this.#inner.createAgent({ ...input, external_id: null }, transaction);
@@ -116,7 +123,7 @@ export class TrueFoundryAgentStore<
     }
   }
 
-  async updateAgent(input: UpdateAgentInput, transaction: TTransaction): Promise<AgentRecord | undefined> {
+  async updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined> {
     const nextManifest = input.manifest;
     if (nextManifest === undefined) {
       // No manifest means only `external_id` changed; pass through to the inner store.
@@ -162,7 +169,7 @@ export class TrueFoundryAgentStore<
     });
   }
 
-  async deleteAgent(input: DeleteAgentInput, transaction: TTransaction): Promise<void> {
+  async deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void> {
     return this.#withUpdateLock(input, transaction, async txn => {
       const previous = await this.#inner.getAgent({ tenant_id: input.tenant_id, id: input.id }, txn);
       if (previous?.external_id) {

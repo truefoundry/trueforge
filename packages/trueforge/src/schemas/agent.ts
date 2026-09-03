@@ -3,7 +3,7 @@
  * AgentSpec document (JSON key `manifest`).
  */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
 const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
@@ -33,6 +33,7 @@ export const AgentSchema = z
     id: z.string().min(1).describe('Immutable server-generated agent identifier.'),
     name: NameSchema,
     manifest: AgentSpecSchema,
+    created_by_subject: CreatedBySubjectSchema,
   })
   .strict()
   .openapi('Agent');

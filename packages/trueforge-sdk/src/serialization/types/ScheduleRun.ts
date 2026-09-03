@@ -3,31 +3,32 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { CreatedBySubject } from "./CreatedBySubject.js";
 import { ScheduleRunStatus } from "./ScheduleRunStatus.js";
 
 export const ScheduleRun: core.serialization.ObjectSchema<serializers.ScheduleRun.Raw, TrueForge.ScheduleRun> =
     core.serialization.object({
         createdAt: core.serialization.property("created_at", core.serialization.date()),
+        createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
         id: core.serialization.string(),
         name: core.serialization.string(),
         scheduleId: core.serialization.property("schedule_id", core.serialization.string()),
         scheduledFor: core.serialization.property("scheduled_for", core.serialization.date()),
         status: ScheduleRunStatus,
         triggeredAt: core.serialization.property("triggered_at", core.serialization.date().nullable()),
-        triggeredBy: core.serialization.property("triggered_by", core.serialization.string()),
         updatedAt: core.serialization.property("updated_at", core.serialization.date()),
     });
 
 export declare namespace ScheduleRun {
     export interface Raw {
         created_at: string;
+        created_by_subject: CreatedBySubject.Raw;
         id: string;
         name: string;
         schedule_id: string;
         scheduled_for: string;
         status: ScheduleRunStatus.Raw;
         triggered_at?: string | null;
-        triggered_by: string;
         updated_at: string;
     }
 }

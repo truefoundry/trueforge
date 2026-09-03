@@ -42,7 +42,7 @@ describe('turns', () => {
       await sessionStore.createSession({
         tenant_id: 'default',
         session_id: 's1',
-        created_by: 'someone-else',
+        created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
         agent: {
           type: 'inline',
           spec: AgentSpecSchema.parse({
@@ -146,7 +146,14 @@ describe('turns', () => {
             session_id: 's1',
             tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
-            record: { last_turn_id: null, created_by: STANDALONE_REQUEST_CONTEXT.subject.id },
+            record: {
+              last_turn_id: null,
+              created_by_subject: {
+                subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+                subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+                subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+              },
+            },
             createTurn: () =>
               Promise.resolve({
                 id: 'turn-non-stream',
@@ -264,7 +271,11 @@ describe('turns', () => {
             record: {
               session_id: 's1',
               last_turn_id: null,
-              created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
+              created_by_subject: {
+                subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+                subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+                subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+              },
               agent: { type: 'inline', spec: agentSpec },
             },
             createTurn: () =>

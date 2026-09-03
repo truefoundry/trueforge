@@ -206,6 +206,9 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "POSTGRES_PASSWORD" "valueFrom" (dict "secretKeyRef" (dict "name" (include "trueforge.postgres.secretName" .) "key" "password"))) -}}
 {{- else -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
+{{- if .Values.externalPostgres.sslMode -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
+{{- end -}}
 {{- end -}}
 
 {{- if .Values.configs.oidc.enabled -}}

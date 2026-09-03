@@ -105,14 +105,22 @@ describe('sessions HTTP agent binding', () => {
     const json = (await res.json()) as {
       data: {
         id: string;
-        created_by: string;
+        created_by_subject: {
+          subject_id: string;
+          subject_type: string;
+          subject_display_name: string;
+        };
         agent: { type: 'inline'; spec: { instructions?: string } };
         metrics: unknown;
       };
     };
     expect(json.data.agent.type).toBe('inline');
     expect(json.data.agent.spec.instructions).toBe('inline');
-    expect(json.data.created_by).toBe(STANDALONE_REQUEST_CONTEXT.subject.id);
+    expect(json.data.created_by_subject).toEqual({
+      subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+      subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+      subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+    });
     expect(json.data.metrics).toEqual({ total_cost_in_usd: 0, total_duration_ms: 0, total_turns: 0 });
   });
 
@@ -124,6 +132,11 @@ describe('sessions HTTP agent binding', () => {
   it('creates a named session and filters list by agent_id', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       name: 'named-agent',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -151,6 +164,11 @@ describe('sessions HTTP agent binding', () => {
   it('returns caller-scoped metrics for a named agent', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       name: 'metrics-agent',
       manifest: inlineSpec,
       external_id: null,
@@ -158,7 +176,11 @@ describe('sessions HTTP agent binding', () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 'my-metrics-session',
-      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
       metadata: {},
@@ -167,7 +189,7 @@ describe('sessions HTTP agent binding', () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 'other-user-metrics-session',
-      created_by: 'someone-else',
+      created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
       metadata: {},
@@ -229,7 +251,7 @@ describe('sessions HTTP agent binding', () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 'other-user-session',
-      created_by: 'someone-else',
+      created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
       metadata: {},
@@ -238,14 +260,34 @@ describe('sessions HTTP agent binding', () => {
 
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
-    const json = (await created.json()) as { data: { id: string; created_by: string } };
-    expect(json.data.created_by).toBe(STANDALONE_REQUEST_CONTEXT.subject.id);
+    const json = (await created.json()) as {
+      data: {
+        id: string;
+        created_by_subject: {
+          subject_id: string;
+          subject_type: string;
+          subject_display_name: string;
+        };
+      };
+    };
+    expect(json.data.created_by_subject).toEqual({
+      subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+      subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+      subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+    });
 
     const listed = await app.request('/');
     expect(listed.status).toBe(200);
-    const listedJson = (await listed.json()) as { data: Array<{ id: string; created_by: string }> };
+    const listedJson = (await listed.json()) as {
+      data: Array<{
+        id: string;
+        created_by_subject: { subject_id: string };
+      }>;
+    };
     expect(listedJson.data.map(row => row.id)).toEqual([json.data.id]);
-    expect(listedJson.data.every(row => row.created_by === STANDALONE_REQUEST_CONTEXT.subject.id)).toBe(true);
+    expect(
+      listedJson.data.every(row => row.created_by_subject.subject_id === STANDALONE_REQUEST_CONTEXT.subject.id),
+    ).toBe(true);
 
     const forbiddenBody = { error: { message: 'Only the session creator can access this session' } };
 
@@ -276,6 +318,11 @@ describe('sessions HTTP agent binding', () => {
   it('rejects PATCH agent on a named session', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       name: 'named-agent',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -397,7 +444,7 @@ describe('sessions HTTP agent binding', () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 'someone-elses-session',
-      created_by: 'someone-else',
+      created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
       metadata: {},

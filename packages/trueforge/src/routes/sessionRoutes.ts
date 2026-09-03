@@ -111,7 +111,7 @@ export const getSessionRoute = createRoute({
   path: '/{session_id}',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a session',
-  description: 'Fetch a session by ID. Only the session creator (`created_by`) may fetch it.',
+  description: 'Fetch a session by ID. Only the session creator may fetch it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -139,7 +139,7 @@ export const deleteSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Delete a session',
   description:
-    'Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.',
+    'Delete a session and all related turns, events, and internal state. Only the session creator may delete it. Idempotent if already gone.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -162,7 +162,7 @@ export const updateSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update a session',
   description:
-    'Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.',
+    'Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
@@ -203,7 +203,7 @@ export const listSessionsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List sessions',
   description:
-    "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+    "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -227,7 +227,7 @@ export const cancelSessionRoute = createRoute({
   path: '/{session_id}/cancel',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Cancel a running turn in a session',
-  description: 'Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.',
+  description: 'Cancel the running last turn for a session. Only the session creator may cancel.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'cancel',
   request: {
@@ -264,7 +264,7 @@ export const listSessionEventsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List session events',
   description:
-    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.',
+    'List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator may list events.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_events',
   'x-fern-pagination': TOKEN_PAGINATION,

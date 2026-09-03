@@ -29,7 +29,7 @@ export function runSessionMetricsStoreContractSuite(
       await sessionStore.createSession({
         tenant_id: tenant,
         session_id: 'metrics-session',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'reference', id: 'agent-abc', name: 'Agent ABC' },
         custom: null,
         metadata: {},
@@ -38,7 +38,7 @@ export function runSessionMetricsStoreContractSuite(
       await sessionStore.createSession({
         tenant_id: tenant,
         session_id: 'other-user-metrics-session',
-        created_by: 'user-2',
+        created_by_subject: { subject_id: 'user-2', subject_type: 'user', subject_display_name: 'user-2' },
         agent: { type: 'reference', id: 'agent-abc', name: 'Agent ABC' },
         custom: null,
         metadata: {},
@@ -61,7 +61,7 @@ export function runSessionMetricsStoreContractSuite(
       const metricsQuery = {
         tenant_id: tenant,
         agent_id: 'agent-abc',
-        created_by: 'user-1',
+        created_by_subject_id: 'user-1',
         start_timestamp: start,
         end_timestamp: new Date(start.getTime() + 2 * 60 * 60 * 1000),
       };
@@ -118,7 +118,7 @@ export function runSessionMetricsStoreContractSuite(
         await sessionStore.createSession({
           tenant_id: tenant,
           session_id: definition.id,
-          created_by: 'user-1',
+          created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
           agent: { type: 'reference', id: 'agent-distributions', name: 'Agent Distributions' },
           custom: null,
           metadata: {},
@@ -144,7 +144,7 @@ export function runSessionMetricsStoreContractSuite(
       const meters = await metricsStore.getSessionMetricsMeters({
         tenant_id: tenant,
         agent_id: 'agent-distributions',
-        created_by: 'user-1',
+        created_by_subject_id: 'user-1',
         start_timestamp: new Date(Date.now() - 60 * 60 * 1000),
         end_timestamp: new Date(Date.now() + 60 * 60 * 1000),
       });
@@ -168,7 +168,7 @@ export function runSessionMetricsStoreContractSuite(
       await sessionStore.createSession({
         tenant_id: tenant,
         session_id: 'inflight-session',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'reference', id: 'agent-inflight', name: 'Agent InFlight' },
         custom: null,
         metadata: {},
@@ -177,7 +177,7 @@ export function runSessionMetricsStoreContractSuite(
       await sessionStore.createSession({
         tenant_id: tenant,
         session_id: 'completed-session',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'reference', id: 'agent-inflight', name: 'Agent InFlight' },
         custom: null,
         metadata: {},
@@ -200,7 +200,7 @@ export function runSessionMetricsStoreContractSuite(
       const meters = await metricsStore.getSessionMetricsMeters({
         tenant_id: tenant,
         agent_id: 'agent-inflight',
-        created_by: 'user-1',
+        created_by_subject_id: 'user-1',
         start_timestamp: start,
         end_timestamp: new Date(start.getTime() + 2 * 60 * 60 * 1000),
       });

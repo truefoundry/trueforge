@@ -116,7 +116,11 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
     const session = await sessions.create({
       tenant_id: 'default',
       session_id: 'no-turn',
-      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       agent: { type: 'inline', spec: agentSpec() },
       external_id: null,
     });

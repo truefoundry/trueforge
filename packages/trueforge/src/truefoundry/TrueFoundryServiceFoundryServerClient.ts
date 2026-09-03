@@ -66,7 +66,7 @@ export interface PutRemoteAgentInput {
   name: string;
   description: string;
   model: string;
-  mcp_servers?: string[];
+  mcp_servers: string[];
 }
 
 export interface PutRemoteAgentResult {
@@ -212,7 +212,7 @@ export class TrueFoundryServiceFoundryServerClient {
         name: input.name,
         description: input.description,
         model: input.model,
-        ...(input.mcp_servers === undefined ? {} : { mcp_servers: input.mcp_servers }),
+        mcp_servers: input.mcp_servers,
       },
     });
     const parsed = PutRemoteAgentResponseSchema.safeParse(payload);
@@ -382,7 +382,7 @@ export class TrueFoundryServiceFoundryServerClient {
   async #requestJson(input: {
     url: URL;
     accessToken: string;
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    method: 'GET' | 'DELETE' | 'POST' | 'PUT';
     body?: unknown;
     timeoutMs?: number;
     /** Treat HTTP 404 as success (idempotent DELETE). */
@@ -390,59 +390,25 @@ export class TrueFoundryServiceFoundryServerClient {
   }): Promise<unknown> {
     const startedAt = Date.now();
     const timeoutMs = input.timeoutMs ?? this.#httpTimeoutMs;
-    const signal = AbortSignal.timeout(timeoutMs);
+    const headers: Record<string, string> = {
+      accept: 'application/json',
+      authorization: `Bearer ${input.accessToken}`,
+    };
+    let body: string | undefined;
+    if (input.body !== undefined) {
+      headers['content-type'] = 'application/json';
+      body = JSON.stringify(input.body);
+    }
     let response: Awaited<ReturnType<typeof undiciFetch>>;
     try {
       response = await undiciFetch(input.url, {
         method: input.method,
-        headers: {
-          accept: 'application/json',
-          authorization: `Bearer ${input.accessToken}`,
-          ...(input.body === undefined ? {} : { 'content-type': 'application/json' }),
-        },
-        ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
-        signal,
+        headers,
+        ...(body !== undefined ? { body } : {}),
+        signal: AbortSignal.timeout(timeoutMs),
         ...(this.#dispatcher ? { dispatcher: this.#dispatcher } : {}),
       });
-      this.#logger.info('TrueFoundry ServiceFoundry server request completed', {
-        url: input.url.href,
-        method: input.method,
-        status: response.status,
-        durationMs: Date.now() - startedAt,
-      });
-      if (response.status === 401 || response.status === 403) {
-        throw new HTTPException(response.status, {
-          message: 'TrueFoundry ServiceFoundry server rejected the request',
-        });
-      }
-      if (response.status === 404 && input.notFoundOk) {
-        return undefined;
-      }
-      if (!response.ok) {
-        const detail = await readServiceFoundryErrorMessage(response);
-        throw new HTTPException(424, {
-          message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
-        });
-      }
-      if (response.status === 204) {
-        return undefined;
-      }
-      const text = await response.text();
-      if (text.length === 0) {
-        return undefined;
-      }
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new HTTPException(424, {
-          message: 'TrueFoundry ServiceFoundry server returned invalid JSON',
-          cause: error,
-        });
-      }
     } catch (error) {
-      if (error instanceof HTTPException) {
-        throw error;
-      }
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
       this.#logger.warn('TrueFoundry ServiceFoundry server request failed', {
         url: input.url.href,
@@ -455,6 +421,45 @@ export class TrueFoundryServiceFoundryServerClient {
         message: timedOut
           ? `TrueFoundry ServiceFoundry server request timed out after ${String(timeoutMs / 1000)}s`
           : 'TrueFoundry ServiceFoundry server request failed',
+        cause: error,
+      });
+    }
+    this.#logger.info('TrueFoundry ServiceFoundry server request completed', {
+      url: input.url.href,
+      method: input.method,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new HTTPException(response.status, {
+        message: 'TrueFoundry ServiceFoundry server rejected the request',
+      });
+    }
+    if (response.status === 404 && input.notFoundOk) {
+      return undefined;
+    }
+    if (!response.ok) {
+      const detail = await readServiceFoundryErrorMessage(response);
+      throw new HTTPException(424, {
+        message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
+      });
+    }
+    if (response.status === 204) {
+      return undefined;
+    }
+    const text = await response.text();
+    if (text.length === 0) {
+      return undefined;
+    }
+    try {
+      return JSON.parse(text) as unknown;
+    } catch (error) {
+      this.#logger.error('TrueFoundry ServiceFoundry server returned non-JSON', {
+        url: input.url.href,
+        ...extractErrorLogFields(error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry server returned non-JSON',
         cause: error,
       });
     }

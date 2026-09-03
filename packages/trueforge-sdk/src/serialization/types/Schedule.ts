@@ -3,6 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { CreatedBySubject } from "./CreatedBySubject.js";
 import { ResourceName } from "./ResourceName.js";
 import { ScheduleManifest } from "./ScheduleManifest.js";
 
@@ -10,7 +11,7 @@ export const Schedule: core.serialization.ObjectSchema<serializers.Schedule.Raw,
     core.serialization.object({
         agentName: core.serialization.property("agent_name", ResourceName),
         createdAt: core.serialization.property("created_at", core.serialization.date()),
-        createdBy: core.serialization.property("created_by", core.serialization.string()),
+        createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
         id: core.serialization.string(),
         manifest: ScheduleManifest,
         name: ResourceName,
@@ -21,7 +22,7 @@ export declare namespace Schedule {
     export interface Raw {
         agent_name: ResourceName.Raw;
         created_at: string;
-        created_by: string;
+        created_by_subject: CreatedBySubject.Raw;
         id: string;
         manifest: ScheduleManifest.Raw;
         name: ResourceName.Raw;

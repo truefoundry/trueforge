@@ -1,4 +1,4 @@
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 
 import type { AgentRecord } from '../../../src/db/agentStore';
@@ -14,6 +14,11 @@ import {
 const TENANT = 'default';
 const TOKEN = 'test-token';
 const LOGGER = createLogger({ silent: true });
+const CREATED_BY_SUBJECT: CreatedBySubject = {
+  subject_id: 'tester',
+  subject_type: 'user',
+  subject_display_name: 'tester',
+};
 
 function mockTransaction() {
   const executor = {
@@ -53,6 +58,7 @@ function record(overrides: Partial<AgentRecord> = {}): AgentRecord {
     name: 'research',
     manifest: manifest(),
     external_id: null,
+    created_by_subject: CREATED_BY_SUBJECT,
     created_at: now,
     updated_at: now,
     ...overrides,
@@ -66,6 +72,7 @@ function mockInner(overrides = {}) {
     createAgent: jest.fn(),
     updateAgent: jest.fn(),
     deleteAgent: jest.fn(),
+    withTransaction: jest.fn(async fn => fn(TXN)),
     ...overrides,
   };
 }
@@ -139,6 +146,7 @@ describe('TrueFoundryAgentStore', () => {
       store.createAgent(
         {
           tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
           name: 'research',
           manifest: manifest({ mcp_servers: [{ name: 'slack' }] }),
           external_id: null,
@@ -173,7 +181,16 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }, TXN),
+      store.createAgent(
+        {
+          tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
+          name: 'research',
+          manifest: manifest(),
+          external_id: null,
+        },
+        TXN,
+      ),
     ).rejects.toBeInstanceOf(AgentNameConflictError);
     expect(putRemoteAgent).not.toHaveBeenCalled();
     expect(updateAgent).not.toHaveBeenCalled();
@@ -183,6 +200,7 @@ describe('TrueFoundryAgentStore', () => {
   it('createAgent uses agent name as description when instructions are omitted', async () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input.description).toBe('research');
+      expect(input.mcp_servers).toEqual([]);
       return { externalId: 'sf-1' };
     });
     const createAgent = jest.fn(async () => record({ external_id: null }));
@@ -196,6 +214,7 @@ describe('TrueFoundryAgentStore', () => {
     await store.createAgent(
       {
         tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
         name: 'research',
         manifest: AgentSpecSchema.parse({ model: { name: 'openai-gateway/gpt-5' } }),
         external_id: null,
@@ -221,7 +240,16 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }, TXN),
+      store.createAgent(
+        {
+          tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
+          name: 'research',
+          manifest: manifest(),
+          external_id: null,
+        },
+        TXN,
+      ),
     ).rejects.toThrow('sf failed');
     expect(updateAgent).not.toHaveBeenCalled();
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
@@ -243,7 +271,16 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }, TXN),
+      store.createAgent(
+        {
+          tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
+          name: 'research',
+          manifest: manifest(),
+          external_id: null,
+        },
+        TXN,
+      ),
     ).rejects.toThrow('db update failed');
     expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: local.id }, TXN);
@@ -268,7 +305,16 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }, TXN),
+      store.createAgent(
+        {
+          tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
+          name: 'research',
+          manifest: manifest(),
+          external_id: null,
+        },
+        TXN,
+      ),
     ).rejects.toMatchObject({
       message: 'createAgent failed and cleanup also failed',
       errors: [
@@ -289,11 +335,14 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await expect(store.updateAgent({ tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' }, TXN)).resolves.toBe(
+    await expect(store.updateAgent({ tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' })).resolves.toBe(
       updated,
     );
     expect(putRemoteAgent).not.toHaveBeenCalled();
-    expect(updateAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' }, TXN);
+    expect(updateAgent).toHaveBeenCalledWith(
+      { tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' },
+      undefined,
+    );
   });
 
   it('updateAgent returns undefined for a missing agent without calling putRemoteAgent', async () => {
@@ -307,7 +356,7 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.updateAgent({ tenant_id: TENANT, id: 'missing', manifest: manifest({ instructions: 'Updated.' }) }, TXN),
+      store.updateAgent({ tenant_id: TENANT, id: 'missing', manifest: manifest({ instructions: 'Updated.' }) }),
     ).resolves.toBeUndefined();
     expect(updateAgent).not.toHaveBeenCalled();
     expect(putRemoteAgent).not.toHaveBeenCalled();
@@ -319,13 +368,15 @@ describe('TrueFoundryAgentStore', () => {
     const updated = record({ manifest: updatedManifest, external_id: 'sf-1' });
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
+    const withTransaction = jest.fn(async fn => fn(TXN));
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ getAgent, updateAgent }),
+      inner: mockInner({ getAgent, updateAgent, withTransaction }),
       client: mockClient(),
       accessToken: TOKEN,
     });
 
-    await store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest }, TXN);
+    await store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest });
+    expect(withTransaction).toHaveBeenCalled();
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
   });
 
@@ -342,9 +393,9 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await expect(
-      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest }, TXN),
-    ).resolves.toBe(updated);
+    await expect(store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest })).resolves.toBe(
+      updated,
+    );
     expect(putRemoteAgent).toHaveBeenCalledTimes(1);
     expect(updateAgent).toHaveBeenCalledTimes(1);
     expect(updateAgent).toHaveBeenCalledWith(
@@ -406,7 +457,7 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: manifest({ instructions: 'Updated.' }) }, TXN),
+      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: manifest({ instructions: 'Updated.' }) }),
     ).rejects.toThrow('sf failed');
     expect(updateAgent).not.toHaveBeenCalled();
   });
@@ -428,9 +479,9 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await expect(
-      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest }, TXN),
-    ).rejects.toThrow('db write failed');
+    await expect(store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest })).rejects.toThrow(
+      'db write failed',
+    );
     expect(putRemoteAgent).toHaveBeenCalledTimes(2);
     expect(putRemoteAgent).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -459,7 +510,7 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await expect(
-      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: manifest({ instructions: 'Updated.' }) }, TXN),
+      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: manifest({ instructions: 'Updated.' }) }),
     ).rejects.toMatchObject({
       message: 'updateAgent failed and ServiceFoundry restore also failed',
       errors: [
@@ -479,7 +530,7 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await store.deleteAgent({ tenant_id: TENANT, id: previous.id }, TXN);
+    await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
   });
 
@@ -494,7 +545,7 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await store.deleteAgent({ tenant_id: TENANT, id: previous.id }, TXN);
+    await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
     expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
     expect(firstInvocationOrder(deleteRemoteAgent)).toBeLessThan(firstInvocationOrder(deleteAgent));
@@ -511,7 +562,7 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await store.deleteAgent({ tenant_id: TENANT, id: previous.id }, TXN);
+    await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
     expect(deleteAgent).toHaveBeenCalled();
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
   });
@@ -526,7 +577,7 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await store.deleteAgent({ tenant_id: TENANT, id: 'missing' }, TXN);
+    await store.deleteAgent({ tenant_id: TENANT, id: 'missing' });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'missing' }, TXN);
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
   });
@@ -544,7 +595,7 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await expect(store.deleteAgent({ tenant_id: TENANT, id: previous.id }, TXN)).rejects.toThrow('sf delete failed');
+    await expect(store.deleteAgent({ tenant_id: TENANT, id: previous.id })).rejects.toThrow('sf delete failed');
     expect(deleteRemoteAgent).toHaveBeenCalled();
     expect(deleteAgent).not.toHaveBeenCalled();
   });

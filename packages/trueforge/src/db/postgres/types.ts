@@ -4,6 +4,7 @@
  */
 import type {
   AgentSpec,
+  CreatedBySubject,
   PersistedTurnEvent,
   SessionMetadata,
   SessionMetrics,
@@ -54,7 +55,7 @@ export interface SessionTable {
   /** key */
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by: string;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   /**
    * Named registry binding; XOR with `agent_spec`
    * (CHECK session_agent_xor_check).
@@ -376,6 +377,7 @@ export interface AgentTable {
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   external_id: string | null;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -398,8 +400,7 @@ export interface ScheduleTable {
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  /** Identity every run of this schedule executes as (`RequestContext.subject.id`) */
-  created_by: string;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;
   updated_at: Date;
 }
@@ -419,8 +420,7 @@ export interface ScheduleRunTable {
   scheduled_for: Date;
   /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
   status: ScheduleRunStatus;
-  /** `RequestContext.subject.id` of who triggered the run */
-  triggered_by: string;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   triggered_at: Date | null;
   created_at: Date;
   updated_at: Date;

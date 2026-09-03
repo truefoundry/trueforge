@@ -194,9 +194,13 @@ function buildResolveMcpServerStore<TTransaction>(options: {
  */
 function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
-  client: TrueFoundryServiceFoundryServerClient;
+  client: TrueFoundryServiceFoundryServerClient | undefined;
 }): (c?: Context) => IAgentStore<Transaction<PostgresDatabase>> {
   const { persistenceStore, client } = options;
+  if (!client) {
+    return () => persistenceStore;
+  }
+  // No request context (e.g. the scheduler) means no caller token, so fall back to persistence.
   return c =>
     c
       ? new TrueFoundryAgentStore({
@@ -339,13 +343,10 @@ async function createDistributedPersistence(options: {
       tokenStore,
       client: serviceFoundryClient,
     }),
-    resolveAgentStore:
-      serviceFoundryClient === undefined
-        ? () => agentStore
-        : buildResolveAgentStore({
-            persistenceStore: agentStore,
-            client: serviceFoundryClient,
-          }),
+    resolveAgentStore: buildResolveAgentStore({
+      persistenceStore: agentStore,
+      client: serviceFoundryClient,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
     skillStore: new PostgresSkillStore(db),
