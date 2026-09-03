@@ -243,6 +243,9 @@ export async function listSessions(
   if (input.created_by !== undefined) {
     query = query.where('created_by', '=', input.created_by);
   }
+  if (input.metadata !== undefined && Object.keys(input.metadata).length > 0) {
+    query = query.where(sql<boolean>`metadata @> ${json(input.metadata)}`);
+  }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp);
   }

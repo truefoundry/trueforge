@@ -435,6 +435,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         agent_id: query.agent_id,
         created_by: requestContext.subject.id,
         tenant_id: requestContext.tenant_id,
+        metadata: query.metadata,
         limit: query.limit,
         order: query.order,
         page_token: query.page_token,

@@ -64,6 +64,28 @@ const IsoTimestampQueryParam = z.iso
   .openapi({ type: 'string', format: 'date-time' })
   .transform(s => new Date(s));
 
+/**
+ * JSON-encoded SessionMetadata query string → parsed map (or undefined when empty).
+ * OpenAPI wire type stays string; runtime yields SessionMetadata | undefined.
+ */
+const SessionMetadataQueryParam = z
+  .string()
+  .openapi({ type: 'string' })
+  .describe(
+    'JSON-encoded SessionMetadata. Sessions must contain all key/value pairs (exact match). Keep constant across page_token pages. Omit or `{}` for no filter.',
+  )
+  .transform((raw, ctx) => {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return parsed;
+    } catch {
+      ctx.addIssue({ code: 'custom', message: 'metadata must be a JSON object string' });
+      return z.NEVER;
+    }
+  })
+  .pipe(SessionMetadataSchema)
+  .transform(metadata => (Object.keys(metadata).length === 0 ? undefined : metadata));
+
 export const ListSessionsRequestQuerySchema = z
   .object({
     limit: z.coerce
@@ -92,6 +114,7 @@ export const ListSessionsRequestQuerySchema = z
       'Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).',
     ),
     agent_id: z.string().min(1).optional().describe('When set, only sessions bound to this agent id are returned.'),
+    metadata: SessionMetadataQueryParam.optional(),
   })
   .openapi('ListSessionsRequestQuery');
 

@@ -363,6 +363,50 @@ describe('sessions HTTP agent binding', () => {
     expect(tooLongValue.status).toBe(400);
   });
 
+  it('lists sessions filtered by metadata containment', async () => {
+    const match = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'prod', team: 'platform' } }),
+    );
+    expect(match.status).toBe(201);
+    const matchId = ((await match.json()) as { data: { id: string } }).data.id;
+
+    const superset = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { env: 'prod', team: 'platform', ticket: 'T-1' },
+      }),
+    );
+    expect(superset.status).toBe(201);
+    const supersetId = ((await superset.json()) as { data: { id: string } }).data.id;
+
+    const miss = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'staging', team: 'platform' } }),
+    );
+    expect(miss.status).toBe(201);
+
+    const listed = await app.request(
+      `/?metadata=${encodeURIComponent(JSON.stringify({ env: 'prod', team: 'platform' }))}`,
+    );
+    expect(listed.status).toBe(200);
+    const listedJson = (await listed.json()) as { data: Array<{ id: string }> };
+    expect(listedJson.data.map(s => s.id).sort()).toEqual([matchId, supersetId].sort());
+  });
+
+  it('rejects invalid metadata list query', async () => {
+    const badJson = await app.request('/?metadata=not-json');
+    expect(badJson.status).toBe(400);
+
+    const tooManyKeys: Record<string, string> = {};
+    for (let i = 0; i < 51; i += 1) {
+      tooManyKeys[`k${String(i)}`] = 'v';
+    }
+    const oversize = await app.request(`/?metadata=${encodeURIComponent(JSON.stringify(tooManyKeys))}`);
+    expect(oversize.status).toBe(400);
+  });
+
   it('POST get-or-create-by-external-id is idempotent and 403s for another creator', async () => {
     const publicPath = await app.request(
       '/get-or-create-by-external-id',
