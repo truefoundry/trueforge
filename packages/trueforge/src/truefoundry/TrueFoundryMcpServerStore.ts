@@ -1,7 +1,5 @@
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
-import { safeReturnTo } from '../auth/safeReturnTo';
-import { getPublicBaseUrl } from '../config';
 import {
   McpServerNotFoundError,
   type AuthorizeMcpServerInput,
@@ -14,6 +12,7 @@ import {
   type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from '../db/mcpServerStore';
+import { mcpTrueFoundryOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
@@ -31,12 +30,14 @@ function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
 }
 
-/** Absolute post-consent redirect for SFY authorize; prefers explicit URL, else PUBLIC_BASE_URL + return_to. */
+/** SFY consent redirect: explicit URL, else our public callback that lands FE with `isSuccess`. */
 function resolveAuthorizeRedirectURL(input: { redirectURL?: string; returnTo?: string }): string {
   if (input.redirectURL !== undefined && input.redirectURL.length > 0) {
     return input.redirectURL;
   }
-  return new URL(safeReturnTo(input.returnTo), getPublicBaseUrl()).href;
+  return mcpTrueFoundryOAuthCallbackUrl({
+    ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
+  });
 }
 
 /**

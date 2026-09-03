@@ -1,9 +1,10 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, McpConnectionError } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
+import { safeReturnTo } from '../auth/safeReturnTo';
 import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';
-import type { IOAuthClientStore, IOAuthTokenStore, OAuthPendingAuthorization } from '../mcp/auth/types';
-import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
+import type { IOAuthClientStore, IOAuthTokenStore } from '../mcp/auth/types';
+import { mcpOAuthCallbackRoute, trueFoundryMcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
 
 export interface McpOAuthRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -11,7 +12,11 @@ export interface McpOAuthRouterDeps<TTransaction> {
   logger: Logger;
 }
 
-type McpOAuthCallbackContext = Parameters<RouteHandler<typeof mcpOAuthCallbackRoute>>[0];
+interface CallbackRequestContext {
+  req: { url: string };
+  redirect: (location: string, status: 302) => Response;
+  json: (body: unknown, status: 200 | 400 | 500) => Response;
+}
 
 /**
  * Landing path with the outcome appended to whatever query params it already carries.
@@ -20,12 +25,12 @@ type McpOAuthCallbackContext = Parameters<RouteHandler<typeof mcpOAuthCallbackRo
  * keeps whatever origin it is already on.
  */
 function callbackLandingPath(params: {
-  c: McpOAuthCallbackContext;
+  requestUrl: string;
   returnTo: string;
   isSuccess: boolean;
   reason?: string;
 }): string {
-  const url = new URL(params.returnTo, params.c.req.url);
+  const url = new URL(params.returnTo, params.requestUrl);
   url.searchParams.set('isSuccess', String(params.isSuccess));
   if (params.reason) {
     url.searchParams.set('reason', params.reason);
@@ -38,24 +43,34 @@ function callbackLandingPath(params: {
  * `return_to`, or the pending row that carried it is gone (TTL expired, already redeemed, unknown
  * `state`) — the OAuth callback URL is never a page we send the user to on purpose.
  */
-function callbackSuccess(params: { c: McpOAuthCallbackContext; pending: OAuthPendingAuthorization }) {
-  const returnTo = params.pending.returnTo;
-  if (returnTo) {
-    return params.c.redirect(callbackLandingPath({ c: params.c, returnTo, isSuccess: true }), 302);
+function callbackSuccess(params: { c: CallbackRequestContext; returnTo: string | null | undefined }): Response {
+  if (params.returnTo) {
+    return params.c.redirect(
+      callbackLandingPath({
+        requestUrl: params.c.req.url,
+        returnTo: params.returnTo,
+        isSuccess: true,
+      }),
+      302,
+    );
   }
   return params.c.json({ success: true as const }, 200);
 }
 
 function callbackFailure(params: {
-  c: McpOAuthCallbackContext;
-  pending: OAuthPendingAuthorization | undefined;
+  c: CallbackRequestContext;
+  returnTo: string | null | undefined;
   message: string;
   jsonStatus?: 400 | 500;
-}) {
-  const returnTo = params.pending?.returnTo;
-  if (returnTo) {
+}): Response {
+  if (params.returnTo) {
     return params.c.redirect(
-      callbackLandingPath({ c: params.c, returnTo, isSuccess: false, reason: params.message }),
+      callbackLandingPath({
+        requestUrl: params.c.req.url,
+        returnTo: params.returnTo,
+        isSuccess: false,
+        reason: params.message,
+      }),
       302,
     );
   }
@@ -72,16 +87,20 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
     const pending = await deps.tokenStore.consumePendingAuthorization({ state });
     if (!pending) {
       deps.logger.warn('MCP OAuth callback has no pending authorization', { state, error, errorDescription });
-      return callbackFailure({ c, pending, message: 'Unknown or expired OAuth state' });
+      return callbackFailure({ c, returnTo: undefined, message: 'Unknown or expired OAuth state' });
     }
 
     if (error) {
       deps.logger.warn('MCP OAuth callback returned an error', { state, error, errorDescription });
-      return callbackFailure({ c, pending, message: error });
+      return callbackFailure({ c, returnTo: pending.returnTo, message: error });
     }
 
     if (!code) {
-      return callbackFailure({ c, pending, message: 'OAuth callback is missing both `code` and `error`' });
+      return callbackFailure({
+        c,
+        returnTo: pending.returnTo,
+        message: 'OAuth callback is missing both `code` and `error`',
+      });
     }
 
     try {
@@ -95,16 +114,46 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
       // Only a known MCP failure is safe to show the user; anything else gets a generic reason.
       if (err instanceof McpConnectionError) {
         deps.logger.warn('MCP OAuth callback token exchange failed', extractErrorLogFields(err));
-        return callbackFailure({ c, pending, message: err.message });
+        return callbackFailure({ c, returnTo: pending.returnTo, message: err.message });
       }
       deps.logger.error('MCP OAuth callback unexpected failure', extractErrorLogFields(err));
-      return callbackFailure({ c, pending, message: 'Internal server error', jsonStatus: 500 });
+      return callbackFailure({
+        c,
+        returnTo: pending.returnTo,
+        message: 'Internal server error',
+        jsonStatus: 500,
+      });
     }
 
-    return callbackSuccess({ c, pending });
+    return callbackSuccess({ c, returnTo: pending.returnTo });
+  };
+
+  /**
+   * SFY already persisted tokens before redirecting here — no exchange.
+   * Bounce to FE `return_to` with `isSuccess`, same landing contract as local DCR.
+   */
+  const trueFoundryCallbackHandler: RouteHandler<typeof trueFoundryMcpOAuthCallbackRoute> = c => {
+    const { return_to: returnToQuery, code, error, error_description: errorDescription } = c.req.valid('query');
+    const returnTo = safeReturnTo(returnToQuery);
+
+    if (error) {
+      deps.logger.warn('TrueFoundry MCP OAuth callback returned an error', { error, errorDescription });
+      return callbackFailure({ c, returnTo, message: error });
+    }
+
+    if (!code) {
+      return callbackFailure({
+        c,
+        returnTo,
+        message: 'OAuth callback is missing both `code` and `error`',
+      });
+    }
+
+    return callbackSuccess({ c, returnTo });
   };
 
   const router = new OpenAPIHono();
   router.openapi(mcpOAuthCallbackRoute, callbackHandler);
+  router.openapi(trueFoundryMcpOAuthCallbackRoute, trueFoundryCallbackHandler);
   return router;
 }

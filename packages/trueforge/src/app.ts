@@ -238,8 +238,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       }),
     ),
   );
-  // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
-  // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
+  // Public MCP OAuth callbacks (local DCR + TrueFoundry/SFY) must be registered before the gated
+  // `/mcp-servers` mount so `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
   app.route(
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({

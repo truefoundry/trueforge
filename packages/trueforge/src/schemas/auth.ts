@@ -24,6 +24,21 @@ export const OAuthCallbackQuerySchema = z.object({
     .describe('Human-readable error detail from the identity provider when `error` is set.'),
 });
 
+/**
+ * TrueFoundry / ServiceFoundry consent return: OAuth params plus the FE `return_to` baked into
+ * the registered redirect URL (no harness pending-auth row).
+ */
+export const TrueFoundryMcpOAuthCallbackQuerySchema = z.object({
+  return_to: z
+    .string()
+    .optional()
+    .describe('Same-origin relative path from authorize; callback redirects here with isSuccess.'),
+  code: z.string().min(1).optional().describe('Authorization code when consent succeeded.'),
+  state: z.string().min(1).optional().describe('OAuth state from ServiceFoundry when present.'),
+  error: z.string().optional().describe('Error code when consent failed or was denied.'),
+  error_description: z.string().optional().describe('Human-readable error detail when `error` is set.'),
+});
+
 export const OAuthCallbackSuccessSchema = z.object({
   success: z.literal(true).describe('Present when the OAuth callback completed without a return_to.'),
 });

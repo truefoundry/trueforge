@@ -271,4 +271,30 @@ describe('MCP OAuth authorize + callback', () => {
     expect(authorizeBBody.status).toBe('auth_required');
     expect(authorizeBBody.authorization_url).toBeDefined();
   });
+
+  it('TrueFoundry callback redirects to return_to with isSuccess=true when code is present', async () => {
+    const returnTo = '/?screenType=mcp-auth&pUid=popup-1';
+    const response = await oauthRouter.request(
+      `/truefoundry/callback?return_to=${encodeURIComponent(returnTo)}&code=sfy-code`,
+      { redirect: 'manual' },
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(`${returnTo}&isSuccess=true`);
+  });
+
+  it('TrueFoundry callback redirects with isSuccess=false when error is present', async () => {
+    const returnTo = '/settings/mcp';
+    const response = await oauthRouter.request(
+      `/truefoundry/callback?return_to=${encodeURIComponent(returnTo)}&error=access_denied`,
+      { redirect: 'manual' },
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(`${returnTo}?isSuccess=false&reason=access_denied`);
+  });
+
+  it('TrueFoundry callback defaults return_to to / when omitted', async () => {
+    const response = await oauthRouter.request('/truefoundry/callback?code=sfy-code', { redirect: 'manual' });
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/?isSuccess=true');
+  });
 });
