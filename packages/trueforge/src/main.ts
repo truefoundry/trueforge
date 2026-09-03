@@ -11,6 +11,7 @@
  */
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -23,9 +24,17 @@ import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
+let getTrueForgeMode: typeof import('./config').getTrueForgeMode;
+let TrueForgeMode: typeof import('./config').TrueForgeMode;
 
 try {
-  ({ default: configuration, isOidcConfigured, isTrueFoundryModeEnabled } = await import('./config'));
+  ({
+    default: configuration,
+    isOidcConfigured,
+    isTrueFoundryModeEnabled,
+    getTrueForgeMode,
+    TrueForgeMode,
+  } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -47,7 +56,8 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
-import { requireAccessToken } from './auth/middleware';
+import { createAuthenticator } from './auth/createAuthenticator';
+import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -73,6 +83,8 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
+import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 
@@ -81,8 +93,8 @@ interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
   resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
-  mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -90,6 +102,16 @@ interface ServerPersistence<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
+}
+
+function requireRequestCredentialToken(c: Context): string {
+  const credential = resolveRequestContext(c).user_credential;
+  if (credential === null) {
+    throw new HTTPException(401, {
+      message: 'Authentication token required to list or call TrueFoundry models and MCP servers',
+    });
+  }
+  return credential;
 }
 
 /**
@@ -112,8 +134,47 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   // unavailable there; fall back to the persistence store.
   return c =>
     c
-      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
       : options.persistenceStore;
+}
+
+/**
+ * Per-request MCP store resolver. Local mode wraps DB persistence with
+ * {@link McpServerWithAuthStore}. TrueFoundry mode returns a token-bound
+ * {@link TrueFoundryMcpServerStore} (implements auth UX stubs); without request
+ * context (scheduler / OAuth callback) falls back to the local with-auth store.
+ */
+function buildResolveMcpServerStore<TTransaction>(options: {
+  persistenceStore: IMcpServerStore<TTransaction>;
+  tokenStore: IOAuthTokenStore<TTransaction>;
+  logger: Logger;
+}): (c?: Context) => IMcpServerWithAuthStore<TTransaction> {
+  const withAuthPersistence = new McpServerWithAuthStore<TTransaction>({
+    store: options.persistenceStore,
+    tokenStore: options.tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  });
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return () => withAuthPersistence;
+  }
+  const client = new TrueFoundryServiceFoundryServerClient({
+    serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+    logger: options.logger,
+    tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+  });
+  return c => {
+    if (!c) {
+      return withAuthPersistence;
+    }
+    const requestContext = resolveRequestContext(c);
+    const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+    return new TrueFoundryMcpServerStore<TTransaction>({
+      client,
+      accessToken: requireRequestCredentialToken(c),
+      subject: requestContext.subject,
+      perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
+    });
+  };
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
@@ -155,6 +216,7 @@ async function createStandalonePersistence(options: {
   logger.info(`Standalone mode: sqlite at ${sqlitePath}`);
   logger.info('Standalone mode: executor peering disabled and Redis unused');
 
+  const tokenStore = new SqliteOAuthTokenStore(db);
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
@@ -162,9 +224,13 @@ async function createStandalonePersistence(options: {
       persistenceStore: new SqliteModelProviderStore(db),
       logger,
     }),
+    resolveMcpServerStore: buildResolveMcpServerStore({
+      persistenceStore: new SqliteMcpServerStore(db),
+      tokenStore,
+      logger,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
-    mcpServerStore: new SqliteMcpServerStore(db),
-    tokenStore: new SqliteOAuthTokenStore(db),
+    tokenStore,
     skillStore: new SqliteSkillStore(db),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     agentStore: new SqliteAgentStore(db),
@@ -227,6 +293,7 @@ async function createDistributedPersistence(options: {
   logger.info('Distributed mode: postgres');
   logger.info(`Executor id: ${executorId}`);
 
+  const tokenStore = new PostgresOAuthTokenStore(db);
   return {
     sessionStore: new PostgresSessionStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
@@ -234,9 +301,13 @@ async function createDistributedPersistence(options: {
       persistenceStore: new PostgresModelProviderStore(db),
       logger,
     }),
+    resolveMcpServerStore: buildResolveMcpServerStore({
+      persistenceStore: new PostgresMcpServerStore(db),
+      tokenStore,
+      logger,
+    }),
     withTransaction: callback => db.transaction().execute(callback),
-    mcpServerStore: new PostgresMcpServerStore(db),
-    tokenStore: new PostgresOAuthTokenStore(db),
+    tokenStore,
     skillStore: new PostgresSkillStore(db),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
     agentStore: new PostgresAgentStore(db),
@@ -252,8 +323,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionStore,
     sessionMetricsStore,
     resolveModelProviderStore,
+    resolveMcpServerStore,
     withTransaction,
-    mcpServerStore: persistenceMcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,
@@ -262,12 +333,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     destroyDb,
     redis,
   } = persistence;
-
-  const mcpServerStore: IMcpServerWithAuthStore<TTransaction> = new McpServerWithAuthStore({
-    store: persistenceMcpServerStore,
-    tokenStore,
-    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-  });
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
@@ -280,6 +345,26 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     logger.warn('Auth is disabled; browser login is off');
   }
   const oidcClient = await initOidc(oidc);
+
+  let authenticator;
+  const mode = getTrueForgeMode(configuration);
+  if (mode === TrueForgeMode.TrueFoundry) {
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      throw new Error('TrueFoundry mode requires TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    }
+    authenticator = createAuthenticator({
+      mode: TrueForgeMode.TrueFoundry,
+      trueFoundryClient: new TrueFoundryServiceFoundryServerClient({
+        serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+        logger,
+        tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+      }),
+    });
+  } else if (mode === TrueForgeMode.Oidc) {
+    authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
+  } else {
+    authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
+  }
 
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
@@ -297,8 +382,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     skillCatalog: SkillCatalog.load(),
     sandboxCatalog: SandboxCatalog.load(),
     resolveModelProviderStore,
+    resolveMcpServerStore,
     withTransaction,
-    mcpServerStore,
     tokenStore,
     skillStore,
     sandboxProviderStore,
@@ -313,6 +398,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     eventSubscriptions,
     logger,
     oidcClient,
+    authenticator,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

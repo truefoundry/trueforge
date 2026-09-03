@@ -41,8 +41,22 @@ import { ClearChatButton } from '../atoms/ClearChatButton.js';
 import { CodeEditor } from '../atoms/CodeEditor.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
+import { AgentConfigEditors } from '../atoms/draft/AgentConfigEditors.js';
+import { AgentConfigPanel, AgentConfigSection } from '../atoms/draft/AgentConfigPanel.js';
+import { AgentMcpEditorContent } from '../atoms/draft/AgentMcpEditorContent.js';
+import { AgentModelConfigModal } from '../atoms/draft/AgentModelConfigModal.js';
+import { AgentModelEditorContent } from '../atoms/draft/AgentModelEditorContent.js';
+import { AgentModelSettingsContent } from '../atoms/draft/AgentModelSettingsContent.js';
+import { AgentResourceConfigModal } from '../atoms/draft/AgentResourceConfigModal.js';
+import { AgentResourceEditorContent } from '../atoms/draft/AgentResourceEditorContent.js';
+import { AgentRuntimeConfigFields } from '../atoms/draft/AgentRuntimeConfigFields.js';
+import { AgentRuntimeConfigModal } from '../atoms/draft/AgentRuntimeConfigModal.js';
+import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorContent.js';
+import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
+import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
+import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
-import { DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
+import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
@@ -55,6 +69,8 @@ import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
+import { SaveAgentForm } from '../atoms/SaveAgentForm.js';
+import { SaveAgentFormFields } from '../atoms/SaveAgentFormFields.js';
 import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
@@ -126,7 +142,24 @@ export const defaultSlots = {
   ComposerSendButton,
   DraftComposerLeftSection,
   DraftComposerRightSection,
+  DraftAgentConfigTrigger,
+  DraftCapabilitiesPanel,
+  AgentConfigEditors,
+  AgentModelEditorContent,
+  AgentModelSettingsContent,
+  AgentMcpEditorContent,
+  AgentModelConfigModal,
+  AgentResourceEditorContent,
+  AgentResourceConfigModal,
+  AgentSkillsEditorContent,
+  AgentConfigPanel,
+  AgentConfigSection,
+  AgentRuntimeConfigFields,
+  AgentRuntimeConfigModal,
+  AgentRuntimeEditorContent,
   DraftCompositeSelector,
+  CatalogRow,
+  ConnectorConnectButton,
   DraftModelSelector,
   AssistantMessageBubble,
   UserMessageBubble,
@@ -190,6 +223,8 @@ export const defaultSlots = {
   AgentCodeBlock,
   SchedulesButton,
   SaveAgentButton,
+  SaveAgentForm,
+  SaveAgentFormFields,
   SelectAgentEmptyState,
   ClearChatButton,
   ThreadListRowSkeleton,

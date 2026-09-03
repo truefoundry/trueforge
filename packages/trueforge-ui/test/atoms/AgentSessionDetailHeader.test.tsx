@@ -57,4 +57,19 @@ describe('AgentSessionDetailHeader', () => {
       expect(screen.getByRole('tooltip')).toHaveTextContent('Copied');
     });
   });
+
+  it('shows Resume Chat when onResume is provided', () => {
+    const onResume = vi.fn();
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        onResume={onResume}
+        resumeLabel="Resume Chat"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Resume Chat' }));
+    expect(onResume).toHaveBeenCalledOnce();
+  });
 });

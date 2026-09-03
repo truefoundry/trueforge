@@ -13,7 +13,11 @@ describe("SessionsClient", () => {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
@@ -24,7 +28,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -48,7 +52,11 @@ describe("SessionsClient", () => {
                     type: "inline",
                 },
                 createdAt: "created_at",
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 metadata: {
                     key: "value",
@@ -72,7 +80,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -97,7 +105,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(403)
@@ -122,7 +130,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -147,7 +155,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)

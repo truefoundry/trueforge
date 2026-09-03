@@ -14,6 +14,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
+import { StandaloneAuthenticator } from '../src/auth/standaloneAuthenticator';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
@@ -64,11 +65,12 @@ const app = createServerApp({
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   withTransaction: callback => db.transaction().execute(callback),
   mcpCatalog: McpCatalog.load(),
-  mcpServerStore: new McpServerWithAuthStore({
-    store: new SqliteMcpServerStore(db),
-    tokenStore,
-    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-  }),
+  resolveMcpServerStore: () =>
+    new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+    }),
   tokenStore,
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
@@ -84,6 +86,7 @@ const app = createServerApp({
   eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
   oidcClient: undefined,
+  authenticator: new StandaloneAuthenticator(),
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed

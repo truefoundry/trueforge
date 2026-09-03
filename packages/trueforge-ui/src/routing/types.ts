@@ -27,7 +27,7 @@ export type RoutesConfig = {
     root?: string;
     /** Settings overlay. `false` keeps settings overlay-only (no URL). Default `'/settings'`. */
     settings?: string | false;
-    /** Agents Library overlay. `false` keeps library overlay-only (no URL). Default `'/library'`. */
+    /** Agents overlay. `false` keeps library overlay-only (no URL). Default `'/library'`. */
     library?: string | false;
     /** Agent detail under the library. Default `'/library/:agentId'`. */
     libraryAgent?: string | false;

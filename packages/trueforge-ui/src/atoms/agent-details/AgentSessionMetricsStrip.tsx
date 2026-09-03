@@ -60,18 +60,20 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
             </SessionMetricTooltipContent>
           }
         />
-        <SessionMetricTile
-          id="cost"
-          label="Cost"
-          value={formatCostUsd(metrics.totalCostUsd)}
-          tooltip={
-            metrics.costPerTurn.length > 1 && metrics.totalCostUsd > 0 ? (
-              <SessionMetricTooltipContent title="Cost per turn" fitWidth>
-                <VerticalBarColumns data={metrics.costPerTurn} formatValue={formatCostUsd} />
-              </SessionMetricTooltipContent>
-            ) : null
-          }
-        />
+        {metrics.totalCostUsd != null ? (
+          <SessionMetricTile
+            id="cost"
+            label="Cost"
+            value={formatCostUsd(metrics.totalCostUsd)}
+            tooltip={
+              metrics.costPerTurn.length > 1 && metrics.totalCostUsd > 0 ? (
+                <SessionMetricTooltipContent title="Cost per turn" fitWidth>
+                  <VerticalBarColumns data={metrics.costPerTurn} formatValue={formatCostUsd} />
+                </SessionMetricTooltipContent>
+              ) : null
+            }
+          />
+        ) : null}
         <SessionMetricTile
           id="tokens"
           label="Tokens"

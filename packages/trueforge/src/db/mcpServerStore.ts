@@ -1,15 +1,5 @@
-/**
- * Configured MCP servers: one row per server per tenant, identity as columns plus a
- * Zod-validated `McpServerManifest` jsonb document.
- *
- * - {@link IMcpServerStore}: DB CRUD + DCR client columns (`IOAuthClientStore`).
- *   Implemented by PostgresMcpServerStore / SqliteMcpServerStore.
- * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
- *   {@link McpServerWithAuthStore} (separate module) composes an {@link IMcpServerStore} + a token store.
- *
- * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
- * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
- */
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
@@ -37,8 +27,10 @@ export interface GetMcpServerInput {
 
 export interface ListMcpServersInput {
   tenant_id: string;
-  /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
+  /** `undefined` lists all; empty yields no rows without querying. */
   names: readonly string[] | undefined;
+  limit: number;
+  page_token: string | undefined;
 }
 
 export interface CreateMcpServerInput {
@@ -83,10 +75,8 @@ export interface AuthorizeMcpServerInput {
   tenant_id: string;
   name: string;
   userRef: string;
-  /** Relative same-origin path for local DCR pending-auth return. */
+  /** Same-origin relative path to land after consent. */
   returnTo?: string;
-  /** Absolute redirect URL when a remote auth backend needs a full callback URL. */
-  redirectURL?: string;
 }
 
 export interface DeleteMcpAuthorizationInput {
@@ -97,7 +87,10 @@ export interface DeleteMcpAuthorizationInput {
 
 /** Row persistence + DCR client columns — no authorize/status/revoke. */
 export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
-  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
+  listServers(
+    input: ListMcpServersInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
   /**
    * Load one server while holding a row lock for the lifetime of `transaction`.
@@ -114,11 +107,7 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
 }
 
-/**
- * Settings/MCP API store: persistence plus Connect UX auth.
- * McpServerWithAuthStore implements via a token store; remote-backed stores may call
- * an upstream status/authorize API instead.
- */
+/** Persistence plus authorize / status / revoke and invoke headers. */
 export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServerStore<TTransaction> {
   /** Wire `auth_status` for Connect UX, keyed by server name. */
   resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>>;
@@ -128,6 +117,9 @@ export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServe
 
   /** Revoke this subject's authorization for the named server. */
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
+
+  /** Headers for MCP invoke; may be static or an async resolver that can return `authRequired`. */
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders;
 }
 
 /**

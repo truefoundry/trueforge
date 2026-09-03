@@ -42,7 +42,7 @@ const apiProxy: ProxyOptions = {
   },
 };
 
-/** When UI+API share a public path, strip it so Harness still sees `/api` / `/internal`. */
+/** When UI+API share a public path, strip it so Harness still sees `/api`. */
 const prefixedApiProxy: ProxyOptions =
   BASE === '/'
     ? apiProxy
@@ -55,14 +55,11 @@ const proxy: Record<string, ProxyOptions> =
   BASE === '/'
     ? {
         '/api': apiProxy,
-        '/internal': apiProxy,
       }
     : {
         // Prefer the prefixed keys so `/trueforge/api` is not matched as a bare `/api` miss.
         [`${BASE}api`]: prefixedApiProxy,
-        [`${BASE}internal`]: prefixedApiProxy,
         '/api': apiProxy,
-        '/internal': apiProxy,
       };
 
 export default defineConfig({
@@ -95,7 +92,7 @@ export default defineConfig({
     port: PORT,
     // Fail if FRONTEND_PORT is taken — never silently hop to 3001/3010/etc.
     strictPort: true,
-    // Proxy both public SDK routes and internal UI-only routes to the Harness.
+    // Proxy API routes (including /api/internal) to the Harness.
     proxy,
   },
 });

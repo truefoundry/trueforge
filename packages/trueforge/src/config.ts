@@ -40,6 +40,7 @@ const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
+const DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM = 'name';
 const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
 const DEFAULT_OIDC_ADMIN_ROLE_VALUE = 'admin';
 const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
@@ -304,6 +305,9 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
     OIDC_USER_REFERENCE_CLAIM:
       getEnv('OIDC_USER_REFERENCE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_REFERENCE_CLAIM }) ??
       DEFAULT_OIDC_USER_REFERENCE_CLAIM,
+    OIDC_USER_DISPLAY_NAME_CLAIM:
+      getEnv('OIDC_USER_DISPLAY_NAME_CLAIM', { defaultValue: DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM }) ??
+      DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM,
     OIDC_USER_ROLE_CLAIM:
       getEnv('OIDC_USER_ROLE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_ROLE_CLAIM }) ?? DEFAULT_OIDC_USER_ROLE_CLAIM,
     OIDC_ADMIN_ROLE_VALUE:
@@ -328,6 +332,11 @@ export interface OIDCConfig {
    * Optional; defaults to "sub"
    */
   OIDC_USER_REFERENCE_CLAIM: string;
+  /** Claim used as the display name; e.g. "name" or "preferred_username".
+   * Optional; defaults to "name". Missing/empty falls back to the user reference.
+   * Env: `OIDC_USER_DISPLAY_NAME_CLAIM`.
+   */
+  OIDC_USER_DISPLAY_NAME_CLAIM: string;
   /** Claim to be used as the user role; e.g. "role" or "groups"
    * Optional; defaults to "groups"
    */
@@ -709,6 +718,27 @@ export function isTrueFoundryModeEnabled(
   config: ServerConfiguration = configuration,
 ): config is ServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
   return config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
+}
+
+/** Runtime auth/integration mode for this process. */
+export enum TrueForgeMode {
+  Standalone = 'standalone',
+  Oidc = 'oidc',
+  TrueFoundry = 'truefoundry',
+}
+
+/**
+ * Resolve the active {@link TrueForgeMode} from configuration.
+ * TrueFoundry wins over OIDC when both would otherwise be set (startup already rejects that combo).
+ */
+export function getTrueForgeMode(config: ServerConfiguration = configuration): TrueForgeMode {
+  if (isTrueFoundryModeEnabled(config)) {
+    return TrueForgeMode.TrueFoundry;
+  }
+  if (isOidcConfigured(config)) {
+    return TrueForgeMode.Oidc;
+  }
+  return TrueForgeMode.Standalone;
 }
 
 // TrueFoundry mode authenticates each caller with their own gateway token, so browser SSO must be

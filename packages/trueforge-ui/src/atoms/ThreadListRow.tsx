@@ -61,7 +61,7 @@ export function ThreadListRow({
           <span className="block truncate text-sm font-medium text-text-primary">{title}</span>
           {agentName != null ? (
             <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-text-secondary">
-              <Icon name="robot" className="size-3 shrink-0" />
+              <Icon name="agent-2" className="size-3 shrink-0" />
               <span className="truncate">{agentName}</span>
             </span>
           ) : null}

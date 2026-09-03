@@ -2,9 +2,9 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -30,6 +30,7 @@ async function buildApp() {
   await migrateSqliteToLatest(db);
   const sessionStore = new SqliteSessionStore(db);
   const sessions = new Sessions({ sessionStore });
+  const tokenStore = new SqliteOAuthTokenStore(db);
   const app = new OpenAPIHono();
 
   app.route(
@@ -39,14 +40,18 @@ async function buildApp() {
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      mcpServerStore: new SqliteMcpServerStore(db),
-      tokenStore: new SqliteOAuthTokenStore(db),
+      resolveMcpServerStore: () =>
+        new McpServerWithAuthStore({
+          store: new SqliteMcpServerStore(db),
+          tokenStore,
+          clientName: 'test-client',
+        }),
       skillStore: new SqliteSkillStore(db),
       agentStore: new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
   );
 
@@ -109,9 +114,13 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
   it('returns 404 for a turn that does not exist in the session', async () => {
     const { app, sessions } = await buildApp();
     const session = await sessions.create({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       session_id: 'no-turn',
-      created_by: LOCAL_USER_CONTEXT.userRef,
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       agent: { type: 'inline', spec: agentSpec() },
       external_id: null,
     });

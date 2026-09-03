@@ -9,6 +9,7 @@ import {
   buildTimelineAxisTicks,
   compressInterTurnGaps,
   getActiveTimelineMs,
+  getSubAgentHoverGroups,
   getSubAgentLanes,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
@@ -190,6 +191,40 @@ describe('sessionEventTimelineChart helpers', () => {
     );
   });
 
+  it('scopes each sub-agent tooltip to runs directly overlapping its visible bar', () => {
+    const subAgents = bars([
+      [0, 10, 0],
+      [9, 11, 0],
+      [10.5, 20, 0],
+    ]).map((segment, index): SessionEventTimelineSegment => ({
+      ...segment,
+      type: 'sub_agent',
+      threadId: `child-${index}`,
+    }));
+    const visibleBars = pickLongestNonOverlappingSegments(subAgents);
+    const groups = getSubAgentHoverGroups({
+      bars: visibleBars,
+      subAgentSegments: subAgents,
+    });
+
+    assert.deepEqual(
+      visibleBars.map(segment => segment.id),
+      ['s0', 's2'],
+    );
+    assert.deepEqual(
+      groups.map(group => ({
+        barId: group.barId,
+        startMs: group.startMs,
+        endMs: group.endMs,
+        segments: group.segments.map(segment => segment.id),
+      })),
+      [
+        { barId: 's0', startMs: 0, endMs: 10, segments: ['s0', 's1'] },
+        { barId: 's2', startMs: 10.5, endMs: 20, segments: ['s1', 's2'] },
+      ],
+    );
+  });
+
   it('assigns non-overlapping sub-agent lanes', () => {
     const lanes = getSubAgentLanes({
       subAgentSegments: [
@@ -326,5 +361,37 @@ describe('buildSessionMetrics', () => {
     assert.equal(metrics.totalTokens, 80);
     assert.equal(metrics.tokenBreakdown.find(item => item.label === 'input')?.value, 50);
     assert.equal(metrics.errors, 0);
+  });
+
+  it('keeps aggregate cost undefined when no turn reports cost', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 't1-done',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:02.000Z',
+            output: null,
+            requiredActions: [],
+            metrics: {
+              totalTokens: 80,
+              totalInputTokens: 50,
+              totalOutputTokens: 30,
+              totalCacheReadTokens: 0,
+              totalCacheWriteTokens: 0,
+              totalReasoningTokens: 0,
+            },
+          },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+
+    const metrics = buildSessionMetrics({ turns, segments: buildSessionTimelineSegments(turns) });
+    assert.equal(metrics.totalCostUsd, undefined);
   });
 });

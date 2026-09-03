@@ -1,20 +1,25 @@
 'use client';
 
+import { useAuiState } from '../assistant-ui.js';
 import { useNamedAgentHeaderState } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { cn } from './lib/cn.js';
 import { Tooltip } from './primitives/Tooltip.js';
 
-/** Left-of-header title for a named agent, including its mutable edit state. */
+/** Left-of-header title for named agents and New Chat / New Agent drafts. */
 export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const state = useNamedAgentHeaderState();
+  const threadTitle = useAuiState(s => s.threadListItem.title);
   if (state === null) return null;
+
+  const syncedTitle = threadTitle?.trim() ?? '';
+  const displayName = state.allowThreadTitle && syncedTitle.length > 0 ? syncedTitle : state.name;
 
   return (
     <h1 className={cn('flex min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-text-primary', className)}>
-      <Icon name="robot" className="size-3.5 shrink-0" />
-      <span className="truncate" title={state.name}>
-        {state.name}
+      <Icon name={state.icon} className="size-3.5 shrink-0" />
+      <span className="truncate" title={displayName}>
+        {displayName}
       </span>
       {state.isEditing ? (
         <Tooltip content="Try changes here, then choose Update agent to save." side="bottom">

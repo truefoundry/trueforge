@@ -24,7 +24,7 @@ describe('session metrics builders', () => {
     const query = {
       tenant_id: 'default',
       agent_id: 'agent-1',
-      created_by: 'user-1',
+      created_by_subject_id: 'user-1',
       start_timestamp: new Date('2026-08-27T00:00:00.000Z'),
       end_timestamp: new Date('2026-08-28T00:00:00.000Z'),
     };
@@ -82,7 +82,7 @@ describe('session metrics builders', () => {
     const query = {
       tenant_id: 'default',
       agent_id: 'agent-1',
-      created_by: 'user-1',
+      created_by_subject_id: 'user-1',
       start_timestamp: new Date('2026-08-27T00:00:00.000Z'),
       end_timestamp: new Date('2026-08-27T01:00:00.000Z'),
     };

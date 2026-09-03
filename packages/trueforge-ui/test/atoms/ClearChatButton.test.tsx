@@ -53,7 +53,7 @@ describe('ClearChatButton', () => {
     expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
   });
 
-  it('is hidden on mutable sessions', () => {
+  it('is visible on mutable sessions', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
@@ -63,7 +63,7 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
   });
 
   it('calls clearChat when clicked after a chat has started', () => {

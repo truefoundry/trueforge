@@ -6,6 +6,7 @@ import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from '
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
+import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
@@ -14,6 +15,7 @@ import { CustomActionRenderersProvider, type CustomActionRenderers } from '../se
 import { ServerProvider } from '../server/ServerContext.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
+import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
 import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
@@ -147,6 +149,7 @@ function ChatProviderFromShell({
   children,
   initialSessionId: hostInitialSessionId,
   onRemoteIdChange,
+  server,
   ...providerRest
 }: {
   children: ReactNode;
@@ -154,6 +157,26 @@ function ChatProviderFromShell({
   onRemoteIdChange?: (id: string | undefined) => void;
 } & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
   const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
+
+  const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
+
+  const serverWithCreateIntent = useMemo((): AgentUIServer => {
+    return {
+      ...server,
+      createSession: request => {
+        if (request.agentSpec === undefined) {
+          return server.createSession(request);
+        }
+        const withMetadata: CreateSessionRequest & { metadata: Record<string, string> } = {
+          ...request,
+          metadata: {
+            [IS_CREATE_AGENT_METADATA_KEY]: isCreateAgentMetadataValue(isCreateAgent),
+          },
+        };
+        return server.createSession(withMetadata);
+      },
+    };
+  }, [server, isCreateAgent]);
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.
@@ -197,6 +220,7 @@ function ChatProviderFromShell({
     <TrueFoundryChatProvider
       key={runtimeKey}
       {...providerRest}
+      server={serverWithCreateIntent}
       agent={agent}
       listSessionsAgentId={listSessionsAgentId}
       initialSessionId={pendingSessionId ?? hostInitialSessionId}

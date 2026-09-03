@@ -3,11 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
-  readDraftSpecPreferences,
-  withCapabilitiesSandbox,
-} from '@/server/draftSpecPreferences.js';
+import { DRAFT_SPEC_PREFERENCES_STORAGE_KEY, readDraftSpecPreferences } from '@/server/draftSpecPreferences.js';
 import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
@@ -84,6 +80,50 @@ describe('ShellModeProvider', () => {
     expect(result.current.settingsOpen).toBe(false);
   });
 
+  it('keeps agent config exclusive to New Agent surfaces', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: true });
+    expect(result.current.agentConfigOpen).toBe(true);
+
+    act(() => result.current.setSettingsOpen(true));
+    expect(result.current.agentConfigOpen).toBe(false);
+
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.agentConfigOpen).toBe(true);
+    act(() => result.current.selectLibraryAgent({ isMutable: false, agentName: 'support' }));
+    expect(result.current.agentConfigOpen).toBe(false);
+  });
+
+  it('openDraft starts New Chat without agent config; openAgentBuilder opens config', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: false });
+    expect(result.current.agentConfigOpen).toBe(false);
+
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: true });
+    expect(result.current.agentConfigOpen).toBe(true);
+
+    act(() => result.current.openDraft());
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: false });
+    expect(result.current.agentConfigOpen).toBe(false);
+  });
+
+  it('openHistorySession applies isCreateAgent only when mutable', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-builder', isMutable: true, isCreateAgent: true }));
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: true });
+    expect(result.current.agentConfigOpen).toBe(true);
+    expect(result.current.pendingSessionId).toBe('sess-builder');
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-chat', isMutable: true }));
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: false });
+    expect(result.current.agentConfigOpen).toBe(false);
+  });
+
   it('opens agent details and returns to the library list', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
 
@@ -118,6 +158,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'locked',
       agentName: 'locked',
       locked: true,
@@ -130,6 +171,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'locked',
       agentName: 'locked',
       locked: true,
@@ -149,6 +191,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
@@ -173,6 +216,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
@@ -228,6 +272,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
@@ -256,6 +301,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: true,
       agentId: 'writer',
       agentName: 'writer',
       agentSpec: spec,
@@ -287,6 +333,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: true,
       agentId: 'writer',
       agentName: 'writer',
       agentSpec: spec,
@@ -329,6 +376,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'from-sdk',
       agentName: 'from-sdk',
       locked: false,
@@ -346,6 +394,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       locked: false,
     });
     expect(result.current.pendingSessionId).toBe('sess-orphan');
@@ -373,6 +422,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: false,
       agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
       locked: false,
     });
@@ -407,6 +457,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: true,
       agentId: 'saved',
       agentName: 'saved',
       agentSpec: spec,
@@ -490,7 +541,7 @@ describe('ShellModeProvider', () => {
   });
 
   it('preserves a host-seeded sandbox while capabilities are unavailable', () => {
-    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, true);
+    const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentComposer', defaultAgentSpec: hostSeed }),
     });
@@ -503,7 +554,7 @@ describe('ShellModeProvider', () => {
     });
   });
 
-  it('stores sandbox from loaded server capabilities', async () => {
+  it('does not treat sandbox availability as the selected runtime value', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
         sandbox: { enabled: true },
@@ -524,7 +575,6 @@ describe('ShellModeProvider', () => {
 
     expect(readDraftSpecPreferences()).toEqual({
       model: { name: 'chosen/model' },
-      config: { sandbox: { enabled: true } },
     });
   });
 
@@ -544,7 +594,7 @@ describe('ShellModeProvider', () => {
       { wrapper: wrapWithServer(server, { mode: 'AgentComposer' }) },
     );
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(false));
-    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, true);
+    const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
 
     act(() => result.current.shell.rememberDraftSpec(hostSeed));
 

@@ -4,6 +4,7 @@
  */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
+import { CreatedBySubjectSchema } from './subject';
 
 /** Max key length for session metadata (aligned with LLM gateway HeaderMetadata). */
 const SESSION_METADATA_MAX_KEY_LENGTH = 32;
@@ -73,8 +74,7 @@ export const SessionSchema = z
     id: z.string().describe('Unique session id.'),
     agent: SessionAgentSchema,
     title: z.string().nullable().describe('Optional human-readable title; null until set.'),
-    /** Caller identity that created the session (immutable). */
-    created_by: z.string().describe('Caller identity that created the session (immutable).'),
+    created_by_subject: CreatedBySubjectSchema,
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,

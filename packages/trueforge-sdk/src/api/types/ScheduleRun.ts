@@ -4,12 +4,12 @@ import type * as TrueForge from "../index.js";
 
 export interface ScheduleRun {
     createdAt: Date;
+    createdBySubject: TrueForge.CreatedBySubject;
     id: string;
     name: string;
     scheduleId: string;
     scheduledFor: Date;
     status: TrueForge.ScheduleRunStatus;
     triggeredAt: Date | null;
-    triggeredBy: string;
     updatedAt: Date;
 }
