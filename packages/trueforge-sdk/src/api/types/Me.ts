@@ -8,4 +8,5 @@ export interface Me {
     subject: TrueForge.GetMeSubject;
     /** Tenant scope for the authenticated caller. */
     tenantId: string;
+    type: TrueForge.MeSessionType;
 }

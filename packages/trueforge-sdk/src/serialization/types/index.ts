@@ -114,6 +114,7 @@ export * from "./McpServerToolSelector.js";
 export * from "./McpServerType.js";
 export * from "./McpToolInfo.js";
 export * from "./Me.js";
+export * from "./MeSessionType.js";
 export * from "./MetricsUnit.js";
 export * from "./Model.js";
 export * from "./ModelMessageDeltaEvent.js";

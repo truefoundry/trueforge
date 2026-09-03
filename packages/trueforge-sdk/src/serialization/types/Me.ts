@@ -4,11 +4,13 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { GetMeSubject } from "./GetMeSubject.js";
+import { MeSessionType } from "./MeSessionType.js";
 
 export const Me: core.serialization.ObjectSchema<serializers.Me.Raw, TrueForge.Me> = core.serialization.object({
     roles: core.serialization.list(core.serialization.string()),
     subject: GetMeSubject,
     tenantId: core.serialization.property("tenant_id", core.serialization.string()),
+    type: MeSessionType,
 });
 
 export declare namespace Me {
@@ -16,5 +18,6 @@ export declare namespace Me {
         roles: string[];
         subject: GetMeSubject.Raw;
         tenant_id: string;
+        type: MeSessionType.Raw;
     }
 }

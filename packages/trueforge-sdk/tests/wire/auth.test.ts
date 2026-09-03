@@ -14,6 +14,7 @@ describe("AuthClient", () => {
                 roles: ["roles"],
                 subject: { display_name: "display_name", id: "id", type: "type" },
                 tenant_id: "tenant_id",
+                type: "default",
             },
         };
 
@@ -29,6 +30,7 @@ describe("AuthClient", () => {
                     type: "type",
                 },
                 tenantId: "tenant_id",
+                type: "default",
             },
         });
     });

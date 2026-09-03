@@ -2265,14 +2265,26 @@
           "tenant_id": {
             "description": "Tenant scope for the authenticated caller.",
             "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MeSessionType"
           }
         },
         "required": [
+          "type",
           "tenant_id",
           "subject",
           "roles"
         ],
         "type": "object"
+      },
+      "MeSessionType": {
+        "description": "`oidc-connected` when the process is running with browser OIDC login; `default` for standalone or TrueFoundry token auth.",
+        "enum": [
+          "default",
+          "oidc-connected"
+        ],
+        "type": "string"
       },
       "MetricsUnit": {
         "enum": [
@@ -5560,7 +5572,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity (`tenant_id`, `subject`, `roles`) wrapped as `{ data }`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
+        "description": "Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. `type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
         "responses": {
           "200": {
             "content": {
