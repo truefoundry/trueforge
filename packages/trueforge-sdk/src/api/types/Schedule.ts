@@ -5,7 +5,7 @@ import type * as TrueForge from "../index.js";
 export interface Schedule {
     agentName: TrueForge.ResourceName;
     createdAt: Date;
-    createdBy: string;
+    createdBySubject: TrueForge.CreatedBySubject;
     id: string;
     manifest: TrueForge.ScheduleManifest;
     name: TrueForge.ResourceName;
