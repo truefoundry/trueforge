@@ -34,6 +34,7 @@ export type AgentLibraryRowProps = {
   showEdit: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
+  onCreateSchedule?: () => void;
   onOpen?: () => void;
   onTry: () => void;
   onEdit: () => void;
@@ -98,6 +99,7 @@ export function AgentLibraryRow({
   showEdit,
   scheduleSummary,
   onOpenSchedules,
+  onCreateSchedule,
   onOpen,
   onTry,
   onEdit,
@@ -169,7 +171,7 @@ export function AgentLibraryRow({
           {scheduleSummary != null && scheduleSummary.count > 0 ? (
             <AgentSchedulesBadge summary={scheduleSummary} agentName={agent.name} onOpen={onOpenSchedules} />
           ) : scheduleSummary != null ? (
-            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onOpenSchedules} />
+            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onCreateSchedule} />
           ) : (
             <span className="text-text-secondary text-sm" aria-label={`Schedule count unavailable for ${agent.name}`}>
               —
@@ -316,7 +318,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
     };
   }, [agents, open, scheduleServer, agentsListEpoch]);
 
-  const openSchedulesForAgent = (agentId: string) => {
+  const openSchedulesForAgent = ({ agentId, isNew }: { agentId: string; isNew?: boolean }) => {
     const url = new URL(window.location.href);
     writeSessionShareSearch(url.searchParams, {
       sessionId: null,
@@ -325,7 +327,12 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       view: null,
       timeRange: null,
     });
-    writeScheduleShareSearch(url.searchParams, { agent: agentId, status: null, q: null });
+    writeScheduleShareSearch(url.searchParams, {
+      agent: agentId,
+      status: null,
+      q: null,
+      isNew: isNew === true ? true : null,
+    });
     window.history.replaceState(window.history.state, '', url);
     shell.setLibraryOpen(false);
     shell.setSchedulesOpen(true);
@@ -359,7 +366,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-6">
         <div className="flex min-w-0 items-center gap-2">
           <Icon name="bot" className="text-text-primary size-4" />
-          <h1 className="text-text-primary truncate text-md font-semibold">Agents Library</h1>
+          <h1 className="text-text-primary truncate text-md font-semibold">Agents</h1>
         </div>
         <div className="ml-auto w-56 shrink-0">
           <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
@@ -419,7 +426,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
                           {...(showSchedulesColumn
                             ? {
-                                onOpenSchedules: () => openSchedulesForAgent(id),
+                                onOpenSchedules: () => openSchedulesForAgent({ agentId: id }),
+                                onCreateSchedule: () => openSchedulesForAgent({ agentId: id, isNew: true }),
                               }
                             : {})}
                           {...(sessionsServer != null && agentId != null

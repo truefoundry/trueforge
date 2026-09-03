@@ -59,7 +59,7 @@ type ShellModeContextValue = {
   mode: ShellMode;
   /** Host agentConfig mode (capabilities source). */
   agentConfigMode: AgentConfig['mode'];
-  /** Agents Library chrome. */
+  /** Agents chrome. */
   isLibraryEnabled: boolean;
   /** Mutable composer / Save Agent chrome (host capability). */
   isComposerEnabled: boolean;
@@ -70,7 +70,7 @@ type ShellModeContextValue = {
   setSettingsOpen: (open: boolean, section?: SettingsSection) => void;
   agentConfigOpen: boolean;
   setAgentConfigOpen: (open: boolean) => void;
-  /** Agents Library main-pane overlay (sidebar layout). */
+  /** Agents main-pane overlay (sidebar layout). */
   libraryOpen: boolean;
   libraryAgentId: string | null;
   setLibraryAgentId: (id: string | null) => void;
@@ -83,7 +83,7 @@ type ShellModeContextValue = {
   schedulesOpen: boolean;
   setSchedulesOpen: (open: boolean) => void;
   /**
-   * Bind from the Agents Library (Try = immutable, Edit = mutable + agentSpec).
+   * Bind from Agents (Try = immutable, Edit = mutable + agentSpec).
    * Prefer this over `selectAgent` / `openDraft` when both fields are available.
    */
   selectLibraryAgent: (req: SelectLibraryAgentRequest) => void;
@@ -107,7 +107,7 @@ type ShellModeContextValue = {
   openHistorySession: (req: { sessionId: string; agentName?: string; isMutable?: boolean }) => void;
   /** Reset current chat; no-op when idle. */
   clearChat: () => void;
-  /** Return pure Agents Library to its idle landing; no-op in other modes. */
+  /** Return library-only mode to its idle landing; no-op in other modes. */
   openLibraryHome: () => void;
   /** Remount key for the chat runtime when binding changes. */
   runtimeKey: string;
@@ -122,7 +122,7 @@ type ShellModeContextValue = {
   /** Session to open after a binding remount (history click across mutability). */
   pendingSessionId: string | undefined;
   /**
-   * Bumped when the Agents Library catalog may have changed (e.g. after saveAgent).
+   * Bumped when the Agents catalog may have changed (e.g. after saveAgent).
    * Library chrome should re-fetch when this changes.
    */
   agentsListEpoch: number;
@@ -505,7 +505,7 @@ export function ShellModeProvider({
   }, [effectiveMode, bumpEpoch]);
 
   const openLibraryHome = useCallback(() => {
-    // Only pure Agents Library has an idle landing; other modes root via openDraft / clearChat.
+    // Only library-only mode has an idle landing; other modes root via openDraft / clearChat.
     if (!isLibraryEnabled || isComposerEnabled) return;
     setPendingSessionId(undefined);
     setSettingsOpen(false);
