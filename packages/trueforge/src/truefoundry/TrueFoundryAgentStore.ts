@@ -1,7 +1,5 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
-  AgentNameConflictError,
-  assertAgentNameNotReserved,
   type AgentRecord,
   type CreateAgentInput,
   type DeleteAgentInput,
@@ -35,7 +33,7 @@ function toPutRemoteAgentPayload({
 }
 
 /**
- *   create:  getByName → putRemote → createDB(external_id) | on non-conflict DB fail → deleteRemote
+ *   create:  createDB(null) → putRemote → updateDB(external_id) | on put/update fail → deleteDB (+ deleteRemote if put ok)
  *   update:  putRemote(new) → updateDB | on DB fail → putRemote(old) | both fail → AggregateError
  *   delete:  deleteRemote(404 ok) → deleteDB
  */
@@ -63,34 +61,39 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
   }
 
   async createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord> {
-    // Reject reserved names here so we never create them in ServiceFoundry first.
-    assertAgentNameNotReserved(input.name);
+    // Insert first so unique name picks the winner; only the winner calls SF (avoids MCP desync).
+    const created = await this.#inner.createAgent({ ...input, external_id: null }, transaction);
 
-    // SF PUT upserts by name — skip if local name exists (avoids overwrite/delete of e.g. research→sf-1).
-    const existing = await this.#inner.getAgent({ tenant_id: input.tenant_id, name: input.name }, transaction);
-    if (existing !== undefined) {
-      throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name });
-    }
-
-    const { remoteAgentId } = await this.#client.putRemoteAgent({
-      accessToken: this.#accessToken,
-      ...toPutRemoteAgentPayload({ name: input.name, manifest: input.manifest }),
-    });
+    let externalId: string | undefined;
     try {
-      return await this.#inner.createAgent({ ...input, external_id: remoteAgentId }, transaction);
+      ({ externalId } = await this.#client.putRemoteAgent({
+        accessToken: this.#accessToken,
+        ...toPutRemoteAgentPayload({ name: input.name, manifest: input.manifest }),
+      }));
+      const updated = await this.#inner.updateAgent(
+        { tenant_id: input.tenant_id, id: created.id, external_id: externalId },
+        transaction,
+      );
+      if (updated === undefined) {
+        throw new Error(`Internal error: createAgent lost the row after insert: ${created.id}`);
+      }
+      return updated;
     } catch (error) {
-      // Skip cleanup on name conflict: a peer may own this remote. Otherwise best-effort delete
-      // (agents create is not in an outer DB txn today).
-      if (!(error instanceof AgentNameConflictError)) {
+      const failures = [asError(error)];
+      if (externalId !== undefined) {
         try {
-          await this.#client.deleteRemoteAgent({ accessToken: this.#accessToken, remoteAgentId });
+          await this.#client.deleteRemoteAgent({ accessToken: this.#accessToken, externalId });
         } catch (cleanupError) {
-          throw new AggregateError(
-            [asError(error), asError(cleanupError)],
-            'createAgent failed and ServiceFoundry cleanup also failed',
-            { cause: cleanupError },
-          );
+          failures.push(asError(cleanupError));
         }
+      }
+      try {
+        await this.#inner.deleteAgent({ tenant_id: input.tenant_id, id: created.id }, transaction);
+      } catch (cleanupError) {
+        failures.push(asError(cleanupError));
+      }
+      if (failures.length > 1) {
+        throw new AggregateError(failures, 'createAgent failed and cleanup also failed', { cause: error });
       }
       throw error;
     }
@@ -106,7 +109,7 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
       return undefined;
     }
 
-    const { remoteAgentId } = await this.#client.putRemoteAgent({
+    const { externalId } = await this.#client.putRemoteAgent({
       accessToken: this.#accessToken,
       ...toPutRemoteAgentPayload({ name: previous.name, manifest: input.manifest }),
     });
@@ -117,7 +120,7 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
           tenant_id: input.tenant_id,
           id: input.id,
           manifest: input.manifest,
-          ...(remoteAgentId === previous.external_id ? {} : { external_id: remoteAgentId }),
+          ...(externalId === previous.external_id ? {} : { external_id: externalId }),
         },
         transaction,
       );
@@ -143,7 +146,7 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
     if (previous?.external_id) {
       await this.#client.deleteRemoteAgent({
         accessToken: this.#accessToken,
-        remoteAgentId: previous.external_id,
+        externalId: previous.external_id,
       });
     }
     await this.#inner.deleteAgent(input, transaction);

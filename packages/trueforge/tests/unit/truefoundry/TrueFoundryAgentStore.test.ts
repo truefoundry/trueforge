@@ -1,7 +1,7 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
-import { AgentNameConflictError, AgentNameReservedError } from '../../../src/db/agentStore';
+import { AgentNameConflictError, AgentNameReservedError, assertAgentNameNotReserved } from '../../../src/db/agentStore';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -56,7 +56,7 @@ function mockClient(
     serviceFoundryServerUrl: 'http://servicefoundry.test',
   });
   client.putRemoteAgent =
-    overrides.putRemoteAgent ?? (async (): Promise<PutRemoteAgentResult> => ({ remoteAgentId: 'sf-1' }));
+    overrides.putRemoteAgent ?? (async (): Promise<PutRemoteAgentResult> => ({ externalId: 'sf-1' }));
   client.deleteRemoteAgent = overrides.deleteRemoteAgent ?? (async (_input: DeleteRemoteAgentInput) => undefined);
   return client;
 }
@@ -86,8 +86,9 @@ describe('TrueFoundryAgentStore', () => {
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'agent-1' }, undefined);
   });
 
-  it('createAgent puts then inserts with external_id', async () => {
-    const created = record({ external_id: 'sf-1' });
+  it('createAgent inserts locally, puts remote, then sets external_id', async () => {
+    const local = record({ external_id: null });
+    const linked = record({ external_id: 'sf-1' });
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input).toEqual({
         accessToken: TOKEN,
@@ -96,12 +97,12 @@ describe('TrueFoundryAgentStore', () => {
         model: 'openai-gateway/gpt-5',
         mcp_servers: ['slack'],
       });
-      return { remoteAgentId: 'sf-1' };
+      return { externalId: 'sf-1' };
     });
-    const getAgent = jest.fn(async () => undefined);
-    const createAgent = jest.fn(async () => created);
+    const createAgent = jest.fn(async () => local);
+    const updateAgent = jest.fn(async () => linked);
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ getAgent, createAgent }),
+      inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
     });
@@ -113,43 +114,49 @@ describe('TrueFoundryAgentStore', () => {
         manifest: manifest({ mcp_servers: [{ name: 'slack' }] }),
         external_id: null,
       }),
-    ).resolves.toBe(created);
-    expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, name: 'research' }, undefined);
+    ).resolves.toBe(linked);
     expect(createAgent).toHaveBeenCalledWith(
       expect.objectContaining({
         tenant_id: TENANT,
         name: 'research',
-        external_id: 'sf-1',
+        external_id: null,
       }),
       undefined,
     );
+    expect(updateAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: local.id, external_id: 'sf-1' }, undefined);
+    expect(firstInvocationOrder(createAgent)).toBeLessThan(firstInvocationOrder(putRemoteAgent));
+    expect(firstInvocationOrder(putRemoteAgent)).toBeLessThan(firstInvocationOrder(updateAgent));
   });
 
   it('createAgent rejects a duplicate local name before calling ServiceFoundry', async () => {
-    const getAgent = jest.fn(async () => record({ external_id: 'sf-existing' }));
-    const createAgent = jest.fn();
+    const createAgent = jest.fn(async () => {
+      throw new AgentNameConflictError({ tenant_id: TENANT, name: 'research' });
+    });
     const putRemoteAgent = jest.fn();
+    const updateAgent = jest.fn();
     const deleteRemoteAgent = jest.fn();
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ getAgent, createAgent }),
+      inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent, deleteRemoteAgent }),
       accessToken: TOKEN,
     });
 
     await expect(
       store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }),
-    ).rejects.toMatchObject({ name: 'AgentNameConflictError' });
+    ).rejects.toBeInstanceOf(AgentNameConflictError);
     expect(putRemoteAgent).not.toHaveBeenCalled();
-    expect(createAgent).not.toHaveBeenCalled();
+    expect(updateAgent).not.toHaveBeenCalled();
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
   });
 
   it('createAgent rejects reserved names before calling ServiceFoundry', async () => {
-    const getAgent = jest.fn();
-    const createAgent = jest.fn();
+    const createAgent = jest.fn(async (input: { name: string }) => {
+      assertAgentNameNotReserved(input.name);
+      return record();
+    });
     const putRemoteAgent = jest.fn();
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ getAgent, createAgent }),
+      inner: mockInner({ createAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
     });
@@ -160,19 +167,18 @@ describe('TrueFoundryAgentStore', () => {
     await expect(
       store.createAgent({ tenant_id: TENANT, name: 'trueforge', manifest: manifest(), external_id: null }),
     ).rejects.toBeInstanceOf(AgentNameReservedError);
-    expect(getAgent).not.toHaveBeenCalled();
     expect(putRemoteAgent).not.toHaveBeenCalled();
-    expect(createAgent).not.toHaveBeenCalled();
   });
 
   it('createAgent uses agent name as description when instructions are omitted', async () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input.description).toBe('research');
-      return { remoteAgentId: 'sf-1' };
+      return { externalId: 'sf-1' };
     });
-    const createAgent = jest.fn(async () => record({ external_id: 'sf-1' }));
+    const createAgent = jest.fn(async () => record({ external_id: null }));
+    const updateAgent = jest.fn(async () => record({ external_id: 'sf-1' }));
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ createAgent }),
+      inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
     });
@@ -186,49 +192,64 @@ describe('TrueFoundryAgentStore', () => {
     expect(putRemoteAgent).toHaveBeenCalled();
   });
 
-  it('createAgent rolls back SF when DB insert fails', async () => {
-    const deleteRemoteAgent = jest.fn(async () => undefined);
-    const createAgent = jest.fn(async () => {
-      throw new Error('db failed');
+  it('createAgent deletes the local row when putRemoteAgent fails', async () => {
+    const local = record({ external_id: null });
+    const createAgent = jest.fn(async () => local);
+    const deleteAgent = jest.fn(async () => undefined);
+    const updateAgent = jest.fn();
+    const putRemoteAgent = jest.fn(async () => {
+      throw new Error('sf failed');
     });
-    const store = new TrueFoundryAgentStore({
-      inner: mockInner({ createAgent }),
-      client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
-    });
-
-    await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }),
-    ).rejects.toThrow('db failed');
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, remoteAgentId: 'sf-1' });
-  });
-
-  it('createAgent does not delete remote on local name conflict after put', async () => {
     const deleteRemoteAgent = jest.fn();
-    const createAgent = jest.fn(async () => {
-      throw new AgentNameConflictError({ tenant_id: TENANT, name: 'research' });
-    });
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ createAgent }),
+      inner: mockInner({ createAgent, updateAgent, deleteAgent }),
+      client: mockClient({ putRemoteAgent, deleteRemoteAgent }),
+      accessToken: TOKEN,
+    });
+
+    await expect(
+      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }),
+    ).rejects.toThrow('sf failed');
+    expect(updateAgent).not.toHaveBeenCalled();
+    expect(deleteRemoteAgent).not.toHaveBeenCalled();
+    expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: local.id }, undefined);
+  });
+
+  it('createAgent rolls back remote and local when updateAgent fails', async () => {
+    const local = record({ external_id: null });
+    const createAgent = jest.fn(async () => local);
+    const updateAgent = jest.fn(async () => {
+      throw new Error('db update failed');
+    });
+    const deleteAgent = jest.fn(async () => undefined);
+    const deleteRemoteAgent = jest.fn(async () => undefined);
+    const store = new TrueFoundryAgentStore({
+      inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
     });
 
     await expect(
       store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }),
-    ).rejects.toBeInstanceOf(AgentNameConflictError);
-    expect(deleteRemoteAgent).not.toHaveBeenCalled();
+    ).rejects.toThrow('db update failed');
+    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
+    expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: local.id }, undefined);
   });
 
-  it('createAgent still throws when SF rollback fails', async () => {
-    const deleteRemoteAgent = jest.fn(async () => {
-      throw new Error('cleanup failed');
+  it('createAgent still throws when cleanup fails', async () => {
+    const local = record({ external_id: null });
+    const createAgent = jest.fn(async () => local);
+    const updateAgent = jest.fn(async () => {
+      throw new Error('db update failed');
     });
-    const createAgent = jest.fn(async () => {
-      throw new Error('db failed');
+    const deleteAgent = jest.fn(async () => {
+      throw new Error('local cleanup failed');
+    });
+    const deleteRemoteAgent = jest.fn(async () => {
+      throw new Error('remote cleanup failed');
     });
     const store = new TrueFoundryAgentStore({
-      inner: mockInner({ createAgent }),
+      inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
     });
@@ -236,30 +257,13 @@ describe('TrueFoundryAgentStore', () => {
     await expect(
       store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }),
     ).rejects.toMatchObject({
-      message: 'createAgent failed and ServiceFoundry cleanup also failed',
+      message: 'createAgent failed and cleanup also failed',
       errors: [
-        expect.objectContaining({ message: 'db failed' }),
-        expect.objectContaining({ message: 'cleanup failed' }),
+        expect.objectContaining({ message: 'db update failed' }),
+        expect.objectContaining({ message: 'remote cleanup failed' }),
+        expect.objectContaining({ message: 'local cleanup failed' }),
       ],
     });
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, remoteAgentId: 'sf-1' });
-  });
-
-  it('createAgent does not insert when putRemoteAgent fails', async () => {
-    const createAgent = jest.fn();
-    const putRemoteAgent = jest.fn(async () => {
-      throw new Error('sf failed');
-    });
-    const store = new TrueFoundryAgentStore({
-      inner: mockInner({ createAgent }),
-      client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
-    });
-
-    await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest(), external_id: null }),
-    ).rejects.toThrow('sf failed');
-    expect(createAgent).not.toHaveBeenCalled();
   });
 
   it('updateAgent without manifest passes through to the inner store', async () => {
@@ -305,7 +309,7 @@ describe('TrueFoundryAgentStore', () => {
     const updated = record({ manifest: updatedManifest, external_id: 'sf-1' });
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
-    const putRemoteAgent = jest.fn(async () => ({ remoteAgentId: 'sf-1' }));
+    const putRemoteAgent = jest.fn(async () => ({ externalId: 'sf-1' }));
     const store = new TrueFoundryAgentStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
@@ -334,7 +338,7 @@ describe('TrueFoundryAgentStore', () => {
     const updated = record({ manifest: updatedManifest, external_id: 'sf-new' });
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
-    const putRemoteAgent = jest.fn(async () => ({ remoteAgentId: 'sf-new' }));
+    const putRemoteAgent = jest.fn(async () => ({ externalId: 'sf-new' }));
     const store = new TrueFoundryAgentStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
@@ -387,8 +391,8 @@ describe('TrueFoundryAgentStore', () => {
     });
     const putRemoteAgent = jest
       .fn()
-      .mockResolvedValueOnce({ remoteAgentId: 'sf-new' })
-      .mockResolvedValueOnce({ remoteAgentId: 'sf-old' });
+      .mockResolvedValueOnce({ externalId: 'sf-new' })
+      .mockResolvedValueOnce({ externalId: 'sf-old' });
     const store = new TrueFoundryAgentStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
@@ -417,7 +421,7 @@ describe('TrueFoundryAgentStore', () => {
     });
     const putRemoteAgent = jest
       .fn()
-      .mockResolvedValueOnce({ remoteAgentId: 'sf-new' })
+      .mockResolvedValueOnce({ externalId: 'sf-new' })
       .mockRejectedValueOnce(new Error('sf restore failed'));
     const store = new TrueFoundryAgentStore({
       inner: mockInner({ getAgent, updateAgent }),
@@ -448,7 +452,7 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, remoteAgentId: 'sf-1' });
+    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, undefined);
     expect(firstInvocationOrder(deleteRemoteAgent)).toBeLessThan(firstInvocationOrder(deleteAgent));
   });

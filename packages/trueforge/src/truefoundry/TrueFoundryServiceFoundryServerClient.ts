@@ -72,12 +72,12 @@ export interface PutRemoteAgentInput {
 }
 
 export interface PutRemoteAgentResult {
-  remoteAgentId: string;
+  externalId: string;
 }
 
 export interface DeleteRemoteAgentInput {
   accessToken: string;
-  remoteAgentId: string;
+  externalId: string;
 }
 
 async function readServiceFoundryErrorMessage(
@@ -214,13 +214,13 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: parsed.error,
       });
     }
-    return { remoteAgentId: parsed.data.agentId };
+    return { externalId: parsed.data.agentId };
   }
 
   /** DELETE `/internal/tfg/agents/:id` — remove remote agent. Missing agent (404) is success. */
   async deleteRemoteAgent(input: DeleteRemoteAgentInput): Promise<void> {
     await this.#requestJson({
-      url: this.#url(`${TFG_AGENTS_PATH}/${encodeURIComponent(input.remoteAgentId)}`),
+      url: this.#url(`${TFG_AGENTS_PATH}/${encodeURIComponent(input.externalId)}`),
       accessToken: input.accessToken,
       method: 'DELETE',
       notFoundOk: true,
