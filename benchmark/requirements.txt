@@ -1,7 +1,7 @@
 # Core arms (TrueForge + CMA) and the judge.
 #   - TrueForge arm calls its own /api/v1 HTTP API over the stdlib (no extra dep).
 #   - CMA arm and the judge use the Anthropic SDK.
-anthropic>=0.40,<0.41
+anthropic>=1.2.0,<1.3
 
 # The deepagents arm pulls in LangGraph + LangChain, which can conflict with the
 # core stack. If pip resolves a conflict, install the deepagents arm in its own
