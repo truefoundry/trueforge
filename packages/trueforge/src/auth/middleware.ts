@@ -2,7 +2,6 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
-import { getTrueForgeMode, TrueForgeMode } from '../config';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
 import { hasAdminRole, type RequestContext } from './identity';
@@ -21,12 +20,7 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
 export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
     const requestContext = await authenticator.authenticate(c);
-    if (getTrueForgeMode() === TrueForgeMode.TrueFoundry) {
-      // TODO: stop treating `tenant-admin` as TrueForge admin once TFY role mapping is settled.
-      if (!requestContext.roles.includes('tenant-admin')) {
-        throw new HTTPException(403, { message: 'Admin access required' });
-      }
-    } else if (!hasAdminRole(requestContext)) {
+    if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
     c.set('request_context', requestContext);

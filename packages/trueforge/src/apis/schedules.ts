@@ -102,7 +102,7 @@ export function validateManifest(manifest: Pick<ScheduleManifest, 'cron' | 'time
 const FORBIDDEN_SCHEDULE_ACCESS = 'Only the schedule creator can access this schedule';
 
 /**
- * A schedule is visible to its creator, and to any admin.
+ * A schedule is visible to its creator, and to any admin ({@link hasAdminRole}).
  *
  * Standalone auth stamps `roles: ['admin']` on the sole identity, which already
  * owns everything it created — so admin bypass is a no-op there.

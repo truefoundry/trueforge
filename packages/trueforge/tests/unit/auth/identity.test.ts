@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { resolveRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { hasAdminRole, resolveRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 
 describe('STANDALONE_REQUEST_CONTEXT', () => {
   it('has the fixed standalone identity shape', () => {
@@ -13,6 +13,15 @@ describe('STANDALONE_REQUEST_CONTEXT', () => {
       roles: ['admin'],
       user_credential: null,
     });
+  });
+});
+
+describe('hasAdminRole', () => {
+  // Unit tests run under STANDALONE=true (.env.test) → mode Standalone.
+  it('treats admin as admin and other roles as non-admin in standalone', () => {
+    expect(hasAdminRole({ roles: ['admin'] })).toBe(true);
+    expect(hasAdminRole({ roles: ['everyone'] })).toBe(false);
+    expect(hasAdminRole(STANDALONE_REQUEST_CONTEXT)).toBe(true);
   });
 });
 
