@@ -166,10 +166,13 @@ function buildResolveMcpServerStore<TTransaction>(options: {
     if (!c) {
       return withAuthPersistence;
     }
+    const requestContext = resolveRequestContext(c);
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
     return new TrueFoundryMcpServerStore<TTransaction>({
       client,
       accessToken: requireRequestCredentialToken(c),
+      subjectId: requestContext.subject.id,
+      subjectType: requestContext.subject.type,
       perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
     });
   };

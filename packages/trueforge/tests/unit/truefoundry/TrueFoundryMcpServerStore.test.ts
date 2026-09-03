@@ -43,7 +43,7 @@ function createMockClient(): MockClient {
   };
 }
 
-function createStore(input?: { accessToken?: string; client?: MockClient }) {
+function createStore(input?: { accessToken?: string; client?: MockClient; subjectId?: string; subjectType?: string }) {
   const client = input?.client ?? createMockClient();
   client.getMcpServerByName.mockResolvedValue(SFY_ROW);
   client.listGatewayInstallations.mockResolvedValue(GATEWAY_INSTALLATIONS);
@@ -54,6 +54,8 @@ function createStore(input?: { accessToken?: string; client?: MockClient }) {
   const store = new TrueFoundryMcpServerStore({
     client,
     accessToken: input?.accessToken ?? ACCESS_TOKEN,
+    subjectId: input?.subjectId ?? 'user-1',
+    subjectType: input?.subjectType ?? 'user',
   });
   return { store, client };
 }
@@ -175,7 +177,12 @@ describe('TrueFoundryMcpServerStore', () => {
     it('throws McpServerNotFoundError when the server is missing', async () => {
       const client = createMockClient();
       client.getMcpServerByName.mockResolvedValue(undefined);
-      const store = new TrueFoundryMcpServerStore({ client, accessToken: ACCESS_TOKEN });
+      const store = new TrueFoundryMcpServerStore({
+        client,
+        accessToken: ACCESS_TOKEN,
+        subjectId: 'user-1',
+        subjectType: 'user',
+      });
       await expect(store.authorize({ tenant_id: TENANT, name: 'missing', userRef: 'user-1' })).rejects.toBeInstanceOf(
         McpServerNotFoundError,
       );
@@ -183,9 +190,13 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('deleteAuthorization', () => {
-    it('deletes oauth auth for the access-token subject', async () => {
+    it('forwards constructor subject id and type to SFY', async () => {
       const { store, client } = createStore();
-      await store.deleteAuthorization({ tenant_id: TENANT, name: 'github', userRef: 'user-1' });
+      await store.deleteAuthorization({
+        tenant_id: TENANT,
+        name: 'github',
+        userRef: 'user-1',
+      });
       expect(client.deleteMcpAuth).toHaveBeenCalledWith({
         accessToken: ACCESS_TOKEN,
         mcpServerId: 'mcp-id-1',
@@ -195,14 +206,16 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
-    it('uses effective user id for virtualaccount + external identity', async () => {
-      const accessToken = unsignedJwt({
-        sub: 'va-1',
+    it('forwards composed effective user id for virtualaccount + external identity', async () => {
+      const { store, client } = createStore({
+        subjectId: 'va-1:ext:alice@example.com',
         subjectType: 'virtualaccount',
-        subjectExternalIdentitySlug: 'ext:alice@example.com',
       });
-      const { store, client } = createStore({ accessToken });
-      await store.deleteAuthorization({ tenant_id: TENANT, name: 'github', userRef: 'va-1' });
+      await store.deleteAuthorization({
+        tenant_id: TENANT,
+        name: 'github',
+        userRef: 'ignored',
+      });
       expect(client.deleteMcpAuth).toHaveBeenCalledWith(
         expect.objectContaining({
           subjectId: 'va-1:ext:alice@example.com',
@@ -210,6 +223,15 @@ describe('TrueFoundryMcpServerStore', () => {
           authSource: 'oauth',
         }),
       );
+    });
+
+    it('rejects unsupported subject types at construction', () => {
+      expect(() =>
+        createStore({
+          subjectId: 'sa-1',
+          subjectType: 'serviceaccount',
+        }),
+      ).toThrow(expect.objectContaining({ status: 401 }));
     });
   });
 
@@ -251,7 +273,7 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('resolveInvokeHeaders', () => {
-    it('returns static Bearer for invoke (Connect UX owns DCR)', () => {
+    it('returns static Bearer for invoke', () => {
       const { store } = createStore();
       expect(store.resolveInvokeHeaders(dcrRecord())).toEqual({
         Authorization: `Bearer ${ACCESS_TOKEN}`,

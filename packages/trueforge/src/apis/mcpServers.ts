@@ -161,7 +161,13 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
       return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
     }
     return c.json(
-      { data: await toConfiguredMcpServer({ store: deps.resolveMcpServerStore(c), record, userRef }) },
+      {
+        data: await toConfiguredMcpServer({
+          store: deps.resolveMcpServerStore(c),
+          record,
+          userRef,
+        }),
+      },
       200,
     );
   };
@@ -300,7 +306,13 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
       });
 
       return c.json(
-        { data: await toConfiguredMcpServer({ store: deps.resolveMcpServerStore(c), record, userRef }) },
+        {
+          data: await toConfiguredMcpServer({
+            store: deps.resolveMcpServerStore(c),
+            record,
+            userRef,
+          }),
+        },
         200,
       );
     } catch (error) {
@@ -435,7 +447,11 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       });
       return c.json(
         {
-          data: await toConfiguredMcpServer({ store: deps.resolveMcpServerStore(c), record, userRef }),
+          data: await toConfiguredMcpServer({
+            store: deps.resolveMcpServerStore(c),
+            record,
+            userRef,
+          }),
         },
         200,
       );

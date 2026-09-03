@@ -216,31 +216,81 @@ describe('getMcpConnection', () => {
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 
-  it('skips local DCR for truefoundry servers and uses store resolveInvokeHeaders', async () => {
-    await mcpServerStore.upsertServer({
+  it('truefoundry dcr mid-turn returns authRequired when authorize reports auth_required', async () => {
+    const record = {
+      id: 'mcp-id-1',
       tenant_id: 'default',
       name: 'tfy-mcp',
       manifest: {
-        type: 'truefoundry',
+        type: 'truefoundry' as const,
         name: 'tfy-mcp',
         url: 'https://gateway.example/mcp-server/tfy-mcp',
         description: 'TrueFoundry-managed MCP.',
-        auth: { type: 'dcr' },
+        auth: { type: 'dcr' as const },
       },
+      created_at: '2026-01-15T12:00:00.000Z',
+      updated_at: '2026-01-16T12:00:00.000Z',
+    };
+    const store = Object.create(mcpServerStore) as IMcpServerWithAuthStore;
+    store.getServer = async () => record;
+    store.authorize = async () => ({
+      status: 'auth_required',
+      authorization_url: 'https://consent.example/authorize',
     });
+    store.resolveInvokeHeaders = () => ({ Authorization: 'Bearer gateway' });
 
     const connection = await getMcpConnection({
       tenant_id: 'default',
       name: 'tfy-mcp',
-      store: mcpServerStore,
+      store,
       tokenStore,
       clientName: 'test-client',
-      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
+      userRef: 'user-1',
     });
-    // Sqlite store has no TF Bearer — headers are whatever resolveInvokeHeaders returns ({}).
-    expect(connection).toEqual({
-      url: 'https://gateway.example/mcp-server/tfy-mcp',
-      headers: {},
+    expect(connection).toBeDefined();
+    if (connection === undefined || typeof connection.headers !== 'function') {
+      throw new Error('expected async headers resolver');
+    }
+    await expect(connection.headers()).resolves.toEqual({
+      authRequired: {
+        servers: [{ id: 'tfy-mcp', name: 'tfy-mcp', auth_url: 'https://consent.example/authorize' }],
+      },
+    });
+  });
+
+  it('truefoundry dcr mid-turn returns invoke headers when authorize reports authenticated', async () => {
+    const record = {
+      id: 'mcp-id-1',
+      tenant_id: 'default',
+      name: 'tfy-mcp',
+      manifest: {
+        type: 'truefoundry' as const,
+        name: 'tfy-mcp',
+        url: 'https://gateway.example/mcp-server/tfy-mcp',
+        description: 'TrueFoundry-managed MCP.',
+        auth: { type: 'dcr' as const },
+      },
+      created_at: '2026-01-15T12:00:00.000Z',
+      updated_at: '2026-01-16T12:00:00.000Z',
+    };
+    const store = Object.create(mcpServerStore) as IMcpServerWithAuthStore;
+    store.getServer = async () => record;
+    store.authorize = async () => ({ status: 'authenticated' });
+    store.resolveInvokeHeaders = () => ({ Authorization: 'Bearer gateway' });
+
+    const connection = await getMcpConnection({
+      tenant_id: 'default',
+      name: 'tfy-mcp',
+      store,
+      tokenStore,
+      clientName: 'test-client',
+      userRef: 'user-1',
+    });
+    if (connection === undefined || typeof connection.headers !== 'function') {
+      throw new Error('expected async headers resolver');
+    }
+    await expect(connection.headers()).resolves.toEqual({
+      headers: { Authorization: 'Bearer gateway' },
     });
   });
 

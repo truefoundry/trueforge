@@ -132,8 +132,43 @@ function dcrHeadersResolver(params: {
 }
 
 /**
+ * TrueFoundry oauth2 (wire `dcr`): re-check SFY authorize on every MCP op so mid-turn
+ * consent / revocation surfaces as authRequired; invoke still uses gateway Bearer headers.
+ */
+function trueFoundryDcrHeadersResolver(params: {
+  record: McpServerRecord;
+  store: IMcpServerWithAuthStore;
+  tenant_id: string;
+  userRef: string;
+}): RemoteMcpHeaders {
+  const { record, store, tenant_id, userRef } = params;
+  return async () => {
+    const status = await store.authorize({
+      tenant_id,
+      name: record.name,
+      userRef,
+    });
+    if (status.status === 'auth_required') {
+      const authUrl = status.authorization_url;
+      if (authUrl === undefined || authUrl.length === 0) {
+        throw new HTTPException(422, {
+          message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
+        });
+      }
+      return {
+        authRequired: {
+          servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
+        },
+      };
+    }
+    return { headers: store.resolveInvokeHeaders(record) };
+  };
+}
+
+/**
  * Load MCP url + headers for a configured server.
  * - Local `remote` + `dcr`: resolveMcpAuth via the harness token store.
+ * - TrueFoundry + `dcr`: mid-turn SFY authorize gate, then store invoke headers (gateway Bearer).
  * - Otherwise: {@link IMcpServerWithAuthStore.resolveInvokeHeaders}
  *   (TrueFoundry gateway Bearer, configured header auth, or `{}`).
  * Returns undefined when the server is not registered — callers choose the response.
@@ -160,8 +195,14 @@ export async function getMcpConnection({
   if (record === undefined) {
     return undefined;
   }
-  // TrueFoundry wire `dcr` is Connect UX only — invoke uses store Bearer, not local DCR.
-  if (record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr') {
+  if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
+    return {
+      url: record.manifest.url,
+      headers: trueFoundryDcrHeadersResolver({ record, store, tenant_id, userRef }),
+    };
+  }
+  // Local DCR only — TrueFoundry wire `dcr` is handled above.
+  if (record.manifest.auth?.type === 'dcr') {
     return {
       url: record.manifest.url,
       headers: dcrHeadersResolver({

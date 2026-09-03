@@ -26,12 +26,12 @@ import {
   mapSfyMcpServers,
   parseSfyMcpServerSummary,
   toTrueFoundryMcpManifest,
+  type SfyMcpAuthSubjectType,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
 import type { PerServerMcpHeaders } from './perServerMcpHeaders';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
-import { getEffectiveUserIdFromAccessTokenSubject, parseAccessTokenSubject } from './utils';
 
 export type TrueFoundryMcpApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
@@ -52,6 +52,15 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
     return {};
   }
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
+}
+
+function toSfyMcpAuthSubjectType(subjectType: string): SfyMcpAuthSubjectType {
+  if (subjectType === 'user' || subjectType === 'virtualaccount') {
+    return subjectType;
+  }
+  throw new HTTPException(401, {
+    message: `Subject type "${subjectType}" is not supported for MCP auth`,
+  });
 }
 
 /**
@@ -76,16 +85,29 @@ export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; retur
  * Read-only MCP registry backed by ServiceFoundry + the tenant AI Gateway.
  * Writes and local OAuth client columns are not supported — configure servers in TrueFoundry.
  * Authorize / revoke call SFY; list auth_status may stay stubbed (`stub: true`) to avoid N× status calls.
+ * Invoke headers stay static (gateway Bearer); mid-turn oauth2 gate lives in getMcpConnection.
  */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
   readonly #accessToken: string;
+  readonly #subjectId: string;
+  readonly #subjectType: SfyMcpAuthSubjectType;
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
-  constructor(input: { client: TrueFoundryMcpApiClient; accessToken: string; perServerHeaders?: PerServerMcpHeaders }) {
+  constructor(input: {
+    client: TrueFoundryMcpApiClient;
+    accessToken: string;
+    /** RequestContext subject id — SFY MCP auth `subjectId` (effective id when applicable). */
+    subjectId: string;
+    /** RequestContext subject type — narrowed to SFY `user` / `virtualaccount`. */
+    subjectType: string;
+    perServerHeaders?: PerServerMcpHeaders;
+  }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
+    this.#subjectId = input.subjectId;
+    this.#subjectType = toSfyMcpAuthSubjectType(input.subjectType);
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
@@ -187,14 +209,13 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
     for (const record of input.records) {
       if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
-        const subject = parseAccessTokenSubject(this.#accessToken);
         out.set(
           record.name,
           await this.#client.getMcpAuthStatus({
             accessToken: this.#accessToken,
             mcpServerId: record.id,
-            subjectId: getEffectiveUserIdFromAccessTokenSubject(subject),
-            subjectType: subject.subjectType,
+            subjectId: this.#subjectId,
+            subjectType: this.#subjectType,
           }),
         );
         continue;
@@ -226,12 +247,11 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     if (record === undefined) {
       throw new McpServerNotFoundError(input.name);
     }
-    const subject = parseAccessTokenSubject(this.#accessToken);
     await this.#client.deleteMcpAuth({
       accessToken: this.#accessToken,
       mcpServerId: record.id,
-      subjectId: getEffectiveUserIdFromAccessTokenSubject(subject),
-      subjectType: subject.subjectType,
+      subjectId: this.#subjectId,
+      subjectType: this.#subjectType,
       authSource: 'oauth',
     });
   }
