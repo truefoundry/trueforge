@@ -9,7 +9,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: sync-devtest-commit
+  group: deploy-devtest
   cancel-in-progress: false
 
 permissions:
