@@ -66,9 +66,12 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
+import type { WithAgentUpdateLock } from './db/agentUpdateLock';
+import { withoutAgentUpdateLock } from './db/agentUpdateLock';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import { createPostgresAgentUpdateLock } from './db/postgres/agent-store/agentUpdateLock';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
@@ -182,8 +185,9 @@ function buildResolveMcpServerStore<TTransaction>(options: {
 function buildResolveAgentStore<TTransaction>(options: {
   persistenceStore: IAgentStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  withUpdateLock: WithAgentUpdateLock<TTransaction>;
 }): (c?: Context) => IAgentStore<TTransaction> {
-  const { persistenceStore, client } = options;
+  const { persistenceStore, client, withUpdateLock } = options;
   if (!client) {
     return () => persistenceStore;
   }
@@ -193,6 +197,7 @@ function buildResolveAgentStore<TTransaction>(options: {
           inner: persistenceStore,
           client,
           accessToken: requireRequestCredentialToken(c),
+          withUpdateLock,
         })
       : persistenceStore;
 }
@@ -254,6 +259,7 @@ async function createStandalonePersistence(options: {
     resolveAgentStore: buildResolveAgentStore({
       persistenceStore: agentStore,
       client: serviceFoundryClient,
+      withUpdateLock: withoutAgentUpdateLock(),
     }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -336,6 +342,7 @@ async function createDistributedPersistence(options: {
     resolveAgentStore: buildResolveAgentStore({
       persistenceStore: agentStore,
       client: serviceFoundryClient,
+      withUpdateLock: createPostgresAgentUpdateLock(db),
     }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,

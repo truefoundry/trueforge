@@ -2,6 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
 import { AgentNameConflictError, AgentNameReservedError, assertAgentNameNotReserved } from '../../../src/db/agentStore';
+import { withoutAgentUpdateLock } from '../../../src/db/agentUpdateLock';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -78,6 +79,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ listAgents, getAgent }),
       client: mockClient(),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(store.listAgents({ tenant_id: TENANT })).resolves.toBe(agents);
@@ -105,6 +107,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -139,6 +142,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent, deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -159,6 +163,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -181,6 +186,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await store.createAgent({
@@ -205,6 +211,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ putRemoteAgent, deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -227,6 +234,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -252,6 +260,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -274,6 +283,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(store.updateAgent({ tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' })).resolves.toBe(
@@ -294,6 +304,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -301,6 +312,24 @@ describe('TrueFoundryAgentStore', () => {
     ).resolves.toBeUndefined();
     expect(updateAgent).not.toHaveBeenCalled();
     expect(putRemoteAgent).not.toHaveBeenCalled();
+  });
+
+  it('updateAgent runs under withUpdateLock for manifest updates', async () => {
+    const previous = record({ external_id: 'sf-1' });
+    const updatedManifest = manifest({ instructions: 'Updated.' });
+    const updated = record({ manifest: updatedManifest, external_id: 'sf-1' });
+    const getAgent = jest.fn(async () => previous);
+    const updateAgent = jest.fn(async () => updated);
+    const withUpdateLock = jest.fn(async (_input, fn: (txn: undefined) => Promise<unknown>) => fn(undefined));
+    const store = new TrueFoundryAgentStore({
+      inner: mockInner({ getAgent, updateAgent }),
+      client: mockClient(),
+      accessToken: TOKEN,
+      withUpdateLock,
+    });
+
+    await store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest });
+    expect(withUpdateLock).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, expect.any(Function));
   });
 
   it('updateAgent puts remote agent then writes manifest when putRemoteAgent returns the same id', async () => {
@@ -314,6 +343,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest })).resolves.toBe(
@@ -343,6 +373,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     const result = await store.updateAgent({
@@ -374,6 +405,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -397,6 +429,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest })).rejects.toThrow(
@@ -427,6 +460,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(
@@ -449,6 +483,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
@@ -466,6 +501,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
@@ -481,6 +517,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: 'missing' });
@@ -499,6 +536,7 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
       accessToken: TOKEN,
+      withUpdateLock: withoutAgentUpdateLock(),
     });
 
     await expect(store.deleteAgent({ tenant_id: TENANT, id: previous.id })).rejects.toThrow('sf delete failed');
