@@ -51,11 +51,10 @@ jobs:
               .image.build_source.branch_name = strenv(BRANCH)
             ' "$f"
           done
-          echo "$SHA" > test.txt
 
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
-          git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml test.txt
+          git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml
           if git diff --cached --quiet; then
             echo "Already pinned at $SHA"
             exit 0
