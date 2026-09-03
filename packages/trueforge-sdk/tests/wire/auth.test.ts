@@ -10,22 +10,26 @@ describe("AuthClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            is_admin: true,
-            subject: { display_name: "display_name", id: "id", type: "user" },
-            tenant_id: "tenant_id",
+            data: {
+                roles: ["roles"],
+                subject: { display_name: "display_name", id: "id", type: "type" },
+                tenant_id: "tenant_id",
+            },
         };
 
         server.mockEndpoint().get("/api/v1/auth/me").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
         const response = await client.auth.me();
         expect(response).toEqual({
-            isAdmin: true,
-            subject: {
-                displayName: "display_name",
-                id: "id",
-                type: "user",
+            data: {
+                roles: ["roles"],
+                subject: {
+                    displayName: "display_name",
+                    id: "id",
+                    type: "type",
+                },
+                tenantId: "tenant_id",
             },
-            tenantId: "tenant_id",
         });
     });
 

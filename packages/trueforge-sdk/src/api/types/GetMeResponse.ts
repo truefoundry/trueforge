@@ -3,9 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface GetMeResponse {
-    /** Whether the caller has admin privileges. */
-    isAdmin: boolean;
-    subject: TrueForge.GetMeSubject;
-    /** Tenant scope for the authenticated caller. */
-    tenantId: string;
+    data: TrueForge.Me;
 }

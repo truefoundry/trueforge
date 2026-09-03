@@ -3,19 +3,15 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { GetMeSubject } from "./GetMeSubject.js";
+import { Me } from "./Me.js";
 
 export const GetMeResponse: core.serialization.ObjectSchema<serializers.GetMeResponse.Raw, TrueForge.GetMeResponse> =
     core.serialization.object({
-        isAdmin: core.serialization.property("is_admin", core.serialization.boolean()),
-        subject: GetMeSubject,
-        tenantId: core.serialization.property("tenant_id", core.serialization.string()),
+        data: Me,
     });
 
 export declare namespace GetMeResponse {
     export interface Raw {
-        is_admin: boolean;
-        subject: GetMeSubject.Raw;
-        tenant_id: string;
+        data: Me.Raw;
     }
 }

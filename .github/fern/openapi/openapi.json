@@ -1342,22 +1342,12 @@
       },
       "GetMeResponse": {
         "properties": {
-          "is_admin": {
-            "description": "Whether the caller has admin privileges.",
-            "type": "boolean"
-          },
-          "subject": {
-            "$ref": "#/components/schemas/GetMeSubject"
-          },
-          "tenant_id": {
-            "description": "Tenant scope for the authenticated caller.",
-            "type": "string"
+          "data": {
+            "$ref": "#/components/schemas/Me"
           }
         },
         "required": [
-          "tenant_id",
-          "subject",
-          "is_admin"
+          "data"
         ],
         "type": "object"
       },
@@ -1372,11 +1362,7 @@
             "type": "string"
           },
           "type": {
-            "description": "Subject kind: interactive user or virtual account.",
-            "enum": [
-              "user",
-              "virtualaccount"
-            ],
+            "description": "Subject kind as returned by the identity provider (stored as-is).",
             "type": "string"
           }
         },
@@ -2261,6 +2247,30 @@
           "server_id",
           "server_name",
           "name"
+        ],
+        "type": "object"
+      },
+      "Me": {
+        "properties": {
+          "roles": {
+            "description": "Roles for the authenticated caller.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/GetMeSubject"
+          },
+          "tenant_id": {
+            "description": "Tenant scope for the authenticated caller.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "subject",
+          "roles"
         ],
         "type": "object"
       },
@@ -5550,7 +5560,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity (`tenant_id`, `subject`, `is_admin`). When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
+        "description": "Returns the authenticated caller identity (`tenant_id`, `subject`, `roles`) wrapped as `{ data }`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
         "responses": {
           "200": {
             "content": {
