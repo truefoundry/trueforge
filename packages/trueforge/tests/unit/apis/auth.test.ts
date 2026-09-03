@@ -5,8 +5,8 @@ import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
 import { createAuthMiddleware } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
+import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import configuration from '../../../src/config';
 
@@ -230,7 +230,7 @@ describe('auth router (auth enabled)', () => {
       expect.arrayContaining(['openid', 'profile', 'email', 'groups']),
     );
     expect(JSON.parse(authUrl.searchParams.get('claims') ?? '{}')).toEqual({
-      id_token: { sub: { essential: true }, groups: { essential: true }, name: { essential: true } },
+      id_token: { sub: { essential: true }, groups: { essential: true } },
     });
     expect(cookieValue(setCookies(res), STATE_COOKIE)).toBeTruthy();
   });
@@ -256,7 +256,7 @@ describe('auth router (auth enabled)', () => {
     );
     expect(authUrl.searchParams.get('scope')?.split(' ')).not.toContain('groups');
     expect(JSON.parse(authUrl.searchParams.get('claims') ?? '{}')).toEqual({
-      id_token: { sub: { essential: true }, roles: { essential: true }, name: { essential: true } },
+      id_token: { sub: { essential: true }, roles: { essential: true } },
     });
   });
 
@@ -297,7 +297,6 @@ describe('auth router (auth enabled)', () => {
       id_token: {
         sub: { essential: true },
         groups: { essential: true },
-        name: { essential: true },
         email: { essential: true },
       },
     });
@@ -342,10 +341,9 @@ describe('auth router (auth enabled)', () => {
     // No `error` code → this is our own validation failure, so the attacker-supplied
     // description must not be reflected; the reason stays generic.
     const crafted = 'Your%20account%20is%20compromised%2C%20call%201-800-EVIL';
-    const res = await createTestAuthRouter({ oidcClient }).request(
-      `/callback?state=any&error_description=${crafted}`,
-      { redirect: 'manual' },
-    );
+    const res = await createTestAuthRouter({ oidcClient }).request(`/callback?state=any&error_description=${crafted}`, {
+      redirect: 'manual',
+    });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/?error=login_failed');
   });
@@ -380,13 +378,10 @@ describe('auth router (auth enabled)', () => {
     }
 
     const token = await createIdToken();
-    const res = await createTestAuthRouter({ oidcClient: restrictedClient }).request(
-      '/callback?code=abc&state=spent',
-      {
-        redirect: 'manual',
-        headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
-      },
-    );
+    const res = await createTestAuthRouter({ oidcClient: restrictedClient }).request('/callback?code=abc&state=spent', {
+      redirect: 'manual',
+      headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
+    });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/?error=login_failed');
     expect(

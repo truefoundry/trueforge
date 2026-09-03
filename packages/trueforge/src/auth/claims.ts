@@ -64,8 +64,7 @@ export function toRequestContext(params: {
   assertEmailAllowed(claims, config);
   const subjectId = resolveUserRef(claims, config);
   const role = resolveRole(claims, config);
-  const displayName =
-    resolveOptionalStringClaim(claims, config.OIDC_USER_DISPLAY_NAME_CLAIM) ?? subjectId;
+  const displayName = resolveOptionalStringClaim(claims, config.OIDC_USER_DISPLAY_NAME_CLAIM) ?? subjectId;
   return {
     tenant_id: 'default',
     subject: {
@@ -89,6 +88,8 @@ export interface AuthorizationRequestParams {
  * from configured claim names and {@link OIDCConfig.OIDC_SCOPES}.
  * `essential: true` on identity claims makes the IdP reject the
  * login outright if it can't actually produce that claim.
+ * Display name is requested via scopes/claims mapping but is not essential —
+ * {@link toRequestContext} falls back to the subject id when it is absent.
  * When an email allowlist is configured, `email` is also marked essential so
  * the IdP cannot complete login without a usable address to check.
  */
@@ -96,7 +97,6 @@ export function buildAuthorizationRequestParams(config: OIDCConfig): Authorizati
   const idTokenClaims: Record<string, { essential: true }> = {
     [config.OIDC_USER_REFERENCE_CLAIM]: { essential: true },
     [config.OIDC_USER_ROLE_CLAIM]: { essential: true },
-    [config.OIDC_USER_DISPLAY_NAME_CLAIM]: { essential: true },
   };
   if (config.OIDC_ALLOWED_EMAILS.length > 0) {
     idTokenClaims['email'] = { essential: true };

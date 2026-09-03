@@ -400,7 +400,9 @@ describe('mcp-servers routers', () => {
       expect(await response.json()).toEqual({
         data: configured({ ...putBodyWithDcr, url: newUrl }, 'auth_required'),
       });
-      expect(await tokenStore.getToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id })).toBeUndefined();
+      expect(
+        await tokenStore.getToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id }),
+      ).toBeUndefined();
       expect(await tokenStore.getToken({ id: record.id, userRef: 'other-user' })).toBeUndefined();
       expect(await tokenStore.consumePendingAuthorization({ state: 'stale-pending-state' })).toBeUndefined();
       expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
@@ -849,7 +851,9 @@ describe('mcp-servers routers', () => {
     expect(await response.json()).toEqual({
       data: configured(putBodyWithDcr, 'auth_required'),
     });
-    expect(await tokenStore.getToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id })).toBeUndefined();
+    expect(
+      await tokenStore.getToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id }),
+    ).toBeUndefined();
     expect(await mcpServerStore.getClient({ id: record.id })).toEqual({
       server: {
         authorizationEndpoint: 'https://auth.example.com/authorize',

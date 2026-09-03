@@ -69,9 +69,7 @@ function toWireProvider(record: ModelProviderRecord): ConfiguredModelProvider {
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const records = await deps
-      .resolveModelProviderStore(c)
-      .listProviders({ tenant_id: requestContext.tenant_id });
+    const records = await deps.resolveModelProviderStore(c).listProviders({ tenant_id: requestContext.tenant_id });
     return c.json({ data: records.map(toWireProvider) }, 200);
   };
 
@@ -110,18 +108,12 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
       // cannot re-write a secret over a rotate that committed in between.
       const record = await deps.withTransaction(async transaction => {
-        const existing = await store.getProviderForUpdate(
-          { tenant_id: requestContext.tenant_id, name },
-          transaction,
-        );
+        const existing = await store.getProviderForUpdate({ tenant_id: requestContext.tenant_id, name }, transaction);
         const manifest = resolveModelProviderManifestForWrite({
           incoming: provider,
           existing: existing?.manifest,
         });
-        return store.upsertProvider(
-          { tenant_id: requestContext.tenant_id, name, manifest },
-          transaction,
-        );
+        return store.upsertProvider({ tenant_id: requestContext.tenant_id, name, manifest }, transaction);
       });
       return c.json({ data: toWireProvider(record) }, 200);
     } catch (error) {

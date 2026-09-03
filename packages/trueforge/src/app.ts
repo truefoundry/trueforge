@@ -23,11 +23,7 @@ import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessi
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import {
-  createAdminAuthMiddleware,
-  createAuthMiddleware,
-  type Authenticator,
-} from './auth/authenticator';
+import { createAdminAuthMiddleware, createAuthMiddleware, type Authenticator } from './auth/authenticator';
 import { resolveRequestContext } from './auth/identity';
 import { StandaloneAuthenticator } from './auth/standaloneAuthenticator';
 import type { McpCatalog } from './catalog/McpCatalog';

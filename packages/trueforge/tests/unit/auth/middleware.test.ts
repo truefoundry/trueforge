@@ -2,11 +2,11 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
-import { createAdminAuthMiddleware, createAuthMiddleware } from '../../../src/auth/authenticator';
 import type { Authenticator } from '../../../src/auth/authenticator';
+import { createAdminAuthMiddleware, createAuthMiddleware } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
+import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import type { OIDCConfig } from '../../../src/config';
 

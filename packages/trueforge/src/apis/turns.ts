@@ -789,9 +789,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
-    const turnEventStream = deps.eventSubscriptions.get(
-      turnStreamId(requestContext.tenant_id, sessionId, turnId),
-    );
+    const turnEventStream = deps.eventSubscriptions.get(turnStreamId(requestContext.tenant_id, sessionId, turnId));
 
     // Admission check before SSE headers are sent, so it can still map to HTTP 412.
     try {

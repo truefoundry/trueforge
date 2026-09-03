@@ -2,8 +2,8 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
-import { toRequestContext, type IdTokenClaims } from './claims';
 import type { Authenticator } from './authenticator';
+import { toRequestContext, type IdTokenClaims } from './claims';
 import type { RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
 import { extractRequestToken, toBearerAuthorization } from './token';

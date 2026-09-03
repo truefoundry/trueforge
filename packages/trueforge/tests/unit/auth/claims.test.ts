@@ -190,10 +190,10 @@ describe('buildAuthorizationRequestParams', () => {
     expect(scopes).toEqual(['openid', 'profile', 'email', 'groups']);
   });
 
-  it('requests reference, role, and display-name claims as essential in the id_token', () => {
+  it('requests reference and role claims as essential in the id_token', () => {
     const { claims } = buildAuthorizationRequestParams(config({ OIDC_USER_ROLE_CLAIM: 'roles' }));
     expect(claims).toEqual({
-      id_token: { sub: { essential: true }, roles: { essential: true }, name: { essential: true } },
+      id_token: { sub: { essential: true }, roles: { essential: true } },
     });
   });
 
@@ -202,7 +202,7 @@ describe('buildAuthorizationRequestParams', () => {
       config({ OIDC_USER_REFERENCE_CLAIM: 'email', OIDC_USER_ROLE_CLAIM: 'roles' }),
     );
     expect(claims).toEqual({
-      id_token: { email: { essential: true }, roles: { essential: true }, name: { essential: true } },
+      id_token: { email: { essential: true }, roles: { essential: true } },
     });
   });
 
@@ -210,7 +210,7 @@ describe('buildAuthorizationRequestParams', () => {
     const { claims } = buildAuthorizationRequestParams(
       config({ OIDC_USER_REFERENCE_CLAIM: 'groups', OIDC_USER_ROLE_CLAIM: 'groups' }),
     );
-    expect(claims).toEqual({ id_token: { groups: { essential: true }, name: { essential: true } } });
+    expect(claims).toEqual({ id_token: { groups: { essential: true } } });
   });
 
   it('requests email as essential when an allowlist is configured', () => {
@@ -219,7 +219,6 @@ describe('buildAuthorizationRequestParams', () => {
       id_token: {
         sub: { essential: true },
         groups: { essential: true },
-        name: { essential: true },
         email: { essential: true },
       },
     });

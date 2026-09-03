@@ -275,7 +275,10 @@ function createGetOrCreateSessionByExternalIdHandler(
       created_by: requestContext.subject.id,
       agent,
     });
-    if (!created && !checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })) {
+    if (
+      !created &&
+      !checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     return c.json({ data: toWireSession(session.record) }, created ? 201 : 200);
