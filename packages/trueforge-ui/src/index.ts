@@ -266,6 +266,12 @@ export type {
 
 // Server port types + factory
 export { ClearChatButton } from './atoms/ClearChatButton.js';
+export {
+  IS_CREATE_AGENT_METADATA_KEY,
+  isCreateAgentMetadataValue,
+  readSessionIsCreateAgent,
+  sessionIsCreateAgent,
+} from './atoms/lib/sessionCreateAgent.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
 export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueFoundryServer } from './server/createTrueFoundryServer.js';
@@ -293,6 +299,7 @@ export {
   DEFAULT_AGENT_CONFIG,
   ShellModeProvider,
   libraryAgentId,
+  shellIsCreateAgent,
   shellIsMutable,
   useOptionalShellMode,
   useShellMode,

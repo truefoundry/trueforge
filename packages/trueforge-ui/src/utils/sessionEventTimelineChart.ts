@@ -49,16 +49,24 @@ export type TimelineToolCallGroup = TimelineGap & {
   segments: SessionEventTimelineSegment[];
 };
 
+export type TimelineSubAgentGroup = TimelineGap & {
+  id: string;
+  barId: string;
+  segments: SessionEventTimelineSegment[];
+};
+
 export const TIMELINE_TYPE = {
   turn: 'turn',
   event: 'event',
   toolCallGroup: 'toolCallGroup',
+  subAgentGroup: 'subAgentGroup',
 } as const;
 
 export type TimelineHoverTarget =
   | { type: typeof TIMELINE_TYPE.turn; bar: TimelineTurnBar }
   | { type: typeof TIMELINE_TYPE.event; segment: SessionEventTimelineSegment }
-  | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup };
+  | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup }
+  | { type: typeof TIMELINE_TYPE.subAgentGroup; group: TimelineSubAgentGroup };
 
 /** Stable identity used to avoid replacing tooltip state while hovering the same bar. */
 export function getTimelineHoverTargetId(target: TimelineHoverTarget | null): string {
@@ -159,6 +167,26 @@ export function groupOverlappingToolCalls(segments: SessionEventTimelineSegment[
     current.segments.push(segment);
   }
   return groups;
+}
+
+// Each visible main-row bar owns a tooltip containing only runs that overlap it.
+// This avoids pulling in distant runs through a chain of transitive overlaps.
+export function getSubAgentHoverGroups({
+  bars,
+  subAgentSegments,
+}: {
+  bars: SessionEventTimelineSegment[];
+  subAgentSegments: SessionEventTimelineSegment[];
+}): TimelineSubAgentGroup[] {
+  return bars.map(bar => ({
+    id: `sub-agent-group-${bar.id}`,
+    barId: bar.id,
+    startMs: bar.startMs,
+    endMs: bar.endMs,
+    segments: subAgentSegments.filter(
+      segment => segment.turnIndex === bar.turnIndex && (segment.id === bar.id || segmentsOverlap(bar, segment)),
+    ),
+  }));
 }
 
 /**

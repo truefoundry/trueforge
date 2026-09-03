@@ -1,5 +1,6 @@
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createAvailableSkillsRouter, createSkillsRouter } from '../../../src/apis/skills';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -53,6 +54,7 @@ describe('skills routers', () => {
     settingsRouter = createSkillsRouter({
       skillStore,
       withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     catalogRouter = createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
@@ -63,6 +65,7 @@ describe('skills routers', () => {
     availableRouter = createAvailableSkillsRouter({
       skillStore,
       withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
   });
 

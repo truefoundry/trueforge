@@ -4,6 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import type { ResolveRequestContext } from '../auth/identity';
 import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -21,7 +22,6 @@ import {
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { type Agent, type CreateAgentRequest } from '../schemas/agent';
 import { buildAgentCodeSnippets } from './agentCodeSnippets';
-import { TENANT_ID } from './sessions';
 
 export interface AgentsRouterDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
@@ -30,6 +30,7 @@ export interface AgentsRouterDeps<TTransaction> {
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+  resolveRequestContext: ResolveRequestContext;
 }
 
 /** Wire view: identity columns plus nested manifest. */
@@ -46,15 +47,17 @@ async function validateManifest<TTransaction>({
   deps,
   modelProviderStore,
   mcpServerStore,
+  tenant_id,
 }: {
   spec: AgentSpec;
   deps: AgentsRouterDeps<TTransaction>;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
+  tenant_id: string;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
     spec,
-    tenant_id: TENANT_ID,
+    tenant_id,
     modelProviderStore,
     mcpServerStore,
     skillStore: deps.skillStore,
@@ -65,21 +68,24 @@ async function validateManifest<TTransaction>({
 
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
-    const records = await deps.agentStore.listAgents(TENANT_ID);
+    const requestContext = deps.resolveRequestContext(c);
+    const records = await deps.agentStore.listAgents(requestContext.tenant_id);
     return c.json({ data: records.map(toWireAgent) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {
     const body: CreateAgentRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const manifest = await validateManifest({
       spec: body.manifest,
       deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      tenant_id: requestContext.tenant_id,
     });
     try {
       const record = await deps.agentStore.createAgent({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         name: body.name,
         manifest,
         external_id: null,
@@ -95,7 +101,11 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const getHandler: RouteHandler<typeof getAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    const record = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.agentStore.getAgent({
+      tenant_id: requestContext.tenant_id,
+      id: agentId,
+    });
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
@@ -104,7 +114,11 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const getCodeSnippetsHandler: RouteHandler<typeof getAgentCodeSnippetsRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    const record = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.agentStore.getAgent({
+      tenant_id: requestContext.tenant_id,
+      id: agentId,
+    });
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
@@ -121,21 +135,24 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const deleteHandler: RouteHandler<typeof deleteAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    await deps.agentStore.deleteAgent({ tenant_id: TENANT_ID, id: agentId });
+    const requestContext = deps.resolveRequestContext(c);
+    await deps.agentStore.deleteAgent({ tenant_id: requestContext.tenant_id, id: agentId });
     return c.json({}, 200);
   };
 
   const putHandler: RouteHandler<typeof putAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
     const body = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const manifest = await validateManifest({
       spec: body.manifest,
       deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      tenant_id: requestContext.tenant_id,
     });
     const record = await deps.agentStore.updateAgent({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       id: agentId,
       manifest,
     });

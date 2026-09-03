@@ -80,6 +80,7 @@ describe('sessionDisplayFormat', () => {
     assert.equal(formatTokenCount(122_000), '122K');
     assert.equal(formatCostUsd(1.4872), '$1.4872');
     assert.equal(formatDurationMs(76_800), '1.28m');
+    assert.equal(formatSessionListMetrics({ totalTurns: 5, totalDurationMs: 41_380 }), '5 turns | 41.38s');
   });
 });
 

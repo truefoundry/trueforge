@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { cloneElement, isValidElement, useEffect, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
@@ -29,6 +29,16 @@ beforeAll(() => {
     this.dispatchEvent(new Event('close'));
   };
 });
+
+function OpenAgentBuilderOnMount({ children }: { children: ReactNode }) {
+  const { openAgentBuilder, mode } = useShellMode();
+  useLayoutEffect(() => {
+    if (mode.status === 'active' && mode.isMutable && !mode.isCreateAgent) {
+      openAgentBuilder();
+    }
+  }, [mode, openAgentBuilder]);
+  return children;
+}
 
 function renderButton({
   saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'agent-1' })),
@@ -71,7 +81,9 @@ function renderButton({
     <SlotsProvider>
       <ServerProvider server={server}>
         <ShellModeProvider agentConfig={agentConfig}>
-          {isValidElement(children) ? cloneElement(children) : children}
+          <OpenAgentBuilderOnMount>
+            {isValidElement(children) ? cloneElement(children) : children}
+          </OpenAgentBuilderOnMount>
         </ShellModeProvider>
       </ServerProvider>
     </SlotsProvider>
@@ -89,6 +101,7 @@ function BoundMutableSaveButton({ agentId, agentName }: { agentId: string; agent
   useEffect(() => {
     selectLibraryAgent({
       isMutable: true,
+      isCreateAgent: true,
       agentId,
       agentName,
       agentSpec,

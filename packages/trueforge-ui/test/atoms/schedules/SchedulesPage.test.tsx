@@ -366,4 +366,15 @@ describe('SchedulesPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by agent' }));
     expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument();
   });
+
+  it('opens the create drawer from isNew=true then clears the flag', async () => {
+    window.history.replaceState(null, '', '/schedules?agent=demo-agent&isNew=true');
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'New Schedule' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('isNew')).toBeNull();
+    });
+    expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
+  });
 });

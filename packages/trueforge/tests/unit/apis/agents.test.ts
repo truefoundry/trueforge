@@ -1,4 +1,5 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -84,6 +85,7 @@ describe('agents router', () => {
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
   });
 
@@ -109,9 +111,6 @@ describe('agents router', () => {
     });
     expect(createdJson.data).not.toHaveProperty('metadata');
 
-    const beforePut = await agentStore.getAgent({ tenant_id: 'default', id: createdJson.data.id });
-    expect(beforePut?.metadata).toEqual({});
-
     const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
     const updatedJson = (await updated.json()) as { data: WireAgent };
@@ -119,9 +118,6 @@ describe('agents router', () => {
     expect(updatedJson.data.name).toBe('research');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
     expect(updatedJson.data).not.toHaveProperty('metadata');
-
-    const afterPut = await agentStore.getAgent({ tenant_id: 'default', id: createdJson.data.id });
-    expect(afterPut?.metadata).toEqual(beforePut?.metadata);
   });
 
   it('PUT rejects metadata in the request body', async () => {

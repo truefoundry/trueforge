@@ -1,4 +1,5 @@
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import { readSessionIsCreateAgent } from '../../atoms/lib/sessionCreateAgent.js';
 import type { AgentSessionsServer, SessionListEntry } from '../../server/types.js';
 import { toListResult, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, parseIsoDate, type CreateTrueForgeClientOptions } from './client.js';
@@ -9,12 +10,19 @@ export type CreateHarnessAgentSessionsServerOptions = CreateTrueForgeClientOptio
   client?: TrueForge;
 };
 
-function toSessionListEntry(session: TrueForgeApi.Session): SessionListEntry<HarnessAgentSpec> {
+export type HarnessSessionListEntry = SessionListEntry<HarnessAgentSpec> & {
+  isCreateAgent: boolean;
+  isMutable: boolean;
+};
+
+function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEntry {
   return {
     id: session.id,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     lastActivityAt: session.updatedAt,
+    isCreateAgent: readSessionIsCreateAgent(session.metadata),
+    isMutable: session.agent.type === 'inline',
     metrics: {
       totalTurns: session.metrics.totalTurns,
       totalCostInUsd: session.metrics.totalCostInUsd,

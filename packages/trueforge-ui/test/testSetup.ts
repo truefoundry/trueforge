@@ -58,3 +58,36 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
     value: ResizeObserverStub,
   });
 }
+
+// Node 25+ exposes a broken `localStorage` getter unless `--localstorage-file` is
+// set; that shadows jsdom's implementation and makes `window.localStorage` undefined.
+const localStorageWorks =
+  typeof globalThis.localStorage?.getItem === 'function' && typeof globalThis.localStorage?.removeItem === 'function';
+if (!localStorageWorks) {
+  const store = new Map<string, string>();
+  const memoryStorage: Storage = {
+    get length() {
+      return store.size;
+    },
+    clear() {
+      store.clear();
+    },
+    getItem(key) {
+      return store.has(key) ? (store.get(key) ?? null) : null;
+    },
+    key(index) {
+      return [...store.keys()][index] ?? null;
+    },
+    removeItem(key) {
+      store.delete(key);
+    },
+    setItem(key, value) {
+      store.set(key, String(value));
+    },
+  };
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: memoryStorage,
+  });
+}
