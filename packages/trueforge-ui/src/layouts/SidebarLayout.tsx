@@ -109,11 +109,11 @@ function SidebarRail({
       }}
       {...dialogProps}
     >
-      <div className="flex h-14 w-full shrink-0 items-center justify-center border-b border-border text-text-primary">
+      <div className="flex h-14 w-full shrink-0 items-center justify-center text-text-primary">
         <BrandLogo variant={chrome.collapsedVariant} className={brandLogoClassName} />
       </div>
       <SidebarNav />
-      <footer className="flex shrink-0 flex-col items-center border-t border-border p-2">
+      <footer className="flex shrink-0 flex-col items-center border-border p-2">
         <ShellActions labeled className="flex-col" />
       </footer>
     </aside>
@@ -170,13 +170,14 @@ export function SidebarLayout({ className }: { className?: string }) {
       <SidebarRail className="hidden md:flex" />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-primary-bg">
-        {/* Mobile ShellActions stay mounted while Settings is open so host overrides (e.g. logout) do not remount.
-            Desktop keeps shell chrome in the rail footer (always mounted). */}
+        {/* Desktop keeps shell chrome in the rail footer (always mounted, including
+            when visually hidden on small screens so host action-slot state persists).
+            Mobile reaches theme/settings via the nav drawer rail. */}
         <header
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
-            // (empty untitled draft). Mobile still needs menu + ShellActions.
+            // (empty untitled draft). Mobile still needs the menu button.
             (overlayOpen || shell?.agentConfigOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
@@ -200,9 +201,6 @@ export function SidebarLayout({ className }: { className?: string }) {
           ) : (
             <span className="min-w-0 flex-1" />
           )}
-          <div key="mobile-shell-actions" className="md:hidden">
-            <ShellActions />
-          </div>
         </header>
 
         <div ref={mainRef} className="min-h-0 min-w-0 flex-1">

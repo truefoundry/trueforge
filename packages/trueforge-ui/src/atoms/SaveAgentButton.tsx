@@ -18,6 +18,7 @@ import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
 import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
 import { editableMountsFromSpec, withPreload } from './draft/agentConfigMounts.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
+import { cn } from './lib/cn.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
 type SaveIntent = 'create' | 'update';
@@ -192,10 +193,10 @@ function SaveAgentButtonContent({
         className={auiButtonClass({
           variant: 'outline',
           size: 'sm',
-          // Chrome-action triggers use the squared-off header treatment: 2px corners,
+          // Chrome-action triggers use the squared-off header treatment: tight corners,
           // roomier horizontal padding, and a card-surface fill rather than the grey
           // secondary fill, so they read as controls layered on the topbar.
-          className: cn('gap-2 rounded-[2px] bg-card-bg px-[10px]', className),
+          className: cn('gap-2 rounded-[0.125rem] bg-card-bg px-[0.625rem]', className),
         })}
         onClick={() => void show()}
       >
