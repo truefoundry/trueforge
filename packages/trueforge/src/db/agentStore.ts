@@ -36,7 +36,7 @@ export interface CreateAgentInput {
   tenant_id: string;
   name: ResourceName;
   manifest: AgentSpec;
-  external_id?: string | null;
+  external_id: string | null;
 }
 
 /**

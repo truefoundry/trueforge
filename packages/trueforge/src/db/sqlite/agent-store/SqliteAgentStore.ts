@@ -77,7 +77,6 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
-    const external_id = input.external_id ?? null;
     try {
       const row = await db
         .insertInto('agent')
@@ -87,7 +86,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           name: input.name,
           manifest: jsonbBind(input.manifest),
           metadata: jsonbBind(EMPTY_AGENT_METADATA),
-          external_id,
+          external_id: input.external_id,
           created_at: timestamp,
           updated_at: timestamp,
         })
@@ -100,7 +99,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           error,
           tenant_id: input.tenant_id,
           name: input.name,
-          external_id,
+          external_id: input.external_id,
           ...(transaction === undefined ? {} : { transaction }),
         });
       }
@@ -129,7 +128,6 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
       return row === undefined ? undefined : toRecord(row);
     } catch (error) {
       if (isUniqueViolation(error) && input.external_id) {
-        // external_id already taken in this tenant (name is immutable on update).
         throw new AgentExternalIdConflictError(
           { tenant_id: input.tenant_id, external_id: input.external_id },
           { cause: error },

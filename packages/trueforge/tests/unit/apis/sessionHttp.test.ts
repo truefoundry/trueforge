@@ -130,6 +130,7 @@ describe('sessions HTTP agent binding', () => {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
       }),
+      external_id: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
@@ -153,6 +154,7 @@ describe('sessions HTTP agent binding', () => {
       tenant_id: TENANT_ID,
       name: 'metrics-agent',
       manifest: inlineSpec,
+      external_id: null,
     });
     await sessionStore.createSession({
       tenant_id: TENANT_ID,
@@ -280,6 +282,7 @@ describe('sessions HTTP agent binding', () => {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
       }),
+      external_id: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));

@@ -24,6 +24,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       name: 'research',
       manifest: manifest(),
+      external_id: null,
     });
 
     expect(created.tenant_id).toBe(TENANT);
@@ -54,6 +55,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       name: 'research',
       manifest: manifest(),
+      external_id: null,
     });
 
     const replacement = manifest({ instructions: 'Updated instructions.' });
@@ -87,6 +89,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       name: 'research',
       manifest: manifest(),
+      external_id: null,
     });
 
     const updated = await store.updateAgent({
@@ -136,22 +139,43 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
 
   it('createAgent throws AgentNameConflictError on name clash', async () => {
     const store = getStore();
-    await store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest() });
+    await store.createAgent({
+      tenant_id: TENANT,
+      name: 'research',
+      manifest: manifest(),
+      external_id: null,
+    });
 
     await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest() }),
+      store.createAgent({
+        tenant_id: TENANT,
+        name: 'research',
+        manifest: manifest(),
+        external_id: null,
+      }),
     ).rejects.toBeInstanceOf(AgentNameConflictError);
   });
 
   it('listAgents returns only the tenant, ordered by name', async () => {
     const store = getStore();
-    await store.createAgent({ tenant_id: TENANT, name: 'zeta', manifest: manifest() });
+    await store.createAgent({
+      tenant_id: TENANT,
+      name: 'zeta',
+      manifest: manifest(),
+      external_id: null,
+    });
     await store.createAgent({
       tenant_id: TENANT,
       name: 'alpha',
       manifest: manifest({ instructions: 'Alpha agent.' }),
+      external_id: null,
     });
-    await store.createAgent({ tenant_id: 'other-tenant', name: 'research', manifest: manifest() });
+    await store.createAgent({
+      tenant_id: 'other-tenant',
+      name: 'research',
+      manifest: manifest(),
+      external_id: null,
+    });
 
     const agents = await store.listAgents(TENANT);
     expect(agents.map(agent => agent.name)).toEqual(['alpha', 'zeta']);
@@ -164,6 +188,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       name: 'research',
       manifest: manifest(),
+      external_id: null,
     });
 
     expect(await store.getAgent({ tenant_id: 'other-tenant', id: created.id })).toBeUndefined();
@@ -209,7 +234,12 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
 
   it('updateAgent can write and clear external_id', async () => {
     const store = getStore();
-    const created = await store.createAgent({ tenant_id: TENANT, name: 'research', manifest: manifest() });
+    const created = await store.createAgent({
+      tenant_id: TENANT,
+      name: 'research',
+      manifest: manifest(),
+      external_id: null,
+    });
     const updated = await store.updateAgent({
       tenant_id: TENANT,
       id: created.id,
@@ -232,7 +262,12 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       manifest: manifest(),
       external_id: 'shared-key',
     });
-    const beta = await store.createAgent({ tenant_id: TENANT, name: 'beta', manifest: manifest() });
+    const beta = await store.createAgent({
+      tenant_id: TENANT,
+      name: 'beta',
+      manifest: manifest(),
+      external_id: null,
+    });
     await expect(
       store.updateAgent({ tenant_id: TENANT, id: beta.id, external_id: 'shared-key' }),
     ).rejects.toBeInstanceOf(AgentExternalIdConflictError);
