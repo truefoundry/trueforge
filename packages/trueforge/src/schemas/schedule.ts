@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi';
+import { TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
 /**
@@ -119,7 +120,12 @@ export const UpdateScheduleRequestSchema = z
   .openapi('UpdateScheduleRequest');
 
 export const GetScheduleResponseSchema = z.object({ data: ScheduleSchema }).openapi('GetScheduleResponse');
-export const ListSchedulesResponseSchema = z.object({ data: z.array(ScheduleSchema) }).openapi('ListSchedulesResponse');
+export const ListSchedulesResponseSchema = z
+  .object({
+    data: z.array(ScheduleSchema),
+    pagination: TokenPaginationSchema,
+  })
+  .openapi('ListSchedulesResponse');
 export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteScheduleResponse');
 
 /**
@@ -150,6 +156,21 @@ export const ListScheduleRunsResponseSchema = z
   .object({ data: z.array(ScheduleRunSchema) })
   .openapi('ListScheduleRunsResponse');
 
+/**
+ * Identify the schedule to run. Task always comes from the schedule manifest.
+ */
+export const CreateScheduleRunRequestSchema = z
+  .object({
+    schedule_id: z.string().min(1).max(64).describe('Immutable schedule identifier.'),
+  })
+  .strict()
+  .describe('Trigger an immediate run for the given schedule. The task is taken from the schedule manifest.')
+  .openapi('CreateScheduleRunRequest');
+
+export const CreateScheduleRunResponseSchema = z
+  .object({ data: ScheduleRunSchema })
+  .openapi('CreateScheduleRunResponse');
+
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;
 export type ScheduleRunStatus = z.infer<typeof ScheduleRunStatusSchema>;
 export type ScheduleManifest = z.infer<typeof ScheduleManifestSchema>;
@@ -157,3 +178,4 @@ export type Schedule = z.infer<typeof ScheduleSchema>;
 export type ScheduleRun = z.infer<typeof ScheduleRunSchema>;
 export type CreateScheduleRequest = z.infer<typeof CreateScheduleRequestSchema>;
 export type UpdateScheduleRequest = z.infer<typeof UpdateScheduleRequestSchema>;
+export type CreateScheduleRunRequest = z.infer<typeof CreateScheduleRunRequestSchema>;

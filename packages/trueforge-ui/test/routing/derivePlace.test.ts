@@ -6,6 +6,10 @@ import type { ShellSnapshot } from '@/routing/types.js';
 function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
   return {
     settingsOpen: false,
+    libraryOpen: false,
+    sessionsOpen: false,
+    libraryAgentId: null,
+    schedulesOpen: false,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -15,6 +19,33 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
 describe('derivePlace', () => {
   it('settings overlay wins over the chat place', () => {
     expect(derivePlace(snap({ settingsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'settings' });
+  });
+
+  it('library overlay wins over the chat place when settings is closed', () => {
+    expect(derivePlace(snap({ libraryOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'library' });
+  });
+
+  it('sessions browser wins over the chat place when settings is closed', () => {
+    expect(derivePlace(snap({ sessionsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'sessionsBrowser' });
+  });
+
+  it('library agent detail wins over the library list and chat place', () => {
+    expect(derivePlace(snap({ libraryOpen: true, libraryAgentId: 'agent-1', pendingSessionId: 'abc' }))).toEqual({
+      type: 'libraryAgent',
+      agentId: 'agent-1',
+    });
+  });
+
+  it('settings overlay wins over library', () => {
+    expect(derivePlace(snap({ settingsOpen: true, libraryOpen: true }))).toEqual({ type: 'settings' });
+  });
+
+  it('schedules overlay wins over chat when settings is closed', () => {
+    expect(derivePlace(snap({ schedulesOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'schedules' });
+  });
+
+  it('settings wins over schedules when both are open', () => {
+    expect(derivePlace(snap({ settingsOpen: true, schedulesOpen: true }))).toEqual({ type: 'settings' });
   });
 
   it('pendingSessionId maps to a session while no thread has reported yet', () => {

@@ -6,9 +6,9 @@ metadata:
     {{- include "trueforge.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.server.replicaCount }}
   {{- end }}
-  {{- with .Values.strategy }}
+  {{- with .Values.server.strategy }}
   strategy:
     {{- toYaml . | nindent 4 }}
   {{- end }}

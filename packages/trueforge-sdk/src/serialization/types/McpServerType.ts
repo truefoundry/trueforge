@@ -5,8 +5,8 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
 export const McpServerType: core.serialization.Schema<serializers.McpServerType.Raw, TrueForge.McpServerType> =
-    core.serialization.stringLiteral("remote");
+    core.serialization.enum_(["remote", "truefoundry"]);
 
 export declare namespace McpServerType {
-    export type Raw = "remote";
+    export type Raw = "remote" | "truefoundry";
 }

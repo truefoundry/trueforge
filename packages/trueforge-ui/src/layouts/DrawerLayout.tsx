@@ -8,6 +8,7 @@ import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
@@ -15,11 +16,17 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
+const SchedulesPage = lazy(() =>
+  import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
 
 export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const AgentDetailsPage = useSlot('AgentDetailsPage');
+  const AgentsLibrary = useSlot('AgentsLibrary');
+  const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [threadsOpen, setThreadsOpen] = useState(false);
@@ -29,6 +36,14 @@ export function DrawerLayout({ className }: { className?: string }) {
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
+  const libraryOpen = shell?.libraryOpen === true;
+  const sessionsOpen = shell?.sessionsOpen === true;
+  const schedulesOpen = shell?.schedulesOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+
+  useEffect(() => {
+    if (libraryOpen || sessionsOpen || schedulesOpen) setThreadsOpen(false);
+  }, [libraryOpen, sessionsOpen, schedulesOpen]);
 
   useEffect(() => {
     if (!threadsOpen) return;
@@ -55,10 +70,13 @@ export function DrawerLayout({ className }: { className?: string }) {
   }, [threadsOpen]);
 
   const handleNewChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
     } else {
       shell?.setSettingsOpen(false);
+      shell?.setSchedulesOpen(false);
       aui.threads().switchToNewThread();
     }
     setThreadsOpen(false);
@@ -67,19 +85,39 @@ export function DrawerLayout({ className }: { className?: string }) {
   return (
     <div className={cn('relative flex h-full min-h-0 w-full flex-col bg-primary-bg', className)}>
       {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
-      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
-        {!settingsOpen ? (
+      <header
+        className={cn(
+          'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
+          shell?.agentConfigOpen && 'md:hidden',
+        )}
+      >
+        {!overlayOpen ? (
           <>
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
-            <SaveAgentButton />
+            {!shell?.agentConfigOpen ? <SaveAgentButton /> : null}
+          </>
+        ) : libraryOpen || schedulesOpen ? (
+          <>
+            <button
+              type="button"
+              className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+              onClick={() => {
+                shell?.setLibraryOpen(false);
+                shell?.setSchedulesOpen(false);
+              }}
+            >
+              <Icon name="arrow-left" />
+              Back to chat
+            </button>
+            <span className="min-w-0 flex-1" />
           </>
         ) : (
           <span className="min-w-0 flex-1" />
         )}
         <ShellActions key="shell-actions" />
-        {!settingsOpen ? (
+        {!overlayOpen ? (
           <>
             {shell?.isNewChatEnabled !== false ? (
               <button
@@ -105,28 +143,61 @@ export function DrawerLayout({ className }: { className?: string }) {
           </>
         ) : null}
       </header>
-      <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-        {settingsOpen ? (
-          <Suspense
-            fallback={
-              <div
-                className="flex h-full items-center justify-center"
-                role="status"
-                aria-live="polite"
-                aria-busy="true"
-              >
-                <Spinner size={28} className="text-text-primary" />
-                <span className="sr-only">Loading</span>
-              </div>
-            }
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
+          {settingsOpen ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <TruefoundrySettingsBuilder />
+            </Suspense>
+          ) : sessionsOpen ? (
+            <SessionsPage />
+          ) : libraryOpen && shell?.libraryAgentId != null ? (
+            <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+          ) : libraryOpen ? (
+            <AgentsLibrary onSelectAgent={() => setThreadsOpen(false)} />
+          ) : schedulesOpen ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <SchedulesPage />
+            </Suspense>
+          ) : isIdle ? (
+            <SelectAgentEmptyState />
+          ) : (
+            <Thread />
+          )}
+        </div>
+        {shell?.agentConfigOpen ? (
+          <aside
+            role="dialog"
+            aria-label="Agent Config"
+            className="absolute inset-y-0 right-0 z-20 w-full max-w-sm border-l border-border shadow-xl md:static md:z-auto md:w-[22rem] md:max-w-none md:shrink-0 md:shadow-none"
           >
-            <TruefoundrySettingsBuilder />
-          </Suspense>
-        ) : isIdle ? (
-          <SelectAgentEmptyState />
-        ) : (
-          <Thread />
-        )}
+            <AgentConfigDrawerContainer />
+          </aside>
+        ) : null}
       </div>
       {threadsOpen ? (
         <>

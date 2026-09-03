@@ -1,9 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  # TODO: replace placeholder URLs
   - name: Documentation
-    url: https://example.com/docs
+    url: https://trueforge.dev
     about: Guides, configuration reference, and API docs.
   - name: Security vulnerability
-    url: https://example.com/security
+    url: https://github.com/truefoundry/trueforge/security/advisories/new
     about: Please report security issues privately — see SECURITY.md.

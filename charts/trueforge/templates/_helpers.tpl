@@ -49,6 +49,41 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Controller selector labels. A distinct app name (…-controller) keeps the server
+Service (which selects trueforge.selectorLabels) from ever routing HTTP traffic
+to controller pods, which run no HTTP server.
+*/}}
+{{- define "trueforge.controller.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "trueforge.name" . }}-controller
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Controller labels.
+*/}}
+{{- define "trueforge.controller.labels" -}}
+helm.sh/chart: {{ include "trueforge.chart" . }}
+{{ include "trueforge.controller.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/component: controller
+{{- end }}
+
+{{/*
+Base URL the controller uses to reach the server API. Defaults to the in-cluster
+server Service when controller.serverUrl is empty.
+*/}}
+{{- define "trueforge.controller.serverUrl" -}}
+{{- if .Values.controller.serverUrl -}}
+{{- .Values.controller.serverUrl -}}
+{{- else -}}
+{{- printf "http://%s:%v" (include "trueforge.fullname" .) .Values.service.port -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Service account name.
 */}}
 {{- define "trueforge.serviceAccountName" -}}
@@ -180,6 +215,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "OIDC_CLIENT_ID" "value" .Values.configs.oidc.clientId) -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_REFERENCE_CLAIM" "value" .Values.configs.oidc.userReferenceClaim) -}}
+{{- $env = append $env (dict "name" "OIDC_USER_DISPLAY_NAME_CLAIM" "value" .Values.configs.oidc.userDisplayNameClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_ADMIN_ROLE_VALUE" "value" .Values.configs.oidc.adminRoleValue) -}}
 {{- $env = append $env (dict "name" "OIDC_SCOPES" "value" .Values.configs.oidc.scopes) -}}

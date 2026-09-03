@@ -7,10 +7,9 @@ import { createInternalMetricsRouter } from '../../../src/apis/sessionMetrics';
 import {
   createInternalSessionsRouter,
   createSessionsRouter,
-  TENANT_ID,
   type SessionsRouterDeps,
 } from '../../../src/apis/sessions';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -58,7 +57,7 @@ describe('sessions HTTP agent binding', () => {
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'anthropic',
       manifest: {
         type: 'anthropic',
@@ -79,23 +78,23 @@ describe('sessions HTTP agent binding', () => {
       sessions,
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
-      modelProviderStore,
-      mcpServerStore,
+      resolveModelProviderStore: () => modelProviderStore,
+      resolveMcpServerStore: () => mcpServerStore,
       skillStore,
       agentStore,
       sandboxProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       logger: createLogger({ silent: true }),
     };
     app.route('/', createSessionsRouter(deps));
-    app.route('/internal/sessions', createInternalSessionsRouter(deps));
+    app.route('/api/internal/sessions', createInternalSessionsRouter(deps));
     app.route(
-      '/internal/metrics',
+      '/api/internal/metrics',
       createInternalMetricsRouter({
         sessionMetricsStore,
-        resolveUserContext: deps.resolveUserContext,
+        resolveRequestContext: deps.resolveRequestContext,
       }),
     );
   });
@@ -113,7 +112,7 @@ describe('sessions HTTP agent binding', () => {
     };
     expect(json.data.agent.type).toBe('inline');
     expect(json.data.agent.spec.instructions).toBe('inline');
-    expect(json.data.created_by).toBe(LOCAL_USER_CONTEXT.userRef);
+    expect(json.data.created_by).toBe(STANDALONE_REQUEST_CONTEXT.subject.id);
     expect(json.data.metrics).toEqual({ total_cost_in_usd: 0, total_duration_ms: 0, total_turns: 0 });
   });
 
@@ -124,12 +123,13 @@ describe('sessions HTTP agent binding', () => {
 
   it('creates a named session and filters list by agent_id', async () => {
     const agent = await agentStore.createAgent({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'named-agent',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
       }),
+      external_id: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
@@ -150,24 +150,27 @@ describe('sessions HTTP agent binding', () => {
 
   it('returns caller-scoped metrics for a named agent', async () => {
     const agent = await agentStore.createAgent({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'metrics-agent',
       manifest: inlineSpec,
-    });
-    await sessionStore.createSession({
-      tenant_id: TENANT_ID,
-      session_id: 'my-metrics-session',
-      created_by: LOCAL_USER_CONTEXT.userRef,
-      agent: { type: 'reference', id: agent.id, name: agent.name },
-      custom: null,
       external_id: null,
     });
     await sessionStore.createSession({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
+      session_id: 'my-metrics-session',
+      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
+      agent: { type: 'reference', id: agent.id, name: agent.name },
+      custom: null,
+      metadata: {},
+      external_id: null,
+    });
+    await sessionStore.createSession({
+      tenant_id: 'default',
       session_id: 'other-user-metrics-session',
       created_by: 'someone-else',
       agent: { type: 'reference', id: agent.id, name: agent.name },
       custom: null,
+      metadata: {},
       external_id: null,
     });
     const start = new Date(Date.now() - 60 * 60 * 1000);
@@ -178,7 +181,7 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: end.toISOString(),
     });
 
-    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/api/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(200);
     const meters = GetSessionMetricsMeterResponseSchema.parse(await response.json());
@@ -190,7 +193,7 @@ describe('sessions HTTP agent binding', () => {
     expect(meters.data.meters.find(meter => meter.name === 'p95_session_duration_ms')?.aggregate_value).toBe(0);
 
     const sessionsChartResponse = await app.request(
-      `/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
+      `/api/internal/metrics/charts-data?${query.toString()}&chart_name=sessions_over_time`,
     );
     expect(sessionsChartResponse.status).toBe(200);
     const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
@@ -198,7 +201,7 @@ describe('sessions HTTP agent binding', () => {
   });
 
   it('returns the static session metrics charts', async () => {
-    const response = await app.request('/internal/metrics/charts');
+    const response = await app.request('/api/internal/metrics/charts');
 
     expect(response.status).toBe(200);
     const payload = GetSessionMetricsChartResponseSchema.parse(await response.json());
@@ -217,31 +220,32 @@ describe('sessions HTTP agent binding', () => {
       end_timestamp: '2026-02-01T00:00:00.000Z',
     });
 
-    const response = await app.request(`/internal/metrics/meters?${query.toString()}`);
+    const response = await app.request(`/api/internal/metrics/meters?${query.toString()}`);
 
     expect(response.status).toBe(400);
   });
 
   it("rejects access to another user's session on get/update/delete/cancel/events and scopes list", async () => {
     await sessionStore.createSession({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       session_id: 'other-user-session',
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      metadata: {},
       external_id: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
     const json = (await created.json()) as { data: { id: string; created_by: string } };
-    expect(json.data.created_by).toBe(LOCAL_USER_CONTEXT.userRef);
+    expect(json.data.created_by).toBe(STANDALONE_REQUEST_CONTEXT.subject.id);
 
     const listed = await app.request('/');
     expect(listed.status).toBe(200);
     const listedJson = (await listed.json()) as { data: Array<{ id: string; created_by: string }> };
     expect(listedJson.data.map(row => row.id)).toEqual([json.data.id]);
-    expect(listedJson.data.every(row => row.created_by === LOCAL_USER_CONTEXT.userRef)).toBe(true);
+    expect(listedJson.data.every(row => row.created_by === STANDALONE_REQUEST_CONTEXT.subject.id)).toBe(true);
 
     const forbiddenBody = { error: { message: 'Only the session creator can access this session' } };
 
@@ -271,12 +275,13 @@ describe('sessions HTTP agent binding', () => {
 
   it('rejects PATCH agent on a named session', async () => {
     const agent = await agentStore.createAgent({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'named-agent',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
       }),
+      external_id: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
@@ -306,6 +311,58 @@ describe('sessions HTTP agent binding', () => {
     expect(patchedJson.data.agent.spec.instructions).toBe('updated');
   });
 
+  it('create and PATCH round-trip session metadata', async () => {
+    const created = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'dev', ticket: 'T-1' } }),
+    );
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as {
+      data: { id: string; metadata: Record<string, string> };
+    };
+    expect(createdJson.data.metadata).toEqual({ env: 'dev', ticket: 'T-1' });
+
+    const omitPatch = await app.request(`/${createdJson.data.id}`, jsonInit('PATCH', {}));
+    expect(omitPatch.status).toBe(200);
+    const omitJson = (await omitPatch.json()) as { data: { metadata: Record<string, string> } };
+    expect(omitJson.data.metadata).toEqual({ env: 'dev', ticket: 'T-1' });
+
+    const replace = await app.request(`/${createdJson.data.id}`, jsonInit('PATCH', { metadata: { env: 'prod' } }));
+    expect(replace.status).toBe(200);
+    const replaceJson = (await replace.json()) as { data: { metadata: Record<string, string> } };
+    expect(replaceJson.data.metadata).toEqual({ env: 'prod' });
+
+    const clear = await app.request(`/${createdJson.data.id}`, jsonInit('PATCH', { metadata: {} }));
+    expect(clear.status).toBe(200);
+    const clearJson = (await clear.json()) as { data: { metadata: Record<string, string> } };
+    expect(clearJson.data.metadata).toEqual({});
+
+    const omittedCreate = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(omittedCreate.status).toBe(201);
+    const omittedJson = (await omittedCreate.json()) as { data: { metadata: Record<string, string> } };
+    expect(omittedJson.data.metadata).toEqual({});
+  });
+
+  it('rejects invalid session metadata on create', async () => {
+    const tooLongKey = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { ['k'.repeat(33)]: 'v' },
+      }),
+    );
+    expect(tooLongKey.status).toBe(400);
+
+    const tooLongValue = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { k: 'v'.repeat(129) },
+      }),
+    );
+    expect(tooLongValue.status).toBe(400);
+  });
+
   it('POST get-or-create-by-external-id is idempotent and 403s for another creator', async () => {
     const publicPath = await app.request(
       '/get-or-create-by-external-id',
@@ -314,7 +371,7 @@ describe('sessions HTTP agent binding', () => {
     expect(publicPath.status).toBe(404);
 
     const created = await app.request(
-      '/internal/sessions/get-or-create-by-external-id',
+      '/api/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', { external_id: 'run-abc', agent: { spec: inlineSpec } }),
     );
     expect(created.status).toBe(201);
@@ -324,7 +381,7 @@ describe('sessions HTTP agent binding', () => {
     expect(createdJson.data.agent.spec.instructions).toBe('inline');
 
     const again = await app.request(
-      '/internal/sessions/get-or-create-by-external-id',
+      '/api/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', {
         external_id: 'run-abc',
         agent: { spec: { ...inlineSpec, instructions: 'ignored-on-get' } },
@@ -338,15 +395,16 @@ describe('sessions HTTP agent binding', () => {
     expect(againJson.data.agent.spec.instructions).toBe('inline');
 
     await sessionStore.createSession({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       session_id: 'someone-elses-session',
       created_by: 'someone-else',
       agent: { type: 'inline', spec: inlineSpec },
       custom: null,
+      metadata: {},
       external_id: 'run-theirs',
     });
     const forbidden = await app.request(
-      '/internal/sessions/get-or-create-by-external-id',
+      '/api/internal/sessions/get-or-create-by-external-id',
       jsonInit('POST', { external_id: 'run-theirs', agent: { spec: inlineSpec } }),
     );
     expect(forbidden.status).toBe(403);

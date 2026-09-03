@@ -5,10 +5,11 @@ import {
   TurnNotFoundError,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -18,8 +19,17 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import type { Database } from '../../../src/db/sqlite/types';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+
+function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
+  return new McpServerWithAuthStore({
+    store: new SqliteMcpServerStore(db),
+    tokenStore,
+    clientName: 'test-client',
+  });
+}
 
 describe('turns', () => {
   describe('turn ownership', () => {
@@ -30,7 +40,7 @@ describe('turns', () => {
       const sessions = new Sessions({ sessionStore });
 
       await sessionStore.createSession({
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         session_id: 's1',
         created_by: 'someone-else',
         agent: {
@@ -41,9 +51,11 @@ describe('turns', () => {
           }),
         },
         custom: null,
+        metadata: {},
         external_id: null,
       });
 
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -51,15 +63,15 @@ describe('turns', () => {
           sessions,
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore: new SqliteModelProviderStore(db),
-          mcpServerStore: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          tokenStore,
           skillStore: new SqliteSkillStore(db),
           agentStore: new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
-          resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         }),
       );
 
@@ -132,8 +144,10 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
+            session_id: 's1',
+            tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
-            record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
+            record: { last_turn_id: null, created_by: STANDALONE_REQUEST_CONTEXT.subject.id },
             createTurn: () =>
               Promise.resolve({
                 id: 'turn-non-stream',
@@ -162,6 +176,7 @@ describe('turns', () => {
       } as unknown as Sessions;
 
       const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined);
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -169,15 +184,15 @@ describe('turns', () => {
           sessions,
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore,
+          resolveModelProviderStore: () => modelProviderStore,
           agentStore: new SqliteAgentStore(db),
-          mcpServerStore: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          tokenStore,
           skillStore: new SqliteSkillStore(db),
           eventSubscriptions,
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
-          resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         }),
       );
 
@@ -203,7 +218,7 @@ describe('turns', () => {
 
       // Resumable stream must exist before the JSON response returns.
       await expect(
-        eventSubscriptions.get(turnStreamId(TENANT_ID, 's1', 'turn-non-stream')).assertSubscribable(),
+        eventSubscriptions.get(turnStreamId('default', 's1', 'turn-non-stream')).assertSubscribable(),
       ).resolves.toBeUndefined();
 
       releaseRest?.();
@@ -245,11 +260,13 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
+            session_id: 's1',
+            tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: agentSpec,
             record: {
               session_id: 's1',
               last_turn_id: null,
-              created_by: LOCAL_USER_CONTEXT.userRef,
+              created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
               agent: { type: 'inline', spec: agentSpec },
             },
             createTurn: () =>
@@ -262,6 +279,7 @@ describe('turns', () => {
           }),
       } as unknown as Sessions;
 
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -269,15 +287,15 @@ describe('turns', () => {
           sessions,
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore,
-          mcpServerStore: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveModelProviderStore: () => modelProviderStore,
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          tokenStore,
           skillStore: new SqliteSkillStore(db),
           agentStore: new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
-          resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         }),
       );
 

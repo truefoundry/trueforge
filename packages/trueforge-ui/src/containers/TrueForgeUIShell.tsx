@@ -7,6 +7,7 @@ import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
@@ -254,6 +255,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
       <CustomActionRenderersProvider renderers={customActionRenderers}>
         <ServerProvider server={server}>
           <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+            <LibrarySessionShareBoot />
             {resolvedRoutes != null ? (
               <Suspense fallback={null}>
                 <ShellRouteSync

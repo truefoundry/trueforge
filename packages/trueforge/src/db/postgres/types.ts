@@ -5,6 +5,7 @@
 import type {
   AgentSpec,
   PersistedTurnEvent,
+  SessionMetadata,
   SessionMetrics,
   TurnInputItem,
   TurnState,
@@ -86,6 +87,8 @@ export interface SessionTable {
   external_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
+  /** Caller-owned metadata; always present (DEFAULT '{}'). */
+  metadata: JSONColumnType<SessionMetadata, SessionMetadata, SessionMetadata>;
   metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;
@@ -372,6 +375,7 @@ export interface AgentTable {
   name: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
+  external_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -394,7 +398,7 @@ export interface ScheduleTable {
   manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  /** Identity every run of this schedule executes as (`UserContext.userRef`) */
+  /** Identity every run of this schedule executes as (`RequestContext.subject.id`) */
   created_by: string;
   created_at: Date;
   updated_at: Date;
@@ -415,7 +419,7 @@ export interface ScheduleRunTable {
   scheduled_for: Date;
   /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
   status: ScheduleRunStatus;
-  /** `UserContext.userRef` of who triggered the run */
+  /** `RequestContext.subject.id` of who triggered the run */
   triggered_by: string;
   triggered_at: Date | null;
   created_at: Date;
@@ -449,7 +453,7 @@ export interface McpServerTable {
 /**
  * PRIMARY KEY (oauth_server_id, user_id)
  * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
- * (`user_id` = `UserContext.userRef`); any tenant-scoped read resolves `oauth_server_id`
+ * (`user_id` = `RequestContext.subject.id`); any tenant-scoped read resolves `oauth_server_id`
  * through mcp_server (by tenant_id + name) first.
  */
 export interface OAuthTokenTable {

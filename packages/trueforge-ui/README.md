@@ -400,12 +400,14 @@ show the title text (see [Custom layouts](#custom-layouts)).
 
 | Mode                                   | Layout chrome                   | Agent selection / New Chat                                |
 | -------------------------------------- | ------------------------------- | --------------------------------------------------------- |
-| `AgentLibraryWithComposer` _(default)_ | Agents Library + draft builder  | New Chat opens draft; library picks a named agent         |
+| `AgentLibraryWithComposer` _(default)_ | Agents + draft builder          | New Chat opens draft; library picks a named agent         |
 | `SingleAgent`                          | Named-only, plain composer      | Locked to `name`; New Chat / Clear Chat = new thread      |
-| `AgentLibrary`                         | Agents Library only (no draft)  | Empty until pick; no New Chat; Clear Chat after selection |
+| `AgentLibrary`                         | Agents only (no draft)          | Empty until pick; no New Chat; Clear Chat after selection |
 | `AgentComposer`                        | Draft builder only (no library) | Always draft; New Chat / Clear Chat = fresh draft         |
 
-In library modes, picking an agent from the Agents Library switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
+In library modes, picking an agent from Agents switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
+
+Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. The compact Tools picker contains only Connectors and Skills. The Save Agent dialog keeps a local editable copy of the same configuration and shares the same selector dialogs; cancelling it leaves the active draft unchanged. Model context and output limits render when the server supplies that optional catalog metadata.
 
 ```tsx
 {
@@ -436,7 +438,7 @@ In library modes, picking an agent from the Agents Library switches to a named c
 />;
 ```
 
-> _Screenshot: Agents Library open; selecting an agent resets the thread._
+> _Screenshot: Agents open; selecting an agent resets the thread._
 
 ---
 
@@ -515,7 +517,7 @@ function MyBubble({ children, error, actionBar, className }: AssistantMessageBub
 />;
 ```
 
-Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
+Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, agent metrics (`AgentMetrics`, `AgentMetricsView`, `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, `AgentMetricChart`), and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
 
 See [docs/customization.md](./docs/customization.md) for the full slot list.
 
@@ -543,13 +545,19 @@ type TrueForgeServerConfig =
     }
   | AgentUIServer;
 
-type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
+type AgentUIServer = AgentChatServer &
+  AgentBuilderServer & {
+    catalog?: CatalogServer;
+    sessions?: AgentSessionsServer;
+    metrics?: AgentMetricsServer;
+  };
 ```
 
 | Port                 | Responsibility                                                      |
 | -------------------- | ------------------------------------------------------------------- |
 | `AgentChatServer`    | Sessions, turns, streaming, draft `AgentSpec` sync                  |
 | `AgentBuilderServer` | `getModels` / `getSkills` / `getMcp` / `searchAgents` / `saveAgent` |
+| `AgentMetricsServer` | Agent meter aggregates, chart definitions, and chart data           |
 
 **Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
 

@@ -93,3 +93,9 @@ export function DraftCapabilitiesPanel({
     </div>
   );
 }
+
+declare module '../../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    DraftCapabilitiesPanel: typeof DraftCapabilitiesPanel;
+  }
+}

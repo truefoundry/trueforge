@@ -124,6 +124,7 @@ function applyPragmas(database: Database.Database): void {
 const JSON_RESULT_COLUMNS = new Set([
   'agent_spec',
   'custom',
+  'metadata',
   'metrics',
   'ancestor_ids',
   'input',
@@ -138,6 +139,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'thread_checkpoint',
   'event',
   'manifest',
+  'metadata',
   'build_metadata',
   'oauth_server',
   'oauth_client',

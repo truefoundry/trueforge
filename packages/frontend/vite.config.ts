@@ -16,6 +16,18 @@ if (!Number.isInteger(PORT)) {
   throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
 }
 
+/** Optional public path (e.g. `/trueforge`). Empty/unset → `/`. Vite requires a trailing slash. */
+function resolveViteBase(raw: string | undefined): string {
+  const trimmed = raw?.trim();
+  if (trimmed === undefined || trimmed === '' || trimmed === '/') {
+    return '/';
+  }
+  const withLead = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLead.endsWith('/') ? withLead : `${withLead}/`;
+}
+
+const BASE = resolveViteBase(process.env.VITE_BASE_PATH);
+
 const apiProxy: ProxyOptions = {
   target: SERVER,
   changeOrigin: true,
@@ -30,7 +42,28 @@ const apiProxy: ProxyOptions = {
   },
 };
 
+/** When UI+API share a public path, strip it so Harness still sees `/api`. */
+const prefixedApiProxy: ProxyOptions =
+  BASE === '/'
+    ? apiProxy
+    : {
+        ...apiProxy,
+        rewrite: requestPath => requestPath.slice(BASE.length - 1),
+      };
+
+const proxy: Record<string, ProxyOptions> =
+  BASE === '/'
+    ? {
+        '/api': apiProxy,
+      }
+    : {
+        // Prefer the prefixed keys so `/trueforge/api` is not matched as a bare `/api` miss.
+        [`${BASE}api`]: prefixedApiProxy,
+        '/api': apiProxy,
+      };
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     monacoEditorPlugin({
@@ -59,9 +92,7 @@ export default defineConfig({
     port: PORT,
     // Fail if FRONTEND_PORT is taken — never silently hop to 3001/3010/etc.
     strictPort: true,
-    // The Harness SDK already targets the server's /api routes.
-    proxy: {
-      '/api': apiProxy,
-    },
+    // Proxy API routes (including /api/internal) to the Harness.
+    proxy,
   },
 });

@@ -4,4 +4,5 @@ import type * as TrueForge from "../index.js";
 
 export interface ListSchedulesResponse {
     data: TrueForge.Schedule[];
+    pagination: TrueForge.TokenPagination;
 }

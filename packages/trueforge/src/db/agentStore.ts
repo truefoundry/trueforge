@@ -12,6 +12,7 @@ export interface AgentRecord {
   tenant_id: string;
   name: ResourceName;
   manifest: AgentSpec;
+  external_id: string | null;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -33,13 +34,18 @@ export interface CreateAgentInput {
   tenant_id: string;
   name: ResourceName;
   manifest: AgentSpec;
+  external_id: string | null;
 }
 
-/** Replace manifest for an existing agent keyed by immutable id. */
+/**
+ * Patch an existing agent by immutable id. At least one of `manifest` or `external_id` is required.
+ * Provided fields replace the stored column; omitted fields are left unchanged.
+ */
 export interface UpdateAgentInput {
   tenant_id: string;
   id: string;
-  manifest: AgentSpec;
+  manifest?: AgentSpec;
+  external_id?: string | null;
 }
 
 export interface DeleteAgentInput {
@@ -60,12 +66,25 @@ export class AgentNameConflictError extends Error {
   }
 }
 
+/** Unique `(tenant_id, external_id)` violation when `external_id` is set. */
+export class AgentExternalIdConflictError extends Error {
+  readonly tenant_id: string;
+  readonly external_id: string;
+
+  constructor({ tenant_id, external_id }: { tenant_id: string; external_id: string }, options?: ErrorOptions) {
+    super(`Agent already exists for external id: ${external_id}`, options);
+    this.name = 'AgentExternalIdConflictError';
+    this.tenant_id = tenant_id;
+    this.external_id = external_id;
+  }
+}
+
 export interface IAgentStore<TTransaction = never> {
   listAgents(tenantId: string, transaction?: TTransaction): Promise<AgentRecord[]>;
   getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
-  /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError on name clash. */
+  /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError or AgentExternalIdConflictError on unique clash. */
   createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord>;
-  /** Replaces `manifest` for an existing id. Returns undefined if missing. */
+  /** Patches `manifest` and/or `external_id`. Throws AgentExternalIdConflictError on unique clash. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
   deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;

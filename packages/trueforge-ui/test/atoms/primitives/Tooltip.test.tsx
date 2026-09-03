@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { LightTooltip, Tooltip } from '@/atoms/primitives/Tooltip.js';
+import { clampCenteredTooltip, LightTooltip, Tooltip } from '@/atoms/primitives/Tooltip.js';
 
 describe('Tooltip', () => {
   it('shows and hides on hover while merging the child callbacks', () => {
@@ -28,6 +28,17 @@ describe('Tooltip', () => {
     fireEvent.mouseLeave(trigger);
 
     expect(onMouseLeave).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('does not render an empty tooltip shell', () => {
+    render(
+      <Tooltip content="">
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Chart' }));
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
@@ -76,6 +87,62 @@ describe('Tooltip', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('follows the cursor horizontally when followCursor is set', () => {
+    render(
+      <Tooltip content="Turn 1" side="bottom" followCursor>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Chart' });
+    fireEvent.mouseEnter(trigger, { clientX: 240 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '240px' });
+
+    fireEvent.mouseMove(trigger, { clientX: 410 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '410px' });
+  });
+
+  it('pins the tooltip to explicit cursor-anchor coords', () => {
+    render(
+      <Tooltip content="Turn 1" side="bottom" followCursor anchor={{ left: 640, top: 120 }}>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Chart' });
+    fireEvent.mouseEnter(trigger, { clientX: 240 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '640px', top: '126px' });
+
+    fireEvent.mouseMove(trigger, { clientX: 410 });
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '640px', top: '126px' });
+  });
+
+  it('clamps a centered tooltip so it stays inside the viewport', () => {
+    expect(
+      clampCenteredTooltip({
+        left: 800,
+        top: 40,
+        width: 320,
+        height: 80,
+        side: 'bottom',
+        viewportWidth: 900,
+        viewportHeight: 600,
+      }),
+    ).toEqual({ left: 732, top: 40 });
+
+    expect(
+      clampCenteredTooltip({
+        left: 10,
+        top: 40,
+        width: 200,
+        height: 80,
+        side: 'bottom',
+        viewportWidth: 900,
+        viewportHeight: 600,
+      }),
+    ).toEqual({ left: 108, top: 40 });
+  });
+
   it('opens below the trigger when side is bottom', () => {
     render(
       <Tooltip content="Below tip" side="bottom">
@@ -89,6 +156,20 @@ describe('Tooltip', () => {
     expect(tooltip).toHaveTextContent('Below tip');
     expect(tooltip).toHaveStyle({ transform: 'translate(-50%, 0)' });
     expect(tooltip.className).toMatch(/fixed/);
+  });
+
+  it('keeps the tooltip open on click when dismissOnClick is false', () => {
+    render(
+      <Tooltip content="Copy session link" dismissOnClick={false}>
+        <button>Link</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Link' });
+    fireEvent.mouseEnter(trigger);
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Copy session link');
   });
 
   it('dismisses on click while still invoking the child handler', () => {

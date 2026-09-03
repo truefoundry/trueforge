@@ -9,6 +9,41 @@ import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
   const tenant = 'tenant-1';
 
+  it('create/get persists metadata', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const created = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's-meta',
+      created_by: 'user-1',
+      agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'meta' }) },
+      metadata: { env: 'test' },
+      external_id: null,
+    });
+    expect(created.metadata).toEqual({ env: 'test' });
+
+    await store.updateSession({
+      tenant_id: tenant,
+      session_id: 's-meta',
+      agent: undefined,
+      title: undefined,
+      metadata: { env: 'prod' },
+    });
+    const afterReplace = await sessions.get({ tenant_id: tenant, session_id: 's-meta' });
+    expect(afterReplace?.metadata).toEqual({ env: 'prod' });
+
+    await store.updateSession({
+      tenant_id: tenant,
+      session_id: 's-meta',
+      agent: undefined,
+      title: 't',
+      metadata: undefined,
+    });
+    const afterOmit = await sessions.get({ tenant_id: tenant, session_id: 's-meta' });
+    expect(afterOmit?.record.title).toBe('t');
+    expect(afterOmit?.metadata).toEqual({ env: 'prod' });
+  });
+
   it('create/get persists an inline value-agent session', async () => {
     const store = new InMemorySessionStore<{ tag: string }>();
     const sessions = new Sessions<{ tag: string }>({ sessionStore: store });
@@ -25,6 +60,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       spec: expect.objectContaining({ instructions: 'hydrate-me' }),
     });
     expect(created.custom).toEqual({ tag: 'a' });
+    expect(created.metadata).toEqual({});
 
     const loaded = await sessions.get({ tenant_id: tenant, session_id: 's1' });
     expect(loaded?.agent).toEqual({

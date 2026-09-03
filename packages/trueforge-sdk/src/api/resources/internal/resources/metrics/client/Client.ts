@@ -52,7 +52,7 @@ export class MetricsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "internal/metrics/charts",
+                "api/internal/metrics/charts",
             ),
             method: "GET",
             headers: _headers,
@@ -84,7 +84,7 @@ export class MetricsClient {
             });
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/internal/metrics/charts");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/internal/metrics/charts");
     }
 
     /**
@@ -138,7 +138,7 @@ export class MetricsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "internal/metrics/charts-data",
+                "api/internal/metrics/charts-data",
             ),
             method: "GET",
             headers: _headers,
@@ -188,7 +188,12 @@ export class MetricsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/internal/metrics/charts-data");
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/internal/metrics/charts-data",
+        );
     }
 
     /**
@@ -235,7 +240,7 @@ export class MetricsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "internal/metrics/meters",
+                "api/internal/metrics/meters",
             ),
             method: "GET",
             headers: _headers,
@@ -285,6 +290,6 @@ export class MetricsClient {
             }
         }
 
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/internal/metrics/meters");
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/internal/metrics/meters");
     }
 }

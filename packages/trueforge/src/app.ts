@@ -23,15 +23,16 @@ import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessi
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { resolveUserContext } from './auth/identity';
-import { adminAuthMiddleware, authMiddleware } from './auth/middleware';
+import type { Authenticator } from './auth/authenticator';
+import { resolveRequestContext } from './auth/identity';
+import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
-import configuration from './config';
+import configuration, { getTrueForgeMode, TrueForgeMode } from './config';
 import type { IAgentStore } from './db/agentStore';
-import type { IMcpServerStore } from './db/mcpServerStore';
+import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
@@ -47,6 +48,37 @@ import { InvalidCronError } from './schemas/schedule';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
+
+function withAuth(router: OpenAPIHono, middleware: MiddlewareHandler): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', middleware);
+  shell.route('/', router);
+  return shell;
+}
+
+function withAdminAuth(router: OpenAPIHono, middleware: MiddlewareHandler): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', middleware);
+  shell.route('/', router);
+  return shell;
+}
+
+/** One line per request: method, path, status, duration. Skips `/healthz`. */
+export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
+  return async (c, next) => {
+    const started = performance.now();
+    await next();
+    if (c.req.path === '/healthz') {
+      return;
+    }
+    logger.info('request', {
+      method: c.req.method,
+      path: c.req.path,
+      status: c.res.status,
+      duration_ms: Math.round(performance.now() - started),
+    });
+  };
+}
 
 /** Hono bodyLimit wrapper that returns the API error envelope on 413. */
 export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHandler {
@@ -86,9 +118,9 @@ const openApiDocConfig = {
     description:
       'HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` ' +
       '(OpenAPI JSON at `/api/v1/openapi.json`).\n\n' +
-      '**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware ' +
-      'stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie ' +
-      'or `Authorization: Bearer` ID token. There is no built-in API-key scheme; ' +
+      '**Authentication:** Standalone auth accepts requests without credentials — middleware ' +
+      'stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid ' +
+      'cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; ' +
       'pass custom headers only if your reverse proxy or IdP layer requires them.\n\n' +
       'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
     version: PACKAGE_VERSION,
@@ -103,8 +135,8 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
     scheme: 'bearer',
     bearerFormat: 'JWT',
     description:
-      'ID token (`Authorization: Bearer <id_token>`). Required on protected routes. ' +
-      'Browser sessions may use the HttpOnly `id_token` cookie instead.',
+      'Caller credential (`Authorization: Bearer <token>`). Required on protected routes when auth is enabled. ' +
+      'Browser sessions may use the HttpOnly `id_token` or `accessToken` cookie instead.',
   });
 }
 
@@ -127,30 +159,22 @@ function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
-/** Sub-app shell: `.use('*', authMiddleware)` then child routes — same as gateway routers. */
-function withAuth(router: OpenAPIHono): OpenAPIHono {
-  const shell = new OpenAPIHono();
-  shell.use('*', authMiddleware);
-  shell.route('/', router);
-  return shell;
-}
-
-/** Admin-only routes: local admin when auth is disabled; with OIDC requires an authenticated admin. */
-function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
-  const shell = new OpenAPIHono();
-  shell.use('*', adminAuthMiddleware);
-  shell.route('/', router);
-  return shell;
-}
-
 export interface ServerDeps<TTransaction> {
   modelCatalog: ModelCatalog;
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
-  modelProviderStore: IModelProviderStore<TTransaction>;
+  /**
+   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
+   * Called without a context (e.g. the scheduler) it returns the DB persistence store.
+   */
+  resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
+  /**
+   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
+   * Called without a context (e.g. the scheduler / OAuth callback) it returns the DB persistence store.
+   */
+  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
-  mcpServerStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -169,17 +193,31 @@ export interface ServerDeps<TTransaction> {
   logger: Logger;
   /** Discovered openid-client configuration; undefined when browser login is disabled. */
   oidcClient: Configuration | undefined;
+  /** Startup-selected authenticator; middleware is built from this once per app. */
+  authenticator: Authenticator;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
-  const authEnabled = deps.oidcClient != null;
+  const authMiddleware = createAuthMiddleware(deps.authenticator);
+  const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
+  const authEnabled = getTrueForgeMode() !== TrueForgeMode.Standalone;
 
+  if (configuration.ACCESS_LOGS) {
+    app.use('*', createAccessLogMiddleware(deps.logger));
+  }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
 
-  app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
+  app.route(
+    '/api/v1/auth',
+    createAuthRouter({
+      oidcClient: deps.oidcClient,
+      logger: deps.logger,
+      authMiddleware,
+    }),
+  );
   app.route(
     '/api/v1/capabilities',
     withAuth(
@@ -187,16 +225,20 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
     '/api/v1/models',
     withAuth(
       createModelsRouter({
-        modelProviderStore: deps.modelProviderStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
         withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -208,6 +250,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillCatalog: deps.skillCatalog,
         sandboxCatalog: deps.sandboxCatalog,
       }),
+      authMiddleware,
     ),
   );
   // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
@@ -216,7 +259,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
-      mcpServerStore: deps.mcpServerStore,
+      mcpServerStore: deps.resolveMcpServerStore(),
       logger: deps.logger,
     }),
   );
@@ -224,12 +267,13 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers',
     withAuth(
       createMcpServersRouter({
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
-        resolveUserContext,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -238,7 +282,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAvailableSkillsRouter({
         skillStore: deps.skillStore,
         withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -246,12 +292,14 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createAgentsRouter({
         agentStore: deps.agentStore,
-        modelProviderStore: deps.modelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -260,47 +308,63 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createSchedulesRouter({
         scheduleStore: deps.scheduleStore,
         agentStore: deps.agentStore,
+        sessions: deps.sessions,
+        turnDeps: {
+          activeTurns: deps.activeTurns,
+          eventSubscriptions: deps.eventSubscriptions,
+          modelProviderStore: deps.resolveModelProviderStore(),
+          mcpServerStore: deps.resolveMcpServerStore(),
+          tokenStore: deps.tokenStore,
+          skillStore: deps.skillStore,
+          agentStore: deps.agentStore,
+          sandboxProviderStore: deps.sandboxProviderStore,
+          logger: deps.logger,
+        },
         withTransaction: deps.withTransaction,
-        resolveUserContext,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
     '/api/v1/settings',
     withAdminAuth(
       createSettingsRouter({
-        modelProviderStore: deps.modelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
-        resolveUserContext,
+        resolveRequestContext,
       }),
+      adminAuthMiddleware,
     ),
   );
   app.route(
-    '/internal/sessions',
+    '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
-        modelProviderStore: deps.modelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
-        resolveUserContext,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
-    '/internal/metrics',
+    '/api/internal/metrics',
     withAuth(
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,
-        resolveUserContext,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -310,16 +374,17 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
-        modelProviderStore: deps.modelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
-        resolveUserContext: resolveUserContext,
+        resolveRequestContext,
         logger: deps.logger,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -329,16 +394,17 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
-        modelProviderStore: deps.modelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         eventSubscriptions: deps.eventSubscriptions,
         sandboxProviderStore: deps.sandboxProviderStore,
         logger: deps.logger,
-        resolveUserContext: resolveUserContext,
+        resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
 

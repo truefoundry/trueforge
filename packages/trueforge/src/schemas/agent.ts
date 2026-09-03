@@ -15,7 +15,7 @@ export const CreateAgentRequestSchema = z
   .strict()
   .openapi('CreateAgentRequest');
 
-/** PUT body: full manifest replacement. Identity is the path `agent_id`. */
+/** PUT body: full manifest replacement only. */
 export const UpdateAgentRequestSchema = z
   .object({
     manifest: AgentSpecSchema,

@@ -66,8 +66,8 @@ importers:
         specifier: 0.2.21
         version: 0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(react@19.2.8)
       '@truefoundry/assistant-ui-runtime':
-        specifier: 0.1.21
-        version: 0.1.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.2)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        specifier: 0.1.26
+        version: 0.1.26(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.2)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/trueforge-sdk':
         specifier: workspace:*
         version: link:../trueforge-sdk
@@ -171,6 +171,9 @@ importers:
       ulid:
         specifier: ^3.0.2
         version: 3.0.2
+      undici:
+        specifier: 7.29.0
+        version: 7.29.0
       winston:
         specifier: ^3.19.0
         version: 3.19.0
@@ -351,11 +354,14 @@ importers:
         specifier: ^0.13.2
         version: 0.13.3(@openuidev/react-headless@0.9.4(react@19.2.8)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))))(@openuidev/react-lang@0.2.9(@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.4.3))(react@19.2.8)(zod@4.4.3))(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(zod@4.4.3)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/assistant-ui-runtime':
-        specifier: 0.1.21
-        version: 0.1.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.2)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
+        specifier: 0.1.26
+        version: 0.1.26(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.2)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@truefoundry/trueforge-sdk':
         specifier: workspace:*
         version: link:../trueforge-sdk
+      chart.js:
+        specifier: ^4.5.1
+        version: 4.5.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -368,6 +374,9 @@ importers:
       partial-json:
         specifier: ^0.1.7
         version: 0.1.7
+      react-chartjs-2:
+        specifier: ^5.3.1
+        version: 5.3.1(chart.js@4.5.1)(react@19.2.8)
       react-dom:
         specifier: ^18 || ^19
         version: 19.2.8(react@19.2.8)
@@ -1845,6 +1854,9 @@ packages:
 
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
+
+  '@kurkle/color@0.3.4':
+    resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
 
   '@manypkg/find-root@3.1.0':
     resolution: {integrity: sha512-BcSqCyKhBVZ5YkSzOiheMCV41kqAFptW6xGqYSTjkVTl9XQpr+pqHhwgGCOHQtjDCv7Is6EFyA14Sm5GVbVABA==}
@@ -3459,8 +3471,8 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@truefoundry/assistant-ui-runtime@0.1.21':
-    resolution: {integrity: sha512-p7Heuc+vXArqLeisqYAp2HlHLPdIPoEcxJUbcF0e/7fSGhVs0SWVNYtQ2nTw68GJsC5nyuJwQJ445sX+OhCa6w==}
+  '@truefoundry/assistant-ui-runtime@0.1.26':
+    resolution: {integrity: sha512-MaCtVZWB1Vk7NBpLsTHd50444Jeyh53YwDUB7SYvi5qqoLadj8POva7kCfVXv1/QEZKmNAj3GRrN7WtgejRi1g==}
     peerDependencies:
       '@types/react': '*'
       react: ^18 || ^19
@@ -4198,6 +4210,10 @@ packages:
 
   character-reference-invalid@2.0.1:
     resolution: {integrity: sha512-iBZ4F4wRbyORVsu0jPV7gXkOsGYjGHPmAyv+HiHG8gi5PtC9KI2j1+v8/tlibRvjoWX027ypmG/n0HtO5t7unw==}
+
+  chart.js@4.5.1:
+    resolution: {integrity: sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw==}
+    engines: {pnpm: '>=8'}
 
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
@@ -6395,6 +6411,12 @@ packages:
   raw-body@3.0.2:
     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
     engines: {node: '>= 0.10'}
+
+  react-chartjs-2@5.3.1:
+    resolution: {integrity: sha512-h5IPXKg9EXpjoBzUfyWJvllMjG2mQ4EiuHQFhms/AjUm0XSZHhyRy2xVmLXHKrtcdrPO4mnGqRtYoD0vp95A0A==}
+    peerDependencies:
+      chart.js: ^4.1.1
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   react-day-picker@9.14.0:
     resolution: {integrity: sha512-tBaoDWjPwe0M5pGrum4H0SR6Lyk+BO9oHnp9JbKpGKW2mlraNPgP9BMfsg5pWpwrssARmeqk7YBl2oXutZTaHA==}
@@ -8992,6 +9014,8 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
+  '@kurkle/color@0.3.4': {}
+
   '@manypkg/find-root@3.1.0':
     dependencies:
       '@manypkg/tools': 2.1.2
@@ -10606,7 +10630,7 @@ snapshots:
       '@types/react': 19.2.18
       '@types/react-dom': 19.2.5(@types/react@19.2.18)
 
-  '@truefoundry/assistant-ui-runtime@0.1.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.2)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
+  '@truefoundry/assistant-ui-runtime@0.1.26(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(truefoundry-gateway-sdk@0.4.2)(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))':
     dependencies:
       '@assistant-ui/core': 0.2.22(@assistant-ui/store@0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(react@19.2.8))(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(assistant-cloud@0.1.41(redis@5.12.1(@opentelemetry/api@1.9.1)))(react@19.2.8)(redis@5.12.1(@opentelemetry/api@1.9.1))(zustand@5.0.15(@types/react@19.2.18)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)))
       '@assistant-ui/store': 0.2.21(@assistant-ui/tap@0.9.5(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(react@19.2.8)
@@ -11446,6 +11470,10 @@ snapshots:
   character-entities@2.0.2: {}
 
   character-reference-invalid@2.0.1: {}
+
+  chart.js@4.5.1:
+    dependencies:
+      '@kurkle/color': 0.3.4
 
   chokidar@4.0.3:
     dependencies:
@@ -14188,6 +14216,11 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.7.3
       unpipe: 1.0.0
+
+  react-chartjs-2@5.3.1(chart.js@4.5.1)(react@19.2.8):
+    dependencies:
+      chart.js: 4.5.1
+      react: 19.2.8
 
   react-day-picker@9.14.0(react@19.2.8):
     dependencies:

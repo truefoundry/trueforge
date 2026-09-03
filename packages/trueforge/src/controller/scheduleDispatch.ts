@@ -1,5 +1,7 @@
+import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
+import type { IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
   type IScheduleStore,
@@ -34,6 +36,17 @@ const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
 type ScheduleRunApiClient = Pick<TrueForge, 'sessions' | 'internal'>;
 
+/** Schedule's bound agent name is missing from the agent store. */
+export class ScheduleAgentNotFoundError extends Error {
+  readonly agent_name: string;
+
+  constructor(agent_name: string, options?: ErrorOptions) {
+    super(`Agent not found: ${agent_name}`, options);
+    this.name = 'ScheduleAgentNotFoundError';
+    this.agent_name = agent_name;
+  }
+}
+
 /**
  * Hands a due schedule run to the API:
  * 1. Get or create a session keyed by `run.id`.
@@ -58,6 +71,56 @@ function executeScheduledRun(client: ScheduleRunApiClient): (item: ScheduleDispa
       previousTurnId: 'none',
     });
   };
+}
+
+/**
+ * Start a schedule run in-process: get-or-create a session keyed by `run.id`,
+ * then create a non-streaming turn with the schedule task when that session has
+ * none. Idempotent on retry. Session owner and turn `userRef` are the schedule
+ * creator so ownership stays with the schedule even when an admin triggers run-now.
+ */
+export async function startScheduleRun(params: {
+  item: ScheduleDispatchItem;
+  sessions: Sessions;
+  agentStore: IAgentStore;
+  startTurn: (params: {
+    session: SessionHandle;
+    input: TurnInputItem[];
+    previous_turn_id: string;
+    userRef: string;
+  }) => Promise<void>;
+}): Promise<void> {
+  const {
+    item: { run, schedule },
+    sessions,
+    agentStore,
+    startTurn,
+  } = params;
+
+  const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
+  if (named === undefined) {
+    throw new ScheduleAgentNotFoundError(schedule.agent_name);
+  }
+
+  const { session } = await sessions.getOrCreateByExternalId({
+    tenant_id: schedule.tenant_id,
+    external_id: run.id,
+    created_by: schedule.created_by,
+    agent: { type: 'reference', id: named.id, name: named.name },
+  });
+
+  // idempotency check
+  const { data: turns } = await session.listTurns({ limit: 1 });
+  if (turns.length > 0) {
+    return;
+  }
+
+  await startTurn({
+    session,
+    input: [{ type: 'user.message', content: schedule.manifest.task }],
+    previous_turn_id: 'none',
+    userRef: schedule.created_by,
+  });
 }
 
 /**

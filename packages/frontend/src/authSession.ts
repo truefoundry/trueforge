@@ -1,15 +1,14 @@
 /**
- * Session helpers: SDK `auth.me()` plus POST `/api/v1/auth/logout`.
- * Login is not on the SDK (browser redirect to `/api/v1/auth/login`).
+ * Session helpers: SDK `auth.me()` plus POST logout under the public API base.
+ * Login is not on the SDK (browser redirect to the login href).
  */
 import { TrueForge as TrueForgeClient, type TrueForge } from '@truefoundry/trueforge-sdk';
 import { AUTH_LOGOUT_HREF, createAuthAwareFetch } from './authFetch';
-
-const DEFAULT_BASE_URL = '/';
+import { API_BASE_URL } from './publicPath';
 
 /** Authenticated API client — 401 redirects to OIDC login. */
 const authClient = new TrueForgeClient({
-  baseUrl: DEFAULT_BASE_URL,
+  baseUrl: API_BASE_URL,
   fetch: createAuthAwareFetch(),
 });
 
@@ -18,7 +17,7 @@ const authClient = new TrueForgeClient({
  * redirect on 401, so the welcome gate can observe the unauthenticated state.
  */
 const probeClient = new TrueForgeClient({
-  baseUrl: DEFAULT_BASE_URL,
+  baseUrl: API_BASE_URL,
   fetch: globalThis.fetch.bind(globalThis),
 });
 
@@ -38,12 +37,12 @@ export function resetOidcSessionCacheForTests(): void {
 }
 
 /**
- * True when the current session is a browser OIDC login (`type: "oidc-connected"`).
+ * True when the current session is a browser OIDC login (`data.type: "oidc-connected"`).
  * When auth is enabled, unauthenticated callers get HTTP 401 from `/me`.
  */
 export async function isOidcConnectedSession(client: TrueForge = authClient): Promise<boolean> {
-  const session = await client.auth.me();
-  const isConnected = session.type === 'oidc-connected';
+  const { data } = await client.auth.me();
+  const isConnected = data.type === 'oidc-connected';
   cachedIsOidcConnected = isConnected;
   return isConnected;
 }

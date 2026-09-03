@@ -1,13 +1,14 @@
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createModelsRouter } from '../../../src/apis/models';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { createSettingsRouter } from '../../../src/apis/settings';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import configuration from '../../../src/config';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -92,16 +93,22 @@ async function createRouters(): Promise<{
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
+  const tokenStore = new SqliteOAuthTokenStore(db);
   return {
     settingsRouter: createSettingsRouter({
-      modelProviderStore,
-      mcpServerStore: new SqliteMcpServerStore(db),
-      tokenStore: new SqliteOAuthTokenStore(db),
+      resolveModelProviderStore: () => modelProviderStore,
+      resolveMcpServerStore: () =>
+        new McpServerWithAuthStore({
+          store: new SqliteMcpServerStore(db),
+          tokenStore,
+          clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        }),
+      tokenStore,
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     catalogRouter: createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
@@ -110,8 +117,9 @@ async function createRouters(): Promise<{
       sandboxCatalog: SandboxCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
-      modelProviderStore,
+      resolveModelProviderStore: () => modelProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     modelProviderStore,
   };
@@ -381,8 +389,11 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(updateBody.data.manifest.auth.api_key).toBe(toRedactedSecretValue(anthropicBody.auth.api_key));
     expect(updateBody.data.manifest.models).toHaveLength(2);
 
-    const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth?.api_key).toBe('sk-ant-secret');
+    const stored = await modelProviderStore.getProvider({ tenant_id: 'default', name: 'anthropic' });
+    if (!stored || !('auth' in stored.manifest)) {
+      throw new Error('expected stored anthropic provider with auth');
+    }
+    expect(stored.manifest.auth?.api_key).toBe('sk-ant-secret');
   });
 
   it('PUT with a real api_key rotates the stored secret', async () => {
@@ -397,8 +408,11 @@ describe('model-provider secret redaction and strict PUT', () => {
       data: configured('anthropic', withRedactedApiKey({ ...anthropicProvider, auth: { api_key: rotatedKey } })),
     });
 
-    const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
-    expect(stored?.manifest.auth?.api_key).toBe(rotatedKey);
+    const stored = await modelProviderStore.getProvider({ tenant_id: 'default', name: 'anthropic' });
+    if (!stored || !('auth' in stored.manifest)) {
+      throw new Error('expected stored anthropic provider with auth');
+    }
+    expect(stored.manifest.auth?.api_key).toBe(rotatedKey);
   });
 });
 

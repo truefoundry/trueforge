@@ -3,9 +3,10 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
-import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
+import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -27,8 +28,12 @@ describe('public CRUD after session deletion', () => {
     const sessions = new Sessions({ sessionStore });
     const activeTurns = new ActiveTurnRegistry();
     const modelProviderStore = new SqliteModelProviderStore(db);
-    const mcpServerStore = new SqliteMcpServerStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
+    const mcpServerStore = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: 'test-client',
+    });
     const skillStore = new SqliteSkillStore(db);
     const agentStore = new SqliteAgentStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
@@ -40,14 +45,14 @@ describe('public CRUD after session deletion', () => {
         sessions,
         sessionStore,
         activeTurns,
-        modelProviderStore,
-        mcpServerStore,
+        resolveModelProviderStore: () => modelProviderStore,
+        resolveMcpServerStore: () => mcpServerStore,
         skillStore,
         agentStore,
         sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
-        resolveUserContext: () => LOCAL_USER_CONTEXT,
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         logger: createLogger({ silent: true }),
       }),
     );
@@ -57,22 +62,22 @@ describe('public CRUD after session deletion', () => {
         sessions,
         sessionStore,
         activeTurns,
-        modelProviderStore,
-        mcpServerStore,
+        resolveModelProviderStore: () => modelProviderStore,
+        resolveMcpServerStore: () => mcpServerStore,
         tokenStore,
         skillStore,
         agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         sandboxProviderStore,
         logger: createLogger({ silent: true }),
-        resolveUserContext: () => LOCAL_USER_CONTEXT,
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       }),
     );
 
     await sessionStore.createSession({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       session_id: 's1',
-      created_by: LOCAL_USER_CONTEXT.userRef,
+      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
       agent: {
         type: 'inline',
         spec: AgentSpecSchema.parse({
@@ -81,6 +86,7 @@ describe('public CRUD after session deletion', () => {
         }),
       },
       custom: null,
+      metadata: {},
       external_id: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);

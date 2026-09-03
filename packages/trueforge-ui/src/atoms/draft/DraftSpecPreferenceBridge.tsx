@@ -7,13 +7,9 @@ import { withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
+import { mountName } from '../lib/mountName.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
-
-function mountName(mount: object): string | null {
-  const name = Reflect.get(mount, 'name');
-  return typeof name === 'string' ? name : null;
-}
 
 function filterMounts<T extends object>(mounts: T[] | undefined, availableNames: Set<string>): T[] | undefined {
   if (mounts === undefined) return undefined;

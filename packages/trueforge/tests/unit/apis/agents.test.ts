@@ -1,4 +1,5 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -69,19 +70,22 @@ function jsonInit(method: string, body: unknown): RequestInit {
 
 describe('agents router', () => {
   let router: ReturnType<typeof createAgentsRouter>;
+  let agentStore: SqliteAgentStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
+    agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
-      agentStore: new SqliteAgentStore(db),
-      modelProviderStore,
-      mcpServerStore: new SqliteMcpServerStore(db),
+      agentStore,
+      resolveModelProviderStore: () => modelProviderStore,
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
   });
 
@@ -105,6 +109,7 @@ describe('agents router', () => {
         },
       },
     });
+    expect(createdJson.data).not.toHaveProperty('metadata');
 
     const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
@@ -112,6 +117,16 @@ describe('agents router', () => {
     expect(updatedJson.data.id).toBe(createdJson.data.id);
     expect(updatedJson.data.name).toBe('research');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
+    expect(updatedJson.data).not.toHaveProperty('metadata');
+  });
+
+  it('PUT rejects metadata in the request body', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'no-meta' }));
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const put = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', { ...updateBody, metadata: {} }));
+    expect(put.status).toBe(400);
   });
 
   it('GET and PUT return 404 for unknown ids', async () => {

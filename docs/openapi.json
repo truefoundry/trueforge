@@ -534,7 +534,7 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
-            "$ref": "#/components/schemas/MCPServerType"
+            "$ref": "#/components/schemas/CatalogMCPServerType"
           },
           "url": {
             "description": "URL of the remote MCP server.",
@@ -549,6 +549,12 @@
           "description"
         ],
         "type": "object"
+      },
+      "CatalogMCPServerType": {
+        "enum": [
+          "remote"
+        ],
+        "type": "string"
       },
       "CatalogModel": {
         "additionalProperties": false,
@@ -1012,6 +1018,33 @@
         ],
         "type": "object"
       },
+      "CreateScheduleRunRequest": {
+        "additionalProperties": false,
+        "description": "Trigger an immediate run for the given schedule. The task is taken from the schedule manifest.",
+        "properties": {
+          "schedule_id": {
+            "description": "Immutable schedule identifier.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id"
+        ],
+        "type": "object"
+      },
+      "CreateScheduleRunResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ScheduleRun"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "CreateSessionAgent": {
         "anyOf": [
           {
@@ -1027,6 +1060,9 @@
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "required": [
@@ -1306,27 +1342,34 @@
       },
       "GetMeResponse": {
         "properties": {
-          "email": {
-            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+          "data": {
+            "$ref": "#/components/schemas/Me"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetMeSubject": {
+        "properties": {
+          "display_name": {
+            "description": "Human-readable name for the caller.",
             "type": "string"
           },
-          "role": {
-            "description": "Caller role.",
+          "id": {
+            "description": "Stable subject identifier for the caller.",
             "type": "string"
           },
           "type": {
-            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
-            "enum": [
-              "default",
-              "oidc-connected"
-            ],
+            "description": "Subject kind as returned by the identity provider (stored as-is).",
             "type": "string"
           }
         },
         "required": [
+          "id",
           "type",
-          "email",
-          "role"
+          "display_name"
         ],
         "type": "object"
       },
@@ -1701,10 +1744,14 @@
               "$ref": "#/components/schemas/Schedule"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -2120,7 +2167,7 @@
             "$ref": "#/components/schemas/MCPServerType"
           },
           "url": {
-            "description": "URL of the remote MCP server.",
+            "description": "MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL.",
             "format": "uri",
             "type": "string"
           }
@@ -2168,7 +2215,8 @@
       },
       "MCPServerType": {
         "enum": [
-          "remote"
+          "remote",
+          "truefoundry"
         ],
         "type": "string"
       },
@@ -2201,6 +2249,42 @@
           "name"
         ],
         "type": "object"
+      },
+      "Me": {
+        "properties": {
+          "roles": {
+            "description": "Roles for the authenticated caller.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/GetMeSubject"
+          },
+          "tenant_id": {
+            "description": "Tenant scope for the authenticated caller.",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MeSessionType"
+          }
+        },
+        "required": [
+          "type",
+          "tenant_id",
+          "subject",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "MeSessionType": {
+        "description": "`oidc-connected` when the process is running with browser OIDC login; `default` for standalone or TrueFoundry token auth.",
+        "enum": [
+          "default",
+          "oidc-connected"
+        ],
+        "type": "string"
       },
       "MetricsUnit": {
         "enum": [
@@ -2534,6 +2618,7 @@
             "moonshot": "#/components/schemas/MoonshotModelProvider",
             "openai": "#/components/schemas/OpenAIModelProvider",
             "together": "#/components/schemas/TogetherAIModelProvider",
+            "truefoundry": "#/components/schemas/TrueFoundryModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
@@ -2562,6 +2647,9 @@
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryModelProvider"
           },
           {
             "$ref": "#/components/schemas/CustomModelProvider"
@@ -3154,6 +3242,9 @@
             "description": "Unique session id.",
             "type": "string"
           },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
+          },
           "metrics": {
             "$ref": "#/components/schemas/SessionMetrics"
           },
@@ -3176,7 +3267,8 @@
           "created_by",
           "created_at",
           "updated_at",
-          "metrics"
+          "metrics",
+          "metadata"
         ],
         "type": "object"
       },
@@ -3338,6 +3430,15 @@
           "turn_id",
           "event"
         ],
+        "type": "object"
+      },
+      "SessionMetadata": {
+        "additionalProperties": {
+          "description": "Metadata value; at most 128 characters.",
+          "maxLength": 128,
+          "type": "string"
+        },
+        "description": "Caller-owned session metadata",
         "type": "object"
       },
       "SessionMetrics": {
@@ -4040,6 +4141,39 @@
         ],
         "type": "object"
       },
+      "TrueFoundryModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the TrueFoundry AI gateway the models are invoked against.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Models exposed by this provider (at least one).",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredModel"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "models",
+          "type",
+          "base_url"
+        ],
+        "type": "object"
+      },
       "TrueFoundrySystemToolInfo": {
         "properties": {
           "name": {
@@ -4564,6 +4698,9 @@
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/SessionAgentSpecBody"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "type": "object"
@@ -4729,19 +4866,284 @@
     "securitySchemes": {
       "BearerAuth": {
         "bearerFormat": "JWT",
-        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "description": "Caller credential (`Authorization: Bearer <token>`). Required on protected routes when auth is enabled. Browser sessions may use the HttpOnly `id_token` or `accessToken` cookie instead.",
         "scheme": "bearer",
         "type": "http"
       }
     }
   },
   "info": {
-    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
     "version": "0.2.0-rc.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/internal/metrics/charts": {
+      "get": {
+        "description": "List available session metric charts.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
+                }
+              }
+            },
+            "description": "Available session metric charts."
+          }
+        },
+        "summary": "Get session metrics charts",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "list_charts"
+      }
+    },
+    "/api/internal/metrics/charts-data": {
+      "get": {
+        "description": "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Session metrics chart to return.",
+            "in": "query",
+            "name": "chart_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SessionMetricsChartName"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
+                }
+              }
+            },
+            "description": "Zero-filled time series for one chart."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics chart data",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_chart_data"
+      }
+    },
+    "/api/internal/metrics/meters": {
+      "get": {
+        "description": "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
+                }
+              }
+            },
+            "description": "Session metric meters."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics meters",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/sessions/get-or-create-by-external-id": {
+      "post": {
+        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session already existed for this external id."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+          }
+        },
+        "summary": "Get or create a session by external id",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "description": "All configured agents for the tenant.",
@@ -5170,7 +5572,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.",
+        "description": "Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. `type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
         "responses": {
           "200": {
             "content": {
@@ -5180,7 +5582,7 @@
                 }
               }
             },
-            "description": "Session type and identity for the current request."
+            "description": "Caller identity for the current request."
           },
           "401": {
             "content": {
@@ -5190,7 +5592,7 @@
                 }
               }
             },
-            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer token."
           }
         },
         "summary": "Current session",
@@ -5521,7 +5923,7 @@
     },
     "/api/v1/mcp-servers/{name}/authorize": {
       "delete": {
-        "description": "For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).",
+        "description": "Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. No-op when the server does not use stored OAuth tokens.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -5544,7 +5946,7 @@
                 }
               }
             },
-            "description": "The MCP server after disconnect (auth_required for dcr)."
+            "description": "The MCP server after disconnect."
           },
           "404": {
             "content": {
@@ -5567,7 +5969,7 @@
         "x-fern-sdk-method-name": "delete_authorization"
       },
       "get": {
-        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
+        "description": "Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -5763,7 +6165,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is configured and the request has no valid no Bearer token or session cookie."
           }
         },
         "summary": "List models for chat",
@@ -5778,14 +6180,39 @@
     },
     "/api/v1/schedules": {
       "get": {
-        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_name`.",
+        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_names`.",
         "parameters": [
           {
+            "description": "Page size. Defaults to 25",
             "in": "query",
-            "name": "agent_name",
+            "name": "limit",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/ResourceName"
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+            "in": "query",
+            "name": "agent_names",
+            "required": false,
+            "schema": {
+              "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+              "type": "string"
             }
           }
         ],
@@ -5798,7 +6225,17 @@
                 }
               }
             },
-            "description": "Matching schedules."
+            "description": "Paginated matching schedules."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -5815,6 +6252,11 @@
         "tags": [
           "Schedules"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "schedules"
         ],
@@ -5872,6 +6314,91 @@
           "schedules"
         ],
         "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/schedules/runs": {
+      "post": {
+        "description": "Start a schedule run immediately using the schedule task. Does not replace or advance the cron pending run.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateScheduleRunResponse"
+                }
+              }
+            },
+            "description": "Run created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or turn input."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Schedule or agent not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Run name conflict (retry)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The run cannot be started (e.g. agent resources unavailable)."
+          }
+        },
+        "summary": "Trigger a schedule run",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "create_run"
       }
     },
     "/api/v1/schedules/{schedule_id}": {
@@ -6827,6 +7354,16 @@
             },
             "description": "Invalid request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -7423,6 +7960,16 @@
               }
             },
             "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create an MCP server",
@@ -7436,7 +7983,7 @@
         "x-fern-sdk-method-name": "create"
       },
       "put": {
-        "description": "Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
+        "description": "Create or replace by `name`. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7477,6 +8024,16 @@
               }
             },
             "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create or replace an MCP server",
@@ -7626,6 +8183,16 @@
               }
             },
             "description": "A model provider with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create a model provider",
@@ -7670,6 +8237,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
           }
         },
         "summary": "Create or replace a model provider",
@@ -7950,271 +8527,6 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
-      }
-    },
-    "/internal/metrics/charts": {
-      "get": {
-        "description": "List available session metric charts.",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
-                }
-              }
-            },
-            "description": "Available session metric charts."
-          }
-        },
-        "summary": "Get session metrics charts",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "metrics"
-        ],
-        "x-fern-sdk-method-name": "list_charts"
-      }
-    },
-    "/internal/metrics/charts-data": {
-      "get": {
-        "description": "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
-        "parameters": [
-          {
-            "description": "Named agent identifier.",
-            "in": "query",
-            "name": "agent_id",
-            "required": true,
-            "schema": {
-              "description": "Named agent identifier.",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive lower bound on session `created_at`.",
-            "in": "query",
-            "name": "start_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive lower bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive upper bound on session `created_at`.",
-            "in": "query",
-            "name": "end_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive upper bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Session metrics chart to return.",
-            "in": "query",
-            "name": "chart_name",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/SessionMetricsChartName"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
-                }
-              }
-            },
-            "description": "Zero-filled time series for one chart."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid timestamps or a window longer than 30 days."
-          }
-        },
-        "summary": "Get session metrics chart data",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "metrics"
-        ],
-        "x-fern-sdk-method-name": "get_chart_data"
-      }
-    },
-    "/internal/metrics/meters": {
-      "get": {
-        "description": "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
-        "parameters": [
-          {
-            "description": "Named agent identifier.",
-            "in": "query",
-            "name": "agent_id",
-            "required": true,
-            "schema": {
-              "description": "Named agent identifier.",
-              "maxLength": 64,
-              "minLength": 1,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive lower bound on session `created_at`.",
-            "in": "query",
-            "name": "start_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive lower bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Inclusive upper bound on session `created_at`.",
-            "in": "query",
-            "name": "end_timestamp",
-            "required": true,
-            "schema": {
-              "description": "Inclusive upper bound on session `created_at`.",
-              "format": "date-time",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
-                }
-              }
-            },
-            "description": "Session metric meters."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid timestamps or a window longer than 30 days."
-          }
-        },
-        "summary": "Get session metrics meters",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "metrics"
-        ],
-        "x-fern-sdk-method-name": "get_meters"
-      }
-    },
-    "/internal/sessions/get-or-create-by-external-id": {
-      "post": {
-        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionResponse"
-                }
-              }
-            },
-            "description": "Session already existed for this external id."
-          },
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GetSessionResponse"
-                }
-              }
-            },
-            "description": "Session created."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid request body."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Caller is not the session creator."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Named agent not found."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
-          }
-        },
-        "summary": "Get or create a session by external id",
-        "tags": [
-          "Internal"
-        ],
-        "x-fern-sdk-group-name": [
-          "internal",
-          "sessions"
-        ],
-        "x-fern-sdk-method-name": "get_or_create_by_external_id"
       }
     }
   },
