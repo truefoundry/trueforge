@@ -4,7 +4,7 @@
  * tools, and authorize routes mount at /api/v1/mcp-servers.
  */
 import { createRoute, z } from '@hono/zod-openapi';
-import { PAGE_LIMIT } from '../schemas/common';
+import { MCP_SERVERS_PAGE_LIMIT, MCP_SERVERS_PAGE_LIMIT_MAX } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateMcpServerRequestSchema,
@@ -24,10 +24,10 @@ export const ListMcpServersQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(PAGE_LIMIT)
+      .max(MCP_SERVERS_PAGE_LIMIT_MAX)
       .optional()
-      .default(PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+      .default(MCP_SERVERS_PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(MCP_SERVERS_PAGE_LIMIT)}, max ${String(MCP_SERVERS_PAGE_LIMIT_MAX)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListMCPServersQuery');

@@ -180,7 +180,7 @@ describe('mcp-servers routers', () => {
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({
       data: [configured(putBody, 'not_required')],
-      pagination: { limit: 25 },
+      pagination: { limit: 100 },
     });
   });
 
