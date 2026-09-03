@@ -1,5 +1,4 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
-import { EMPTY_AGENT_METADATA } from '../../../schemas/agentMetadata';
 import { newId } from '../../../utils/id';
 import {
   AgentExternalIdConflictError,
@@ -23,7 +22,6 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     tenant_id: row.tenant_id,
     name: row.name,
     manifest: parseStoredAgentSpec(row.manifest),
-    metadata: row.metadata,
     external_id: row.external_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -83,7 +81,6 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: json(input.manifest),
-          metadata: json(EMPTY_AGENT_METADATA),
           external_id: input.external_id,
           created_at: now(),
           updated_at: now(),
@@ -105,8 +102,8 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
-    if (input.manifest === undefined && input.metadata === undefined && input.external_id === undefined) {
-      throw new Error('updateAgent requires manifest, metadata, and/or external_id');
+    if (input.manifest === undefined && input.external_id === undefined) {
+      throw new Error('updateAgent requires manifest and/or external_id');
     }
     const db = transaction ?? this.#db;
     try {
@@ -114,7 +111,6 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
         .updateTable('agent')
         .set({
           ...(input.manifest === undefined ? {} : { manifest: json(input.manifest) }),
-          ...(input.metadata === undefined ? {} : { metadata: json(input.metadata) }),
           ...(input.external_id === undefined ? {} : { external_id: input.external_id }),
           updated_at: now(),
         })

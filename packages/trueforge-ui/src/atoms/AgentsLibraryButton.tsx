@@ -24,8 +24,7 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
   const agentsListEpoch = shell?.agentsListEpoch ?? 0;
 
   useEffect(() => {
-    // Compact trigger has no count badge; skip so SidebarLayout can keep both
-    // collapsed + expanded trees mounted without a duplicate catalog request.
+    // Compact rail has no count badge; skip the catalog request.
     if (!enabled || !server || compact) return;
     let cancelled = false;
     void server
@@ -44,32 +43,36 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
   if (!enabled) return null;
 
   return (
-    <div className={cn('relative min-w-0', compact ? 'w-8' : 'w-full', className)}>
+    <div className={cn('relative min-w-0 w-full', className)}>
       <button
         type="button"
-        aria-label={compact ? 'Agents Library' : undefined}
-        title={compact ? 'Agents Library' : undefined}
+        aria-label={compact ? 'Agents' : undefined}
+        title={compact ? 'Agents' : undefined}
         aria-current={libraryOpen ? 'page' : undefined}
         className={auiButtonClass({
           variant: 'ghost',
           className: cn(
-            'h-8 rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
-            compact ? 'w-8 !justify-center p-0' : 'w-full !justify-start px-2.5',
+            'rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+            compact
+              ? 'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center'
+              : 'h-8 w-full !justify-start px-2.5',
             libraryOpen && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
           ),
         })}
         onClick={() => shell?.setLibraryOpen(true)}
       >
-        <Icon name="bot" />
-        {!compact ? (
+        <Icon name="bot" size={compact ? 16 : undefined} />
+        {compact ? (
+          <span className="text-center">Agents</span>
+        ) : (
           <>
             <span className="truncate">
-              Agents Library
+              Agents
               {countLabel != null ? <span className="text-text-secondary"> ({countLabel})</span> : null}
             </span>
             <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
           </>
-        ) : null}
+        )}
       </button>
     </div>
   );
