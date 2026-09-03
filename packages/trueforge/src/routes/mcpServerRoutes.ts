@@ -7,6 +7,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateMcpServerRequestSchema,
+  DeleteMcpServerResponseSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
@@ -156,6 +157,35 @@ export const putMcpServerRoute = createRoute({
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
     424: trueFoundryManagedResponse,
+  },
+});
+
+export const deleteMcpServerRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.MCP_SERVERS],
+  summary: 'Delete an MCP server',
+  description:
+    'Permanently removes the configured MCP server by name, including any stored OAuth tokens and ' +
+    'pending authorizations. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteMcpServerResponseSchema } },
+      description: 'MCP server deleted.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
+    },
   },
 });
 

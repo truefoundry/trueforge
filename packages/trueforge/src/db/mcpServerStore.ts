@@ -114,6 +114,11 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+  /**
+   * Permanently removes the server row. OAuth tokens and pending authorizations cascade-delete
+   * via their `oauth_server_id` foreign key. Idempotent if already gone.
+   */
+  deleteServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<void>;
 }
 
 /**

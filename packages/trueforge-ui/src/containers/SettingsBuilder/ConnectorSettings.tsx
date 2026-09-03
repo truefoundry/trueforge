@@ -227,6 +227,14 @@ const ConnectorSettings = () => {
     }).catch(() => {});
   };
 
+  const handleRemoveConnector = (connector: ConnectorBase) => {
+    const deleteConnector = connectorCatalog.deleteConnector;
+    if (!deleteConnector) return;
+    void runMutation(async () => {
+      await deleteConnector({ id: connector.id });
+    }).catch(() => {});
+  };
+
   const handleConnectorRefreshed = (refreshedConnector: ConnectorBase) => {
     setSelectedConnector(current => (current?.id === refreshedConnector.id ? refreshedConnector : current));
     setConnectors(current => {
@@ -310,6 +318,22 @@ const ConnectorSettings = () => {
               >
                 <Icon name="wrench" className="size-3" />
                 Replace Key
+              </Button>
+            ) : null}
+            {connectorCatalog.deleteConnector ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
+                disabled={busy}
+                aria-label={`Remove ${connector.name}`}
+                onClick={event => {
+                  event.stopPropagation();
+                  handleRemoveConnector(connector);
+                }}
+              >
+                Remove
               </Button>
             ) : null}
             <Icon name="chevron-right" className="size-4" />

@@ -885,4 +885,35 @@ describe('mcp-servers routers', () => {
     const missing = await mcpServersRouter.request('/missing/authorize', { method: 'DELETE' });
     expect(missing.status).toBe(404);
   });
+
+  it('DELETE /{name} permanently removes the server and cascades its OAuth token', async () => {
+    const record = await seedDcrServerWithClient({ ...putBodyWithDcr, name: 'to-delete' });
+    await tokenStore.saveToken({
+      id: record.id,
+      userRef: LOCAL_USER_CONTEXT.userRef,
+      token: {
+        accessToken: 'access-1',
+        refreshToken: null,
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        scope: null,
+      },
+    });
+
+    const response = await settingsRouter.request('/to-delete', { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+
+    expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: 'to-delete' })).toBeUndefined();
+    expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+
+    const listed = await settingsRouter.request('/');
+    const names = ((await listed.json()) as { data: { name: string }[] }).data.map(server => server.name);
+    expect(names).not.toContain('to-delete');
+  });
+
+  it('DELETE /{name} is idempotent for an unknown server', async () => {
+    const response = await settingsRouter.request('/never-existed', { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+  });
 });
