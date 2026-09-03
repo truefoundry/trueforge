@@ -728,6 +728,10 @@ if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) 
   );
 }
 
+if (isTrueFoundryModeEnabled(configuration) && configuration.STANDALONE) {
+  throw new Error('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL requires STANDALONE=false.');
+}
+
 /**
  * Public origin for OAuth callbacks.
  * Standalone (non-development) → `http://localhost:$PORT`; otherwise `PUBLIC_BASE_URL`

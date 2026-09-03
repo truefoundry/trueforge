@@ -66,12 +66,10 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { IAgentStore } from './db/agentStore';
-import type { WithAgentUpdateLock } from './db/agentUpdateLock';
-import { withoutAgentUpdateLock } from './db/agentUpdateLock';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
-import { createPostgresAgentUpdateLock } from './db/postgres/agent-store/agentUpdateLock';
+import type { PostgresAgentStore } from './db/postgres/agent-store/PostgresAgentStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
@@ -194,22 +192,17 @@ function buildResolveMcpServerStore<TTransaction>(options: {
  * Per-request agent store resolver. In TrueFoundry mode every request gets a token-bound
  * decorator over DB persistence; otherwise the persistence store is reused as-is.
  */
-function buildResolveAgentStore<TTransaction>(options: {
-  persistenceStore: IAgentStore<TTransaction>;
-  client: TrueFoundryServiceFoundryServerClient | undefined;
-  withUpdateLock: WithAgentUpdateLock<TTransaction>;
-}): (c?: Context) => IAgentStore<TTransaction> {
-  const { persistenceStore, client, withUpdateLock } = options;
-  if (!client) {
-    return () => persistenceStore;
-  }
+function buildResolveAgentStore(options: {
+  persistenceStore: PostgresAgentStore;
+  client: TrueFoundryServiceFoundryServerClient;
+}): (c?: Context) => IAgentStore<Transaction<PostgresDatabase>> {
+  const { persistenceStore, client } = options;
   return c =>
     c
-      ? new TrueFoundryAgentStore<TTransaction>({
+      ? new TrueFoundryAgentStore({
           inner: persistenceStore,
           client,
           accessToken: requireRequestCredentialToken(c),
-          withUpdateLock,
         })
       : persistenceStore;
 }
@@ -255,24 +248,19 @@ async function createStandalonePersistence(options: {
 
   const tokenStore = new SqliteOAuthTokenStore(db);
   const agentStore = new SqliteAgentStore(db);
-  const serviceFoundryClient = createServiceFoundryServerClient(logger);
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     resolveModelProviderStore: buildResolveModelProviderStore({
       persistenceStore: new SqliteModelProviderStore(db),
-      client: serviceFoundryClient,
+      client: undefined,
     }),
     resolveMcpServerStore: buildResolveMcpServerStore({
       persistenceStore: new SqliteMcpServerStore(db),
       tokenStore,
-      client: serviceFoundryClient,
+      client: undefined,
     }),
-    resolveAgentStore: buildResolveAgentStore({
-      persistenceStore: agentStore,
-      client: serviceFoundryClient,
-      withUpdateLock: withoutAgentUpdateLock(),
-    }),
+    resolveAgentStore: () => agentStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
     skillStore: new SqliteSkillStore(db),
@@ -351,11 +339,13 @@ async function createDistributedPersistence(options: {
       tokenStore,
       client: serviceFoundryClient,
     }),
-    resolveAgentStore: buildResolveAgentStore({
-      persistenceStore: agentStore,
-      client: serviceFoundryClient,
-      withUpdateLock: createPostgresAgentUpdateLock(db),
-    }),
+    resolveAgentStore:
+      serviceFoundryClient === undefined
+        ? () => agentStore
+        : buildResolveAgentStore({
+            persistenceStore: agentStore,
+            client: serviceFoundryClient,
+          }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
     skillStore: new PostgresSkillStore(db),
