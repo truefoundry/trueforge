@@ -42,6 +42,7 @@ describe('turns', () => {
         },
         custom: null,
         metadata: {},
+        repository: null,
         external_id: null,
       });
 
@@ -61,6 +62,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRepositoryCredentials: () => Promise.resolve(null),
         }),
       );
 
@@ -180,6 +182,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
           resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRepositoryCredentials: () => Promise.resolve(null),
         }),
       );
 
@@ -280,6 +283,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
           resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRepositoryCredentials: () => Promise.resolve(null),
         }),
       );
 

@@ -22,6 +22,7 @@ import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErro
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
 import { dirname, join, relative } from 'node:path';
+import { SessionRepositorySchema, type SessionRepository } from './RepositoryCheckout';
 import type { ISkillMounter } from './skills/ISkillMounter';
 
 /** Layout derived from install remotePath (always `…/mcp_client.py`). */
@@ -79,6 +80,27 @@ function buildGitCredentialHelperEnv(credentialsPath: string): Record<string, st
   };
 }
 
+/** Idempotently provision a repository without resetting a resumed sandbox's working tree. */
+export function buildRepositoryCheckoutCommand(repository: SessionRepository): string {
+  const path = shellEscape(repository.path);
+  const url = shellEscape(repository.url);
+  const fetchRef = shellEscape(`+${repository.ref}:refs/trueforge/session-source`);
+  const pushPolicy =
+    repository.access === 'read_only'
+      ? ` && git -C ${path} remote set-url --push origin disabled://read-only`
+      : ` && git -C ${path} config remote.origin.push ${shellEscape(`HEAD:${repository.ref}`)}`;
+  return (
+    `if [ -d ${path}/.git ]; then ` +
+    `(git -C ${path} remote get-url origin >/dev/null 2>&1 && git -C ${path} remote set-url origin ${url} || ` +
+    `git -C ${path} remote add origin ${url}) && git -C ${path} fetch origin ${fetchRef}; ` +
+    `elif [ -e ${path} ] && [ ! -d ${path} ]; then echo "Repository path already exists and is not a directory" >&2; exit 1; ` +
+    `else mkdir -p ${path} && git init -- ${path} && git -C ${path} remote add origin ${url} && ` +
+    `git -C ${path} fetch --depth=1 origin ${fetchRef}; fi && ` +
+    `(git -C ${path} rev-parse --verify HEAD >/dev/null 2>&1 || git -C ${path} checkout -B trueforge-session FETCH_HEAD)` +
+    pushPolicy
+  );
+}
+
 export interface SandboxStoredFile {
   filePath: string;
   sandboxCreated?: SandboxInfo | undefined;
@@ -91,6 +113,8 @@ export interface SandboxOptions {
   fileDownloadEnabled?: boolean | undefined;
   /** Pre-resolved credential-store file content (null = clear / no git auth). */
   resolvedGitCredentialsContent?: string | null | undefined;
+  /** Immutable repository checkout metadata. */
+  repository?: SessionRepository | null | undefined;
   /**
    * Blocks destructive tools in code mode so they go through the approval flow
    * instead. Must be `true` — approvals are always enabled (the kill switch is gone).
@@ -210,6 +234,7 @@ export class Sandbox extends LocalToolMCP {
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
+  private readonly repository: SessionRepository | null;
   private codeModeDispatcher: CodeModeDispatcher | undefined;
   private codeModeTransport: CodeModeTransport | undefined;
   /** Cached from transport.getClientInstall after sandbox init (when Code Mode is configured). */
@@ -234,6 +259,10 @@ export class Sandbox extends LocalToolMCP {
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
+    this.repository =
+      options.repository === null || options.repository === undefined
+        ? null
+        : SessionRepositorySchema.parse(options.repository);
 
     if (this.existingSandboxId) {
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
@@ -295,6 +324,9 @@ export class Sandbox extends LocalToolMCP {
     const sandboxInstructions = builder.beginSection('sandbox');
     sandboxInstructions.addContent('The Agent has access to a persistent sandbox environment for executing code.');
     sandboxInstructions.addContent('The Agent must NOT read or modify any git credential files.');
+    if (this.repository !== null) {
+      sandboxInstructions.addContent(`The session repository is checked out at ${this.repository.path}.`);
+    }
 
     this.buildSchemaSection(sandboxInstructions);
     this.buildSkillsSection(sandboxInstructions);
@@ -684,13 +716,31 @@ export class Sandbox extends LocalToolMCP {
     ensureExecSuccess(result);
   }
 
+  private async prepareRepository(): Promise<void> {
+    if (this.repository === null) {
+      return;
+    }
+    const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
+    const credentialsPath = this.provider.getGitCredentialsPath(sandboxId);
+    const result = await this.provider.exec({
+      sandboxId,
+      command: buildRepositoryCheckoutCommand(this.repository),
+      env: buildGitCredentialHelperEnv(credentialsPath),
+      timeoutSeconds: SKILL_DOWNLOAD_TIMEOUT_SECONDS,
+    });
+    ensureExecSuccess(result);
+  }
+
   private async initSandboxEnvironment(): Promise<void> {
     const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
     const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
     const skillsDir = this.provider.getSkillsDir(sandboxId);
     const toolResultDumpDir = this.provider.getToolResultDumpDir(sandboxId);
 
-    this.logger.info('Uploading MCP client script and preparing skills directory in sandbox');
+    this.logger.info('Uploading MCP client script and preparing sandbox resources');
+
+    await this.writeGitCredentials();
+    await this.prepareRepository();
 
     this.mcpClientInstall = this.codeModeTransport?.getClientInstall({ sandboxId });
     const install = this.mcpClientInstall;
@@ -750,8 +800,6 @@ export class Sandbox extends LocalToolMCP {
         ? `Sandbox initialized: skills dir ${skillsDir}`
         : `Sandbox initialized: MCP client at ${install.remotePath}; skills dir ${skillsDir}`,
     );
-
-    await this.writeGitCredentials();
   }
 
   /**

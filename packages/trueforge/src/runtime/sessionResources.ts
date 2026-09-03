@@ -1,7 +1,7 @@
 /**
  * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
  */
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionRepository } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
   SkillMounter,
@@ -32,6 +32,20 @@ export interface McpConnection {
   url: string;
   headers: RemoteMcpHeaders;
 }
+
+export type ResolveRepositoryCredentials = (input: {
+  tenant_id: string;
+  session_id: string;
+  user_ref: string;
+  repository: SessionRepository;
+}) => Promise<string | null>;
+
+export const rejectUnconfiguredRepositoryCredentials: ResolveRepositoryCredentials = input =>
+  Promise.reject(
+    new HTTPException(422, {
+      message: `Repository credential provider "${input.repository.credential_provider_ref ?? ''}" is not configured`,
+    }),
+  );
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -276,6 +290,8 @@ export function buildTurnSandbox(input: {
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
+  repository: SessionRepository | null;
+  resolvedGitCredentialsContent: string | null;
 }): Sandbox {
   const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
   return new Sandbox({
@@ -288,6 +304,8 @@ export function buildTurnSandbox(input: {
     ...(skillMounter ? { skillMounter } : {}),
     tracing: input.tracing,
     logger: input.logger,
+    repository: input.repository,
+    resolvedGitCredentialsContent: input.resolvedGitCredentialsContent,
   });
 }
 
@@ -365,5 +383,25 @@ export async function validateAgentSpec({
           : 'sandbox is enabled but no sandbox provider is configured — PUT /settings/sandbox-providers',
       });
     }
+  }
+}
+
+export async function validateRepositorySandbox({
+  repository,
+  tenant_id,
+  sandboxProviderStore,
+}: {
+  repository: SessionRepository | null;
+  tenant_id: string;
+  sandboxProviderStore: ISandboxProviderStore;
+}): Promise<void> {
+  if (repository === null) {
+    return;
+  }
+  const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
+  if (record === undefined && !isLocalSandboxFallbackEnabled()) {
+    throw new HTTPException(422, {
+      message: 'repository checkouts require a sandbox provider — configure via PUT /settings/sandbox-providers',
+    });
   }
 }

@@ -1,7 +1,7 @@
 import { InstructionBuilder } from '../../../src/core/InstructionBuilder';
 import type { CodeModeTransport } from '../../../src/core/sandbox/codeMode/CodeModeTransport';
 import type { ExecResult, SandboxExecParams, SandboxProvider } from '../../../src/core/sandbox/provider/Provider';
-import { SANDBOX_EXEC_TOOL_NAME, Sandbox } from '../../../src/core/sandbox/Sandbox';
+import { buildRepositoryCheckoutCommand, Sandbox, SANDBOX_EXEC_TOOL_NAME } from '../../../src/core/sandbox/Sandbox';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import { makeMockIMCPServer, makeSilentLogger } from '../harnessMocks';
 
@@ -42,6 +42,67 @@ function makeSandbox(provider: SandboxProvider, options: { existingSandboxId?: s
 }
 
 describe('Sandbox provider-owned paths', () => {
+  it('builds an idempotent checkout that fetches without resetting resumed work', () => {
+    const command = buildRepositoryCheckoutCommand({
+      url: 'https://github.com/example/repository.git',
+      ref: 'feature/work',
+      path: 'workspace/repository',
+      access: 'read_write',
+      credential_provider_ref: 'github-app:installation-123',
+    });
+
+    expect(command).toContain('remote get-url origin');
+    expect(command).toContain("remote set-url origin 'https://github.com/example/repository.git'");
+    expect(command).toContain("remote add origin 'https://github.com/example/repository.git'");
+    expect(command).toContain("elif [ -e 'workspace/repository' ] && [ ! -d 'workspace/repository' ]");
+    expect(command).toContain("else mkdir -p 'workspace/repository' && git init -- 'workspace/repository'");
+    expect(command).toContain("fetch origin '+feature/work:refs/trueforge/session-source'");
+    expect(command).not.toContain('fetch --prune');
+    expect(command).toContain("config remote.origin.push 'HEAD:feature/work'");
+    expect(command).not.toContain('reset');
+    expect(command).not.toContain('credential_provider_ref');
+  });
+
+  it('prepares credentials and a read-only repository before agent commands', async () => {
+    const execCalls: SandboxExecParams[] = [];
+    const provider = makeProvider({
+      exec: params => {
+        execCalls.push(params);
+        return readyExec();
+      },
+    });
+    const sandbox = new Sandbox({
+      provider,
+      repository: {
+        url: 'https://github.com/example/repository.git',
+        ref: 'main',
+        path: 'workspace/repository',
+        access: 'read_only',
+        credential_provider_ref: 'github-app:installation-123',
+      },
+      resolvedGitCredentialsContent: 'https://token@example.test',
+      blockDestructiveToolsInCodeMode: true,
+      mcpRequestTimeoutMs: 60_000,
+      mcpConnectTimeoutMs: 5_000,
+      logger: makeSilentLogger(),
+      tracing: NOOP_AGENT_TRACING,
+    });
+
+    await sandbox.callTool({
+      name: SANDBOX_EXEC_TOOL_NAME,
+      arguments: { intent: 'Inspect repository', command: 'git status' },
+    });
+
+    expect(execCalls[0]?.command).toContain('base64 -d');
+    expect(execCalls[1]?.command).toContain('remote set-url --push origin disabled://read-only');
+    expect(execCalls[1]?.env).toEqual({
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: 'credential.helper',
+      GIT_CONFIG_VALUE_0: 'store --file /prov/.git-credentials',
+    });
+    expect(execCalls.at(-1)?.command).toBe('git status');
+  });
+
   it('puts the provider uploads dir in the system prompt, not /tmp/uploads', () => {
     const sandbox = makeSandbox(makeProvider());
     const builder = new InstructionBuilder('root');

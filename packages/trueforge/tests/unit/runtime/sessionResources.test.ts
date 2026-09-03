@@ -7,7 +7,12 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
-import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
+import {
+  getModelDetails,
+  localSandboxSessionSegment,
+  rejectUnconfiguredRepositoryCredentials,
+  validateAgentSpec,
+} from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 
@@ -19,6 +24,28 @@ describe('localSandboxSessionSegment', () => {
     expect(localSandboxSessionSegment('a/b')).toBe('_');
     expect(localSandboxSessionSegment('..')).toBe('_');
     expect(localSandboxSessionSegment('foo..bar')).toBe('_');
+  });
+});
+
+describe('rejectUnconfiguredRepositoryCredentials', () => {
+  it('identifies an unresolved opaque provider reference', async () => {
+    await expect(
+      rejectUnconfiguredRepositoryCredentials({
+        tenant_id: TENANT_ID,
+        session_id: 'session-1',
+        user_ref: 'user-1',
+        repository: {
+          url: 'https://github.com/example/repository.git',
+          ref: 'main',
+          path: 'workspace/repository',
+          access: 'read_write',
+          credential_provider_ref: 'github-app:installation-123',
+        },
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Repository credential provider "github-app:installation-123" is not configured',
+    } satisfies Partial<HTTPException>);
   });
 });
 

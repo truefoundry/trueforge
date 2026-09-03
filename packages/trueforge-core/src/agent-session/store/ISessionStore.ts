@@ -19,7 +19,7 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id' | 'metadata'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id' | 'metadata' | 'repository'
 > & {
   custom: TSessionCustom | null;
 };

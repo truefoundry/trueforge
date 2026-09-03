@@ -2,7 +2,13 @@
  * DB-backed turns API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  ISessionStore,
+  SessionRepository,
+  Sessions,
+  Turn,
+  TurnStreamingEvent,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   EventType,
@@ -55,6 +61,7 @@ import {
   getModelDetails,
   resolveGitSkills,
   resolveSandboxProvider,
+  type ResolveRepositoryCredentials,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { TENANT_ID } from './sessions';
@@ -115,6 +122,7 @@ export interface TurnsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
   resolveUserContext: ResolveUserContext;
+  resolveRepositoryCredentials: ResolveRepositoryCredentials;
 }
 
 /**
@@ -124,7 +132,14 @@ export interface TurnsRouterDeps {
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'tokenStore' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
+  | 'activeTurns'
+  | 'eventSubscriptions'
+  | 'tokenStore'
+  | 'skillStore'
+  | 'agentStore'
+  | 'sandboxProviderStore'
+  | 'logger'
+  | 'resolveRepositoryCredentials'
 > & {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
@@ -145,6 +160,8 @@ function createTurnResolver(deps: {
   signal: AbortSignal;
   userRef: string;
   sessionId: string;
+  repository: SessionRepository | null;
+  resolveRepositoryCredentials: ResolveRepositoryCredentials;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -157,8 +174,11 @@ function createTurnResolver(deps: {
     signal,
     userRef,
     sessionId,
+    repository,
+    resolveRepositoryCredentials,
   } = deps;
   return new TurnResourceResolver({
+    sandboxRequired: repository !== null,
     llm: async name => {
       const resolved = await getModelDetails({
         tenant_id: TENANT_ID,
@@ -228,6 +248,15 @@ function createTurnResolver(deps: {
         skills: spec.skills ?? [],
         store: skillStore,
       });
+      let resolvedGitCredentialsContent: string | null = null;
+      if (repository !== null && repository.credential_provider_ref !== null) {
+        resolvedGitCredentialsContent = await resolveRepositoryCredentials({
+          tenant_id: TENANT_ID,
+          session_id: sessionId,
+          user_ref: userRef,
+          repository,
+        });
+      }
       return buildTurnSandbox({
         provider,
         logger,
@@ -235,6 +264,8 @@ function createTurnResolver(deps: {
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
+        repository,
+        resolvedGitCredentialsContent,
       });
     },
     agent: async agentId => {
@@ -385,6 +416,8 @@ export async function beginTurnExecution(params: {
     signal: abortController.signal,
     userRef,
     sessionId,
+    repository: session.record.repository,
+    resolveRepositoryCredentials: deps.resolveRepositoryCredentials,
   });
 
   // First turn only: derive the title from the first user message. The store

@@ -1,5 +1,10 @@
-import type { AgentSpec, SessionMetadata, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
-import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  AgentSpec,
+  SessionMetadata,
+  SessionMetrics,
+  SessionRepository,
+} from '@truefoundry/trueforge-core/agent-session';
+import { SessionMetadataSchema, SessionRepositorySchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -46,6 +51,10 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
   return SessionMetadataSchema.parse(value);
 }
 
+function parseSessionRepository(value: unknown): SessionRepository | null {
+  return value === null ? null : SessionRepositorySchema.parse(value);
+}
+
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
@@ -58,6 +67,7 @@ function mapRowToSessionRecord(row: {
   external_id: string | null;
   custom: Record<string, unknown> | null;
   metadata: SessionMetadata;
+  repository: SessionRepository | null;
   metrics: SessionMetrics;
   created_at: string;
   updated_at: string;
@@ -78,6 +88,7 @@ function mapRowToSessionRecord(row: {
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
     metadata: parseSessionMetadata(row.metadata),
+    repository: parseSessionRepository(row.repository),
     metrics: row.metrics,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
@@ -98,6 +109,7 @@ function sessionSelectColumns() {
     'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
     jsonText<SessionMetadata>(sql.ref('metadata')).as('metadata'),
+    jsonText<SessionRepository | null>(sql.ref('repository')).as('repository'),
     jsonText<SessionMetrics>(sql.ref('metrics')).as('metrics'),
     'created_at' as const,
     'updated_at' as const,
@@ -122,6 +134,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
         metadata: jsonbBind(input.metadata),
+        repository: input.repository !== null ? jsonbBind(input.repository) : null,
         external_id: input.external_id,
         metrics: jsonbBind({
           total_cost_in_usd: 0,

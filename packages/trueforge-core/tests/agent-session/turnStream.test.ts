@@ -509,4 +509,28 @@ describe('TurnResourceResolver caches', () => {
     }
     expect(sandboxCreates).toBe(1);
   });
+
+  it('resolves a required session sandbox when the agent sandbox flag is disabled', async () => {
+    const sandbox = makeStubPublicSandbox();
+    const sandboxProvider = jest.fn().mockResolvedValue(sandbox);
+    const resolver = new TurnResourceResolver({
+      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {} }),
+      mcp: () => Promise.resolve({ url: 'http://localhost' }),
+      mcpRequestTimeoutMs: 60_000,
+      mcpConnectTimeoutMs: 5_000,
+      sandboxProvider,
+      sandboxRequired: true,
+      logger: makeSilentLogger(),
+    });
+    const spec = makeAgentSpec({ config: { sandbox: { enabled: false, file_downloads: false } } });
+
+    await expect(
+      resolver.resolveSandbox({
+        spec,
+        signal: new AbortController().signal,
+        tracing: resolver.createTracing(),
+      }),
+    ).resolves.toBe(sandbox);
+    expect(sandboxProvider).toHaveBeenCalledTimes(1);
+  });
 });

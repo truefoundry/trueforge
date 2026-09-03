@@ -47,6 +47,7 @@ async function buildApp() {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
       resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRepositoryCredentials: () => Promise.resolve(null),
     }),
   );
 

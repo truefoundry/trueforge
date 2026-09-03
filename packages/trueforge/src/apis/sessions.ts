@@ -40,7 +40,7 @@ import {
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
-import { validateAgentSpec } from '../runtime/sessionResources';
+import { validateAgentSpec, validateRepositorySandbox } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 
@@ -68,6 +68,7 @@ export function toWireSession(record: SessionRecord): Session {
     updated_at: record.updated_at.toISOString(),
     metrics: record.metrics,
     metadata: record.metadata,
+    repository: record.repository,
   };
 }
 
@@ -269,11 +270,18 @@ function createGetOrCreateSessionByExternalIdHandler(
       agent = { type: 'inline', spec: body.agent.spec };
     }
 
+    await validateRepositorySandbox({
+      repository: body.repository ?? null,
+      tenant_id: TENANT_ID,
+      sandboxProviderStore: deps.sandboxProviderStore,
+    });
+
     const { session, created } = await deps.sessions.getOrCreateByExternalId({
       tenant_id: TENANT_ID,
       external_id: body.external_id,
       created_by: user.userRef,
       agent,
+      repository: body.repository ?? null,
     });
     if (!created && !checkSessionAccess({ userRef: user.userRef, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
@@ -300,6 +308,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
+      await validateRepositorySandbox({
+        repository: body.repository ?? null,
+        tenant_id: TENANT_ID,
+        sandboxProviderStore: deps.sandboxProviderStore,
+      });
       const user = deps.resolveUserContext(c);
       const session = await deps.sessions.create({
         tenant_id: TENANT_ID,
@@ -307,6 +320,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         created_by: user.userRef,
         agent: { type: 'reference', id: agent.id, name: agent.name },
         metadata: body.metadata,
+        repository: body.repository ?? null,
         external_id: null,
       });
       return c.json({ data: toWireSession(session.record) }, 201);
@@ -320,6 +334,11 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
     });
+    await validateRepositorySandbox({
+      repository: body.repository ?? null,
+      tenant_id: TENANT_ID,
+      sandboxProviderStore: deps.sandboxProviderStore,
+    });
     const user = deps.resolveUserContext(c);
     const session = await deps.sessions.create({
       tenant_id: TENANT_ID,
@@ -327,6 +346,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       created_by: user.userRef,
       agent: { type: 'inline', spec: body.agent.spec },
       metadata: body.metadata,
+      repository: body.repository ?? null,
       external_id: null,
     });
     return c.json({ data: toWireSession(session.record) }, 201);

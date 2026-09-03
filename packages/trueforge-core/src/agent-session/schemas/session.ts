@@ -3,6 +3,7 @@
  * field (`reference` | `inline`). DB stores agent_id / agent_name / agent_spec columns.
  */
 import { z } from '@hono/zod-openapi';
+import { SessionRepositorySchema, type SessionRepository } from '../../core/sandbox/RepositoryCheckout';
 import { AgentSpecSchema } from './agentSpec';
 
 /** Max key length for session metadata (aligned with LLM gateway HeaderMetadata). */
@@ -31,6 +32,9 @@ export const SessionMetadataSchema = z
   .openapi('SessionMetadata');
 
 export type SessionMetadata = z.infer<typeof SessionMetadataSchema>;
+
+export { SessionRepositorySchema };
+export type { SessionRepository };
 
 export const SessionMetricsSchema = z
   .object({
@@ -79,6 +83,7 @@ export const SessionSchema = z
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,
     metadata: SessionMetadataSchema,
+    repository: SessionRepositorySchema.nullable(),
   })
   .openapi('Session');
 
