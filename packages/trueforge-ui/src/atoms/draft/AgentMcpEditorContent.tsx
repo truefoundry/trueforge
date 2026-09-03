@@ -275,7 +275,11 @@ export function AgentMcpEditorContent({
                             <button
                               type="button"
                               aria-label={`Remove ${toolName} from ${mount.name}`}
-                              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-6 shrink-0' })}
+                              className={auiButtonClass({
+                                variant: 'ghost',
+                                size: 'icon',
+                                className: 'size-6 shrink-0',
+                              })}
                               onClick={() => toggleSelectedTool(mount.id, toolName)}
                             >
                               <Icon name="xmark" className="size-3.5" />

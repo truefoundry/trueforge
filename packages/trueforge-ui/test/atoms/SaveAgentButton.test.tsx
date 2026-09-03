@@ -198,7 +198,9 @@ describe('SaveAgentButton', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() =>
-      expect(saveAgent).toHaveBeenCalledWith(expect.objectContaining({ agentSpec: expect.objectContaining({ mcpServers: [] }) })),
+      expect(saveAgent).toHaveBeenCalledWith(
+        expect.objectContaining({ agentSpec: expect.objectContaining({ mcpServers: [] }) }),
+      ),
     );
   });
 

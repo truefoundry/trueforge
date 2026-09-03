@@ -372,9 +372,7 @@ describe('AgentConfigEditors', () => {
       model: { name: 'openai/gpt' },
       mcpServers: [{ id: 'slack', name: 'Slack' }],
     };
-    const loadMcpTools = vi.fn(async () => [
-      { id: 'issues.list', name: 'issues.list', description: 'List issues' },
-    ]);
+    const loadMcpTools = vi.fn(async () => [{ id: 'issues.list', name: 'issues.list', description: 'List issues' }]);
     const renderEditors = (spec: AgentSpec) => (
       <SlotsProvider>
         <AgentConfigEditors

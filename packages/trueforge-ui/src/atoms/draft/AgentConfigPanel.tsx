@@ -203,7 +203,10 @@ export function AgentConfigPanel({
               {mcp.map(item => {
                 const enabled = enabledToolsFromMount(item.value);
                 return (
-                  <span key={item.id} className="flex items-center rounded-md border border-border py-1 pr-1 pl-2 text-xs">
+                  <span
+                    key={item.id}
+                    className="flex items-center rounded-md border border-border py-1 pr-1 pl-2 text-xs"
+                  >
                     <span>{item.name}</span>
                     <span className="text-text-secondary ml-1">
                       {enabled === 'all' ? 'All tools' : `${enabled.length} tools`}
