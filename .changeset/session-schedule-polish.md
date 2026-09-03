@@ -2,4 +2,4 @@
 "@truefoundry/trueforge-ui": patch
 ---
 
-Add a zero-width session divider, simplify schedule recurrence defaults, and keep timeline tooltips anchored while scrolling.
+Improve Agent Sessions with a resizable divider, accurate turn grouping, optional cost display, and reliable timeline tooltips with sub-agent details. Simplify schedule recurrence and default new schedules to the local timezone.
