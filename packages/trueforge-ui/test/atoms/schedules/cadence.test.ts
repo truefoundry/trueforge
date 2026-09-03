@@ -1,6 +1,40 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { cronToFormValues, formatCadenceSummary } from '@/atoms/schedules/cadence.js';
+import {
+  cronToFormValues,
+  defaultScheduleFormValues,
+  formatCadenceSummary,
+  getTimezoneOptions,
+} from '@/atoms/schedules/cadence.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('schedule timezone defaults', () => {
+  it('defaults to the browser timezone and offers an unlisted local zone', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      locale: 'en-US',
+      calendar: 'gregory',
+      numberingSystem: 'latn',
+      timeZone: 'Pacific/Auckland',
+    });
+
+    expect(defaultScheduleFormValues().timezone).toBe('Pacific/Auckland');
+    expect(getTimezoneOptions()).toContainEqual({
+      value: 'Pacific/Auckland',
+      label: 'Pacific/Auckland (Local)',
+    });
+  });
+
+  it('falls back to UTC when browser timezone detection fails', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockImplementation(() => {
+      throw new Error('timezone unavailable');
+    });
+
+    expect(defaultScheduleFormValues().timezone).toBe('UTC');
+  });
+});
 
 describe('formatCadenceSummary', () => {
   it('formats supported hourly, daily, and weekly patterns', () => {
