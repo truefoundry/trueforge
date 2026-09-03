@@ -3,12 +3,14 @@ import { newId } from '../../../utils/id';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
+  assertAgentNameNotReserved,
   parseStoredAgentSpec,
   type AgentRecord,
   type CreateAgentInput,
   type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
+  type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
 import { AGENT_EXTERNAL_ID_UQ } from '../../indexes';
@@ -53,9 +55,16 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     this.#db = db;
   }
 
-  async listAgents(tenantId: string, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+  async listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+    if (input.external_ids?.length === 0) {
+      return [];
+    }
     const db = transaction ?? this.#db;
-    const rows = await db.selectFrom('agent').selectAll().where('tenant_id', '=', tenantId).orderBy('name').execute();
+    let query = db.selectFrom('agent').selectAll().where('tenant_id', '=', input.tenant_id);
+    if (input.external_ids !== undefined) {
+      query = query.where('external_id', 'in', [...input.external_ids]);
+    }
+    const rows = await query.orderBy('name').execute();
     return rows.map(toRecord);
   }
 
@@ -72,6 +81,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
+    assertAgentNameNotReserved(input.name);
     const db = transaction ?? this.#db;
     try {
       const row = await db

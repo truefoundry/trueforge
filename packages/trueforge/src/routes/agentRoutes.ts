@@ -173,6 +173,10 @@ export const putAgentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Agent not found.',
     },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The update would reuse an external_id already claimed by another agent.',
+    },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description:

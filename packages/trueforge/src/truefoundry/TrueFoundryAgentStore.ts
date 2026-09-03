@@ -1,10 +1,12 @@
 import {
   AgentNameConflictError,
+  assertAgentNameNotReserved,
   type AgentRecord,
   type CreateAgentInput,
   type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
+  type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
 import { toPutRemoteAgentPayload } from './toPutRemoteAgentPayload';
@@ -34,8 +36,8 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
     this.#accessToken = input.accessToken;
   }
 
-  listAgents(tenantId: string, transaction?: TTransaction): Promise<AgentRecord[]> {
-    return this.#inner.listAgents(tenantId, transaction);
+  listAgents(input: ListAgentsInput, transaction?: TTransaction): Promise<AgentRecord[]> {
+    return this.#inner.listAgents(input, transaction);
   }
 
   getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined> {
@@ -43,6 +45,9 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
   }
 
   async createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord> {
+    // Reject reserved names here so we never create them in ServiceFoundry first.
+    assertAgentNameNotReserved(input.name);
+
     // SF PUT upserts by name — skip if local name exists (avoids overwrite/delete of e.g. research→sf-1).
     const existing = await this.#inner.getAgent({ tenant_id: input.tenant_id, name: input.name }, transaction);
     if (existing !== undefined) {

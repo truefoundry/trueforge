@@ -7,6 +7,7 @@ import type { Context } from 'hono';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
+  AgentNameReservedError,
   type AgentRecord,
   type IAgentStore,
 } from '../db/agentStore';
@@ -70,7 +71,7 @@ async function validateManifest<TTransaction>({
 
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
-    const records = await deps.resolveAgentStore(c).listAgents(TENANT_ID);
+    const records = await deps.resolveAgentStore(c).listAgents({ tenant_id: TENANT_ID });
     return c.json({ data: records.map(toWireAgent) }, 200);
   };
 
@@ -91,6 +92,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       });
       return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {
+      if (error instanceof AgentNameReservedError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
       if (error instanceof AgentNameConflictError || error instanceof AgentExternalIdConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }
@@ -139,15 +143,22 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
     });
-    const record = await deps.resolveAgentStore(c).updateAgent({
-      tenant_id: TENANT_ID,
-      id: agentId,
-      manifest,
-    });
-    if (record === undefined) {
-      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+    try {
+      const record = await deps.resolveAgentStore(c).updateAgent({
+        tenant_id: TENANT_ID,
+        id: agentId,
+        manifest,
+      });
+      if (record === undefined) {
+        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+      }
+      return c.json({ data: toWireAgent(record) }, 200);
+    } catch (error) {
+      if (error instanceof AgentExternalIdConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
     }
-    return c.json({ data: toWireAgent(record) }, 200);
   };
 
   const router = new OpenAPIHono();

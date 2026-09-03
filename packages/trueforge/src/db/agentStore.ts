@@ -30,6 +30,12 @@ export function parseStoredAgentSpec(manifest: unknown): AgentSpec {
 /** Look up by immutable id or unique name within a tenant. */
 export type GetAgentInput = { tenant_id: string } & ({ id: string } | { name: string });
 
+export interface ListAgentsInput {
+  tenant_id: string;
+  /** When set, only agents whose `external_id` is in this list. */
+  external_ids?: readonly string[];
+}
+
 export interface CreateAgentInput {
   tenant_id: string;
   name: ResourceName;
@@ -79,10 +85,29 @@ export class AgentExternalIdConflictError extends Error {
   }
 }
 
+export class AgentNameReservedError extends Error {
+  readonly agent_name: string;
+
+  constructor({ name }: { name: string }, options?: ErrorOptions) {
+    super(`Agent name is reserved: ${name}`, options);
+    this.name = 'AgentNameReservedError';
+    this.agent_name = name;
+  }
+}
+
+/** Reserved for product / control-plane use — not creatable as tenant agents. */
+const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
+
+export function assertAgentNameNotReserved(name: string): void {
+  if (RESERVED_AGENT_NAMES.has(name)) {
+    throw new AgentNameReservedError({ name });
+  }
+}
+
 export interface IAgentStore<TTransaction = never> {
-  listAgents(tenantId: string, transaction?: TTransaction): Promise<AgentRecord[]>;
+  listAgents(input: ListAgentsInput, transaction?: TTransaction): Promise<AgentRecord[]>;
   getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
-  /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError or AgentExternalIdConflictError on unique clash. */
+  /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError, AgentExternalIdConflictError, or AgentNameReservedError. */
   createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord>;
   /** Patches `manifest` and/or `external_id`. Throws AgentExternalIdConflictError on unique clash. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;

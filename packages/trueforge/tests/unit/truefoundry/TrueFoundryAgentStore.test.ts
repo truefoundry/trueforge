@@ -1,7 +1,7 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
-import { AgentNameConflictError } from '../../../src/db/agentStore';
+import { AgentNameConflictError, AgentNameReservedError } from '../../../src/db/agentStore';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -80,9 +80,9 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await expect(store.listAgents(TENANT)).resolves.toBe(agents);
+    await expect(store.listAgents({ tenant_id: TENANT })).resolves.toBe(agents);
     await expect(store.getAgent({ tenant_id: TENANT, id: 'agent-1' })).resolves.toBe(agents[0]);
-    expect(listAgents).toHaveBeenCalledWith(TENANT, undefined);
+    expect(listAgents).toHaveBeenCalledWith({ tenant_id: TENANT }, undefined);
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'agent-1' }, undefined);
   });
 
@@ -142,6 +142,27 @@ describe('TrueFoundryAgentStore', () => {
     expect(putRemoteAgent).not.toHaveBeenCalled();
     expect(createAgent).not.toHaveBeenCalled();
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
+  });
+
+  it('createAgent rejects reserved names before calling ServiceFoundry', async () => {
+    const getAgent = jest.fn();
+    const createAgent = jest.fn();
+    const putRemoteAgent = jest.fn();
+    const store = new TrueFoundryAgentStore({
+      inner: mockInner({ getAgent, createAgent }),
+      client: mockClient({ putRemoteAgent }),
+      accessToken: TOKEN,
+    });
+
+    await expect(
+      store.createAgent({ tenant_id: TENANT, name: 'tfg', manifest: manifest(), external_id: null }),
+    ).rejects.toBeInstanceOf(AgentNameReservedError);
+    await expect(
+      store.createAgent({ tenant_id: TENANT, name: 'trueforge', manifest: manifest(), external_id: null }),
+    ).rejects.toBeInstanceOf(AgentNameReservedError);
+    expect(getAgent).not.toHaveBeenCalled();
+    expect(putRemoteAgent).not.toHaveBeenCalled();
+    expect(createAgent).not.toHaveBeenCalled();
   });
 
   it('createAgent uses agent name as description when instructions are omitted', async () => {

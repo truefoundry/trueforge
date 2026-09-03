@@ -3,7 +3,12 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
-import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../../src/db/agentStore';
+import {
+  AgentExternalIdConflictError,
+  AgentNameConflictError,
+  AgentNameReservedError,
+  type IAgentStore,
+} from '../../src/db/agentStore';
 
 const TENANT = 'default';
 
@@ -111,6 +116,16 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     ).rejects.toBeInstanceOf(AgentNameConflictError);
   });
 
+  it('createAgent throws AgentNameReservedError for tfg and trueforge', async () => {
+    const store = getStore();
+    await expect(
+      store.createAgent({ tenant_id: TENANT, name: 'tfg', manifest: manifest(), external_id: null }),
+    ).rejects.toBeInstanceOf(AgentNameReservedError);
+    await expect(
+      store.createAgent({ tenant_id: TENANT, name: 'trueforge', manifest: manifest(), external_id: null }),
+    ).rejects.toBeInstanceOf(AgentNameReservedError);
+  });
+
   it('listAgents returns only the tenant, ordered by name', async () => {
     const store = getStore();
     await store.createAgent({
@@ -132,9 +147,40 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       external_id: null,
     });
 
-    const agents = await store.listAgents(TENANT);
+    const agents = await store.listAgents({ tenant_id: TENANT });
     expect(agents.map(agent => agent.name)).toEqual(['alpha', 'zeta']);
     expect(agents.every(agent => agent.tenant_id === TENANT)).toBe(true);
+  });
+
+  it('listAgents can filter by external_ids', async () => {
+    const store = getStore();
+    await store.createAgent({
+      tenant_id: TENANT,
+      name: 'local-only',
+      manifest: manifest(),
+      external_id: null,
+    });
+    const linked = await store.createAgent({
+      tenant_id: TENANT,
+      name: 'linked',
+      manifest: manifest(),
+      external_id: 'sf-agent-1',
+    });
+    await store.createAgent({
+      tenant_id: TENANT,
+      name: 'other-linked',
+      manifest: manifest(),
+      external_id: 'sf-agent-2',
+    });
+
+    expect(await store.listAgents({ tenant_id: TENANT, external_ids: ['sf-agent-1'] })).toEqual([linked]);
+    expect(
+      (await store.listAgents({ tenant_id: TENANT, external_ids: ['sf-agent-1', 'sf-agent-2'] })).map(
+        agent => agent.name,
+      ),
+    ).toEqual(['linked', 'other-linked']);
+    expect(await store.listAgents({ tenant_id: TENANT, external_ids: ['missing'] })).toEqual([]);
+    expect(await store.listAgents({ tenant_id: TENANT, external_ids: [] })).toEqual([]);
   });
 
   it('getAgent by id is tenant-scoped', async () => {
