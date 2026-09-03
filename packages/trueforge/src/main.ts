@@ -83,6 +83,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
@@ -161,10 +162,17 @@ function buildResolveMcpServerStore<TTransaction>(options: {
     logger: options.logger,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
   });
-  return c =>
-    c
-      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
-      : withAuthPersistence;
+  return c => {
+    if (!c) {
+      return withAuthPersistence;
+    }
+    const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+    return new TrueFoundryMcpServerStore<TTransaction>({
+      client,
+      accessToken: requireRequestCredentialToken(c),
+      perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
+    });
+  };
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
