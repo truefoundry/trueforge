@@ -203,7 +203,7 @@ export const listSessionsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List sessions',
   description:
-    "List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id` and `metadata` (JSON object; exact key/value containment) filter results. Keep other query params constant when paging with `page_token`.",
+    "List the caller's sessions. Optional `agent_id` and `metadata` filters are supported. Keep other query params constant when paging.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,

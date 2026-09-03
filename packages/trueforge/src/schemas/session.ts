@@ -64,16 +64,11 @@ const IsoTimestampQueryParam = z.iso
   .openapi({ type: 'string', format: 'date-time' })
   .transform(s => new Date(s));
 
-/**
- * JSON-encoded SessionMetadata query string → parsed map (or undefined when empty).
- * OpenAPI wire type stays string; runtime yields SessionMetadata | undefined.
- */
+/** Parse the optional `metadata` query string as a JSON object. */
 const SessionMetadataQueryParam = z
   .string()
   .openapi({ type: 'string' })
-  .describe(
-    'JSON-encoded SessionMetadata. Sessions must contain all key/value pairs (exact match). Keep constant across page_token pages. Omit or `{}` for no filter.',
-  )
+  .describe('JSON object string. Matches sessions containing all pairs. Keep constant when paging.')
   .transform((raw, ctx) => {
     try {
       const parsed: unknown = JSON.parse(raw);

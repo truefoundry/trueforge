@@ -1,10 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import { SESSION_METADATA_GIN } from '../../indexes';
 
-/**
- * listSessions metadata containment filter (`metadata @> filter`).
- * Partial index skips empty `{}` maps (the column default).
- */
+/** Add the partial metadata index used by session list filters. */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await sql`
