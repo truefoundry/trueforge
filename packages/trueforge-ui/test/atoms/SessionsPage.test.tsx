@@ -81,7 +81,7 @@ describe('SessionsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();
     expect(await screen.findByText('Named session')).toBeInTheDocument();
     expect(screen.getByText('Draft session')).toBeInTheDocument();
-    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument();
     expect(listSessions).toHaveBeenCalledWith(
       expect.objectContaining({
         order: 'desc',
