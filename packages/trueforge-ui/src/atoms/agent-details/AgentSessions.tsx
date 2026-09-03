@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
+import { Icon } from '../../icons/Icon.js';
 import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -216,15 +217,13 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
         <div aria-hidden className="absolute inset-y-0 -left-1.25 w-2.75" />
         <div
           aria-hidden
-          className="absolute inset-y-0 left-0 w-px bg-border transition-colors group-hover/resizer:bg-primary-button-bg group-focus-visible/resizer:bg-primary-button-bg"
+          className="absolute inset-y-0 left-0 w-px bg-border transition-colors"
         />
         <div
           aria-hidden
-          className="absolute top-1/2 left-0 z-10 grid h-5 w-2 -translate-x-1/2 -translate-y-1/2 place-content-center gap-0.5 rounded-sm bg-primary-button-bg shadow-sm"
+          className="absolute top-1/2 left-0 z-10 flex h-4 w-2 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xs bg-primary-button-bg shadow-sm"
         >
-          {['a', 'b', 'c'].map(dot => (
-            <span key={dot} className="size-0.5 rounded-full bg-primary-button-text" />
-          ))}
+          <Icon name="grip-vertical" size={10} className="text-primary-button-text" />
         </div>
       </Separator>
 
