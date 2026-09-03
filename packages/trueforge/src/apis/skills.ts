@@ -1,4 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import type { ResolveRequestContext } from '../auth/identity';
 import { SkillNameConflictError, type ISkillStore, type SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import {
@@ -8,11 +9,11 @@ import {
   putSkillRoute,
 } from '../routes/skillRoutes';
 import type { ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
-import { TENANT_ID } from './sessions';
 
 export interface SkillsRouterDeps<TTransaction> {
   skillStore: ISkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+  resolveRequestContext: ResolveRequestContext;
 }
 
 /** Wire view of a stored skill: identity `name` plus nested manifest. */
@@ -26,16 +27,21 @@ function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */
 export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransaction>) {
   const listConfiguredHandler: RouteHandler<typeof listConfiguredSkillsRoute> = async c => {
-    const records = await deps.skillStore.listSkills({ tenant_id: TENANT_ID, names: undefined });
+    const requestContext = deps.resolveRequestContext(c);
+    const records = await deps.skillStore.listSkills({
+      tenant_id: requestContext.tenant_id,
+      names: undefined,
+    });
     return c.json({ data: records.map(toConfiguredSkill) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createSkillRoute> = async c => {
     const body: CreateSkillRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const manifest = body.manifest;
     try {
       const record = await deps.skillStore.createSkill({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         name: manifest.name,
         manifest,
       });
@@ -50,9 +56,10 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
 
   const putHandler: RouteHandler<typeof putSkillRoute> = async c => {
     const body: UpdateSkillRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const manifest = body.manifest;
     const record = await deps.skillStore.upsertSkill({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       name: manifest.name,
       manifest,
     });
@@ -70,10 +77,15 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
 export function createAvailableSkillsRouter<TTransaction>(deps: {
   skillStore: ISkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+  resolveRequestContext: ResolveRequestContext;
 }) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableSkillsRoute, async c => {
-    const records = await deps.skillStore.listSkills({ tenant_id: TENANT_ID, names: undefined });
+    const requestContext = deps.resolveRequestContext(c);
+    const records = await deps.skillStore.listSkills({
+      tenant_id: requestContext.tenant_id,
+      names: undefined,
+    });
     return c.json(
       {
         data: records.map(record => ({

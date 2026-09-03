@@ -10,10 +10,39 @@ const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
+const SESSION_PATH = 'v1/session';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 const MCP_SERVERS_PAGE_SIZE = 100;
 
+/** Per-request timeout for ServiceFoundry HTTP (list/get/put/delete/session). */
 export const SERVICE_FOUNDRY_HTTP_TIMEOUT_MS = 10_000;
+
+/**
+ * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
+ * Wire shape is camelCase (Nest Session + exposed `subject()`).
+ * Unauthenticated callers get HTTP 200 with `user: null`.
+ */
+const SessionSubjectSchema = z.object({
+  subjectId: z.string().min(1),
+  subjectType: z.string().min(1),
+  subjectDisplayName: z.string().nullable().optional(),
+  subjectSlug: z.string().nullable().optional(),
+});
+
+const GetSessionUserSchema = z.object({
+  tenantName: z.string().min(1),
+  roles: z.array(z.string()),
+  subject: SessionSubjectSchema,
+});
+
+const GetSessionWireSchema = z.object({
+  user: GetSessionUserSchema.nullable(),
+});
+
+/** Authenticated session payload (`user` is non-null after {@link TrueFoundryServiceFoundryServerClient.getSession}). */
+export interface GetSessionResponse {
+  user: z.infer<typeof GetSessionUserSchema>;
+}
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -196,6 +225,36 @@ export class TrueFoundryServiceFoundryServerClient {
       method: 'DELETE',
       notFoundOk: true,
     });
+  }
+
+  /**
+   * `GET v1/session` for RequestContext mapping.
+   * `user: null` (invalid/missing auth on a 200) → 401; all other failures → 500.
+   */
+  async getSession(accessToken: string): Promise<GetSessionResponse> {
+    let payload: unknown;
+    try {
+      payload = await this.#getJson(this.#url(SESSION_PATH), accessToken);
+    } catch (error) {
+      if (error instanceof HTTPException && (error.status === 401 || error.status === 403)) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: 'TrueFoundry ServiceFoundry session request failed',
+        cause: error,
+      });
+    }
+    const parsed = GetSessionWireSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new HTTPException(500, {
+        message: 'TrueFoundry ServiceFoundry session response was malformed',
+        cause: parsed.error,
+      });
+    }
+    if (parsed.data.user === null) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    return { user: parsed.data.user };
   }
 
   #parseListResponse(payload: unknown): ListResponse {

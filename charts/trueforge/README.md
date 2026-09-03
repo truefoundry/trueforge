@@ -138,6 +138,7 @@ configs:
           key: client-secret
     # optional claim overrides (defaults shown):
     # userReferenceClaim: sub
+    # userDisplayNameClaim: name
     # userRoleClaim: groups
     # adminRoleValue: admin
     # scopes: "openid,profile,email,groups"
