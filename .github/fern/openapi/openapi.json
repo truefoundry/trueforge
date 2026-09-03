@@ -5754,14 +5754,14 @@
         "description": "Paginated MCP servers as a slim name/url list for the composer.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 25",
+            "description": "Page size. Defaults to 100, max 200.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Page size. Defaults to 25",
-              "maximum": 25,
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
               "minimum": 1,
               "type": "integer"
             }
@@ -7975,14 +7975,14 @@
         "description": "Paginated MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 25",
+            "description": "Page size. Defaults to 100, max 200.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Page size. Defaults to 25",
-              "maximum": 25,
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
               "minimum": 1,
               "type": "integer"
             }

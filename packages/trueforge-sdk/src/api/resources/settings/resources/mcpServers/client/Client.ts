@@ -46,7 +46,7 @@ export class McpServersClient {
             async (
                 request: TrueForge.settings.ListMcpServersRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListMcpServersResponse>> => {
-                const { limit = 25, pageToken } = request;
+                const { limit = 100, pageToken } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,

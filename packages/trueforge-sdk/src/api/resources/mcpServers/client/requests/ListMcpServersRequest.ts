@@ -5,7 +5,7 @@
  *     {}
  */
 export interface ListMcpServersRequest {
-    /** Page size. Defaults to 25 */
+    /** Page size. Defaults to 100, max 200. */
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;
