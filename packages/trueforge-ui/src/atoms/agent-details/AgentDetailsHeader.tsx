@@ -33,8 +33,8 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
       <div className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2">
         <button
           type="button"
-          aria-label="Back to Agents Library"
-          title="Back to Agents Library"
+          aria-label="Back to Agents"
+          title="Back to Agents"
           className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
           onClick={onBack}
         >
@@ -43,7 +43,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1 text-xs text-text-secondary">
             <button type="button" className="cursor-pointer truncate hover:text-text-primary" onClick={onBack}>
-              Agents Library
+              Agents
             </button>
             <Icon name="chevron-right" className="size-3 shrink-0" />
             <span className="truncate">{detail?.name ?? agentId}</span>

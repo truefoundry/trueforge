@@ -100,7 +100,7 @@ Places mirrored to the URL:
 - `/sessions` — all-user Sessions browser (named agents and drafts)
 - `/sessions/:sessionId` — a specific chat session
 - `/settings` — settings overlay (closing navigates to the chat place below it)
-- `/library` — Agents Library
+- `/library` — Agents
 - `/library/:agentId` — agent details. `?tab=overview|sessions|code|metrics` selects the tab (default Overview);
   Metrics is available when the server provides the optional `metrics` port
 

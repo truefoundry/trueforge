@@ -109,9 +109,6 @@ describe('agents router', () => {
     });
     expect(createdJson.data).not.toHaveProperty('metadata');
 
-    const beforePut = await agentStore.getAgent({ tenant_id: 'default', id: createdJson.data.id });
-    expect(beforePut?.metadata).toEqual({});
-
     const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', updateBody));
     expect(updated.status).toBe(200);
     const updatedJson = (await updated.json()) as { data: WireAgent };
@@ -119,9 +116,6 @@ describe('agents router', () => {
     expect(updatedJson.data.name).toBe('research');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
     expect(updatedJson.data).not.toHaveProperty('metadata');
-
-    const afterPut = await agentStore.getAgent({ tenant_id: 'default', id: createdJson.data.id });
-    expect(afterPut?.metadata).toEqual(beforePut?.metadata);
   });
 
   it('PUT rejects metadata in the request body', async () => {

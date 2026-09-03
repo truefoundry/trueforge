@@ -145,7 +145,7 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
@@ -153,7 +153,7 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Agents Library' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
     });
   });
 
@@ -264,15 +264,15 @@ describe('AgentsLibrary', () => {
     renderLibrary(<LibraryHarness />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('heading', { name: 'Agents Library' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
   });
 });
 
 describe('AgentsLibraryButton', () => {
-  it('opens the Agents Library panel from the trigger', async () => {
+  it('opens the Agents panel from the trigger', async () => {
     const server = mockServer([{ name: 'alpha-agent', agentId: 'alpha-agent' }]);
 
     renderLibrary(
@@ -283,9 +283,9 @@ describe('AgentsLibraryButton', () => {
       { server },
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Agents Library/ }));
-    expect(screen.getByRole('heading', { name: 'Agents Library' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Agents Library/ })).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Agents/ })).toHaveAttribute('aria-current', 'page');
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
@@ -319,13 +319,13 @@ describe('AgentsLibraryButton', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Agents Library \(1\)/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Agents \(1\)/ })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Invalidate' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Agents Library \(2\)/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Agents \(2\)/ })).toBeInTheDocument();
     });
     expect(searchAgents).toHaveBeenCalledTimes(2);
   });
@@ -340,7 +340,7 @@ describe('AgentsLibraryButton', () => {
     renderLibrary(<AgentsLibraryButton />, { server });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Agents Library \(50\+\)/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Agents \(50\+\)/ })).toBeInTheDocument();
     });
   });
 
@@ -350,7 +350,7 @@ describe('AgentsLibraryButton', () => {
 
     renderLibrary(<AgentsLibraryButton compact />, { server });
 
-    expect(screen.getByRole('button', { name: 'Agents Library' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agents' })).toBeInTheDocument();
     expect(searchAgents).not.toHaveBeenCalled();
   });
 
@@ -424,11 +424,13 @@ describe('AgentsLibraryButton', () => {
     fireEvent.click(addSchedule);
     expect(screen.getByTestId('schedules-open')).toHaveTextContent('yes');
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('beta-agent');
+    expect(new URL(window.location.href).searchParams.get('isNew')).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
     fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
+    expect(new URL(window.location.href).searchParams.get('isNew')).toBeNull();
   });
 
   it('does not show an empty-schedules action before schedule counts load', async () => {
