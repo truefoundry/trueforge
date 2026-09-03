@@ -211,7 +211,7 @@ describe('getMcpConnection', () => {
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 
-  it('skips local DCR for truefoundry servers even when wire auth is dcr', async () => {
+  it('skips local DCR for truefoundry servers and uses store resolveInvokeHeaders', async () => {
     await mcpServerStore.upsertServer({
       tenant_id: TENANT_ID,
       name: 'tfy-mcp',
@@ -232,6 +232,7 @@ describe('getMcpConnection', () => {
       clientName: 'test-client',
       userRef: LOCAL_USER_CONTEXT.userRef,
     });
+    // Sqlite store has no TF Bearer — headers are whatever resolveInvokeHeaders returns ({}).
     expect(connection).toEqual({
       url: 'https://gateway.example/mcp-server/tfy-mcp',
       headers: {},

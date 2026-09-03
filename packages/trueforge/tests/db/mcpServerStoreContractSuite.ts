@@ -189,7 +189,7 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
         description: 'Open MCP server.',
       },
     });
-    expect(store.resolveInvokeHeaders(open)).toEqual({});
+    expect(store.resolveInvokeHeaders({ record: open, userRef: 'user-1' })).toEqual({});
 
     const headered = await store.upsertServer({
       tenant_id: TENANT,
@@ -199,6 +199,8 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
         auth: { type: 'header', headers: { Authorization: 'Bearer static' } },
       }),
     });
-    expect(store.resolveInvokeHeaders(headered)).toEqual({ Authorization: 'Bearer static' });
+    expect(store.resolveInvokeHeaders({ record: headered, userRef: 'user-1' })).toEqual({
+      Authorization: 'Bearer static',
+    });
   });
 }

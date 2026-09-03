@@ -1,3 +1,4 @@
+import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../config';
@@ -52,9 +53,33 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#accessToken = input.accessToken;
   }
 
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    void record;
-    return { Authorization: `Bearer ${this.#accessToken}` };
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+    const bearer = { Authorization: `Bearer ${this.#accessToken}` };
+    if (input.record.manifest.auth?.type !== 'dcr') {
+      return bearer;
+    }
+    const { record, userRef } = input;
+    return async () => {
+      const status = await this.authorize({
+        tenant_id: record.tenant_id,
+        name: record.name,
+        userRef,
+      });
+      if (status.status === 'auth_required') {
+        const authUrl = status.authorization_url;
+        if (authUrl === undefined || authUrl.length === 0) {
+          throw new HTTPException(422, {
+            message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
+          });
+        }
+        return {
+          authRequired: {
+            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
+          },
+        };
+      }
+      return { headers: bearer };
+    };
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {

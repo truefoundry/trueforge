@@ -35,8 +35,9 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
     this.#db = db;
   }
 
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    return resolveConfiguredMcpRequestHeaders(record.manifest);
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): Record<string, string> {
+    void input.userRef;
+    return resolveConfiguredMcpRequestHeaders(input.record.manifest);
   }
 
   async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {

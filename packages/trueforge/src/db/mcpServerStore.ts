@@ -6,11 +6,12 @@
  *   TrueFoundryMcpServerStore (read-only ServiceFoundry listing).
  * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
  *   {@link McpServerWithAuthStore} composes an {@link IMcpServerStore} + a token store;
- *   TrueFoundryMcpServerStore implements this directly for remote Connect UX stubs.
+ *   TrueFoundryMcpServerStore implements this directly via ServiceFoundry auth APIs.
  *
  * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
  */
+import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
@@ -114,11 +115,11 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
   /**
-   * Static HTTP headers for MCP invoke (tools/list, turns).
-   * Local DCR is handled separately in {@link getMcpConnection}; this covers
-   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
+   * Headers for MCP invoke (tools/list, turns).
+   * Local DCR stays in {@link getMcpConnection}; stores return static headers
+   * or an async resolver (e.g. TrueFoundry oauth2 → mid-turn `authRequired`).
    */
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders;
 }
 
 /**
