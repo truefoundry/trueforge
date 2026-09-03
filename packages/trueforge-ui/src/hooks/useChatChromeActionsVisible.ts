@@ -23,6 +23,11 @@ export function useNamedAgentHeaderVisible(): boolean {
   return state !== null;
 }
 
+export function useChatTitleHeaderVisible(): boolean {
+  const shell = useOptionalShellMode();
+  return shell?.mode.status === 'active';
+}
+
 // Mutable draft/edit with a selected model — drives Save Agent + header chrome.
 export function useSaveAgentVisible(): boolean {
   const shell = useOptionalShellMode();
@@ -40,8 +45,9 @@ export function useChatChromeActionsVisible(): boolean {
 // True when the thread header has anything to show (title, Save, and/or Clear).
 // Clear alone matters for orphaned immutable history (deleted agent, no name).
 export function useChatHeaderContentVisible(): boolean {
+  const titleVisible = useChatTitleHeaderVisible();
   const namedVisible = useNamedAgentHeaderVisible();
   const saveVisible = useSaveAgentVisible();
   const clearVisible = useChatChromeActionsVisible();
-  return namedVisible || saveVisible || clearVisible;
+  return titleVisible || namedVisible || saveVisible || clearVisible;
 }
