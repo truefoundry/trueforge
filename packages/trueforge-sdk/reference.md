@@ -516,7 +516,7 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
-Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.
+Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is the FE landing path after consent (local DCR via harness callback; TrueFoundry as SFY redirectURL).
 </dd>
 </dl>
 </dd>
@@ -3049,7 +3049,7 @@ await client.settings.mcpServers.createOrUpdate({
 <dl>
 <dd>
 
-A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
+A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.
 </dd>
 </dl>
 </dd>

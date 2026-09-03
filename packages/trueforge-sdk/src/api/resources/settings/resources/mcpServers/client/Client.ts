@@ -416,7 +416,7 @@ export class McpServersClient {
     }
 
     /**
-     * A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
+     * A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.
      *
      * @param {string} name - MCP server name.
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
