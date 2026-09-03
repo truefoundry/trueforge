@@ -14,9 +14,6 @@ const SESSION_PATH = 'v1/session';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 const MCP_SERVERS_PAGE_SIZE = 100;
 
-/** Per-request timeout for ServiceFoundry HTTP (list/get/put/delete/session). */
-export const SERVICE_FOUNDRY_HTTP_TIMEOUT_MS = 10_000;
-
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
  * Wire shape is camelCase (Nest Session + exposed `subject()`).
@@ -101,15 +98,25 @@ export class TrueFoundryServiceFoundryServerClient {
   readonly #baseUrl: string;
   readonly #logger: Logger | undefined;
   readonly #dispatcher: Dispatcher | undefined;
+  readonly #httpTimeoutMs: number;
+  readonly #httpAgentTimeoutMs: number;
 
-  constructor(input: { serviceFoundryServerUrl: string; logger?: Logger; tls?: InternalTlsOptions }) {
-    const tls = input.tls ?? { enabled: false, dir: '' };
+  constructor(input: {
+    serviceFoundryServerUrl: string;
+    logger: Logger;
+    tls: InternalTlsOptions;
+    httpTimeoutMs: number;
+    httpAgentTimeoutMs: number;
+  }) {
+    const tls = input.tls;
     this.#baseUrl = normalizeInternalTlsUrl({ url: input.serviceFoundryServerUrl, enabled: tls.enabled }).replace(
       /\/+$/,
       '',
     );
     this.#dispatcher = createInternalTlsDispatcher(tls);
     this.#logger = input.logger;
+    this.#httpTimeoutMs = input.httpTimeoutMs;
+    this.#httpAgentTimeoutMs = input.httpAgentTimeoutMs;
   }
 
   async listProviderIntegrations(accessToken: string): Promise<unknown[]> {
@@ -197,6 +204,7 @@ export class TrueFoundryServiceFoundryServerClient {
       url: this.#url(TFG_AGENTS_PATH),
       accessToken: input.accessToken,
       method: 'PUT',
+      timeoutMs: this.#httpAgentTimeoutMs,
       body: {
         name: input.name,
         description: input.description,
@@ -223,6 +231,7 @@ export class TrueFoundryServiceFoundryServerClient {
       url: this.#url(`${TFG_AGENTS_PATH}/${encodeURIComponent(input.externalId)}`),
       accessToken: input.accessToken,
       method: 'DELETE',
+      timeoutMs: this.#httpAgentTimeoutMs,
       notFoundOk: true,
     });
   }
@@ -290,11 +299,13 @@ export class TrueFoundryServiceFoundryServerClient {
     accessToken: string;
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     body?: unknown;
+    timeoutMs?: number;
     /** Treat HTTP 404 as success (idempotent DELETE). */
     notFoundOk?: boolean;
   }): Promise<unknown> {
     const startedAt = Date.now();
-    const signal = AbortSignal.timeout(SERVICE_FOUNDRY_HTTP_TIMEOUT_MS);
+    const timeoutMs = input.timeoutMs ?? this.#httpTimeoutMs;
+    const signal = AbortSignal.timeout(timeoutMs);
     try {
       const response = await undiciFetch(input.url, {
         method: input.method,
@@ -356,7 +367,7 @@ export class TrueFoundryServiceFoundryServerClient {
       });
       throw new HTTPException(500, {
         message: timedOut
-          ? `TrueFoundry ServiceFoundry server request timed out after ${String(SERVICE_FOUNDRY_HTTP_TIMEOUT_MS / 1000)}s`
+          ? `TrueFoundry ServiceFoundry server request timed out after ${String(timeoutMs / 1000)}s`
           : 'TrueFoundry ServiceFoundry server request failed',
         cause: error,
       });

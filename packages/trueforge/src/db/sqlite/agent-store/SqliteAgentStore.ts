@@ -4,7 +4,6 @@ import { newId } from '../../../utils/id';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
-  assertAgentNameNotReserved,
   parseStoredAgentSpec,
   type AgentRecord,
   type CreateAgentInput,
@@ -76,7 +75,6 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
-    assertAgentNameNotReserved(input.name);
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
     try {

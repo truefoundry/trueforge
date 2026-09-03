@@ -3,12 +3,7 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
-import {
-  AgentExternalIdConflictError,
-  AgentNameConflictError,
-  AgentNameReservedError,
-  type IAgentStore,
-} from '../../src/db/agentStore';
+import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../../src/db/agentStore';
 
 const TENANT = 'default';
 
@@ -114,16 +109,6 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         external_id: null,
       }),
     ).rejects.toBeInstanceOf(AgentNameConflictError);
-  });
-
-  it('createAgent throws AgentNameReservedError for tfg and trueforge', async () => {
-    const store = getStore();
-    await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'tfg', manifest: manifest(), external_id: null }),
-    ).rejects.toBeInstanceOf(AgentNameReservedError);
-    await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'trueforge', manifest: manifest(), external_id: null }),
-    ).rejects.toBeInstanceOf(AgentNameReservedError);
   });
 
   it('listAgents returns only the tenant, ordered by name', async () => {

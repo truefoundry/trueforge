@@ -8,7 +8,6 @@ import type { ResolveRequestContext } from '../auth/identity';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
-  AgentNameReservedError,
   type AgentRecord,
   type IAgentStore,
 } from '../db/agentStore';
@@ -98,9 +97,6 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       });
       return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {
-      if (error instanceof AgentNameReservedError) {
-        return c.json({ error: { message: error.message } }, 400);
-      }
       if (error instanceof AgentNameConflictError || error instanceof AgentExternalIdConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }

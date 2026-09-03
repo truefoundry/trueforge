@@ -6,10 +6,14 @@ import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
+const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
+
 /** Create body: unique immutable `name` plus manifest. `id` is never client-supplied. */
 export const CreateAgentRequestSchema = z
   .object({
-    name: NameSchema,
+    name: NameSchema.refine(name => !RESERVED_AGENT_NAMES.has(name), {
+      message: 'Agent name is reserved, cannot be used',
+    }),
     manifest: AgentSpecSchema,
   })
   .strict()

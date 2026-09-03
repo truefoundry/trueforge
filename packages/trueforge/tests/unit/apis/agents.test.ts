@@ -170,8 +170,11 @@ describe('agents router', () => {
     const badName = await router.request('/', jsonInit('POST', { ...writeBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
 
-    const reserved = await router.request('/', jsonInit('POST', { ...writeBody, name: 'tfg' }));
-    expect(reserved.status).toBe(400);
+    const reservedTfg = await router.request('/', jsonInit('POST', { ...writeBody, name: 'tfg' }));
+    expect(reservedTfg.status).toBe(400);
+
+    const reservedTrueforge = await router.request('/', jsonInit('POST', { ...writeBody, name: 'trueforge' }));
+    expect(reservedTrueforge.status).toBe(400);
 
     const unknownModel = await router.request(
       '/',

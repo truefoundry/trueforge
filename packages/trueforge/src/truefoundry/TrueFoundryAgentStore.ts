@@ -65,7 +65,8 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
   }
 
   async createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord> {
-    // Insert first so unique name picks the winner; only the winner calls SF (avoids MCP desync).
+    // Lets the DB unique constraint pick one winner for this tenant ID and name.
+    // Prevents concurrent requests from both creating the same remote agent.
     const created = await this.#inner.createAgent({ ...input, external_id: null }, transaction);
 
     let externalId: string | undefined;

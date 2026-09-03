@@ -1,7 +1,8 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { createLogger } from 'winston';
 
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
-import { AgentNameConflictError, AgentNameReservedError, assertAgentNameNotReserved } from '../../../src/db/agentStore';
+import { AgentNameConflictError } from '../../../src/db/agentStore';
 import { withoutAgentUpdateLock, type WithAgentUpdateLock } from '../../../src/db/agentUpdateLock';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
@@ -13,6 +14,7 @@ import {
 
 const TENANT = 'default';
 const TOKEN = 'test-token';
+const LOGGER = createLogger({ silent: true });
 
 function manifest(overrides: { instructions?: string; mcp_servers?: { name: string }[] } = {}) {
   return AgentSpecSchema.parse({
@@ -55,6 +57,10 @@ function mockClient(
 ): TrueFoundryServiceFoundryServerClient {
   const client = new TrueFoundryServiceFoundryServerClient({
     serviceFoundryServerUrl: 'http://servicefoundry.test',
+    logger: LOGGER,
+    tls: { enabled: false, dir: '' },
+    httpTimeoutMs: 10_000,
+    httpAgentTimeoutMs: 3_000,
   });
   client.putRemoteAgent =
     overrides.putRemoteAgent ?? (async (): Promise<PutRemoteAgentResult> => ({ externalId: 'sf-1' }));
@@ -151,28 +157,6 @@ describe('TrueFoundryAgentStore', () => {
     expect(putRemoteAgent).not.toHaveBeenCalled();
     expect(updateAgent).not.toHaveBeenCalled();
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
-  });
-
-  it('createAgent rejects reserved names before calling ServiceFoundry', async () => {
-    const createAgent = jest.fn(async (input: { name: string }) => {
-      assertAgentNameNotReserved(input.name);
-      return record();
-    });
-    const putRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
-      inner: mockInner({ createAgent }),
-      client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
-      withUpdateLock: withoutAgentUpdateLock(),
-    });
-
-    await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'tfg', manifest: manifest(), external_id: null }),
-    ).rejects.toBeInstanceOf(AgentNameReservedError);
-    await expect(
-      store.createAgent({ tenant_id: TENANT, name: 'trueforge', manifest: manifest(), external_id: null }),
-    ).rejects.toBeInstanceOf(AgentNameReservedError);
-    expect(putRemoteAgent).not.toHaveBeenCalled();
   });
 
   it('createAgent uses agent name as description when instructions are omitted', async () => {
