@@ -1,8 +1,16 @@
 /** Vitest: jsdom for React containers; MUI alias for CJS/ESM dual-package quirk. */
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import svgr from 'vite-plugin-svgr';
 import { defineConfig } from 'vitest/config';
+
+// Node 25+ installs a stub Web Storage global that shadows jsdom's localStorage
+// (no clear/getItem/setItem), so ThemeProvider / ShellMode tests crash. Disable
+// it on the worker so jsdom owns the global. Flag does not exist on Node < 25.
+// See https://github.com/vitest-dev/vitest/issues/8757
+const nodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '0', 10);
+const execArgv = nodeMajor >= 25 ? ['--no-webstorage'] : [];
 
 export default defineConfig({
   plugins: [
@@ -32,6 +40,7 @@ export default defineConfig({
     include: ['test/**/*.test.{ts,tsx}'],
     globals: true,
     setupFiles: ['./test/testSetup.ts'],
+    execArgv,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

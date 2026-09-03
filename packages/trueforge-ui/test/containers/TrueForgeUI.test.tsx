@@ -495,14 +495,14 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
       throw new Error('Expected theme toggle');
     }
     fireEvent.click(themeButton);
-    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(1);
 
     // Settings stays available with a locked agentName when catalog is present.
     rerender(
@@ -518,7 +518,7 @@ describe('SidebarLayout', () => {
         </ServerProvider>
       </SlotsProvider>,
     );
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
@@ -571,7 +571,7 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(1);
   });
 });
 

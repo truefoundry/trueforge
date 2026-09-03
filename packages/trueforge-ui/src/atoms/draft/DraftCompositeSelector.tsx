@@ -579,8 +579,10 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     </>
   );
 
+  // Gapless row: now that both triggers are icon-only, their ghost hover targets butt
+  // together as one toolbar cluster rather than reading as separate chips.
   return (
-    <div ref={containerRef} className="relative flex flex-wrap items-center gap-1.5">
+    <div ref={containerRef} className="relative flex flex-wrap items-center">
       {hasValidModel ? (
         <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
           <button
@@ -593,7 +595,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             className={auiButtonClass({
               variant: 'ghost',
               size: 'sm',
-              className: 'h-8 gap-1.5 rounded-md px-2 text-xs',
+              className: 'h-8 rounded-md px-2 text-xs',
             })}
             onClick={() => {
               if (open) {
@@ -603,11 +605,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               openPicker();
             }}
           >
+            {/* Icon-only trigger; the count and name reach assistive tech via aria-label
+                and sighted users via the tooltip, which lists the selected tools. */}
             <Icon name="wrench" className="size-3.5" />
-            <span>Tools</span>
-            <span className="bg-primary-button-bg/10 text-primary-button-bg rounded px-1.5 py-0.5 text-[10px] font-semibold">
-              {toolsCount}
-            </span>
           </button>
         </Tooltip>
       ) : null}
