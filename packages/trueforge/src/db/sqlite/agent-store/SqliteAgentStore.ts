@@ -1,5 +1,4 @@
 import type { AgentSpec, CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
-import { parseStoredCreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -13,6 +12,7 @@ import {
   type IAgentStore,
   type UpdateAgentInput,
 } from '../../agentStore';
+import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';

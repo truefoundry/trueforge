@@ -1,5 +1,4 @@
 import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import { parseStoredCreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -8,6 +7,7 @@ import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kyse
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
 import { newId } from '../../../utils/id';
+import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import {
   cronRunName,
   parseStoredScheduleManifest,

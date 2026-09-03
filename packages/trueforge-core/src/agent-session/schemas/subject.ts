@@ -12,8 +12,3 @@ export const CreatedBySubjectSchema = z
   .openapi('CreatedBySubject');
 
 export type CreatedBySubject = z.infer<typeof CreatedBySubjectSchema>;
-
-/** Re-parse persisted creator JSON so store readers validate on read. */
-export function parseStoredCreatedBySubject(value: unknown): CreatedBySubject {
-  return CreatedBySubjectSchema.parse(value);
-}

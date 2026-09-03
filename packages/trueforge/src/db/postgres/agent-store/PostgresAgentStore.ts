@@ -1,4 +1,3 @@
-import { parseStoredCreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -12,6 +11,7 @@ import {
   type IAgentStore,
   type UpdateAgentInput,
 } from '../../agentStore';
+import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import { AGENT_EXTERNAL_ID_UQ } from '../../indexes';
 import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';

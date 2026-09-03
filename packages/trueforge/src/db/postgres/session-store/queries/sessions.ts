@@ -4,8 +4,9 @@ import type {
   SessionMetadata,
   SessionMetrics,
 } from '@truefoundry/trueforge-core/agent-session';
-import { parseStoredCreatedBySubject, SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
+import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
+import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
