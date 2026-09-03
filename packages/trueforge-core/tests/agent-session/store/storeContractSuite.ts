@@ -1112,6 +1112,68 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(page2.data.map(s => s.session_id)).toEqual(['match-superset']);
       expect(page2.pagination.next_page_token).toBeUndefined();
     });
+
+    it('filters metadata by exact key names (dots, $, brackets)', async () => {
+      const store = createStore();
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'dotted-key',
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { 'team.name': 'alpha' },
+        external_id: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'nested-shape',
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        // Nested object is not a string metadata value; store only allows string values.
+        // A separate flat key proves path-style lookup must not match this session.
+        metadata: { team: 'alpha' },
+        external_id: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'dollar-key',
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { $ref: 'gateway' },
+        external_id: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'bracket-key',
+        created_by: 'user-1',
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { 'items[0]': 'zero' },
+        external_id: null,
+      });
+
+      const listBase = {
+        agent_id: undefined,
+        created_by: undefined,
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: 'asc' as const,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+      };
+
+      const dotted = await store.listSessions({ ...listBase, metadata: { 'team.name': 'alpha' } });
+      expect(dotted.data.map(s => s.session_id)).toEqual(['dotted-key']);
+
+      const dollar = await store.listSessions({ ...listBase, metadata: { $ref: 'gateway' } });
+      expect(dollar.data.map(s => s.session_id)).toEqual(['dollar-key']);
+
+      const bracket = await store.listSessions({ ...listBase, metadata: { 'items[0]': 'zero' } });
+      expect(bracket.data.map(s => s.session_id)).toEqual(['bracket-key']);
+    });
   });
 
   describe('createTurn', () => {

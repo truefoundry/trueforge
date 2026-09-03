@@ -261,7 +261,11 @@ export async function listSessions(
   }
   if (input.metadata !== undefined) {
     for (const [key, value] of Object.entries(input.metadata)) {
-      query = query.where(sql<boolean>`(metadata ->> ${key}) = ${value}`);
+      // json_each matches object keys by exact string. `metadata ->> key` treats some
+      // keys as JSON paths (e.g. `$…`) and diverges from Postgres `@>` / in-memory.
+      query = query.where(
+        sql<boolean>`EXISTS (SELECT 1 FROM json_each(metadata) WHERE key = ${key} AND atom = ${value})`,
+      );
     }
   }
   if (input.start_timestamp !== undefined) {
