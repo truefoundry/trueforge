@@ -1,6 +1,15 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+  type Ref,
+} from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
@@ -12,7 +21,7 @@ import { Thread } from '../containers/Thread.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { resolveBrandChrome, useBrandName } from '../theme/brand.js';
+import { resolveBrandChrome } from '../theme/brand.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useBrand } from '../theme/ThemeProvider.js';
 
@@ -21,9 +30,10 @@ const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
 
-const brandLogoClassName = 'h-5 max-w-40 shrink-0 object-contain';
+const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
+const railWidthClassName = 'w-20';
 
-function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; className?: string }): ReactNode {
+function SidebarNav(): ReactNode {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
@@ -43,16 +53,7 @@ function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; classN
   };
 
   return (
-    <nav
-      className={cn('flex min-h-0 flex-1 flex-col items-center gap-2 p-2', className)}
-      aria-label="Sidebar"
-      onClick={event => {
-        if (onNavigate == null) return;
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        if (target.closest('button') != null) onNavigate();
-      }}
-    >
+    <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 p-2" aria-label="Sidebar">
       {shell?.isNewChatEnabled !== false ? (
         <button
           type="button"
@@ -76,12 +77,50 @@ function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; classN
   );
 }
 
-export function SidebarLayout({ className }: { className?: string }) {
-  const shell = useOptionalShellMode();
+/** Shared desktop + mobile icon+label rail (brand, nav, footer actions). */
+function SidebarRail({
+  onNavigate,
+  className,
+  railRef,
+  ...dialogProps
+}: {
+  onNavigate?: () => void;
+  className?: string;
+  railRef?: Ref<HTMLElement>;
+} & Omit<ComponentPropsWithoutRef<'aside'>, 'children' | 'className'>): ReactNode {
   const brand = useBrand();
-  const brandName = useBrandName();
   const chrome = resolveBrandChrome(brand);
   const BrandLogo = useSlot('BrandLogo');
+
+  return (
+    <aside
+      ref={railRef}
+      className={cn(
+        railWidthClassName,
+        'flex min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg',
+        className,
+      )}
+      onClick={event => {
+        if (onNavigate == null) return;
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest('button') != null) onNavigate();
+      }}
+      {...dialogProps}
+    >
+      <div className="flex h-14 w-full shrink-0 items-center justify-center border-b border-border text-text-primary">
+        <BrandLogo variant={chrome.collapsedVariant} className={brandLogoClassName} />
+      </div>
+      <SidebarNav />
+      <footer className="flex shrink-0 flex-col items-center border-t border-border p-2">
+        <ShellActions labeled className="flex-col" />
+      </footer>
+    </aside>
+  );
+}
+
+export function SidebarLayout({ className }: { className?: string }) {
+  const shell = useOptionalShellMode();
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
@@ -90,7 +129,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
   const isIdle = shell?.mode.status === 'idle';
@@ -127,22 +166,11 @@ export function SidebarLayout({ className }: { className?: string }) {
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full min-w-0', className)}>
-      {/* Desktop sidebar — permanent icon+label rail */}
-      <aside className="hidden w-20 min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg md:flex">
-        <div className="flex py-4 w-full shrink-0 items-center justify-center border-b border-border text-text-primary">
-          <BrandLogo variant={chrome.collapsedVariant} className={cn(brandLogoClassName, 'w-5')} />
-        </div>
-
-        <SidebarNav />
-
-        <footer className="flex shrink-0 flex-col items-center border-t border-border p-2">
-          <ShellActions labeled className="flex-col" />
-        </footer>
-      </aside>
+      <SidebarRail className="hidden md:flex" />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-primary-bg">
         {/* Mobile ShellActions stay mounted while Settings is open so host overrides (e.g. logout) do not remount.
-            Desktop keeps shell chrome in the aside footer (always mounted). */}
+            Desktop keeps shell chrome in the rail footer (always mounted). */}
         <header
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
@@ -223,7 +251,7 @@ export function SidebarLayout({ className }: { className?: string }) {
         </div>
       </div>
 
-      {/* Mobile navigation drawer */}
+      {/* Mobile: same narrow rail as desktop */}
       {mobileNavOpen ? (
         <>
           <button
@@ -232,24 +260,14 @@ export function SidebarLayout({ className }: { className?: string }) {
             className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
             onClick={() => setMobileNavOpen(false)}
           />
-          <div
-            ref={dialogRef}
-            className="absolute inset-y-0 left-0 z-10 flex w-full max-w-80 flex-col border-r border-border bg-sidebar-bg shadow-lg outline-none md:hidden"
+          <SidebarRail
+            railRef={dialogRef}
             role="dialog"
             aria-label="Navigation"
             tabIndex={-1}
-          >
-            <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-text-primary">
-              <BrandLogo
-                variant={chrome.expandedVariant}
-                className={cn(brandLogoClassName, chrome.expandedVariant === 'icon' && 'w-5')}
-              />
-              {chrome.showTitle && brandName != null ? (
-                <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
-              ) : null}
-            </div>
-            <SidebarNav onNavigate={() => setMobileNavOpen(false)} className="items-stretch p-3" />
-          </div>
+            onNavigate={() => setMobileNavOpen(false)}
+            className="absolute inset-y-0 left-0 z-10 shadow-lg outline-none md:hidden"
+          />
         </>
       ) : null}
     </div>
