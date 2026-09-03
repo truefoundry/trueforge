@@ -1,14 +1,13 @@
 import { sql, type Kysely } from 'kysely';
 import { SESSION_METADATA_GIN } from '../../indexes';
 
-/** Add the partial metadata index used by session list filters. */
+/** Add the metadata index used by session list filters. */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
   await sql`
     CREATE INDEX ${sql.raw(SESSION_METADATA_GIN)}
       ON session
       USING GIN (metadata jsonb_path_ops)
-      WHERE metadata <> '{}'::jsonb
   `.execute(db);
 }
 
