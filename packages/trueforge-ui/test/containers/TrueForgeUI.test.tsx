@@ -100,7 +100,8 @@ describe('TrueForgeUI', () => {
     await waitFor(() => {
       switch (layout) {
         case 'sidebar':
-          expect(screen.getByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
+          expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
           break;
         case 'drawer':
           expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
@@ -351,7 +352,7 @@ describe('StackChatPanel', () => {
 });
 
 describe('SidebarLayout', () => {
-  it('shows the app brand in the mobile sessions drawer', () => {
+  it('shows the app brand in the mobile navigation drawer', () => {
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: { src: '/acme.svg' } } }}>
         <RuntimeHarness messages={[]}>
@@ -362,14 +363,17 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sessions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }));
 
-    const drawer = screen.getByRole('dialog', { name: 'Sessions' });
-    expect(within(drawer).getByText('Acme')).toBeInTheDocument();
+    const drawer = screen.getByRole('dialog', { name: 'Navigation' });
+    expect(drawer).toHaveClass('w-20');
     expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
+    expect(within(drawer).queryByText('Acme')).not.toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
+    expect(within(drawer).queryByText('No threads yet')).not.toBeInTheDocument();
   });
 
-  it('shows the default wordmark without a name in expanded chrome', () => {
+  it('shows the default icon mark in the permanent rail', () => {
     const { container } = render(
       <SlotsProvider>
         <RuntimeHarness messages={[]}>
@@ -381,11 +385,12 @@ describe('SidebarLayout', () => {
     );
 
     const mark = container.querySelector('aside svg');
-    expect(mark).toHaveAttribute('viewBox', '0 0 614 100');
+    expect(mark).toHaveAttribute('viewBox', '0 0 140 140');
     expect(screen.queryByText('TrueForge')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
-  it('shows a wide logo when expanded and its square icon when collapsed', () => {
+  it('uses the square brand icon in the rail (not the wide wordmark)', () => {
     const { container } = render(
       <SlotsProvider
         theme={{ brand: { mode: 'logo', name: 'Acme', icon: '/acme-icon.svg', logo: '/acme-wordmark.svg' } }}
@@ -398,16 +403,11 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-wordmark.svg');
-    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
     expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-icon.svg');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('supports icon-only branding in expanded chrome', () => {
+  it('supports icon-only branding in the rail', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-only', name: 'Acme', icon: '/acme-icon.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -423,8 +423,8 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('shows the brand and toggles the desktop sidebar rail', () => {
-    const { unmount } = render(
+  it('shows a permanent labeled rail with New Chat and no expand control', () => {
+    const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
@@ -434,25 +434,11 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByText('Acme')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
-
+    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme.svg');
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-
-    // New Chat / Agents remount ChatProvider via runtimeKey; collapse must survive.
-    unmount();
-    render(
-      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <SidebarLayout />
-          </div>
-        </RuntimeHarness>
-      </SlotsProvider>,
-    );
-    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+    expect(screen.getByText('New Chat')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
   it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
@@ -471,11 +457,7 @@ describe('SidebarLayout', () => {
     );
 
     expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
-    const expandButton = screen.queryByRole('button', { name: 'Expand sidebar' });
-    if (expandButton != null) {
-      fireEvent.click(expandButton);
-    }
-    expect(await screen.findAllByRole('button', { name: 'Agents Library (0)' })).not.toHaveLength(0);
+    expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
       throw new Error('Expected theme toggle');

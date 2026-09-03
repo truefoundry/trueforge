@@ -16,7 +16,7 @@ export function AgentDetailsUnavailable({ onBack, reason }: AgentDetailsUnavaila
       </div>
       <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })} onClick={onBack}>
         <Icon name="arrow-left" className="size-3.5" />
-        Back to Agents Library
+        Back to Agents
       </button>
     </div>
   );
