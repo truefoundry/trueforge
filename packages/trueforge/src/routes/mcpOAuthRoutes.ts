@@ -1,9 +1,5 @@
 import { createRoute } from '@hono/zod-openapi';
-import {
-  OAuthCallbackQuerySchema,
-  OAuthCallbackSuccessSchema,
-  TrueFoundryMcpOAuthCallbackQuerySchema,
-} from '../schemas/auth';
+import { OAuthCallbackQuerySchema, OAuthCallbackSuccessSchema } from '../schemas/auth';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
 
@@ -38,35 +34,6 @@ export const mcpOAuthCallbackRoute = createRoute({
     500: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unexpected failure during token exchange.',
-    },
-  },
-});
-
-export const trueFoundryMcpOAuthCallbackRoute = createRoute({
-  method: 'get',
-  path: '/truefoundry/callback',
-  tags: [OpenApiTag.MCP_SERVERS],
-  summary: 'OAuth callback for TrueFoundry-managed MCP authorization',
-  description:
-    'Browser redirect target after ServiceFoundry MCP consent. Does not exchange tokens (SFY already stored them); ' +
-    'redirects to the `return_to` query param with `isSuccess`/`reason`, mirroring local DCR callback landing. ' +
-    'Not called by the SDK — browsers hit this URL directly.',
-  'x-fern-ignore': true,
-  'x-excluded': true,
-  request: {
-    query: TrueFoundryMcpOAuthCallbackQuerySchema,
-  },
-  responses: {
-    200: {
-      content: { 'application/json': { schema: OAuthCallbackSuccessSchema } },
-      description: 'Consent succeeded and no usable `return_to` was supplied.',
-    },
-    302: {
-      description: 'Redirect to `return_to` with `isSuccess` (and `reason` when it failed).',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Consent `error`, or both `code` and `error` missing, with no `return_to`.',
     },
   },
 });

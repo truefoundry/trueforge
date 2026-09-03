@@ -3,8 +3,10 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
+import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import { safeReturnTo } from '../auth/safeReturnTo';
+import { getPublicBaseUrl } from '../config';
 import {
   McpServerNotFoundError,
   type AuthorizeMcpServerInput,
@@ -17,7 +19,6 @@ import {
   type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from '../db/mcpServerStore';
-import { mcpTrueFoundryOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
@@ -40,14 +41,22 @@ function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
 }
 
-/** SFY consent redirect: explicit URL, else our public callback that lands FE with `isSuccess`. */
-function resolveAuthorizeRedirectURL(input: { redirectURL?: string; returnTo?: string }): string {
+/**
+ * Absolute FE landing for SFY `redirectURL`. Prefer explicit `redirectURL`; otherwise
+ * `PUBLIC_BASE_URL` + safe `return_to` (same path the Connect popup opens with).
+ * SFY appends `code`/`error` — no harness callback.
+ */
+export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; returnTo?: string }): string {
   if (input.redirectURL !== undefined && input.redirectURL.length > 0) {
     return input.redirectURL;
   }
-  return mcpTrueFoundryOAuthCallbackUrl({
-    ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
-  });
+  try {
+    return new URL(safeReturnTo(input.returnTo), `${getPublicBaseUrl()}/`).href;
+  } catch (error) {
+    throw new McpConnectionError('PUBLIC_BASE_URL is required for TrueFoundry MCP OAuth but was empty', 500, {
+      cause: error,
+    });
+  }
 }
 
 /**

@@ -240,7 +240,7 @@ const McpAuthorizeQuerySchema = z.object({
     .string()
     .optional()
     .describe(
-      'Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.',
+      'Optional same-origin relative path for the browser after consent. Local DCR: OAuth callback redirects here with `isSuccess`/`reason`. TrueFoundry: absolute URL of this path is passed to ServiceFoundry as `redirectURL` (SFY appends `code`/`error`).',
     ),
 });
 
@@ -253,8 +253,8 @@ export const authorizeMcpServerRoute = createRoute({
   'x-fern-sdk-method-name': 'authorize',
   description:
     'Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a ' +
-    'usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the ' +
-    'OAuth callback redirects the browser; without it the callback returns JSON.',
+    'usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is the FE ' +
+    'landing path after consent (local DCR via harness callback; TrueFoundry as SFY redirectURL).',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,

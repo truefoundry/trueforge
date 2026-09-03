@@ -88,9 +88,9 @@ export interface AuthorizeMcpServerInput {
   tenant_id: string;
   name: string;
   userRef: string;
-  /** Relative same-origin path for local DCR pending-auth return. */
+  /** Relative same-origin FE path after consent (local DCR pending row / TrueFoundry SFY redirectURL). */
   returnTo?: string;
-  /** Absolute redirect URL when a remote auth backend needs a full callback URL. */
+  /** Absolute redirect URL when a remote auth backend needs a full landing URL (overrides returnTo). */
   redirectURL?: string;
 }
 

@@ -4,18 +4,11 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { McpConnectionError } from '@truefoundry/trueforge-core/core';
-import { safeReturnTo } from '../../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../../config';
 import type { OAuthClientCredentials, OAuthServerMetadata, OAuthToken } from './types';
 
 /** Fixed OAuth callback path for every MCP server. */
 export const MCP_OAUTH_CALLBACK_PATH = '/api/v1/mcp-servers/oauth/callback';
-
-/**
- * Browser landing after TrueFoundry / ServiceFoundry MCP consent.
- * SFY redirects here with `code`/`error`; we bounce to `return_to` with `isSuccess` (local DCR pattern).
- */
-export const MCP_TRUEFOUNDRY_OAUTH_CALLBACK_PATH = '/api/v1/mcp-servers/oauth/truefoundry/callback';
 
 /** Fallback TTL when an RFC 6749 token response omits `expires_in`. */
 export const DEFAULT_MCP_ACCESS_TOKEN_TTL_SECONDS = 3600;
@@ -27,22 +20,6 @@ export function mcpOAuthCallbackUrl(): string {
     return `${publicBaseUrl}${MCP_OAUTH_CALLBACK_PATH}`;
   } catch (error) {
     throw new McpConnectionError('PUBLIC_BASE_URL is required for MCP OAuth registration but was empty', 500, {
-      cause: error,
-    });
-  }
-}
-
-/**
- * Absolute SFY `redirectURL`: our TrueFoundry OAuth callback with safe `return_to` query.
- * After consent SFY hits this URL; the handler redirects to `return_to` with `isSuccess`.
- */
-export function mcpTrueFoundryOAuthCallbackUrl(input?: { returnTo?: string }): string {
-  try {
-    const url = new URL(`${getPublicBaseUrl()}${MCP_TRUEFOUNDRY_OAUTH_CALLBACK_PATH}`);
-    url.searchParams.set('return_to', safeReturnTo(input?.returnTo));
-    return url.href;
-  } catch (error) {
-    throw new McpConnectionError('PUBLIC_BASE_URL is required for TrueFoundry MCP OAuth but was empty', 500, {
       cause: error,
     });
   }

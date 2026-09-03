@@ -1,10 +1,9 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, McpConnectionError } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
-import { safeReturnTo } from '../auth/safeReturnTo';
 import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';
 import type { IOAuthClientStore, IOAuthTokenStore } from '../mcp/auth/types';
-import { mcpOAuthCallbackRoute, trueFoundryMcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
+import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
 
 export interface McpOAuthRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -128,32 +127,7 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
     return callbackSuccess({ c, returnTo: pending.returnTo });
   };
 
-  /**
-   * SFY already persisted tokens before redirecting here — no exchange.
-   * Bounce to FE `return_to` with `isSuccess`, same landing contract as local DCR.
-   */
-  const trueFoundryCallbackHandler: RouteHandler<typeof trueFoundryMcpOAuthCallbackRoute> = c => {
-    const { return_to: returnToQuery, code, error, error_description: errorDescription } = c.req.valid('query');
-    const returnTo = safeReturnTo(returnToQuery);
-
-    if (error) {
-      deps.logger.warn('TrueFoundry MCP OAuth callback returned an error', { error, errorDescription });
-      return callbackFailure({ c, returnTo, message: error });
-    }
-
-    if (!code) {
-      return callbackFailure({
-        c,
-        returnTo,
-        message: 'OAuth callback is missing both `code` and `error`',
-      });
-    }
-
-    return callbackSuccess({ c, returnTo });
-  };
-
   const router = new OpenAPIHono();
   router.openapi(mcpOAuthCallbackRoute, callbackHandler);
-  router.openapi(trueFoundryMcpOAuthCallbackRoute, trueFoundryCallbackHandler);
   return router;
 }

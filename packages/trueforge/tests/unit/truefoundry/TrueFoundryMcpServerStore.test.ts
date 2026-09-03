@@ -1,11 +1,9 @@
 import { HTTPException } from 'hono/http-exception';
+import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
-import {
-  MCP_TRUEFOUNDRY_OAUTH_CALLBACK_PATH,
-  mcpTrueFoundryOAuthCallbackUrl,
-} from '../../../src/mcp/auth/mcpOAuthHelpers';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
 import {
+  resolveAuthorizeRedirectURL,
   TrueFoundryMcpServerStore,
   type TrueFoundryMcpApiClient,
 } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
@@ -77,14 +75,19 @@ function dcrRecord(overrides: { name?: string } = {}) {
   };
 }
 
-describe('mcpTrueFoundryOAuthCallbackUrl', () => {
-  it('embeds safe return_to on the public callback path', () => {
-    const href = mcpTrueFoundryOAuthCallbackUrl({
-      returnTo: '/?screenType=mcp-auth&pUid=popup-1',
-    });
-    const url = new URL(href);
-    expect(url.pathname).toBe(MCP_TRUEFOUNDRY_OAUTH_CALLBACK_PATH);
-    expect(url.searchParams.get('return_to')).toBe('/?screenType=mcp-auth&pUid=popup-1');
+describe('resolveAuthorizeRedirectURL', () => {
+  it('prefers explicit redirectURL', () => {
+    expect(
+      resolveAuthorizeRedirectURL({
+        redirectURL: 'https://app.example/custom-landing',
+        returnTo: '/?screenType=mcp-auth',
+      }),
+    ).toBe('https://app.example/custom-landing');
+  });
+
+  it('builds an absolute FE landing from return_to', () => {
+    const returnTo = '/?screenType=mcp-auth&pUid=popup-1';
+    expect(resolveAuthorizeRedirectURL({ returnTo })).toBe(new URL(returnTo, `${getPublicBaseUrl()}/`).href);
   });
 });
 
@@ -152,7 +155,7 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
-    it('defaults redirectURL to the TrueFoundry OAuth callback with return_to', async () => {
+    it('defaults redirectURL to the absolute FE return_to path', async () => {
       const { store, client } = createStore();
       const returnTo = '/?screenType=mcp-auth&pUid=popup-1';
       await store.authorize({
@@ -164,7 +167,7 @@ describe('TrueFoundryMcpServerStore', () => {
       expect(client.getMcpAuthorize).toHaveBeenCalledWith({
         accessToken: ACCESS_TOKEN,
         mcpServerId: 'mcp-id-1',
-        redirectURL: mcpTrueFoundryOAuthCallbackUrl({ returnTo }),
+        redirectURL: resolveAuthorizeRedirectURL({ returnTo }),
       });
     });
 
