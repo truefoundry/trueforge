@@ -117,6 +117,42 @@ describe('Tooltip', () => {
     expect(screen.getByRole('tooltip')).toHaveStyle({ left: '640px', top: '126px' });
   });
 
+  it('supports controlled visibility independently of trigger hover', () => {
+    const { rerender } = render(
+      <Tooltip content="Pinned" open>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Chart' });
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Pinned');
+    fireEvent.mouseLeave(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    rerender(
+      <Tooltip content="Pinned" open={false}>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('repositions when a controlled anchor changes', () => {
+    const { rerender } = render(
+      <Tooltip content="Turn 1" side="bottom" anchor={{ left: 200, top: 100 }} open>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '200px', top: '106px' });
+    rerender(
+      <Tooltip content="Turn 1" side="bottom" anchor={{ left: 240, top: 180 }} open>
+        <button>Chart</button>
+      </Tooltip>,
+    );
+    expect(screen.getByRole('tooltip')).toHaveStyle({ left: '240px', top: '186px' });
+  });
+
   it('clamps a centered tooltip so it stays inside the viewport', () => {
     expect(
       clampCenteredTooltip({

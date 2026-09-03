@@ -35,7 +35,8 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
             compact
               ? 'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center'
               : 'h-8 w-full !justify-start px-2.5',
-            sessionsOpen && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+            sessionsOpen &&
+              'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
         onClick={() => {

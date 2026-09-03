@@ -7,15 +7,36 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 export type NamedAgentHeaderState = {
   name: string;
   isEditing: boolean;
+  /** New Chat vs New Agent / named-agent differentiation. */
+  icon: 'square-pen' | 'agent-2';
+  /** When true, prefer a non-empty thread/session title over `name`. */
+  allowThreadTitle: boolean;
 };
 
-// Canonical named-agent header state, including mutable edit mode.
+// Canonical named-agent / draft header state, including mutable edit mode.
 export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   const shell = useOptionalShellMode();
   if (shell == null || shell.mode.status !== 'active') return null;
-  const name = shell.mode.agentName ?? shell.mode.agentId;
-  if (name == null || name.length === 0) return null;
-  return { name, isEditing: shell.mode.isMutable };
+
+  const identity = shell.mode.agentName ?? shell.mode.agentId;
+  if (identity != null && identity.length > 0) {
+    return {
+      name: identity,
+      isEditing: shell.mode.isMutable,
+      icon: 'agent-2',
+      allowThreadTitle: false,
+    };
+  }
+
+  if (!shell.mode.isMutable) return null;
+
+  const isCreateAgent = shell.mode.isCreateAgent;
+  return {
+    name: isCreateAgent ? 'New Agent' : 'New Chat',
+    isEditing: false,
+    icon: isCreateAgent ? 'agent-2' : 'square-pen',
+    allowThreadTitle: true,
+  };
 }
 
 export function useNamedAgentHeaderVisible(): boolean {
@@ -23,18 +44,20 @@ export function useNamedAgentHeaderVisible(): boolean {
   return state !== null;
 }
 
-// Mutable draft/edit with a selected model — drives Save Agent + header chrome.
+// Mutable New Agent / Edit with a selected model — drives Save Agent + header chrome.
 export function useSaveAgentVisible(): boolean {
   const shell = useOptionalShellMode();
   const { agentSpec } = useTrueFoundryAgentSpec();
-  if (shell == null || shell.mode.status !== 'active' || !shell.mode.isMutable) return false;
+  if (shell == null || shell.mode.status !== 'active' || !shell.mode.isMutable || !shell.mode.isCreateAgent) {
+    return false;
+  }
   return Boolean(agentSpec?.model?.name?.trim());
 }
 
-// Clear chat: only on immutable (named / saved) sessions — same gate as the agent title.
+// Clear chat: any active session (Try Agent, New Chat, New Agent, Edit).
 export function useChatChromeActionsVisible(): boolean {
   const shell = useOptionalShellMode();
-  return shell != null && shell.mode.status === 'active' && !shell.mode.isMutable;
+  return shell != null && shell.mode.status === 'active';
 }
 
 // True when the thread header has anything to show (title, Save, and/or Clear).

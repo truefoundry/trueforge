@@ -34,7 +34,13 @@ function TestView() {
   const shell = useShellMode();
   return (
     <>
-      <button type="button" onClick={() => shell.setAgentConfigOpen(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          // Agent config chrome requires create-agent intent (New Agent / Edit).
+          shell.openAgentBuilder();
+        }}
+      >
         Open config
       </button>
       <output data-testid="config-open">{String(shell.agentConfigOpen)}</output>

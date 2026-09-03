@@ -56,12 +56,13 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
             compact
               ? 'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center'
               : 'h-8 w-full !justify-start px-2.5',
-            libraryOpen && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+            libraryOpen &&
+              'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
         onClick={() => shell?.setLibraryOpen(true)}
       >
-        <Icon name="bot" size={compact ? 16 : undefined} />
+        <Icon name="library-big" size={compact ? 16 : undefined} />
         {compact ? (
           <span className="text-center">Agents</span>
         ) : (

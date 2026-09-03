@@ -56,7 +56,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
       <ComposerPrimitive.AttachmentDropzone
         disabled={isBusy}
         data-slot="aui_composer-attachment-dropzone"
-        className="w-full rounded-[var(--composer-radius,1.5rem)] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
+        className="w-full rounded-[0.75rem] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
       >
         <ComposerPrimitive.Root
           data-slot="aui_composer-root"

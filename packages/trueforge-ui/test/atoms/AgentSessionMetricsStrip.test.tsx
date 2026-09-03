@@ -57,4 +57,12 @@ describe('AgentSessionMetricsStrip', () => {
     );
     expect(document.querySelector('[data-slot="session-metric-wall-time"]')).toHaveClass('w-full');
   });
+
+  it('omits the cost tile when cost is unavailable', () => {
+    const { totalCostUsd, ...metricsWithoutCost } = metrics;
+    void totalCostUsd;
+
+    render(<AgentSessionMetricsStrip metrics={metricsWithoutCost} />);
+    expect(screen.queryByText('Cost')).not.toBeInTheDocument();
+  });
 });
