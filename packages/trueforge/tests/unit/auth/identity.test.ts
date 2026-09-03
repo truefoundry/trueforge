@@ -8,9 +8,9 @@ describe('STANDALONE_REQUEST_CONTEXT', () => {
       subject: {
         id: 'trueforge-default',
         type: 'user',
-        display_name: 'Admin',
+        display_name: 'trueforge-default',
       },
-      is_admin: true,
+      roles: ['admin'],
       user_credential: null,
     });
   });

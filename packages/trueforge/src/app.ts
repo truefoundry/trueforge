@@ -23,14 +23,14 @@ import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessi
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { createAdminAuthMiddleware, createAuthMiddleware, type Authenticator } from './auth/authenticator';
+import type { Authenticator } from './auth/authenticator';
 import { resolveRequestContext } from './auth/identity';
-import { StandaloneAuthenticator } from './auth/standaloneAuthenticator';
+import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
-import configuration from './config';
+import configuration, { getTrueForgeMode, TrueForgeMode } from './config';
 import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -48,6 +48,20 @@ import { InvalidCronError } from './schemas/schedule';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
+
+function withAuth(router: OpenAPIHono, middleware: MiddlewareHandler): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', middleware);
+  shell.route('/', router);
+  return shell;
+}
+
+function withAdminAuth(router: OpenAPIHono, middleware: MiddlewareHandler): OpenAPIHono {
+  const shell = new OpenAPIHono();
+  shell.use('*', middleware);
+  shell.route('/', router);
+  return shell;
+}
 
 /** One line per request: method, path, status, duration. Skips `/healthz`. */
 export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
@@ -187,21 +201,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
-  const authEnabled = !(deps.authenticator instanceof StandaloneAuthenticator);
-
-  function withAuth(router: OpenAPIHono): OpenAPIHono {
-    const shell = new OpenAPIHono();
-    shell.use('*', authMiddleware);
-    shell.route('/', router);
-    return shell;
-  }
-
-  function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
-    const shell = new OpenAPIHono();
-    shell.use('*', adminAuthMiddleware);
-    shell.route('/', router);
-    return shell;
-  }
+  const authEnabled = getTrueForgeMode() !== TrueForgeMode.Standalone;
 
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
@@ -227,6 +227,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -237,6 +238,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -248,6 +250,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillCatalog: deps.skillCatalog,
         sandboxCatalog: deps.sandboxCatalog,
       }),
+      authMiddleware,
     ),
   );
   // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
@@ -270,6 +273,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -280,6 +284,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -294,6 +299,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -317,6 +323,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -332,6 +339,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
       }),
+      adminAuthMiddleware,
     ),
   );
   app.route(
@@ -346,6 +354,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -355,6 +364,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionMetricsStore: deps.sessionMetricsStore,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -374,6 +384,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveRequestContext,
         logger: deps.logger,
       }),
+      authMiddleware,
     ),
   );
   app.route(
@@ -393,6 +404,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
       }),
+      authMiddleware,
     ),
   );
 

@@ -6,7 +6,7 @@ import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
 import type { RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
-import { extractRequestToken, toBearerAuthorization } from './token';
+import { extractRequestToken } from './token';
 
 export class OidcAuthenticator implements Authenticator {
   async authenticate(c: Context): Promise<RequestContext> {
@@ -35,7 +35,7 @@ export class OidcAuthenticator implements Authenticator {
       return toRequestContext({
         claims,
         config: oidcVerify.oidcConfig,
-        authorization: toBearerAuthorization(token),
+        user_credential: token,
       });
     } catch (error) {
       throw new HTTPException(401, { message: 'Authentication required', cause: error });

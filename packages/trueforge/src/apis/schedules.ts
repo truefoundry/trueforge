@@ -3,7 +3,7 @@
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
-import type { RequestContext, ResolveRequestContext } from '../auth/identity';
+import { hasAdminRole, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {
@@ -104,11 +104,11 @@ const FORBIDDEN_SCHEDULE_ACCESS = 'Only the schedule creator can access this sch
 /**
  * A schedule is visible to its creator, and to any admin.
  *
- * Standalone auth stamps `is_admin: true` on the sole identity, which already
+ * Standalone auth stamps `roles: ['admin']` on the sole identity, which already
  * owns everything it created — so admin bypass is a no-op there.
  */
-function canAccessSchedule(requestContext: Pick<RequestContext, 'is_admin' | 'subject'>, createdBy: string): boolean {
-  return requestContext.is_admin || requestContext.subject.id === createdBy;
+function canAccessSchedule(requestContext: Pick<RequestContext, 'roles' | 'subject'>, createdBy: string): boolean {
+  return hasAdminRole(requestContext) || requestContext.subject.id === createdBy;
 }
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
@@ -123,7 +123,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         limit,
         page_token: pageToken,
         agent_names: agentNames,
-        created_by: requestContext.is_admin ? undefined : requestContext.subject.id,
+        created_by: hasAdminRole(requestContext) ? undefined : requestContext.subject.id,
       });
       return c.json({ data: data.map(toWireSchedule), pagination }, 200);
     } catch (error) {

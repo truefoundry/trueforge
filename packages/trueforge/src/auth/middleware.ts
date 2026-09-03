@@ -1,17 +1,46 @@
-import type { Context } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
+import { getTrueForgeMode, TrueForgeMode } from '../config';
+import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
-import type { RequestContext } from './identity';
+import { hasAdminRole, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
-import { extractRequestToken, toBearerAuthorization } from './token';
+import { extractRequestToken } from './token';
 
-export { extractRequestToken, readBearerToken, toBearerAuthorization } from './token';
+export { extractRequestToken, readBearerToken } from './token';
+
+export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+  return async (c, next) => {
+    c.set('request_context', await authenticator.authenticate(c));
+    return next();
+  };
+}
+
+export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
+  return async (c, next) => {
+    const requestContext = await authenticator.authenticate(c);
+    if (getTrueForgeMode() === TrueForgeMode.TrueFoundry) {
+      // TODO: stop treating `tenant-admin` as TrueForge admin once TFY role mapping is settled.
+      if (!requestContext.roles.includes('tenant-admin')) {
+        throw new HTTPException(403, { message: 'Admin access required' });
+      }
+    } else if (!hasAdminRole(requestContext)) {
+      throw new HTTPException(403, { message: 'Admin access required' });
+    }
+    c.set('request_context', requestContext);
+    return next();
+  };
+}
 
 /**
- * Bearer or cookie token → {@link RequestContext} when OIDC is enabled and the JWT is valid.
- * Missing/invalid JWT → `undefined`. Claim mapping failures after a successful verify rethrow.
- * Used by OIDC login soft-probes (callback already-authenticated redirect).
+ * Soft OIDC probe for login/callback — not request-gate middleware.
+ *
+ * Same JWT → {@link RequestContext} path as {@link OidcAuthenticator}, but missing/invalid
+ * tokens return `undefined` instead of throwing 401 (claim mapping failures after verify still
+ * rethrow so callers can clear a stale cookie). Needed where "no session yet" must not fail
+ * the request, e.g. redirect-if-already-authenticated on `/auth/callback`.
  */
 export async function resolveOidcRequestContext(c: Context): Promise<RequestContext | undefined> {
   const oidcVerify = getOidcVerify();
@@ -38,6 +67,6 @@ export async function resolveOidcRequestContext(c: Context): Promise<RequestCont
   return toRequestContext({
     claims,
     config: oidcVerify.oidcConfig,
-    authorization: toBearerAuthorization(token),
+    user_credential: token,
   });
 }

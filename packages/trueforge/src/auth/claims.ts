@@ -58,12 +58,11 @@ export function resolveRole(claims: IdTokenClaims, config: OIDCConfig): 'admin' 
 export function toRequestContext(params: {
   claims: IdTokenClaims;
   config: OIDCConfig;
-  authorization: string;
+  user_credential: string;
 }): RequestContext {
-  const { claims, config, authorization } = params;
+  const { claims, config, user_credential } = params;
   assertEmailAllowed(claims, config);
   const subjectId = resolveUserRef(claims, config);
-  const role = resolveRole(claims, config);
   const displayName = resolveOptionalStringClaim(claims, config.OIDC_USER_DISPLAY_NAME_CLAIM) ?? subjectId;
   return {
     tenant_id: 'default',
@@ -72,8 +71,8 @@ export function toRequestContext(params: {
       type: 'user',
       display_name: displayName,
     },
-    is_admin: role === 'admin',
-    user_credential: { authorization },
+    roles: claimValues(claims[config.OIDC_USER_ROLE_CLAIM]),
+    user_credential,
   };
 }
 

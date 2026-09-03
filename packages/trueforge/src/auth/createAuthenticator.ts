@@ -1,30 +1,25 @@
+import { TrueForgeMode } from '../config';
 import type { TrueFoundryServiceFoundryServerClient } from '../truefoundry/TrueFoundryServiceFoundryServerClient';
 import type { Authenticator } from './authenticator';
 import { OidcAuthenticator } from './oidcAuthenticator';
 import { StandaloneAuthenticator } from './standaloneAuthenticator';
 import { TrueFoundryAuthenticator } from './trueFoundryAuthenticator';
 
-export enum TrueforgeMode {
-  Standalone = 'standalone',
-  Oidc = 'oidc',
-  TrueFoundry = 'truefoundry',
-}
+export { TrueForgeMode };
+
+export type CreateAuthenticatorParams =
+  | { mode: TrueForgeMode.Standalone }
+  | { mode: TrueForgeMode.Oidc }
+  | { mode: TrueForgeMode.TrueFoundry; trueFoundryClient: TrueFoundryServiceFoundryServerClient };
 
 /** Build the single process authenticator from resolved auth mode. */
-export function createAuthenticator(params: {
-  mode: TrueforgeMode;
-  trueFoundryClient?: TrueFoundryServiceFoundryServerClient;
-}): Authenticator {
+export function createAuthenticator(params: CreateAuthenticatorParams): Authenticator {
   switch (params.mode) {
-    case TrueforgeMode.TrueFoundry: {
-      if (!params.trueFoundryClient) {
-        throw new Error('TrueFoundryAuthenticator requires a ServiceFoundry client');
-      }
+    case TrueForgeMode.TrueFoundry:
       return new TrueFoundryAuthenticator(params.trueFoundryClient);
-    }
-    case TrueforgeMode.Oidc:
+    case TrueForgeMode.Oidc:
       return new OidcAuthenticator();
-    case TrueforgeMode.Standalone:
+    case TrueForgeMode.Standalone:
       return new StandaloneAuthenticator();
   }
 }

@@ -38,13 +38,3 @@ export function readBearerToken(c: Context): string | undefined {
 export function extractRequestToken(c: Context): string | undefined {
   return readBearerToken(c) ?? readAccessTokenCookie({ context: c }) ?? readIdTokenCookie({ context: c });
 }
-
-/** Format a raw token as the `UserCredential.authorization` value. */
-export function toBearerAuthorization(token: string): string {
-  return `${BEARER_PREFIX}${token}`;
-}
-
-/** Strip the `Bearer ` prefix from a stored credential authorization value. */
-export function rawTokenFromCredential(authorization: string): string {
-  return parseBearerAuthorization(authorization) ?? authorization;
-}

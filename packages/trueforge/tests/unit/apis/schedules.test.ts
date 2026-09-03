@@ -25,19 +25,19 @@ const mockedStartScheduleRun = jest.mocked(startScheduleRun);
 const ALICE: RequestContext = {
   tenant_id: 'default',
   subject: { id: 'alice', type: 'user', display_name: 'alice' },
-  is_admin: false,
+  roles: [],
   user_credential: null,
 };
 const BOB: RequestContext = {
   tenant_id: 'default',
   subject: { id: 'bob', type: 'user', display_name: 'bob' },
-  is_admin: false,
+  roles: [],
   user_credential: null,
 };
 const ADMIN: RequestContext = {
   tenant_id: 'default',
   subject: { id: 'root', type: 'user', display_name: 'root' },
-  is_admin: true,
+  roles: ['admin'],
   user_credential: null,
 };
 

@@ -24,9 +24,17 @@ import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
+let getTrueForgeMode: typeof import('./config').getTrueForgeMode;
+let TrueForgeMode: typeof import('./config').TrueForgeMode;
 
 try {
-  ({ default: configuration, isOidcConfigured, isTrueFoundryModeEnabled } = await import('./config'));
+  ({
+    default: configuration,
+    isOidcConfigured,
+    isTrueFoundryModeEnabled,
+    getTrueForgeMode,
+    TrueForgeMode,
+  } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -48,10 +56,9 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
-import { createAuthenticator, TrueforgeMode } from './auth/createAuthenticator';
+import { createAuthenticator } from './auth/createAuthenticator';
 import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
-import { rawTokenFromCredential } from './auth/token';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -103,7 +110,7 @@ function requireRequestCredentialToken(c: Context): string {
       message: 'Authentication token required to list or call TrueFoundry models and MCP servers',
     });
   }
-  return rawTokenFromCredential(credential.authorization);
+  return credential;
 }
 
 /**
@@ -330,19 +337,23 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const oidcClient = await initOidc(oidc);
 
   let authenticator;
-  if (isTrueFoundryModeEnabled(configuration)) {
+  const mode = getTrueForgeMode(configuration);
+  if (mode === TrueForgeMode.TrueFoundry) {
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      throw new Error('TrueFoundry mode requires TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    }
     authenticator = createAuthenticator({
-      mode: TrueforgeMode.TrueFoundry,
+      mode: TrueForgeMode.TrueFoundry,
       trueFoundryClient: new TrueFoundryServiceFoundryServerClient({
         serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
         logger,
         tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
       }),
     });
-  } else if (isOidcConfigured(configuration)) {
-    authenticator = createAuthenticator({ mode: TrueforgeMode.Oidc });
+  } else if (mode === TrueForgeMode.Oidc) {
+    authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
   } else {
-    authenticator = createAuthenticator({ mode: TrueforgeMode.Standalone });
+    authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
   }
 
   // Standalone is one process, so it owns the control loops too.

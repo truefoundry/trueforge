@@ -620,7 +620,7 @@ describe('mcp-servers routers', () => {
       resolveRequestContext: () => ({
         tenant_id: 'default',
         subject: { id: 'other-user', type: 'user', display_name: 'other-user' },
-        is_admin: false,
+        roles: [],
         user_credential: null,
       }),
     });

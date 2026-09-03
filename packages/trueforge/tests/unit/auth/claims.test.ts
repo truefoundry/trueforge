@@ -23,7 +23,7 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
   };
 }
 
-const TEST_AUTHORIZATION = 'Bearer test';
+const TEST_TOKEN = 'test';
 
 describe('claimValues', () => {
   it('passes through an array of strings', () => {
@@ -96,18 +96,18 @@ describe('resolveRole', () => {
 });
 
 describe('toRequestContext', () => {
-  it('maps claims onto RequestContext with admin from the role claim', () => {
+  it('maps claims onto RequestContext with roles from the role claim', () => {
     expect(
       toRequestContext({
         claims: { sub: 'user-123', groups: ['harness-admins'], name: 'User One' },
         config: config(),
-        authorization: TEST_AUTHORIZATION,
+        user_credential: TEST_TOKEN,
       }),
     ).toEqual({
       tenant_id: 'default',
       subject: { id: 'user-123', type: 'user', display_name: 'User One' },
-      is_admin: true,
-      user_credential: { authorization: TEST_AUTHORIZATION },
+      roles: ['harness-admins'],
+      user_credential: TEST_TOKEN,
     });
   });
 
@@ -116,13 +116,13 @@ describe('toRequestContext', () => {
       toRequestContext({
         claims: { sub: 'user-123', groups: ['harness-admins'] },
         config: config(),
-        authorization: TEST_AUTHORIZATION,
+        user_credential: TEST_TOKEN,
       }),
     ).toEqual({
       tenant_id: 'default',
       subject: { id: 'user-123', type: 'user', display_name: 'user-123' },
-      is_admin: true,
-      user_credential: { authorization: TEST_AUTHORIZATION },
+      roles: ['harness-admins'],
+      user_credential: TEST_TOKEN,
     });
   });
 
@@ -131,7 +131,7 @@ describe('toRequestContext', () => {
       toRequestContext({
         claims: { groups: ['harness-admins'] },
         config: config(),
-        authorization: TEST_AUTHORIZATION,
+        user_credential: TEST_TOKEN,
       }),
     ).toThrow();
   });
@@ -141,13 +141,13 @@ describe('toRequestContext', () => {
       toRequestContext({
         claims: { sub: 'user-123', groups: [], email: 'anyone@elsewhere.com' },
         config: config({ OIDC_ALLOWED_EMAILS: [] }),
-        authorization: TEST_AUTHORIZATION,
+        user_credential: TEST_TOKEN,
       }),
     ).toEqual({
       tenant_id: 'default',
       subject: { id: 'user-123', type: 'user', display_name: 'user-123' },
-      is_admin: false,
-      user_credential: { authorization: TEST_AUTHORIZATION },
+      roles: [],
+      user_credential: TEST_TOKEN,
     });
   });
 
@@ -156,7 +156,7 @@ describe('toRequestContext', () => {
       toRequestContext({
         claims: { sub: 'user-123', groups: [], email: 'outsider@elsewhere.com' },
         config: config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
-        authorization: TEST_AUTHORIZATION,
+        user_credential: TEST_TOKEN,
       }),
     ).toThrow(EmailNotAllowedError);
   });
@@ -166,13 +166,13 @@ describe('toRequestContext', () => {
       toRequestContext({
         claims: { sub: 'user-123', groups: ['harness-admins'], email: 'alice@company.com' },
         config: config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
-        authorization: TEST_AUTHORIZATION,
+        user_credential: TEST_TOKEN,
       }),
     ).toEqual({
       tenant_id: 'default',
       subject: { id: 'user-123', type: 'user', display_name: 'user-123' },
-      is_admin: true,
-      user_credential: { authorization: TEST_AUTHORIZATION },
+      roles: ['harness-admins'],
+      user_credential: TEST_TOKEN,
     });
   });
 });

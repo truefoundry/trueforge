@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
-import { createAuthMiddleware } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
@@ -104,9 +104,11 @@ describe('auth router (no identity provider configured)', () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
-      subject: STANDALONE_REQUEST_CONTEXT.subject,
-      is_admin: STANDALONE_REQUEST_CONTEXT.is_admin,
+      data: {
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        subject: STANDALONE_REQUEST_CONTEXT.subject,
+        roles: STANDALONE_REQUEST_CONTEXT.roles,
+      },
     });
   });
 });
@@ -477,9 +479,11 @@ describe('auth router (auth enabled)', () => {
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      tenant_id: 'default',
-      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
-      is_admin: false,
+      data: {
+        tenant_id: 'default',
+        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+        roles: [],
+      },
     });
   });
 });

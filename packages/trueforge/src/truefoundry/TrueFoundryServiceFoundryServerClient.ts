@@ -16,6 +16,7 @@ const MCP_SERVERS_PAGE_SIZE = 100;
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
  * Wire shape is camelCase (Nest Session + exposed `subject()`).
+ * Unauthenticated callers get HTTP 200 with `user: null`.
  */
 const SessionSubjectSchema = z.object({
   subjectId: z.string().min(1),
@@ -24,15 +25,20 @@ const SessionSubjectSchema = z.object({
   subjectSlug: z.string().nullable().optional(),
 });
 
-const GetSessionResponseSchema = z.object({
-  user: z.object({
-    tenantName: z.string().min(1),
-    roles: z.array(z.string()),
-    subject: SessionSubjectSchema,
-  }),
+const GetSessionUserSchema = z.object({
+  tenantName: z.string().min(1),
+  roles: z.array(z.string()),
+  subject: SessionSubjectSchema,
 });
 
-export type GetSessionResponse = z.infer<typeof GetSessionResponseSchema>;
+const GetSessionWireSchema = z.object({
+  user: GetSessionUserSchema.nullable(),
+});
+
+/** Authenticated session payload (`user` is non-null after {@link TrueFoundryServiceFoundryServerClient.getSession}). */
+export type GetSessionResponse = {
+  user: z.infer<typeof GetSessionUserSchema>;
+};
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -161,18 +167,32 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /**
    * `GET v1/session` for RequestContext mapping.
-   * Transport / auth failures follow {@link #getJson}; schema mismatch → 502 with `{ cause }`.
+   * `user: null` (invalid/missing auth on a 200) → 401; all other failures → 500.
    */
   async getSession(accessToken: string): Promise<GetSessionResponse> {
-    const payload = await this.#getJson(this.#url(SESSION_PATH), accessToken);
-    const parsed = GetSessionResponseSchema.safeParse(payload);
+    let payload: unknown;
+    try {
+      payload = await this.#getJson(this.#url(SESSION_PATH), accessToken);
+    } catch (error) {
+      if (error instanceof HTTPException && (error.status === 401 || error.status === 403)) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: 'TrueFoundry ServiceFoundry session request failed',
+        cause: error,
+      });
+    }
+    const parsed = GetSessionWireSchema.safeParse(payload);
     if (!parsed.success) {
       throw new HTTPException(500, {
         message: 'TrueFoundry ServiceFoundry session response was malformed',
         cause: parsed.error,
       });
     }
-    return parsed.data;
+    if (parsed.data.user === null) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    return { user: parsed.data.user };
   }
 
   #parseListResponse(payload: unknown): ListResponse {

@@ -123,9 +123,11 @@ export function createAuthRouter(params: {
   gated.openapi(meRoute, c => {
     const requestContext = resolveRequestContext(c);
     const body: GetMeResponse = {
-      tenant_id: requestContext.tenant_id,
-      subject: requestContext.subject,
-      is_admin: requestContext.is_admin,
+      data: {
+        tenant_id: requestContext.tenant_id,
+        subject: requestContext.subject,
+        roles: requestContext.roles,
+      },
     };
     return c.json(body, 200);
   });

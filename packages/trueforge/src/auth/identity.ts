@@ -1,24 +1,17 @@
 import type { Context } from 'hono';
-import { z } from 'zod';
 
-export const SubjectTypeSchema = z.enum(['user', 'virtualaccount']);
-export type SubjectType = z.infer<typeof SubjectTypeSchema>;
-
-export interface RequestSubject {
+export type RequestSubject = {
   id: string;
-  type: SubjectType;
+  type: string;
   display_name: string;
-}
-
-export interface UserCredential {
-  authorization: string;
-}
+};
 
 export interface RequestContext {
   tenant_id: string;
   subject: RequestSubject;
-  is_admin: boolean;
-  user_credential: UserCredential | null;
+  roles: string[];
+  /** Raw bearer token for the caller, or `null` when standalone has no credential. */
+  user_credential: string | null;
 }
 
 export const STANDALONE_REQUEST_CONTEXT: RequestContext = {
@@ -26,13 +19,19 @@ export const STANDALONE_REQUEST_CONTEXT: RequestContext = {
   subject: {
     id: 'trueforge-default',
     type: 'user',
-    display_name: 'Admin',
+    display_name: 'trueforge-default',
   },
-  is_admin: true,
+  roles: ['admin'],
   user_credential: null,
 };
 
 export type ResolveRequestContext = (c: Context) => RequestContext;
+
+declare module 'hono' {
+  interface ContextVariableMap {
+    request_context?: RequestContext;
+  }
+}
 
 export function resolveRequestContext(c: Context): RequestContext {
   const requestContext = c.get('request_context');
@@ -40,4 +39,9 @@ export function resolveRequestContext(c: Context): RequestContext {
     throw new Error('RequestContext missing; auth middleware did not run');
   }
   return requestContext;
+}
+
+/** Whether the caller holds the TrueForge admin role (`admin`). */
+export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boolean {
+  return requestContext.roles.includes('admin');
 }

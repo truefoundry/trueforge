@@ -685,6 +685,27 @@ export function isTrueFoundryModeEnabled(
   return config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
 }
 
+/** Runtime auth/integration mode for this process. */
+export enum TrueForgeMode {
+  Standalone = 'standalone',
+  Oidc = 'oidc',
+  TrueFoundry = 'truefoundry',
+}
+
+/**
+ * Resolve the active {@link TrueForgeMode} from configuration.
+ * TrueFoundry wins over OIDC when both would otherwise be set (startup already rejects that combo).
+ */
+export function getTrueForgeMode(config: ServerConfiguration = configuration): TrueForgeMode {
+  if (isTrueFoundryModeEnabled(config)) {
+    return TrueForgeMode.TrueFoundry;
+  }
+  if (isOidcConfigured(config)) {
+    return TrueForgeMode.Oidc;
+  }
+  return TrueForgeMode.Standalone;
+}
+
 // TrueFoundry mode authenticates each caller with their own gateway token, so browser SSO must be
 // off — the two auth models are mutually exclusive.
 if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) {

@@ -3,8 +3,8 @@ import { HTTPException } from 'hono/http-exception';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
 import type { Authenticator } from '../../../src/auth/authenticator';
-import { createAdminAuthMiddleware, createAuthMiddleware } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createAdminAuthMiddleware, createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
@@ -156,8 +156,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
 
     function oidcRequestContext(params: {
       subjectId: string;
-      isAdmin: boolean;
-      authorization: string;
+      roles: string[];
+      userCredential: string;
       displayName?: string;
     }) {
       return {
@@ -167,8 +167,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
           type: 'user' as const,
           display_name: params.displayName ?? params.subjectId,
         },
-        is_admin: params.isAdmin,
-        user_credential: { authorization: params.authorization },
+        roles: params.roles,
+        user_credential: params.userCredential,
       };
     }
 
@@ -231,8 +231,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'alice',
-          isAdmin: true,
-          authorization: `Bearer ${token}`,
+          roles: ['admin'],
+          userCredential: token,
         }),
       });
     });
@@ -247,8 +247,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'alice',
-          isAdmin: true,
-          authorization: `Bearer ${token}`,
+          roles: ['admin'],
+          userCredential: token,
         }),
       });
     });
@@ -267,8 +267,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'bearer-user',
-          isAdmin: true,
-          authorization: `Bearer ${bearerToken}`,
+          roles: ['admin'],
+          userCredential: bearerToken,
         }),
       });
     });
@@ -286,8 +286,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'alice',
-          isAdmin: true,
-          authorization: `Bearer ${token}`,
+          roles: ['admin'],
+          userCredential: token,
         }),
       });
     });
@@ -302,8 +302,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'alice',
-          isAdmin: true,
-          authorization: `Bearer ${token}`,
+          roles: ['admin'],
+          userCredential: token,
         }),
       });
     });
@@ -318,8 +318,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'alice',
-          isAdmin: true,
-          authorization: `Bearer ${token}`,
+          roles: ['admin'],
+          userCredential: token,
         }),
       });
     });
@@ -360,8 +360,8 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
         ok: true,
         user: oidcRequestContext({
           subjectId: 'alice',
-          isAdmin: true,
-          authorization: `Bearer ${token}`,
+          roles: ['admin'],
+          userCredential: token,
         }),
       });
     });

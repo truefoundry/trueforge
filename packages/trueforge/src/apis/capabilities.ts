@@ -1,7 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
-import type { ResolveRequestContext } from '../auth/identity';
+import { hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
@@ -43,7 +43,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       deps.logger.warn('Sandbox image status check failed; reporting sandbox disabled', extractErrorLogFields(error));
     }
     const sandboxEnabled = status === 'ready' || (status === undefined && isLocalSandboxFallbackEnabled());
-    const settingsEnabled = requestContext.is_admin;
+    const settingsEnabled = hasAdminRole(requestContext);
     return c.json(
       {
         data: {

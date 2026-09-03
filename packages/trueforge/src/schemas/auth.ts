@@ -28,26 +28,24 @@ export const OAuthCallbackSuccessSchema = z.object({
   success: z.literal(true).describe('Present when the OAuth callback completed without a return_to.'),
 });
 
-/** Wire copy of identity `SubjectType` — kept local so OpenAPI uses `@hono/zod-openapi`. */
-const GetMeSubjectTypeSchema = z
-  .enum(['user', 'virtualaccount'])
-  .describe('Subject kind: interactive user or virtual account.');
-
 export const GetMeSubjectSchema = z
   .object({
     id: z.string().describe('Stable subject identifier for the caller.'),
-    type: GetMeSubjectTypeSchema,
+    type: z.string().describe('Subject kind as returned by the identity provider (stored as-is).'),
     display_name: z.string().describe('Human-readable name for the caller.'),
   })
   .openapi('GetMeSubject');
 
-export const GetMeResponseSchema = z
+export const MeSchema = z
   .object({
     tenant_id: z.string().describe('Tenant scope for the authenticated caller.'),
     subject: GetMeSubjectSchema,
-    is_admin: z.boolean().describe('Whether the caller has admin privileges.'),
+    roles: z.array(z.string()).describe('Roles for the authenticated caller.'),
   })
-  .openapi('GetMeResponse');
+  .openapi('Me');
+
+export const GetMeResponseSchema = z.object({ data: MeSchema }).openapi('GetMeResponse');
 
 export type GetMeSubject = z.infer<typeof GetMeSubjectSchema>;
+export type Me = z.infer<typeof MeSchema>;
 export type GetMeResponse = z.infer<typeof GetMeResponseSchema>;
