@@ -3,7 +3,12 @@
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
-import { hasAdminRole, type RequestContext, type ResolveRequestContext } from '../auth/identity';
+import {
+  createdBySubjectFromRequestContext,
+  hasAdminRole,
+  type RequestContext,
+  type ResolveRequestContext,
+} from '../auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {
@@ -49,7 +54,7 @@ function toWireSchedule(record: ScheduleRecord): Schedule {
     agent_name: record.agent_name,
     name: record.name,
     manifest: record.manifest,
-    created_by: record.created_by,
+    created_by_subject: record.created_by_subject,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -62,7 +67,7 @@ function toWireScheduleRun(record: ScheduleRunRecord): ScheduleRun {
     name: record.name,
     scheduled_for: record.scheduled_for,
     status: record.status,
-    triggered_by: record.triggered_by,
+    created_by_subject: record.created_by_subject,
     triggered_at: record.triggered_at,
     created_at: record.created_at,
     updated_at: record.updated_at,
@@ -107,8 +112,11 @@ const FORBIDDEN_SCHEDULE_ACCESS = 'Only the schedule creator can access this sch
  * Standalone auth stamps `roles: ['admin']` on the sole identity, which already
  * owns everything it created — so admin bypass is a no-op there.
  */
-function canAccessSchedule(requestContext: Pick<RequestContext, 'roles' | 'subject'>, createdBy: string): boolean {
-  return hasAdminRole(requestContext) || requestContext.subject.id === createdBy;
+function canAccessSchedule(
+  requestContext: Pick<RequestContext, 'roles' | 'subject'>,
+  created_by_subject_id: string,
+): boolean {
+  return hasAdminRole(requestContext) || requestContext.subject.id === created_by_subject_id;
 }
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
@@ -116,14 +124,14 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     const { agent_names: agentNames, limit, page_token: pageToken } = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     // Admins see every schedule; a regular user is scoped to their own via the
-    // store's `created_by` filter (never a client-supplied param).
+    // store's `created_by_subject_id` filter (never a client-supplied param).
     try {
       const { data, pagination } = await deps.scheduleStore.listSchedules({
         tenant_id: requestContext.tenant_id,
         limit,
         page_token: pageToken,
         agent_names: agentNames,
-        created_by: hasAdminRole(requestContext) ? undefined : requestContext.subject.id,
+        created_by_subject_id: hasAdminRole(requestContext) ? undefined : requestContext.subject.id,
       });
       return c.json({ data: data.map(toWireSchedule), pagination }, 200);
     } catch (error) {
@@ -144,7 +152,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     if (schedule === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
-    if (!canAccessSchedule(requestContext, schedule.created_by)) {
+    if (!canAccessSchedule(requestContext, schedule.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
     const records = await deps.scheduleStore.listRuns({
@@ -165,7 +173,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     if (schedule === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
-    if (!canAccessSchedule(requestContext, schedule.created_by)) {
+    if (!canAccessSchedule(requestContext, schedule.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
 
@@ -178,7 +186,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         name: manualRunName(),
         scheduled_for: now,
         status: 'triggered',
-        triggered_by: requestContext.subject.id,
+        created_by_subject: createdBySubjectFromRequestContext(requestContext),
         triggered_at: now,
       });
     } catch (error) {
@@ -244,7 +252,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
             agent_name: agent.name,
             name: body.name,
             manifest: body.manifest,
-            created_by: requestContext.subject.id,
+            created_by_subject: createdBySubjectFromRequestContext(requestContext),
             runFrom: new Date(),
           },
           transaction,
@@ -274,7 +282,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     if (record === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
-    if (!canAccessSchedule(requestContext, record.created_by)) {
+    if (!canAccessSchedule(requestContext, record.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
     return c.json({ data: toWireSchedule(record) }, 200);
@@ -304,7 +312,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     if (existing === undefined) {
       return c.json({ error: { message: `Schedule not found: ${scheduleId}` } }, 404);
     }
-    if (!canAccessSchedule(requestContext, existing.created_by)) {
+    if (!canAccessSchedule(requestContext, existing.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
 
@@ -349,7 +357,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     if (record === undefined) {
       return c.json({}, 200);
     }
-    if (!canAccessSchedule(requestContext, record.created_by)) {
+    if (!canAccessSchedule(requestContext, record.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
     await deps.scheduleStore.deleteSchedule({

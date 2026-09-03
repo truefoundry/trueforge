@@ -62,7 +62,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });
@@ -135,7 +135,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });
@@ -229,7 +229,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });

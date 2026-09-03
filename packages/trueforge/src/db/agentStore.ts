@@ -4,7 +4,7 @@
  * `AgentSpec` jsonb document.
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
-import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type AgentSpec, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ResourceName } from '../schemas/common';
 
 export interface AgentRecord {
@@ -13,6 +13,7 @@ export interface AgentRecord {
   name: ResourceName;
   manifest: AgentSpec;
   external_id: string | null;
+  created_by_subject: CreatedBySubject;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -35,6 +36,7 @@ export interface CreateAgentInput {
   name: ResourceName;
   manifest: AgentSpec;
   external_id: string | null;
+  created_by_subject: CreatedBySubject;
 }
 
 /**

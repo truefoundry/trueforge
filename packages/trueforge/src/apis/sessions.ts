@@ -21,7 +21,7 @@ import type { Context } from 'hono';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { ResolveRequestContext } from '../auth/identity';
+import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -60,7 +60,7 @@ export function toWireSession(record: SessionRecord): Session {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
-    created_by: record.created_by,
+    created_by_subject: record.created_by_subject,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
     metrics: record.metrics,
@@ -214,8 +214,14 @@ async function freezeTurnIgnoringMissing(
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
 
-function checkSessionAccess({ subject_id, createdBy }: { subject_id: string; createdBy: string }): boolean {
-  return subject_id === createdBy;
+function checkSessionAccess({
+  subject_id,
+  created_by_subject,
+}: {
+  subject_id: string;
+  created_by_subject: { subject_id: string };
+}): boolean {
+  return subject_id === created_by_subject.subject_id;
 }
 
 type InternalSessionsRouterDeps = Pick<
@@ -241,7 +247,12 @@ function createGetOrCreateSessionByExternalIdHandler(
       external_id: body.external_id,
     });
     if (existing !== undefined) {
-      if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: existing.record.created_by })) {
+      if (
+        !checkSessionAccess({
+          subject_id: requestContext.subject.id,
+          created_by_subject: existing.record.created_by_subject,
+        })
+      ) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
       return c.json({ data: toWireSession(existing.record) }, 200);
@@ -272,12 +283,15 @@ function createGetOrCreateSessionByExternalIdHandler(
     const { session, created } = await deps.sessions.getOrCreateByExternalId({
       tenant_id: requestContext.tenant_id,
       external_id: body.external_id,
-      created_by: requestContext.subject.id,
+      created_by_subject: createdBySubjectFromRequestContext(requestContext),
       agent,
     });
     if (
       !created &&
-      !checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
@@ -310,7 +324,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const session = await deps.sessions.create({
         tenant_id: requestContext.tenant_id,
         session_id: sessionId,
-        created_by: requestContext.subject.id,
+        created_by_subject: createdBySubjectFromRequestContext(requestContext),
         agent: { type: 'reference', id: agent.id, name: agent.name },
         metadata: body.metadata,
         external_id: null,
@@ -329,7 +343,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
-      created_by: requestContext.subject.id,
+      created_by_subject: createdBySubjectFromRequestContext(requestContext),
       agent: { type: 'inline', spec: body.agent.spec },
       metadata: body.metadata,
       external_id: null,
@@ -347,7 +361,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: record.created_by })) {
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: record.created_by_subject,
+      })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     return c.json({ data: toWireSession(record) }, 200);
@@ -364,7 +383,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       // Idempotent delete when already gone.
       return c.body(null, 204);
     }
-    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: record.created_by })) {
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: record.created_by_subject,
+      })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     await deps.sessionStore.deleteSession({
@@ -385,7 +409,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!existing) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: existing.created_by })) {
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: existing.created_by_subject,
+      })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     // Inline sessions may replace their agent; named (reference) sessions
@@ -433,7 +462,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
-        created_by: requestContext.subject.id,
+        created_by_subject_id: requestContext.subject.id,
         tenant_id: requestContext.tenant_id,
         limit: query.limit,
         order: query.order,
@@ -460,7 +489,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })) {
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turnId = session.record.last_turn_id;
@@ -483,7 +517,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })) {
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {

@@ -1,5 +1,10 @@
-import type { AgentSpec, SessionMetadata, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
-import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  AgentSpec,
+  CreatedBySubject,
+  SessionMetadata,
+  SessionMetrics,
+} from '@truefoundry/trueforge-core/agent-session';
+import { parseStoredCreatedBySubject, SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -49,7 +54,7 @@ function parseSessionMetadata(value: unknown): SessionMetadata {
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  created_by: string;
+  created_by_subject: CreatedBySubject;
   agent_id: string | null;
   agent_name: string | null;
   agent_spec: AgentSpec | null;
@@ -66,7 +71,7 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by: row.created_by,
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
@@ -89,7 +94,7 @@ function sessionSelectColumns() {
   return [
     'tenant_id' as const,
     'session_id' as const,
-    'created_by' as const,
+    jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
     'agent_id' as const,
     'agent_name' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
@@ -115,7 +120,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
-        created_by: input.created_by,
+        created_by_subject: jsonbBind(input.created_by_subject),
         agent_id: columns.agent_id,
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
@@ -256,8 +261,8 @@ export async function listSessions(
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
   }
-  if (input.created_by !== undefined) {
-    query = query.where('created_by', '=', input.created_by);
+  if (input.created_by_subject_id !== undefined) {
+    query = query.where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
   }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp.toISOString());

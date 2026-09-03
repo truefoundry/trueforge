@@ -1,4 +1,5 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import { parseStoredCreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -24,6 +25,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
     'name' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
     'external_id' as const,
+    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -35,10 +37,15 @@ function toRecord(row: {
   name: AgentRecord['name'];
   manifest: AgentSpec;
   external_id: string | null;
+  created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
 }): AgentRecord {
-  return { ...row, manifest: parseStoredAgentSpec(row.manifest) };
+  return {
+    ...row,
+    manifest: parseStoredAgentSpec(row.manifest),
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+  };
 }
 
 export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
@@ -83,6 +90,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           name: input.name,
           manifest: jsonbBind(input.manifest),
           external_id: input.external_id,
+          created_by_subject: jsonbBind(input.created_by_subject),
           created_at: timestamp,
           updated_at: timestamp,
         })

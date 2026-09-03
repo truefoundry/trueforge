@@ -1,9 +1,10 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { parseStoredCreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
 import { newId } from '../../../utils/id';
@@ -42,24 +43,26 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
     'name' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
-    'created_by' as const,
+    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
   ];
 }
 
-const RUN_COLUMNS = [
-  'id',
-  'tenant_id',
-  'schedule_id',
-  'name',
-  'scheduled_for',
-  'status',
-  'triggered_by',
-  'triggered_at',
-  'created_at',
-  'updated_at',
-] as const;
+function runColumns(eb: ExpressionBuilder<Database, 'schedule_run'>) {
+  return [
+    'id' as const,
+    'tenant_id' as const,
+    'schedule_id' as const,
+    'name' as const,
+    'scheduled_for' as const,
+    'status' as const,
+    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
+    'triggered_at' as const,
+    'created_at' as const,
+    'updated_at' as const,
+  ];
+}
 
 interface ScheduleRow {
   id: string;
@@ -68,7 +71,7 @@ interface ScheduleRow {
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
-  created_by: string;
+  created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
 }
@@ -80,18 +83,25 @@ interface RunRow {
   name: string;
   scheduled_for: string;
   status: ScheduleRunStatus;
-  triggered_by: string;
+  created_by_subject: CreatedBySubject;
   triggered_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 function toScheduleRecord(row: ScheduleRow): ScheduleRecord {
-  return { ...row, manifest: parseStoredScheduleManifest(row.manifest) };
+  return {
+    ...row,
+    manifest: parseStoredScheduleManifest(row.manifest),
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+  };
 }
 
 function toRunRecord(row: RunRow): ScheduleRunRecord {
-  return { ...row };
+  return {
+    ...row,
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+  };
 }
 
 export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>> {
@@ -141,7 +151,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           manifest: jsonbBind(input.manifest),
           // Column mirrors the manifest so the dispatch scan and API reads share one value.
           status: input.manifest.status,
-          created_by: input.created_by,
+          created_by_subject: jsonbBind(input.created_by_subject),
           created_at: timestamp,
           updated_at: timestamp,
         })
@@ -244,7 +254,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         name: cronRunName(nextTrigger),
         scheduled_for: nextTrigger,
         status: 'scheduled',
-        triggered_by: schedule.created_by,
+        created_by_subject: schedule.created_by_subject,
       },
       transaction,
     );
@@ -265,8 +275,8 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     if (input.agent_names !== undefined) {
       query = query.where('agent_name', 'in', [...input.agent_names]);
     }
-    if (input.created_by !== undefined) {
-      query = query.where('created_by', '=', input.created_by);
+    if (input.created_by_subject_id !== undefined) {
+      query = query.where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     }
     const rows = await query
       .orderBy('created_at', 'desc')
@@ -282,7 +292,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('schedule_run')
-      .select(RUN_COLUMNS)
+      .select(runColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where('schedule_id', '=', input.schedule_id)
       .orderBy('scheduled_for', 'desc')
@@ -295,7 +305,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     const db = transaction ?? this.#db;
     const row = await db
       .selectFrom('schedule_run')
-      .select(RUN_COLUMNS)
+      .select(runColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .executeTakeFirst();
@@ -309,7 +319,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     const db = transaction ?? this.#db;
     const row = await db
       .selectFrom('schedule_run')
-      .select(RUN_COLUMNS)
+      .select(runColumns)
       .where('tenant_id', '=', input.tenant_id)
       .where('schedule_id', '=', input.schedule_id)
       .where('status', '=', 'scheduled')
@@ -330,12 +340,12 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           name: input.name,
           scheduled_for: input.scheduled_for.toISOString(),
           status: input.status,
-          triggered_by: input.triggered_by,
+          created_by_subject: jsonbBind(input.created_by_subject),
           triggered_at: input.triggered_at?.toISOString() ?? null,
           created_at: timestamp,
           updated_at: timestamp,
         })
-        .returning(RUN_COLUMNS)
+        .returning(runColumns)
         .executeTakeFirstOrThrow();
       return toRunRecord(row);
     } catch (error) {
@@ -361,7 +371,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .set(patch)
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
-      .returning(RUN_COLUMNS)
+      .returning(runColumns)
       .executeTakeFirst();
     return row === undefined ? undefined : toRunRecord(row);
   }
@@ -373,7 +383,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('schedule_run')
-      .select(RUN_COLUMNS)
+      .select(runColumns)
       .where('status', '=', 'scheduled')
       .where('scheduled_for', '<=', input.until.toISOString())
       .orderBy('scheduled_for')

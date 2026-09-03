@@ -83,7 +83,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     await store.createSession({
       tenant_id: tenant,
       session_id: sessionId,
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: agentSpec },
       custom: null,
       metadata: {},
@@ -171,7 +171,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(session).toBeDefined();
       expect(mustGet(session).tenant_id).toBe(tenant);
-      expect(mustGet(session).created_by).toBe('user-1');
+      expect(mustGet(session).created_by_subject.subject_id).toBe('user-1');
       expect(mustGet(session).agent).toMatchObject({
         type: 'inline',
         spec: { model: { name: 'test-provider/test-model' } },
@@ -185,19 +185,27 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
     });
 
-    it('createSession persists created_by', async () => {
+    it('createSession persists created_by_subject', async () => {
       const store = createStore();
       await store.createSession({
         tenant_id: tenant,
         session_id: 'created-by-session',
-        created_by: 'alice@example.com',
+        created_by_subject: {
+          subject_id: 'alice@example.com',
+          subject_type: 'user',
+          subject_display_name: 'alice@example.com',
+        },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
         external_id: null,
       });
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'created-by-session' }));
-      expect(session.created_by).toBe('alice@example.com');
+      expect(session.created_by_subject).toEqual({
+        subject_id: 'alice@example.com',
+        subject_type: 'user',
+        subject_display_name: 'alice@example.com',
+      });
 
       const listed = await store.listSessions({
         tenant_id: tenant,
@@ -207,10 +215,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         start_timestamp: undefined,
         end_timestamp: undefined,
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
       });
       expect(listed.data.map(s => s.session_id)).toContain('created-by-session');
-      expect(listed.data.find(s => s.session_id === 'created-by-session')?.created_by).toBe('alice@example.com');
+      expect(listed.data.find(s => s.session_id === 'created-by-session')?.created_by_subject.subject_id).toBe(
+        'alice@example.com',
+      );
     });
 
     it('persists reference agents and listSessions filters by agent_id', async () => {
@@ -218,7 +228,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 'named-1',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'reference', id: 'agent-abc', name: null },
         custom: null,
         metadata: {},
@@ -231,7 +241,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const filtered = await store.listSessions({
         agent_id: 'agent-abc',
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -247,7 +257,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 'named-1',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'reference', id: 'agent-abc', name: null },
         custom: null,
         metadata: {},
@@ -302,7 +312,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: sessionId,
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata,
@@ -317,7 +327,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: sessionId,
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: { a: '1' },
@@ -369,7 +379,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.createSession({
           tenant_id: 'other',
           session_id: sessionId,
-          created_by: 'user-1',
+          created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
           agent: { type: 'inline', spec: makeAgentSpec() },
           custom: null,
           metadata: {},
@@ -390,7 +400,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: sessionId,
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -409,7 +419,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 's-a',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -421,7 +431,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.createSession({
           tenant_id: tenant,
           session_id: 's-b',
-          created_by: 'user-1',
+          created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
           agent: { type: 'inline', spec: makeAgentSpec() },
           custom: null,
           metadata: {},
@@ -432,7 +442,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 's-c',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -441,7 +451,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 's-d',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -450,7 +460,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 's-e',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -463,7 +473,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: sessionId,
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -483,7 +493,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 'other-session',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -568,7 +578,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const listed = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -668,7 +678,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: nested,
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -799,7 +809,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         await store.createSession({
           tenant_id: tenant,
           session_id: id,
-          created_by: 'user-1',
+          created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
           agent: { type: 'inline', spec: makeAgentSpec() },
           custom: null,
           metadata: {},
@@ -815,7 +825,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: 'other',
         session_id: 'sx',
-        created_by: 'user-1',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -824,7 +834,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const desc = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -836,7 +846,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const asc = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -853,7 +863,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const first = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 2,
         page_token: undefined,
@@ -865,7 +875,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(first.pagination.next_page_token).toBeDefined();
       const second = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 2,
         page_token: first.pagination.next_page_token,
@@ -878,7 +888,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const all = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -893,7 +903,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const middleCreatedAt = middleSession.created_at;
       const bounded = await store.listSessions({
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         limit: 10,
         order: 'asc',
@@ -918,7 +928,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const listArgs = {
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         order: undefined,
         start_timestamp: undefined,
@@ -944,7 +954,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const listArgs = {
         agent_id: undefined,
-        created_by: undefined,
+        created_by_subject_id: undefined,
         tenant_id: tenant,
         order: 'desc' as const,
         start_timestamp: undefined,
@@ -965,12 +975,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(page2.pagination.next_page_token).toBeUndefined();
     });
 
-    it('filters by created_by', async () => {
+    it('filters by created_by_subject_id', async () => {
       const store = createStore();
       await store.createSession({
         tenant_id: tenant,
         session_id: 'alice-session',
-        created_by: 'alice',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -979,7 +989,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createSession({
         tenant_id: tenant,
         session_id: 'bob-session',
-        created_by: 'bob',
+        created_by_subject: { subject_id: 'bob', subject_type: 'user', subject_display_name: 'bob' },
         agent: { type: 'inline', spec: makeAgentSpec() },
         custom: null,
         metadata: {},
@@ -988,7 +998,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
       const aliceOnly = await store.listSessions({
         agent_id: undefined,
-        created_by: 'alice',
+        created_by_subject_id: 'alice',
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -997,11 +1007,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: undefined,
       });
       expect(aliceOnly.data.map(s => s.session_id)).toEqual(['alice-session']);
-      expect(aliceOnly.data[0]?.created_by).toBe('alice');
+      expect(aliceOnly.data[0]?.created_by_subject.subject_id).toBe('alice');
 
       const unmatched = await store.listSessions({
         agent_id: undefined,
-        created_by: 'nobody',
+        created_by_subject_id: 'nobody',
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,

@@ -1,9 +1,10 @@
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { parseStoredCreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { Kysely, Selectable, Transaction } from 'kysely';
+import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
 import {
@@ -40,7 +41,7 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
     name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
     status: row.status,
-    created_by: row.created_by,
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -54,7 +55,7 @@ function toRunRecord(row: Selectable<ScheduleRunTable>): ScheduleRunRecord {
     name: row.name,
     scheduled_for: row.scheduled_for.toISOString(),
     status: row.status,
-    triggered_by: row.triggered_by,
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
     triggered_at: row.triggered_at === null ? null : row.triggered_at.toISOString(),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
@@ -96,7 +97,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         name: cronRunName(nextTrigger),
         scheduled_for: nextTrigger,
         status: 'scheduled',
-        triggered_by: schedule.created_by,
+        created_by_subject: schedule.created_by_subject,
       },
       transaction,
     );
@@ -144,7 +145,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           manifest: json(input.manifest),
           // Column mirrors the manifest so the dispatch scan and API reads share one value.
           status: input.manifest.status,
-          created_by: input.created_by,
+          created_by_subject: json(input.created_by_subject),
           created_at: now(),
           updated_at: now(),
         })
@@ -227,8 +228,8 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     if (input.agent_names !== undefined) {
       query = query.where('agent_name', 'in', [...input.agent_names]);
     }
-    if (input.created_by !== undefined) {
-      query = query.where('created_by', '=', input.created_by);
+    if (input.created_by_subject_id !== undefined) {
+      query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
     }
     const rows = await query
       .orderBy('created_at', 'desc')
@@ -291,7 +292,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           name: input.name,
           scheduled_for: input.scheduled_for,
           status: input.status,
-          triggered_by: input.triggered_by,
+          created_by_subject: json(input.created_by_subject),
           triggered_at: input.triggered_at ?? null,
           created_at: now(),
           updated_at: now(),

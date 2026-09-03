@@ -1,4 +1,4 @@
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 
 import { dispatchScheduledRuns } from '../../src/controller/scheduleDispatch';
@@ -16,8 +16,18 @@ import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas
 const TENANT = 'default';
 /** Schedule creator. Every advanced run must be attributed to this identity. */
 const USER = 'tester';
-/** Distinct from {@link USER}, so `triggered_by` assertions cannot pass by aliasing. */
+const USER_SUBJECT: CreatedBySubject = {
+  subject_id: USER,
+  subject_type: 'user',
+  subject_display_name: USER,
+};
+/** Distinct from {@link USER}, so `created_by_subject` assertions cannot pass by aliasing. */
 const OTHER_ACTOR = 'someone-else';
+const OTHER_ACTOR_SUBJECT: CreatedBySubject = {
+  subject_id: OTHER_ACTOR,
+  subject_type: 'user',
+  subject_display_name: OTHER_ACTOR,
+};
 const CRON = '0 * * * *';
 /**
  * Triggers every minute. Used where a past `scheduled_for` must produce a DIFFERENT
@@ -59,6 +69,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     seq += 1;
     const agent = await deps.getAgentStore().createAgent({
       tenant_id: TENANT,
+      created_by_subject: USER_SUBJECT,
       name: `agent-${String(Date.now())}-${String(seq)}`,
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -90,7 +101,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     status?: 'active' | 'paused';
     scheduledFor: Date;
     cron?: string;
-    triggeredBy?: string;
+    createdBySubject?: CreatedBySubject;
   }): Promise<{ schedule: ScheduleRecord; run: ScheduleRunRecord }> {
     const store = deps.getScheduleStore();
     const agentName = await seedAgent();
@@ -101,7 +112,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       agent_name: agentName,
       name: `sched-${String(Date.now())}-${String(seq)}`,
       manifest: manifest({ status, cron }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       // Far enough ahead so that it doesnt clash with actual test.
       runFrom: new Date(Date.now() + 10 * 365 * 24 * 3600 * 1000),
     });
@@ -115,7 +126,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       name: `test-${String(Date.now())}-${String(seq)}`,
       scheduled_for: params.scheduledFor,
       status: 'scheduled',
-      triggered_by: params.triggeredBy ?? USER,
+      created_by_subject: params.createdBySubject ?? USER_SUBJECT,
     });
     return { schedule, run };
   }
@@ -125,7 +136,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     const pastScheduledFor = new Date(Date.now() - 60_000);
     const { schedule, run } = await seedSchedule({
       scheduledFor: pastScheduledFor,
-      triggeredBy: OTHER_ACTOR,
+      createdBySubject: OTHER_ACTOR_SUBJECT,
     });
     const triggered: ScheduleDispatchItem[] = [];
     const before = Date.now();
@@ -160,7 +171,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       expect.objectContaining({
         schedule_id: schedule.id,
         status: 'scheduled',
-        triggered_by: USER,
+        created_by_subject: USER_SUBJECT,
       }),
     );
     expect(next?.id).not.toBe(run.id);

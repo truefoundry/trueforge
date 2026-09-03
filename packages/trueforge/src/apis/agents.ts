@@ -4,7 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import type { ResolveRequestContext } from '../auth/identity';
+import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -39,6 +39,7 @@ function toWireAgent(record: AgentRecord): Agent {
     id: record.id,
     name: record.name,
     manifest: record.manifest,
+    created_by_subject: record.created_by_subject,
   };
 }
 
@@ -89,6 +90,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
         name: body.name,
         manifest,
         external_id: null,
+        created_by_subject: createdBySubjectFromRequestContext(requestContext),
       });
       return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {
