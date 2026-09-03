@@ -6,12 +6,7 @@ import { z } from 'zod';
 
 import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
-import {
-  parseSfyMcpAuthStatus,
-  parseSfyMcpAuthorizeResult,
-  type SfyMcpAuthSource,
-  type SfyMcpAuthSubjectType,
-} from './mapSfyMcpServers';
+import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
@@ -223,7 +218,7 @@ export class TrueFoundryServiceFoundryServerClient {
     accessToken: string;
     mcpServerId: string;
     subjectId: string;
-    subjectType: SfyMcpAuthSubjectType;
+    subjectType: string;
   }): Promise<McpAuthStatus> {
     const payload = await this.#requestJson({
       url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/auth/status`, {
@@ -254,7 +249,7 @@ export class TrueFoundryServiceFoundryServerClient {
     accessToken: string;
     mcpServerId: string;
     subjectId: string;
-    subjectType: SfyMcpAuthSubjectType;
+    subjectType: string;
     authSource: SfyMcpAuthSource;
   }): Promise<void> {
     await this.#requestJson({

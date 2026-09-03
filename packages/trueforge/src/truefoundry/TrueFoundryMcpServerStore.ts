@@ -26,7 +26,6 @@ import {
   mapSfyMcpServers,
   parseSfyMcpServerSummary,
   toTrueFoundryMcpManifest,
-  type SfyMcpAuthSubjectType,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
 import type { PerServerMcpHeaders } from './perServerMcpHeaders';
@@ -52,15 +51,6 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
     return {};
   }
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
-}
-
-function toSfyMcpAuthSubjectType(subjectType: string): SfyMcpAuthSubjectType {
-  if (subjectType === 'user' || subjectType === 'virtualaccount') {
-    return subjectType;
-  }
-  throw new HTTPException(401, {
-    message: `Subject type "${subjectType}" is not supported for MCP auth`,
-  });
 }
 
 /**
@@ -91,23 +81,21 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   readonly #client: TrueFoundryMcpApiClient;
   readonly #accessToken: string;
   readonly #subjectId: string;
-  readonly #subjectType: SfyMcpAuthSubjectType;
+  readonly #subjectType: string;
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
   constructor(input: {
     client: TrueFoundryMcpApiClient;
     accessToken: string;
-    /** RequestContext subject id — SFY MCP auth `subjectId` (effective id when applicable). */
     subjectId: string;
-    /** RequestContext subject type — narrowed to SFY `user` / `virtualaccount`. */
     subjectType: string;
     perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
     this.#subjectId = input.subjectId;
-    this.#subjectType = toSfyMcpAuthSubjectType(input.subjectType);
+    this.#subjectType = input.subjectType;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 

@@ -7,9 +7,6 @@ import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
 /** Placeholder in SFY `proxyUrl` replaced with the tenant gateway base URL. */
 export const MCP_PROXY_BASE_URL_TEMPLATE = '{{mcpProxyBaseURL}}';
 
-/** SFY subject types for auth status / delete. */
-export type SfyMcpAuthSubjectType = 'user' | 'virtualaccount';
-
 /** SFY per-subject auth record kinds for DELETE /mcp/:id/auth. */
 export type SfyMcpAuthSource = 'oauth' | 'auth-override';
 
