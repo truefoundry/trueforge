@@ -3,7 +3,6 @@ import { SCHEDULE_CREATED_BY_SUBJECT_ID_IDX, SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_
 
 /**
  * Replace schedule.created_by and schedule_run.triggered_by with created_by_subject jsonb.
- * schedule_run prefers parent schedule subject when available; else string backfill rule.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
@@ -41,17 +40,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     `.execute(trx);
 
     await sql`
-      UPDATE schedule_run AS r
-      SET created_by_subject = COALESCE(
-        s.created_by_subject,
-        jsonb_build_object(
-          'subject_id', CASE WHEN r.triggered_by = '' THEN 'trueforge-default' ELSE r.triggered_by END,
-          'subject_type', 'user',
-          'subject_display_name', CASE WHEN r.triggered_by = '' THEN 'trueforge-default' ELSE r.triggered_by END
-        )
+      UPDATE schedule_run
+      SET created_by_subject = jsonb_build_object(
+        'subject_id', CASE WHEN triggered_by = '' THEN 'trueforge-default' ELSE triggered_by END,
+        'subject_type', 'user',
+        'subject_display_name', CASE WHEN triggered_by = '' THEN 'trueforge-default' ELSE triggered_by END
       )
-      FROM schedule AS s
-      WHERE s.id = r.schedule_id
     `.execute(trx);
 
     await sql`

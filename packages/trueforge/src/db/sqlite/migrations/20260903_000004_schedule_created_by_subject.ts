@@ -84,25 +84,21 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           updated_at
         )
         SELECT
-          r.id,
-          r.tenant_id,
-          r.schedule_id,
-          r.name,
-          r.scheduled_for,
-          r.status,
-          COALESCE(
-            s.created_by_subject,
-            jsonb(json_object(
-              'subject_id', CASE WHEN r.triggered_by = '' THEN 'trueforge-default' ELSE r.triggered_by END,
-              'subject_type', 'user',
-              'subject_display_name', CASE WHEN r.triggered_by = '' THEN 'trueforge-default' ELSE r.triggered_by END
-            ))
-          ),
-          r.triggered_at,
-          r.created_at,
-          r.updated_at
-        FROM schedule_run AS r
-        LEFT JOIN schedule_new AS s ON s.id = r.schedule_id
+          id,
+          tenant_id,
+          schedule_id,
+          name,
+          scheduled_for,
+          status,
+          jsonb(json_object(
+            'subject_id', CASE WHEN triggered_by = '' THEN 'trueforge-default' ELSE triggered_by END,
+            'subject_type', 'user',
+            'subject_display_name', CASE WHEN triggered_by = '' THEN 'trueforge-default' ELSE triggered_by END
+          )),
+          triggered_at,
+          created_at,
+          updated_at
+        FROM schedule_run
       `.execute(trx);
 
       await sql`DROP TABLE schedule_run`.execute(trx);
