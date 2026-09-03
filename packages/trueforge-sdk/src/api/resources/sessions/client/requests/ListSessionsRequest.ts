@@ -19,4 +19,6 @@ export interface ListSessionsRequest {
     endTimestamp?: Date;
     /** When set, only sessions bound to this agent id are returned. */
     agentId?: string;
+    /** JSON-encoded SessionMetadata. Sessions must contain all key/value pairs (exact match). Keep constant across page_token pages. Omit or `{}` for no filter. */
+    metadata?: string;
 }

@@ -6665,7 +6665,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id` and `metadata` (JSON object; exact key/value containment) filter results. Keep other query params constant when paging with `page_token`.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -6730,6 +6730,16 @@
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
               "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "JSON-encoded SessionMetadata. Sessions must contain all key/value pairs (exact match). Keep constant across page_token pages. Omit or `{}` for no filter.",
+            "in": "query",
+            "name": "metadata",
+            "required": false,
+            "schema": {
+              "description": "JSON-encoded SessionMetadata. Sessions must contain all key/value pairs (exact match). Keep constant across page_token pages. Omit or `{}` for no filter.",
               "type": "string"
             }
           }
