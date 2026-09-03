@@ -424,11 +424,13 @@ describe('AgentsLibraryButton', () => {
     fireEvent.click(addSchedule);
     expect(screen.getByTestId('schedules-open')).toHaveTextContent('yes');
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('beta-agent');
+    expect(new URL(window.location.href).searchParams.get('isNew')).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
     fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
+    expect(new URL(window.location.href).searchParams.get('isNew')).toBeNull();
   });
 
   it('does not show an empty-schedules action before schedule counts load', async () => {

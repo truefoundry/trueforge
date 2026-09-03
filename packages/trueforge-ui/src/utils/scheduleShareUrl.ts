@@ -3,6 +3,7 @@ import type { ScheduleStatus } from '../server/types.js';
 export const SCHEDULE_AGENT_QUERY = 'agent';
 export const SCHEDULE_STATUS_QUERY = 'status';
 export const SCHEDULE_NAME_QUERY = 'q';
+export const SCHEDULE_IS_NEW_QUERY = 'isNew';
 
 export const SCHEDULE_SHARE_CHANGE_EVENT = 'trueforge-schedule-share';
 
@@ -13,12 +14,15 @@ export type ScheduleShareSearch = {
   status: ScheduleStatus | null;
   /** Name search; `null` when empty. */
   q: string | null;
+  /** One-shot flag to open the create schedule drawer. */
+  isNew: boolean;
 };
 
 export type ScheduleShareWrite = {
   agent?: string | null;
   status?: ScheduleStatus | null;
   q?: string | null;
+  isNew?: boolean | null;
 };
 
 function nonEmpty(value: string | null): string | null {
@@ -36,6 +40,7 @@ export function readScheduleShareSearch(search: string): ScheduleShareSearch {
     agent: nonEmpty(params.get(SCHEDULE_AGENT_QUERY)),
     status: parseStatus(params.get(SCHEDULE_STATUS_QUERY)),
     q: nonEmpty(params.get(SCHEDULE_NAME_QUERY)),
+    isNew: params.get(SCHEDULE_IS_NEW_QUERY) === 'true',
   };
 }
 
@@ -46,6 +51,8 @@ export function writeScheduleShareSearch(params: URLSearchParams, next: Schedule
   else if (next.status != null) params.set(SCHEDULE_STATUS_QUERY, next.status);
   if (next.q === null) params.delete(SCHEDULE_NAME_QUERY);
   else if (next.q != null) params.set(SCHEDULE_NAME_QUERY, next.q);
+  if (next.isNew === null || next.isNew === false) params.delete(SCHEDULE_IS_NEW_QUERY);
+  else if (next.isNew === true) params.set(SCHEDULE_IS_NEW_QUERY, 'true');
 }
 
 /** Drop all schedules-owned query keys (used when leaving the schedules place). */
@@ -53,6 +60,7 @@ export function clearScheduleShareSearch(params: URLSearchParams): void {
   params.delete(SCHEDULE_AGENT_QUERY);
   params.delete(SCHEDULE_STATUS_QUERY);
   params.delete(SCHEDULE_NAME_QUERY);
+  params.delete(SCHEDULE_IS_NEW_QUERY);
 }
 
 export function replaceScheduleShareSearch(next: ScheduleShareWrite): string {
