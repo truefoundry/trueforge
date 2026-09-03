@@ -26,7 +26,7 @@ export type AgentSessionListRowProps = {
   lastActivityAt: string;
   metrics: {
     totalTurns: number;
-    totalCostInUsd: number;
+    totalCostInUsd?: number;
     totalDurationMs: number;
   };
   active: boolean;
