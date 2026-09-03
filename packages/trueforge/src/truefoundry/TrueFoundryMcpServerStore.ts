@@ -20,6 +20,7 @@ import {
   toTrueFoundryMcpManifest,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
+import type { PerServerMcpHeaders } from './perServerMcpHeaders';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
@@ -35,15 +36,27 @@ function managed(): never {
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #accessToken: string;
+  readonly #perServerHeaders: PerServerMcpHeaders;
 
-  constructor(input: { client: TrueFoundryServiceFoundryServerClient; accessToken: string }) {
+  constructor(input: {
+    client: TrueFoundryServiceFoundryServerClient;
+    accessToken: string;
+    perServerHeaders?: PerServerMcpHeaders;
+  }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
+    this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
+  /**
+   * The gateway Bearer is written last so a per-server override cannot replace it: it is what the
+   * gateway authorises `USE_MCP_SERVER` on, and the overrides are cargo it forwards upstream.
+   */
   resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    void record;
-    return { Authorization: `Bearer ${this.#accessToken}` };
+    return {
+      ...this.#perServerHeaders[record.name],
+      Authorization: `Bearer ${this.#accessToken}`,
+    };
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
