@@ -30,7 +30,9 @@ All conversations use a single named agent configured through the name parameter
 
 ## AgentComposer
 
-Users can create a new agent by selecting a model, skills, and MCP servers, then save the configured agent to the library for future use.
+Users can create a new agent by selecting a model, skills, and MCP servers, then save the configured agent to the library for future use. The composer Tools menu stays focused on connectors and skills. Agent Config opens the full draft editor for model parameters, instructions, runtime behavior, MCP tool selection, and skills.
+
+Agent Config changes apply to the active draft immediately. The Save Agent dialog keeps an independent working copy of the same fields and reuses the same model, MCP, and skill pickers; cancelling that dialog discards only its local changes. Model limits and pricing are shown when the configured server provides them.
 
 <Frame>
   ![Agent Composer 1](/images/agent-composer-1.png "Agent Composer 1")

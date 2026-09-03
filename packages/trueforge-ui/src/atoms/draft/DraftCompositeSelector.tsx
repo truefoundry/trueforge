@@ -15,8 +15,6 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { readAgentCapabilities, withAgentCapabilities } from './agentCapabilities.js';
-import { DraftCapabilitiesPanel } from './DraftCapabilitiesPanel.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 
@@ -40,12 +38,11 @@ export function draftMountsFromSpec(value: unknown): DraftMount[] {
   }
   return mounts;
 }
-type AttachTab = 'connectors' | 'skills' | 'capabilities';
+type AttachTab = 'connectors' | 'skills';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'connectors', label: 'Connectors', icon: 'plug' },
   { id: 'skills', label: 'Skills', icon: 'lightbulb' },
-  { id: 'capabilities', label: 'Capabilities', icon: 'wrench' },
 ];
 
 const SPEC_FLUSH_MS = 300;
@@ -72,6 +69,7 @@ export function CatalogRow({
   checked,
   disabled = false,
   onToggle,
+  onActivate,
   action,
 }: {
   title: string;
@@ -79,6 +77,7 @@ export function CatalogRow({
   checked: boolean;
   disabled?: boolean;
   onToggle: () => void;
+  onActivate?: () => void;
   action?: ReactNode;
 }) {
   const content = (
@@ -93,23 +92,36 @@ export function CatalogRow({
     </>
   );
 
-  if (action) {
+  if (action || onActivate) {
     return (
       <div
         role="menuitemcheckbox"
         aria-checked={checked}
         tabIndex={0}
         className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
-        onClick={onToggle}
+        onClick={onActivate ?? onToggle}
         onKeyDown={event => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
-          onToggle();
+          (onActivate ?? onToggle)();
         }}
       >
         {content}
         <span className="shrink-0">{action}</span>
-        <Checkbox checked={checked} />
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={checked}
+          aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
+          disabled={disabled}
+          className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={event => {
+            event.stopPropagation();
+            onToggle();
+          }}
+        >
+          <Checkbox checked={checked} />
+        </button>
       </div>
     );
   }
@@ -379,11 +391,20 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   };
 
   const toggleSkill = (skill: AgentSkill) => {
+    const adding = !localSkillsRef.current.some(item => item.id === skill.id);
     setLocalSkills(prev =>
       prev.some(s => s.id === skill.id)
         ? prev.filter(s => s.id !== skill.id)
         : [...prev, { id: skill.id, name: skill.name }],
     );
+    if (adding && capabilities?.sandbox.enabled === true) {
+      updateAgentSpec?.({
+        config: {
+          ...agentSpec?.config,
+          sandbox: { ...agentSpec?.config?.sandbox, enabled: true },
+        },
+      });
+    }
     dirtyRef.current = true;
     scheduleFlush();
   };
@@ -438,146 +459,123 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         })}
       </div>
 
-      {tab === 'capabilities' ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          <DraftCapabilitiesPanel
-            value={readAgentCapabilities(agentSpec?.config)}
-            disabled={disabled || isRunning}
-            onChange={values => {
-              // Capability writes bypass the mount debounce. Fold in any dirty
-              // local mounts in the same update so a pending connector/skill
-              // toggle is not overwritten by a config-only sync.
-              clearFlushTimer();
-              const includeLocalMounts = dirtyRef.current;
-              if (includeLocalMounts) {
-                dirtyRef.current = false;
-              }
-              updateAgentSpec?.({
-                ...(includeLocalMounts ? { mcpServers: localMcpRef.current, skills: localSkillsRef.current } : {}),
-                config: withAgentCapabilities({ config: agentSpec?.config, values }),
-              });
-            }}
-          />
-        </div>
-      ) : (
-        <>
-          <SearchField
-            value={query}
-            onChange={setQuery}
-            placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
-          />
-          {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
-            <div
-              role="status"
-              className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
-            >
-              <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
-              <span className="text-xs leading-none">{skillsDisabledReason}</span>
-            </div>
-          ) : null}
-          <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-            {tab === 'connectors' ? (
-              <>
-                {pinnedSelectedConnectors.length > 0 ? (
-                  <>
-                    <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
-                    {pinnedSelectedConnectors.map(c => (
-                      <CatalogRow
-                        key={c.id}
-                        title={c.name}
-                        description={c.description}
-                        checked={selectedMcpIds.has(c.id)}
-                        action={
-                          isUnauthenticatedDcrConnector(c) ? (
-                            <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
-                          ) : undefined
-                        }
-                        onToggle={() => toggleConnector(c)}
-                      />
-                    ))}
-                  </>
-                ) : null}
-                {pinnedAvailableConnectors.length > 0 ? (
-                  <>
-                    <SectionHeading label="Available" count={pinnedAvailableConnectors.length} />
-                    {pinnedAvailableConnectors.map(c => (
-                      <CatalogRow
-                        key={c.id}
-                        title={c.name}
-                        description={c.description}
-                        checked={selectedMcpIds.has(c.id)}
-                        action={
-                          isUnauthenticatedDcrConnector(c) ? (
-                            <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
-                          ) : undefined
-                        }
-                        onToggle={() => toggleConnector(c)}
-                      />
-                    ))}
-                  </>
-                ) : null}
-                {filteredConnectors.length === 0 ? (
-                  <DraftCatalogEmptyState
-                    loading={loading}
-                    emptyLabel="No connectors"
-                    settingsTarget="Connectors"
-                    onOpenSettings={
-                      connectors.length === 0 && shell && canConfigureConnectors
-                        ? () => openSettings('connectors')
-                        : undefined
-                    }
-                  />
-                ) : null}
-              </>
-            ) : (
-              <>
-                {pinnedSelectedSkills.length > 0 ? (
-                  <>
-                    <SectionHeading label="Selected" count={pinnedSelectedSkills.length} />
-                    {pinnedSelectedSkills.map(s => (
-                      <CatalogRow
-                        key={s.id}
-                        title={s.name}
-                        description={s.description}
-                        checked={selectedSkillIds.has(s.id)}
-                        disabled={skillsDisabled && !selectedSkillIds.has(s.id)}
-                        onToggle={() => toggleSkill(s)}
-                      />
-                    ))}
-                  </>
-                ) : null}
-                {pinnedAvailableSkills.length > 0 ? (
-                  <>
-                    <SectionHeading label="Available" count={pinnedAvailableSkills.length} />
-                    {pinnedAvailableSkills.map(s => (
-                      <CatalogRow
-                        key={s.id}
-                        title={s.name}
-                        description={s.description}
-                        checked={selectedSkillIds.has(s.id)}
-                        disabled={skillsDisabled && !selectedSkillIds.has(s.id)}
-                        onToggle={() => toggleSkill(s)}
-                      />
-                    ))}
-                  </>
-                ) : null}
-                {filteredSkills.length === 0 ? (
-                  <DraftCatalogEmptyState
-                    loading={loading}
-                    emptyLabel="No skills"
-                    settingsTarget={needsSandbox ? 'a Sandbox' : 'Skills'}
-                    onOpenSettings={
-                      skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
-                        ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
-                        : undefined
-                    }
-                  />
-                ) : null}
-              </>
-            )}
+      <>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
+        />
+        {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
+          <div
+            role="status"
+            className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
+          >
+            <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
+            <span className="text-xs leading-none">{skillsDisabledReason}</span>
           </div>
-        </>
-      )}
+        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+          {tab === 'connectors' ? (
+            <>
+              {pinnedSelectedConnectors.length > 0 ? (
+                <>
+                  <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
+                  {pinnedSelectedConnectors.map(c => (
+                    <CatalogRow
+                      key={c.id}
+                      title={c.name}
+                      description={c.description}
+                      checked={selectedMcpIds.has(c.id)}
+                      action={
+                        isUnauthenticatedDcrConnector(c) ? (
+                          <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
+                        ) : undefined
+                      }
+                      onToggle={() => toggleConnector(c)}
+                    />
+                  ))}
+                </>
+              ) : null}
+              {pinnedAvailableConnectors.length > 0 ? (
+                <>
+                  <SectionHeading label="Available" count={pinnedAvailableConnectors.length} />
+                  {pinnedAvailableConnectors.map(c => (
+                    <CatalogRow
+                      key={c.id}
+                      title={c.name}
+                      description={c.description}
+                      checked={selectedMcpIds.has(c.id)}
+                      action={
+                        isUnauthenticatedDcrConnector(c) ? (
+                          <ConnectorConnectButton connector={c} onConnected={refreshConnectors} />
+                        ) : undefined
+                      }
+                      onToggle={() => toggleConnector(c)}
+                    />
+                  ))}
+                </>
+              ) : null}
+              {filteredConnectors.length === 0 ? (
+                <DraftCatalogEmptyState
+                  loading={loading}
+                  emptyLabel="No connectors"
+                  settingsTarget="Connectors"
+                  onOpenSettings={
+                    connectors.length === 0 && shell && canConfigureConnectors
+                      ? () => openSettings('connectors')
+                      : undefined
+                  }
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              {pinnedSelectedSkills.length > 0 ? (
+                <>
+                  <SectionHeading label="Selected" count={pinnedSelectedSkills.length} />
+                  {pinnedSelectedSkills.map(s => (
+                    <CatalogRow
+                      key={s.id}
+                      title={s.name}
+                      description={s.description}
+                      checked={selectedSkillIds.has(s.id)}
+                      disabled={skillsDisabled && !selectedSkillIds.has(s.id)}
+                      onToggle={() => toggleSkill(s)}
+                    />
+                  ))}
+                </>
+              ) : null}
+              {pinnedAvailableSkills.length > 0 ? (
+                <>
+                  <SectionHeading label="Available" count={pinnedAvailableSkills.length} />
+                  {pinnedAvailableSkills.map(s => (
+                    <CatalogRow
+                      key={s.id}
+                      title={s.name}
+                      description={s.description}
+                      checked={selectedSkillIds.has(s.id)}
+                      disabled={skillsDisabled && !selectedSkillIds.has(s.id)}
+                      onToggle={() => toggleSkill(s)}
+                    />
+                  ))}
+                </>
+              ) : null}
+              {filteredSkills.length === 0 ? (
+                <DraftCatalogEmptyState
+                  loading={loading}
+                  emptyLabel="No skills"
+                  settingsTarget={needsSandbox ? 'a Sandbox' : 'Skills'}
+                  onOpenSettings={
+                    skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
+                      ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
+                      : undefined
+                  }
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+      </>
     </>
   );
 
@@ -650,6 +648,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
 
 declare module '../../theme/SlotsProvider.js' {
   interface AtomSlots {
+    CatalogRow: typeof CatalogRow;
+    ConnectorConnectButton: typeof ConnectorConnectButton;
     DraftCompositeSelector: typeof DraftCompositeSelector;
   }
 }

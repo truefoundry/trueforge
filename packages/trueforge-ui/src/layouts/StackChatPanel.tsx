@@ -8,6 +8,7 @@ import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
@@ -51,7 +52,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   }, [aui, isIdle]);
 
   return (
-    <div className={cn('flex h-full min-h-0 flex-col', className)}>
+    <div className={cn('relative flex h-full min-h-0 flex-col', className)}>
       {settingsOpen ? (
         <div className="min-h-0 flex-1">
           <Suspense
@@ -143,6 +144,15 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         )}
         <ShellActions key="shell-actions" />
       </footer>
+      {shell?.agentConfigOpen ? (
+        <aside
+          role="dialog"
+          aria-label="Agent Config"
+          className="absolute inset-0 z-20 border-l border-border shadow-xl"
+        >
+          <AgentConfigDrawerContainer showClose />
+        </aside>
+      ) : null}
     </div>
   );
 }
