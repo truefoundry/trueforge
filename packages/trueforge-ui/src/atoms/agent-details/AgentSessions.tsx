@@ -215,10 +215,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
         className="group/resizer relative z-10 w-0 cursor-col-resize focus-visible:outline-none"
       >
         <div aria-hidden className="absolute inset-y-0 -left-1.25 w-2.75" />
-        <div
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-px bg-border transition-colors"
-        />
+        <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-border transition-colors" />
         <div
           aria-hidden
           className="absolute top-1/2 left-0 z-10 flex h-4 w-2 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xs bg-primary-button-bg shadow-sm"

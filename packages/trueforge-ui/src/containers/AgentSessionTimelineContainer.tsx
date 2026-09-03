@@ -27,10 +27,14 @@ type UserMessageInput = Extract<NonNullable<TurnCreatedEvent['input']>[number], 
 
 function turnIdFromMessage(message: ThreadMessageLike): string {
   const messageId = message.id ?? '';
+  // The stable message id identifies the opening backend turn. Metadata can
+  // point at the latest continuation turn for artifact ownership.
   return message.role === 'user' ? messageId.replace(/-user$/, '') : messageId.replace(/-assistant$/, '');
 }
 
 function buildProjectionEvents(items: SessionEventItem[], turns: SessionTurnView[]): SessionEventItem[] {
+  // The chat projection folds continuation inputs into the previous response.
+  // Add a display-only user boundary so Agent Details keeps each backend turn separate.
   const continuationSummaries = new Map(
     turns.flatMap(turn => {
       const input = turn.created.input ?? [];
@@ -62,6 +66,7 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
   const state = turn.done?.state;
   if (state?.status !== 'error' && state?.status !== 'cancelled') return messages;
 
+  // failures need an assistant row so the terminal state is visible.
   const assistantIndex = messages.findIndex(message => message.role === 'assistant');
   const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
   const terminal: ThreadMessageLike =

@@ -124,6 +124,8 @@ export function AgentSessionEventTimelineChart({
 
   useEffect(() => {
     if (tooltipTarget == null) return undefined;
+    // Anchors use viewport coordinates, so remeasure the chart whenever any
+    // scroll ancestor or the viewport moves it.
     refreshTooltipAnchor();
     window.addEventListener('scroll', refreshTooltipAnchor, true);
     window.addEventListener('resize', refreshTooltipAnchor);

@@ -35,6 +35,8 @@ export function resolveLocalTimezone(): string {
 export function getTimezoneOptions(selectedTimezone?: string): Array<{ value: string; label: string }> {
   const localTimezone = resolveLocalTimezone();
   const knownTimezones = new Set<string>(TIMEZONE_OPTIONS.map(option => option.value));
+  // Keep both browser-local and persisted zones selectable even when they are
+  // outside the curated common-timezone list.
   const additionalTimezones = [localTimezone, selectedTimezone].flatMap(timezone => {
     if (timezone == null || timezone.length === 0 || knownTimezones.has(timezone)) return [];
     knownTimezones.add(timezone);

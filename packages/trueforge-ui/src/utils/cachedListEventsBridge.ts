@@ -13,6 +13,8 @@ export function createCachedListEventsBridge(
     async listEvents({ limit = DEFAULT_PAGE_SIZE, pageToken }) {
       const offset = pageToken == null || pageToken.length === 0 ? 0 : Number.parseInt(pageToken, 10);
       const start = Number.isFinite(offset) ? offset : 0;
+      // Agent Details already fetched the complete history; one page prevents
+      // synthetic display boundaries from making the runtime stop before older turns.
       const pageSize = options?.allAtOnce === true ? itemsNewestFirst.length : limit;
       const data = itemsNewestFirst.slice(start, start + pageSize);
       const nextOffset = start + pageSize;
