@@ -37,12 +37,12 @@ export function resetOidcSessionCacheForTests(): void {
 }
 
 /**
- * True when the current session is a browser OIDC login (`type: "oidc-connected"`).
+ * True when the current session is a browser OIDC login (`data.type: "oidc-connected"`).
  * When auth is enabled, unauthenticated callers get HTTP 401 from `/me`.
  */
 export async function isOidcConnectedSession(client: TrueForge = authClient): Promise<boolean> {
-  const session = await client.auth.me();
-  const isConnected = session.type === 'oidc-connected';
+  const { data } = await client.auth.me();
+  const isConnected = data.type === 'oidc-connected';
   cachedIsOidcConnected = isConnected;
   return isConnected;
 }

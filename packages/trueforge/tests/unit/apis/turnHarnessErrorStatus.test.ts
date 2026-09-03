@@ -3,7 +3,8 @@ import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -20,6 +21,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
+  const tokenStore = new SqliteOAuthTokenStore(db);
   await modelProviderStore.upsertProvider({
     tenant_id: 'default',
     name: 'test-provider',
@@ -41,8 +43,10 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   const sessions = {
     get: () =>
       Promise.resolve({
+        session_id: 's1',
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         agent_spec: { model: { name: 'test-provider/test-model' } },
-        record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
+        record: { last_turn_id: null, created_by: STANDALONE_REQUEST_CONTEXT.subject.id },
         createTurn: () => Promise.reject(error),
       }),
   } as unknown as Sessions;
@@ -56,14 +60,19 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       sessionStore: new SqliteSessionStore(db),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      tokenStore: new SqliteOAuthTokenStore(db),
+      resolveMcpServerStore: () =>
+        new McpServerWithAuthStore({
+          store: new SqliteMcpServerStore(db),
+          tokenStore,
+          clientName: 'test-client',
+        }),
+      tokenStore,
       skillStore: new SqliteSkillStore(db),
       agentStore: new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
   );
 

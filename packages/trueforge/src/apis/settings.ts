@@ -6,7 +6,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
-import type { ResolveUserContext } from '../auth/identity';
+import type { ResolveRequestContext } from '../auth/identity';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -26,7 +26,7 @@ export interface SettingsRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
-  resolveUserContext: ResolveUserContext;
+  resolveRequestContext: ResolveRequestContext;
 }
 
 export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTransaction>) {
@@ -36,6 +36,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     createModelProvidersRouter({
       resolveModelProviderStore: deps.resolveModelProviderStore,
       withTransaction: deps.withTransaction,
+      resolveRequestContext: deps.resolveRequestContext,
     }),
   );
   router.route(
@@ -45,7 +46,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       tokenStore: deps.tokenStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
-      resolveUserContext: deps.resolveUserContext,
+      resolveRequestContext: deps.resolveRequestContext,
     }),
   );
   router.route(
@@ -53,6 +54,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     createSkillsRouter({
       skillStore: deps.skillStore,
       withTransaction: deps.withTransaction,
+      resolveRequestContext: deps.resolveRequestContext,
     }),
   );
   router.route(
@@ -61,6 +63,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       sandboxProviderStore: deps.sandboxProviderStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
+      resolveRequestContext: deps.resolveRequestContext,
     }),
   );
   return router;

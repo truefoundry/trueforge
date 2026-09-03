@@ -11,6 +11,7 @@
  */
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -23,9 +24,17 @@ import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
+let getTrueForgeMode: typeof import('./config').getTrueForgeMode;
+let TrueForgeMode: typeof import('./config').TrueForgeMode;
 
 try {
-  ({ default: configuration, isOidcConfigured, isTrueFoundryModeEnabled } = await import('./config'));
+  ({
+    default: configuration,
+    isOidcConfigured,
+    isTrueFoundryModeEnabled,
+    getTrueForgeMode,
+    TrueForgeMode,
+  } = await import('./config'));
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -47,7 +56,8 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
-import { requireAccessToken } from './auth/middleware';
+import { createAuthenticator } from './auth/createAuthenticator';
+import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -93,6 +103,16 @@ interface ServerPersistence<TTransaction> {
   redis: RedisClientType | undefined;
 }
 
+function requireRequestCredentialToken(c: Context): string {
+  const credential = resolveRequestContext(c).user_credential;
+  if (credential === null) {
+    throw new HTTPException(401, {
+      message: 'Authentication token required to list or call TrueFoundry models and MCP servers',
+    });
+  }
+  return credential;
+}
+
 /**
  * Per-request model-provider store resolver. In TrueFoundry mode every request gets a token-bound
  * store over a shared (mTLS) ServiceFoundry client; otherwise the persistence store is reused as-is.
@@ -113,7 +133,7 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   // unavailable there; fall back to the persistence store.
   return c =>
     c
-      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
       : options.persistenceStore;
 }
 
@@ -143,7 +163,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   });
   return c =>
     c
-      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
       : withAuthPersistence;
 }
 
@@ -316,6 +336,26 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   }
   const oidcClient = await initOidc(oidc);
 
+  let authenticator;
+  const mode = getTrueForgeMode(configuration);
+  if (mode === TrueForgeMode.TrueFoundry) {
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      throw new Error('TrueFoundry mode requires TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
+    }
+    authenticator = createAuthenticator({
+      mode: TrueForgeMode.TrueFoundry,
+      trueFoundryClient: new TrueFoundryServiceFoundryServerClient({
+        serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+        logger,
+        tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+      }),
+    });
+  } else if (mode === TrueForgeMode.Oidc) {
+    authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
+  } else {
+    authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
+  }
+
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
     ? createController({
@@ -348,6 +388,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     eventSubscriptions,
     logger,
     oidcClient,
+    authenticator,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

@@ -4,7 +4,8 @@
  * - {@link IMcpServerStore}: CRUD + DCR client columns (`IOAuthClientStore`).
  *   Implemented by PostgresMcpServerStore, SqliteMcpServerStore, and
  *   TrueFoundryMcpServerStore (read-only ServiceFoundry listing).
- * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
+ * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke +
+ *   {@link IMcpServerWithAuthStore.resolveInvokeHeaders};
  *   {@link McpServerWithAuthStore} composes an {@link IMcpServerStore} + a token store;
  *   TrueFoundryMcpServerStore implements this directly for remote Connect UX stubs.
  *
@@ -113,16 +114,10 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
-  /**
-   * Static HTTP headers for MCP invoke (tools/list, turns).
-   * Local DCR is handled separately in {@link getMcpConnection}; this covers
-   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
-   */
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
 }
 
 /**
- * Settings/MCP API store: persistence plus Connect UX auth.
+ * Settings/MCP API store: persistence plus Connect UX auth and invoke headers.
  * McpServerWithAuthStore implements via a token store; remote-backed stores may call
  * an upstream status/authorize API instead.
  */
@@ -135,6 +130,13 @@ export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServe
 
   /** Revoke this subject's authorization for the named server. */
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
+
+  /**
+   * Static HTTP headers for MCP invoke (tools/list, turns).
+   * Local DCR is handled separately in {@link getMcpConnection}; this covers
+   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
+   */
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
 }
 
 /**

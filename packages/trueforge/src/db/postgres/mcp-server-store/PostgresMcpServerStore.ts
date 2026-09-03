@@ -1,6 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
-import { resolveConfiguredMcpRequestHeaders } from '../../../schemas/mcpServer';
 import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
@@ -33,10 +32,6 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
-  }
-
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    return resolveConfiguredMcpRequestHeaders(record.manifest);
   }
 
   async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {
