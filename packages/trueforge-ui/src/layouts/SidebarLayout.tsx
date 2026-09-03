@@ -44,7 +44,7 @@ function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; classN
 
   return (
     <nav
-      className={cn('flex min-h-0 flex-1 flex-col items-center gap-2 px-2', className)}
+      className={cn('flex min-h-0 flex-1 flex-col items-center gap-2 p-2', className)}
       aria-label="Sidebar"
       onClick={event => {
         if (onNavigate == null) return;
@@ -61,7 +61,7 @@ function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; classN
           className={auiButtonClass({
             variant: 'ghost',
             className:
-              'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+              'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
           })}
           onClick={handleNewChat}
         >
@@ -129,15 +129,13 @@ export function SidebarLayout({ className }: { className?: string }) {
     <div className={cn('relative flex h-full min-h-0 w-full min-w-0', className)}>
       {/* Desktop sidebar — permanent icon+label rail */}
       <aside className="hidden w-20 min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg md:flex">
-        <div className="flex shrink-0 flex-col items-center gap-3 border-b border-border px-2 py-3">
-          <div className="flex min-w-0 items-center justify-center text-text-primary">
-            <BrandLogo variant={chrome.collapsedVariant} className={cn(brandLogoClassName, 'w-5')} />
-          </div>
+        <div className="flex py-4 w-full shrink-0 items-center justify-center border-b border-border text-text-primary">
+          <BrandLogo variant={chrome.collapsedVariant} className={cn(brandLogoClassName, 'w-5')} />
         </div>
 
         <SidebarNav />
 
-        <footer className="flex shrink-0 flex-col items-center border-t border-border px-2 py-2">
+        <footer className="flex shrink-0 flex-col items-center border-t border-border p-2">
           <ShellActions labeled className="flex-col" />
         </footer>
       </aside>
