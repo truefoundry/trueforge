@@ -24,7 +24,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(200)
@@ -72,7 +72,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(400)
@@ -97,7 +97,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(403)
@@ -122,7 +122,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(404)
@@ -147,7 +147,7 @@ describe("SessionsClient", () => {
 
         server
             .mockEndpoint()
-            .post("/internal/sessions/get-or-create-by-external-id")
+            .post("/api/internal/sessions/get-or-create-by-external-id")
             .jsonBody(rawRequestBody)
             .respondWith()
             .statusCode(422)

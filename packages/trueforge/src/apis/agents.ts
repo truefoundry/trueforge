@@ -26,7 +26,7 @@ import { TENANT_ID } from './sessions';
 export interface AgentsRouterDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
-  mcpServerStore: IMcpServerStore<TTransaction>;
+  resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -44,17 +44,19 @@ function toWireAgent(record: AgentRecord): Agent {
 async function validateManifest<TTransaction>({
   spec,
   deps,
-  store,
+  modelProviderStore,
+  mcpServerStore,
 }: {
   spec: AgentSpec;
   deps: AgentsRouterDeps<TTransaction>;
-  store: IModelProviderStore<TTransaction>;
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  mcpServerStore: IMcpServerStore<TTransaction>;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
     spec,
     tenant_id: TENANT_ID,
-    modelProviderStore: store,
-    mcpServerStore: deps.mcpServerStore,
+    modelProviderStore,
+    mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
   });
@@ -72,13 +74,15 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const manifest = await validateManifest({
       spec: body.manifest,
       deps,
-      store: deps.resolveModelProviderStore(c),
+      modelProviderStore: deps.resolveModelProviderStore(c),
+      mcpServerStore: deps.resolveMcpServerStore(c),
     });
     try {
       const record = await deps.agentStore.createAgent({
         tenant_id: TENANT_ID,
         name: body.name,
         manifest,
+        external_id: null,
       });
       return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {
@@ -127,7 +131,8 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const manifest = await validateManifest({
       spec: body.manifest,
       deps,
-      store: deps.resolveModelProviderStore(c),
+      modelProviderStore: deps.resolveModelProviderStore(c),
+      mcpServerStore: deps.resolveMcpServerStore(c),
     });
     const record = await deps.agentStore.updateAgent({
       tenant_id: TENANT_ID,

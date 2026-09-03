@@ -64,11 +64,12 @@ const app = createServerApp({
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   withTransaction: callback => db.transaction().execute(callback),
   mcpCatalog: McpCatalog.load(),
-  mcpServerStore: new McpServerWithAuthStore({
-    store: new SqliteMcpServerStore(db),
-    tokenStore,
-    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-  }),
+  resolveMcpServerStore: () =>
+    new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+    }),
   tokenStore,
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),

@@ -54,6 +54,10 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.upsertServer(input, transaction);
   }
 
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
+    return this.#store.resolveInvokeHeaders(record);
+  }
+
   saveClient(params: { id: string; record: OAuthClientRecord }, transaction?: TTransaction): Promise<void> {
     return this.#store.saveClient(params, transaction);
   }

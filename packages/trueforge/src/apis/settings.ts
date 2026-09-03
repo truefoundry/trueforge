@@ -20,7 +20,7 @@ import { createSkillsRouter } from './skills';
 
 export interface SettingsRouterDeps<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
-  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -41,7 +41,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/mcp-servers',
     createSettingsMcpServersRouter({
-      mcpServerStore: deps.mcpServerStore,
+      resolveMcpServerStore: deps.resolveMcpServerStore,
       tokenStore: deps.tokenStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,

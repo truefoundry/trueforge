@@ -109,7 +109,7 @@ describe('mcp-servers routers', () => {
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
@@ -122,7 +122,7 @@ describe('mcp-servers routers', () => {
       sandboxCatalog: SandboxCatalog.load(),
     });
     mcpServersRouter = createMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
@@ -612,7 +612,7 @@ describe('mcp-servers routers', () => {
     });
 
     const otherRouter = createMcpServersRouter({
-      mcpServerStore,
+      resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,

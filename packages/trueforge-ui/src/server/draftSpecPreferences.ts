@@ -56,13 +56,12 @@ function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
-/** Align draft `config.sandbox.enabled` with loaded server capabilities; no-op while unknown. */
+/** Disable sandbox when unavailable; availability must not override the user's runtime choice. */
 export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean | null | undefined): AgentSpec {
-  if (sandboxEnabled == null) return spec;
-  if (readSandboxEnabled(spec) === sandboxEnabled) return spec;
+  if (sandboxEnabled !== false || readSandboxEnabled(spec) === false) return spec;
   const config = {
     ...spec.config,
-    sandbox: { enabled: sandboxEnabled },
+    sandbox: { ...spec.config?.sandbox, enabled: false },
   };
   return {
     ...spec,

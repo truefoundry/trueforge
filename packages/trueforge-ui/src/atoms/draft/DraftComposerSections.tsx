@@ -6,10 +6,12 @@ import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js'
 
 export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: ComposerLeftSectionProps) {
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
+  const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       <DraftCompositeSelector disabled={disabled} isRunning={isRunning} onAttach={onAttach} />
+      <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} />
     </div>
   );
 }

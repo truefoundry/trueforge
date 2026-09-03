@@ -24,7 +24,7 @@ describe("MetricsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/internal/metrics/charts")
+            .get("/api/internal/metrics/charts")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -67,7 +67,7 @@ describe("MetricsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/internal/metrics/charts-data")
+            .get("/api/internal/metrics/charts-data")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -114,7 +114,7 @@ describe("MetricsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/internal/metrics/charts-data")
+            .get("/api/internal/metrics/charts-data")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)
@@ -142,7 +142,7 @@ describe("MetricsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/internal/metrics/meters")
+            .get("/api/internal/metrics/meters")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
@@ -175,7 +175,7 @@ describe("MetricsClient", () => {
 
         server
             .mockEndpoint()
-            .get("/internal/metrics/meters")
+            .get("/api/internal/metrics/meters")
             .respondWith()
             .statusCode(400)
             .jsonBody(rawResponseBody)

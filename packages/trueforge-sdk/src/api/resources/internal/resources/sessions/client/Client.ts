@@ -65,7 +65,7 @@ export class SessionsClient {
             url: core.url.join(
                 (await core.Supplier.get(this._options.baseUrl)) ??
                     (await core.Supplier.get(this._options.environment)),
-                "internal/sessions/get-or-create-by-external-id",
+                "api/internal/sessions/get-or-create-by-external-id",
             ),
             method: "POST",
             headers: _headers,
@@ -159,7 +159,7 @@ export class SessionsClient {
             _response.error,
             _response.rawResponse,
             "POST",
-            "/internal/sessions/get-or-create-by-external-id",
+            "/api/internal/sessions/get-or-create-by-external-id",
         );
     }
 }

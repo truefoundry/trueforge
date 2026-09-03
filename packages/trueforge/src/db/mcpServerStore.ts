@@ -1,11 +1,12 @@
 /**
- * Configured MCP servers: one row per server per tenant, identity as columns plus a
- * Zod-validated `McpServerManifest` jsonb document.
+ * Configured MCP servers: identity columns plus a Zod-validated `McpServerManifest` jsonb document.
  *
- * - {@link IMcpServerStore}: DB CRUD + DCR client columns (`IOAuthClientStore`).
- *   Implemented by PostgresMcpServerStore / SqliteMcpServerStore.
+ * - {@link IMcpServerStore}: CRUD + DCR client columns (`IOAuthClientStore`).
+ *   Implemented by PostgresMcpServerStore, SqliteMcpServerStore, and
+ *   TrueFoundryMcpServerStore (read-only ServiceFoundry listing).
  * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
- *   {@link McpServerWithAuthStore} (separate module) composes an {@link IMcpServerStore} + a token store.
+ *   {@link McpServerWithAuthStore} composes an {@link IMcpServerStore} + a token store;
+ *   TrueFoundryMcpServerStore implements this directly for remote Connect UX stubs.
  *
  * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
@@ -112,6 +113,12 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+  /**
+   * Static HTTP headers for MCP invoke (tools/list, turns).
+   * Local DCR is handled separately in {@link getMcpConnection}; this covers
+   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
+   */
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
 }
 
 /**

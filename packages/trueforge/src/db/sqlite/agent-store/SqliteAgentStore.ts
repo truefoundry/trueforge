@@ -3,6 +3,7 @@ import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { EMPTY_AGENT_METADATA, type AgentMetadata } from '../../../schemas/agentMetadata';
 import { newId } from '../../../utils/id';
 import {
+  AgentExternalIdConflictError,
   AgentNameConflictError,
   parseStoredAgentSpec,
   type AgentRecord,
@@ -24,6 +25,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
     'name' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
     jsonText<AgentMetadata>(eb.ref('metadata')).as('metadata'),
+    'external_id' as const,
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -35,6 +37,7 @@ function toRecord(row: {
   name: AgentRecord['name'];
   manifest: AgentSpec;
   metadata: AgentMetadata;
+  external_id: string | null;
   created_at: string;
   updated_at: string;
 }): AgentRecord {
@@ -83,6 +86,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           name: input.name,
           manifest: jsonbBind(input.manifest),
           metadata: jsonbBind(EMPTY_AGENT_METADATA),
+          external_id: input.external_id,
           created_at: timestamp,
           updated_at: timestamp,
         })
@@ -91,33 +95,79 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
       return toRecord(row);
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new AgentNameConflictError({ tenant_id: input.tenant_id, name: input.name }, { cause: error });
+        await this.throwCreateUnique({
+          error,
+          tenant_id: input.tenant_id,
+          name: input.name,
+          external_id: input.external_id,
+          ...(transaction === undefined ? {} : { transaction }),
+        });
       }
       throw error;
     }
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
-    if (input.manifest === undefined && input.metadata === undefined) {
-      throw new Error('updateAgent requires manifest and/or metadata');
+    if (input.manifest === undefined && input.metadata === undefined && input.external_id === undefined) {
+      throw new Error('updateAgent requires manifest, metadata, and/or external_id');
     }
     const db = transaction ?? this.#db;
-    const row = await db
-      .updateTable('agent')
-      .set({
-        ...(input.manifest === undefined ? {} : { manifest: jsonbBind(input.manifest) }),
-        ...(input.metadata === undefined ? {} : { metadata: jsonbBind(input.metadata) }),
-        updated_at: nowIso(),
-      })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
-      .returning(recordColumns)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRecord(row);
+    try {
+      const row = await db
+        .updateTable('agent')
+        .set({
+          ...(input.manifest === undefined ? {} : { manifest: jsonbBind(input.manifest) }),
+          ...(input.metadata === undefined ? {} : { metadata: jsonbBind(input.metadata) }),
+          ...(input.external_id === undefined ? {} : { external_id: input.external_id }),
+          updated_at: nowIso(),
+        })
+        .where('tenant_id', '=', input.tenant_id)
+        .where('id', '=', input.id)
+        .returning(recordColumns)
+        .executeTakeFirst();
+      return row === undefined ? undefined : toRecord(row);
+    } catch (error) {
+      if (isUniqueViolation(error) && input.external_id) {
+        throw new AgentExternalIdConflictError(
+          { tenant_id: input.tenant_id, external_id: input.external_id },
+          { cause: error },
+        );
+      }
+      throw error;
+    }
   }
 
   async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  }
+
+  /** Map unique violations to external_id vs name conflicts. */
+  private async throwCreateUnique({
+    error,
+    tenant_id,
+    name,
+    external_id,
+    transaction,
+  }: {
+    error: unknown;
+    tenant_id: string;
+    name: string;
+    external_id: string | null;
+    transaction?: Transaction<Database>;
+  }): Promise<never> {
+    if (external_id !== null) {
+      const db = transaction ?? this.#db;
+      const owner = await db
+        .selectFrom('agent')
+        .select('id')
+        .where('tenant_id', '=', tenant_id)
+        .where('external_id', '=', external_id)
+        .executeTakeFirst();
+      if (owner !== undefined) {
+        throw new AgentExternalIdConflictError({ tenant_id, external_id }, { cause: error });
+      }
+    }
+    throw new AgentNameConflictError({ tenant_id, name }, { cause: error });
   }
 }

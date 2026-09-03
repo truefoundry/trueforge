@@ -170,8 +170,12 @@ export interface ServerDeps<TTransaction> {
    * Called without a context (e.g. the scheduler) it returns the DB persistence store.
    */
   resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
+  /**
+   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
+   * Called without a context (e.g. the scheduler / OAuth callback) it returns the DB persistence store.
+   */
+  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
-  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -240,7 +244,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
-      mcpServerStore: deps.mcpServerStore,
+      mcpServerStore: deps.resolveMcpServerStore(),
       logger: deps.logger,
     }),
   );
@@ -248,7 +252,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers',
     withAuth(
       createMcpServersRouter({
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -271,7 +275,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAgentsRouter({
         agentStore: deps.agentStore,
         resolveModelProviderStore: deps.resolveModelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
@@ -289,7 +293,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           activeTurns: deps.activeTurns,
           eventSubscriptions: deps.eventSubscriptions,
           modelProviderStore: deps.resolveModelProviderStore(),
-          mcpServerStore: deps.mcpServerStore,
+          mcpServerStore: deps.resolveMcpServerStore(),
           tokenStore: deps.tokenStore,
           skillStore: deps.skillStore,
           agentStore: deps.agentStore,
@@ -306,7 +310,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAdminAuth(
       createSettingsRouter({
         resolveModelProviderStore: deps.resolveModelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
@@ -317,12 +321,12 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
-    '/internal/sessions',
+    '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
         resolveModelProviderStore: deps.resolveModelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
@@ -331,7 +335,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
-    '/internal/metrics',
+    '/api/internal/metrics',
     withAuth(
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,
@@ -347,7 +351,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
@@ -366,7 +370,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
-        mcpServerStore: deps.mcpServerStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,

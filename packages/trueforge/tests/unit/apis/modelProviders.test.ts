@@ -98,11 +98,12 @@ async function createRouters(): Promise<{
   return {
     settingsRouter: createSettingsRouter({
       resolveModelProviderStore: () => modelProviderStore,
-      mcpServerStore: new McpServerWithAuthStore({
-        store: new SqliteMcpServerStore(db),
-        tokenStore,
-        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-      }),
+      resolveMcpServerStore: () =>
+        new McpServerWithAuthStore({
+          store: new SqliteMcpServerStore(db),
+          tokenStore,
+          clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+        }),
       tokenStore,
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),

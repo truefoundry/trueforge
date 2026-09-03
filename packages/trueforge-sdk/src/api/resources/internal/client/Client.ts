@@ -12,16 +12,12 @@ export declare namespace InternalClient {
 
 export class InternalClient {
     protected readonly _options: NormalizedClientOptionsWithAuth<InternalClient.Options>;
-    protected _agents: AgentsClient | undefined;
     protected _metrics: MetricsClient | undefined;
     protected _sessions: SessionsClient | undefined;
+    protected _agents: AgentsClient | undefined;
 
     constructor(options: InternalClient.Options) {
         this._options = normalizeClientOptionsWithAuth(options);
-    }
-
-    public get agents(): AgentsClient {
-        return (this._agents ??= new AgentsClient(this._options));
     }
 
     public get metrics(): MetricsClient {
@@ -30,5 +26,9 @@ export class InternalClient {
 
     public get sessions(): SessionsClient {
         return (this._sessions ??= new SessionsClient(this._options));
+    }
+
+    public get agents(): AgentsClient {
+        return (this._agents ??= new AgentsClient(this._options));
     }
 }
