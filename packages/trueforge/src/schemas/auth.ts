@@ -36,8 +36,16 @@ export const GetMeSubjectSchema = z
   })
   .openapi('GetMeSubject');
 
+export const MeSessionTypeSchema = z
+  .enum(['default', 'oidc-connected'])
+  .describe(
+    '`oidc-connected` when the process is running with browser OIDC login; `default` for standalone or TrueFoundry token auth.',
+  )
+  .openapi('MeSessionType');
+
 export const MeSchema = z
   .object({
+    type: MeSessionTypeSchema,
     tenant_id: z.string().describe('Tenant scope for the authenticated caller.'),
     subject: GetMeSubjectSchema,
     roles: z.array(z.string()).describe('Roles for the authenticated caller.'),
@@ -47,5 +55,6 @@ export const MeSchema = z
 export const GetMeResponseSchema = z.object({ data: MeSchema }).openapi('GetMeResponse');
 
 export type GetMeSubject = z.infer<typeof GetMeSubjectSchema>;
+export type MeSessionType = z.infer<typeof MeSessionTypeSchema>;
 export type Me = z.infer<typeof MeSchema>;
 export type GetMeResponse = z.infer<typeof GetMeResponseSchema>;

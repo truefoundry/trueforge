@@ -124,6 +124,8 @@ export function createAuthRouter(params: {
     const requestContext = resolveRequestContext(c);
     const body: GetMeResponse = {
       data: {
+        // FE logout chrome keys off `oidc-connected` (browser SSO cookie session).
+        type: params.oidcClient !== undefined ? 'oidc-connected' : 'default',
         tenant_id: requestContext.tenant_id,
         subject: requestContext.subject,
         roles: requestContext.roles,

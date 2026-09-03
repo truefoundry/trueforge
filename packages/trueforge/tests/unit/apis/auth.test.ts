@@ -105,6 +105,7 @@ describe('auth router (no identity provider configured)', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       data: {
+        type: 'default',
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         subject: STANDALONE_REQUEST_CONTEXT.subject,
         roles: STANDALONE_REQUEST_CONTEXT.roles,
@@ -480,6 +481,7 @@ describe('auth router (auth enabled)', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       data: {
+        type: 'oidc-connected',
         tenant_id: 'default',
         subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
         roles: [],

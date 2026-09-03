@@ -63,7 +63,8 @@ export const meRoute = createRoute({
   tags: [OpenApiTag.AUTH],
   summary: 'Current session',
   description:
-    'Returns the authenticated caller identity (`tenant_id`, `subject`, `roles`) wrapped as `{ data }`. When auth is enabled ' +
+    'Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. ' +
+    '`type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled ' +
     'this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is ' +
     'disabled, returns the standalone default identity.',
   'x-fern-sdk-group-name': ['auth'],
