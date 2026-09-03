@@ -1,0 +1,52 @@
+name: Sync commit to trueforge-devtest-deployment
+
+# Writes github.sha into trueforge-devtest-deployment/test.txt on main.
+# For pre-main testing: add your branch under push.branches (or use workflow_dispatch
+# once this file is on the default branch).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, test-sujai]
+
+concurrency:
+  group: sync-devtest-commit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Update test.txt with trueforge SHA
+    runs-on: ubuntu-latest
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+          owner: truefoundry
+          repositories: trueforge-devtest-deployment
+
+      - uses: actions/checkout@v7
+        with:
+          repository: truefoundry/trueforge-devtest-deployment
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Write commit SHA and push
+        env:
+          SHA: ${{ github.sha }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          echo "$SHA" > test.txt
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git add test.txt
+          if git diff --cached --quiet; then
+            echo "test.txt already at $SHA"
+            exit 0
+          fi
+          git commit -m "chore: pin trueforge@${SHA}"
+          git push
+          echo "Updated test.txt → \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
