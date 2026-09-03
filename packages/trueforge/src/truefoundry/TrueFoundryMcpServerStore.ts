@@ -5,6 +5,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import type { RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../config';
 import {
@@ -75,22 +76,19 @@ export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; retur
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
   readonly #accessToken: string;
-  readonly #subjectId: string;
-  readonly #subjectType: string;
+  readonly #subject: RequestSubject;
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
   constructor(input: {
     client: TrueFoundryMcpApiClient;
     accessToken: string;
-    subjectId: string;
-    subjectType: string;
+    subject: RequestSubject;
     perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
-    this.#subjectId = input.subjectId;
-    this.#subjectType = input.subjectType;
+    this.#subject = input.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
@@ -220,8 +218,8 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
           await this.#client.getMcpAuthStatus({
             accessToken: this.#accessToken,
             mcpServerId: record.id,
-            subjectId: this.#subjectId,
-            subjectType: this.#subjectType,
+            subjectId: this.#subject.id,
+            subjectType: this.#subject.type,
           }),
         );
         continue;
@@ -256,8 +254,8 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     await this.#client.deleteMcpAuth({
       accessToken: this.#accessToken,
       mcpServerId: record.id,
-      subjectId: this.#subjectId,
-      subjectType: this.#subjectType,
+      subjectId: this.#subject.id,
+      subjectType: this.#subject.type,
       authSource: 'oauth',
     });
   }

@@ -1,10 +1,10 @@
 import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
+import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 import {
   resolveAuthorizeRedirectURL,
   TrueFoundryMcpServerStore,
-  type TrueFoundryMcpApiClient,
 } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 
 const TENANT = 'default';
@@ -36,7 +36,11 @@ function createMockClient(): MockClient {
   };
 }
 
-function createStore(input?: { accessToken?: string; client?: MockClient; subjectId?: string; subjectType?: string }) {
+function createStore(input?: {
+  accessToken?: string;
+  client?: MockClient;
+  subject?: { id: string; type: string; display_name: string };
+}) {
   const client = input?.client ?? createMockClient();
   client.getMcpServerByName.mockResolvedValue(SFY_ROW);
   client.listGatewayInstallations.mockResolvedValue(GATEWAY_INSTALLATIONS);
@@ -47,8 +51,7 @@ function createStore(input?: { accessToken?: string; client?: MockClient; subjec
   const store = new TrueFoundryMcpServerStore({
     client,
     accessToken: input?.accessToken ?? ACCESS_TOKEN,
-    subjectId: input?.subjectId ?? 'user-1',
-    subjectType: input?.subjectType ?? 'user',
+    subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
   });
   return { store, client };
 }
@@ -163,8 +166,7 @@ describe('TrueFoundryMcpServerStore', () => {
       const store = new TrueFoundryMcpServerStore({
         client,
         accessToken: ACCESS_TOKEN,
-        subjectId: 'user-1',
-        subjectType: 'user',
+        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       });
       await expect(store.authorize({ tenant_id: TENANT, name: 'missing', userRef: 'user-1' })).rejects.toBeInstanceOf(
         McpServerNotFoundError,
@@ -175,8 +177,11 @@ describe('TrueFoundryMcpServerStore', () => {
   describe('deleteAuthorization', () => {
     it('forwards constructor subject to SFY delete', async () => {
       const { store, client } = createStore({
-        subjectId: 'va-1:ext:alice@example.com',
-        subjectType: 'virtualaccount',
+        subject: {
+          id: 'va-1:ext:alice@example.com',
+          type: 'virtualaccount',
+          display_name: 'va-1:ext:alice@example.com',
+        },
       });
       await store.deleteAuthorization({ tenant_id: TENANT, name: 'github', userRef: 'ignored' });
       expect(client.deleteMcpAuth).toHaveBeenCalledWith({

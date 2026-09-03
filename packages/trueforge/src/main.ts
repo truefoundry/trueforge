@@ -171,8 +171,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
     return new TrueFoundryMcpServerStore<TTransaction>({
       client,
       accessToken: requireRequestCredentialToken(c),
-      subjectId: requestContext.subject.id,
-      subjectType: requestContext.subject.type,
+      subject: requestContext.subject,
       perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
     });
   };

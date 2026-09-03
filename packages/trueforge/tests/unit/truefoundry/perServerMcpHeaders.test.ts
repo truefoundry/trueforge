@@ -21,8 +21,7 @@ const storeWith = (perServerHeaders: Record<string, Record<string, string>>): Tr
   new TrueFoundryMcpServerStore({
     client: {} as never,
     accessToken: 'caller-token',
-    subjectId: 'user-1',
-    subjectType: 'user',
+    subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
     perServerHeaders,
   });
 
