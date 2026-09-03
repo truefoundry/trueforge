@@ -24,11 +24,11 @@ import {
 import {
   buildTimelineAxisTicks,
   getActiveTimelineMs,
+  getSubAgentHoverGroups,
   getSubAgentLanes,
   getTimelineHoverTargetId,
   getTimelineLayout,
   getTimelineRange,
-  groupOverlappingSubAgents,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
   TIMELINE_TYPE,
@@ -180,7 +180,10 @@ export function AgentSessionEventTimelineChart({
     [visibleSegments],
   );
   const mainSubAgents = useMemo(() => pickLongestNonOverlappingSegments(subAgentSegments), [subAgentSegments]);
-  const subAgentGroups = useMemo(() => groupOverlappingSubAgents(subAgentSegments), [subAgentSegments]);
+  const subAgentGroups = useMemo(
+    () => getSubAgentHoverGroups({ bars: mainSubAgents, subAgentSegments }),
+    [mainSubAgents, subAgentSegments],
+  );
   const subAgentLanes = useMemo(
     () => getSubAgentLanes({ subAgentSegments, threadSegments: visibleSegments, minWidthMs: MARKER_PX * msPerPx }),
     [msPerPx, subAgentSegments, visibleSegments],
@@ -222,7 +225,7 @@ export function AgentSessionEventTimelineChart({
       ),
       ...mainEventSegments.map((segment): TimelineHoverTarget | null => {
         if (segment.type !== 'sub_agent') return { type: TIMELINE_TYPE.event, segment };
-        const group = subAgentGroups.find(candidate => candidate.segments.some(member => member.id === segment.id));
+        const group = subAgentGroups.find(candidate => candidate.barId === segment.id);
         return group == null ? { type: TIMELINE_TYPE.event, segment } : { type: TIMELINE_TYPE.subAgentGroup, group };
       }),
       ...toolCallGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.toolCallGroup, group })),

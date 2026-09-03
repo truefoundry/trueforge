@@ -97,6 +97,7 @@ describe('AgentSessionEventTimelineChart', () => {
       <SessionSubAgentGroupTooltip
         group={{
           id: 'sub-agent-group',
+          barId: 'researcher',
           startMs: 1_000,
           endMs: 6_000,
           segments: [

@@ -107,7 +107,7 @@ export type AgentSessionTimelineContainerProps = {
   events: SessionEventItem[];
   listMetrics?: {
     totalTurns: number;
-    totalCostInUsd: number;
+    totalCostInUsd?: number;
     totalDurationMs: number;
   };
 };

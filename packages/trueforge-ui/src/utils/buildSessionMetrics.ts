@@ -11,7 +11,7 @@ export type SessionMetricBarDatum = {
 export type SessionMetrics = {
   totalTurns: number;
   wallTimeMs: number;
-  totalCostUsd: number;
+  totalCostUsd?: number;
   totalTokens: number;
   contextTokens: number;
   toolCalls: number;
@@ -26,7 +26,7 @@ export type SessionMetrics = {
 
 export type SessionListMetricsHint = {
   totalTurns: number;
-  totalCostInUsd: number;
+  totalCostInUsd?: number;
   totalDurationMs: number;
 };
 
@@ -35,6 +35,21 @@ function readNumber(record: Record<string, unknown>, camel: string, snake: strin
   if (typeof camelValue === 'number' && Number.isFinite(camelValue)) return camelValue;
   const snakeValue = record[snake];
   return typeof snakeValue === 'number' && Number.isFinite(snakeValue) ? snakeValue : 0;
+}
+
+function readOptionalNumber({
+  record,
+  camel,
+  snake,
+}: {
+  record: Record<string, unknown>;
+  camel: string;
+  snake: string;
+}): number | undefined {
+  const camelValue = record[camel];
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue)) return camelValue;
+  const snakeValue = record[snake];
+  return typeof snakeValue === 'number' && Number.isFinite(snakeValue) ? snakeValue : undefined;
 }
 
 function metricsRecord(state: unknown): Record<string, unknown> | undefined {
@@ -47,7 +62,7 @@ function segmentDurationMs(segment: SessionEventTimelineSegment): number {
 }
 
 function hintHasValues(hint?: SessionListMetricsHint): boolean {
-  return hint != null && (hint.totalTurns > 0 || hint.totalCostInUsd > 0 || hint.totalDurationMs > 0);
+  return hint != null && (hint.totalTurns > 0 || hint.totalCostInUsd != null || hint.totalDurationMs > 0);
 }
 
 export function buildSessionMetrics({
@@ -61,6 +76,7 @@ export function buildSessionMetrics({
 }): SessionMetrics {
   let derivedWallTimeMs = 0;
   let derivedCostUsd = 0;
+  let hasDerivedCost = false;
   let totalTokens = 0;
   let totalUncachedInputTokens = 0;
   let totalOutputTokens = 0;
@@ -86,15 +102,22 @@ export function buildSessionMetrics({
       readNumber(metrics, 'totalCacheWriteTokens', 'total_cache_write_tokens');
     const uncachedInputTokens = Math.max(0, inputTokens - cachedTokens);
     const turnTotalTokens = readNumber(metrics, 'totalTokens', 'total_tokens') || inputTokens + outputTokens;
-    const turnCostUsd = readNumber(metrics, 'totalCostInUsd', 'total_cost_in_usd');
+    const turnCostUsd = readOptionalNumber({
+      record: metrics,
+      camel: 'totalCostInUsd',
+      snake: 'total_cost_in_usd',
+    });
 
-    derivedCostUsd += turnCostUsd;
+    if (turnCostUsd != null) {
+      derivedCostUsd += turnCostUsd;
+      hasDerivedCost = true;
+    }
     totalTokens += turnTotalTokens;
     totalUncachedInputTokens += uncachedInputTokens;
     totalOutputTokens += outputTokens;
     totalCachedTokens += cachedTokens;
     contextTokens += turnTotalTokens;
-    costPerTurn.push({ label, value: turnCostUsd, color: getSessionEventColor('tool_call') });
+    costPerTurn.push({ label, value: turnCostUsd ?? 0, color: getSessionEventColor('tool_call') });
     contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
   }
 
@@ -123,10 +146,12 @@ export function buildSessionMetrics({
     color: getSessionEventColor('tool_call'),
   })).sort((left, right) => right.value - left.value);
 
+  const totalCostUsd = listMetrics?.totalCostInUsd ?? (hasDerivedCost ? derivedCostUsd : undefined);
+
   return {
     totalTurns: hintHasValues(listMetrics) ? (listMetrics?.totalTurns ?? turns.length) : turns.length,
     wallTimeMs,
-    totalCostUsd: hintHasValues(listMetrics) ? (listMetrics?.totalCostInUsd ?? derivedCostUsd) : derivedCostUsd,
+    ...(totalCostUsd == null ? {} : { totalCostUsd }),
     totalTokens,
     contextTokens,
     toolCalls: toolCallFrequency.reduce((sum, toolCall) => sum + toolCall.value, 0),

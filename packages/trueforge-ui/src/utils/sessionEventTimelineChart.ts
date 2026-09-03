@@ -51,6 +51,7 @@ export type TimelineToolCallGroup = TimelineGap & {
 
 export type TimelineSubAgentGroup = TimelineGap & {
   id: string;
+  barId: string;
   segments: SessionEventTimelineSegment[];
 };
 
@@ -168,25 +169,24 @@ export function groupOverlappingToolCalls(segments: SessionEventTimelineSegment[
   return groups;
 }
 
-// The main row draws one representative bar for concurrent sub-agents; retain
-// every overlapping run so that bar's tooltip can explain the full interval.
-export function groupOverlappingSubAgents(segments: SessionEventTimelineSegment[]): TimelineSubAgentGroup[] {
-  const groups: TimelineSubAgentGroup[] = [];
-  for (const segment of [...segments].sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs)) {
-    const current = groups.at(-1);
-    if (current == null || current.segments[0]?.turnIndex !== segment.turnIndex || segment.startMs >= current.endMs) {
-      groups.push({
-        id: `sub-agent-group-${segment.id}`,
-        startMs: segment.startMs,
-        endMs: segment.endMs,
-        segments: [segment],
-      });
-      continue;
-    }
-    current.endMs = Math.max(current.endMs, segment.endMs);
-    current.segments.push(segment);
-  }
-  return groups;
+// Each visible main-row bar owns a tooltip containing only runs that overlap it.
+// This avoids pulling in distant runs through a chain of transitive overlaps.
+export function getSubAgentHoverGroups({
+  bars,
+  subAgentSegments,
+}: {
+  bars: SessionEventTimelineSegment[];
+  subAgentSegments: SessionEventTimelineSegment[];
+}): TimelineSubAgentGroup[] {
+  return bars.map(bar => ({
+    id: `sub-agent-group-${bar.id}`,
+    barId: bar.id,
+    startMs: bar.startMs,
+    endMs: bar.endMs,
+    segments: subAgentSegments.filter(
+      segment => segment.turnIndex === bar.turnIndex && (segment.id === bar.id || segmentsOverlap(bar, segment)),
+    ),
+  }));
 }
 
 /**
