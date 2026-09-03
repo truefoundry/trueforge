@@ -1,8 +1,7 @@
 name: Sync commit to trueforge-devtest-deployment
 
-# Pins github.sha into trueforge-devtest-deployment/truefoundry.yaml (both
-# components' image.build_source.ref) and pushes to main. That merge triggers
-# tfy-deploy in the deployment repo.
+# Pins github.sha into trueforge / trueforge-controller manifests and pushes to
+# main. That push triggers tfy-deploy in the deployment repo.
 # For pre-main testing: add your branch under push.branches.
 on:
   workflow_dispatch:
@@ -46,17 +45,17 @@ jobs:
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           set -euo pipefail
-          yq -i '
-            (.components[] | select(.image.build_source.repo_url == "https://github.com/truefoundry/trueforge") |
-              .image.build_source.ref) = strenv(SHA) |
-            (.components[] | select(.image.build_source.repo_url == "https://github.com/truefoundry/trueforge") |
-              .image.build_source.branch_name) = strenv(BRANCH)
-          ' truefoundry.yaml
+          for f in trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml; do
+            yq -i '
+              .image.build_source.ref = strenv(SHA) |
+              .image.build_source.branch_name = strenv(BRANCH)
+            ' "$f"
+          done
           echo "$SHA" > test.txt
 
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
-          git add truefoundry.yaml test.txt
+          git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml test.txt
           if git diff --cached --quiet; then
             echo "Already pinned at $SHA"
             exit 0
