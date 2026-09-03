@@ -136,7 +136,7 @@ export class McpServersClient {
     }
 
     /**
-     * Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is the FE landing path after consent (local DCR via harness callback; TrueFoundry as SFY redirectURL).
+     * Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.
      *
      * @param {string} name - MCP server name.
      * @param {TrueForge.AuthorizeMcpServersRequest} request

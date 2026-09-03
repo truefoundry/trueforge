@@ -24,7 +24,7 @@ export class McpServersClient {
     }
 
     /**
-     * Paginated MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
+     * Paginated MCP servers with auth_status. Header secrets are redacted.
      *
      * @param {TrueForge.settings.ListMcpServersRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.

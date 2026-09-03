@@ -6017,7 +6017,7 @@
         "x-fern-sdk-method-name": "delete_authorization"
       },
       "get": {
-        "description": "Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is the FE landing path after consent (local DCR via harness callback; TrueFoundry as SFY redirectURL).",
+        "description": "Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -6031,12 +6031,12 @@
             }
           },
           {
-            "description": "Optional same-origin relative path for the browser after consent. Local DCR: OAuth callback redirects here with `isSuccess`/`reason`. TrueFoundry: absolute URL of this path is passed to ServiceFoundry as `redirectURL` (SFY appends `code`/`error`).",
+            "description": "Same-origin path to land in the browser after consent.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Optional same-origin relative path for the browser after consent. Local DCR: OAuth callback redirects here with `isSuccess`/`reason`. TrueFoundry: absolute URL of this path is passed to ServiceFoundry as `redirectURL` (SFY appends `code`/`error`).",
+              "description": "Same-origin path to land in the browser after consent.",
               "type": "string"
             }
           }
@@ -7913,7 +7913,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
         "parameters": [
           {
             "description": "Page size. Defaults to 100, max 200.",

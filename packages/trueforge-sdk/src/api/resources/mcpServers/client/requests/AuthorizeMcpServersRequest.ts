@@ -5,6 +5,6 @@
  *     {}
  */
 export interface AuthorizeMcpServersRequest {
-    /** Optional same-origin relative path for the browser after consent. Local DCR: OAuth callback redirects here with `isSuccess`/`reason`. TrueFoundry: absolute URL of this path is passed to ServiceFoundry as `redirectURL` (SFY appends `code`/`error`). */
+    /** Same-origin path to land in the browser after consent. */
     returnTo?: string;
 }

@@ -516,7 +516,7 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
-Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is the FE landing path after consent (local DCR via harness callback; TrueFoundry as SFY redirectURL).
+Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.
 </dd>
 </dl>
 </dd>
@@ -2846,7 +2846,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 <dl>
 <dd>
 
-Paginated MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
+Paginated MCP servers with auth_status. Header secrets are redacted.
 </dd>
 </dl>
 </dd>
