@@ -60,10 +60,10 @@
     "typecheck": "pnpm run build:gen && tsc --noEmit && tsc --noEmit -p tests/db/tsconfig.json && tsc --noEmit -p tests/unit/tsconfig.json"
   },
   "dependencies": {
-    "@anthropic-ai/sandbox-runtime": "0.0.71",
-    "@daytona/sdk": "^0.204.1",
+    "@anthropic-ai/sandbox-runtime": "0.0.74",
+    "@daytona/sdk": "^0.207.0",
     "@hono/node-server": "^2.1.1",
-    "@hono/swagger-ui": "^0.2.2",
+    "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-openapi": "^1.6.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@truefoundry/trueforge-core": "workspace:*",
@@ -81,7 +81,7 @@
     "undici": "7.29.0",
     "winston": "^3.19.0",
     "yaml": "^2.9.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@swc/core": "^1.16.1",
@@ -92,7 +92,7 @@
     "@types/pg": "^8.23.1",
     "jest": "^29.7.0",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }
 }

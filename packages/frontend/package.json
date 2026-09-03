@@ -23,23 +23,23 @@
     "test": "NODE_OPTIONS='--conditions=trueforge-dev' tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
-    "@assistant-ui/core": "0.2.22",
-    "@assistant-ui/react": "0.14.27",
-    "@assistant-ui/store": "0.2.21",
+    "@assistant-ui/core": "0.3.16",
+    "@assistant-ui/react": "0.15.17",
+    "@assistant-ui/store": "0.3.11",
     "@truefoundry/assistant-ui-runtime": "0.1.26",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
-    "monaco-editor": "^0.52.0",
+    "monaco-editor": "^0.56.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^4.7.0",
     "tailwindcss": "4.3.3",
-    "tsx": "^4.16.2",
+    "tsx": "^4.23.13",
     "typescript": "^5.9.3",
     "vite": "^6.3.5",
     "vite-plugin-compression2": "^2.5.3",
