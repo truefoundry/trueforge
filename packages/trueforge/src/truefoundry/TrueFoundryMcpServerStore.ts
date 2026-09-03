@@ -192,8 +192,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     void input.userRef;
     const out = new Map<string, McpAuthStatus>();
 
-    // TODO: remove `stub` once batch auth status is cheap enough for list.
-    if (input.stub === true) {
+    if (input.records.length > 1) {
       for (const record of input.records) {
         out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
       }

@@ -95,7 +95,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }
 
   async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {
-    void input.stub; // Local token lookup is cheap; always resolve live status.
     const dcrIds = input.records.filter(record => record.manifest.auth?.type === 'dcr').map(record => record.id);
     const tokens = await this.#tokenStore.getTokens({ ids: dcrIds, userRef: input.userRef });
     const out = new Map<string, McpAuthStatus>();

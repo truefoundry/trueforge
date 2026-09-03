@@ -69,10 +69,6 @@ export class McpServerNotFoundError extends Error {
 export interface ResolveMcpAuthStatusesInput {
   records: readonly McpServerRecord[];
   userRef: string;
-  /**
-   * When true, skip live per-server status (cheaper list UX). Local stores ignore this.
-   */
-  stub?: boolean;
 }
 
 export interface AuthorizeMcpServerInput {

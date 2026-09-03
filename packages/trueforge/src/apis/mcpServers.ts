@@ -133,7 +133,6 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
       const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
         records,
         userRef,
-        stub: true,
       });
       const data: ConfiguredMcpServer[] = records.map(record => ({
         name: record.name,
@@ -476,7 +475,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
         records,
         userRef,
-        stub: true,
       });
       const data: AvailableMcpServer[] = records.map(record => {
         const authType = record.manifest.auth?.type;

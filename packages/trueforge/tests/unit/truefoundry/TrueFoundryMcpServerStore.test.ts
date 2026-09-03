@@ -174,19 +174,18 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('resolveAuthStatuses', () => {
-    it('skips SFY when stub is true', async () => {
+    it('skips live status for multi-record lists', async () => {
       const { store, client } = createStore();
       const statuses = await store.resolveAuthStatuses({
         records: [dcrRecord(), dcrRecord({ name: 'slack' })],
         userRef: 'user-1',
-        stub: true,
       });
       expect(client.getMcpAuthStatus).not.toHaveBeenCalled();
       expect(statuses.get('github')).toEqual({ status: 'authenticated' });
       expect(statuses.get('slack')).toEqual({ status: 'authenticated' });
     });
 
-    it('calls SFY auth/status for truefoundry+dcr when stub is omitted', async () => {
+    it('calls live status for a single record', async () => {
       const { store, client } = createStore();
       client.getMcpAuthStatus.mockResolvedValue({
         status: 'auth_required',
