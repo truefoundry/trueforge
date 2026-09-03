@@ -53,11 +53,6 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
-/**
- * Absolute FE landing for SFY `redirectURL`. Prefer explicit `redirectURL`; otherwise
- * `PUBLIC_BASE_URL` + safe `return_to` (same path the Connect popup opens with).
- * SFY appends `code`/`error` — no harness callback.
- */
 export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; returnTo?: string }): string {
   if (input.redirectURL !== undefined && input.redirectURL.length > 0) {
     return input.redirectURL;
@@ -109,7 +104,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       ...withoutAuthorization(this.#perServerHeaders[record.name]),
       Authorization: `Bearer ${this.#accessToken}`,
     };
-    if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
+    if (record.manifest.auth?.type === 'dcr') {
       return async () => {
         const status = await this.authorize({
           tenant_id: record.tenant_id,
@@ -219,7 +214,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     }
 
     for (const record of input.records) {
-      if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
+      if (record.manifest.auth?.type === 'dcr') {
         out.set(
           record.name,
           await this.#client.getMcpAuthStatus({
