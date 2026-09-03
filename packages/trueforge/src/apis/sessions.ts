@@ -78,7 +78,7 @@ export interface SessionsRouterDeps {
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveMcpServerStore: (c: Context) => IMcpServerStore;
   skillStore: ISkillStore;
-  agentStore: IAgentStore;
+  resolveAgentStore: (c: Context) => IAgentStore;
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
@@ -227,7 +227,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
   | 'skillStore'
-  | 'agentStore'
+  | 'resolveAgentStore'
   | 'sandboxProviderStore'
   | 'resolveUserContext'
 >;
@@ -252,7 +252,7 @@ function createGetOrCreateSessionByExternalIdHandler(
 
     let agent: SessionRecord['agent'];
     if (isSessionAgentNameRef(body.agent)) {
-      const named = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+      const named = await deps.resolveAgentStore(c).getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
       if (named === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
@@ -296,7 +296,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const sessionId = newId();
 
     if (isSessionAgentNameRef(body.agent)) {
-      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+      const agent = await deps.resolveAgentStore(c).getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }

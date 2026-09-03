@@ -82,7 +82,7 @@ describe('sessions HTTP agent binding', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => mcpServerStore,
       skillStore,
-      agentStore,
+      resolveAgentStore: () => agentStore,
       sandboxProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),

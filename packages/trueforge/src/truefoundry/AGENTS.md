@@ -1,0 +1,1 @@
+- ServiceFoundry shape mappers under this directory MUST use `map*` for SF → domain (read/list parse) and `to*` for domain → SF/wire (request body build). Examples: `mapSfyMcpServers`, `mapEnabledModels`, `toPutRemoteAgentPayload`, `toTrueFoundryMcpManifest`.

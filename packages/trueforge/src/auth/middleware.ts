@@ -40,7 +40,7 @@ export function requireAccessToken(c: Context): string {
   const token = readAccessToken(c);
   if (!token) {
     throw new HTTPException(401, {
-      message: 'Authentication token required to list or call TrueFoundry models and MCP servers',
+      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, and agents',
     });
   }
   return token;

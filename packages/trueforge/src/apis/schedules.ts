@@ -38,7 +38,7 @@ import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps 
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
-  agentStore: IAgentStore<TTransaction>;
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   sessions: Sessions;
   turnDeps: BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
@@ -185,7 +185,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       await startScheduleRun({
         item: { run, schedule },
         sessions: deps.sessions,
-        agentStore: deps.agentStore,
+        agentStore: deps.resolveAgentStore(c),
         startTurn: async turnParams => {
           await startTurnInProcess({ ...turnParams, deps: deps.turnDeps });
         },
@@ -217,7 +217,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
     validateManifest(body.manifest);
 
-    const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent_name });
+    const agent = await deps.resolveAgentStore(c).getAgent({ tenant_id: TENANT_ID, name: body.agent_name });
     if (agent === undefined) {
       return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 400);
     }

@@ -59,7 +59,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       tokenStore: new SqliteOAuthTokenStore(db),
       skillStore: new SqliteSkillStore(db),
-      agentStore: new SqliteAgentStore(db),
+      resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),

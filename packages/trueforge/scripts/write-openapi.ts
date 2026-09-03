@@ -59,6 +59,7 @@ function canonicalise(value: unknown): unknown {
 const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const tokenStore = new SqliteOAuthTokenStore(db);
+const agentStore = new SqliteAgentStore(db);
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
@@ -75,7 +76,7 @@ const app = createServerApp({
   skillStore: new SqliteSkillStore(db),
   sandboxCatalog: SandboxCatalog.load(),
   sandboxProviderStore: new SqliteSandboxProviderStore(db),
-  agentStore: new SqliteAgentStore(db),
+  resolveAgentStore: () => agentStore,
   scheduleStore: new SqliteScheduleStore(db),
   sessionStore,
   sessionMetricsStore: new SqliteSessionMetricsStore(db),

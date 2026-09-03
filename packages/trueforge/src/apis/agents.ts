@@ -4,7 +4,12 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import { AgentNameConflictError, type AgentRecord, type IAgentStore } from '../db/agentStore';
+import {
+  AgentExternalIdConflictError,
+  AgentNameConflictError,
+  type AgentRecord,
+  type IAgentStore,
+} from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -24,7 +29,7 @@ import { buildAgentCodeSnippets } from './agentCodeSnippets';
 import { TENANT_ID } from './sessions';
 
 export interface AgentsRouterDeps<TTransaction> {
-  agentStore: IAgentStore<TTransaction>;
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
@@ -65,7 +70,7 @@ async function validateManifest<TTransaction>({
 
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
-    const records = await deps.agentStore.listAgents(TENANT_ID);
+    const records = await deps.resolveAgentStore(c).listAgents(TENANT_ID);
     return c.json({ data: records.map(toWireAgent) }, 200);
   };
 
@@ -78,7 +83,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       mcpServerStore: deps.resolveMcpServerStore(c),
     });
     try {
-      const record = await deps.agentStore.createAgent({
+      const record = await deps.resolveAgentStore(c).createAgent({
         tenant_id: TENANT_ID,
         name: body.name,
         manifest,
@@ -86,7 +91,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       });
       return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {
-      if (error instanceof AgentNameConflictError) {
+      if (error instanceof AgentNameConflictError || error instanceof AgentExternalIdConflictError) {
         return c.json({ error: { message: error.message } }, 409);
       }
       throw error;
@@ -95,7 +100,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const getHandler: RouteHandler<typeof getAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    const record = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+    const record = await deps.resolveAgentStore(c).getAgent({ tenant_id: TENANT_ID, id: agentId });
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
@@ -104,7 +109,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const getCodeSnippetsHandler: RouteHandler<typeof getAgentCodeSnippetsRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    const record = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, id: agentId });
+    const record = await deps.resolveAgentStore(c).getAgent({ tenant_id: TENANT_ID, id: agentId });
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
@@ -121,7 +126,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
 
   const deleteHandler: RouteHandler<typeof deleteAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
-    await deps.agentStore.deleteAgent({ tenant_id: TENANT_ID, id: agentId });
+    await deps.resolveAgentStore(c).deleteAgent({ tenant_id: TENANT_ID, id: agentId });
     return c.json({}, 200);
   };
 
@@ -134,7 +139,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
     });
-    const record = await deps.agentStore.updateAgent({
+    const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: TENANT_ID,
       id: agentId,
       manifest,
