@@ -6,6 +6,7 @@ import { createLogger } from 'winston';
 import { createSessionsRouter, TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -27,8 +28,12 @@ describe('public CRUD after session deletion', () => {
     const sessions = new Sessions({ sessionStore });
     const activeTurns = new ActiveTurnRegistry();
     const modelProviderStore = new SqliteModelProviderStore(db);
-    const mcpServerStore = new SqliteMcpServerStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
+    const mcpServerStore = new McpServerWithAuthStore({
+      store: new SqliteMcpServerStore(db),
+      tokenStore,
+      clientName: 'test-client',
+    });
     const skillStore = new SqliteSkillStore(db);
     const agentStore = new SqliteAgentStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);

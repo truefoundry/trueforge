@@ -5,6 +5,7 @@ import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -30,6 +31,7 @@ async function buildApp() {
   await migrateSqliteToLatest(db);
   const sessionStore = new SqliteSessionStore(db);
   const sessions = new Sessions({ sessionStore });
+  const tokenStore = new SqliteOAuthTokenStore(db);
   const app = new OpenAPIHono();
 
   app.route(
@@ -39,8 +41,13 @@ async function buildApp() {
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      tokenStore: new SqliteOAuthTokenStore(db),
+      resolveMcpServerStore: () =>
+        new McpServerWithAuthStore({
+          store: new SqliteMcpServerStore(db),
+          tokenStore,
+          clientName: 'test-client',
+        }),
+      tokenStore,
       skillStore: new SqliteSkillStore(db),
       agentStore: new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),

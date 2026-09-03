@@ -5,10 +5,12 @@ import {
   TurnNotFoundError,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
 import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
 import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -18,8 +20,17 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import type { Database } from '../../../src/db/sqlite/types';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+
+function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
+  return new McpServerWithAuthStore({
+    store: new SqliteMcpServerStore(db),
+    tokenStore,
+    clientName: 'test-client',
+  });
+}
 
 describe('turns', () => {
   describe('turn ownership', () => {
@@ -45,6 +56,7 @@ describe('turns', () => {
         external_id: null,
       });
 
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -53,8 +65,8 @@ describe('turns', () => {
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          tokenStore,
           skillStore: new SqliteSkillStore(db),
           agentStore: new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -164,6 +176,7 @@ describe('turns', () => {
       } as unknown as Sessions;
 
       const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined);
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -173,8 +186,8 @@ describe('turns', () => {
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
           agentStore: new SqliteAgentStore(db),
-          resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          tokenStore,
           skillStore: new SqliteSkillStore(db),
           eventSubscriptions,
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
@@ -264,6 +277,7 @@ describe('turns', () => {
           }),
       } as unknown as Sessions;
 
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -272,8 +286,8 @@ describe('turns', () => {
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          tokenStore,
           skillStore: new SqliteSkillStore(db),
           agentStore: new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
