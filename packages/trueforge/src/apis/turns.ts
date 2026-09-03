@@ -36,7 +36,6 @@ import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -106,7 +105,6 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore;
-  tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   agentStore: IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
@@ -123,7 +121,7 @@ export interface TurnsRouterDeps {
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'tokenStore' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
+  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
 > & {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
@@ -135,7 +133,6 @@ export type BeginTurnExecutionDeps = Pick<
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerWithAuthStore;
-  tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
@@ -148,7 +145,6 @@ function createTurnResolver(deps: {
 }): TurnResourceResolver {
   const {
     mcpServerStore,
-    tokenStore,
     skillStore,
     sandboxProviderStore,
     agentStore,
@@ -181,8 +177,6 @@ function createTurnResolver(deps: {
         tenant_id,
         name,
         store: mcpServerStore,
-        tokenStore,
-        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         userRef,
       });
       if (connection === undefined) {
@@ -378,7 +372,6 @@ export async function beginTurnExecution(params: {
   const tenant_id = session.tenant_id;
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
-    tokenStore: deps.tokenStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
     agentStore: deps.agentStore,

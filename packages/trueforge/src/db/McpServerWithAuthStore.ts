@@ -1,8 +1,5 @@
-/**
- * Wraps a DB-backed {@link IMcpServerStore} with local DCR authorize / status / revoke
- * and configured invoke headers so API handlers can call auth methods on the store
- * without depending on a token store.
- */
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
@@ -35,7 +32,10 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     this.#clientName = input.clientName;
   }
 
-  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
+  listServers(
+    input: ListMcpServersInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }> {
     return this.#store.listServers(input, transaction);
   }
 
@@ -55,7 +55,30 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.upsertServer(input, transaction);
   }
 
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+    const { record, userRef } = input;
+    if (record.manifest.auth?.type === 'dcr') {
+      return async () => {
+        const result = await resolveMcpAuth({
+          tokenStore: this.#tokenStore,
+          mcpServerStore: this.#store,
+          serverId: record.id,
+          userRef,
+          mcpServerUrl: record.manifest.url,
+          mcpServerName: record.name,
+          clientName: this.#clientName,
+        });
+        if (isMcpAuthRequired(result)) {
+          // Wire `id` must match RemoteMCP.id (AgentSpec name), not the DB row ULID.
+          return {
+            authRequired: {
+              servers: [{ id: record.name, name: record.name, auth_url: result.authUrl.href }],
+            },
+          };
+        }
+        return { headers: result.headers };
+      };
+    }
     return resolveConfiguredMcpRequestHeaders(record.manifest);
   }
 
@@ -89,7 +112,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }
 
   async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
-    void input.redirectURL;
     const record = await this.#store.getServer({ tenant_id: input.tenant_id, name: input.name });
     if (record === undefined) {
       throw new McpServerNotFoundError(input.name);
