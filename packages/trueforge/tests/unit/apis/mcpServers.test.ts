@@ -1,8 +1,7 @@
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
-import { TENANT_ID } from '../../../src/apis/sessions';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -113,7 +112,7 @@ describe('mcp-servers routers', () => {
       tokenStore,
       withTransaction,
       logger,
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     catalogRouter = createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
@@ -126,14 +125,14 @@ describe('mcp-servers routers', () => {
       tokenStore,
       withTransaction,
       logger,
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
   });
 
   /** Persist a DCR server + stub client without calling the authorization server. */
   async function seedDcrServerWithClient(body: typeof putBodyWithDcr = putBodyWithDcr) {
     const record = await mcpServerStore.upsertServer({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: body.name,
       manifest: body,
     });
@@ -225,7 +224,7 @@ describe('mcp-servers routers', () => {
         message: "Failed to discover OAuth authorization server for MCP server 'linear'",
       },
     });
-    expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name })).toBeUndefined();
+    expect(await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithDcr.name })).toBeUndefined();
   });
 
   it('POST with DCR fails registration without writing a server row', async () => {
@@ -238,7 +237,7 @@ describe('mcp-servers routers', () => {
     };
     const response = await settingsRouter.request('/', postInit(wrapManifest(createDcr)));
     expect(response.status).toBe(422);
-    expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: createDcr.name })).toBeUndefined();
+    expect(await mcpServerStore.getServer({ tenant_id: 'default', name: createDcr.name })).toBeUndefined();
   });
 
   it('DCR server reads authenticated when a token row exists, auth_required once deleted', async () => {
@@ -246,7 +245,7 @@ describe('mcp-servers routers', () => {
 
     await tokenStore.saveToken({
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -264,7 +263,7 @@ describe('mcp-servers routers', () => {
     // List auth_status is presence-based; expiry is handled at resolve/refresh time.
     await tokenStore.saveToken({
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -279,7 +278,7 @@ describe('mcp-servers routers', () => {
       status: 'authenticated',
     });
 
-    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
+    await tokenStore.deleteToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id });
 
     const cleared = await settingsRouter.request('/');
     const clearedBody = (await cleared.json()) as { data: { name: string; auth_status: { status: string } }[] };
@@ -294,7 +293,7 @@ describe('mcp-servers routers', () => {
 
     await tokenStore.saveToken({
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -310,14 +309,14 @@ describe('mcp-servers routers', () => {
       data: configured(putBodyWithDcr, 'authenticated'),
     });
 
-    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
+    await tokenStore.deleteToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id });
   });
 
   it('PUT URL change re-registers DCR and clears tokens and pending authorizations', async () => {
     const record = await seedDcrServerWithClient();
     await tokenStore.saveToken({
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       token: {
         accessToken: 'stale-for-old-url',
         refreshToken: 'stale-refresh',
@@ -338,7 +337,7 @@ describe('mcp-servers routers', () => {
     await tokenStore.savePendingAuthorization({
       state: 'stale-pending-state',
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       mcpServerUrl: putBodyWithDcr.url,
       codeVerifier: 'stale-verifier',
       returnTo: null,
@@ -401,7 +400,7 @@ describe('mcp-servers routers', () => {
       expect(await response.json()).toEqual({
         data: configured({ ...putBodyWithDcr, url: newUrl }, 'auth_required'),
       });
-      expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+      expect(await tokenStore.getToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id })).toBeUndefined();
       expect(await tokenStore.getToken({ id: record.id, userRef: 'other-user' })).toBeUndefined();
       expect(await tokenStore.consumePendingAuthorization({ state: 'stale-pending-state' })).toBeUndefined();
       expect(await mcpServerStore.getClient({ id: record.id })).toMatchObject({
@@ -411,7 +410,7 @@ describe('mcp-servers routers', () => {
       globalThis.fetch = realFetch;
       // Restore baseline for later suite cases that still expect original linear URL / no token.
       await mcpServerStore.upsertServer({
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         name: putBodyWithDcr.name,
         manifest: putBodyWithDcr,
       });
@@ -439,7 +438,7 @@ describe('mcp-servers routers', () => {
       data: configured(putBodyWithHeaderAuthWire, 'authenticated'),
     });
 
-    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    const stored = await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithHeaderAuth.name });
     expect(stored?.manifest.auth).toEqual(putBodyWithHeaderAuth.auth);
   });
 
@@ -483,7 +482,7 @@ describe('mcp-servers routers', () => {
       ),
     });
 
-    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    const stored = await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithHeaderAuth.name });
     expect(stored?.manifest).toEqual({
       ...putBodyWithHeaderAuth,
       url: keep.url,
@@ -518,7 +517,7 @@ describe('mcp-servers routers', () => {
       ),
     });
 
-    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    const stored = await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithHeaderAuth.name });
     expect(stored?.manifest).toEqual({
       ...putBodyWithHeaderAuth,
       url: keep.url,
@@ -553,7 +552,7 @@ describe('mcp-servers routers', () => {
       ),
     });
 
-    const stored = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithHeaderAuth.name });
+    const stored = await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithHeaderAuth.name });
     expect(stored?.manifest.auth).toEqual(rotated.auth);
   });
 
@@ -590,11 +589,11 @@ describe('mcp-servers routers', () => {
   });
 
   it('GET / chat list auth_status is scoped to the calling user', async () => {
-    const record = await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: putBodyWithDcr.name });
+    const record = await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithDcr.name });
     if (record === undefined) throw new Error('expected DCR server to exist');
     await tokenStore.saveToken({
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -616,7 +615,12 @@ describe('mcp-servers routers', () => {
       tokenStore,
       withTransaction,
       logger,
-      resolveUserContext: () => ({ userRef: 'other-user', role: 'user' }),
+      resolveRequestContext: () => ({
+        tenant_id: 'default',
+        subject: { id: 'other-user', type: 'user', display_name: 'other-user' },
+        is_admin: false,
+        user_credential: null,
+      }),
     });
     const forOther = await otherRouter.request('/');
     const otherBody = (await forOther.json()) as {
@@ -626,7 +630,7 @@ describe('mcp-servers routers', () => {
       status: 'auth_required',
     });
 
-    await tokenStore.deleteToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef });
+    await tokenStore.deleteToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {
@@ -731,7 +735,7 @@ describe('mcp-servers routers', () => {
       );
       // Registration fails before any DB write — no server exists to authorize.
       expect(put.status).toBe(422);
-      expect(await mcpServerStore.getServer({ tenant_id: TENANT_ID, name: 'failing-oauth-mcp' })).toBeUndefined();
+      expect(await mcpServerStore.getServer({ tenant_id: 'default', name: 'failing-oauth-mcp' })).toBeUndefined();
 
       const authorize = await mcpServersRouter.request('/failing-oauth-mcp/authorize');
       expect(authorize.status).toBe(404);
@@ -831,7 +835,7 @@ describe('mcp-servers routers', () => {
     });
     await tokenStore.saveToken({
       id: record.id,
-      userRef: LOCAL_USER_CONTEXT.userRef,
+      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       token: {
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
@@ -845,7 +849,7 @@ describe('mcp-servers routers', () => {
     expect(await response.json()).toEqual({
       data: configured(putBodyWithDcr, 'auth_required'),
     });
-    expect(await tokenStore.getToken({ id: record.id, userRef: LOCAL_USER_CONTEXT.userRef })).toBeUndefined();
+    expect(await tokenStore.getToken({ id: record.id, userRef: STANDALONE_REQUEST_CONTEXT.subject.id })).toBeUndefined();
     expect(await mcpServerStore.getClient({ id: record.id })).toEqual({
       server: {
         authorizationEndpoint: 'https://auth.example.com/authorize',

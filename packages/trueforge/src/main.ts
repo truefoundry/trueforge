@@ -11,6 +11,7 @@
  */
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -47,8 +48,10 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
-import { requireAccessToken } from './auth/middleware';
+import { createAuthenticator, TrueforgeMode } from './auth/createAuthenticator';
+import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
+import { rawTokenFromCredential } from './auth/token';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -93,6 +96,16 @@ interface ServerPersistence<TTransaction> {
   redis: RedisClientType | undefined;
 }
 
+function requireRequestCredentialToken(c: Context): string {
+  const credential = resolveRequestContext(c).user_credential;
+  if (credential === null) {
+    throw new HTTPException(401, {
+      message: 'Authentication token required to list or call TrueFoundry models and MCP servers',
+    });
+  }
+  return rawTokenFromCredential(credential.authorization);
+}
+
 /**
  * Per-request model-provider store resolver. In TrueFoundry mode every request gets a token-bound
  * store over a shared (mTLS) ServiceFoundry client; otherwise the persistence store is reused as-is.
@@ -113,7 +126,7 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   // unavailable there; fall back to the persistence store.
   return c =>
     c
-      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      ? new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
       : options.persistenceStore;
 }
 
@@ -143,7 +156,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   });
   return c =>
     c
-      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireAccessToken(c) })
+      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
       : withAuthPersistence;
 }
 
@@ -316,6 +329,22 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   }
   const oidcClient = await initOidc(oidc);
 
+  let authenticator;
+  if (isTrueFoundryModeEnabled(configuration)) {
+    authenticator = createAuthenticator({
+      mode: TrueforgeMode.TrueFoundry,
+      trueFoundryClient: new TrueFoundryServiceFoundryServerClient({
+        serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+        logger,
+        tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+      }),
+    });
+  } else if (isOidcConfigured(configuration)) {
+    authenticator = createAuthenticator({ mode: TrueforgeMode.Oidc });
+  } else {
+    authenticator = createAuthenticator({ mode: TrueforgeMode.Standalone });
+  }
+
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
     ? createController({
@@ -348,6 +377,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     eventSubscriptions,
     logger,
     oidcClient,
+    authenticator,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

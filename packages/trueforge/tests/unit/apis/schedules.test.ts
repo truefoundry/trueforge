@@ -1,8 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createSchedulesRouter } from '../../../src/apis/schedules';
-import { TENANT_ID } from '../../../src/apis/sessions';
-import type { UserContext } from '../../../src/auth/identity';
+import type { RequestContext } from '../../../src/auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -23,9 +22,24 @@ jest.mock('../../../src/controller/scheduleDispatch', () => ({
 
 const mockedStartScheduleRun = jest.mocked(startScheduleRun);
 
-const ALICE: UserContext = { userRef: 'alice', role: 'user' };
-const BOB: UserContext = { userRef: 'bob', role: 'user' };
-const ADMIN: UserContext = { userRef: 'root', role: 'admin' };
+const ALICE: RequestContext = {
+  tenant_id: 'default',
+  subject: { id: 'alice', type: 'user', display_name: 'alice' },
+  is_admin: false,
+  user_credential: null,
+};
+const BOB: RequestContext = {
+  tenant_id: 'default',
+  subject: { id: 'bob', type: 'user', display_name: 'bob' },
+  is_admin: false,
+  user_credential: null,
+};
+const ADMIN: RequestContext = {
+  tenant_id: 'default',
+  subject: { id: 'root', type: 'user', display_name: 'root' },
+  is_admin: true,
+  user_credential: null,
+};
 
 const scheduleBody = {
   agent_name: 'reporter',
@@ -39,13 +53,13 @@ async function setup() {
   const agentStore = new SqliteAgentStore(db);
   const scheduleStore = new SqliteScheduleStore(db);
   await agentStore.createAgent({
-    tenant_id: TENANT_ID,
+    tenant_id: 'default',
     name: 'reporter',
     manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
     external_id: null,
   });
 
-  let current: UserContext = ALICE;
+  let current: RequestContext = ALICE;
   const app = new OpenAPIHono();
   app.route(
     '/',
@@ -67,11 +81,11 @@ async function setup() {
         logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
       },
       withTransaction: callback => db.transaction().execute(callback),
-      resolveUserContext: () => current,
+      resolveRequestContext: () => current,
     }),
   );
 
-  const asUser = (user: UserContext) => {
+  const asUser = (user: RequestContext) => {
     current = user;
   };
   const postJson = (path: string, method: string, body: unknown) =>
@@ -153,7 +167,7 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     const { app, asUser, agentStore, postJson } = await setup();
     // A second agent so both schedules can share the same name without colliding.
     await agentStore.createAgent({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'reporter-two',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: null,
@@ -189,7 +203,7 @@ describe('schedule list agent_names filter', () => {
   it('filters by a single agent_names value and by comma-separated agent_names', async () => {
     const { app, asUser, agentStore, postJson } = await setup();
     await agentStore.createAgent({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'reporter-two',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: null,
@@ -249,7 +263,7 @@ describe('create schedule run', () => {
     const created = await postJson('/', 'POST', scheduleBody);
     const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
 
-    const pendingBefore = await scheduleStore.getScheduledRunFor({ tenant_id: TENANT_ID, schedule_id: scheduleId });
+    const pendingBefore = await scheduleStore.getScheduledRunFor({ tenant_id: 'default', schedule_id: scheduleId });
     expect(pendingBefore?.status).toBe('scheduled');
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
@@ -274,11 +288,11 @@ describe('create schedule run', () => {
       }),
     );
 
-    const pendingAfter = await scheduleStore.getScheduledRunFor({ tenant_id: TENANT_ID, schedule_id: scheduleId });
+    const pendingAfter = await scheduleStore.getScheduledRunFor({ tenant_id: 'default', schedule_id: scheduleId });
     expect(pendingAfter?.id).toBe(pendingBefore?.id);
     expect(pendingAfter?.status).toBe('scheduled');
 
-    const runs = await scheduleStore.listRuns({ tenant_id: TENANT_ID, schedule_id: scheduleId });
+    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     expect(runs.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
   });
 
@@ -309,7 +323,7 @@ describe('create schedule run', () => {
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
 
-    const runs = await scheduleStore.listRuns({ tenant_id: TENANT_ID, schedule_id: scheduleId });
+    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     const runNow = runs.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
   });

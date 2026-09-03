@@ -1,6 +1,6 @@
 import type { OIDCConfig } from '../config';
 import { assertEmailAllowed } from './emailAllowlist';
-import type { Role, UserContext } from './identity';
+import type { RequestContext } from './identity';
 
 /** Raw claims from a decoded ID token; values are untyped until read here. */
 export type IdTokenClaims = Record<string, unknown>;
@@ -23,13 +23,22 @@ export function claimValues(claim: unknown): string[] {
   return [];
 }
 
+/** Non-empty string claim, or undefined when absent / empty / wrong type. */
+export function resolveOptionalStringClaim(claims: IdTokenClaims, claimName: string): string | undefined {
+  const value = claims[claimName];
+  if (typeof value !== 'string' || value === '') {
+    return undefined;
+  }
+  return value;
+}
+
 /**
  * The stable identity key for this caller. An identity that can't be resolved
  * means the token can't be trusted to identify anyone, so this throws.
  */
 export function resolveUserRef(claims: IdTokenClaims, config: OIDCConfig): string {
-  const value = claims[config.OIDC_USER_REFERENCE_CLAIM];
-  if (typeof value !== 'string' || value === '') {
+  const value = resolveOptionalStringClaim(claims, config.OIDC_USER_REFERENCE_CLAIM);
+  if (value === undefined) {
     throw new Error(
       `ID token is missing a non-empty "${config.OIDC_USER_REFERENCE_CLAIM}" claim (OIDC_USER_REFERENCE_CLAIM).`,
     );
@@ -41,16 +50,31 @@ export function resolveUserRef(claims: IdTokenClaims, config: OIDCConfig): strin
  * Admin iff the configured role claim's values include the configured admin
  * value, exact case-sensitive string match.
  */
-export function resolveRole(claims: IdTokenClaims, config: OIDCConfig): Role {
+export function resolveRole(claims: IdTokenClaims, config: OIDCConfig): 'admin' | 'user' {
   return claimValues(claims[config.OIDC_USER_ROLE_CLAIM]).includes(config.OIDC_ADMIN_ROLE_VALUE) ? 'admin' : 'user';
 }
 
-/** Everything `/callback` (and later `/me`, once sessions are real) needs from a set of claims. */
-export function toUserContext(claims: IdTokenClaims, config: OIDCConfig): UserContext {
+/** Map verified ID-token claims onto a {@link RequestContext}. */
+export function toRequestContext(params: {
+  claims: IdTokenClaims;
+  config: OIDCConfig;
+  authorization: string;
+}): RequestContext {
+  const { claims, config, authorization } = params;
   assertEmailAllowed(claims, config);
+  const subjectId = resolveUserRef(claims, config);
+  const role = resolveRole(claims, config);
+  const displayName =
+    resolveOptionalStringClaim(claims, config.OIDC_USER_DISPLAY_NAME_CLAIM) ?? subjectId;
   return {
-    userRef: resolveUserRef(claims, config),
-    role: resolveRole(claims, config),
+    tenant_id: 'default',
+    subject: {
+      id: subjectId,
+      type: 'user',
+      display_name: displayName,
+    },
+    is_admin: role === 'admin',
+    user_credential: { authorization },
   };
 }
 
@@ -63,10 +87,8 @@ export interface AuthorizationRequestParams {
 /**
  * Scopes + `claims` parameter for the authorization request, derived
  * from configured claim names and {@link OIDCConfig.OIDC_SCOPES}.
- * `essential: true` on the role claim makes the IdP reject the
- * login outright if it can't actually produce that claim (e.g. a broken
- * claim mapping) instead of silently omitting it and defaulting the user to
- * non-admin.
+ * `essential: true` on identity claims makes the IdP reject the
+ * login outright if it can't actually produce that claim.
  * When an email allowlist is configured, `email` is also marked essential so
  * the IdP cannot complete login without a usable address to check.
  */
@@ -74,6 +96,7 @@ export function buildAuthorizationRequestParams(config: OIDCConfig): Authorizati
   const idTokenClaims: Record<string, { essential: true }> = {
     [config.OIDC_USER_REFERENCE_CLAIM]: { essential: true },
     [config.OIDC_USER_ROLE_CLAIM]: { essential: true },
+    [config.OIDC_USER_DISPLAY_NAME_CLAIM]: { essential: true },
   };
   if (config.OIDC_ALLOWED_EMAILS.length > 0) {
     idTokenClaims['email'] = { essential: true };

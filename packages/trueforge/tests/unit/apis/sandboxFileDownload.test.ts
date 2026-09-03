@@ -2,9 +2,8 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, toContentDisposition } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -53,7 +52,7 @@ async function buildApp() {
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
   );
 
@@ -116,9 +115,9 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
   it('returns 404 for a turn that does not exist in the session', async () => {
     const { app, sessions } = await buildApp();
     const session = await sessions.create({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       session_id: 'no-turn',
-      created_by: LOCAL_USER_CONTEXT.userRef,
+      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
       agent: { type: 'inline', spec: agentSpec() },
       external_id: null,
     });

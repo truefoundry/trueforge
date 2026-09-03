@@ -1,41 +1,43 @@
 import type { Context } from 'hono';
-import { getOidcVerify } from './oidc';
+import { z } from 'zod';
 
-export type Role = 'admin' | 'user';
+export const SubjectTypeSchema = z.enum(['user', 'virtualaccount']);
+export type SubjectType = z.infer<typeof SubjectTypeSchema>;
 
-export interface UserContext {
-  userRef: string;
-  role: Role;
+export interface RequestSubject {
+  id: string;
+  type: SubjectType;
+  display_name: string;
 }
 
-/**
- * Fixed identity when no identity provider is configured (standalone / auth disabled).
- * Stamped onto sessions as `created_by` and used for ownership checks.
- */
-export const LOCAL_USER_CONTEXT: UserContext = {
-  userRef: 'trueforge-default',
-  role: 'admin',
+export interface UserCredential {
+  authorization: string;
+}
+
+export interface RequestContext {
+  tenant_id: string;
+  subject: RequestSubject;
+  is_admin: boolean;
+  user_credential: UserCredential | null;
+}
+
+export const STANDALONE_REQUEST_CONTEXT: RequestContext = {
+  tenant_id: 'default',
+  subject: {
+    id: 'trueforge-default',
+    type: 'user',
+    display_name: 'Admin',
+  },
+  is_admin: true,
+  user_credential: null,
 };
 
-/** Auth disabled: always true. Auth enabled: admin role only. */
-export function isAdmin(user: UserContext): boolean {
-  if (!getOidcVerify()) {
-    return true;
-  }
-  return user.role === 'admin';
-}
+export type ResolveRequestContext = (c: Context) => RequestContext;
 
-/** Resolves the caller identity from the request context. Injected on session/turn routers. */
-export type ResolveUserContext = (c: Context) => UserContext;
-
-/**
- * Caller {@link UserContext} for the current request.
- * Requires auth middleware to have set `c.var.user`.
- */
-export function resolveUserContext(c: Context): UserContext {
-  const uc = c.get('user_context');
-  if (uc === undefined) {
-    throw new Error('UserContext missing; auth middleware did not run');
+export function resolveRequestContext(c: Context): RequestContext {
+  const requestContext = c.get('request_context');
+  if (requestContext === undefined) {
+    throw new Error('RequestContext missing; auth middleware did not run');
   }
-  return uc;
+  return requestContext;
 }

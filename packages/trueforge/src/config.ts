@@ -40,6 +40,7 @@ const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
+const DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM = 'name';
 const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
 const DEFAULT_OIDC_ADMIN_ROLE_VALUE = 'admin';
 const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
@@ -270,6 +271,9 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
     OIDC_USER_REFERENCE_CLAIM:
       getEnv('OIDC_USER_REFERENCE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_REFERENCE_CLAIM }) ??
       DEFAULT_OIDC_USER_REFERENCE_CLAIM,
+    OIDC_USER_DISPLAY_NAME_CLAIM:
+      getEnv('OIDC_USER_DISPLAY_NAME_CLAIM', { defaultValue: DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM }) ??
+      DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM,
     OIDC_USER_ROLE_CLAIM:
       getEnv('OIDC_USER_ROLE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_ROLE_CLAIM }) ?? DEFAULT_OIDC_USER_ROLE_CLAIM,
     OIDC_ADMIN_ROLE_VALUE:
@@ -294,6 +298,11 @@ export interface OIDCConfig {
    * Optional; defaults to "sub"
    */
   OIDC_USER_REFERENCE_CLAIM: string;
+  /** Claim used as the display name; e.g. "name" or "preferred_username".
+   * Optional; defaults to "name". Missing/empty falls back to the user reference.
+   * Env: `OIDC_USER_DISPLAY_NAME_CLAIM`.
+   */
+  OIDC_USER_DISPLAY_NAME_CLAIM: string;
   /** Claim to be used as the user role; e.g. "role" or "groups"
    * Optional; defaults to "groups"
    */

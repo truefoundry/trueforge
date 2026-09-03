@@ -6,8 +6,12 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
 import { createLogger } from 'winston';
 import { createCapabilitiesRouter } from '../../../src/apis/capabilities';
-import { authMiddleware } from '../../../src/auth/middleware';
+import { createAuthMiddleware } from '../../../src/auth/authenticator';
+import type { Authenticator } from '../../../src/auth/authenticator';
+import { resolveRequestContext } from '../../../src/auth/identity';
+import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
+import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import type { OIDCConfig } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -33,6 +37,7 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_CLIENT_ID: AUDIENCE,
   OIDC_CLIENT_SECRET: 'harness-secret',
   OIDC_USER_REFERENCE_CLAIM: 'sub',
+  OIDC_USER_DISPLAY_NAME_CLAIM: 'name',
   OIDC_USER_ROLE_CLAIM: 'groups',
   OIDC_ADMIN_ROLE_VALUE: 'admin',
   OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
@@ -46,9 +51,9 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function withAuth(router: OpenAPIHono): OpenAPIHono {
+function withAuth(router: OpenAPIHono, authenticator: Authenticator): OpenAPIHono {
   const shell = new OpenAPIHono();
-  shell.use('*', authMiddleware);
+  shell.use('*', createAuthMiddleware(authenticator));
   shell.route('/', router);
   return shell;
 }
@@ -64,14 +69,16 @@ describe('capabilities routers', () => {
     setCachedLocalSandboxSupport(undefined);
   });
 
-  function makeRouter(): OpenAPIHono {
+  function makeRouter(authenticator: Authenticator = new StandaloneAuthenticator()): OpenAPIHono {
     const db = createSqliteDb(':memory:');
     return withAuth(
       createCapabilitiesRouter({
         sandboxProviderStore: new SqliteSandboxProviderStore(db),
         withTransaction: callback => db.transaction().execute(callback),
         logger: silentLogger,
+        resolveRequestContext,
       }),
+      authenticator,
     );
   }
 
@@ -242,7 +249,9 @@ describe('capabilities routers', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           withTransaction: callback => db.transaction().execute(callback),
           logger: silentLogger,
+          resolveRequestContext,
         }),
+        new OidcAuthenticator(),
       );
 
       const adminRes = await router.request('/', {

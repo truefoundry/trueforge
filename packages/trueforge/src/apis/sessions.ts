@@ -21,7 +21,7 @@ import type { Context } from 'hono';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { ResolveUserContext } from '../auth/identity';
+import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -43,9 +43,6 @@ import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
-
-/** The server is single-tenant; every record lives under one fixed tenant scope. */
-export const TENANT_ID = 'default';
 
 /** Request-reply path a replica serves to cancel a turn it owns. */
 export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
@@ -82,7 +79,7 @@ export interface SessionsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
-  resolveUserContext: ResolveUserContext;
+  resolveRequestContext: ResolveRequestContext;
   logger: Logger;
 }
 
@@ -217,8 +214,8 @@ async function freezeTurnIgnoringMissing(
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
 
-function checkSessionAccess({ userRef, createdBy }: { userRef: string; createdBy: string }): boolean {
-  return userRef === createdBy;
+function checkSessionAccess({ subject_id, createdBy }: { subject_id: string; createdBy: string }): boolean {
+  return subject_id === createdBy;
 }
 
 type InternalSessionsRouterDeps = Pick<
@@ -229,7 +226,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'skillStore'
   | 'agentStore'
   | 'sandboxProviderStore'
-  | 'resolveUserContext'
+  | 'resolveRequestContext'
 >;
 
 function createGetOrCreateSessionByExternalIdHandler(
@@ -237,14 +234,14 @@ function createGetOrCreateSessionByExternalIdHandler(
 ): RouteHandler<typeof getOrCreateSessionByExternalIdRoute> {
   return async c => {
     const body = c.req.valid('json');
-    const user = deps.resolveUserContext(c);
+    const requestContext = deps.resolveRequestContext(c);
 
     const existing = await deps.sessions.getByExternalId({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       external_id: body.external_id,
     });
     if (existing !== undefined) {
-      if (!checkSessionAccess({ userRef: user.userRef, createdBy: existing.record.created_by })) {
+      if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: existing.record.created_by })) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
       return c.json({ data: toWireSession(existing.record) }, 200);
@@ -252,7 +249,10 @@ function createGetOrCreateSessionByExternalIdHandler(
 
     let agent: SessionRecord['agent'];
     if (isSessionAgentNameRef(body.agent)) {
-      const named = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+      const named = await deps.agentStore.getAgent({
+        tenant_id: requestContext.tenant_id,
+        name: body.agent.name,
+      });
       if (named === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
@@ -260,7 +260,7 @@ function createGetOrCreateSessionByExternalIdHandler(
     } else {
       await validateAgentSpec({
         spec: body.agent.spec,
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.skillStore,
@@ -270,12 +270,12 @@ function createGetOrCreateSessionByExternalIdHandler(
     }
 
     const { session, created } = await deps.sessions.getOrCreateByExternalId({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       external_id: body.external_id,
-      created_by: user.userRef,
+      created_by: requestContext.subject.id,
       agent,
     });
-    if (!created && !checkSessionAccess({ userRef: user.userRef, createdBy: session.record.created_by })) {
+    if (!created && !checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     return c.json({ data: toWireSession(session.record) }, created ? 201 : 200);
@@ -294,17 +294,20 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const sessionId = newId();
+    const requestContext = deps.resolveRequestContext(c);
 
     if (isSessionAgentNameRef(body.agent)) {
-      const agent = await deps.agentStore.getAgent({ tenant_id: TENANT_ID, name: body.agent.name });
+      const agent = await deps.agentStore.getAgent({
+        tenant_id: requestContext.tenant_id,
+        name: body.agent.name,
+      });
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
       }
-      const user = deps.resolveUserContext(c);
       const session = await deps.sessions.create({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         session_id: sessionId,
-        created_by: user.userRef,
+        created_by: requestContext.subject.id,
         agent: { type: 'reference', id: agent.id, name: agent.name },
         metadata: body.metadata,
         external_id: null,
@@ -314,17 +317,16 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
     await validateAgentSpec({
       spec: body.agent.spec,
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.skillStore,
       sandboxProviderStore: deps.sandboxProviderStore,
     });
-    const user = deps.resolveUserContext(c);
     const session = await deps.sessions.create({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       session_id: sessionId,
-      created_by: user.userRef,
+      created_by: requestContext.subject.id,
       agent: { type: 'inline', spec: body.agent.spec },
       metadata: body.metadata,
       external_id: null,
@@ -334,11 +336,15 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.sessionStore.getSession({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     return c.json({ data: toWireSession(record) }, 200);
@@ -346,26 +352,37 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.sessionStore.getSession({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!record) {
       // Idempotent delete when already gone.
       return c.body(null, 204);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: record.created_by })) {
+    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    await deps.sessionStore.deleteSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    await deps.sessionStore.deleteSession({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     return c.body(null, 204);
   };
 
   const updateSessionHandler: RouteHandler<typeof updateSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
-    const existing = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    const requestContext = deps.resolveRequestContext(c);
+    const existing = await deps.sessionStore.getSession({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!existing) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: existing.created_by })) {
+    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: existing.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     // Inline sessions may replace their agent; named (reference) sessions
@@ -373,7 +390,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (body.agent !== undefined) {
       await validateAgentSpec({
         spec: body.agent.spec,
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.skillStore,
@@ -382,7 +399,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
     try {
       await deps.sessionStore.updateSession({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         session_id: sessionId,
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: undefined,
@@ -397,7 +414,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       }
       throw error;
     }
-    const record = await deps.sessionStore.getSession({ tenant_id: TENANT_ID, session_id: sessionId });
+    const record = await deps.sessionStore.getSession({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
@@ -406,12 +426,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
     const query = c.req.valid('query');
-    const user = deps.resolveUserContext(c);
+    const requestContext = deps.resolveRequestContext(c);
     try {
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
-        created_by: user.userRef,
-        tenant_id: TENANT_ID,
+        created_by: requestContext.subject.id,
+        tenant_id: requestContext.tenant_id,
         limit: query.limit,
         order: query.order,
         page_token: query.page_token,
@@ -429,11 +449,15 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const cancelSessionHandler: RouteHandler<typeof cancelSessionRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
+    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turnId = session.record.last_turn_id;
@@ -448,11 +472,15 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const listSessionEventsHandler: RouteHandler<typeof listSessionEventsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
+    if (!checkSessionAccess({ subject_id: requestContext.subject.id, createdBy: session.record.created_by })) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {

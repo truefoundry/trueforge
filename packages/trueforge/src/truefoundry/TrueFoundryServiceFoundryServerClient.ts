@@ -9,8 +9,31 @@ import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsO
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
+const SESSION_PATH = 'v1/session';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 const MCP_SERVERS_PAGE_SIZE = 100;
+
+/**
+ * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
+ * Wire shape is camelCase (Nest Session + exposed `subject()`).
+ */
+const SessionSubjectSchema = z.object({
+  subjectId: z.string().min(1),
+  subjectType: z.string().min(1),
+  subjectDisplayName: z.string().nullable().optional(),
+  subjectSlug: z.string().nullable().optional(),
+});
+
+const GetSessionResponseSchema = z.object({
+  user: z.object({
+    tenantName: z.string().min(1),
+    roles: z.array(z.string()),
+    subject: SessionSubjectSchema,
+  }),
+});
+
+export type GetSessionResponse = z.infer<typeof GetSessionResponseSchema>;
+
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -135,6 +158,71 @@ export class TrueFoundryServiceFoundryServerClient {
       });
     }
     return rows[0];
+  }
+
+  /**
+   * `GET v1/session` for RequestContext mapping.
+   * 401/403 propagate; transport / non-auth upstream / parse failures → 502 with `{ cause }`.
+   */
+  async getSession(accessToken: string): Promise<GetSessionResponse> {
+    const url = this.#url(SESSION_PATH);
+    const startedAt = Date.now();
+    let response: Awaited<ReturnType<typeof undiciFetch>>;
+    try {
+      response = await undiciFetch(url, {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        ...(this.#dispatcher ? { dispatcher: this.#dispatcher } : {}),
+      });
+    } catch (error) {
+      this.#logger?.warn('TrueFoundry ServiceFoundry session request failed', {
+        url: url.href,
+        durationMs: Date.now() - startedAt,
+        ...extractErrorLogFields(error),
+      });
+      throw new HTTPException(502, {
+        message: 'TrueFoundry ServiceFoundry server request failed',
+        cause: error,
+      });
+    }
+    this.#logger?.info('TrueFoundry ServiceFoundry session request completed', {
+      url: url.href,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new HTTPException(response.status, {
+        message: 'TrueFoundry ServiceFoundry server rejected the request',
+      });
+    }
+    if (!response.ok) {
+      const detail = await readServiceFoundryErrorMessage(response);
+      throw new HTTPException(502, {
+        message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
+      });
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      throw new HTTPException(502, {
+        message: 'TrueFoundry ServiceFoundry session response was not valid JSON',
+        cause: error,
+      });
+    }
+
+    const parsed = GetSessionResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new HTTPException(502, {
+        message: 'TrueFoundry ServiceFoundry session response was malformed',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
   }
 
   #parseListResponse(payload: unknown): ListResponse {

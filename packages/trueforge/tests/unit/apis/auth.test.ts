@@ -3,8 +3,11 @@ import { createHash } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import winston from 'winston';
 import { createAuthRouter } from '../../../src/apis/auth';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { createAuthMiddleware } from '../../../src/auth/authenticator';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
+import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import configuration from '../../../src/config';
 
 jest.mock('../../../src/config', () => {
@@ -13,6 +16,7 @@ jest.mock('../../../src/config', () => {
     OIDC_CLIENT_ID: 'harness-client',
     OIDC_CLIENT_SECRET: 'harness-secret',
     OIDC_USER_REFERENCE_CLAIM: 'sub',
+    OIDC_USER_DISPLAY_NAME_CLAIM: 'name',
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
@@ -53,13 +57,22 @@ const logger = winston.createLogger({ silent: true });
 
 const ACCESS_TOKEN = 'access-1';
 
+function createTestAuthRouter(params: { oidcClient: Configuration | undefined }) {
+  const authenticator = params.oidcClient ? new OidcAuthenticator() : new StandaloneAuthenticator();
+  return createAuthRouter({
+    oidcClient: params.oidcClient,
+    logger,
+    authMiddleware: createAuthMiddleware(authenticator),
+  });
+}
+
 describe('auth router (no identity provider configured)', () => {
   beforeEach(() => {
     disableOidcAuth();
   });
 
   it('GET /auth/login redirects home — there is nothing to log into', async () => {
-    const router = createAuthRouter({ oidcClient: undefined, logger });
+    const router = createTestAuthRouter({ oidcClient: undefined });
 
     const res = await router.request('/login', { redirect: 'manual' });
 
@@ -68,7 +81,7 @@ describe('auth router (no identity provider configured)', () => {
   });
 
   it('GET /auth/callback redirects home — there is nothing to complete', async () => {
-    const router = createAuthRouter({ oidcClient: undefined, logger });
+    const router = createTestAuthRouter({ oidcClient: undefined });
 
     const res = await router.request('/callback?state=abc', { redirect: 'manual' });
 
@@ -77,23 +90,23 @@ describe('auth router (no identity provider configured)', () => {
   });
 
   it('POST /auth/logout is a no-op 204 — there is no real session to clear', async () => {
-    const router = createAuthRouter({ oidcClient: undefined, logger });
+    const router = createTestAuthRouter({ oidcClient: undefined });
 
     const res = await router.request('/logout', { method: 'POST' });
 
     expect(res.status).toBe(204);
   });
 
-  it('GET /auth/me returns the default identity when auth is disabled', async () => {
-    const router = createAuthRouter({ oidcClient: undefined, logger });
+  it('GET /auth/me returns the standalone identity when auth is disabled', async () => {
+    const router = createTestAuthRouter({ oidcClient: undefined });
 
     const res = await router.request('/me');
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      type: 'default',
-      email: LOCAL_USER_CONTEXT.userRef,
-      role: LOCAL_USER_CONTEXT.role,
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      subject: STANDALONE_REQUEST_CONTEXT.subject,
+      is_admin: STANDALONE_REQUEST_CONTEXT.is_admin,
     });
   });
 });
@@ -202,7 +215,7 @@ describe('auth router (auth enabled)', () => {
   }
 
   it('GET /login redirects to the IdP and stores state', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/login?return_to=/sessions/abc123', {
+    const res = await createTestAuthRouter({ oidcClient }).request('/login?return_to=/sessions/abc123', {
       redirect: 'manual',
     });
 
@@ -217,7 +230,7 @@ describe('auth router (auth enabled)', () => {
       expect.arrayContaining(['openid', 'profile', 'email', 'groups']),
     );
     expect(JSON.parse(authUrl.searchParams.get('claims') ?? '{}')).toEqual({
-      id_token: { sub: { essential: true }, groups: { essential: true } },
+      id_token: { sub: { essential: true }, groups: { essential: true }, name: { essential: true } },
     });
     expect(cookieValue(setCookies(res), STATE_COOKIE)).toBeTruthy();
   });
@@ -232,7 +245,7 @@ describe('auth router (auth enabled)', () => {
       throw new Error('OIDC client was not initialized');
     }
 
-    const res = await createAuthRouter({ oidcClient: rolesOidcClient, logger }).request('/login', {
+    const res = await createTestAuthRouter({ oidcClient: rolesOidcClient }).request('/login', {
       redirect: 'manual',
     });
 
@@ -243,13 +256,13 @@ describe('auth router (auth enabled)', () => {
     );
     expect(authUrl.searchParams.get('scope')?.split(' ')).not.toContain('groups');
     expect(JSON.parse(authUrl.searchParams.get('claims') ?? '{}')).toEqual({
-      id_token: { sub: { essential: true }, roles: { essential: true } },
+      id_token: { sub: { essential: true }, roles: { essential: true }, name: { essential: true } },
     });
   });
 
   // `iss` is forwarded verbatim: IdPs advertising it reject an exchange that drops it.
   it('GET /callback exchanges the code and sets id_token', async () => {
-    const router = createAuthRouter({ oidcClient, logger });
+    const router = createTestAuthRouter({ oidcClient });
     const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
@@ -275,13 +288,18 @@ describe('auth router (auth enabled)', () => {
       throw new Error('OIDC client was not initialized');
     }
 
-    const router = createAuthRouter({ oidcClient: restrictedClient, logger });
+    const router = createTestAuthRouter({ oidcClient: restrictedClient });
     const loginRes = await router.request('/login', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
     const state = authorizationUrl.searchParams.get('state') ?? '';
     expect(JSON.parse(authorizationUrl.searchParams.get('claims') ?? '{}')).toEqual({
-      id_token: { sub: { essential: true }, groups: { essential: true }, email: { essential: true } },
+      id_token: {
+        sub: { essential: true },
+        groups: { essential: true },
+        name: { essential: true },
+        email: { essential: true },
+      },
     });
 
     const callbackRes = await router.request(`/callback?code=abc123&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
@@ -295,7 +313,7 @@ describe('auth router (auth enabled)', () => {
   });
 
   it('GET /callback redirects home with error when the IdP returns an error', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request(
+    const res = await createTestAuthRouter({ oidcClient }).request(
       '/callback?state=any&error=access_denied&error_description=user%20cancelled',
       { redirect: 'manual' },
     );
@@ -304,7 +322,7 @@ describe('auth router (auth enabled)', () => {
   });
 
   it('GET /callback uses login_failed when the IdP error has no description', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/callback?state=any&error=access_denied', {
+    const res = await createTestAuthRouter({ oidcClient }).request('/callback?state=any&error=access_denied', {
       redirect: 'manual',
     });
     expect(res.status).toBe(302);
@@ -312,7 +330,7 @@ describe('auth router (auth enabled)', () => {
   });
 
   it('GET /callback uses login_failed when the IdP error description is blank', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request(
+    const res = await createTestAuthRouter({ oidcClient }).request(
       '/callback?state=any&error=access_denied&error_description=%20%20',
       { redirect: 'manual' },
     );
@@ -324,7 +342,7 @@ describe('auth router (auth enabled)', () => {
     // No `error` code → this is our own validation failure, so the attacker-supplied
     // description must not be reflected; the reason stays generic.
     const crafted = 'Your%20account%20is%20compromised%2C%20call%201-800-EVIL';
-    const res = await createAuthRouter({ oidcClient, logger }).request(
+    const res = await createTestAuthRouter({ oidcClient }).request(
       `/callback?state=any&error_description=${crafted}`,
       { redirect: 'manual' },
     );
@@ -333,7 +351,7 @@ describe('auth router (auth enabled)', () => {
   });
 
   it('GET /callback redirects home with error when state mismatches', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/callback?code=abc&state=wrong', {
+    const res = await createTestAuthRouter({ oidcClient }).request('/callback?code=abc&state=wrong', {
       redirect: 'manual',
     });
     expect(res.status).toBe(302);
@@ -342,7 +360,7 @@ describe('auth router (auth enabled)', () => {
 
   it('GET /callback replays home when already authenticated and the state cookie is spent', async () => {
     const token = await createIdToken();
-    const res = await createAuthRouter({ oidcClient, logger }).request('/callback?code=abc&state=spent', {
+    const res = await createTestAuthRouter({ oidcClient }).request('/callback?code=abc&state=spent', {
       redirect: 'manual',
       headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
     });
@@ -362,7 +380,7 @@ describe('auth router (auth enabled)', () => {
     }
 
     const token = await createIdToken();
-    const res = await createAuthRouter({ oidcClient: restrictedClient, logger }).request(
+    const res = await createTestAuthRouter({ oidcClient: restrictedClient }).request(
       '/callback?code=abc&state=spent',
       {
         redirect: 'manual',
@@ -378,7 +396,7 @@ describe('auth router (auth enabled)', () => {
 
   it('GET /callback replays home when already authenticated even if the IdP returned an error', async () => {
     const token = await createIdToken();
-    const res = await createAuthRouter({ oidcClient, logger }).request(
+    const res = await createTestAuthRouter({ oidcClient }).request(
       '/callback?state=any&error=access_denied&error_description=user%20cancelled',
       {
         redirect: 'manual',
@@ -399,7 +417,7 @@ describe('auth router (auth enabled)', () => {
     }
 
     const token = await createIdToken();
-    const router = createAuthRouter({ oidcClient: restrictedClient, logger });
+    const router = createTestAuthRouter({ oidcClient: restrictedClient });
     const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
@@ -418,7 +436,7 @@ describe('auth router (auth enabled)', () => {
 
   it('GET /callback keeps the existing session when code exchange fails', async () => {
     const token = await createIdToken();
-    const router = createAuthRouter({ oidcClient, logger });
+    const router = createTestAuthRouter({ oidcClient });
     const loginRes = await router.request('/login?return_to=/sessions/abc123', { redirect: 'manual' });
     const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
     const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
@@ -442,7 +460,7 @@ describe('auth router (auth enabled)', () => {
   });
 
   it('POST /logout clears id_token even when no cookie is present', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/logout', {
+    const res = await createTestAuthRouter({ oidcClient }).request('/logout', {
       method: 'POST',
     });
 
@@ -453,16 +471,20 @@ describe('auth router (auth enabled)', () => {
   });
 
   it('GET /me returns 401 when the id_token cookie is missing', async () => {
-    const res = await createAuthRouter({ oidcClient, logger }).request('/me');
+    const res = await createTestAuthRouter({ oidcClient }).request('/me');
     expect(res.status).toBe(401);
   });
 
-  it('GET /me returns oidc-connected identity when authenticated', async () => {
+  it('GET /me returns RequestContext identity when authenticated', async () => {
     const token = await createIdToken();
-    const res = await createAuthRouter({ oidcClient, logger }).request('/me', {
+    const res = await createTestAuthRouter({ oidcClient }).request('/me', {
       headers: { Cookie: `${ID_TOKEN_COOKIE}=${token}` },
     });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ type: 'oidc-connected', email: 'user-1', role: 'user' });
+    expect(await res.json()).toEqual({
+      tenant_id: 'default',
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      is_admin: false,
+    });
   });
 });

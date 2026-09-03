@@ -23,8 +23,13 @@ import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessi
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
-import { resolveUserContext } from './auth/identity';
-import { adminAuthMiddleware, authMiddleware } from './auth/middleware';
+import {
+  createAdminAuthMiddleware,
+  createAuthMiddleware,
+  type Authenticator,
+} from './auth/authenticator';
+import { resolveRequestContext } from './auth/identity';
+import { StandaloneAuthenticator } from './auth/standaloneAuthenticator';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -103,9 +108,9 @@ const openApiDocConfig = {
     description:
       'HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` ' +
       '(OpenAPI JSON at `/api/v1/openapi.json`).\n\n' +
-      '**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware ' +
-      'stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie ' +
-      'or `Authorization: Bearer` ID token. There is no built-in API-key scheme; ' +
+      '**Authentication:** Standalone auth accepts requests without credentials — middleware ' +
+      'stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid ' +
+      'cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; ' +
       'pass custom headers only if your reverse proxy or IdP layer requires them.\n\n' +
       'Covers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.',
     version: PACKAGE_VERSION,
@@ -120,8 +125,8 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
     scheme: 'bearer',
     bearerFormat: 'JWT',
     description:
-      'ID token (`Authorization: Bearer <id_token>`). Required on protected routes. ' +
-      'Browser sessions may use the HttpOnly `id_token` cookie instead.',
+      'Caller credential (`Authorization: Bearer <token>`). Required on protected routes when auth is enabled. ' +
+      'Browser sessions may use the HttpOnly `id_token` or `accessToken` cookie instead.',
   });
 }
 
@@ -142,22 +147,6 @@ export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?:
 
 function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
-}
-
-/** Sub-app shell: `.use('*', authMiddleware)` then child routes — same as gateway routers. */
-function withAuth(router: OpenAPIHono): OpenAPIHono {
-  const shell = new OpenAPIHono();
-  shell.use('*', authMiddleware);
-  shell.route('/', router);
-  return shell;
-}
-
-/** Admin-only routes: local admin when auth is disabled; with OIDC requires an authenticated admin. */
-function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
-  const shell = new OpenAPIHono();
-  shell.use('*', adminAuthMiddleware);
-  shell.route('/', router);
-  return shell;
 }
 
 export interface ServerDeps<TTransaction> {
@@ -194,11 +183,29 @@ export interface ServerDeps<TTransaction> {
   logger: Logger;
   /** Discovered openid-client configuration; undefined when browser login is disabled. */
   oidcClient: Configuration | undefined;
+  /** Startup-selected authenticator; middleware is built from this once per app. */
+  authenticator: Authenticator;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
-  const authEnabled = deps.oidcClient != null;
+  const authMiddleware = createAuthMiddleware(deps.authenticator);
+  const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
+  const authEnabled = !(deps.authenticator instanceof StandaloneAuthenticator);
+
+  function withAuth(router: OpenAPIHono): OpenAPIHono {
+    const shell = new OpenAPIHono();
+    shell.use('*', authMiddleware);
+    shell.route('/', router);
+    return shell;
+  }
+
+  function withAdminAuth(router: OpenAPIHono): OpenAPIHono {
+    const shell = new OpenAPIHono();
+    shell.use('*', adminAuthMiddleware);
+    shell.route('/', router);
+    return shell;
+  }
 
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
@@ -207,7 +214,14 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
 
-  app.route('/api/v1/auth', createAuthRouter({ oidcClient: deps.oidcClient, logger: deps.logger }));
+  app.route(
+    '/api/v1/auth',
+    createAuthRouter({
+      oidcClient: deps.oidcClient,
+      logger: deps.logger,
+      authMiddleware,
+    }),
+  );
   app.route(
     '/api/v1/capabilities',
     withAuth(
@@ -215,6 +229,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
+        resolveRequestContext,
       }),
     ),
   );
@@ -224,6 +239,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createModelsRouter({
         resolveModelProviderStore: deps.resolveModelProviderStore,
         withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
     ),
   );
@@ -256,7 +272,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         tokenStore: deps.tokenStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
-        resolveUserContext,
+        resolveRequestContext,
       }),
     ),
   );
@@ -266,6 +282,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAvailableSkillsRouter({
         skillStore: deps.skillStore,
         withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
     ),
   );
@@ -279,6 +296,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillStore: deps.skillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
     ),
   );
@@ -301,7 +319,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           logger: deps.logger,
         },
         withTransaction: deps.withTransaction,
-        resolveUserContext,
+        resolveRequestContext,
       }),
     ),
   );
@@ -316,7 +334,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
-        resolveUserContext,
+        resolveRequestContext,
       }),
     ),
   );
@@ -330,7 +348,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillStore: deps.skillStore,
         agentStore: deps.agentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
-        resolveUserContext,
+        resolveRequestContext,
       }),
     ),
   );
@@ -339,7 +357,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,
-        resolveUserContext,
+        resolveRequestContext,
       }),
     ),
   );
@@ -357,7 +375,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxProviderStore: deps.sandboxProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
-        resolveUserContext: resolveUserContext,
+        resolveRequestContext,
         logger: deps.logger,
       }),
     ),
@@ -377,7 +395,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         eventSubscriptions: deps.eventSubscriptions,
         sandboxProviderStore: deps.sandboxProviderStore,
         logger: deps.logger,
-        resolveUserContext: resolveUserContext,
+        resolveRequestContext,
       }),
     ),
   );

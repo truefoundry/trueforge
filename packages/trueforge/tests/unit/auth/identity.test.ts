@@ -1,50 +1,50 @@
-import { isAdmin, LOCAL_USER_CONTEXT, type UserContext } from '../../../src/auth/identity';
-import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
-import type { OIDCConfig } from '../../../src/config';
+import { Hono } from 'hono';
+import { resolveRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 
-const OIDC_CONFIG: OIDCConfig = {
-  OIDC_ISSUER_URL: 'https://issuer.example.com/',
-  OIDC_CLIENT_ID: 'harness-client',
-  OIDC_CLIENT_SECRET: 'harness-secret',
-  OIDC_USER_REFERENCE_CLAIM: 'sub',
-  OIDC_USER_ROLE_CLAIM: 'groups',
-  OIDC_ADMIN_ROLE_VALUE: 'admin',
-  OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
-  OIDC_ALLOWED_EMAILS: [],
-};
+describe('STANDALONE_REQUEST_CONTEXT', () => {
+  it('has the fixed standalone identity shape', () => {
+    expect(STANDALONE_REQUEST_CONTEXT).toEqual({
+      tenant_id: 'default',
+      subject: {
+        id: 'trueforge-default',
+        type: 'user',
+        display_name: 'Admin',
+      },
+      is_admin: true,
+      user_credential: null,
+    });
+  });
+});
 
-function user(role: UserContext['role']): UserContext {
-  return { userRef: 'alice', role };
-}
+describe('resolveRequestContext', () => {
+  it('returns request_context when set by auth middleware', async () => {
+    const app = new Hono();
+    app.get('/', c => {
+      c.set('request_context', STANDALONE_REQUEST_CONTEXT);
+      return c.json(resolveRequestContext(c));
+    });
 
-describe('isAdmin', () => {
-  afterEach(() => {
-    disableOidcAuth();
+    const res = await app.request('/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(STANDALONE_REQUEST_CONTEXT);
   });
 
-  it('is always true without OIDC (standalone)', () => {
-    disableOidcAuth();
-    expect(isAdmin(user('user'))).toBe(true);
-    expect(isAdmin(LOCAL_USER_CONTEXT)).toBe(true);
-  });
+  it('throws when request_context is missing', async () => {
+    const app = new Hono();
+    app.get('/', c => {
+      try {
+        resolveRequestContext(c);
+        return c.json({ ok: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown';
+        return c.json({ error: message }, 500);
+      }
+    });
 
-  it('checks role when auth is enabled', async () => {
-    globalThis.fetch = async () =>
-      new Response(
-        JSON.stringify({
-          issuer: 'https://issuer.example.com',
-          jwks_uri: 'https://issuer.example.com/jwks',
-        }),
-        { headers: { 'Content-Type': 'application/json' } },
-      );
-
-    const client = await initOidc(OIDC_CONFIG);
-    if (!client) {
-      throw new Error('OIDC client was not initialized');
-    }
-    enableOidcAuth({ client, oidcConfig: OIDC_CONFIG });
-
-    expect(isAdmin(user('admin'))).toBe(true);
-    expect(isAdmin(user('user'))).toBe(false);
+    const res = await app.request('/');
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: 'RequestContext missing; auth middleware did not run',
+    });
   });
 });
