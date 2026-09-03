@@ -19,6 +19,7 @@ export type SaveAgentFormFieldsProps = {
   disabled: boolean;
   onEdit: (editor: AgentConfigEditor) => void;
   onToggleMcpPreload: (id: string) => void;
+  onRemoveMcp?: (id: string) => void;
 };
 
 const PRELOAD_TOOLS_COPY = {
@@ -39,6 +40,7 @@ export function SaveAgentFormFields({
   disabled,
   onEdit,
   onToggleMcpPreload,
+  onRemoveMcp,
 }: SaveAgentFormFieldsProps) {
   const contextLength = Reflect.get(modelEntry?.properties ?? {}, 'contextLength');
   const maxOutputTokens = Reflect.get(modelEntry?.properties ?? {}, 'maxOutputTokens');
@@ -189,6 +191,17 @@ export function SaveAgentFormFields({
                   <span className="text-text-secondary text-xs">
                     {enabledTools === 'all' ? 'All tools' : `${enabledTools.length} tools`}
                   </span>
+                  {onRemoveMcp ? (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${mount.name}`}
+                      disabled={disabled}
+                      className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-5' })}
+                      onClick={() => onRemoveMcp(mount.id)}
+                    >
+                      <Icon name="xmark" className="size-3" />
+                    </button>
+                  ) : null}
                 </span>
               );
             })}

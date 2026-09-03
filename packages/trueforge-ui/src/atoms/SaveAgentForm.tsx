@@ -22,6 +22,7 @@ export type SaveAgentFormProps = {
   onChange: (spec: AgentSpec) => void;
   onEdit: (editor: AgentConfigEditor) => void;
   onToggleMcpPreload: (id: string) => void;
+  onRemoveMcp?: (id: string) => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -39,6 +40,7 @@ export function SaveAgentForm({
   onChange,
   onEdit,
   onToggleMcpPreload,
+  onRemoveMcp,
   onCancel,
   onSave,
 }: SaveAgentFormProps) {
@@ -85,6 +87,7 @@ export function SaveAgentForm({
           disabled={saving}
           onEdit={onEdit}
           onToggleMcpPreload={onToggleMcpPreload}
+          onRemoveMcp={onRemoveMcp}
         />
 
         {error ? (

@@ -100,6 +100,27 @@ describe('AgentConfigPanel', () => {
     expect(onInstructionsChange).toHaveBeenCalledWith('New instructions');
   });
 
+  it('removes an MCP server directly from its config chip', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onInstructionsChange={vi.fn()}
+          onInstructionsBlur={vi.fn()}
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove GitHub' }));
+    expect(onChange).toHaveBeenCalledWith({ ...spec, mcpServers: [] });
+  });
+
   it('renders an optional close action for overlay layouts', () => {
     const onClose = vi.fn();
     render(

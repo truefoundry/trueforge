@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -48,16 +48,11 @@ export function AgentConfigEditors({
   const [toolsLoading, setToolsLoading] = useState(false);
   const [toolsError, setToolsError] = useState<string | null>(null);
   const [toolsRequestEpoch, setToolsRequestEpoch] = useState(0);
-  const mounts = editableMountsFromSpec(spec.mcpServers);
-  const activeConnectorStillMounted =
-    activeConnectorId !== null &&
-    connectors.some(
-      connector =>
-        connector.id === activeConnectorId &&
-        mounts.some(mount => mount.id === connector.id || mount.name === connector.name),
-    );
+  const mounts = useMemo(() => editableMountsFromSpec(spec.mcpServers), [spec.mcpServers]);
+  const activeConnectorAvailable =
+    activeConnectorId !== null && connectors.some(connector => connector.id === activeConnectorId);
   const selectedConnectorId =
-    (activeConnectorStillMounted ? activeConnectorId : null) ??
+    (activeConnectorAvailable ? activeConnectorId : null) ??
     connectors.find(connector => mounts.some(mount => mount.id === connector.id || mount.name === connector.name))
       ?.id ??
     null;

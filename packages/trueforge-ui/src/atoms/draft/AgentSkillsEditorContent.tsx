@@ -42,7 +42,7 @@ export function AgentSkillsEditorContent({
           value={query}
           onChange={event => onQueryChange(event.target.value)}
           placeholder="Search skills"
-          className={auiInputClass('w-full pl-7')}
+          className={auiInputClass('h-9 w-full pl-7')}
         />
       </label>
       <div className="min-h-0 flex-1 overflow-y-auto p-2">

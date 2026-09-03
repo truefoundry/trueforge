@@ -69,6 +69,7 @@ export function CatalogRow({
   checked,
   disabled = false,
   onToggle,
+  onActivate,
   action,
 }: {
   title: string;
@@ -76,6 +77,7 @@ export function CatalogRow({
   checked: boolean;
   disabled?: boolean;
   onToggle: () => void;
+  onActivate?: () => void;
   action?: ReactNode;
 }) {
   const content = (
@@ -90,23 +92,36 @@ export function CatalogRow({
     </>
   );
 
-  if (action) {
+  if (action || onActivate) {
     return (
       <div
         role="menuitemcheckbox"
         aria-checked={checked}
         tabIndex={0}
         className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
-        onClick={onToggle}
+        onClick={onActivate ?? onToggle}
         onKeyDown={event => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
-          onToggle();
+          (onActivate ?? onToggle)();
         }}
       >
         {content}
         <span className="shrink-0">{action}</span>
-        <Checkbox checked={checked} />
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={checked}
+          aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
+          disabled={disabled}
+          className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={event => {
+            event.stopPropagation();
+            onToggle();
+          }}
+        >
+          <Checkbox checked={checked} />
+        </button>
       </div>
     );
   }

@@ -232,7 +232,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Configure GitHub tools' }));
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /GitHub/ }));
     await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('github'));
     const issueRows = await screen.findAllByRole('menuitemcheckbox', { name: /issues.list/ });
     const availableIssueRow = issueRows[0];
@@ -252,7 +252,118 @@ describe('AgentConfigEditors', () => {
     });
   });
 
-  it('clears stale tools and falls back when the active connector is removed', async () => {
+  it('opens MCP rows without selecting them and selects through the checkbox or tools', async () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+    const loadMcpTools = vi.fn(async () => [
+      { id: 'messages.list', name: 'messages.list', description: 'List messages' },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[{ id: 'slack', name: 'Slack', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Slack/ }));
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /messages.list/ }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...spec,
+      mcpServers: [{ id: 'slack', name: 'Slack', enableTools: ['messages.list'] }],
+    });
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Slack' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...spec,
+      mcpServers: [{ id: 'slack', name: 'Slack' }],
+    });
+  });
+
+  it('groups selected tools across MCP servers and summarizes all-tools mounts', async () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt' },
+      mcpServers: [
+        { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+        { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
+      ],
+    };
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={async () => []}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'MCP Servers' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'GitHub' })).toBeInTheDocument();
+    expect(screen.getByText('All tools enabled')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Slack' })).toBeInTheDocument();
+    expect(screen.getAllByText('messages.list').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove messages.list from Slack' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['@all'] }],
+    });
+  });
+
+  it('deselects an MCP server when all of its tools are disabled', () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt' },
+      mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['@all'] }],
+    };
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[{ id: 'github', name: 'GitHub', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Enable all tools' }));
+    expect(onChange).toHaveBeenCalledWith({ ...spec, mcpServers: [] });
+  });
+
+  it('keeps the opened MCP independent from connector selection', async () => {
     const githubSpec: AgentSpec = {
       model: { name: 'openai/gpt' },
       mcpServers: [{ id: 'github', name: 'GitHub' }],
@@ -261,15 +372,9 @@ describe('AgentConfigEditors', () => {
       model: { name: 'openai/gpt' },
       mcpServers: [{ id: 'slack', name: 'Slack' }],
     };
-    let resolveSlack: ((tools: Array<{ id: string; name: string; description: string }>) => void) | undefined;
-    const slackTools = new Promise<Array<{ id: string; name: string; description: string }>>(resolve => {
-      resolveSlack = resolve;
-    });
-    const loadMcpTools = vi.fn((connectorId: string) =>
-      connectorId === 'github'
-        ? Promise.resolve([{ id: 'issues.list', name: 'issues.list', description: 'List issues' }])
-        : slackTools,
-    );
+    const loadMcpTools = vi.fn(async () => [
+      { id: 'issues.list', name: 'issues.list', description: 'List issues' },
+    ]);
     const renderEditors = (spec: AgentSpec) => (
       <SlotsProvider>
         <AgentConfigEditors
@@ -292,14 +397,13 @@ describe('AgentConfigEditors', () => {
     const rendered = render(renderEditors(githubSpec));
 
     expect((await screen.findAllByRole('menuitemcheckbox', { name: /issues.list/ })).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /GitHub/ }));
+    await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('github'));
     rendered.rerender(renderEditors(slackSpec));
 
-    await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('slack'));
-    expect(screen.queryByRole('menuitemcheckbox', { name: /issues.list/ })).not.toBeInTheDocument();
-
-    if (resolveSlack === undefined) throw new Error('expected Slack tools resolver');
-    resolveSlack([{ id: 'messages.list', name: 'messages.list', description: 'List messages' }]);
-    expect((await screen.findAllByRole('menuitemcheckbox', { name: /messages.list/ })).length).toBeGreaterThan(0);
+    expect(loadMcpTools).toHaveBeenLastCalledWith('github');
+    expect(screen.getAllByRole('menuitemcheckbox', { name: /issues.list/ }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Slack' })).toBeInTheDocument();
   });
 
   it('enables sandbox when a skill is added', () => {

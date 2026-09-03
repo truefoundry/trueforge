@@ -22,6 +22,7 @@ export type AgentConfigPanelProps = {
   onInstructionsChange: (value: string) => void;
   onInstructionsBlur: () => void;
   onOpenEditor: (editor: AgentConfigEditor) => void;
+  onChange?: (spec: AgentSpec) => void;
   onClose?: () => void;
 };
 
@@ -72,6 +73,7 @@ export function AgentConfigPanel({
   onInstructionsChange,
   onInstructionsBlur,
   onOpenEditor,
+  onChange,
   onClose,
 }: AgentConfigPanelProps) {
   const instructionsId = useId();
@@ -201,11 +203,30 @@ export function AgentConfigPanel({
               {mcp.map(item => {
                 const enabled = enabledToolsFromMount(item.value);
                 return (
-                  <span key={item.id} className="rounded-md border border-border px-2 py-1 text-xs">
-                    {item.name}
+                  <span key={item.id} className="flex items-center rounded-md border border-border py-1 pr-1 pl-2 text-xs">
+                    <span>{item.name}</span>
                     <span className="text-text-secondary ml-1">
                       {enabled === 'all' ? 'All tools' : `${enabled.length} tools`}
                     </span>
+                    {onChange ? (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name}`}
+                        className={auiButtonClass({
+                          variant: 'ghost',
+                          size: 'icon',
+                          className: 'ml-1 size-5',
+                        })}
+                        onClick={() =>
+                          onChange({
+                            ...spec,
+                            mcpServers: mcp.filter(mount => mount.id !== item.id).map(mount => mount.value),
+                          })
+                        }
+                      >
+                        <Icon name="xmark" className="size-3" />
+                      </button>
+                    ) : null}
                   </span>
                 );
               })}

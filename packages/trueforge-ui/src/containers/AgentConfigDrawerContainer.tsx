@@ -111,6 +111,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         onInstructionsChange={onInstructionChange}
         onInstructionsBlur={flushInstructions}
         onOpenEditor={setEditor}
+        onChange={updateSpec}
         onClose={showClose ? closeDrawer : undefined}
       />
       <AgentConfigEditors

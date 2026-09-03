@@ -48,7 +48,7 @@ export function AgentMcpEditorContent({
   const activeMount = selectedConnector
     ? mcpMounts.find(item => item.id === selectedConnector.id || item.name === selectedConnector.name)
     : undefined;
-  const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : 'all';
+  const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
   const filteredConnectors = connectors
     .filter(item => `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery))
@@ -60,23 +60,55 @@ export function AgentMcpEditorContent({
   const filteredTools = tools.filter(tool =>
     `${tool.name} ${tool.description ?? ''}`.toLowerCase().includes(toolQuery.trim().toLowerCase()),
   );
-  const selectedTools = enabledTools === 'all' ? tools : tools.filter(tool => enabledTools.includes(tool.name));
+  const activeToolsByName = new Map(tools.map(tool => [tool.name, tool]));
 
-  const updateMount = (value: object) => {
-    if (!activeMount) return;
+  const updateMount = (mountId: string, value: object) => {
     onChange({
       ...spec,
-      mcpServers: mcpMounts.map(item => (item === activeMount ? value : item.value)),
+      mcpServers: mcpMounts.map(item => (item.id === mountId ? value : item.value)),
+    });
+  };
+
+  const removeMount = (mountId: string) => {
+    onChange({
+      ...spec,
+      mcpServers: mcpMounts.filter(item => item.id !== mountId).map(item => item.value),
     });
   };
 
   const toggleTool = (toolName: string) => {
-    if (!activeMount) return;
+    if (!selectedConnector) return;
+    if (!activeMount) {
+      onChange({
+        ...spec,
+        mcpServers: [
+          ...(spec.mcpServers ?? []),
+          withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, [toolName]),
+        ],
+      });
+      return;
+    }
     const current = enabledTools === 'all' ? tools.map(tool => tool.name) : enabledTools;
     const checked = current.includes(toolName);
-    updateMount(
-      withEnabledTools(activeMount.value, checked ? current.filter(name => name !== toolName) : [...current, toolName]),
-    );
+    const next = checked ? current.filter(name => name !== toolName) : [...current, toolName];
+    if (next.length === 0) {
+      removeMount(activeMount.id);
+    } else {
+      updateMount(activeMount.id, withEnabledTools(activeMount.value, next));
+    }
+  };
+
+  const toggleSelectedTool = (mountId: string, toolName: string) => {
+    const mount = mcpMounts.find(item => item.id === mountId);
+    if (!mount) return;
+    const enabled = enabledToolsFromMount(mount.value);
+    if (enabled === 'all') return;
+    const next = enabled.filter(name => name !== toolName);
+    if (next.length === 0) {
+      removeMount(mount.id);
+    } else {
+      updateMount(mount.id, withEnabledTools(mount.value, next));
+    }
   };
 
   return (
@@ -88,7 +120,7 @@ export function AgentMcpEditorContent({
             value={query}
             onChange={event => onQueryChange(event.target.value)}
             placeholder="Search MCP"
-            className={auiInputClass('w-full pl-7')}
+            className={auiInputClass('h-9 w-full pl-7')}
           />
         </label>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -102,6 +134,7 @@ export function AgentMcpEditorContent({
                 description={connector.description}
                 checked={mount !== undefined}
                 disabled={!connector.authenticated && !needsConnect && mount === undefined}
+                onActivate={() => onSelectConnector(connector.id)}
                 onToggle={() => {
                   if (mount === undefined) {
                     onChange({
@@ -119,18 +152,6 @@ export function AgentMcpEditorContent({
                 action={
                   needsConnect && onRefreshConnectors ? (
                     <ConnectorConnectButton connector={connector} onConnected={onRefreshConnectors} />
-                  ) : mount ? (
-                    <button
-                      type="button"
-                      className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
-                      aria-label={`Configure ${connector.name} tools`}
-                      onClick={event => {
-                        event.stopPropagation();
-                        onSelectConnector(connector.id);
-                      }}
-                    >
-                      <Icon name="chevron-right" className="size-3.5" />
-                    </button>
                   ) : undefined
                 }
               />
@@ -140,7 +161,7 @@ export function AgentMcpEditorContent({
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-col border-r border-border">
-        {selectedConnector && activeMount ? (
+        {selectedConnector ? (
           <>
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border p-3">
               <p className="min-w-0 truncate text-sm font-semibold">
@@ -149,8 +170,24 @@ export function AgentMcpEditorContent({
               <label className="text-text-secondary flex shrink-0 items-center gap-2 text-xs">
                 Enable all tools
                 <Switch
-                  checked={enabledTools === 'all'}
-                  onCheckedChange={enabled => updateMount(withEnabledTools(activeMount.value, enabled ? 'all' : []))}
+                  checked={activeMount !== undefined && enabledTools === 'all'}
+                  onCheckedChange={enabled => {
+                    if (activeMount) {
+                      if (enabled) {
+                        updateMount(activeMount.id, withEnabledTools(activeMount.value, 'all'));
+                      } else {
+                        removeMount(activeMount.id);
+                      }
+                    } else if (enabled) {
+                      onChange({
+                        ...spec,
+                        mcpServers: [
+                          ...(spec.mcpServers ?? []),
+                          withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, 'all'),
+                        ],
+                      });
+                    }
+                  }}
                   aria-label="Enable all tools"
                 />
               </label>
@@ -161,7 +198,7 @@ export function AgentMcpEditorContent({
                 value={toolQuery}
                 onChange={event => setToolQuery(event.target.value)}
                 placeholder="Search tools"
-                className={auiInputClass('w-full pl-7')}
+                className={auiInputClass('h-9 w-full pl-7')}
               />
             </label>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -191,8 +228,11 @@ export function AgentMcpEditorContent({
             <label className="text-text-secondary flex shrink-0 items-center justify-end gap-2 border-t border-border p-3 text-xs">
               Preload tools
               <Switch
-                checked={Reflect.get(activeMount.value, 'preload') === true}
-                onCheckedChange={preload => updateMount(withPreload(activeMount.value, preload))}
+                checked={activeMount !== undefined && Reflect.get(activeMount.value, 'preload') === true}
+                disabled={activeMount === undefined}
+                onCheckedChange={preload => {
+                  if (activeMount) updateMount(activeMount.id, withPreload(activeMount.value, preload));
+                }}
                 aria-label="Preload tools"
               />
             </label>
@@ -203,20 +243,53 @@ export function AgentMcpEditorContent({
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-col">
-        <div className="shrink-0 border-b border-border p-3 text-sm font-semibold">
-          Selected Tools ({selectedTools.length})
-        </div>
+        <div className="shrink-0 border-b border-border p-3 text-sm font-semibold">Selected Tools</div>
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {selectedTools.length ? (
-            selectedTools.map(tool => (
-              <CatalogRow
-                key={tool.id}
-                title={tool.name}
-                description={tool.description}
-                checked
-                onToggle={() => toggleTool(tool.name)}
-              />
-            ))
+          {mcpMounts.length ? (
+            <div className="space-y-3">
+              {mcpMounts.map(mount => {
+                const selected = enabledToolsFromMount(mount.value);
+                return (
+                  <section key={mount.id}>
+                    <h3 className="text-text-primary px-2 py-1 text-xs font-semibold">{mount.name}</h3>
+                    {selected === 'all' ? (
+                      <p className="text-text-secondary px-2 py-2 text-xs">All tools enabled</p>
+                    ) : selected.length ? (
+                      selected.map(toolName => {
+                        const description =
+                          mount.id === activeMount?.id ? activeToolsByName.get(toolName)?.description : undefined;
+                        return (
+                          <div
+                            key={`${mount.id}:${toolName}`}
+                            className="hover:bg-ghost-button-hover flex w-full items-center gap-2 rounded-md px-2 py-2"
+                          >
+                            <span className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
+                              {toolName.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="text-text-primary block truncate text-sm font-medium">{toolName}</span>
+                              {description ? (
+                                <span className="text-text-secondary line-clamp-1 text-xs">{description}</span>
+                              ) : null}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${toolName} from ${mount.name}`}
+                              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-6 shrink-0' })}
+                              onClick={() => toggleSelectedTool(mount.id, toolName)}
+                            >
+                              <Icon name="xmark" className="size-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-text-secondary px-2 py-2 text-xs">No tools selected.</p>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           ) : (
             <p className="text-text-secondary p-4 text-center text-sm">No tools selected.</p>
           )}

@@ -160,6 +160,14 @@ function SaveAgentButtonContent({
     setDraftSpec({ ...draftSpec, mcpServers: next });
   };
 
+  const removeMcp = (id: string) => {
+    if (draftSpec === null) return;
+    setDraftSpec({
+      ...draftSpec,
+      mcpServers: mcpMounts.filter(item => item.id !== id).map(item => item.value),
+    });
+  };
+
   const isUpdateMode =
     shell?.mode.status === 'active' &&
     shell.mode.isMutable &&
@@ -209,6 +217,7 @@ function SaveAgentButtonContent({
             onChange={setDraftSpec}
             onEdit={setEditor}
             onToggleMcpPreload={toggleMcpPreload}
+            onRemoveMcp={removeMcp}
             onCancel={close}
             onSave={() => void save()}
           />

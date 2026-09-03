@@ -31,7 +31,7 @@ export function AgentResourceConfigModal({ editor, onClose, ...contentProps }: A
     <CenteredModal
       open={editor !== null}
       onOpenChange={open => !open && onClose()}
-      title={selectingMcp ? 'MCP servers' : 'Skills'}
+      title={selectingMcp ? 'MCP Servers' : 'Skills'}
       className={
         selectingMcp
           ? 'md:w-[min(64rem,calc(100%-3rem))] md:max-w-5xl'
