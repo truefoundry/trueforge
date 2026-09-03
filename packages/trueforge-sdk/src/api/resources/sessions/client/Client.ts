@@ -24,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id` and `metadata` (JSON object; exact key/value containment) filter results. Keep other query params constant when paging with `page_token`.
+     * List the caller's sessions. Optional `agent_id` and `metadata` filters are supported. Keep other query params constant when paging.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
