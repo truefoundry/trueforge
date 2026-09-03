@@ -93,7 +93,6 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
           tenant_id: input.tenant_id,
           id: input.id,
           manifest: input.manifest,
-          ...(input.metadata === undefined ? {} : { metadata: input.metadata }),
           ...(remoteAgentId === previous.external_id ? {} : { external_id: remoteAgentId }),
         },
         transaction,

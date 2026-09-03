@@ -31,7 +31,6 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(created.name).toBe('research');
     expect(created.id.length).toBeGreaterThan(0);
     expect(created.manifest).toEqual(manifest());
-    expect(created.metadata).toEqual({});
     expect(created.external_id).toBeNull();
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
@@ -49,7 +48,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(await store.getAgent({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
-  it('updateAgent by id replaces manifest but keeps id, name, metadata, and created_at', async () => {
+  it('updateAgent by id replaces manifest but keeps id, name, and created_at', async () => {
     const store = getStore();
     const created = await store.createAgent({
       tenant_id: TENANT,
@@ -70,7 +69,6 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         id: created.id,
         name: 'research',
         manifest: replacement,
-        metadata: {},
         created_at: created.created_at,
       }),
     );
@@ -81,49 +79,6 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
     expect(await store.getAgent({ tenant_id: TENANT, name: 'research' })).toEqual(updated);
-  });
-
-  it('updateAgent can patch metadata without changing manifest', async () => {
-    const store = getStore();
-    const created = await store.createAgent({
-      tenant_id: TENANT,
-      name: 'research',
-      manifest: manifest(),
-      external_id: null,
-    });
-
-    const updated = await store.updateAgent({
-      tenant_id: TENANT,
-      id: created.id,
-      metadata: {},
-    });
-
-    expect(updated).toEqual(
-      expect.objectContaining({
-        id: created.id,
-        name: 'research',
-        manifest: created.manifest,
-        metadata: {},
-        created_at: created.created_at,
-      }),
-    );
-    expect(updated).toBeDefined();
-    if (updated === undefined) {
-      throw new Error('expected updateAgent to return a record');
-    }
-    expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
-    expect(await store.getAgent({ tenant_id: TENANT, id: created.id })).toEqual(updated);
-  });
-
-  it('updateAgent returns undefined for unknown ids when patching metadata', async () => {
-    const store = getStore();
-    expect(
-      await store.updateAgent({
-        tenant_id: TENANT,
-        id: 'missing',
-        metadata: {},
-      }),
-    ).toBeUndefined();
   });
 
   it('updateAgent returns undefined for unknown ids', async () => {

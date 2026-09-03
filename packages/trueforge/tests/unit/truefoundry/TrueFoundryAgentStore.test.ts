@@ -28,7 +28,6 @@ function record(overrides: Partial<AgentRecord> = {}): AgentRecord {
     tenant_id: TENANT,
     name: 'research',
     manifest: manifest(),
-    metadata: {},
     external_id: null,
     created_at: now,
     updated_at: now,
@@ -243,7 +242,7 @@ describe('TrueFoundryAgentStore', () => {
   });
 
   it('updateAgent without manifest passes through to the inner store', async () => {
-    const updated = record({ metadata: {} });
+    const updated = record({ external_id: 'sf-agent-1' });
     const updateAgent = jest.fn(async () => updated);
     const putRemoteAgent = jest.fn();
     const store = new TrueFoundryAgentStore({
@@ -252,9 +251,14 @@ describe('TrueFoundryAgentStore', () => {
       accessToken: TOKEN,
     });
 
-    await expect(store.updateAgent({ tenant_id: TENANT, id: 'agent-1', metadata: {} })).resolves.toBe(updated);
+    await expect(store.updateAgent({ tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' })).resolves.toBe(
+      updated,
+    );
     expect(putRemoteAgent).not.toHaveBeenCalled();
-    expect(updateAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'agent-1', metadata: {} }, undefined);
+    expect(updateAgent).toHaveBeenCalledWith(
+      { tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' },
+      undefined,
+    );
   });
 
   it('updateAgent returns undefined for a missing agent without calling putRemoteAgent', async () => {
