@@ -36,9 +36,9 @@ const GetSessionWireSchema = z.object({
 });
 
 /** Authenticated session payload (`user` is non-null after {@link TrueFoundryServiceFoundryServerClient.getSession}). */
-export type GetSessionResponse = {
+export interface GetSessionResponse {
   user: z.infer<typeof GetSessionUserSchema>;
-};
+}
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),

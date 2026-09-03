@@ -1,10 +1,10 @@
 import type { Context } from 'hono';
 
-export type RequestSubject = {
+export interface RequestSubject {
   id: string;
   type: string;
   display_name: string;
-};
+}
 
 export interface RequestContext {
   tenant_id: string;
