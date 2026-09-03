@@ -1,6 +1,6 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
-import { resolveConfiguredMcpRequestHeaders, type McpServerManifest } from '../../../schemas/mcpServer';
+import type { McpServerManifest } from '../../../schemas/mcpServer';
 import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
@@ -36,10 +36,6 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
-  }
-
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    return resolveConfiguredMcpRequestHeaders(record.manifest);
   }
 
   async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {

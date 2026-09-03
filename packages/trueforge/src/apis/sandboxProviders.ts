@@ -1,6 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { withTimeout } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
+import type { ResolveRequestContext } from '../auth/identity';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
@@ -13,7 +14,6 @@ import {
 } from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
-import { TENANT_ID } from './sessions';
 
 /** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
 const BUILD_REQUEST_TIMEOUT_MS = 3_000;
@@ -22,6 +22,7 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
+  resolveRequestContext: ResolveRequestContext;
 }
 
 function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
@@ -34,14 +35,15 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
   const getHandler: RouteHandler<typeof getSandboxProviderRoute> = async c => {
-    const record = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.sandboxProviderStore.getSandboxProvider(requestContext.tenant_id);
     if (record === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
     const status = await checkSnapshotStatus({
       store: deps.sandboxProviderStore,
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       logger: deps.logger,
     });
     return c.json(
@@ -58,6 +60,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
 
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
     const body: UpdateSandboxProviderRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
@@ -71,13 +74,16 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     try {
       // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
       const { manifest, status } = await deps.withTransaction(async transaction => {
-        const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
+        const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(
+          requestContext.tenant_id,
+          transaction,
+        );
         const resolved = resolveManifest(locked);
         // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
         // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
         const provider = toDaytonaSandboxProvider({
           manifest: resolved,
-          tenant_id: TENANT_ID,
+          tenant_id: requestContext.tenant_id,
           logger: deps.logger,
           ...(locked ? { build_metadata: locked.build_metadata } : {}),
         });
@@ -85,7 +91,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
         await deps.sandboxProviderStore.upsertSandboxProvider(
-          { tenant_id: TENANT_ID, manifest: resolved, ...built },
+          { tenant_id: requestContext.tenant_id, manifest: resolved, ...built },
           transaction,
         );
         return { manifest: resolved, status: built };

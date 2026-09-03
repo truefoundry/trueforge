@@ -1,12 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
-import type { Context } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { clearAuthCookie, ID_TOKEN_COOKIE, OAUTH_STATE_COOKIE, readOAuthStateCookie } from '../auth/cookies';
-import { resolveUserContext } from '../auth/identity';
-import { authMiddleware, resolveAuthUser } from '../auth/middleware';
-import { buildLoginAuthorization, exchangeAuthorizationCode, getOidcVerify } from '../auth/oidc';
+import { resolveRequestContext } from '../auth/identity';
+import { resolveOidcRequestContext } from '../auth/middleware';
+import { buildLoginAuthorization, exchangeAuthorizationCode } from '../auth/oidc';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { GetMeResponse } from '../schemas/auth';
@@ -26,7 +26,7 @@ async function redirectIfAlreadyAuthenticated(params: {
   whenAuthenticated: string;
 }): Promise<Response | undefined> {
   try {
-    if (await resolveAuthUser(params.context)) {
+    if (await resolveOidcRequestContext(params.context)) {
       return params.context.redirect(params.whenAuthenticated, 302);
     }
   } catch {
@@ -38,9 +38,13 @@ async function redirectIfAlreadyAuthenticated(params: {
 
 /**
  * Auth surfaces mounted at /api/v1/auth: login, callback, logout, me.
- * Login, callback, and logout stay public; me requires {@link authMiddleware}.
+ * Login, callback, and logout stay public; me requires the injected {@link authMiddleware}.
  */
-export function createAuthRouter(params: { oidcClient: Configuration | undefined; logger: Logger }) {
+export function createAuthRouter(params: {
+  oidcClient: Configuration | undefined;
+  logger: Logger;
+  authMiddleware: MiddlewareHandler;
+}) {
   const router = new OpenAPIHono();
 
   router.openapi(authLoginRoute, async c => {
@@ -115,12 +119,18 @@ export function createAuthRouter(params: { oidcClient: Configuration | undefined
   });
 
   const gated = new OpenAPIHono();
-  gated.use('*', authMiddleware);
+  gated.use('*', params.authMiddleware);
   gated.openapi(meRoute, c => {
-    const user = resolveUserContext(c);
-    const body: GetMeResponse = getOidcVerify()
-      ? { type: 'oidc-connected', email: user.userRef, role: user.role }
-      : { type: 'default', email: user.userRef, role: user.role };
+    const requestContext = resolveRequestContext(c);
+    const body: GetMeResponse = {
+      data: {
+        // FE logout chrome keys off `oidc-connected` (browser SSO cookie session).
+        type: params.oidcClient !== undefined ? 'oidc-connected' : 'default',
+        tenant_id: requestContext.tenant_id,
+        subject: requestContext.subject,
+        roles: requestContext.roles,
+      },
+    };
     return c.json(body, 200);
   });
   router.route('/', gated);
