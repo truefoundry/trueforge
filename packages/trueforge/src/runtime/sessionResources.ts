@@ -137,6 +137,9 @@ function dcrHeadersResolver(params: {
  * - Otherwise: {@link IMcpServerStore.resolveInvokeHeaders}
  *   (TrueFoundry Bearer / mid-turn authRequired, configured header auth, or `{}`).
  * Returns undefined when the server is not registered — callers choose the response.
+ *
+ * TODO: OAuth/DCR header resolvers re-run on every RemoteMCP listTools/callTool
+ * (extra network/status work per MCP op). Cache or gate later.
  */
 export async function getMcpConnection({
   tenant_id,
