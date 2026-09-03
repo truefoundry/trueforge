@@ -26,6 +26,11 @@ import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueF
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 import { getEffectiveUserIdFromAccessTokenSubject, parseAccessTokenSubject } from './utils';
 
+export type TrueFoundryMcpApiClient = Pick<
+  TrueFoundryServiceFoundryServerClient,
+  'getMcpServerByName' | 'listMcpServers' | 'listGatewayInstallations' | 'getMcpAuthorize' | 'deleteMcpAuth'
+>;
+
 function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
 }
@@ -46,10 +51,10 @@ function resolveAuthorizeRedirectURL(input: { redirectURL?: string; returnTo?: s
  * Authorize / revoke call SFY; list auth_status stays stubbed (no N× status calls).
  */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
-  readonly #client: TrueFoundryServiceFoundryServerClient;
+  readonly #client: TrueFoundryMcpApiClient;
   readonly #accessToken: string;
 
-  constructor(input: { client: TrueFoundryServiceFoundryServerClient; accessToken: string }) {
+  constructor(input: { client: TrueFoundryMcpApiClient; accessToken: string }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
   }
