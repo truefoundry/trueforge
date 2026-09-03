@@ -1,3 +1,4 @@
+import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   AgentNameConflictError,
   assertAgentNameNotReserved,
@@ -9,11 +10,28 @@ import {
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
-import { toPutRemoteAgentPayload } from './toPutRemoteAgentPayload';
-import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
+import {
+  TrueFoundryServiceFoundryServerClient,
+  type PutRemoteAgentInput,
+} from './TrueFoundryServiceFoundryServerClient';
 
 function asError(value: unknown): Error {
   return value instanceof Error ? value : new Error(String(value));
+}
+
+function toPutRemoteAgentPayload({
+  name,
+  manifest,
+}: {
+  name: string;
+  manifest: AgentSpec;
+}): Omit<PutRemoteAgentInput, 'accessToken'> {
+  return {
+    name,
+    description: manifest.instructions ?? name,
+    model: manifest.model.name,
+    ...(manifest.mcp_servers === undefined ? {} : { mcp_servers: manifest.mcp_servers.map(server => server.name) }),
+  };
 }
 
 /**
@@ -61,7 +79,8 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
     try {
       return await this.#inner.createAgent({ ...input, external_id: remoteAgentId }, transaction);
     } catch (error) {
-      // Race: peer create won the name and owns this remote (1:1) — do not delete it.
+      // Skip cleanup on name conflict: a peer may own this remote. Otherwise best-effort delete
+      // (agents create is not in an outer DB txn today).
       if (!(error instanceof AgentNameConflictError)) {
         try {
           await this.#client.deleteRemoteAgent({ accessToken: this.#accessToken, remoteAgentId });

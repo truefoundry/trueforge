@@ -143,22 +143,15 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
     });
-    try {
-      const record = await deps.resolveAgentStore(c).updateAgent({
-        tenant_id: TENANT_ID,
-        id: agentId,
-        manifest,
-      });
-      if (record === undefined) {
-        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
-      }
-      return c.json({ data: toWireAgent(record) }, 200);
-    } catch (error) {
-      if (error instanceof AgentExternalIdConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
-      }
-      throw error;
+    const record = await deps.resolveAgentStore(c).updateAgent({
+      tenant_id: TENANT_ID,
+      id: agentId,
+      manifest,
+    });
+    if (record === undefined) {
+      return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
+    return c.json({ data: toWireAgent(record) }, 200);
   };
 
   const router = new OpenAPIHono();

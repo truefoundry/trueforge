@@ -13,6 +13,8 @@ const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 const MCP_SERVERS_PAGE_SIZE = 100;
 
+export const SERVICE_FOUNDRY_HTTP_TIMEOUT_MS = 10_000;
+
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
   z.object({
@@ -233,9 +235,9 @@ export class TrueFoundryServiceFoundryServerClient {
     notFoundOk?: boolean;
   }): Promise<unknown> {
     const startedAt = Date.now();
-    let response: Awaited<ReturnType<typeof undiciFetch>>;
+    const signal = AbortSignal.timeout(SERVICE_FOUNDRY_HTTP_TIMEOUT_MS);
     try {
-      response = await undiciFetch(input.url, {
+      const response = await undiciFetch(input.url, {
         method: input.method,
         headers: {
           accept: 'application/json',
@@ -243,52 +245,60 @@ export class TrueFoundryServiceFoundryServerClient {
           ...(input.body === undefined ? {} : { 'content-type': 'application/json' }),
         },
         ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
+        signal,
         ...(this.#dispatcher ? { dispatcher: this.#dispatcher } : {}),
       });
+      this.#logger?.info('TrueFoundry ServiceFoundry server request completed', {
+        url: input.url.href,
+        method: input.method,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
+      if (response.status === 401 || response.status === 403) {
+        throw new HTTPException(response.status, {
+          message: 'TrueFoundry ServiceFoundry server rejected the request',
+        });
+      }
+      if (response.status === 404 && input.notFoundOk) {
+        return undefined;
+      }
+      if (!response.ok) {
+        const detail = await readServiceFoundryErrorMessage(response);
+        throw new HTTPException(424, {
+          message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
+        });
+      }
+      if (response.status === 204) {
+        return undefined;
+      }
+      const text = await response.text();
+      if (text.length === 0) {
+        return undefined;
+      }
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        throw new HTTPException(424, {
+          message: 'TrueFoundry ServiceFoundry server returned invalid JSON',
+          cause: error,
+        });
+      }
     } catch (error) {
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      const timedOut = error instanceof Error && error.name === 'TimeoutError';
       this.#logger?.warn('TrueFoundry ServiceFoundry server request failed', {
         url: input.url.href,
         method: input.method,
         durationMs: Date.now() - startedAt,
+        timedOut,
         ...extractErrorLogFields(error),
       });
       throw new HTTPException(500, {
-        message: 'TrueFoundry ServiceFoundry server request failed',
-        cause: error,
-      });
-    }
-    this.#logger?.info('TrueFoundry ServiceFoundry server request completed', {
-      url: input.url.href,
-      method: input.method,
-      status: response.status,
-      durationMs: Date.now() - startedAt,
-    });
-    if (response.status === 401 || response.status === 403) {
-      throw new HTTPException(response.status, {
-        message: 'TrueFoundry ServiceFoundry server rejected the request',
-      });
-    }
-    if (response.status === 404 && input.notFoundOk) {
-      return undefined;
-    }
-    if (!response.ok) {
-      const detail = await readServiceFoundryErrorMessage(response);
-      throw new HTTPException(424, {
-        message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
-      });
-    }
-    if (response.status === 204) {
-      return undefined;
-    }
-    const text = await response.text();
-    if (text.length === 0) {
-      return undefined;
-    }
-    try {
-      return JSON.parse(text);
-    } catch (error) {
-      throw new HTTPException(424, {
-        message: 'TrueFoundry ServiceFoundry server returned invalid JSON',
+        message: timedOut
+          ? `TrueFoundry ServiceFoundry server request timed out after ${String(SERVICE_FOUNDRY_HTTP_TIMEOUT_MS / 1000)}s`
+          : 'TrueFoundry ServiceFoundry server request failed',
         cause: error,
       });
     }

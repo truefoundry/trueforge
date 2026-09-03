@@ -1,5 +1,4 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
-import { AgentExternalIdConflictError, type IAgentStore } from '../../../src/db/agentStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -71,27 +70,19 @@ function jsonInit(method: string, body: unknown): RequestInit {
 describe('agents router', () => {
   let router: ReturnType<typeof createAgentsRouter>;
   let agentStore: SqliteAgentStore;
-  let modelProviderStore: SqliteModelProviderStore;
-  let mcpServerStore: SqliteMcpServerStore;
-  let skillStore: SqliteSkillStore;
-  let sandboxProviderStore: SqliteSandboxProviderStore;
-  let db: ReturnType<typeof createSqliteDb>;
 
   beforeAll(async () => {
-    db = createSqliteDb(':memory:');
+    const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
-    modelProviderStore = new SqliteModelProviderStore(db);
+    const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
     agentStore = new SqliteAgentStore(db);
-    mcpServerStore = new SqliteMcpServerStore(db);
-    skillStore = new SqliteSkillStore(db);
-    sandboxProviderStore = new SqliteSandboxProviderStore(db);
     router = createAgentsRouter({
       resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () => mcpServerStore,
-      skillStore,
-      sandboxProviderStore,
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
+      skillStore: new SqliteSkillStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
     });
   });
@@ -145,31 +136,6 @@ describe('agents router', () => {
 
     const snippets = await router.request('/missing-agent-id/code-snippets');
     expect(snippets.status).toBe(404);
-  });
-
-  it('PUT returns 409 when updateAgent hits an external_id conflict', async () => {
-    const conflictStore: IAgentStore = {
-      listAgents: async () => [],
-      getAgent: async () => undefined,
-      createAgent: async () => {
-        throw new Error('unused');
-      },
-      updateAgent: async () => {
-        throw new AgentExternalIdConflictError({ tenant_id: 'default', external_id: 'sf-taken' });
-      },
-      deleteAgent: async () => {},
-    };
-    const conflictRouter = createAgentsRouter({
-      resolveAgentStore: () => conflictStore,
-      resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () => mcpServerStore,
-      skillStore,
-      sandboxProviderStore,
-      withTransaction: callback => db.transaction().execute(callback),
-    });
-
-    const put = await conflictRouter.request('/any-agent-id', jsonInit('PUT', updateBody));
-    expect(put.status).toBe(409);
   });
 
   it('GET code-snippets returns snippets for an existing agent', async () => {
