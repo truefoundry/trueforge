@@ -49,16 +49,23 @@ export type TimelineToolCallGroup = TimelineGap & {
   segments: SessionEventTimelineSegment[];
 };
 
+export type TimelineSubAgentGroup = TimelineGap & {
+  id: string;
+  segments: SessionEventTimelineSegment[];
+};
+
 export const TIMELINE_TYPE = {
   turn: 'turn',
   event: 'event',
   toolCallGroup: 'toolCallGroup',
+  subAgentGroup: 'subAgentGroup',
 } as const;
 
 export type TimelineHoverTarget =
   | { type: typeof TIMELINE_TYPE.turn; bar: TimelineTurnBar }
   | { type: typeof TIMELINE_TYPE.event; segment: SessionEventTimelineSegment }
-  | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup };
+  | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup }
+  | { type: typeof TIMELINE_TYPE.subAgentGroup; group: TimelineSubAgentGroup };
 
 /** Stable identity used to avoid replacing tooltip state while hovering the same bar. */
 export function getTimelineHoverTargetId(target: TimelineHoverTarget | null): string {
@@ -149,6 +156,27 @@ export function groupOverlappingToolCalls(segments: SessionEventTimelineSegment[
     ) {
       groups.push({
         id: `tool-call-group-${segment.id}`,
+        startMs: segment.startMs,
+        endMs: segment.endMs,
+        segments: [segment],
+      });
+      continue;
+    }
+    current.endMs = Math.max(current.endMs, segment.endMs);
+    current.segments.push(segment);
+  }
+  return groups;
+}
+
+// The main row draws one representative bar for concurrent sub-agents; retain
+// every overlapping run so that bar's tooltip can explain the full interval.
+export function groupOverlappingSubAgents(segments: SessionEventTimelineSegment[]): TimelineSubAgentGroup[] {
+  const groups: TimelineSubAgentGroup[] = [];
+  for (const segment of [...segments].sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs)) {
+    const current = groups.at(-1);
+    if (current == null || current.segments[0]?.turnIndex !== segment.turnIndex || segment.startMs >= current.endMs) {
+      groups.push({
+        id: `sub-agent-group-${segment.id}`,
         startMs: segment.startMs,
         endMs: segment.endMs,
         segments: [segment],

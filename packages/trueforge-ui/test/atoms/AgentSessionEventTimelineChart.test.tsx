@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentSessionEventTimelineChart } from '@/atoms/agent-details/AgentSessionEventTimelineChart.js';
+import { SessionSubAgentGroupTooltip } from '@/atoms/agent-details/AgentSessionTimelineTooltip.js';
 import type { SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import type { SessionTurnView } from '@/utils/sessionTurnViews.js';
 
@@ -89,5 +90,44 @@ describe('AgentSessionEventTimelineChart', () => {
 
     fireEvent.mouseLeave(canvas);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('summarizes every sub-agent represented by a shared bar', () => {
+    render(
+      <SessionSubAgentGroupTooltip
+        group={{
+          id: 'sub-agent-group',
+          startMs: 1_000,
+          endMs: 6_000,
+          segments: [
+            {
+              id: 'researcher',
+              type: 'sub_agent',
+              title: 'thread.created',
+              description: 'Researcher',
+              startMs: 1_000,
+              endMs: 6_000,
+              turnIndex: 0,
+              threadId: 'researcher-thread',
+            },
+            {
+              id: 'writer',
+              type: 'sub_agent',
+              title: 'thread.created',
+              description: 'Writer',
+              startMs: 2_000,
+              endMs: 5_000,
+              turnIndex: 0,
+              threadId: 'writer-thread',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Sub-agents')).toBeInTheDocument();
+    expect(screen.getByText('Sub-agent 1: Researcher')).toBeInTheDocument();
+    expect(screen.getByText('Sub-agent 2: Writer')).toBeInTheDocument();
+    expect(screen.getAllByText('5s')).not.toHaveLength(0);
   });
 });

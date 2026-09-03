@@ -10,6 +10,7 @@ import {
   compressInterTurnGaps,
   getActiveTimelineMs,
   getSubAgentLanes,
+  groupOverlappingSubAgents,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
 } from '@/utils/sessionEventTimelineChart.js';
@@ -187,6 +188,34 @@ describe('sessionEventTimelineChart helpers', () => {
     assert.deepEqual(
       selected.map(segment => segment.id),
       ['s0', 's2'],
+    );
+  });
+
+  it('groups overlapping sub-agents within the same turn', () => {
+    const groups = groupOverlappingSubAgents(
+      bars([
+        [0, 10, 0],
+        [2, 6, 0],
+        [12, 20, 0],
+        [14, 18, 1],
+      ]).map((segment, index) => ({
+        ...segment,
+        type: 'sub_agent',
+        threadId: `child-${index}`,
+      })),
+    );
+
+    assert.deepEqual(
+      groups.map(group => ({
+        startMs: group.startMs,
+        endMs: group.endMs,
+        segments: group.segments.map(segment => segment.id),
+      })),
+      [
+        { startMs: 0, endMs: 10, segments: ['s0', 's1'] },
+        { startMs: 12, endMs: 20, segments: ['s2'] },
+        { startMs: 14, endMs: 18, segments: ['s3'] },
+      ],
     );
   });
 

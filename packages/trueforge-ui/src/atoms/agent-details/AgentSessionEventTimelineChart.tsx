@@ -28,6 +28,7 @@ import {
   getTimelineHoverTargetId,
   getTimelineLayout,
   getTimelineRange,
+  groupOverlappingSubAgents,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
   TIMELINE_TYPE,
@@ -39,6 +40,7 @@ import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   hasSessionEventTooltip,
   SessionEventTooltip,
+  SessionSubAgentGroupTooltip,
   SessionToolCallGroupTooltip,
   SessionTurnTooltip,
 } from './AgentSessionTimelineTooltip.js';
@@ -178,6 +180,7 @@ export function AgentSessionEventTimelineChart({
     [visibleSegments],
   );
   const mainSubAgents = useMemo(() => pickLongestNonOverlappingSegments(subAgentSegments), [subAgentSegments]);
+  const subAgentGroups = useMemo(() => groupOverlappingSubAgents(subAgentSegments), [subAgentSegments]);
   const subAgentLanes = useMemo(
     () => getSubAgentLanes({ subAgentSegments, threadSegments: visibleSegments, minWidthMs: MARKER_PX * msPerPx }),
     [msPerPx, subAgentSegments, visibleSegments],
@@ -217,12 +220,14 @@ export function AgentSessionEventTimelineChart({
       ...subAgentLanes.flatMap(lane =>
         lane.segments.map((segment): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
       ),
-      ...mainEventSegments.map((segment): TimelineHoverTarget | null =>
-        segment.type === 'sub_agent' ? null : { type: TIMELINE_TYPE.event, segment },
-      ),
+      ...mainEventSegments.map((segment): TimelineHoverTarget | null => {
+        if (segment.type !== 'sub_agent') return { type: TIMELINE_TYPE.event, segment };
+        const group = subAgentGroups.find(candidate => candidate.segments.some(member => member.id === segment.id));
+        return group == null ? { type: TIMELINE_TYPE.event, segment } : { type: TIMELINE_TYPE.subAgentGroup, group };
+      }),
       ...toolCallGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.toolCallGroup, group })),
     ],
-    [mainEventSegments, subAgentLanes, toolCallGroups, turnBars],
+    [mainEventSegments, subAgentGroups, subAgentLanes, toolCallGroups, turnBars],
   );
 
   const barDataset = ({
@@ -443,6 +448,8 @@ export function AgentSessionEventTimelineChart({
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.toolCallGroup ? (
       <SessionToolCallGroupTooltip group={tooltipTarget.group} />
+    ) : tooltipTarget?.type === TIMELINE_TYPE.subAgentGroup ? (
+      <SessionSubAgentGroupTooltip group={tooltipTarget.group} />
     ) : null;
 
   return (
