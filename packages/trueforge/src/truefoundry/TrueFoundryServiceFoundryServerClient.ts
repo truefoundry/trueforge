@@ -17,7 +17,6 @@ const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const INTEGRATIONS_PAGE_SIZE = 1000;
-const MCP_SERVERS_PAGE_SIZE = 100;
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -99,31 +98,34 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * Paginated `GET v1/mcp`. Returns raw SFY rows; callers parse with {@link mapSfyMcpServers}.
-   * Offset advances by raw page length (same as {@link listProviderIntegrations}).
+   * One page of `GET v1/mcp`. Returns raw SFY rows; callers parse with {@link mapSfyMcpServers}.
+   * Does not drain — callers pass `limit`/`offset` (or page until done).
+   * When `names` is set, applies SFY list-filter `name IN (…)`.
    */
-  async listMcpServers(accessToken: string): Promise<unknown[]> {
-    const items: unknown[] = [];
-    let offset = 0;
-    for (;;) {
-      const payload = await this.#requestJson({
-        url: this.#url(MCP_SERVERS_PATH, {
-          offset: String(offset),
-          limit: String(MCP_SERVERS_PAGE_SIZE),
-        }),
-        accessToken,
-        method: 'GET',
-      });
-      const response = this.#parseListResponse(payload);
-      const page = listPage(response);
-      const total = listPaginationTotal(response);
-      items.push(...page);
-      if (total === undefined || items.length >= total || page.length === 0) {
-        break;
-      }
-      offset = items.length;
-    }
-    return items;
+  async listMcpServers(input: {
+    accessToken: string;
+    limit: number;
+    offset: number;
+    names?: readonly string[];
+  }): Promise<unknown[]> {
+    const query: Record<string, string> = {
+      offset: String(input.offset),
+      limit: String(input.limit),
+      ...(input.names !== undefined
+        ? {
+            filter: JSON.stringify({
+              op: 'and',
+              values: [{ field: 'name', op: 'IN', values: [...input.names] }],
+            }),
+          }
+        : {}),
+    };
+    const payload = await this.#requestJson({
+      url: this.#url(MCP_SERVERS_PATH, query),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    return listPage(this.#parseListResponse(payload));
   }
 
   /**

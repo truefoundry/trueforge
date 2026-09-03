@@ -89,6 +89,51 @@ describe('mcpTrueFoundryOAuthCallbackUrl', () => {
 });
 
 describe('TrueFoundryMcpServerStore', () => {
+  describe('listServers', () => {
+    it('forwards one SFY page with limit+1 and paginates', async () => {
+      const { store, client } = createStore();
+      const second = { ...SFY_ROW, id: 'mcp-id-2', name: 'linear' };
+      client.listMcpServers.mockResolvedValue([SFY_ROW, second]);
+
+      const page = await store.listServers({
+        tenant_id: TENANT,
+        names: undefined,
+        limit: 1,
+        page_token: undefined,
+      });
+
+      expect(client.listMcpServers).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        limit: 2,
+        offset: 0,
+      });
+      expect(page.data.map(server => server.name)).toEqual(['github']);
+      expect(page.pagination.next_page_token).toBeDefined();
+      expect(client.listGatewayInstallations).toHaveBeenCalledTimes(1);
+    });
+
+    it('filters names with one SFY list call (name IN)', async () => {
+      const { store, client } = createStore();
+      client.listMcpServers.mockResolvedValue([SFY_ROW]);
+
+      const page = await store.listServers({
+        tenant_id: TENANT,
+        names: ['github', 'missing'],
+        limit: 10,
+        page_token: undefined,
+      });
+
+      expect(client.listMcpServers).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        limit: 11,
+        offset: 0,
+        names: ['github', 'missing'],
+      });
+      expect(client.getMcpServerByName).not.toHaveBeenCalled();
+      expect(page.data.map(server => server.name)).toEqual(['github']);
+    });
+  });
+
   describe('authorize', () => {
     it('passes explicit redirectURL to SFY', async () => {
       const { store, client } = createStore();

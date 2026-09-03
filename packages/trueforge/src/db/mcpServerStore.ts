@@ -11,6 +11,7 @@
  * OAuth JSONB wire shapes (snake_case) and camelCase ↔ storage mappers live here
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
  */
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
@@ -39,8 +40,10 @@ export interface GetMcpServerInput {
 
 export interface ListMcpServersInput {
   tenant_id: string;
-  /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
+  /** `undefined` lists all; empty returns no rows without querying; otherwise `WHERE name IN (...)`. */
   names: readonly string[] | undefined;
+  limit: number;
+  page_token: string | undefined;
 }
 
 export interface CreateMcpServerInput {
@@ -99,7 +102,10 @@ export interface DeleteMcpAuthorizationInput {
 
 /** Row persistence + DCR client columns — no authorize/status/revoke. */
 export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
-  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
+  listServers(
+    input: ListMcpServersInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
   /**
    * Load one server while holding a row lock for the lifetime of `transaction`.

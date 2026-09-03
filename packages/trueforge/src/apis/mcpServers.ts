@@ -27,6 +27,7 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import { getMcpConnection } from '../runtime/sessionResources';
+import { PAGE_LIMIT } from '../schemas/common';
 import type {
   AvailableMcpServer,
   ConfiguredMcpServer,
@@ -38,6 +39,24 @@ import type {
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
+/** Drain store pages until OpenAPI exposes limit/page_token on the list routes. */
+async function listAllMcpServerRecords<TTransaction>(
+  store: IMcpServerWithAuthStore<TTransaction>,
+): Promise<McpServerRecord[]> {
+  const records: McpServerRecord[] = [];
+  let pageToken: string | undefined;
+  do {
+    const page = await store.listServers({
+      tenant_id: TENANT_ID,
+      names: undefined,
+      limit: PAGE_LIMIT,
+      page_token: pageToken,
+    });
+    records.push(...page.data);
+    pageToken = page.pagination.next_page_token;
+  } while (pageToken !== undefined);
+  return records;
+}
 export interface McpServersRouterDeps<TTransaction> {
   resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -121,10 +140,7 @@ async function toConfiguredMcpServer<TTransaction>(params: {
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const records = await deps.resolveMcpServerStore(c).listServers({
-      tenant_id: TENANT_ID,
-      names: undefined,
-    });
+    const records = await listAllMcpServerRecords(deps.resolveMcpServerStore(c));
     const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
       records,
       userRef,
@@ -432,10 +448,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
     const userRef = deps.resolveUserContext(c).userRef;
-    const records = await deps.resolveMcpServerStore(c).listServers({
-      tenant_id: TENANT_ID,
-      names: undefined,
-    });
+    const records = await listAllMcpServerRecords(deps.resolveMcpServerStore(c));
     const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
       records,
       userRef,
