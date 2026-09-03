@@ -2,7 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 
 import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
 import { AgentNameConflictError, AgentNameReservedError, assertAgentNameNotReserved } from '../../../src/db/agentStore';
-import { withoutAgentUpdateLock } from '../../../src/db/agentUpdateLock';
+import { withoutAgentUpdateLock, type WithAgentUpdateLock } from '../../../src/db/agentUpdateLock';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -320,7 +320,11 @@ describe('TrueFoundryAgentStore', () => {
     const updated = record({ manifest: updatedManifest, external_id: 'sf-1' });
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
-    const withUpdateLock = jest.fn(async (_input, fn: (txn: undefined) => Promise<unknown>) => fn(undefined));
+    const lockCalls: Array<{ tenant_id: string; id: string }> = [];
+    const withUpdateLock: WithAgentUpdateLock<never> = async (input, fn) => {
+      lockCalls.push(input);
+      return fn(undefined);
+    };
     const store = new TrueFoundryAgentStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient(),
@@ -329,7 +333,7 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest });
-    expect(withUpdateLock).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, expect.any(Function));
+    expect(lockCalls).toEqual([{ tenant_id: TENANT, id: previous.id }]);
   });
 
   it('updateAgent puts remote agent then writes manifest when putRemoteAgent returns the same id', async () => {

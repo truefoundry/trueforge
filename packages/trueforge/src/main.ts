@@ -86,6 +86,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
@@ -172,10 +173,17 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   if (!client) {
     return () => withAuthPersistence;
   }
-  return c =>
-    c
-      ? new TrueFoundryMcpServerStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) })
-      : withAuthPersistence;
+  return c => {
+    if (!c) {
+      return withAuthPersistence;
+    }
+    const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+    return new TrueFoundryMcpServerStore<TTransaction>({
+      client,
+      accessToken: requireRequestCredentialToken(c),
+      perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
+    });
+  };
 }
 
 /**

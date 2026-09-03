@@ -20,11 +20,19 @@ import {
   toTrueFoundryMcpManifest,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
+import type { PerServerMcpHeaders } from './perServerMcpHeaders';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
+}
+
+function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
 /**
@@ -35,15 +43,29 @@ function managed(): never {
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #accessToken: string;
+  readonly #perServerHeaders: PerServerMcpHeaders;
 
-  constructor(input: { client: TrueFoundryServiceFoundryServerClient; accessToken: string }) {
+  constructor(input: {
+    client: TrueFoundryServiceFoundryServerClient;
+    accessToken: string;
+    perServerHeaders?: PerServerMcpHeaders;
+  }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
+    this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
+  /**
+   * The gateway Bearer is what the gateway authorises `USE_MCP_SERVER` on; the overrides are cargo
+   * it forwards upstream. Writing the Bearer last is not enough on its own to protect it, because
+   * object keys are case-sensitive and header names are not: an override under another casing would
+   * survive as a separate key and reach the wire alongside it. So it is dropped, not overwritten.
+   */
   resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    void record;
-    return { Authorization: `Bearer ${this.#accessToken}` };
+    return {
+      ...withoutAuthorization(this.#perServerHeaders[record.name]),
+      Authorization: `Bearer ${this.#accessToken}`,
+    };
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
