@@ -208,7 +208,7 @@ describe('TrueForgeUI', () => {
 
     const modelDialog = document.querySelector('dialog[aria-label="Edit model"]');
     if (!(modelDialog instanceof HTMLDialogElement)) throw new Error('expected stacked model dialog');
-    expect(await within(modelDialog).findByRole('option', { name: 'gpt-4.1' })).toBeInTheDocument();
+    expect(await within(modelDialog).findByRole('option', { name: /gpt-4.1/ })).toBeInTheDocument();
     fireEvent.click(within(modelDialog).getByRole('button', { name: 'Close' }));
 
     fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));

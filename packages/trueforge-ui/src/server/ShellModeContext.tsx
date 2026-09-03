@@ -68,6 +68,8 @@ type ShellModeContextValue = {
   settingsOpen: boolean;
   settingsSection: SettingsSection;
   setSettingsOpen: (open: boolean, section?: SettingsSection) => void;
+  agentConfigOpen: boolean;
+  setAgentConfigOpen: (open: boolean) => void;
   /** Agents Library main-pane overlay (sidebar layout). */
   libraryOpen: boolean;
   libraryAgentId: string | null;
@@ -202,6 +204,7 @@ export function ShellModeProvider({
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
   const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
+  const [agentConfigOpenState, setAgentConfigOpenState] = useState(false);
   const [libraryOpenState, setLibraryOpenState] = useState(false);
   const [sessionsOpenState, setSessionsOpenState] = useState(false);
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
@@ -217,6 +220,7 @@ export function ShellModeProvider({
   const setSessionsOpen = useCallback((open: boolean) => {
     if (open) {
       setSettingsOpenState(false);
+      setAgentConfigOpenState(false);
       setLibraryOpenState(false);
       setLibraryAgentId(null);
       setSchedulesOpenState(false);
@@ -230,6 +234,7 @@ export function ShellModeProvider({
       if (!isLibraryEnabled) return;
       if (open) {
         setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
       }
@@ -242,6 +247,7 @@ export function ShellModeProvider({
     (agentId: string) => {
       if (!isLibraryEnabled) return;
       setSettingsOpenState(false);
+      setAgentConfigOpenState(false);
       setSessionsOpen(false);
       setSchedulesOpenState(false);
       setLibraryOpenState(true);
@@ -258,6 +264,7 @@ export function ShellModeProvider({
         setSettingsSection(section);
       }
       if (open) {
+        setAgentConfigOpenState(false);
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSessionsOpen(false);
@@ -267,10 +274,24 @@ export function ShellModeProvider({
     },
     [setSessionsOpen, settingsEnabled],
   );
+  const setAgentConfigOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSettingsOpenState(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSessionsOpen(false);
+        setSchedulesOpenState(false);
+      }
+      setAgentConfigOpenState(open);
+    },
+    [setSessionsOpen],
+  );
   const setSchedulesOpen = useCallback(
     (open: boolean) => {
       if (open) {
         setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSessionsOpen(false);
@@ -307,6 +328,13 @@ export function ShellModeProvider({
       locked: true,
     };
   }, [locked, lockedAgentName, mode]);
+  const agentConfigOpen = effectiveMode.status === 'active' && effectiveMode.isMutable && agentConfigOpenState;
+
+  useEffect(() => {
+    if (effectiveMode.status !== 'active' || !effectiveMode.isMutable) {
+      setAgentConfigOpenState(false);
+    }
+  }, [effectiveMode]);
 
   const listSessionsAgentId = useMemo(() => {
     if (locked) return lockedAgentName;
@@ -509,6 +537,8 @@ export function ShellModeProvider({
       settingsOpen,
       settingsSection,
       setSettingsOpen,
+      agentConfigOpen,
+      setAgentConfigOpen,
       libraryOpen,
       libraryAgentId,
       setLibraryAgentId,
@@ -544,6 +574,8 @@ export function ShellModeProvider({
       settingsOpen,
       settingsSection,
       setSettingsOpen,
+      agentConfigOpen,
+      setAgentConfigOpen,
       libraryOpen,
       libraryAgentId,
       setLibraryOpen,

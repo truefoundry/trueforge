@@ -64,6 +64,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
       }),
+      external_id: null,
     });
     return agent.name;
   }

@@ -33,7 +33,11 @@ describe('harnessBuilderServer', () => {
           modelId: 'o3',
           name: 'openai/o3',
           provider: { name: 'openai' },
-          properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+          properties: {
+            contextLength: 200_000,
+            maxOutputTokens: 100_000,
+            reasoningEfforts: ['low', 'medium', 'high'],
+          },
         },
         logo: 'https://assets.example/openai.svg',
       }),
@@ -41,7 +45,11 @@ describe('harnessBuilderServer', () => {
         id: 'o3',
         name: 'openai/o3',
         provider: { name: 'openai', logo: 'https://assets.example/openai.svg' },
-        properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+        properties: {
+          contextLength: 200_000,
+          maxOutputTokens: 100_000,
+          reasoningEfforts: ['low', 'medium', 'high'],
+        },
       },
     );
     assert.deepEqual(
@@ -144,6 +152,30 @@ describe('harnessBuilderServer', () => {
         provider: { name: 'openai' },
         properties: {},
       },
+    ]);
+  });
+
+  it('getMcpTools loads connector tools and normalizes untrusted rows', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/mcp-servers/github/tools')) {
+        return Response.json({
+          data: [
+            { id: 'ignored', name: 'search', description: 'Search repositories' },
+            { name: 'read_file', description: 42 },
+            { id: 'missing-name', description: null },
+          ],
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    if (builder.getMcpTools === undefined) throw new Error('expected getMcpTools');
+
+    assert.deepEqual(await builder.getMcpTools({ connectorId: 'github' }), [
+      { id: 'search', name: 'search', description: 'Search repositories' },
+      { id: 'read_file', name: 'read_file', description: '' },
     ]);
   });
 

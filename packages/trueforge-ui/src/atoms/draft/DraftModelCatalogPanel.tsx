@@ -17,6 +17,10 @@ export function displayModelLabel(modelName: string): string {
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
+function formatTokens(value: number): string {
+  return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
 export function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
   if (logo) {
     return <CatalogLogo src={logo} alt="" className={cn('shrink-0 rounded object-contain', className)} aria-hidden />;
@@ -85,6 +89,7 @@ export function DraftModelCatalogPanel({
       )
     : models;
   const sections = groupModelsByProvider(filtered);
+  const detailedGridClass = 'grid-cols-[minmax(0,1fr)_5rem]';
 
   return (
     <>
@@ -105,6 +110,17 @@ export function DraftModelCatalogPanel({
           />
         </label>
       </div>
+      {!showHeading ? (
+        <div
+          className={cn(
+            'text-text-secondary grid gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold uppercase',
+            detailedGridClass,
+          )}
+        >
+          <span>Model</span>
+          <span>Context</span>
+        </div>
+      ) : null}
       <div
         id={listboxId}
         role="listbox"
@@ -144,15 +160,43 @@ export function DraftModelCatalogPanel({
                       role="option"
                       aria-selected={active}
                       className={cn(
-                        'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                        'w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                        showHeading ? 'flex' : cn('grid gap-2', detailedGridClass),
                         active
                           ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
                           : 'hover:bg-ghost-button-hover',
                       )}
                       onClick={() => onSelect(model)}
                     >
-                      <span className="truncate font-medium">{displayModelLabel(model.name)}</span>
-                      {active ? <Icon name="check" className="ml-auto size-3.5" /> : null}
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{displayModelLabel(model.name)}</span>
+                        {showHeading &&
+                        (model.properties.contextLength !== undefined ||
+                          model.properties.maxOutputTokens !== undefined) ? (
+                          <span className="text-text-secondary mt-0.5 block truncate text-[10px]">
+                            {[
+                              model.properties.contextLength === undefined
+                                ? null
+                                : `${formatTokens(model.properties.contextLength)} context`,
+                              model.properties.maxOutputTokens === undefined
+                                ? null
+                                : `${formatTokens(model.properties.maxOutputTokens)} output`,
+                            ]
+                              .filter(value => value !== null)
+                              .join(' · ')}
+                          </span>
+                        ) : null}
+                      </span>
+                      {!showHeading ? (
+                        <>
+                          <span className="text-text-secondary text-xs">
+                            {model.properties.contextLength === undefined
+                              ? '—'
+                              : formatTokens(model.properties.contextLength)}
+                          </span>
+                        </>
+                      ) : null}
+                      {active && showHeading ? <Icon name="check" className="ml-auto size-3.5" /> : null}
                     </button>
                   );
                 })}

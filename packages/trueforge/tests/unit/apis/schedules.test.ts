@@ -42,6 +42,7 @@ async function setup() {
     tenant_id: TENANT_ID,
     name: 'reporter',
     manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+    external_id: null,
   });
 
   let current: UserContext = ALICE;
@@ -155,6 +156,7 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
       tenant_id: TENANT_ID,
       name: 'reporter-two',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      external_id: null,
     });
 
     asUser(ALICE);
@@ -190,6 +192,7 @@ describe('schedule list agent_names filter', () => {
       tenant_id: TENANT_ID,
       name: 'reporter-two',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      external_id: null,
     });
 
     asUser(ALICE);

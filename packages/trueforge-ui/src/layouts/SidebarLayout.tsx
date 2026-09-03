@@ -8,6 +8,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
+import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
@@ -172,7 +173,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
             // (empty untitled draft). Mobile still needs Sessions + ShellActions.
-            (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
+            (overlayOpen || shell?.agentConfigOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
           {!overlayOpen ? (
@@ -190,7 +191,7 @@ export function SidebarLayout({ className }: { className?: string }) {
               <NamedAgentHeaderLabel />
               <span className="min-w-0 flex-1" />
               <ClearChatButton />
-              <SaveAgentButton />
+              {!shell?.agentConfigOpen ? <SaveAgentButton /> : null}
             </>
           ) : (
             <span className="min-w-0 flex-1" />
@@ -246,6 +247,16 @@ export function SidebarLayout({ className }: { className?: string }) {
           )}
         </div>
       </div>
+
+      {shell?.agentConfigOpen ? (
+        <aside
+          role="dialog"
+          aria-label="Agent Config"
+          className="absolute inset-y-0 right-0 z-20 w-full max-w-sm border-l border-border shadow-xl md:static md:z-auto md:w-[22rem] md:max-w-none md:shrink-0 md:shadow-none"
+        >
+          <AgentConfigDrawerContainer />
+        </aside>
+      ) : null}
 
       {/* Mobile sessions drawer */}
       {mobileNavOpen ? (

@@ -4,7 +4,7 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
-import { toUiConnectorFromReadEntry } from './catalogs/connectorCatalog.js';
+import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
 import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { listConfiguredMcpServers, listSkills } from './lists.js';
@@ -36,7 +36,7 @@ export function toModelSelection({
   model: TrueForgeApi.AvailableModel;
   logo?: string;
 }): ModelSelection {
-  const efforts = model.properties.reasoningEfforts;
+  const { contextLength, maxOutputTokens, reasoningEfforts } = model.properties;
   return {
     id: model.modelId,
     name: model.name,
@@ -45,7 +45,9 @@ export function toModelSelection({
       ...(logo === undefined ? {} : { logo }),
     },
     properties: {
-      ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
+      ...(contextLength === undefined ? {} : { contextLength }),
+      ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
+      ...(reasoningEfforts === undefined ? {} : { reasoningEfforts: [...reasoningEfforts] }),
     },
   };
 }
@@ -86,6 +88,12 @@ export function createHarnessBuilderServer(
       return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
+    getMcpTools: async ({ connectorId }: { connectorId: string }) => {
+      const body = await client.mcpServers.listTools(connectorId);
+      return body.data.flatMap(tool =>
+        typeof tool.name === 'string' && tool.name.trim() !== '' ? [toUiTool(tool)] : [],
+      );
+    },
 
     async searchAgents(req?: SearchAgentsParams) {
       const { data } = await client.agents.list();

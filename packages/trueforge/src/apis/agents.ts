@@ -82,6 +82,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
         tenant_id: TENANT_ID,
         name: body.name,
         manifest,
+        external_id: null,
       });
       return c.json({ data: toWireAgent(record) }, 201);
     } catch (error) {

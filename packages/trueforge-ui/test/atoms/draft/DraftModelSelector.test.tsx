@@ -22,7 +22,10 @@ const models: ModelSelection[] = [
     id: 'gpt-4.1',
     name: 'openai/gpt-4.1',
     provider: { name: 'OpenAI', logo: 'https://assets.example/openai.svg' },
-    properties: {},
+    properties: {
+      contextLength: 128_000,
+      maxOutputTokens: 16_384,
+    },
   },
   {
     id: 'claude-3.7-sonnet',
@@ -76,6 +79,7 @@ describe('DraftModelSelector', () => {
 
     const listbox = screen.getByRole('listbox', { name: 'Select model' });
     expect(within(listbox).getAllByRole('option')).toHaveLength(2);
+    expect(within(listbox).getByText(/128K context/)).toBeInTheDocument();
     const providerGroups = within(listbox).getAllByRole('group');
     expect(providerGroups).toHaveLength(2);
     expect(providerGroups[0]).toHaveTextContent(/openai/i);

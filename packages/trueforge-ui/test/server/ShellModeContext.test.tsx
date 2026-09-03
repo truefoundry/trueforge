@@ -3,11 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
-  readDraftSpecPreferences,
-  withCapabilitiesSandbox,
-} from '@/server/draftSpecPreferences.js';
+import { DRAFT_SPEC_PREFERENCES_STORAGE_KEY, readDraftSpecPreferences } from '@/server/draftSpecPreferences.js';
 import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
@@ -82,6 +78,20 @@ describe('ShellModeProvider', () => {
     act(() => result.current.setLibraryOpen(true));
     expect(result.current.libraryOpen).toBe(true);
     expect(result.current.settingsOpen).toBe(false);
+  });
+
+  it('keeps agent config exclusive to mutable chat surfaces', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.setAgentConfigOpen(true));
+    expect(result.current.agentConfigOpen).toBe(true);
+
+    act(() => result.current.setSettingsOpen(true));
+    expect(result.current.agentConfigOpen).toBe(false);
+
+    act(() => result.current.setAgentConfigOpen(true));
+    act(() => result.current.selectLibraryAgent({ isMutable: false, agentName: 'support' }));
+    expect(result.current.agentConfigOpen).toBe(false);
   });
 
   it('opens agent details and returns to the library list', () => {
@@ -490,7 +500,7 @@ describe('ShellModeProvider', () => {
   });
 
   it('preserves a host-seeded sandbox while capabilities are unavailable', () => {
-    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, true);
+    const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentComposer', defaultAgentSpec: hostSeed }),
     });
@@ -503,7 +513,7 @@ describe('ShellModeProvider', () => {
     });
   });
 
-  it('stores sandbox from loaded server capabilities', async () => {
+  it('does not treat sandbox availability as the selected runtime value', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {
         sandbox: { enabled: true },
@@ -524,7 +534,6 @@ describe('ShellModeProvider', () => {
 
     expect(readDraftSpecPreferences()).toEqual({
       model: { name: 'chosen/model' },
-      config: { sandbox: { enabled: true } },
     });
   });
 
@@ -544,7 +553,7 @@ describe('ShellModeProvider', () => {
       { wrapper: wrapWithServer(server, { mode: 'AgentComposer' }) },
     );
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(false));
-    const hostSeed = withCapabilitiesSandbox({ model: { name: 'chosen/model' } }, true);
+    const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
 
     act(() => result.current.shell.rememberDraftSpec(hostSeed));
 
