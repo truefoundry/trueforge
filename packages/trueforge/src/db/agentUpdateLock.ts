@@ -1,5 +1,5 @@
 /**
- * Serializes agent updates that also call ServiceFoundry.
+ * Serializes agent update/delete that also call ServiceFoundry.
  * Implementations: Postgres advisory xact lock, or a no-op for SQLite.
  */
 export type WithAgentUpdateLock<TTransaction> = <T>(

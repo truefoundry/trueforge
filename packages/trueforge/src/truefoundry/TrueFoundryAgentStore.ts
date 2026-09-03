@@ -36,7 +36,7 @@ function toPutRemoteAgentPayload({
 /**
  *   create:  createDB(null) → putRemote → updateDB(external_id) | on put/update fail → deleteDB (+ deleteRemote if put ok)
  *   update:  lock → get → putRemote(new) → updateDB | on DB fail → putRemote(old) | both fail → AggregateError
- *   delete:  deleteRemote(404 ok) → deleteDB
+ *   delete:  lock → get → deleteRemote(404 ok) → deleteDB
  */
 export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<TTransaction> {
   readonly #inner: IAgentStore<TTransaction>;
@@ -152,13 +152,17 @@ export class TrueFoundryAgentStore<TTransaction = never> implements IAgentStore<
   }
 
   async deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void> {
-    const previous = await this.#inner.getAgent({ tenant_id: input.tenant_id, id: input.id }, transaction);
-    if (previous?.external_id) {
-      await this.#client.deleteRemoteAgent({
-        accessToken: this.#accessToken,
-        externalId: previous.external_id,
-      });
-    }
-    await this.#inner.deleteAgent(input, transaction);
+    // Same lock as update so delete cannot remove the remote between update's get and putRemote.
+    return this.#withUpdateLock({ tenant_id: input.tenant_id, id: input.id }, async lockedTransaction => {
+      const txn = lockedTransaction ?? transaction;
+      const previous = await this.#inner.getAgent({ tenant_id: input.tenant_id, id: input.id }, txn);
+      if (previous?.external_id) {
+        await this.#client.deleteRemoteAgent({
+          accessToken: this.#accessToken,
+          externalId: previous.external_id,
+        });
+      }
+      await this.#inner.deleteAgent(input, txn);
+    });
   }
 }

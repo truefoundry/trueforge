@@ -478,6 +478,26 @@ describe('TrueFoundryAgentStore', () => {
     });
   });
 
+  it('deleteAgent runs under withUpdateLock', async () => {
+    const previous = record({ external_id: 'sf-1' });
+    const getAgent = jest.fn(async () => previous);
+    const deleteAgent = jest.fn(async () => undefined);
+    const lockCalls: Array<{ tenant_id: string; id: string }> = [];
+    const withUpdateLock: WithAgentUpdateLock<never> = async (input, fn) => {
+      lockCalls.push(input);
+      return fn(undefined);
+    };
+    const store = new TrueFoundryAgentStore({
+      inner: mockInner({ getAgent, deleteAgent }),
+      client: mockClient(),
+      accessToken: TOKEN,
+      withUpdateLock,
+    });
+
+    await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
+    expect(lockCalls).toEqual([{ tenant_id: TENANT, id: previous.id }]);
+  });
+
   it('deleteAgent deletes ServiceFoundry then DB when external_id is set', async () => {
     const previous = record({ external_id: 'sf-1' });
     const getAgent = jest.fn(async () => previous);
