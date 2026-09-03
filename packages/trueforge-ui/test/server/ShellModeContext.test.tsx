@@ -80,17 +80,47 @@ describe('ShellModeProvider', () => {
     expect(result.current.settingsOpen).toBe(false);
   });
 
-  it('keeps agent config exclusive to mutable chat surfaces', () => {
+  it('keeps agent config exclusive to New Agent surfaces', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
 
-    act(() => result.current.setAgentConfigOpen(true));
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: true });
     expect(result.current.agentConfigOpen).toBe(true);
 
     act(() => result.current.setSettingsOpen(true));
     expect(result.current.agentConfigOpen).toBe(false);
 
-    act(() => result.current.setAgentConfigOpen(true));
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.agentConfigOpen).toBe(true);
     act(() => result.current.selectLibraryAgent({ isMutable: false, agentName: 'support' }));
+    expect(result.current.agentConfigOpen).toBe(false);
+  });
+
+  it('openDraft starts New Chat without agent config; openAgentBuilder opens config', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: false });
+    expect(result.current.agentConfigOpen).toBe(false);
+
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: true });
+    expect(result.current.agentConfigOpen).toBe(true);
+
+    act(() => result.current.openDraft());
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: false });
+    expect(result.current.agentConfigOpen).toBe(false);
+  });
+
+  it('openHistorySession applies isCreateAgent only when mutable', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-builder', isMutable: true, isCreateAgent: true }));
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: true });
+    expect(result.current.agentConfigOpen).toBe(true);
+    expect(result.current.pendingSessionId).toBe('sess-builder');
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-chat', isMutable: true }));
+    expect(result.current.mode).toMatchObject({ isMutable: true, isCreateAgent: false });
     expect(result.current.agentConfigOpen).toBe(false);
   });
 
@@ -128,6 +158,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'locked',
       agentName: 'locked',
       locked: true,
@@ -140,6 +171,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'locked',
       agentName: 'locked',
       locked: true,
@@ -159,6 +191,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
@@ -183,6 +216,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
@@ -238,6 +272,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'alpha',
       agentName: 'alpha',
       locked: false,
@@ -266,6 +301,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: true,
       agentId: 'writer',
       agentName: 'writer',
       agentSpec: spec,
@@ -297,6 +333,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: true,
       agentId: 'writer',
       agentName: 'writer',
       agentSpec: spec,
@@ -339,6 +376,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       agentId: 'from-sdk',
       agentName: 'from-sdk',
       locked: false,
@@ -356,6 +394,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: false,
+      isCreateAgent: false,
       locked: false,
     });
     expect(result.current.pendingSessionId).toBe('sess-orphan');
@@ -383,6 +422,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: false,
       agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
       locked: false,
     });
@@ -417,6 +457,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toEqual({
       status: 'active',
       isMutable: true,
+      isCreateAgent: true,
       agentId: 'saved',
       agentName: 'saved',
       agentSpec: spec,

@@ -60,10 +60,16 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDrawer, editor, shell.agentConfigOpen]);
 
+  // Flush pending edits on unmount. ChatProvider remount (runtimeKey) tears the
+  // runtime down first — flush then throws; ignore so the new draft can mount.
   useEffect(
     () => () => {
       flushInstructions();
-      void flushAgentSpec();
+      try {
+        void flushAgentSpec();
+      } catch {
+        // Runtime already gone.
+      }
     },
     [flushAgentSpec, flushInstructions],
   );

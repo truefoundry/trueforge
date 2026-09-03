@@ -97,6 +97,8 @@ describe('createHarnessAgentSessionsServer', () => {
           createdAt: '2026-01-01T00:00:00.000Z',
           updatedAt: '2026-01-02T00:00:00.000Z',
           lastActivityAt: '2026-01-02T00:00:00.000Z',
+          isCreateAgent: false,
+          isMutable: false,
           metrics: { totalTurns: 3, totalCostInUsd: 0.25, totalDurationMs: 29_711 },
           agentName: 'writer',
         },

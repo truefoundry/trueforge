@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useRef } from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
@@ -10,7 +10,6 @@ import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
-import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -29,68 +28,39 @@ export function DrawerLayout({ className }: { className?: string }) {
   const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
-  const [threadsOpen, setThreadsOpen] = useState(false);
-  const threadsBtnRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
-  const wasOpen = useRef(false);
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
-
-  useEffect(() => {
-    if (libraryOpen || sessionsOpen || schedulesOpen) setThreadsOpen(false);
-  }, [libraryOpen, sessionsOpen, schedulesOpen]);
-
-  useEffect(() => {
-    if (!threadsOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setThreadsOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [threadsOpen]);
-
-  useEffect(() => {
-    const main = mainRef.current;
-    if (threadsOpen) {
-      wasOpen.current = true;
-      if (main) main.inert = true;
-      dialogRef.current?.focus();
-      return;
-    }
-    if (wasOpen.current) {
-      if (main) main.inert = false;
-      threadsBtnRef.current?.focus();
-      wasOpen.current = false;
-    }
-  }, [threadsOpen]);
+  const showNewActions = shell?.isNewChatEnabled !== false;
 
   const handleNewChat = () => {
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
-    } else {
-      shell?.setSettingsOpen(false);
-      shell?.setSchedulesOpen(false);
-      aui.threads().switchToNewThread();
+      return;
     }
-    setThreadsOpen(false);
+    shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
+    void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
+  };
+
+  const handleNewAgent = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    if (shell?.isComposerEnabled) {
+      shell.openAgentBuilder();
+    }
   };
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full flex-col bg-primary-bg', className)}>
       {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
-      <header
-        className={cn(
-          'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
-          shell?.agentConfigOpen && 'md:hidden',
-        )}
-      >
+      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         {!overlayOpen ? (
           <>
             <NamedAgentHeaderLabel />
@@ -119,27 +89,28 @@ export function DrawerLayout({ className }: { className?: string }) {
         <ShellActions key="shell-actions" />
         {!overlayOpen ? (
           <>
-            {shell?.isNewChatEnabled !== false ? (
+            {showNewActions ? (
               <button
                 type="button"
-                aria-label="New chat"
-                title="New chat"
+                aria-label="New Chat"
+                title="New Chat"
                 className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
                 onClick={handleNewChat}
               >
-                <Icon name="plus" />
+                <Icon name="square-pen" />
               </button>
             ) : null}
-            <button
-              ref={threadsBtnRef}
-              type="button"
-              aria-label="Sessions"
-              aria-expanded={threadsOpen}
-              className="text-text-secondary hover:text-text-primary inline-flex size-8 cursor-pointer items-center justify-center rounded-md"
-              onClick={() => setThreadsOpen(v => !v)}
-            >
-              <Icon name="clock-rotate-left" />
-            </button>
+            {showNewActions && shell?.isComposerEnabled ? (
+              <button
+                type="button"
+                aria-label="New Agent"
+                title="New Agent"
+                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                onClick={handleNewAgent}
+              >
+                <Icon name="agent-2" />
+              </button>
+            ) : null}
           </>
         ) : null}
       </header>
@@ -166,7 +137,7 @@ export function DrawerLayout({ className }: { className?: string }) {
           ) : libraryOpen && shell?.libraryAgentId != null ? (
             <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
           ) : libraryOpen ? (
-            <AgentsLibrary onSelectAgent={() => setThreadsOpen(false)} />
+            <AgentsLibrary />
           ) : schedulesOpen ? (
             <Suspense
               fallback={
@@ -199,25 +170,6 @@ export function DrawerLayout({ className }: { className?: string }) {
           </aside>
         ) : null}
       </div>
-      {threadsOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close sessions"
-            className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)]"
-            onClick={() => setThreadsOpen(false)}
-          />
-          <div
-            ref={dialogRef}
-            className="absolute inset-y-0 right-0 z-10 flex w-full max-w-80 flex-col border-l border-border bg-sidebar-bg shadow-lg outline-none"
-            role="dialog"
-            aria-label="Sessions"
-            tabIndex={-1}
-          >
-            <ThreadListContainer onThreadOpen={() => setThreadsOpen(false)} />
-          </div>
-        </>
-      ) : null}
     </div>
   );
 }

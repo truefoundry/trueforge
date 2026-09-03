@@ -9,6 +9,15 @@ function Probe() {
   const shell = useShellMode();
   return (
     <>
+      <button
+        type="button"
+        onClick={() => {
+          shell.openAgentBuilder();
+          shell.setAgentConfigOpen(false);
+        }}
+      >
+        Enter builder
+      </button>
       <DraftAgentConfigTrigger />
       <span data-testid="open">{String(shell.agentConfigOpen)}</span>
     </>
@@ -22,6 +31,8 @@ describe('DraftAgentConfigTrigger', () => {
         <Probe />
       </ShellModeProvider>,
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enter builder' }));
 
     const trigger = screen.getByRole('button', { name: 'Agent config' });
     expect(trigger).toHaveAttribute('aria-expanded', 'false');

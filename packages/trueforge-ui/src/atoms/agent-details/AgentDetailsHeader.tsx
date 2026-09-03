@@ -22,6 +22,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
     if (detail == null) return;
     shell.selectLibraryAgent({
       isMutable: true,
+      isCreateAgent: true,
       agentId: detail.agentId,
       agentName: detail.name,
       agentSpec: detail.agentSpec,
