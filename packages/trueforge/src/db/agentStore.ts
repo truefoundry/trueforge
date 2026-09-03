@@ -5,7 +5,6 @@
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
 import { AgentSpecSchema, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
-import type { AgentMetadata } from '../schemas/agentMetadata';
 import type { ResourceName } from '../schemas/common';
 
 export interface AgentRecord {
@@ -13,7 +12,6 @@ export interface AgentRecord {
   tenant_id: string;
   name: ResourceName;
   manifest: AgentSpec;
-  metadata: AgentMetadata;
   external_id: string | null;
   /** ISO-8601 UTC instant. */
   created_at: string;
@@ -40,14 +38,13 @@ export interface CreateAgentInput {
 }
 
 /**
- * Patch an existing agent by immutable id. At least one of `manifest`, `metadata`, or `external_id` is required.
+ * Patch an existing agent by immutable id. At least one of `manifest` or `external_id` is required.
  * Provided fields replace the stored column; omitted fields are left unchanged.
  */
 export interface UpdateAgentInput {
   tenant_id: string;
   id: string;
   manifest?: AgentSpec;
-  metadata?: AgentMetadata;
   external_id?: string | null;
 }
 
@@ -87,7 +84,7 @@ export interface IAgentStore<TTransaction = never> {
   getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError or AgentExternalIdConflictError on unique clash. */
   createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord>;
-  /** Patches `manifest`, `metadata`, and/or `external_id`. Throws AgentExternalIdConflictError on unique clash. Returns undefined if missing. */
+  /** Patches `manifest` and/or `external_id`. Throws AgentExternalIdConflictError on unique clash. Returns undefined if missing. */
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
   deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;

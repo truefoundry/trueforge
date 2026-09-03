@@ -1,6 +1,5 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import { EMPTY_AGENT_METADATA, type AgentMetadata } from '../../../schemas/agentMetadata';
 import { newId } from '../../../utils/id';
 import {
   AgentExternalIdConflictError,
@@ -24,7 +23,6 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
     'tenant_id' as const,
     'name' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
-    jsonText<AgentMetadata>(eb.ref('metadata')).as('metadata'),
     'external_id' as const,
     'created_at' as const,
     'updated_at' as const,
@@ -36,7 +34,6 @@ function toRecord(row: {
   tenant_id: string;
   name: AgentRecord['name'];
   manifest: AgentSpec;
-  metadata: AgentMetadata;
   external_id: string | null;
   created_at: string;
   updated_at: string;
@@ -85,7 +82,6 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: jsonbBind(input.manifest),
-          metadata: jsonbBind(EMPTY_AGENT_METADATA),
           external_id: input.external_id,
           created_at: timestamp,
           updated_at: timestamp,
@@ -108,8 +104,8 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
-    if (input.manifest === undefined && input.metadata === undefined && input.external_id === undefined) {
-      throw new Error('updateAgent requires manifest, metadata, and/or external_id');
+    if (input.manifest === undefined && input.external_id === undefined) {
+      throw new Error('updateAgent requires manifest and/or external_id');
     }
     const db = transaction ?? this.#db;
     try {
@@ -117,7 +113,6 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
         .updateTable('agent')
         .set({
           ...(input.manifest === undefined ? {} : { manifest: jsonbBind(input.manifest) }),
-          ...(input.metadata === undefined ? {} : { metadata: jsonbBind(input.metadata) }),
           ...(input.external_id === undefined ? {} : { external_id: input.external_id }),
           updated_at: nowIso(),
         })

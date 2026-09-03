@@ -24,7 +24,6 @@ import type {
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
-import type { AgentMetadata } from '../../schemas/agentMetadata';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
@@ -222,8 +221,6 @@ export interface AgentTable {
   name: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JsonbColumn<AgentSpec>;
-  /** `agent.metadata` jsonb; default `{}` for existing rows */
-  metadata: JsonbColumn<AgentMetadata>;
   external_id: string | null;
   created_at: string;
   updated_at: string;
