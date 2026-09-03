@@ -5878,6 +5878,108 @@
         "x-fern-ignore": true
       }
     },
+    "/api/v1/mcp-servers/oauth/truefoundry/callback": {
+      "get": {
+        "description": "Browser redirect target after ServiceFoundry MCP consent. Does not exchange tokens (SFY already stored them); redirects to the `return_to` query param with `isSuccess`/`reason`, mirroring local DCR callback landing. Not called by the SDK — browsers hit this URL directly.",
+        "parameters": [
+          {
+            "description": "Same-origin relative path from authorize; callback redirects here with isSuccess.",
+            "in": "query",
+            "name": "return_to",
+            "required": false,
+            "schema": {
+              "description": "Same-origin relative path from authorize; callback redirects here with isSuccess.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Authorization code when consent succeeded.",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "description": "Authorization code when consent succeeded.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "OAuth state from ServiceFoundry when present.",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "description": "OAuth state from ServiceFoundry when present.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Error code when consent failed or was denied.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "description": "Error code when consent failed or was denied.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Human-readable error detail when `error` is set.",
+            "in": "query",
+            "name": "error_description",
+            "required": false,
+            "schema": {
+              "description": "Human-readable error detail when `error` is set.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "success": {
+                      "description": "Present when the OAuth callback completed without a return_to.",
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Consent succeeded and no usable `return_to` was supplied."
+          },
+          "302": {
+            "description": "Redirect to `return_to` with `isSuccess` (and `reason` when it failed)."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Consent `error`, or both `code` and `error` missing, with no `return_to`."
+          }
+        },
+        "summary": "OAuth callback for TrueFoundry-managed MCP authorization",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-excluded": true,
+        "x-fern-ignore": true
+      }
+    },
     "/api/v1/mcp-servers/{name}/authorize": {
       "delete": {
         "description": "Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. No-op when the server does not use stored OAuth tokens.",
