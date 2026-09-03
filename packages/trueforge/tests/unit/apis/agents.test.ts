@@ -80,7 +80,7 @@ describe('agents router', () => {
     router = createAgentsRouter({
       agentStore,
       resolveModelProviderStore: () => modelProviderStore,
-      mcpServerStore: new SqliteMcpServerStore(db),
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),

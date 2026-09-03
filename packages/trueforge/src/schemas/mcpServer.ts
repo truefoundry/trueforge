@@ -10,8 +10,12 @@ import { z } from '@hono/zod-openapi';
 import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
-/** Transport/kind of MCP server. Extend when non-remote kinds ship. */
-export const McpServerTypeSchema = z.enum(['remote']).openapi('MCPServerType');
+/**
+ * Transport/kind of MCP server.
+ * `remote` — user-configured URL (standalone / local registry).
+ * `truefoundry` — TrueFoundry-managed: gateway proxy URL.
+ */
+export const McpServerTypeSchema = z.enum(['remote', 'truefoundry']).openapi('MCPServerType');
 
 const McpServerHeaderAuthSchema = z
   .object({
@@ -52,7 +56,7 @@ export const McpServerManifestObjectSchema = z
   .object({
     type: McpServerTypeSchema,
     name: NameSchema,
-    url: z.url().describe('URL of the remote MCP server.'),
+    url: z.url().describe('MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL.'),
     description: McpServerDescriptionSchema,
     auth: McpServerManifestAuthSchema.optional(),
   })
@@ -156,6 +160,10 @@ export function resolveMcpAuthStatus({
   manifest: McpServerManifest;
   token?: OAuthToken;
 }): McpAuthStatus {
+  // TODO: Replace stub with live ServiceFoundry auth status when Connect /authorize is wired.
+  if (manifest.type === 'truefoundry') {
+    return { status: 'authenticated' };
+  }
   if (manifest.auth?.type === 'dcr') {
     return token ? { status: 'authenticated' } : { status: 'auth_required' };
   }

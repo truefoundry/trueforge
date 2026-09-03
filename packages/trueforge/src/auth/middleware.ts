@@ -32,10 +32,16 @@ export function readBearerToken(c: Context): string | undefined {
   return token.length > 0 ? token : undefined;
 }
 
+export function readAccessToken(c: Context): string | undefined {
+  return readBearerToken(c) ?? readAccessTokenCookie({ context: c }) ?? readIdTokenCookie({ context: c });
+}
+
 export function requireAccessToken(c: Context): string {
-  const token = readBearerToken(c) ?? readAccessTokenCookie({ context: c }) ?? readIdTokenCookie({ context: c });
+  const token = readAccessToken(c);
   if (!token) {
-    throw new HTTPException(401, { message: 'Authentication token required to list or call TrueFoundry models' });
+    throw new HTTPException(401, {
+      message: 'Authentication token required to list or call TrueFoundry models and MCP servers',
+    });
   }
   return token;
 }

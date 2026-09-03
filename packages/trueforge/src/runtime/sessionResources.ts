@@ -26,7 +26,6 @@ import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
-import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
@@ -134,7 +133,9 @@ function dcrHeadersResolver(params: {
 
 /**
  * Load MCP url + headers for a configured server.
- * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
+ * - Local `remote` + `dcr`: resolveMcpAuth via the harness token store.
+ * - Otherwise: {@link IMcpServerStore.resolveInvokeHeaders}
+ *   (TrueFoundry gateway Bearer, configured header auth, or `{}`).
  * Returns undefined when the server is not registered — callers choose the response.
  */
 export async function getMcpConnection({
@@ -156,7 +157,8 @@ export async function getMcpConnection({
   if (record === undefined) {
     return undefined;
   }
-  if (record.manifest.auth?.type === 'dcr') {
+  // TrueFoundry wire `dcr` is Connect UX only — invoke uses store Bearer, not local DCR.
+  if (record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr') {
     return {
       url: record.manifest.url,
       headers: dcrHeadersResolver({
@@ -170,7 +172,7 @@ export async function getMcpConnection({
   }
   return {
     url: record.manifest.url,
-    headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+    headers: store.resolveInvokeHeaders(record),
   };
 }
 

@@ -8,7 +8,9 @@ import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsO
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
+const MCP_SERVERS_PATH = 'v1/mcp';
 const INTEGRATIONS_PAGE_SIZE = 1000;
+const MCP_SERVERS_PAGE_SIZE = 100;
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -17,6 +19,8 @@ const ListResponseSchema = z.union([
     pagination: z.object({ total: z.number().optional() }).optional(),
   }),
 ]);
+
+type ListResponse = z.infer<typeof ListResponseSchema>;
 
 const ServiceFoundryErrorSchema = z.object({
   message: z.union([z.string(), z.array(z.string())]).optional(),
@@ -29,6 +33,14 @@ async function readServiceFoundryErrorMessage(
   const parsed = ServiceFoundryErrorSchema.safeParse(body);
   const message = parsed.success ? parsed.data.message : undefined;
   return Array.isArray(message) ? message.join(', ') : message;
+}
+
+function listPage(response: ListResponse): unknown[] {
+  return Array.isArray(response) ? response : response.data;
+}
+
+function listPaginationTotal(response: ListResponse): number | undefined {
+  return Array.isArray(response) ? undefined : response.pagination?.total;
 }
 
 export class TrueFoundryServiceFoundryServerClient {
@@ -58,14 +70,11 @@ export class TrueFoundryServiceFoundryServerClient {
         }),
         accessToken,
       );
-      const parsed = ListResponseSchema.safeParse(payload);
-      if (!parsed.success) {
-        break;
-      }
-      const page = Array.isArray(parsed.data) ? parsed.data : parsed.data.data;
-      const total = Array.isArray(parsed.data) ? undefined : parsed.data.pagination?.total;
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      const total = listPaginationTotal(response);
       items.push(...page);
-      if (!total || items.length >= total || page.length === 0) {
+      if (total === undefined || items.length >= total || page.length === 0) {
         break;
       }
       offset = items.length;
@@ -75,6 +84,71 @@ export class TrueFoundryServiceFoundryServerClient {
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {
     return this.#getJson(this.#url(INSTALLATIONS_PATH), accessToken);
+  }
+
+  /**
+   * Paginated `GET v1/mcp`. Returns raw SFY rows; callers parse with {@link mapSfyMcpServers}.
+   * Offset advances by raw page length (same as {@link listProviderIntegrations}).
+   */
+  async listMcpServers(accessToken: string): Promise<unknown[]> {
+    const items: unknown[] = [];
+    let offset = 0;
+    for (;;) {
+      const payload = await this.#getJson(
+        this.#url(MCP_SERVERS_PATH, {
+          offset: String(offset),
+          limit: String(MCP_SERVERS_PAGE_SIZE),
+        }),
+        accessToken,
+      );
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      const total = listPaginationTotal(response);
+      items.push(...page);
+      if (total === undefined || items.length >= total || page.length === 0) {
+        break;
+      }
+      offset = items.length;
+    }
+    return items;
+  }
+
+  /**
+   * Resolve one MCP server by name via list filter `name EQUAL`.
+   * Returns the first raw row, or `undefined` when the tenant has no match.
+   * Callers parse with {@link parseSfyMcpServerSummary}.
+   */
+  async getMcpServerByName(input: { accessToken: string; name: string }): Promise<unknown> {
+    const filter = JSON.stringify({
+      op: 'and',
+      values: [{ field: 'name', op: 'EQUAL', value: input.name }],
+    });
+    const payload = await this.#getJson(
+      this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }),
+      input.accessToken,
+    );
+    const rows = listPage(this.#parseListResponse(payload));
+    if (rows.length > 1) {
+      this.#logger?.warn('TrueFoundry ServiceFoundry MCP name filter returned multiple rows', {
+        name: input.name,
+        count: rows.length,
+      });
+    }
+    return rows[0];
+  }
+
+  #parseListResponse(payload: unknown): ListResponse {
+    const parsed = ListResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.#logger?.error('TrueFoundry ServiceFoundry server returned an unexpected list response', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry server returned an unexpected list response',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
   }
 
   #url(path: string, search?: Record<string, string>): URL {

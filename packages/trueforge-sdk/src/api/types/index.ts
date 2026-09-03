@@ -22,6 +22,7 @@ export * from "./CancelSessionResponse.js";
 export * from "./CapabilitiesData.js";
 export * from "./CatalogCustomModelProvider.js";
 export * from "./CatalogMcpServer.js";
+export * from "./CatalogMcpServerType.js";
 export * from "./CatalogModel.js";
 export * from "./CatalogModelProvider.js";
 export * from "./CatalogSandboxProvider.js";

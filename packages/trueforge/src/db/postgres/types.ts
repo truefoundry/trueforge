@@ -378,6 +378,7 @@ export interface AgentTable {
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   /** `agent.metadata` jsonb; default `{}` for existing rows */
   metadata: JSONColumnType<AgentMetadata, AgentMetadata, AgentMetadata>;
+  external_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
