@@ -21,7 +21,7 @@ import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerConta
 import { Thread } from '../containers/Thread.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { resolveBrandChrome } from '../theme/brand.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useBrand } from '../theme/ThemeProvider.js';
@@ -34,12 +34,27 @@ const SchedulesPage = lazy(() =>
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-20';
 
+const railActionButtonClassName =
+  'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text';
+
+const railSelectedClassName =
+  'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text';
+
 function SidebarNav(): ReactNode {
   const aui = useAui();
   const shell = useOptionalShellMode();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const showNewActions = shell?.isNewChatEnabled !== false;
+  const overlayOpen =
+    shell?.settingsOpen === true ||
+    shell?.libraryOpen === true ||
+    shell?.sessionsOpen === true ||
+    shell?.schedulesOpen === true;
+  const mode = shell?.mode;
+  const newChatSelected = !overlayOpen && mode?.status === 'active' && mode.isMutable && !mode.isCreateAgent;
+  const newAgentSelected = !overlayOpen && mode != null && shellIsCreateAgent(mode);
 
   const handleNewChat = () => {
     shell?.setLibraryOpen(false);
@@ -53,22 +68,46 @@ function SidebarNav(): ReactNode {
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
+  const handleNewAgent = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    if (shell?.isComposerEnabled) {
+      shell.openAgentBuilder();
+    }
+  };
+
   return (
     <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 p-2" aria-label="Sidebar">
-      {shell?.isNewChatEnabled !== false ? (
+      {showNewActions ? (
         <button
           type="button"
           aria-label="Start new chat"
           title="New chat"
+          aria-current={newChatSelected ? 'page' : undefined}
           className={auiButtonClass({
             variant: 'ghost',
-            className:
-              'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+            className: cn(railActionButtonClassName, newChatSelected && railSelectedClassName),
           })}
           onClick={handleNewChat}
         >
           <Icon name="square-pen" size={16} />
           <span className="text-center">New Chat</span>
+        </button>
+      ) : null}
+      {showNewActions && shell?.isComposerEnabled ? (
+        <button
+          type="button"
+          aria-label="Start new agent"
+          title="New Agent"
+          aria-current={newAgentSelected ? 'page' : undefined}
+          className={auiButtonClass({
+            variant: 'ghost',
+            className: cn(railActionButtonClassName, newAgentSelected && railSelectedClassName),
+          })}
+          onClick={handleNewAgent}
+        >
+          <Icon name="robot" size={16} />
+          <span className="text-center">New Agent</span>
         </button>
       ) : null}
       <AgentsLibraryButton compact />
@@ -176,8 +215,8 @@ export function SidebarLayout({ className }: { className?: string }) {
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
-            // (empty untitled draft). Mobile still needs menu + ShellActions.
-            (overlayOpen || shell?.agentConfigOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
+            // (empty untitled immutable history). Mobile still needs menu + ShellActions.
+            (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
           {!overlayOpen ? (

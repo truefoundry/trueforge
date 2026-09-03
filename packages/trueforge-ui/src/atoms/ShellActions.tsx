@@ -48,10 +48,15 @@ export function ShellActions({ className, labeled = false }: { className?: strin
           aria-label="Settings"
           title="Settings"
           aria-expanded={shell.settingsOpen}
+          aria-current={shell.settingsOpen ? 'page' : undefined}
           className={auiButtonClass({
             variant: 'ghost',
             size: labeled ? undefined : 'icon',
-            className: labeled ? labeledButtonClass : undefined,
+            className: cn(
+              labeled ? labeledButtonClass : undefined,
+              shell.settingsOpen &&
+                'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
+            ),
           })}
           onClick={() => shell.setSettingsOpen(true)}
         >

@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
+import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
+import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentSessionsProps } from './types.js';
 
@@ -16,9 +18,17 @@ function sessionTitle(entry: Pick<SessionListEntry, 'title'>): string {
   return title != null && title.length > 0 ? title : 'Untitled session';
 }
 
+function entryIsMutable(entry: SessionListEntry): boolean {
+  if ('isMutable' in entry && typeof Reflect.get(entry, 'isMutable') === 'boolean') {
+    return Reflect.get(entry, 'isMutable') === true;
+  }
+  return entry.agentName == null;
+}
+
 export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
+  const shell = useOptionalShellMode();
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
 
   const AgentSessionListRow = useSlot('AgentSessionListRow');
@@ -157,6 +167,27 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
         ? sessionTitle(selectedEntry)
         : (selectedSessionId ?? 'Untitled session');
 
+  const resumeIsCreateAgent =
+    detailSession != null
+      ? sessionIsCreateAgent(detailSession)
+      : selectedEntry != null
+        ? sessionIsCreateAgent(selectedEntry)
+        : false;
+  const resumeIsMutable =
+    detailSession != null ? detailSession.isMutable : selectedEntry != null ? entryIsMutable(selectedEntry) : true;
+  const resumeLabel = resumeIsCreateAgent ? 'Resume Agent building' : 'Resume Chat';
+
+  const handleResume = () => {
+    if (selectedSessionId == null || shell == null) return;
+    const agentName = detailSession?.agentName ?? selectedEntry?.agentName;
+    shell.openHistorySession({
+      sessionId: selectedSessionId,
+      isMutable: resumeIsMutable,
+      isCreateAgent: resumeIsCreateAgent,
+      ...(agentName != null && agentName.length > 0 ? { agentName } : {}),
+    });
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full">
       <aside className="flex w-full max-w-xs shrink-0 flex-col border-r border-border bg-primary-bg md:max-w-sm">
@@ -218,6 +249,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
               createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
               view={shareView}
               onClose={clearSelectedSession}
+              {...(shell != null ? { onResume: handleResume, resumeLabel } : {})}
             />
             {detailLoading || detailEvents === undefined ? (
               <div className="flex flex-1 flex-col p-4" role="status" aria-label="Loading session details">

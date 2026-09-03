@@ -353,6 +353,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
     onSelectAgent?.(agent.name);
     shell.selectLibraryAgent({
       isMutable: true,
+      isCreateAgent: true,
       agentId: libraryAgentId(agent),
       agentName: agent.name,
       agentSpec,
