@@ -28,6 +28,13 @@ function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
 }
 
+function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
+}
+
 /**
  * Read-only MCP registry backed by ServiceFoundry + the tenant AI Gateway.
  * Writes and local OAuth client columns are not supported — configure servers in TrueFoundry.
@@ -49,12 +56,14 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * The gateway Bearer is written last so a per-server override cannot replace it: it is what the
-   * gateway authorises `USE_MCP_SERVER` on, and the overrides are cargo it forwards upstream.
+   * The gateway Bearer is what the gateway authorises `USE_MCP_SERVER` on; the overrides are cargo
+   * it forwards upstream. Writing the Bearer last is not enough on its own to protect it, because
+   * object keys are case-sensitive and header names are not: an override under another casing would
+   * survive as a separate key and reach the wire alongside it. So it is dropped, not overwritten.
    */
   resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
     return {
-      ...this.#perServerHeaders[record.name],
+      ...withoutAuthorization(this.#perServerHeaders[record.name]),
       Authorization: `Bearer ${this.#accessToken}`,
     };
   }

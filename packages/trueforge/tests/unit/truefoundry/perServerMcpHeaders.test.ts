@@ -35,6 +35,12 @@ describe('parsePerServerMcpHeaders', () => {
   ])('rejects %s rather than silently dropping the identity it carries', (_case, raw) => {
     expect(() => parsePerServerMcpHeaders(raw)).toThrow(HTTPException);
   });
+
+  it('keeps the parse failure as the cause, so a bad header can be debugged', () => {
+    expect(() => parsePerServerMcpHeaders('not-json')).toThrow(
+      expect.objectContaining({ cause: expect.any(SyntaxError) }),
+    );
+  });
 });
 
 describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
@@ -63,11 +69,22 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
   });
 
-  it('keeps the gateway Bearer even when an override tries to replace it', () => {
+  it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
+    'drops an override under %s, which object keys would otherwise keep beside the Bearer',
+    name => {
+      const headers = storeWith({
+        'tfy-platform-mcp': { [name]: 'Bearer smuggled' },
+      }).resolveInvokeHeaders(record('tfy-platform-mcp'));
+
+      expect(Object.values(headers)).toEqual(['Bearer caller-token']);
+    },
+  );
+
+  it('keeps the rest of an override that also carried an authorization key', () => {
     const headers = storeWith({
-      'tfy-platform-mcp': { Authorization: 'Bearer smuggled' },
+      'tfy-platform-mcp': { authorization: 'Bearer smuggled', 'x-tfy-mcp-headers': '{"a":"b"}' },
     }).resolveInvokeHeaders(record('tfy-platform-mcp'));
 
-    expect(headers['Authorization']).toBe('Bearer caller-token');
+    expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': '{"a":"b"}' });
   });
 });

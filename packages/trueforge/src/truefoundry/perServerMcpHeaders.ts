@@ -27,8 +27,8 @@ export function parsePerServerMcpHeaders(raw: string | undefined): PerServerMcpH
   let decoded: unknown;
   try {
     decoded = JSON.parse(raw);
-  } catch {
-    throw new HTTPException(400, { message: `${X_TFG_MCP_HEADERS} must be a JSON object` });
+  } catch (error) {
+    throw new HTTPException(400, { message: `${X_TFG_MCP_HEADERS} must be a JSON object`, cause: error });
   }
 
   const parsed = PerServerMcpHeadersSchema.safeParse(decoded);
