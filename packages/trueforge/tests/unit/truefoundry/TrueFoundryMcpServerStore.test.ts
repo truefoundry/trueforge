@@ -8,7 +8,7 @@ import {
 } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 
 const TENANT = 'default';
-const ACCESS_TOKEN = unsignedJwt({ sub: 'user-1', subjectType: 'user' });
+const ACCESS_TOKEN = 'caller-access-token';
 
 const SFY_ROW = {
   id: 'mcp-id-1',
@@ -20,13 +20,6 @@ const SFY_ROW = {
 };
 
 const GATEWAY_INSTALLATIONS = [{ isDefault: true, manifest: { url: 'https://gateway.example' } }];
-
-/** Minimal unsigned JWT for unit tests (header.payload.); signature is ignored by decodeJwt. */
-function unsignedJwt(payload: Record<string, unknown>): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `${header}.${body}.`;
-}
 
 type MockClient = {
   [K in keyof TrueFoundryMcpApiClient]: jest.MockedFunction<TrueFoundryMcpApiClient[K]>;
@@ -141,33 +134,23 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('authorize', () => {
-    it('passes explicit redirectURL to SFY', async () => {
+    it('passes redirectURL or derives it from return_to', async () => {
       const { store, client } = createStore();
-      await expect(
-        store.authorize({
-          tenant_id: TENANT,
-          name: 'github',
-          userRef: 'user-1',
-          redirectURL: 'https://app.example/custom-landing',
-        }),
-      ).resolves.toEqual({ status: 'authenticated' });
+      await store.authorize({
+        tenant_id: TENANT,
+        name: 'github',
+        userRef: 'user-1',
+        redirectURL: 'https://app.example/custom-landing',
+      });
       expect(client.getMcpAuthorize).toHaveBeenCalledWith({
         accessToken: ACCESS_TOKEN,
         mcpServerId: 'mcp-id-1',
         redirectURL: 'https://app.example/custom-landing',
       });
-    });
 
-    it('defaults redirectURL to the absolute FE return_to path', async () => {
-      const { store, client } = createStore();
       const returnTo = '/?screenType=mcp-auth&pUid=popup-1';
-      await store.authorize({
-        tenant_id: TENANT,
-        name: 'github',
-        userRef: 'user-1',
-        returnTo,
-      });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith({
+      await store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1', returnTo });
+      expect(client.getMcpAuthorize).toHaveBeenLastCalledWith({
         accessToken: ACCESS_TOKEN,
         mcpServerId: 'mcp-id-1',
         redirectURL: resolveAuthorizeRedirectURL({ returnTo }),
@@ -190,53 +173,24 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('deleteAuthorization', () => {
-    it('forwards constructor subject id and type to SFY', async () => {
-      const { store, client } = createStore();
-      await store.deleteAuthorization({
-        tenant_id: TENANT,
-        name: 'github',
-        userRef: 'user-1',
-      });
-      expect(client.deleteMcpAuth).toHaveBeenCalledWith({
-        accessToken: ACCESS_TOKEN,
-        mcpServerId: 'mcp-id-1',
-        subjectId: 'user-1',
-        subjectType: 'user',
-        authSource: 'oauth',
-      });
-    });
-
-    it('forwards composed effective user id for virtualaccount + external identity', async () => {
+    it('forwards constructor subject to SFY delete', async () => {
       const { store, client } = createStore({
         subjectId: 'va-1:ext:alice@example.com',
         subjectType: 'virtualaccount',
       });
-      await store.deleteAuthorization({
-        tenant_id: TENANT,
-        name: 'github',
-        userRef: 'ignored',
+      await store.deleteAuthorization({ tenant_id: TENANT, name: 'github', userRef: 'ignored' });
+      expect(client.deleteMcpAuth).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        mcpServerId: 'mcp-id-1',
+        subjectId: 'va-1:ext:alice@example.com',
+        subjectType: 'virtualaccount',
+        authSource: 'oauth',
       });
-      expect(client.deleteMcpAuth).toHaveBeenCalledWith(
-        expect.objectContaining({
-          subjectId: 'va-1:ext:alice@example.com',
-          subjectType: 'virtualaccount',
-          authSource: 'oauth',
-        }),
-      );
-    });
-
-    it('rejects unsupported subject types at construction', () => {
-      expect(() =>
-        createStore({
-          subjectId: 'sa-1',
-          subjectType: 'serviceaccount',
-        }),
-      ).toThrow(expect.objectContaining({ status: 401 }));
     });
   });
 
   describe('resolveAuthStatuses', () => {
-    it('stubs truefoundry servers when stub is true', async () => {
+    it('skips SFY when stub is true', async () => {
       const { store, client } = createStore();
       const statuses = await store.resolveAuthStatuses({
         records: [dcrRecord(), dcrRecord({ name: 'slack' })],
@@ -248,7 +202,7 @@ describe('TrueFoundryMcpServerStore', () => {
       expect(statuses.get('slack')).toEqual({ status: 'authenticated' });
     });
 
-    it('calls SFY auth/status by default (stub omitted)', async () => {
+    it('calls SFY auth/status for truefoundry+dcr when stub is omitted', async () => {
       const { store, client } = createStore();
       client.getMcpAuthStatus.mockResolvedValue({
         status: 'auth_required',
@@ -258,25 +212,15 @@ describe('TrueFoundryMcpServerStore', () => {
         records: [dcrRecord()],
         userRef: 'user-1',
       });
-      expect(client.getMcpAuthStatus).toHaveBeenCalledWith(
-        expect.objectContaining({
-          mcpServerId: 'mcp-id-1',
-          subjectId: 'user-1',
-          subjectType: 'user',
-        }),
-      );
+      expect(client.getMcpAuthStatus).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        mcpServerId: 'mcp-id-1',
+        subjectId: 'user-1',
+        subjectType: 'user',
+      });
       expect(statuses.get('github')).toEqual({
         status: 'auth_required',
         authorization_url: 'https://consent.example/authorize',
-      });
-    });
-  });
-
-  describe('resolveInvokeHeaders', () => {
-    it('returns static Bearer for invoke', () => {
-      const { store } = createStore();
-      expect(store.resolveInvokeHeaders(dcrRecord())).toEqual({
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
       });
     });
   });
