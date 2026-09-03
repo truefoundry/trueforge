@@ -15,15 +15,11 @@ const PerServerMcpHeadersSchema = z.record(z.string().min(1), z.record(z.string(
 export type PerServerMcpHeaders = z.infer<typeof PerServerMcpHeadersSchema>;
 
 /**
- * Absent is fine and means "no overrides". Malformed is not: the alternative to failing is running
- * a user's tool calls under the caller's own identity, which is the thing these headers exist to
- * prevent, so a bad value is rejected rather than dropped.
+ * Rejects a malformed value rather than dropping it: the alternative to failing is running a user's
+ * tool calls under the caller's own identity, which is the thing these headers exist to prevent.
+ * An absent header is the caller's to interpret.
  */
-export function parsePerServerMcpHeaders(raw: string | undefined): PerServerMcpHeaders {
-  if (raw === undefined || raw.length === 0) {
-    return {};
-  }
-
+export function parsePerServerMcpHeaders(raw: string): PerServerMcpHeaders {
   let decoded: unknown;
   try {
     decoded = JSON.parse(raw);

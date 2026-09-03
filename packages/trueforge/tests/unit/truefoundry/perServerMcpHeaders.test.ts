@@ -13,11 +13,6 @@ const storeWith = (perServerHeaders: Record<string, Record<string, string>>): Tr
   });
 
 describe('parsePerServerMcpHeaders', () => {
-  it('treats an absent header as no overrides, which is the common case', () => {
-    expect(parsePerServerMcpHeaders(undefined)).toEqual({});
-    expect(parsePerServerMcpHeaders('')).toEqual({});
-  });
-
   it('parses a header map per server name', () => {
     const raw = JSON.stringify({ 'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' } });
 

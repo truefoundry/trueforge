@@ -162,14 +162,17 @@ function buildResolveMcpServerStore<TTransaction>(options: {
     logger: options.logger,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
   });
-  return c =>
-    c
-      ? new TrueFoundryMcpServerStore<TTransaction>({
-          client,
-          accessToken: requireRequestCredentialToken(c),
-          perServerHeaders: parsePerServerMcpHeaders(c.req.header(X_TFG_MCP_HEADERS)),
-        })
-      : withAuthPersistence;
+  return c => {
+    if (!c) {
+      return withAuthPersistence;
+    }
+    const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+    return new TrueFoundryMcpServerStore<TTransaction>({
+      client,
+      accessToken: requireRequestCredentialToken(c),
+      perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
+    });
+  };
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
