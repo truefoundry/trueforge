@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
@@ -9,7 +9,6 @@ import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { Thread } from '../containers/Thread.js';
-import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -22,13 +21,62 @@ const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
 
-// Survives ChatProvider remounts when openDraft / selectAgent bumps runtimeKey.
-let desktopCollapsed = false;
-
 const brandLogoClassName = 'h-5 max-w-40 shrink-0 object-contain';
 
-export function SidebarLayout({ className }: { className?: string }) {
+function SidebarNav({ onNavigate, className }: { onNavigate?: () => void; className?: string }): ReactNode {
   const aui = useAui();
+  const shell = useOptionalShellMode();
+  const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SchedulesButton = useSlot('SchedulesButton');
+
+  const handleNewChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    if (shell?.isComposerEnabled) {
+      shell.openDraft();
+      return;
+    }
+    shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
+    void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
+  };
+
+  return (
+    <nav
+      className={cn('flex min-h-0 flex-1 flex-col items-center gap-2 px-2', className)}
+      aria-label="Sidebar"
+      onClick={event => {
+        if (onNavigate == null) return;
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest('button') != null) onNavigate();
+      }}
+    >
+      {shell?.isNewChatEnabled !== false ? (
+        <button
+          type="button"
+          aria-label="Start new chat"
+          title="New chat"
+          className={auiButtonClass({
+            variant: 'ghost',
+            className:
+              'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+          })}
+          onClick={handleNewChat}
+        >
+          <Icon name="square-pen" size={16} />
+          <span className="text-center">New Chat</span>
+        </button>
+      ) : null}
+      <AgentsLibraryButton compact />
+      <SessionsBrowserButton compact />
+      <SchedulesButton compact />
+    </nav>
+  );
+}
+
+export function SidebarLayout({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const brand = useBrand();
   const brandName = useBrandName();
@@ -36,21 +84,10 @@ export function SidebarLayout({ className }: { className?: string }) {
   const BrandLogo = useSlot('BrandLogo');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
-  const AgentsLibraryButton = useSlot('AgentsLibraryButton');
-  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SessionsPage = useSlot('SessionsPage');
-  const SchedulesButton = useSlot('SchedulesButton');
   const ClearChatButton = useSlot('ClearChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
-  const [collapsed, setCollapsed] = useState(desktopCollapsed);
-  const setDesktopCollapsed = (value: boolean | ((prev: boolean) => boolean)) => {
-    setCollapsed(prev => {
-      const next = typeof value === 'function' ? value(prev) : value;
-      desktopCollapsed = next;
-      return next;
-    });
-  };
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -88,79 +125,20 @@ export function SidebarLayout({ className }: { className?: string }) {
     }
   }, [mobileNavOpen]);
 
-  const handleNewChat = () => {
-    shell?.setLibraryOpen(false);
-    shell?.setSessionsOpen(false);
-    if (shell?.isComposerEnabled) {
-      shell.openDraft();
-      return;
-    }
-    shell?.setSettingsOpen(false);
-    shell?.setSchedulesOpen(false);
-    void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
-  };
-
   return (
     <div className={cn('relative flex h-full min-h-0 w-full min-w-0', className)}>
-      {/* Desktop sidebar */}
-      <aside
-        className={cn(
-          'hidden min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg transition-[width] duration-300 ease-in-out md:flex',
-          collapsed ? 'w-16' : 'w-64',
-        )}
-      >
-        <div
-          className={cn('flex shrink-0 items-center px-3 py-3', collapsed ? 'flex-col gap-3' : 'justify-between gap-2')}
-        >
-          <div className={cn('flex min-w-0 items-center text-text-primary', collapsed ? 'justify-center' : 'gap-2')}>
-            <BrandLogo
-              variant={collapsed ? chrome.collapsedVariant : chrome.expandedVariant}
-              className={cn(brandLogoClassName, (collapsed || chrome.expandedVariant === 'icon') && 'w-5')}
-            />
-            {!collapsed && chrome.showTitle && brandName != null ? (
-              <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
-            ) : null}
+      {/* Desktop sidebar — permanent icon+label rail */}
+      <aside className="hidden w-20 min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg md:flex">
+        <div className="flex shrink-0 flex-col items-center gap-3 border-b border-border px-2 py-3">
+          <div className="flex min-w-0 items-center justify-center text-text-primary">
+            <BrandLogo variant={chrome.collapsedVariant} className={cn(brandLogoClassName, 'w-5')} />
           </div>
-          <button
-            type="button"
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-expanded={!collapsed}
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={() => setDesktopCollapsed(value => !value)}
-          >
-            <Icon name={collapsed ? 'panel-left-open' : 'panel-left-close'} />
-          </button>
         </div>
 
-        {/* Keep both trees mounted; toggle with `hidden` so AgentsLibraryButton does not remount. */}
-        <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 px-3" hidden={!collapsed} aria-label="Sidebar">
-          {shell?.isNewChatEnabled !== false ? (
-            <button
-              type="button"
-              aria-label="Start new chat"
-              title="New chat"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-              onClick={handleNewChat}
-            >
-              <Icon name="square-pen" />
-            </button>
-          ) : null}
-          <AgentsLibraryButton compact />
-          <SessionsBrowserButton compact />
-          <SchedulesButton compact />
-        </nav>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" hidden={collapsed}>
-          <ThreadListContainer />
-        </div>
+        <SidebarNav />
 
-        <footer
-          className={cn(
-            'flex shrink-0 border-t border-border px-3 py-2',
-            collapsed ? 'flex-col items-center gap-2' : 'items-center gap-1',
-          )}
-        >
-          <ShellActions className={collapsed ? 'flex-col' : undefined} />
+        <footer className="flex shrink-0 flex-col items-center border-t border-border px-2 py-2">
+          <ShellActions labeled className="flex-col" />
         </footer>
       </aside>
 
@@ -171,7 +149,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           className={cn(
             'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
-            // (empty untitled draft). Mobile still needs Sessions + ShellActions.
+            // (empty untitled draft). Mobile still needs menu + ShellActions.
             (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
@@ -180,7 +158,7 @@ export function SidebarLayout({ className }: { className?: string }) {
               <button
                 ref={menuBtnRef}
                 type="button"
-                aria-label="Sessions"
+                aria-label="Navigation"
                 aria-expanded={mobileNavOpen}
                 className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
                 onClick={() => setMobileNavOpen(true)}
@@ -247,12 +225,12 @@ export function SidebarLayout({ className }: { className?: string }) {
         </div>
       </div>
 
-      {/* Mobile sessions drawer */}
+      {/* Mobile navigation drawer */}
       {mobileNavOpen ? (
         <>
           <button
             type="button"
-            aria-label="Close sessions"
+            aria-label="Close navigation"
             className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
             onClick={() => setMobileNavOpen(false)}
           />
@@ -260,7 +238,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             ref={dialogRef}
             className="absolute inset-y-0 left-0 z-10 flex w-full max-w-80 flex-col border-r border-border bg-sidebar-bg shadow-lg outline-none md:hidden"
             role="dialog"
-            aria-label="Sessions"
+            aria-label="Navigation"
             tabIndex={-1}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-3 text-text-primary">
@@ -272,7 +250,7 @@ export function SidebarLayout({ className }: { className?: string }) {
                 <span className="truncate text-lg font-semibold tracking-tight">{brandName}</span>
               ) : null}
             </div>
-            <ThreadListContainer onThreadOpen={() => setMobileNavOpen(false)} />
+            <SidebarNav onNavigate={() => setMobileNavOpen(false)} className="items-stretch p-3" />
           </div>
         </>
       ) : null}

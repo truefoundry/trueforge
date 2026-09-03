@@ -400,12 +400,12 @@ show the title text (see [Custom layouts](#custom-layouts)).
 
 | Mode                                   | Layout chrome                   | Agent selection / New Chat                                |
 | -------------------------------------- | ------------------------------- | --------------------------------------------------------- |
-| `AgentLibraryWithComposer` _(default)_ | Agents Library + draft builder  | New Chat opens draft; library picks a named agent         |
+| `AgentLibraryWithComposer` _(default)_ | Agents + draft builder          | New Chat opens draft; library picks a named agent         |
 | `SingleAgent`                          | Named-only, plain composer      | Locked to `name`; New Chat / Clear Chat = new thread      |
-| `AgentLibrary`                         | Agents Library only (no draft)  | Empty until pick; no New Chat; Clear Chat after selection |
+| `AgentLibrary`                         | Agents only (no draft)          | Empty until pick; no New Chat; Clear Chat after selection |
 | `AgentComposer`                        | Draft builder only (no library) | Always draft; New Chat / Clear Chat = fresh draft         |
 
-In library modes, picking an agent from the Agents Library switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
+In library modes, picking an agent from Agents switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
 
 ```tsx
 {
@@ -436,7 +436,7 @@ In library modes, picking an agent from the Agents Library switches to a named c
 />;
 ```
 
-> _Screenshot: Agents Library open; selecting an agent resets the thread._
+> _Screenshot: Agents open; selecting an agent resets the thread._
 
 ---
 

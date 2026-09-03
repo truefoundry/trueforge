@@ -211,7 +211,7 @@ export function SchedulesPage() {
     [agentFilter, loadSchedules, pageSize],
   );
 
-  // Keep filters in the URL so deep links and Agents Library → Schedules work.
+  // Keep filters in the URL so deep links and Agents → Schedules work.
   useEffect(() => {
     replaceScheduleShareSearch({
       agent: agentFilter === 'all' ? null : agentFilter,
