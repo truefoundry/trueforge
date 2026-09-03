@@ -17,7 +17,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import type { IMcpServerStore, IMcpServerWithAuthStore, McpServerRecord } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
@@ -134,8 +134,8 @@ function dcrHeadersResolver(params: {
 /**
  * Load MCP url + headers for a configured server.
  * - Local `remote` + `dcr`: resolveMcpAuth via the harness token store.
- * - Otherwise: {@link IMcpServerStore.resolveInvokeHeaders}
- *   (TrueFoundry Bearer / mid-turn authRequired, configured header auth, or `{}`).
+ * - Otherwise: {@link IMcpServerWithAuthStore.resolveInvokeHeaders}
+ *   (TrueFoundry gateway Bearer, configured header auth, or `{}`).
  * Returns undefined when the server is not registered — callers choose the response.
  *
  * TODO: OAuth/DCR header resolvers re-run on every RemoteMCP listTools/callTool
@@ -151,7 +151,7 @@ export async function getMcpConnection({
 }: {
   tenant_id: string;
   name: string;
-  store: IMcpServerStore;
+  store: IMcpServerWithAuthStore;
   tokenStore: IOAuthTokenStore;
   clientName: string;
   userRef: string;
@@ -160,7 +160,7 @@ export async function getMcpConnection({
   if (record === undefined) {
     return undefined;
   }
-  // Local DCR only — TrueFoundry wire `dcr` is gated inside the TF store's resolveInvokeHeaders.
+  // TrueFoundry wire `dcr` is Connect UX only — invoke uses store Bearer, not local DCR.
   if (record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr') {
     return {
       url: record.manifest.url,
@@ -175,7 +175,7 @@ export async function getMcpConnection({
   }
   return {
     url: record.manifest.url,
-    headers: store.resolveInvokeHeaders({ record, userRef }),
+    headers: store.resolveInvokeHeaders(record),
   };
 }
 

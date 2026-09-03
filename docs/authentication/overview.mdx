@@ -73,6 +73,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
         OIDC_CLIENT_ID=0oa...
         OIDC_CLIENT_SECRET=...
         OIDC_USER_REFERENCE_CLAIM=email
+        OIDC_USER_DISPLAY_NAME_CLAIM=name
         OIDC_USER_ROLE_CLAIM=groups
         OIDC_ADMIN_ROLE_VALUE=harness-admin
         OIDC_SCOPES=openid,profile,email,groups
@@ -104,6 +105,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
         OIDC_CLIENT_ID=<application-client-id>
         OIDC_CLIENT_SECRET=...
         OIDC_USER_REFERENCE_CLAIM=email
+        OIDC_USER_DISPLAY_NAME_CLAIM=name
         OIDC_USER_ROLE_CLAIM=groups
         OIDC_ADMIN_ROLE_VALUE=<admin-group-object-id>
         OIDC_SCOPES=openid,profile,email
@@ -124,6 +126,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
     | `OIDC_CLIENT_ID` | Yes | OIDC client ID |
     | `OIDC_CLIENT_SECRET` | Yes | OIDC client secret |
     | `OIDC_USER_REFERENCE_CLAIM` | No (default `sub`) | Claim used as the user id for session ownership |
+    | `OIDC_USER_DISPLAY_NAME_CLAIM` | No (default `name`) | Claim used as the user's display name |
     | `OIDC_USER_ROLE_CLAIM` | No (default `groups`) | Claim inspected for admin membership |
     | `OIDC_ADMIN_ROLE_VALUE` | No (default `admin`) | Exact string that grants `admin` (case-sensitive) |
     | `OIDC_SCOPES` | No (default `openid,profile,email`) | Scopes for the authorize request |
@@ -141,6 +144,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
         OIDC_CLIENT_ID=0oa...
         OIDC_CLIENT_SECRET=...
         OIDC_USER_REFERENCE_CLAIM=email
+        OIDC_USER_DISPLAY_NAME_CLAIM=name
         OIDC_USER_ROLE_CLAIM=groups
         OIDC_ADMIN_ROLE_VALUE=harness-admin
         OIDC_SCOPES=openid,profile,email,groups
@@ -167,6 +171,7 @@ The default. Do **not** set any `OIDC_*` variables, run TrueForge as usual ([Qui
                   name: trueforge-oidc
                   key: client-secret
             userReferenceClaim: email
+            userDisplayNameClaim: name
             userRoleClaim: groups
             adminRoleValue: harness-admin
             scopes: "openid,profile,email,groups"

@@ -63,19 +63,20 @@ export const meRoute = createRoute({
   tags: [OpenApiTag.AUTH],
   summary: 'Current session',
   description:
-    'Returns the authenticated caller identity. When auth is enabled this requires a valid ' +
-    '`id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, ' +
-    'returns the default identity.',
+    'Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. ' +
+    '`type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled ' +
+    'this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is ' +
+    'disabled, returns the standalone default identity.',
   'x-fern-sdk-group-name': ['auth'],
   'x-fern-sdk-method-name': 'me',
   responses: {
     200: {
       content: { 'application/json': { schema: GetMeResponseSchema } },
-      description: 'Session type and identity for the current request.',
+      description: 'Caller identity for the current request.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Auth is enabled and the request has no valid cookie or Bearer ID token.',
+      description: 'Auth is enabled and the request has no valid cookie or Bearer token.',
     },
   },
 });

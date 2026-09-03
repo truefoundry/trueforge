@@ -229,31 +229,4 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     const store = getStore();
     expect(await store.getClient({ id: 'missing-id' })).toBeUndefined();
   });
-
-  it('resolveInvokeHeaders returns configured headers or empty', async () => {
-    const store = getStore();
-    const open = await store.upsertServer({
-      tenant_id: TENANT,
-      name: 'open',
-      manifest: {
-        type: 'remote',
-        name: 'open',
-        url: 'https://mcp.open.example/mcp',
-        description: 'Open MCP server.',
-      },
-    });
-    expect(store.resolveInvokeHeaders({ record: open, userRef: 'user-1' })).toEqual({});
-
-    const headered = await store.upsertServer({
-      tenant_id: TENANT,
-      name: 'headered',
-      manifest: manifest({
-        name: 'headered',
-        auth: { type: 'header', headers: { Authorization: 'Bearer static' } },
-      }),
-    });
-    expect(store.resolveInvokeHeaders({ record: headered, userRef: 'user-1' })).toEqual({
-      Authorization: 'Bearer static',
-    });
-  });
 }

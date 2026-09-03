@@ -1,4 +1,3 @@
-import { HTTPException } from 'hono/http-exception';
 import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
@@ -252,68 +251,11 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('resolveInvokeHeaders', () => {
-    it('returns static Bearer when wire auth is not dcr', () => {
+    it('returns static Bearer for invoke (Connect UX owns DCR)', () => {
       const { store } = createStore();
-      const record = dcrRecord();
-      const headers = store.resolveInvokeHeaders({
-        record: {
-          ...record,
-          manifest: {
-            type: 'truefoundry',
-            name: record.name,
-            url: record.manifest.url,
-            description: record.manifest.description,
-          },
-        },
-        userRef: 'user-1',
+      expect(store.resolveInvokeHeaders(dcrRecord())).toEqual({
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
       });
-      expect(headers).toEqual({ Authorization: `Bearer ${ACCESS_TOKEN}` });
-    });
-
-    it('returns authRequired when authorize reports auth_required', async () => {
-      const { store, client } = createStore();
-      client.getMcpAuthorize.mockResolvedValue({
-        status: 'auth_required',
-        authorization_url: 'https://consent.example/authorize?client_id=1',
-      });
-      const headers = store.resolveInvokeHeaders({ record: dcrRecord(), userRef: 'user-1' });
-      expect(typeof headers).toBe('function');
-      if (typeof headers !== 'function') {
-        throw new Error('expected async resolver');
-      }
-      await expect(headers()).resolves.toEqual({
-        authRequired: {
-          servers: [
-            {
-              id: 'github',
-              name: 'github',
-              auth_url: 'https://consent.example/authorize?client_id=1',
-            },
-          ],
-        },
-      });
-    });
-
-    it('returns Bearer headers when authorize reports authenticated', async () => {
-      const { store } = createStore();
-      const headers = store.resolveInvokeHeaders({ record: dcrRecord(), userRef: 'user-1' });
-      expect(typeof headers).toBe('function');
-      if (typeof headers !== 'function') {
-        throw new Error('expected async resolver');
-      }
-      await expect(headers()).resolves.toEqual({
-        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
-      });
-    });
-
-    it('throws 422 when auth_required lacks authorization_url', async () => {
-      const { store, client } = createStore();
-      client.getMcpAuthorize.mockResolvedValue({ status: 'auth_required' });
-      const headers = store.resolveInvokeHeaders({ record: dcrRecord(), userRef: 'user-1' });
-      if (typeof headers !== 'function') {
-        throw new Error('expected async resolver');
-      }
-      await expect(headers()).rejects.toBeInstanceOf(HTTPException);
     });
   });
 });

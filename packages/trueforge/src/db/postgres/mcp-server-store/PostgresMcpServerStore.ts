@@ -5,7 +5,6 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
-import { resolveConfiguredMcpRequestHeaders } from '../../../schemas/mcpServer';
 import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
@@ -38,11 +37,6 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
-  }
-
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): Record<string, string> {
-    void input.userRef;
-    return resolveConfiguredMcpRequestHeaders(input.record.manifest);
   }
 
   async listServers(

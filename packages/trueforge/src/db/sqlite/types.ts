@@ -243,7 +243,7 @@ export interface ScheduleTable {
   manifest: JsonbColumn<ScheduleManifest>;
   /** `paused` stops triggering and drops the pending run; in-flight runs continue */
   status: ScheduleStatus;
-  /** Identity every run of this schedule executes as (`UserContext.userRef`) */
+  /** Identity every run of this schedule executes as (`RequestContext.subject.id`) */
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -264,7 +264,7 @@ export interface ScheduleRunTable {
   scheduled_for: string;
   /** `scheduled` | `triggered` | `failed` | `missed` — length ≤ 16 */
   status: ScheduleRunStatus;
-  /** `UserContext.userRef` of who triggered the run */
+  /** `RequestContext.subject.id` of who triggered the run */
   triggered_by: string;
   triggered_at: string | null;
   created_at: string;
@@ -297,7 +297,7 @@ export interface McpServerTable {
 /**
  * PRIMARY KEY (oauth_server_id, user_id)
  * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
- * (`user_id` = `UserContext.userRef`); any tenant-scoped read resolves `oauth_server_id`
+ * (`user_id` = `RequestContext.subject.id`); any tenant-scoped read resolves `oauth_server_id`
  * through mcp_server (by tenant_id + name) first.
  */
 export interface OAuthTokenTable {

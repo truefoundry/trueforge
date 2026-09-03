@@ -4,7 +4,8 @@
  * - {@link IMcpServerStore}: CRUD + DCR client columns (`IOAuthClientStore`).
  *   Implemented by PostgresMcpServerStore, SqliteMcpServerStore, and
  *   TrueFoundryMcpServerStore (read-only ServiceFoundry listing).
- * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke;
+ * - {@link IMcpServerWithAuthStore}: persistence + authorize / status / revoke +
+ *   {@link IMcpServerWithAuthStore.resolveInvokeHeaders};
  *   {@link McpServerWithAuthStore} composes an {@link IMcpServerStore} + a token store;
  *   TrueFoundryMcpServerStore implements this directly via ServiceFoundry auth APIs.
  *
@@ -12,7 +13,6 @@
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
  */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
@@ -125,16 +125,10 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
-  /**
-   * Headers for MCP invoke (tools/list, turns).
-   * Local DCR stays in {@link getMcpConnection}; stores return static headers
-   * or an async resolver (e.g. TrueFoundry oauth2 → mid-turn `authRequired`).
-   */
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders;
 }
 
 /**
- * Settings/MCP API store: persistence plus Connect UX auth.
+ * Settings/MCP API store: persistence plus Connect UX auth and invoke headers.
  * McpServerWithAuthStore implements via a token store; remote-backed stores may call
  * an upstream status/authorize API instead.
  */
@@ -147,6 +141,13 @@ export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServe
 
   /** Revoke this subject's authorization for the named server. */
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
+
+  /**
+   * Static HTTP headers for MCP invoke (tools/list, turns).
+   * Local DCR is handled separately in {@link getMcpConnection}; this covers
+   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
+   */
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
 }
 
 /**

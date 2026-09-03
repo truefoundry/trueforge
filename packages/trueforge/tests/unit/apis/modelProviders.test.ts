@@ -1,9 +1,8 @@
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createModelsRouter } from '../../../src/apis/models';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { createSettingsRouter } from '../../../src/apis/settings';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -109,7 +108,7 @@ async function createRouters(): Promise<{
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     catalogRouter: createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
@@ -120,6 +119,7 @@ async function createRouters(): Promise<{
     modelsRouter: createModelsRouter({
       resolveModelProviderStore: () => modelProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     modelProviderStore,
   };
@@ -389,7 +389,7 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(updateBody.data.manifest.auth.api_key).toBe(toRedactedSecretValue(anthropicBody.auth.api_key));
     expect(updateBody.data.manifest.models).toHaveLength(2);
 
-    const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
+    const stored = await modelProviderStore.getProvider({ tenant_id: 'default', name: 'anthropic' });
     if (!stored || !('auth' in stored.manifest)) {
       throw new Error('expected stored anthropic provider with auth');
     }
@@ -408,7 +408,7 @@ describe('model-provider secret redaction and strict PUT', () => {
       data: configured('anthropic', withRedactedApiKey({ ...anthropicProvider, auth: { api_key: rotatedKey } })),
     });
 
-    const stored = await modelProviderStore.getProvider({ tenant_id: TENANT_ID, name: 'anthropic' });
+    const stored = await modelProviderStore.getProvider({ tenant_id: 'default', name: 'anthropic' });
     if (!stored || !('auth' in stored.manifest)) {
       throw new Error('expected stored anthropic provider with auth');
     }

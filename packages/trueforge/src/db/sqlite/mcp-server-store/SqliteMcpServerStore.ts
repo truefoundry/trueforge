@@ -5,7 +5,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
-import { resolveConfiguredMcpRequestHeaders, type McpServerManifest } from '../../../schemas/mcpServer';
+import type { McpServerManifest } from '../../../schemas/mcpServer';
 import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
@@ -41,11 +41,6 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
 
   constructor(db: Kysely<Database>) {
     this.#db = db;
-  }
-
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): Record<string, string> {
-    void input.userRef;
-    return resolveConfiguredMcpRequestHeaders(input.record.manifest);
   }
 
   async listServers(

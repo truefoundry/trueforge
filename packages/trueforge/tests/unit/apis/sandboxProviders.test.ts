@@ -12,7 +12,7 @@ import type { SandboxBuild } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createSandboxProvidersRouter } from '../../../src/apis/sandboxProviders';
-import { TENANT_ID } from '../../../src/apis/sessions';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -89,6 +89,7 @@ async function createRouters(): Promise<{
       sandboxProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger: silentLogger,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     sandboxProviderStore,
   };
@@ -115,6 +116,7 @@ describe('sandboxProviders router', () => {
       sandboxProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger: silentLogger,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     catalogRouter = createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
@@ -145,7 +147,7 @@ describe('sandboxProviders router', () => {
     expect(get.status).toBe(200);
     expect(await get.json()).toEqual({ data: putBodyWire });
 
-    const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
+    const stored = await sandboxProviderStore.getSandboxProvider('default');
     expect(stored?.manifest).toEqual(putBody);
   });
 
@@ -229,7 +231,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     expect(update.status).toBe(200);
     expect(await update.json()).toEqual({ data: wireResponse(redactedKeep) });
 
-    const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
+    const stored = await sandboxProviderStore.getSandboxProvider('default');
     expect(stored?.manifest).toEqual({ ...putBody, exec_timeout_ms: 120000 });
   });
 
@@ -247,7 +249,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
       data: wireResponse({ ...keep, auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) } }),
     });
 
-    const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
+    const stored = await sandboxProviderStore.getSandboxProvider('default');
     expect(stored?.manifest).toEqual(putBody);
   });
 
@@ -263,7 +265,7 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
       data: wireResponse({ ...rotated, auth: { api_key: toRedactedSecretValue(rotatedKey) } }),
     });
 
-    const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
+    const stored = await sandboxProviderStore.getSandboxProvider('default');
     expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
   });
 

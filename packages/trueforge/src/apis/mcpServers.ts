@@ -4,7 +4,7 @@ import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } 
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
-import type { ResolveUserContext } from '../auth/identity';
+import type { ResolveRequestContext } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration from '../config';
 import {
@@ -37,14 +37,13 @@ import type {
   UpdateMcpServerRequest,
 } from '../schemas/mcpServer';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
-import { TENANT_ID } from './sessions';
 
 export interface McpServersRouterDeps<TTransaction> {
   resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
-  resolveUserContext: ResolveUserContext;
+  resolveRequestContext: ResolveRequestContext;
 }
 
 /** Omits keys whose value is `undefined` so wire objects satisfy JSONValue index signatures. */
@@ -121,11 +120,12 @@ async function toConfiguredMcpServer<TTransaction>(params: {
 /** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
     const { limit, page_token: pageToken } = c.req.valid('query');
     try {
       const { data: records, pagination } = await deps.resolveMcpServerStore(c).listServers({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         names: undefined,
         limit,
         page_token: pageToken,
@@ -151,9 +151,10 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 
   const getHandler: RouteHandler<typeof getMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
     const record = await deps.resolveMcpServerStore(c).getServer({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       name,
     });
     if (!record) {
@@ -167,6 +168,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 
   const createHandler: RouteHandler<typeof createMcpServerRoute> = async c => {
     const body: CreateMcpServerRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const incomingManifest = body.manifest;
 
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
@@ -206,7 +208,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
       const record = await deps.withTransaction(async transaction => {
         const saved = await deps.resolveMcpServerStore(c).createServer(
           {
-            tenant_id: TENANT_ID,
+            tenant_id: requestContext.tenant_id,
             name: manifest.name,
             manifest,
           },
@@ -223,7 +225,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
           data: await toConfiguredMcpServer({
             store: deps.resolveMcpServerStore(c),
             record,
-            userRef: deps.resolveUserContext(c).userRef,
+            userRef: requestContext.subject.id,
           }),
         },
         201,
@@ -237,7 +239,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   };
 
   const putHandler: RouteHandler<typeof putMcpServerRoute> = async c => {
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
     const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
 
@@ -250,7 +253,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
       const record = await deps.withTransaction(async transaction => {
         const existing = await deps
           .resolveMcpServerStore(c)
-          .getServerForUpdate({ tenant_id: TENANT_ID, name: incomingManifest.name }, transaction);
+          .getServerForUpdate({ tenant_id: requestContext.tenant_id, name: incomingManifest.name }, transaction);
         const manifest = resolveMcpServerManifestForWrite({
           incoming: incomingManifest,
           existing: existing?.manifest,
@@ -278,7 +281,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
 
         const saved = await deps.resolveMcpServerStore(c).upsertServer(
           {
-            tenant_id: TENANT_ID,
+            tenant_id: requestContext.tenant_id,
             name: manifest.name,
             manifest,
           },
@@ -328,7 +331,8 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const { return_to: returnTo } = c.req.valid('query');
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
 
     if (returnTo && safeReturnTo(returnTo) !== returnTo) {
       return c.json({ error: { message: 'Invalid return_to: must be a same-origin relative path' } }, 400);
@@ -336,7 +340,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
 
     try {
       const authStatus: McpAuthStatus = await deps.resolveMcpServerStore(c).authorize({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         name,
         userRef,
         ...(returnTo !== undefined ? { returnTo } : {}),
@@ -369,10 +373,11 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
 
   const listToolsHandler: RouteHandler<typeof listMcpServerToolsRoute> = async c => {
     const { name } = c.req.valid('param');
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
     // Same url + header resolution as turn execution (store Bearer, DCR, or static headers).
     const connection = await getMcpConnection({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       name,
       store: deps.resolveMcpServerStore(c),
       tokenStore: deps.tokenStore,
@@ -413,17 +418,18 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
 
   const deleteAuthorizationHandler: RouteHandler<typeof deleteAuthorizationMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
     try {
       const record = await deps.resolveMcpServerStore(c).getServer({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         name,
       });
       if (!record) {
         return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
       }
       await deps.resolveMcpServerStore(c).deleteAuthorization({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         name,
         userRef,
       });
@@ -443,11 +449,12 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
 
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
-    const userRef = deps.resolveUserContext(c).userRef;
+    const requestContext = deps.resolveRequestContext(c);
+    const userRef = requestContext.subject.id;
     const { limit, page_token: pageToken } = c.req.valid('query');
     try {
       const { data: records, pagination } = await deps.resolveMcpServerStore(c).listServers({
-        tenant_id: TENANT_ID,
+        tenant_id: requestContext.tenant_id,
         names: undefined,
         limit,
         page_token: pageToken,

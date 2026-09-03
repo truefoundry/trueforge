@@ -3,7 +3,7 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
+import { McpConnectionError } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../config';
@@ -28,6 +28,7 @@ import {
   toTrueFoundryMcpManifest,
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
+import type { PerServerMcpHeaders } from './perServerMcpHeaders';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 import { getEffectiveUserIdFromAccessTokenSubject, parseAccessTokenSubject } from './utils';
@@ -44,6 +45,13 @@ export type TrueFoundryMcpApiClient = Pick<
 
 function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
+}
+
+function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
 /**
@@ -72,39 +80,25 @@ export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; retur
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
   readonly #accessToken: string;
+  readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
-  constructor(input: { client: TrueFoundryMcpApiClient; accessToken: string }) {
+  constructor(input: { client: TrueFoundryMcpApiClient; accessToken: string; perServerHeaders?: PerServerMcpHeaders }) {
     this.#client = input.client;
     this.#accessToken = input.accessToken;
+    this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
-    const bearer = { Authorization: `Bearer ${this.#accessToken}` };
-    if (input.record.manifest.auth?.type !== 'dcr') {
-      return bearer;
-    }
-    const { record, userRef } = input;
-    return async () => {
-      const status = await this.authorize({
-        tenant_id: record.tenant_id,
-        name: record.name,
-        userRef,
-      });
-      if (status.status === 'auth_required') {
-        const authUrl = status.authorization_url;
-        if (authUrl === undefined || authUrl.length === 0) {
-          throw new HTTPException(422, {
-            message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
-          });
-        }
-        return {
-          authRequired: {
-            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
-          },
-        };
-      }
-      return { headers: bearer };
+  /**
+   * The gateway Bearer is what the gateway authorises `USE_MCP_SERVER` on; the overrides are cargo
+   * it forwards upstream. Writing the Bearer last is not enough on its own to protect it, because
+   * object keys are case-sensitive and header names are not: an override under another casing would
+   * survive as a separate key and reach the wire alongside it. So it is dropped, not overwritten.
+   */
+  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
+    return {
+      ...withoutAuthorization(this.#perServerHeaders[record.name]),
+      Authorization: `Bearer ${this.#accessToken}`,
     };
   }
 

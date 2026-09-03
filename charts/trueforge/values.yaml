@@ -106,6 +106,7 @@ configs:
     #       name: trueforge-oidc
     #       key: client-secret
     userReferenceClaim: sub
+    userDisplayNameClaim: name
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
