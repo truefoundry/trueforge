@@ -120,11 +120,7 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /**
-   * One page of `GET v1/mcp`. Returns raw SFY rows; callers parse with {@link mapSfyMcpServers}.
-   * Does not drain — callers pass `limit`/`offset` (or page until done).
-   * When `names` is set, applies SFY list-filter `name IN (…)`.
-   */
+  /** One page of MCP servers; optional `names` filters with `name IN (…)`. */
   async listMcpServers(input: {
     accessToken: string;
     limit: number;
@@ -151,11 +147,7 @@ export class TrueFoundryServiceFoundryServerClient {
     return listPage(this.#parseListResponse(payload));
   }
 
-  /**
-   * Resolve one MCP server by name via list filter `name EQUAL`.
-   * Returns the first raw row, or `undefined` when the tenant has no match.
-   * Callers parse with {@link parseSfyMcpServerSummary}.
-   */
+  /** Resolve one MCP server by name (`name EQUAL`, limit 1). */
   async getMcpServerByName(input: { accessToken: string; name: string }): Promise<unknown> {
     const filter = JSON.stringify({
       op: 'and',
@@ -176,9 +168,7 @@ export class TrueFoundryServiceFoundryServerClient {
     return rows[0];
   }
 
-  /**
-   * `GET v1/mcp/:id/authorize` — per-subject status; when auth is required includes consent URL.
-   */
+  /** Per-subject authorize; includes a consent URL when auth is required. */
   async getMcpAuthorize(input: {
     accessToken: string;
     mcpServerId: string;
@@ -211,9 +201,7 @@ export class TrueFoundryServiceFoundryServerClient {
     }
   }
 
-  /**
-   * `GET v1/mcp/:id/auth/status` — per-subject status without seeding a consent URL.
-   */
+  /** Per-subject auth status without seeding a consent URL. */
   async getMcpAuthStatus(input: {
     accessToken: string;
     mcpServerId: string;
@@ -242,9 +230,7 @@ export class TrueFoundryServiceFoundryServerClient {
     }
   }
 
-  /**
-   * `DELETE v1/mcp/:id/auth` — revoke the subject's OAuth token or auth-override.
-   */
+  /** Revoke the subject's OAuth token or auth-override. */
   async deleteMcpAuth(input: {
     accessToken: string;
     mcpServerId: string;

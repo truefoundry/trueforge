@@ -1,6 +1,3 @@
-/**
- * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
- */
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
@@ -99,12 +96,9 @@ export async function getModelDetails({
 }
 
 /**
- * Load MCP url + headers for a configured server via
- * {@link IMcpServerWithAuthStore.resolveInvokeHeaders} (static headers, local DCR, or
- * TrueFoundry mid-turn oauth2). Returns undefined when the server is not registered.
+ * Load MCP url + headers for a configured server. Returns undefined when unregistered.
  *
- * TODO: OAuth/DCR header resolvers re-run on every RemoteMCP listTools/callTool
- * (extra network/status work per MCP op). Cache or gate later.
+ * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
 export async function getMcpConnection({
   tenant_id,

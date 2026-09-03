@@ -54,10 +54,8 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
-export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; returnTo?: string }): string {
-  if (input.redirectURL !== undefined && input.redirectURL.length > 0) {
-    return input.redirectURL;
-  }
+/** Absolute FE landing for the upstream authorize `redirectURL` from `PUBLIC_BASE_URL` + safe `return_to`. */
+export function resolveAuthorizeRedirectURL(input: { returnTo?: string }): string {
   try {
     return new URL(safeReturnTo(input.returnTo), `${getPublicBaseUrl()}/`).href;
   } catch (error) {
@@ -67,12 +65,7 @@ export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; retur
   }
 }
 
-/**
- * Read-only MCP registry backed by ServiceFoundry + the tenant AI Gateway.
- * Writes and local OAuth client columns are not supported — configure servers in TrueFoundry.
- * Authorize / revoke call SFY; list auth_status may stay stubbed (`stub: true`) to avoid N× status calls.
- * Invoke headers include gateway Bearer; oauth2 mid-turn gate lives in resolveInvokeHeaders.
- */
+/** Read-only MCP registry for TrueFoundry mode (writes managed elsewhere). */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
   readonly #accessToken: string;
@@ -92,10 +85,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
-  /**
-   * Gateway Bearer (+ optional per-server overrides). For oauth2 (wire `dcr`), returns an
-   * async resolver that re-checks SFY authorize mid-turn before sending those headers.
-   */
+  /** Caller Bearer plus optional per-server overrides; oauth servers re-check auth before invoke. */
   resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     const staticHeaders = {
@@ -202,8 +192,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     void input.userRef;
     const out = new Map<string, McpAuthStatus>();
 
-    // TODO: remove `stub` once SFY supports batch auth/status (or we accept N× round-trips on list).
-    // List passes stub:true because one SFY call per server is too expensive today.
+    // TODO: remove `stub` once batch auth status is cheap enough for list.
     if (input.stub === true) {
       for (const record of input.records) {
         out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
@@ -239,7 +228,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       accessToken: this.#accessToken,
       mcpServerId: record.id,
       redirectURL: resolveAuthorizeRedirectURL({
-        ...(input.redirectURL !== undefined ? { redirectURL: input.redirectURL } : {}),
         ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
       }),
     });

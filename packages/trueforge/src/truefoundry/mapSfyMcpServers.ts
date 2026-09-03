@@ -1,13 +1,10 @@
-/**
- * ServiceFoundry MCP list rows and auth responses → harness shapes (Zod, fail loudly).
- */
 import { z } from 'zod';
 import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
 
-/** Placeholder in SFY `proxyUrl` replaced with the tenant gateway base URL. */
+/** Placeholder in upstream `proxyUrl` replaced with the tenant gateway base URL. */
 export const MCP_PROXY_BASE_URL_TEMPLATE = '{{mcpProxyBaseURL}}';
 
-/** SFY per-subject auth record kinds for DELETE /mcp/:id/auth. */
+/** Upstream per-subject auth record kinds for DELETE auth. */
 export type SfyMcpAuthSource = 'oauth' | 'auth-override';
 
 const IsoInstantSchema = z.union([z.string().min(1), z.date()]).transform((value, ctx) => {
@@ -46,9 +43,7 @@ const SfyMcpServerRowSchema = z.object({
 
 const SfyMcpAuthStatusAuthenticatedSchema = z.object({ status: z.literal('authenticated') });
 const SfyMcpAuthStatusNotRequiredSchema = z.object({ status: z.literal('authentication_not_required') });
-/** Status-only: needs auth, no consent URL (SFY `MCPServerAuthStatusAuthRequired`). */
 const SfyMcpAuthStatusRequiredSchema = z.object({ status: z.literal('authentication_required') });
-/** Authorize: same as status required + consent URL (SFY `MCPServerAuthorizeAuthRequired`). */
 const SfyMcpAuthorizeRequiredSchema = SfyMcpAuthStatusRequiredSchema.extend({
   authorization_endpoint: z.url(),
 });
@@ -68,7 +63,7 @@ const SfyMcpAuthorizeResultSchema = z.discriminatedUnion('status', [
 export interface SfyMcpServerSummary {
   id: string;
   name: string;
-  /** May contain `{{mcpProxyBaseURL}}`; callers must run {@link resolveMcpProxyUrl}. */
+  /** May contain `{{mcpProxyBaseURL}}`; resolve with `resolveMcpProxyUrl`. */
   proxyUrl: string;
   description: string;
   authType: string | undefined;
@@ -76,14 +71,14 @@ export interface SfyMcpServerSummary {
   updatedAt: string;
 }
 
-/** Parse one SFY MCP list row. Throws ZodError on contract drift. */
+/** Parse one upstream MCP list row. Throws ZodError on contract drift. */
 export function parseSfyMcpServerSummary(row: unknown): SfyMcpServerSummary {
   const parsed = SfyMcpServerRowSchema.parse(row);
   return {
     id: parsed.id,
     name: parsed.name,
     proxyUrl: parsed.proxyUrl,
-    // SFY description is optional; TrueForge manifests require a non-empty string.
+    // Description is optional upstream; TrueForge manifests require a non-empty string.
     description: parsed.manifest?.description ?? parsed.name,
     authType: parsed.manifest?.auth_data?.type,
     createdAt: parsed.createdAt,
@@ -91,12 +86,12 @@ export function parseSfyMcpServerSummary(row: unknown): SfyMcpServerSummary {
   };
 }
 
-/** Map SFY MCP list rows; each row must satisfy the schema. */
+/** Map upstream MCP list rows; each row must satisfy the schema. */
 export function mapSfyMcpServers(input: { rows: readonly unknown[] }): SfyMcpServerSummary[] {
   return input.rows.map(parseSfyMcpServerSummary);
 }
 
-/** Substitute `{{mcpProxyBaseURL}}` in an SFY proxy URL template. */
+/** Substitute `{{mcpProxyBaseURL}}` in an upstream proxy URL template. */
 export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: string }): string {
   const base = input.gatewayBaseURL.replace(/\/+$/, '');
   if (!input.proxyUrl.includes(MCP_PROXY_BASE_URL_TEMPLATE)) {
@@ -105,10 +100,7 @@ export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: st
   return input.proxyUrl.replaceAll(MCP_PROXY_BASE_URL_TEMPLATE, base);
 }
 
-/**
- * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` (Connect UX + mid-turn auth in resolveInvokeHeaders).
- * Invoke Bearer comes from the MCP store's `resolveInvokeHeaders` — not wire `header` auth.
- */
+/** Map an upstream MCP row to a TrueFoundry wire manifest (`oauth2` → `dcr`). */
 export function toTrueFoundryMcpManifest(input: {
   server: SfyMcpServerSummary;
   gatewayUrl: string;
@@ -139,12 +131,12 @@ function toHarnessAuthStatus(
   }
 }
 
-/** Parse + map `GET v1/mcp/:id/auth/status`. */
+/** Parse an upstream MCP auth/status payload. */
 export function parseSfyMcpAuthStatus(payload: unknown): McpAuthStatus {
   return toHarnessAuthStatus(SfyMcpAuthStatusSchema.parse(payload));
 }
 
-/** Parse + map `GET v1/mcp/:id/authorize` (requires consent URL when auth is required). */
+/** Parse an upstream MCP authorize payload (consent URL when auth is required). */
 export function parseSfyMcpAuthorizeResult(payload: unknown): McpAuthStatus {
   return toHarnessAuthStatus(SfyMcpAuthorizeResultSchema.parse(payload));
 }

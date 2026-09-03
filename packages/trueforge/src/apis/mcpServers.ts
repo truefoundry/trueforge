@@ -117,7 +117,7 @@ async function toConfiguredMcpServer<TTransaction>(params: {
   };
 }
 
-/** Admin/settings MCP CRUD (mounted at /api/v1/settings/mcp-servers). */
+/** Admin/settings MCP CRUD. */
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
@@ -338,7 +338,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   return router;
 }
 
-/** List, tools, and authorize (mounted at /api/v1/mcp-servers). */
+/** Chat list, tools, and authorize. */
 export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const authorizeHandler: RouteHandler<typeof authorizeMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');

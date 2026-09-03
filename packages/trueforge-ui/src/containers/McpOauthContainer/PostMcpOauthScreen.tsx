@@ -9,7 +9,7 @@ const BROADCAST_RETRY_DELAY_MS = 1000;
 const WINDOW_CLOSE_DELAY_MS = 5000;
 
 /**
- * Local DCR callback appends `isSuccess`; TrueFoundry / SFY lands here with `code` or `error`.
+ * Prefer `isSuccess` when present; otherwise treat a `code` without `error` as success.
  */
 function resolvePopupSuccess(searchParams: URLSearchParams): boolean {
   if (searchParams.get('error')) {

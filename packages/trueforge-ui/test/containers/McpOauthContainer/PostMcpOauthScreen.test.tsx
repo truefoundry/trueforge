@@ -61,19 +61,19 @@ describe('PostMcpOauthScreen', () => {
     expect(channels[1]?.close).toHaveBeenCalledOnce();
   });
 
-  it('treats ServiceFoundry code (without error) as success', () => {
-    window.history.replaceState({}, '', '/?screenType=mcp-auth&pUid=popup-sfy&code=inbound-auth-code');
+  it('treats TrueFoundry code (without error) as success', () => {
+    window.history.replaceState({}, '', '/?screenType=mcp-auth&pUid=popup-tfy&code=inbound-auth-code');
 
     render(<PostMcpOauthScreen />);
 
     expect(screen.getByRole('heading', { name: 'Authorization successful' })).toBeInTheDocument();
     expect(channels[0]?.postMessage).toHaveBeenCalledWith({
-      popupUid: 'popup-sfy',
+      popupUid: 'popup-tfy',
       isSuccess: true,
     });
   });
 
-  it('treats ServiceFoundry error as failure even when code is also present', () => {
+  it('treats TrueFoundry error as failure even when code is also present', () => {
     window.history.replaceState({}, '', '/?screenType=mcp-auth&pUid=popup-deny&code=x&error=access_denied');
 
     render(<PostMcpOauthScreen />);

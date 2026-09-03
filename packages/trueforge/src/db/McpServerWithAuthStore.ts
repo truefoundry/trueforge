@@ -1,8 +1,3 @@
-/**
- * Wraps a DB-backed {@link IMcpServerStore} with local DCR authorize / status / revoke
- * and invoke headers (including mid-turn DCR token resolution) so API handlers can call
- * auth methods on the store without depending on a token store.
- */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
@@ -118,7 +113,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
   }
 
   async authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
-    void input.redirectURL;
     const record = await this.#store.getServer({ tenant_id: input.tenant_id, name: input.name });
     if (record === undefined) {
       throw new McpServerNotFoundError(input.name);

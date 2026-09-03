@@ -1,8 +1,3 @@
-/**
- * DB-backed MCP server route definitions.
- * Admin routes mount at /api/v1/settings/mcp-servers; the chat list,
- * tools, and authorize routes mount at /api/v1/mcp-servers.
- */
 import { createRoute, z } from '@hono/zod-openapi';
 import { MCP_SERVERS_PAGE_LIMIT, MCP_SERVERS_PAGE_LIMIT_MAX } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
@@ -32,7 +27,7 @@ export const ListMcpServersQuerySchema = z
   })
   .openapi('ListMCPServersQuery');
 
-/** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
+/** Chat/composer MCP list (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
   method: 'get',
   path: '/',
@@ -66,8 +61,7 @@ export const listMcpServersRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers',
-  description:
-    'Paginated MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.',
+  description: 'Paginated MCP servers with auth_status. Header secrets are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -236,12 +230,7 @@ export const listMcpServerToolsRoute = createRoute({
 });
 
 const McpAuthorizeQuerySchema = z.object({
-  return_to: z
-    .string()
-    .optional()
-    .describe(
-      'Optional same-origin relative path for the browser after consent. Local DCR: OAuth callback redirects here with `isSuccess`/`reason`. TrueFoundry: absolute URL of this path is passed to ServiceFoundry as `redirectURL` (SFY appends `code`/`error`).',
-    ),
+  return_to: z.string().optional().describe('Same-origin path to land in the browser after consent.'),
 });
 
 export const authorizeMcpServerRoute = createRoute({
@@ -252,9 +241,7 @@ export const authorizeMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
-    'Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a ' +
-    'usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is the FE ' +
-    'landing path after consent (local DCR via harness callback; TrueFoundry as SFY redirectURL).',
+    'Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,

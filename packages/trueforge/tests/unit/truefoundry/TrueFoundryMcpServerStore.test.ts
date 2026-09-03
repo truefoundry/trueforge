@@ -75,15 +75,6 @@ function dcrRecord(overrides: { name?: string } = {}) {
 }
 
 describe('resolveAuthorizeRedirectURL', () => {
-  it('prefers explicit redirectURL', () => {
-    expect(
-      resolveAuthorizeRedirectURL({
-        redirectURL: 'https://app.example/custom-landing',
-        returnTo: '/?screenType=mcp-auth',
-      }),
-    ).toBe('https://app.example/custom-landing');
-  });
-
   it('builds an absolute FE landing from return_to', () => {
     const returnTo = '/?screenType=mcp-auth&pUid=popup-1';
     expect(resolveAuthorizeRedirectURL({ returnTo })).toBe(new URL(returnTo, `${getPublicBaseUrl()}/`).href);
@@ -137,23 +128,11 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('authorize', () => {
-    it('passes redirectURL or derives it from return_to', async () => {
+    it('derives upstream redirectURL from return_to', async () => {
       const { store, client } = createStore();
-      await store.authorize({
-        tenant_id: TENANT,
-        name: 'github',
-        userRef: 'user-1',
-        redirectURL: 'https://app.example/custom-landing',
-      });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith({
-        accessToken: ACCESS_TOKEN,
-        mcpServerId: 'mcp-id-1',
-        redirectURL: 'https://app.example/custom-landing',
-      });
-
       const returnTo = '/?screenType=mcp-auth&pUid=popup-1';
       await store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1', returnTo });
-      expect(client.getMcpAuthorize).toHaveBeenLastCalledWith({
+      expect(client.getMcpAuthorize).toHaveBeenCalledWith({
         accessToken: ACCESS_TOKEN,
         mcpServerId: 'mcp-id-1',
         redirectURL: resolveAuthorizeRedirectURL({ returnTo }),
