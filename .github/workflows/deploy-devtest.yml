@@ -1,8 +1,5 @@
 name: Sync commit to trueforge-devtest-deployment
 
-# Pins github.sha into trueforge / trueforge-controller manifests and pushes to
-# main. That push triggers tfy-deploy in the deployment repo.
-# For pre-main testing: add your branch under push.branches.
 on:
   workflow_dispatch:
   push:
