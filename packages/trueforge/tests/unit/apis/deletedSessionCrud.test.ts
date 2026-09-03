@@ -64,7 +64,6 @@ describe('public CRUD after session deletion', () => {
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
-        tokenStore,
         skillStore,
         agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),

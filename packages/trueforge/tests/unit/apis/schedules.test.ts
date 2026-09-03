@@ -74,7 +74,6 @@ async function setup() {
         eventSubscriptions: {} as never,
         modelProviderStore: {} as never,
         mcpServerStore: {} as never,
-        tokenStore: {} as never,
         skillStore: {} as never,
         agentStore,
         sandboxProviderStore: {} as never,

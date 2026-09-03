@@ -224,4 +224,40 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
   });
+
+  describe('resolveInvokeHeaders mid-turn', () => {
+    async function invoke(store: TrueFoundryMcpServerStore) {
+      const headers = store.resolveInvokeHeaders({ record: dcrRecord(), userRef: 'user-1' });
+      if (typeof headers !== 'function') {
+        throw new Error('expected async headers resolver for truefoundry+dcr');
+      }
+      return headers();
+    }
+
+    it('returns authRequired when authorize reports auth_required', async () => {
+      const { store, client } = createStore();
+      client.getMcpAuthorize.mockResolvedValue({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/authorize',
+      });
+      await expect(invoke(store)).resolves.toEqual({
+        authRequired: {
+          servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
+        },
+      });
+    });
+
+    it('returns gateway Bearer when authorize reports authenticated', async () => {
+      const { store } = createStore();
+      await expect(invoke(store)).resolves.toEqual({
+        headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      });
+    });
+
+    it('throws 422 when auth_required lacks authorization_url', async () => {
+      const { store, client } = createStore();
+      client.getMcpAuthorize.mockResolvedValue({ status: 'auth_required' });
+      await expect(invoke(store)).rejects.toMatchObject({ status: 422 });
+    });
+  });
 });

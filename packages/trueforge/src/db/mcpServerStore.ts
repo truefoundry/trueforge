@@ -13,6 +13,7 @@
  * alongside the store contract — absence is an explicit `| null`, not an optional `?:`.
  */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
@@ -143,11 +144,11 @@ export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServe
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
 
   /**
-   * Static HTTP headers for MCP invoke (tools/list, turns).
-   * Local DCR is handled separately in {@link getMcpConnection}; this covers
-   * TrueFoundry gateway Bearer, configured header auth, and no-auth (`{}`).
+   * Headers for MCP invoke (tools/list, turns).
+   * May be static or an async resolver that can surface mid-turn `authRequired`
+   * (local DCR token resolution, TrueFoundry oauth2 authorize gate).
    */
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string>;
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders;
 }
 
 /**

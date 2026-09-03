@@ -17,12 +17,10 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { IMcpServerStore, IMcpServerWithAuthStore, McpServerRecord } from '../db/mcpServerStore';
+import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
-import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
@@ -100,78 +98,10 @@ export async function getModelDetails({
   };
 }
 
-function dcrHeadersResolver(params: {
-  record: McpServerRecord;
-  tokenStore: IOAuthTokenStore;
-  mcpServerStore: IMcpServerStore;
-  clientName: string;
-  userRef: string;
-}): RemoteMcpHeaders {
-  const { record, tokenStore, mcpServerStore, clientName, userRef } = params;
-  return async () => {
-    const result = await resolveMcpAuth({
-      tokenStore,
-      mcpServerStore,
-      serverId: record.id,
-      userRef,
-      mcpServerUrl: record.manifest.url,
-      mcpServerName: record.name,
-      clientName,
-    });
-    if (isMcpAuthRequired(result)) {
-      // Wire `id` must match RemoteMCP.id (AgentSpec name), not the DB row ULID —
-      // init events, tool-call metadata, and snapshots all key by name.
-      return {
-        authRequired: {
-          servers: [{ id: record.name, name: record.name, auth_url: result.authUrl.href }],
-        },
-      };
-    }
-    return { headers: result.headers };
-  };
-}
-
 /**
- * TrueFoundry oauth2 (wire `dcr`): re-check SFY authorize on every MCP op so mid-turn
- * consent / revocation surfaces as authRequired; invoke still uses gateway Bearer headers.
- */
-function trueFoundryDcrHeadersResolver(params: {
-  record: McpServerRecord;
-  store: IMcpServerWithAuthStore;
-  tenant_id: string;
-  userRef: string;
-}): RemoteMcpHeaders {
-  const { record, store, tenant_id, userRef } = params;
-  return async () => {
-    const status = await store.authorize({
-      tenant_id,
-      name: record.name,
-      userRef,
-    });
-    if (status.status === 'auth_required') {
-      const authUrl = status.authorization_url;
-      if (authUrl === undefined || authUrl.length === 0) {
-        throw new HTTPException(422, {
-          message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
-        });
-      }
-      return {
-        authRequired: {
-          servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
-        },
-      };
-    }
-    return { headers: store.resolveInvokeHeaders(record) };
-  };
-}
-
-/**
- * Load MCP url + headers for a configured server.
- * - Local `remote` + `dcr`: resolveMcpAuth via the harness token store.
- * - TrueFoundry + `dcr`: mid-turn SFY authorize gate, then store invoke headers (gateway Bearer).
- * - Otherwise: {@link IMcpServerWithAuthStore.resolveInvokeHeaders}
- *   (TrueFoundry gateway Bearer, configured header auth, or `{}`).
- * Returns undefined when the server is not registered — callers choose the response.
+ * Load MCP url + headers for a configured server via
+ * {@link IMcpServerWithAuthStore.resolveInvokeHeaders} (static headers, local DCR, or
+ * TrueFoundry mid-turn oauth2). Returns undefined when the server is not registered.
  *
  * TODO: OAuth/DCR header resolvers re-run on every RemoteMCP listTools/callTool
  * (extra network/status work per MCP op). Cache or gate later.
@@ -180,43 +110,20 @@ export async function getMcpConnection({
   tenant_id,
   name,
   store,
-  tokenStore,
-  clientName,
   userRef,
 }: {
   tenant_id: string;
   name: string;
   store: IMcpServerWithAuthStore;
-  tokenStore: IOAuthTokenStore;
-  clientName: string;
   userRef: string;
 }): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
   }
-  if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
-    return {
-      url: record.manifest.url,
-      headers: trueFoundryDcrHeadersResolver({ record, store, tenant_id, userRef }),
-    };
-  }
-  // Local DCR only — TrueFoundry wire `dcr` is handled above.
-  if (record.manifest.auth?.type === 'dcr') {
-    return {
-      url: record.manifest.url,
-      headers: dcrHeadersResolver({
-        record,
-        tokenStore,
-        mcpServerStore: store,
-        clientName,
-        userRef,
-      }),
-    };
-  }
   return {
     url: record.manifest.url,
-    headers: store.resolveInvokeHeaders(record),
+    headers: store.resolveInvokeHeaders({ record, userRef }),
   };
 }
 

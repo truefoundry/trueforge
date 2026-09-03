@@ -392,8 +392,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       tenant_id: requestContext.tenant_id,
       name,
       store: deps.resolveMcpServerStore(c),
-      tokenStore: deps.tokenStore,
-      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
       userRef,
     });
     if (connection === undefined) {

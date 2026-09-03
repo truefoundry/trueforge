@@ -84,8 +84,6 @@ describe('getMcpConnection', () => {
         tenant_id: 'default',
         name: 'oauth-mcp',
         store: mcpServerStore,
-        tokenStore,
-        clientName: 'test-client',
         userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       });
       expect(connection).toBeDefined();
@@ -144,8 +142,6 @@ describe('getMcpConnection', () => {
       tenant_id: 'default',
       name: 'tokened-mcp',
       store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
       userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(connection).toBeDefined();
@@ -173,8 +169,6 @@ describe('getMcpConnection', () => {
       tenant_id: 'default',
       name: 'open-mcp',
       store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
       userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(connection).toBeDefined();
@@ -203,8 +197,6 @@ describe('getMcpConnection', () => {
       tenant_id: 'default',
       name: 'header-mcp',
       store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
       userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(connection).toBeDefined();
@@ -217,69 +209,43 @@ describe('getMcpConnection', () => {
   });
 
   describe('truefoundry dcr mid-turn', () => {
-    const record = {
-      id: 'mcp-id-1',
-      tenant_id: 'default',
-      name: 'tfy-mcp',
-      manifest: {
-        type: 'truefoundry' as const,
+    it('uses store resolveInvokeHeaders (async authRequired path)', async () => {
+      const record = {
+        id: 'mcp-id-1',
+        tenant_id: 'default',
         name: 'tfy-mcp',
-        url: 'https://gateway.example/mcp-server/tfy-mcp',
-        description: 'TrueFoundry-managed MCP.',
-        auth: { type: 'dcr' as const },
-      },
-      created_at: '2026-01-15T12:00:00.000Z',
-      updated_at: '2026-01-16T12:00:00.000Z',
-    };
-
-    function storeWithAuthorize(authorize: IMcpServerWithAuthStore['authorize']): IMcpServerWithAuthStore {
+        manifest: {
+          type: 'truefoundry' as const,
+          name: 'tfy-mcp',
+          url: 'https://gateway.example/mcp-server/tfy-mcp',
+          description: 'TrueFoundry-managed MCP.',
+          auth: { type: 'dcr' as const },
+        },
+        created_at: '2026-01-15T12:00:00.000Z',
+        updated_at: '2026-01-16T12:00:00.000Z',
+      };
       const store = Object.create(mcpServerStore) as IMcpServerWithAuthStore;
       store.getServer = async () => record;
-      store.authorize = authorize;
-      store.resolveInvokeHeaders = () => ({ Authorization: 'Bearer gateway' });
-      return store;
-    }
+      store.resolveInvokeHeaders = () => async () => ({
+        authRequired: {
+          servers: [{ id: 'tfy-mcp', name: 'tfy-mcp', auth_url: 'https://consent.example/authorize' }],
+        },
+      });
 
-    async function resolveHeaders(store: IMcpServerWithAuthStore) {
       const connection = await getMcpConnection({
         tenant_id: 'default',
         name: 'tfy-mcp',
         store,
-        tokenStore,
-        clientName: 'test-client',
         userRef: 'user-1',
       });
       if (connection === undefined || typeof connection.headers !== 'function') {
         throw new Error('expected async headers resolver');
       }
-      return connection.headers();
-    }
-
-    it('returns authRequired when authorize reports auth_required', async () => {
-      await expect(
-        resolveHeaders(
-          storeWithAuthorize(async () => ({
-            status: 'auth_required',
-            authorization_url: 'https://consent.example/authorize',
-          })),
-        ),
-      ).resolves.toEqual({
+      await expect(connection.headers()).resolves.toEqual({
         authRequired: {
           servers: [{ id: 'tfy-mcp', name: 'tfy-mcp', auth_url: 'https://consent.example/authorize' }],
         },
       });
-    });
-
-    it('returns invoke headers when authorize reports authenticated', async () => {
-      await expect(resolveHeaders(storeWithAuthorize(async () => ({ status: 'authenticated' })))).resolves.toEqual({
-        headers: { Authorization: 'Bearer gateway' },
-      });
-    });
-
-    it('throws 422 when auth_required lacks authorization_url', async () => {
-      await expect(resolveHeaders(storeWithAuthorize(async () => ({ status: 'auth_required' })))).rejects.toMatchObject(
-        { status: 422 },
-      );
     });
   });
 
@@ -289,8 +255,6 @@ describe('getMcpConnection', () => {
         tenant_id: 'default',
         name: 'missing-mcp',
         store: mcpServerStore,
-        tokenStore,
-        clientName: 'test-client',
         userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       }),
     ).resolves.toBeUndefined();

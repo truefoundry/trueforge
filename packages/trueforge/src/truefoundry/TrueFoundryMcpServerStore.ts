@@ -3,7 +3,7 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { McpConnectionError } from '@truefoundry/trueforge-core/core';
+import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../config';
@@ -85,7 +85,7 @@ export function resolveAuthorizeRedirectURL(input: { redirectURL?: string; retur
  * Read-only MCP registry backed by ServiceFoundry + the tenant AI Gateway.
  * Writes and local OAuth client columns are not supported — configure servers in TrueFoundry.
  * Authorize / revoke call SFY; list auth_status may stay stubbed (`stub: true`) to avoid N× status calls.
- * Invoke headers stay static (gateway Bearer); mid-turn oauth2 gate lives in getMcpConnection.
+ * Invoke headers include gateway Bearer; oauth2 mid-turn gate lives in resolveInvokeHeaders.
  */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
@@ -112,16 +112,39 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /**
-   * The gateway Bearer is what the gateway authorises `USE_MCP_SERVER` on; the overrides are cargo
-   * it forwards upstream. Writing the Bearer last is not enough on its own to protect it, because
-   * object keys are case-sensitive and header names are not: an override under another casing would
-   * survive as a separate key and reach the wire alongside it. So it is dropped, not overwritten.
+   * Gateway Bearer (+ optional per-server overrides). For oauth2 (wire `dcr`), returns an
+   * async resolver that re-checks SFY authorize mid-turn before sending those headers.
    */
-  resolveInvokeHeaders(record: McpServerRecord): Record<string, string> {
-    return {
+  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+    const { record, userRef } = input;
+    const staticHeaders = {
       ...withoutAuthorization(this.#perServerHeaders[record.name]),
       Authorization: `Bearer ${this.#accessToken}`,
     };
+    if (record.manifest.type === 'truefoundry' && record.manifest.auth?.type === 'dcr') {
+      return async () => {
+        const status = await this.authorize({
+          tenant_id: record.tenant_id,
+          name: record.name,
+          userRef,
+        });
+        if (status.status === 'auth_required') {
+          const authUrl = status.authorization_url;
+          if (authUrl === undefined || authUrl.length === 0) {
+            throw new HTTPException(422, {
+              message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
+            });
+          }
+          return {
+            authRequired: {
+              servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
+            },
+          };
+        }
+        return { headers: staticHeaders };
+      };
+    }
+    return staticHeaders;
   }
 
   async listServers(

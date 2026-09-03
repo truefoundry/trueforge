@@ -109,7 +109,7 @@ export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: st
 }
 
 /**
- * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` (Connect UX + mid-turn auth gate in getMcpConnection).
+ * Gateway proxy as `url`. SFY `oauth2` → wire `dcr` (Connect UX + mid-turn auth in resolveInvokeHeaders).
  * Invoke Bearer comes from the MCP store's `resolveInvokeHeaders` — not wire `header` auth.
  */
 export function toTrueFoundryMcpManifest(input: {
