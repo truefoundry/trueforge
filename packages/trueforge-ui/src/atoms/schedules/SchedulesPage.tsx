@@ -142,6 +142,7 @@ export function SchedulesPage() {
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [prevTokenStack, setPrevTokenStack] = useState<string[]>([]);
   const loadGenRef = useRef(0);
+  const didConsumeIsNewRef = useRef(false);
 
   const loadRunsForSchedules = useCallback(
     async ({ rows, gen }: { rows: Schedule[]; gen: number }) => {
@@ -211,7 +212,7 @@ export function SchedulesPage() {
     [agentFilter, loadSchedules, pageSize],
   );
 
-  // Keep filters in the URL so deep links and Agents Library → Schedules work.
+  // Keep filters in the URL so deep links and Agents → Schedules work.
   useEffect(() => {
     replaceScheduleShareSearch({
       agent: agentFilter === 'all' ? null : agentFilter,
@@ -219,6 +220,19 @@ export function SchedulesPage() {
       q: nameQuery.trim().length === 0 ? null : nameQuery,
     });
   }, [agentFilter, statusFilter, nameQuery]);
+
+  // One-shot: Agents "+ Schedule" lands with isNew=true; open create then strip the flag.
+  useEffect(() => {
+    if (didConsumeIsNewRef.current) return;
+    const share = readScheduleShareSearch(window.location.search);
+    if (!share.isNew) return;
+    didConsumeIsNewRef.current = true;
+    setDrawer({
+      kind: 'create',
+      ...(share.agent != null ? { agentId: share.agent } : {}),
+    });
+    replaceScheduleShareSearch({ isNew: null });
+  }, []);
 
   useEffect(() => {
     const syncFromUrl = () => {
