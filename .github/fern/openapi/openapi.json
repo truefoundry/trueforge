@@ -1121,7 +1121,7 @@
             "type": "string"
           },
           "subject_type": {
-            "description": "user or virtualaccount.",
+            "description": "Subject type.",
             "minLength": 1,
             "type": "string"
           }

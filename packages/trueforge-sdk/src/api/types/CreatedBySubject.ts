@@ -8,6 +8,6 @@ export interface CreatedBySubject {
     subjectDisplayName: string;
     /** Subject id. */
     subjectId: string;
-    /** user or virtualaccount. */
+    /** Subject type. */
     subjectType: string;
 }
