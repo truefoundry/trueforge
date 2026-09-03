@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
@@ -10,7 +10,6 @@ import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
-import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -27,11 +26,10 @@ export type StackChatPanelProps = {
 };
 
 /**
- * List XOR thread stack used by `dock` and `widget` layouts.
- * Starts on a new chat; history icon opens the session list; New / select opens the thread.
+ * Thread stack used by `dock` and `widget` layouts.
+ * New Chat / New Agent replace the former in-panel recent-session list.
  */
 export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelProps) {
-  const [view, setView] = useState<'list' | 'thread'>('thread');
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
@@ -45,11 +43,32 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const showNewActions = shell?.isNewChatEnabled !== false;
 
   useEffect(() => {
     if (isIdle) return;
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   }, [aui, isIdle]);
+
+  const handleNewChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    if (shell?.isComposerEnabled) {
+      shell.openDraft();
+      return;
+    }
+    shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
+    void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
+  };
+
+  const handleNewAgent = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    if (shell?.isComposerEnabled) {
+      shell.openAgentBuilder();
+    }
+  };
 
   return (
     <div className={cn('relative flex h-full min-h-0 flex-col', className)}>
@@ -81,7 +100,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         </div>
       ) : libraryOpen ? (
         <div className="min-h-0 flex-1">
-          <AgentsLibrary onSelectAgent={() => setView('thread')} />
+          <AgentsLibrary />
         </div>
       ) : schedulesOpen ? (
         <div className="min-h-0 flex-1">
@@ -101,20 +120,31 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             <SchedulesPage />
           </Suspense>
         </div>
-      ) : view === 'list' ? (
-        <ThreadListContainer onThreadOpen={() => setView('thread')} />
       ) : (
         <>
           <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-            <button
-              type="button"
-              aria-label="Sessions"
-              title="Sessions"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-              onClick={() => setView('list')}
-            >
-              <Icon name="clock-rotate-left" />
-            </button>
+            {showNewActions ? (
+              <button
+                type="button"
+                aria-label="New Chat"
+                title="New Chat"
+                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                onClick={handleNewChat}
+              >
+                <Icon name="square-pen" />
+              </button>
+            ) : null}
+            {showNewActions && shell?.isComposerEnabled ? (
+              <button
+                type="button"
+                aria-label="New Agent"
+                title="New Agent"
+                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                onClick={handleNewAgent}
+              >
+                <Icon name="agent-2" />
+              </button>
+            ) : null}
             <NamedAgentHeaderLabel />
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
@@ -133,7 +163,6 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             onClick={() => {
               shell?.setLibraryOpen(false);
               shell?.setSchedulesOpen(false);
-              setView('thread');
             }}
           >
             <Icon name="arrow-left" />

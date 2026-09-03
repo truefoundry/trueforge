@@ -4,9 +4,9 @@ import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import {
-  TIMEZONE_OPTIONS,
   WEEKDAY_OPTIONS,
   formatCadenceSummary,
+  getTimezoneOptions,
   valuesToCron,
   type RecurrenceKind,
   type ScheduleFormValues,
@@ -16,7 +16,6 @@ export const RECURRENCE_OPTIONS: Array<{ value: RecurrenceKind; label: string }>
   { value: 'hourly', label: 'Hourly' },
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
-  { value: 'custom', label: 'Custom' },
 ];
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
@@ -47,6 +46,7 @@ export function ScheduleFormFields({
 }: ScheduleFormFieldsProps) {
   const cron = valuesToCron(values);
   const cadence = formatCadenceSummary({ cron, timezone: values.timezone });
+  const timezoneOptions = getTimezoneOptions(values.timezone);
 
   const set = <K extends keyof ScheduleFormValues>(key: K, value: ScheduleFormValues[K]) => {
     onChange({ ...values, [key]: value });
@@ -97,7 +97,7 @@ export function ScheduleFormFields({
 
       <fieldset>
         <legend className="mb-1.5 text-sm font-medium">Recurrence</legend>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border border-border p-1">
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
           {RECURRENCE_OPTIONS.map(opt => {
             const selected = values.recurrence === opt.value;
             return (
@@ -183,19 +183,13 @@ export function ScheduleFormFields({
       ) : null}
 
       {values.recurrence === 'custom' ? (
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium">Cron expression</span>
-          <input
-            value={values.customCron}
-            onChange={e => set('customCron', e.target.value)}
-            placeholder="0 9 * * 1-5"
-            className={auiInputClass('h-9 font-mono')}
-            required
-          />
+        <div className="rounded-md border border-border bg-secondary-bg/40 px-3 py-2">
+          <span className="text-text-secondary block text-xs">Existing custom schedule</span>
+          <code className="text-text-primary mt-1 block font-mono text-sm">{values.customCron}</code>
           <span className="text-text-secondary mt-1 block text-xs">
-            Standard 5-field cron: minute hour day-of-month month day-of-week
+            Select Hourly, Daily, or Weekly to replace this schedule.
           </span>
-        </label>
+        </div>
       ) : null}
 
       <div className="block">
@@ -203,7 +197,7 @@ export function ScheduleFormFields({
         <PopoverSelect
           aria-label="Timezone"
           value={values.timezone}
-          options={TIMEZONE_OPTIONS}
+          options={timezoneOptions}
           onValueChange={value => set('timezone', value)}
           menuPlacement="top"
         />
@@ -211,7 +205,7 @@ export function ScheduleFormFields({
 
       <div className="rounded-lg border border-border bg-secondary-bg/40 px-3 py-3">
         <div className="flex items-start justify-between gap-3">
-          <span className="text-text-secondary text-[10px] font-semibold tracking-wide uppercase">Cadence</span>
+          <span className="text-text-secondary text-[10px] font-semibold tracking-wide uppercase">Frequency</span>
           <code className="text-text-secondary font-mono text-xs">{cron || '—'}</code>
         </div>
         <p className="text-text-primary mt-1 text-sm font-semibold">{cadence || '—'}</p>

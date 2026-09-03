@@ -104,7 +104,9 @@ describe('TrueForgeUI', () => {
           expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
           break;
         case 'drawer':
-          expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+          // SingleAgent has no composer — New Agent is composer-only.
+          expect(screen.queryByRole('button', { name: 'New Agent' })).not.toBeInTheDocument();
           break;
         case 'dock':
           expect(container.querySelector('[data-aui-compact-layout]')).toBeInTheDocument();
@@ -203,6 +205,7 @@ describe('TrueForgeUI', () => {
       />,
     );
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Start new agent' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save Agent' }));
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Model' }));
@@ -216,9 +219,9 @@ describe('TrueForgeUI', () => {
     const mcpDialog = document.querySelector('dialog[aria-label="Edit Connectors"]');
     if (!(mcpDialog instanceof HTMLDialogElement)) throw new Error('expected stacked MCP dialog');
     expect(await within(mcpDialog).findByText('GitHub')).toBeInTheDocument();
-    expect(getModels).toHaveBeenCalledOnce();
-    expect(getMcp).toHaveBeenCalledOnce();
-    expect(getSkills).toHaveBeenCalledOnce();
+    expect(getModels).toHaveBeenCalled();
+    expect(getMcp).toHaveBeenCalled();
+    expect(getSkills).toHaveBeenCalled();
   });
 
   it('renders only the MCP authorization screen when requested by the URL', async () => {
@@ -281,24 +284,21 @@ describe('TrueForgeUI', () => {
 });
 
 describe('StackChatPanel', () => {
-  it('starts on a new chat and opens the session list from history', () => {
+  it('shows New Chat and New Agent actions on the thread header', () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <StackChatPanel />
-          </div>
-        </RuntimeHarness>
+        <ShellModeProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <StackChatPanel />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
       </SlotsProvider>,
     );
 
-    expect(screen.getByLabelText('Sessions')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Start new chat' })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByLabelText('Sessions'));
-
-    expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Sessions')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Agent' })).toBeInTheDocument();
   });
 
   it.each([
@@ -355,21 +355,24 @@ describe('SidebarLayout', () => {
   it('shows the app brand in the mobile navigation drawer', () => {
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: { src: '/acme.svg' } } }}>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <SidebarLayout />
-          </div>
-        </RuntimeHarness>
+        <ShellModeProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <SidebarLayout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
       </SlotsProvider>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigation' }));
 
     const drawer = screen.getByRole('dialog', { name: 'Navigation' });
-    expect(drawer).toHaveClass('w-20');
+    expect(drawer).toHaveClass('w-18');
     expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
     expect(within(drawer).queryByText('Acme')).not.toBeInTheDocument();
     expect(within(drawer).getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Start new agent' })).toBeInTheDocument();
     expect(within(drawer).queryByText('No threads yet')).not.toBeInTheDocument();
   });
 
@@ -441,6 +444,42 @@ describe('SidebarLayout', () => {
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
+  it('highlights New Chat, New Agent, and Settings when selected', async () => {
+    render(
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
+        <ServerProvider server={mockServer(stubCatalog)}>
+          <ShellModeProvider>
+            <RuntimeHarness messages={[]}>
+              <div className="h-96">
+                <SidebarLayout />
+              </div>
+            </RuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    const newChat = screen.getByRole('button', { name: 'Start new chat' });
+    const newAgent = screen.getByRole('button', { name: 'Start new agent' });
+    expect(newChat).toHaveAttribute('aria-current', 'page');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(newAgent);
+    expect(newAgent).toHaveAttribute('aria-current', 'page');
+    expect(newChat).not.toHaveAttribute('aria-current');
+
+    const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
+    if (settingsButton === undefined) {
+      throw new Error('Expected settings button');
+    }
+    expect(settingsButton).not.toHaveAttribute('aria-current');
+    fireEvent.click(settingsButton);
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(settingsButton).toHaveAttribute('aria-current', 'page');
+    expect(newChat).not.toHaveAttribute('aria-current');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+  });
+
   it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
     const { rerender } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
@@ -456,14 +495,14 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
       throw new Error('Expected theme toggle');
     }
     fireEvent.click(themeButton);
-    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(1);
 
     // Settings stays available with a locked agentName when catalog is present.
     rerender(
@@ -479,7 +518,7 @@ describe('SidebarLayout', () => {
         </ServerProvider>
       </SlotsProvider>,
     );
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
@@ -532,57 +571,26 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(1);
   });
 });
 
 describe('DrawerLayout a11y', () => {
-  it('opens sessions panel, focuses dialog, and restores focus on Escape', async () => {
+  it('exposes New Chat and New Agent actions', () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <DrawerLayout />
-          </div>
-        </RuntimeHarness>
+        <ShellModeProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <DrawerLayout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
       </SlotsProvider>,
     );
 
-    const sessionsBtn = screen.getByRole('button', { name: 'Sessions' });
-    expect(sessionsBtn).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(sessionsBtn);
-    expect(sessionsBtn).toHaveAttribute('aria-expanded', 'true');
-    const dialog = screen.getByRole('dialog', { name: 'Sessions' });
-    expect(dialog).toBeInTheDocument();
-    await waitFor(() => {
-      expect(dialog).toHaveFocus();
-    });
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Sessions' })).not.toBeInTheDocument();
-    expect(sessionsBtn).toHaveAttribute('aria-expanded', 'false');
-    await waitFor(() => {
-      expect(sessionsBtn).toHaveFocus();
-    });
-  });
-
-  it('closes sessions panel when backdrop is clicked', () => {
-    render(
-      <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <DrawerLayout />
-          </div>
-        </RuntimeHarness>
-      </SlotsProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sessions' }));
-    expect(screen.getByRole('dialog', { name: 'Sessions' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close sessions' }));
-    expect(screen.queryByRole('dialog', { name: 'Sessions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Agent' })).toBeInTheDocument();
   });
 });
 

@@ -2,6 +2,8 @@ import { ZodError } from 'zod';
 import {
   MCP_PROXY_BASE_URL_TEMPLATE,
   mapSfyMcpServers,
+  parseSfyMcpAuthStatus,
+  parseSfyMcpAuthorizeResult,
   parseSfyMcpServerSummary,
   resolveMcpProxyUrl,
   toTrueFoundryMcpManifest,
@@ -145,5 +147,62 @@ describe('toTrueFoundryMcpManifest', () => {
         gatewayUrl: 'https://gateway.example',
       }).auth,
     ).toBeUndefined();
+  });
+});
+
+describe('parseSfyMcpAuthStatus', () => {
+  it('maps authenticated', () => {
+    expect(parseSfyMcpAuthStatus({ status: 'authenticated' })).toEqual({ status: 'authenticated' });
+  });
+
+  it('maps authentication_not_required', () => {
+    expect(parseSfyMcpAuthStatus({ status: 'authentication_not_required', reason: 'none' })).toEqual({
+      status: 'not_required',
+    });
+  });
+
+  it('maps authentication_required without a consent URL', () => {
+    expect(parseSfyMcpAuthStatus({ status: 'authentication_required' })).toEqual({
+      status: 'auth_required',
+    });
+  });
+
+  it('strips authorization_endpoint on status (consent URL is authorize-only)', () => {
+    expect(
+      parseSfyMcpAuthStatus({
+        status: 'authentication_required',
+        authorization_endpoint: 'https://gateway.example/authorize',
+      }),
+    ).toEqual({
+      status: 'auth_required',
+    });
+  });
+
+  it('rejects unknown status', () => {
+    expect(() => parseSfyMcpAuthStatus({ status: 'nope' })).toThrow(ZodError);
+  });
+});
+
+describe('parseSfyMcpAuthorizeResult', () => {
+  it('requires authorization_endpoint when authentication_required', () => {
+    expect(() => parseSfyMcpAuthorizeResult({ status: 'authentication_required' })).toThrow(ZodError);
+  });
+
+  it('maps authentication_required with consent URL', () => {
+    expect(
+      parseSfyMcpAuthorizeResult({
+        status: 'authentication_required',
+        authorization_endpoint: 'https://gateway.example/authorize?client_id=1',
+      }),
+    ).toEqual({
+      status: 'auth_required',
+      authorization_url: 'https://gateway.example/authorize?client_id=1',
+    });
+  });
+
+  it('maps authenticated', () => {
+    expect(parseSfyMcpAuthorizeResult({ status: 'authenticated', method: 'oauth' })).toEqual({
+      status: 'authenticated',
+    });
   });
 });

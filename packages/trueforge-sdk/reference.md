@@ -441,7 +441,7 @@ await client.server.getCapabilities();
 </details>
 
 ## MCP Servers
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListAvailableMcpServersResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.AvailableMcpServer, TrueForge.ListAvailableMcpServersResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -453,7 +453,7 @@ await client.server.getCapabilities();
 <dl>
 <dd>
 
-MCP servers as a slim name/url list for the composer. No auth or auth_status.
+Paginated MCP servers as a slim name/url list for the composer.
 </dd>
 </dl>
 </dd>
@@ -484,6 +484,14 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
+**request:** `TrueForge.ListMcpServersRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **requestOptions:** `McpServersClient.RequestOptions` 
     
 </dd>
@@ -508,7 +516,7 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
-Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.
+Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.
 </dd>
 </dl>
 </dd>
@@ -2826,7 +2834,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 </details>
 
 ## Settings McpServers
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListMcpServersResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.ConfiguredMcpServer, TrueForge.ListMcpServersResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -2838,7 +2846,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 <dl>
 <dd>
 
-All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
+Paginated MCP servers with auth_status. Header secrets are redacted.
 </dd>
 </dl>
 </dd>
@@ -2865,6 +2873,14 @@ await client.settings.mcpServers.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.settings.ListMcpServersRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
@@ -3033,7 +3049,7 @@ await client.settings.mcpServers.createOrUpdate({
 <dl>
 <dd>
 
-A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
+A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.
 </dd>
 </dl>
 </dd>

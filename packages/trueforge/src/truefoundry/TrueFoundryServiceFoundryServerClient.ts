@@ -4,7 +4,9 @@ import { fetch as undiciFetch, type Dispatcher } from 'undici';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 
+import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
+import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
@@ -12,7 +14,6 @@ const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
 const INTEGRATIONS_PAGE_SIZE = 1000;
-const MCP_SERVERS_PAGE_SIZE = 100;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -96,7 +97,7 @@ function listPaginationTotal(response: ListResponse): number | undefined {
 
 export class TrueFoundryServiceFoundryServerClient {
   readonly #baseUrl: string;
-  readonly #logger: Logger | undefined;
+  readonly #logger: Logger;
   readonly #dispatcher: Dispatcher | undefined;
   readonly #httpTimeoutMs: number;
   readonly #httpAgentTimeoutMs: number;
@@ -123,14 +124,15 @@ export class TrueFoundryServiceFoundryServerClient {
     const items: unknown[] = [];
     let offset = 0;
     for (;;) {
-      const payload = await this.#getJson(
-        this.#url(INTEGRATIONS_PATH, {
+      const payload = await this.#requestJson({
+        url: this.#url(INTEGRATIONS_PATH, {
           type: 'model',
           offset: String(offset),
           limit: String(INTEGRATIONS_PAGE_SIZE),
         }),
         accessToken,
-      );
+        method: 'GET',
+      });
       const response = this.#parseListResponse(payload);
       const page = listPage(response);
       const total = listPaginationTotal(response);
@@ -144,53 +146,54 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {
-    return this.#getJson(this.#url(INSTALLATIONS_PATH), accessToken);
+    return this.#requestJson({
+      url: this.#url(INSTALLATIONS_PATH),
+      accessToken,
+      method: 'GET',
+    });
   }
 
-  /**
-   * Paginated `GET v1/mcp`. Returns raw SFY rows; callers parse with {@link mapSfyMcpServers}.
-   * Offset advances by raw page length (same as {@link listProviderIntegrations}).
-   */
-  async listMcpServers(accessToken: string): Promise<unknown[]> {
-    const items: unknown[] = [];
-    let offset = 0;
-    for (;;) {
-      const payload = await this.#getJson(
-        this.#url(MCP_SERVERS_PATH, {
-          offset: String(offset),
-          limit: String(MCP_SERVERS_PAGE_SIZE),
-        }),
-        accessToken,
-      );
-      const response = this.#parseListResponse(payload);
-      const page = listPage(response);
-      const total = listPaginationTotal(response);
-      items.push(...page);
-      if (total === undefined || items.length >= total || page.length === 0) {
-        break;
-      }
-      offset = items.length;
-    }
-    return items;
+  /** One page of MCP servers; optional `names` filters with `name IN (…)`. */
+  async listMcpServers(input: {
+    accessToken: string;
+    limit: number;
+    offset: number;
+    names?: readonly string[];
+  }): Promise<unknown[]> {
+    const query: Record<string, string> = {
+      offset: String(input.offset),
+      limit: String(input.limit),
+      ...(input.names !== undefined
+        ? {
+            filter: JSON.stringify({
+              op: 'and',
+              values: [{ field: 'name', op: 'IN', values: [...input.names] }],
+            }),
+          }
+        : {}),
+    };
+    const payload = await this.#requestJson({
+      url: this.#url(MCP_SERVERS_PATH, query),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    return listPage(this.#parseListResponse(payload));
   }
 
-  /**
-   * Resolve one MCP server by name via list filter `name EQUAL`.
-   * Returns the first raw row, or `undefined` when the tenant has no match.
-   * Callers parse with {@link parseSfyMcpServerSummary}.
-   */
+  /** Resolve one MCP server by name (`name EQUAL`, limit 1). */
   async getMcpServerByName(input: { accessToken: string; name: string }): Promise<unknown> {
     const filter = JSON.stringify({
       op: 'and',
       values: [{ field: 'name', op: 'EQUAL', value: input.name }],
     });
-    const payload = await this.#getJson(
-      this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }),
-      input.accessToken,
-    );
+    const payload = await this.#requestJson({
+      url: this.#url(MCP_SERVERS_PATH, { filter, limit: '1', offset: '0' }),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
     const rows = listPage(this.#parseListResponse(payload));
     if (rows.length > 1) {
-      this.#logger?.warn('TrueFoundry ServiceFoundry MCP name filter returned multiple rows', {
+      this.#logger.warn('TrueFoundry ServiceFoundry MCP name filter returned multiple rows', {
         name: input.name,
         count: rows.length,
       });
@@ -214,7 +217,7 @@ export class TrueFoundryServiceFoundryServerClient {
     });
     const parsed = PutRemoteAgentResponseSchema.safeParse(payload);
     if (!parsed.success) {
-      this.#logger?.error('TrueFoundry ServiceFoundry put remote agent returned an unexpected response', {
+      this.#logger.error('TrueFoundry ServiceFoundry put remote agent returned an unexpected response', {
         ...extractErrorLogFields(parsed.error),
       });
       throw new HTTPException(424, {
@@ -236,6 +239,88 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
+  /** Per-subject authorize; includes a consent URL when auth is required. */
+  async getMcpAuthorize(input: {
+    accessToken: string;
+    mcpServerId: string;
+    redirectURL?: string;
+    gatewayBaseURL?: string;
+  }): Promise<McpAuthStatus> {
+    const search: Record<string, string> = {};
+    if (input.redirectURL !== undefined) {
+      search['redirectURL'] = input.redirectURL;
+    }
+    if (input.gatewayBaseURL !== undefined) {
+      search['gatewayBaseURL'] = input.gatewayBaseURL;
+    }
+    const payload = await this.#requestJson({
+      url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/authorize`, search),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    try {
+      return parseSfyMcpAuthorizeResult(payload);
+    } catch (error) {
+      this.#logger.error('TrueFoundry ServiceFoundry MCP authorize returned an unexpected response', {
+        mcpServerId: input.mcpServerId,
+        ...extractErrorLogFields(error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry MCP authorize returned an unexpected response',
+        cause: error,
+      });
+    }
+  }
+
+  /** Per-subject auth status without seeding a consent URL. */
+  async getMcpAuthStatus(input: {
+    accessToken: string;
+    mcpServerId: string;
+    subjectId: string;
+    subjectType: string;
+  }): Promise<McpAuthStatus> {
+    const payload = await this.#requestJson({
+      url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/auth/status`, {
+        subjectId: input.subjectId,
+        subjectType: input.subjectType,
+      }),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    try {
+      return parseSfyMcpAuthStatus(payload);
+    } catch (error) {
+      this.#logger.error('TrueFoundry ServiceFoundry MCP auth status returned an unexpected response', {
+        mcpServerId: input.mcpServerId,
+        ...extractErrorLogFields(error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry MCP auth status returned an unexpected response',
+        cause: error,
+      });
+    }
+  }
+
+  /** Revoke the subject's OAuth token or auth-override. */
+  async deleteMcpAuth(input: {
+    accessToken: string;
+    mcpServerId: string;
+    subjectId: string;
+    subjectType: string;
+    authSource: SfyMcpAuthSource;
+  }): Promise<void> {
+    await this.#requestJson({
+      url: this.#url(`${MCP_SERVERS_PATH}/${encodeURIComponent(input.mcpServerId)}/auth`),
+      accessToken: input.accessToken,
+      method: 'DELETE',
+      body: {
+        subjectId: input.subjectId,
+        subjectType: input.subjectType,
+        authSource: input.authSource,
+      },
+    });
+  }
+
   /**
    * `GET v1/session` for RequestContext mapping.
    * `user: null` (invalid/missing auth on a 200) → 401; all other failures → 500.
@@ -243,7 +328,11 @@ export class TrueFoundryServiceFoundryServerClient {
   async getSession(accessToken: string): Promise<GetSessionResponse> {
     let payload: unknown;
     try {
-      payload = await this.#getJson(this.#url(SESSION_PATH), accessToken);
+      payload = await this.#requestJson({
+        url: this.#url(SESSION_PATH),
+        accessToken,
+        method: 'GET',
+      });
     } catch (error) {
       if (error instanceof HTTPException && (error.status === 401 || error.status === 403)) {
         throw error;
@@ -269,7 +358,7 @@ export class TrueFoundryServiceFoundryServerClient {
   #parseListResponse(payload: unknown): ListResponse {
     const parsed = ListResponseSchema.safeParse(payload);
     if (!parsed.success) {
-      this.#logger?.error('TrueFoundry ServiceFoundry server returned an unexpected list response', {
+      this.#logger.error('TrueFoundry ServiceFoundry server returned an unexpected list response', {
         ...extractErrorLogFields(parsed.error),
       });
       throw new HTTPException(424, {
@@ -282,16 +371,12 @@ export class TrueFoundryServiceFoundryServerClient {
 
   #url(path: string, search?: Record<string, string>): URL {
     const url = new URL(`${this.#baseUrl}/${path}`);
-    if (search) {
+    if (search !== undefined) {
       for (const [key, value] of Object.entries(search)) {
         url.searchParams.set(key, value);
       }
     }
     return url;
-  }
-
-  #getJson(url: URL, accessToken: string): Promise<unknown> {
-    return this.#requestJson({ url, accessToken, method: 'GET' });
   }
 
   async #requestJson(input: {
@@ -306,8 +391,9 @@ export class TrueFoundryServiceFoundryServerClient {
     const startedAt = Date.now();
     const timeoutMs = input.timeoutMs ?? this.#httpTimeoutMs;
     const signal = AbortSignal.timeout(timeoutMs);
+    let response: Awaited<ReturnType<typeof undiciFetch>>;
     try {
-      const response = await undiciFetch(input.url, {
+      response = await undiciFetch(input.url, {
         method: input.method,
         headers: {
           accept: 'application/json',
@@ -318,7 +404,7 @@ export class TrueFoundryServiceFoundryServerClient {
         signal,
         ...(this.#dispatcher ? { dispatcher: this.#dispatcher } : {}),
       });
-      this.#logger?.info('TrueFoundry ServiceFoundry server request completed', {
+      this.#logger.info('TrueFoundry ServiceFoundry server request completed', {
         url: input.url.href,
         method: input.method,
         status: response.status,
@@ -358,7 +444,7 @@ export class TrueFoundryServiceFoundryServerClient {
         throw error;
       }
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
-      this.#logger?.warn('TrueFoundry ServiceFoundry server request failed', {
+      this.#logger.warn('TrueFoundry ServiceFoundry server request failed', {
         url: input.url.href,
         method: input.method,
         durationMs: Date.now() - startedAt,

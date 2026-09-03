@@ -3,14 +3,31 @@ import type { McpServerRecord } from '../../../src/db/mcpServerStore';
 import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
 import { TrueFoundryMcpServerStore } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 
-const record = (name: string): McpServerRecord => ({ name }) as McpServerRecord;
+const record = (name: string): McpServerRecord => ({
+  id: name,
+  tenant_id: 'default',
+  name,
+  manifest: {
+    type: 'truefoundry',
+    name,
+    url: `https://gateway.example/mcp-server/${name}`,
+    description: name,
+  },
+  created_at: '2026-01-15T12:00:00.000Z',
+  updated_at: '2026-01-16T12:00:00.000Z',
+});
 
 const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
     client: {} as never,
     accessToken: 'caller-token',
+    subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
     perServerHeaders,
   });
+
+function invokeHeaders(store: TrueFoundryMcpServerStore, name: string) {
+  return store.resolveInvokeHeaders({ record: record(name), userRef: 'user-1' });
+}
 
 describe('parsePerServerMcpHeaders', () => {
   it('parses a header map per server name', () => {
@@ -40,15 +57,18 @@ describe('parsePerServerMcpHeaders', () => {
 
 describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
   it('sends only the gateway Bearer when a server has no override', () => {
-    expect(storeWith({}).resolveInvokeHeaders(record('tfy-docs-mcp'))).toEqual({
+    expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).toEqual({
       Authorization: 'Bearer caller-token',
     });
   });
 
   it("merges that server's override on top of the Bearer", () => {
-    const headers = storeWith({
-      'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
-    }).resolveInvokeHeaders(record('tfy-platform-mcp'));
+    const headers = invokeHeaders(
+      storeWith({
+        'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
+      }),
+      'tfy-platform-mcp',
+    );
 
     expect(headers).toEqual({
       Authorization: 'Bearer caller-token',
@@ -57,9 +77,12 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
   });
 
   it('gives one server nothing of another, so an identity cannot reach the wrong upstream', () => {
-    const headers = storeWith({
-      'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
-    }).resolveInvokeHeaders(record('tfy-pylon-mcp'));
+    const headers = invokeHeaders(
+      storeWith({
+        'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
+      }),
+      'tfy-pylon-mcp',
+    );
 
     expect(headers).toEqual({ Authorization: 'Bearer caller-token' });
   });
@@ -67,18 +90,24 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
   it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
     'drops an override under %s, which object keys would otherwise keep beside the Bearer',
     name => {
-      const headers = storeWith({
-        'tfy-platform-mcp': { [name]: 'Bearer smuggled' },
-      }).resolveInvokeHeaders(record('tfy-platform-mcp'));
+      const headers = invokeHeaders(
+        storeWith({
+          'tfy-platform-mcp': { [name]: 'Bearer smuggled' },
+        }),
+        'tfy-platform-mcp',
+      );
 
       expect(Object.values(headers)).toEqual(['Bearer caller-token']);
     },
   );
 
   it('keeps the rest of an override that also carried an authorization key', () => {
-    const headers = storeWith({
-      'tfy-platform-mcp': { authorization: 'Bearer smuggled', 'x-tfy-mcp-headers': '{"a":"b"}' },
-    }).resolveInvokeHeaders(record('tfy-platform-mcp'));
+    const headers = invokeHeaders(
+      storeWith({
+        'tfy-platform-mcp': { authorization: 'Bearer smuggled', 'x-tfy-mcp-headers': '{"a":"b"}' },
+      }),
+      'tfy-platform-mcp',
+    );
 
     expect(headers).toEqual({ Authorization: 'Bearer caller-token', 'x-tfy-mcp-headers': '{"a":"b"}' });
   });

@@ -257,8 +257,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
-  // Public MCP OAuth callback must be registered before the gated `/mcp-servers` mount so
-  // `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
+  // Public MCP OAuth callbacks (local DCR + TrueFoundry/SFY) must be registered before the gated
+  // `/mcp-servers` mount so `withAuth` cannot intercept IdP redirects to `/api/v1/mcp-servers/oauth/*`.
   app.route(
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
@@ -318,7 +318,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           eventSubscriptions: deps.eventSubscriptions,
           modelProviderStore: deps.resolveModelProviderStore(),
           mcpServerStore: deps.resolveMcpServerStore(),
-          tokenStore: deps.tokenStore,
           skillStore: deps.skillStore,
           agentStore: deps.resolveAgentStore(),
           sandboxProviderStore: deps.sandboxProviderStore,
@@ -400,7 +399,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,

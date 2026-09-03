@@ -147,6 +147,28 @@ describe('ScheduleFormDrawer', () => {
     expect(await screen.findByLabelText('Agent')).toBeDisabled();
   });
 
+  it('offers only standard recurrence modes and labels the preview as Frequency', async () => {
+    renderDrawer({});
+
+    expect(await screen.findByRole('button', { name: 'Hourly' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+    expect(screen.getByText('Frequency')).toBeInTheDocument();
+  });
+
+  it('keeps a legacy custom cron read-only until its recurrence is replaced', async () => {
+    renderDrawer({
+      mode: 'edit',
+      schedule: pausedSchedule({ cron: '0 9 1 * *' }),
+    });
+
+    expect(await screen.findByText('Existing custom schedule')).toBeInTheDocument();
+    expect(screen.getAllByText('0 9 1 * *')).not.toHaveLength(0);
+    expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+  });
+
   it('creates a paused schedule, stays open on the test screen, and toasts', async () => {
     const createSchedule = vi.fn(async () => pausedSchedule());
     const onOpenChange = vi.fn();

@@ -74,7 +74,8 @@ describe('draft composer sections', () => {
 
     expect(await screen.findByTitle('Select model')).toHaveTextContent('gpt-4.1');
     expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
-    expect(screen.getByRole('button', { name: 'Agent config' })).toBeInTheDocument();
+    // Without shell builder mode, left chrome is Tools — not Agent config.
+    expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
   });
 
   it('propagates disabled and running state to composed controls', async () => {
@@ -83,12 +84,10 @@ describe('draft composer sections', () => {
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
     expect(await screen.findByTitle('Select model')).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Agent config' })).toBeDisabled();
 
     rerender(<DraftSections isRunning />);
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
     expect(await screen.findByTitle('Select model')).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Agent config' })).toBeDisabled();
   });
 });

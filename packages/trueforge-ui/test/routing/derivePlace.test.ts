@@ -65,7 +65,11 @@ describe('derivePlace', () => {
 
   it('active immutable agent maps to an agent place', () => {
     expect(
-      deriveChatPlace(snap({ mode: { status: 'active', isMutable: false, agentName: 'helper', locked: false } })),
+      deriveChatPlace(
+        snap({
+          mode: { status: 'active', isMutable: false, isCreateAgent: false, agentName: 'helper', locked: false },
+        }),
+      ),
     ).toEqual({ type: 'agent', agentName: 'helper' });
   });
 
@@ -74,7 +78,7 @@ describe('derivePlace', () => {
       deriveChatPlace(
         snap({
           agentConfigMode: 'SingleAgent',
-          mode: { status: 'active', isMutable: false, agentName: 'locked', locked: true },
+          mode: { status: 'active', isMutable: false, isCreateAgent: false, agentName: 'locked', locked: true },
         }),
       ),
     ).toEqual({ type: 'root' });
@@ -82,7 +86,9 @@ describe('derivePlace', () => {
 
   it('mutable draft and idle map to root', () => {
     expect(deriveChatPlace(snap({ mode: { status: 'idle' } }))).toEqual({ type: 'root' });
-    expect(deriveChatPlace(snap({ mode: { status: 'active', isMutable: true, locked: false } }))).toEqual({
+    expect(
+      deriveChatPlace(snap({ mode: { status: 'active', isMutable: true, isCreateAgent: false, locked: false } })),
+    ).toEqual({
       type: 'root',
     });
   });

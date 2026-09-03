@@ -46,7 +46,6 @@ async function buildApp() {
           tokenStore,
           clientName: 'test-client',
         }),
-      tokenStore,
       skillStore: new SqliteSkillStore(db),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),

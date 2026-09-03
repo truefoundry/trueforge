@@ -81,7 +81,7 @@ describe('SessionsPage', () => {
     expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();
     expect(await screen.findByText('Named session')).toBeInTheDocument();
     expect(screen.getByText('Draft session')).toBeInTheDocument();
-    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument();
     expect(listSessions).toHaveBeenCalledWith(
       expect.objectContaining({
         order: 'desc',
@@ -106,6 +106,7 @@ describe('SessionsPage', () => {
     expect(Date.parse(request.endTimestamp) - Date.parse(request.startTimestamp)).toBe(DEFAULT_SESSION_TIME_WINDOW_MS);
     expect(window.location.search).toContain('view=sessions');
     expect(screen.getByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
+    expect(screen.getByRole('separator', { name: 'Resize session list' })).toHaveClass('w-0');
   });
 
   it('shows the custom range picker only after Custom Time Range is clicked', async () => {
@@ -158,6 +159,9 @@ describe('SessionsPage', () => {
     // Pinning makes refresh/deep-link boot find the selected row, but must not
     // replace the active list filter during this mounted interaction.
     expect(mockedListSessions.mock.calls.every(([request]) => request === initialListRequest)).toBe(true);
+    const resizer = screen.getByRole('separator', { name: 'Resize session list' });
+    expect(resizer).toHaveClass('w-0');
+    expect(resizer.querySelector('.w-px')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Named session' })).toBeInTheDocument();
   });
 });

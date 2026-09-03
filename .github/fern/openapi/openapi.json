@@ -1644,10 +1644,14 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -1702,10 +1706,14 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -5786,7 +5794,32 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "MCP servers as a slim name/url list for the composer. No auth or auth_status.",
+        "description": "Paginated MCP servers as a slim name/url list for the composer.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 100, max 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5796,7 +5829,17 @@
                 }
               }
             },
-            "description": "All MCP servers (chat projection)."
+            "description": "Paginated MCP servers (chat projection)."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -5813,6 +5856,11 @@
         "tags": [
           "MCP Servers"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -5969,7 +6017,7 @@
         "x-fern-sdk-method-name": "delete_authorization"
       },
       "get": {
-        "description": "Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.",
+        "description": "Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -5983,12 +6031,12 @@
             }
           },
           {
-            "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
+            "description": "Same-origin path to land in the browser after consent.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
+              "description": "Same-origin path to land in the browser after consent.",
               "type": "string"
             }
           }
@@ -7865,7 +7913,32 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 100, max 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -7875,7 +7948,17 @@
                 }
               }
             },
-            "description": "All MCP servers"
+            "description": "Paginated MCP servers"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -7902,6 +7985,11 @@
         "tags": [
           "MCP Servers"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"
@@ -8049,7 +8137,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
           {
             "description": "MCP server name.",

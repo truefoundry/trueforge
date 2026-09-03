@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
+import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionDetailHeaderProps } from './types.js';
@@ -17,6 +18,8 @@ export function AgentSessionDetailHeader({
   createdAt,
   view,
   onClose,
+  onResume,
+  resumeLabel,
 }: AgentSessionDetailHeaderProps) {
   const [copied, setCopied] = useState(false);
 
@@ -54,6 +57,11 @@ export function AgentSessionDetailHeader({
           </button>
         </LightTooltip>
       </div>
+      {onResume != null && resumeLabel != null ? (
+        <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })} onClick={onResume}>
+          {resumeLabel}
+        </button>
+      ) : null}
       <button
         type="button"
         aria-label="Close session details"

@@ -5,6 +5,6 @@
  *     {}
  */
 export interface AuthorizeMcpServersRequest {
-    /** Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended. */
+    /** Same-origin path to land in the browser after consent. */
     returnTo?: string;
 }
