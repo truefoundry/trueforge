@@ -23,10 +23,12 @@ export class McpServersClient {
     }
 
     /**
-     * MCP servers as a slim name/url list for the composer. No auth or auth_status.
+     * Paginated MCP servers as a slim name/url list for the composer.
      *
+     * @param {TrueForge.ListMcpServersRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
+     * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -34,72 +36,103 @@ export class McpServersClient {
      * @example
      *     await client.mcpServers.list()
      */
-    public list(
+    public async list(
+        request: TrueForge.ListMcpServersRequest = {},
         requestOptions?: McpServersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.ListAvailableMcpServersResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
-    }
-
-    private async __list(
-        requestOptions?: McpServersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.ListAvailableMcpServersResponse>> {
-        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
-        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
-            _authRequest.headers,
-            this._options?.headers,
-            requestOptions?.headers,
-        );
-        const _response = await (this._options.fetcher ?? core.fetcher)({
-            url: core.url.join(
-                (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)),
-                "api/v1/mcp-servers",
-            ),
-            method: "GET",
-            headers: _headers,
-            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
-            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
-            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
-            abortSignal: requestOptions?.abortSignal,
-            fetchFn: this._options?.fetch,
-            logging: this._options.logging,
-        });
-        if (_response.ok) {
-            return {
-                data: serializers.ListAvailableMcpServersResponse.parseOrThrow(_response.body, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    skipValidation: true,
-                    breadcrumbsPrefix: ["response"],
-                }),
-                rawResponse: _response.rawResponse,
-            };
-        }
-
-        if (_response.error.reason === "status-code") {
-            switch (_response.error.statusCode) {
-                case 401:
-                    throw new TrueForge.UnauthorizedError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+    ): Promise<core.Page<TrueForge.AvailableMcpServer, TrueForge.ListAvailableMcpServersResponse>> {
+        const list = core.HttpResponsePromise.interceptFunction(
+            async (
+                request: TrueForge.ListMcpServersRequest,
+            ): Promise<core.WithRawResponse<TrueForge.ListAvailableMcpServersResponse>> => {
+                const { limit = 25, pageToken } = request;
+                const _queryParams: Record<string, unknown> = {
+                    limit,
+                    page_token: pageToken,
+                };
+                const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+                const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+                    _authRequest.headers,
+                    this._options?.headers,
+                    requestOptions?.headers,
+                );
+                const _response = await (this._options.fetcher ?? core.fetcher)({
+                    url: core.url.join(
+                        (await core.Supplier.get(this._options.baseUrl)) ??
+                            (await core.Supplier.get(this._options.environment)),
+                        "api/v1/mcp-servers",
+                    ),
+                    method: "GET",
+                    headers: _headers,
+                    queryString: core.url
+                        .queryBuilder()
+                        .addMany(_queryParams)
+                        .mergeAdditional(requestOptions?.queryParams)
+                        .build(),
+                    timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+                    maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+                    abortSignal: requestOptions?.abortSignal,
+                    fetchFn: this._options?.fetch,
+                    logging: this._options.logging,
+                });
+                if (_response.ok) {
+                    return {
+                        data: serializers.ListAvailableMcpServersResponse.parseOrThrow(_response.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
                             allowUnrecognizedEnumValues: true,
                             skipValidation: true,
                             breadcrumbsPrefix: ["response"],
                         }),
-                        _response.rawResponse,
-                    );
-                default:
-                    throw new errors.TrueForgeError({
-                        statusCode: _response.error.statusCode,
-                        body: _response.error.body,
                         rawResponse: _response.rawResponse,
-                    });
-            }
-        }
-
-        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/mcp-servers");
+                    };
+                }
+                if (_response.error.reason === "status-code") {
+                    switch (_response.error.statusCode) {
+                        case 400:
+                            throw new TrueForge.BadRequestError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
+                        case 401:
+                            throw new TrueForge.UnauthorizedError(
+                                serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                                    unrecognizedObjectKeys: "passthrough",
+                                    allowUnrecognizedUnionMembers: true,
+                                    allowUnrecognizedEnumValues: true,
+                                    skipValidation: true,
+                                    breadcrumbsPrefix: ["response"],
+                                }),
+                                _response.rawResponse,
+                            );
+                        default:
+                            throw new errors.TrueForgeError({
+                                statusCode: _response.error.statusCode,
+                                body: _response.error.body,
+                                rawResponse: _response.rawResponse,
+                            });
+                    }
+                }
+                return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/mcp-servers");
+            },
+        );
+        const dataWithRawResponse = await list(request).withRawResponse();
+        return new core.Page<TrueForge.AvailableMcpServer, TrueForge.ListAvailableMcpServersResponse>({
+            response: dataWithRawResponse.data,
+            rawResponse: dataWithRawResponse.rawResponse,
+            hasNextPage: (response) =>
+                response?.pagination.nextPageToken != null &&
+                !(typeof response?.pagination.nextPageToken === "string" && response?.pagination.nextPageToken === ""),
+            getItems: (response) => response?.data ?? [],
+            loadPage: (response) => {
+                return list(core.setObjectProperty(request, "pageToken", response?.pagination.nextPageToken));
+            },
+        });
     }
 
     /**

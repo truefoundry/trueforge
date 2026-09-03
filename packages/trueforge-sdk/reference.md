@@ -441,7 +441,7 @@ await client.server.getCapabilities();
 </details>
 
 ## MCP Servers
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListAvailableMcpServersResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.AvailableMcpServer, TrueForge.ListAvailableMcpServersResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -453,7 +453,7 @@ await client.server.getCapabilities();
 <dl>
 <dd>
 
-MCP servers as a slim name/url list for the composer. No auth or auth_status.
+Paginated MCP servers as a slim name/url list for the composer.
 </dd>
 </dl>
 </dd>
@@ -480,6 +480,14 @@ await client.mcpServers.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListMcpServersRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
@@ -2826,7 +2834,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 </details>
 
 ## Settings McpServers
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListMcpServersResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.ConfiguredMcpServer, TrueForge.ListMcpServersResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -2838,7 +2846,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 <dl>
 <dd>
 
-All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
+Paginated MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
 </dd>
 </dl>
 </dd>
@@ -2865,6 +2873,14 @@ await client.settings.mcpServers.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.settings.ListMcpServersRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
