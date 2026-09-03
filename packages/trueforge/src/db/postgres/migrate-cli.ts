@@ -18,7 +18,6 @@ const db = createDb({
   poolMax: configuration.DATABASE_POOL_MAX,
   statementTimeoutMs: configuration.POSTGRES_STATEMENT_TIMEOUT_MS,
   idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
-  ssl: configuration.POSTGRES_SSL,
 });
 
 try {

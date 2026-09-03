@@ -222,7 +222,6 @@ async function createDistributedPersistence(options: {
     poolMax: databasePoolMax,
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
-    ssl: configuration.POSTGRES_SSL,
   });
   await migrateToLatest(db);
   logger.info('Distributed mode: postgres');

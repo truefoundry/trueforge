@@ -18,8 +18,6 @@ import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
 
-import { resolvePostgresSslConfig, type PostgresSslConfig } from './db/postgres/ssl';
-
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
 const DEFAULT_HOST = 'localhost';
@@ -142,6 +140,31 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
+/** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
+function parsePostgresSslMode(raw: string | undefined): string {
+  if (!raw) {
+    return '';
+  }
+  const mode = raw.trim();
+  if (mode === '') {
+    return '';
+  }
+  switch (mode) {
+    case 'disable':
+    case 'prefer':
+    case 'require':
+    case 'verify-ca':
+    case 'verify-full':
+    case 'no-verify':
+      return mode;
+    default:
+      throw new Error(
+        'Environment variable POSTGRES_SSL_MODE must be one of disable, prefer, require, verify-ca, ' +
+          `verify-full, no-verify; got "${mode}"`,
+      );
+  }
+}
+
 /**
  * Prefer `dist/_frontend` shipped in the npm tarball (npx / `pnpm start`).
  * Fall back to the monorepo sibling `../frontend/dist` (host-dev before a copy).
@@ -211,6 +234,7 @@ function resolvePostgresDatabaseUrl(): string {
   if (databaseUrl !== undefined && databaseUrl.trim() !== '') {
     return databaseUrl.trim();
   }
+
   const postgresUser = getEnv('POSTGRES_USER', { defaultValue: DEFAULT_POSTGRES_USER }) ?? DEFAULT_POSTGRES_USER;
   const postgresPassword =
     getEnv('POSTGRES_PASSWORD', { defaultValue: DEFAULT_POSTGRES_PASSWORD }) ?? DEFAULT_POSTGRES_PASSWORD;
@@ -221,6 +245,7 @@ function resolvePostgresDatabaseUrl(): string {
     raw: getEnv('POSTGRES_PORT'),
     defaultValue: DEFAULT_POSTGRES_PORT,
   });
+  const postgresSslMode = parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
   if (
     postgresUser.trim() === '' ||
     postgresPassword.trim() === '' ||
@@ -231,12 +256,14 @@ function resolvePostgresDatabaseUrl(): string {
       'Set DATABASE_URL, or set non-empty POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST when STANDALONE=false.',
     );
   }
+
   return buildPostgresConnectionString({
     user: postgresUser,
     password: postgresPassword,
     host: postgresHost,
     port: postgresPort,
     database: postgresDb,
+    sslMode: postgresSslMode,
   });
 }
 
@@ -247,8 +274,13 @@ function buildPostgresConnectionString(parts: {
   host: string;
   port: number;
   database: string;
+  sslMode: string;
 }): string {
-  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+  let connectionString = `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+  if (parts.sslMode !== '') {
+    connectionString += `?sslmode=${encodeURIComponent(parts.sslMode)}`;
+  }
+  return connectionString;
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -493,7 +525,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
-   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`.
+   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`
+   * (including optional `POSTGRES_SSL_MODE` as `sslmode`).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
    */
   DATABASE_URL: string;
@@ -509,11 +542,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
    */
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
-  /**
-   * node-pg Pool `ssl` from `POSTGRES_SSL_MODE`.
-   * Unset / `disable` → no TLS. Same modes as ServiceFoundry `DB_SSL_MODE`.
-   */
-  POSTGRES_SSL: PostgresSslConfig;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
   /**
@@ -663,7 +691,6 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
         defaultValue: 60_000,
       }),
-      POSTGRES_SSL: resolvePostgresSslConfig(getEnv('POSTGRES_SSL_MODE')),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
     };

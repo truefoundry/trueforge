@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Add `POSTGRES_SSL_MODE` for the Postgres pool (ServiceFoundry-compatible SSL modes).
+Apply `POSTGRES_SSL_MODE` as `sslmode` on the Postgres connection URL.
