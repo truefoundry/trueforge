@@ -9,6 +9,7 @@ allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true
   better-sqlite3: false
+  cbor-extract: true
   esbuild: true
   # Fern-generated SDK tests (packages/trueforge-sdk) run msw's postinstall.
   msw: true

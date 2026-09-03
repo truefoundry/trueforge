@@ -55,7 +55,7 @@ export const putSandboxProviderRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Daytona rejected the provided API key.',
+      description: 'The sandbox provider rejected the supplied credentials.',
     },
   },
 });

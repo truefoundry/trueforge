@@ -1,7 +1,8 @@
-/** Daytona provider construction + persisted build-status refresh (see checkSnapshotStatus). */
+/** Provider construction + persisted build-status refresh. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
   DaytonaSandboxProvider,
+  ModalSandboxProvider,
   SANDBOX_IMAGE_URI,
   withTimeout,
   type SandboxBuild,
@@ -11,6 +12,7 @@ import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
+  toModalSandboxProviderInput,
   type SandboxBuildMetadata,
   type SandboxProviderManifest,
   type SandboxStatus,
@@ -23,6 +25,14 @@ export function isDaytonaAuthError(error: unknown): boolean {
 
 export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
+}
+
+/** Modal uses ConnectRPC status codes for authentication and authorization failures. */
+export function isModalAuthError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return false;
+  }
+  return error.code === 16 || error.code === 7;
 }
 
 /**
@@ -39,7 +49,7 @@ export function toDaytonaSandboxProvider({
   logger,
   build_metadata,
 }: {
-  manifest: SandboxProviderManifest;
+  manifest: Extract<SandboxProviderManifest, { type: 'daytona' }>;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
@@ -55,6 +65,44 @@ export function toDaytonaSandboxProvider({
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });
+}
+
+export function toModalSandboxProvider({
+  manifest,
+  tenant_id,
+  logger,
+  build_metadata,
+}: {
+  manifest: Extract<SandboxProviderManifest, { type: 'modal' }>;
+  tenant_id: string;
+  logger: Logger;
+  build_metadata?: SandboxBuildMetadata | null;
+}): ModalSandboxProvider {
+  return new ModalSandboxProvider({
+    ...toModalSandboxProviderInput(manifest),
+    tenantName: tenant_id,
+    sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
+    buildRef: build_metadata?.['build_ref'],
+    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    logger,
+  });
+}
+
+export function toSandboxProvider({
+  manifest,
+  tenant_id,
+  logger,
+  build_metadata,
+}: {
+  manifest: SandboxProviderManifest;
+  tenant_id: string;
+  logger: Logger;
+  build_metadata?: SandboxBuildMetadata | null;
+}): DaytonaSandboxProvider | ModalSandboxProvider {
+  const input = { tenant_id, logger, ...(build_metadata !== undefined ? { build_metadata } : {}) };
+  return manifest.type === 'daytona'
+    ? toDaytonaSandboxProvider({ manifest, ...input })
+    : toModalSandboxProvider({ manifest, ...input });
 }
 
 /** Maps a core `SandboxBuild` onto the persisted/wire status shape (metadata passes through). */
@@ -74,13 +122,13 @@ function sandboxStatusFromRecord(record: SandboxProviderRecord): SandboxStatus {
   };
 }
 
-// Daytona deactivates idle snapshots after 14 days; revalidate at 13 to stay a day ahead.
+// Revalidate ready provider images periodically; Daytona deactivates idle snapshots after 14 days.
 const READY_REVALIDATE_INTERVAL_MS = 13 * 24 * 60 * 60 * 1000;
 
-/** Cap the Daytona round-trip for the refresh, which runs outside a transaction. */
+/** Cap the provider round-trip for the refresh, which runs outside a transaction. */
 const STATUS_REFRESH_TIMEOUT_MS = 60_000;
 
-export async function checkSnapshotStatus({
+export async function checkSandboxBuildStatus({
   store,
   tenant_id,
   logger,
@@ -102,7 +150,7 @@ export async function checkSnapshotStatus({
     return persisted;
   }
 
-  const provider = toDaytonaSandboxProvider({
+  const provider = toSandboxProvider({
     manifest: record.manifest,
     tenant_id,
     logger,

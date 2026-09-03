@@ -5,18 +5,19 @@ import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandbox
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import {
-  checkSnapshotStatus,
+  checkSandboxBuildStatus,
   isDaytonaAuthError,
   isDaytonaPermissionError,
-  toDaytonaSandboxProvider,
+  isModalAuthError,
+  toSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 import { TENANT_ID } from './sessions';
 
-/** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
-const BUILD_REQUEST_TIMEOUT_MS = 3_000;
+/** Cap provider image preparation so a slow/unreachable provider cannot hold the request indefinitely. */
+const BUILD_REQUEST_TIMEOUT_MS = 120_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
@@ -25,9 +26,48 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
 }
 
 function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
+  if (manifest.type === 'daytona') {
+    return { ...manifest, auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) } };
+  }
   return {
     ...manifest,
-    auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
+    auth: {
+      token_id: toRedactedSecretValue(manifest.auth.token_id),
+      token_secret: toRedactedSecretValue(manifest.auth.token_secret),
+    },
+  };
+}
+
+function resolveManifestSecrets({
+  incoming,
+  existing,
+}: {
+  incoming: SandboxProviderManifest;
+  existing: SandboxProviderManifest | undefined;
+}): SandboxProviderManifest {
+  if (incoming.type === 'daytona') {
+    return {
+      ...incoming,
+      auth: {
+        api_key: resolveStoredSecretValue({
+          incoming: incoming.auth.api_key,
+          existing: existing?.type === 'daytona' ? existing.auth.api_key : undefined,
+        }),
+      },
+    };
+  }
+  return {
+    ...incoming,
+    auth: {
+      token_id: resolveStoredSecretValue({
+        incoming: incoming.auth.token_id,
+        existing: existing?.type === 'modal' ? existing.auth.token_id : undefined,
+      }),
+      token_secret: resolveStoredSecretValue({
+        incoming: incoming.auth.token_secret,
+        existing: existing?.type === 'modal' ? existing.auth.token_secret : undefined,
+      }),
+    },
   };
 }
 
@@ -39,7 +79,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
-    const status = await checkSnapshotStatus({
+    const status = await checkSandboxBuildStatus({
       store: deps.sandboxProviderStore,
       tenant_id: TENANT_ID,
       logger: deps.logger,
@@ -59,36 +99,28 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
     const body: UpdateSandboxProviderRequest = c.req.valid('json');
     const incoming = body.manifest;
-    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
-      ...incoming,
-      auth: {
-        api_key: resolveStoredSecretValue({
-          incoming: incoming.auth.api_key,
-          existing: existing?.manifest.auth.api_key,
-        }),
-      },
-    });
+    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest =>
+      resolveManifestSecrets({ incoming, existing: existing?.manifest });
     try {
-      // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
-      const { manifest, status } = await deps.withTransaction(async transaction => {
-        const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
-        const resolved = resolveManifest(locked);
-        // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
-        // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
-        const provider = toDaytonaSandboxProvider({
-          manifest: resolved,
-          tenant_id: TENANT_ID,
-          logger: deps.logger,
-          ...(locked ? { build_metadata: locked.build_metadata } : {}),
-        });
-        const built = toSandboxStatus(
-          await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
-        );
+      const existing = await deps.sandboxProviderStore.getSandboxProvider(TENANT_ID);
+      const manifest = resolveManifest(existing);
+      // Build references are provider-specific and must not survive a provider switch.
+      const buildMetadata = existing?.manifest.type === manifest.type ? existing.build_metadata : undefined;
+      const provider = toSandboxProvider({
+        manifest,
+        tenant_id: TENANT_ID,
+        logger: deps.logger,
+        ...(buildMetadata ? { build_metadata: buildMetadata } : {}),
+      });
+      const status = toSandboxStatus(
+        await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
+      );
+      await deps.withTransaction(async transaction => {
+        await deps.sandboxProviderStore.getSandboxProviderForUpdate(TENANT_ID, transaction);
         await deps.sandboxProviderStore.upsertSandboxProvider(
-          { tenant_id: TENANT_ID, manifest: resolved, ...built },
+          { tenant_id: TENANT_ID, manifest, ...status },
           transaction,
         );
-        return { manifest: resolved, status: built };
       });
       return c.json(
         {
@@ -102,7 +134,10 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'API key is required' } }, 400);
+        return c.json(
+          { error: { message: incoming.type === 'daytona' ? 'API key is required' : 'Modal tokens are required' } },
+          400,
+        );
       }
       if (isDaytonaAuthError(error)) {
         return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
@@ -117,6 +152,9 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           },
           422,
         );
+      }
+      if (incoming.type === 'modal' && isModalAuthError(error)) {
+        return c.json({ error: { message: 'Modal rejected the tokens — check the credentials' } }, 422);
       }
       throw error;
     }

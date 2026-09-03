@@ -115,6 +115,7 @@
     "@opentelemetry/core": "^2.10.0",
     "ai": "^7.0.82",
     "dedent": "^1.7.2",
+    "modal": "0.9.0",
     "openai": "^7.5.0",
     "ulid": "^3.0.2",
     "winston": "^3.19.0",

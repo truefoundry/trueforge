@@ -56,7 +56,7 @@ import {
   resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { checkSandboxBuildStatus } from '../sandbox/providerUtils';
 import { TENANT_ID } from './sessions';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -209,11 +209,10 @@ function createTurnResolver(deps: {
         existingSandboxId,
         currentProviderType: provider.type,
       });
-      // A fresh Daytona sandbox is cloned from the release snapshot, so the build must be ready first.
-      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot.
+      // A fresh remote sandbox needs the prepared release image; restoring an existing sandbox does not.
       // Local fallback has no image build.
       if (carriedSandboxId === undefined && provider.type !== 'local') {
-        const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id: TENANT_ID, logger });
+        const status = await checkSandboxBuildStatus({ store: sandboxProviderStore, tenant_id: TENANT_ID, logger });
         if (status?.status !== 'ready') {
           throw new HTTPException(422, {
             message:

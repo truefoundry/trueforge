@@ -1,10 +1,8 @@
-// Stub the Daytona-touching helpers so the router never talks to Daytona: the PUT path builds via
-// toDaytonaSandboxProvider, and the GET path refreshes via checkSnapshotStatus. isDaytonaAuthError,
-// isDaytonaPermissionError and toSandboxStatus stay real so the error mapping and PUT wire shape are
-// exercised.
+// Stub provider calls so the router never talks to a sandbox service. The provider-specific error
+// predicates and toSandboxStatus stay real so error mappings and PUT wire shapes are exercised.
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual('../../../src/sandbox/providerUtils');
-  return { ...actual, toDaytonaSandboxProvider: jest.fn(), checkSnapshotStatus: jest.fn() };
+  return { ...actual, toSandboxProvider: jest.fn(), checkSandboxBuildStatus: jest.fn() };
 });
 
 import { DaytonaError } from '@daytona/sdk';
@@ -21,11 +19,11 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
-import { checkSnapshotStatus, toDaytonaSandboxProvider } from '../../../src/sandbox/providerUtils';
+import { checkSandboxBuildStatus, toSandboxProvider } from '../../../src/sandbox/providerUtils';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
-const mockProviderFactory = toDaytonaSandboxProvider as jest.Mock;
-const mockCheckStatus = checkSnapshotStatus as jest.Mock;
+const mockProviderFactory = toSandboxProvider as jest.Mock;
+const mockCheckStatus = checkSandboxBuildStatus as jest.Mock;
 const silentLogger = createLogger({ silent: true });
 
 const putBody = {
@@ -35,6 +33,16 @@ const putBody = {
   auto_stop_interval_in_minutes: 5,
   auto_archive_interval_in_minutes: 60,
   auto_delete_interval_in_minutes: 7200,
+};
+
+const modalBody = {
+  type: 'modal' as const,
+  auth: { token_id: 'ak-test', token_secret: 'as-test-secret' },
+  environment: 'main',
+  app_name: 'trueforge',
+  exec_timeout_ms: 60000,
+  sandbox_timeout_ms: 3600000,
+  idle_timeout_ms: 300000,
 };
 
 const IMAGE_URI = 'tfy.jfrog.io/tfy-images/truefoundry-utils-core-sandbox:029ea5ff';
@@ -127,7 +135,9 @@ describe('sandboxProviders router', () => {
   it('GET /catalogs/sandbox-providers returns the shipped catalog verbatim', async () => {
     const response = await catalogRouter.request('/sandbox-providers');
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ data: [...SandboxCatalog.load().list()] });
+    const providers = [...SandboxCatalog.load().list()];
+    expect(await response.json()).toEqual({ data: providers });
+    expect(providers.map(provider => provider.type)).toEqual(['daytona']);
   });
 
   it('GET / returns 404 when none configured', async () => {
@@ -147,6 +157,22 @@ describe('sandboxProviders router', () => {
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
     expect(stored?.manifest).toEqual(putBody);
+  });
+
+  it('PUT supports Modal and redacts both Modal tokens', async () => {
+    const { settingsRouter: router, sandboxProviderStore: store } = await createRouters();
+    const response = await router.request('/', putInit(modalBody));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: wireResponse({
+        ...modalBody,
+        auth: {
+          token_id: toRedactedSecretValue(modalBody.auth.token_id),
+          token_secret: toRedactedSecretValue(modalBody.auth.token_secret),
+        },
+      }),
+    });
+    expect((await store.getSandboxProvider(TENANT_ID))?.manifest).toEqual(modalBody);
   });
 
   it('GET surfaces an error (500) when the status refresh throws', async () => {
@@ -180,6 +206,15 @@ describe('sandboxProviders router', () => {
     });
   });
 
+  it('PUT returns 422 when Modal rejects its tokens', async () => {
+    mockProviderFactory.mockReturnValue(stubProvider({ buildImage: jest.fn().mockRejectedValue({ code: 16 }) }));
+    const response = await settingsRouter.request('/', putInit(modalBody));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: { message: 'Modal rejected the tokens — check the credentials' },
+    });
+  });
+
   it('PUT does not persist config when the build call fails auth', async () => {
     const { settingsRouter: router } = await createRouters();
     mockProviderFactory.mockReturnValue(
@@ -203,6 +238,24 @@ describe('sandboxProviders router', () => {
 });
 
 describe('sandbox-provider secret redaction and strict PUT', () => {
+  it('PUT with redacted Modal tokens keeps both stored secrets', async () => {
+    const { settingsRouter, sandboxProviderStore } = await createRouters();
+    expect((await settingsRouter.request('/', putInit(modalBody))).status).toBe(200);
+    const update = {
+      ...modalBody,
+      exec_timeout_ms: 90000,
+      auth: {
+        token_id: toRedactedSecretValue(modalBody.auth.token_id),
+        token_secret: toRedactedSecretValue(modalBody.auth.token_secret),
+      },
+    };
+    expect((await settingsRouter.request('/', putInit(update))).status).toBe(200);
+    expect((await sandboxProviderStore.getSandboxProvider(TENANT_ID))?.manifest).toEqual({
+      ...modalBody,
+      exec_timeout_ms: 90000,
+    });
+  });
+
   it('PUT create with a redacted api_key returns 400', async () => {
     const { settingsRouter } = await createRouters();
     const response = await settingsRouter.request(
@@ -264,7 +317,11 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await sandboxProviderStore.getSandboxProvider(TENANT_ID);
-    expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
+    expect(stored?.manifest.type).toBe('daytona');
+    if (stored?.manifest.type !== 'daytona') {
+      throw new Error('Expected a Daytona manifest');
+    }
+    expect(stored.manifest.auth.api_key).toBe(rotatedKey);
   });
 
   it('PUT update reuses persisted build_metadata (no image upgrade on re-save)', async () => {
@@ -279,5 +336,14 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
         build_metadata: readyBuild.metadata,
       }),
     );
+  });
+
+  it('PUT provider switch does not reuse provider-specific build_metadata', async () => {
+    const { settingsRouter } = await createRouters();
+    expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);
+
+    mockProviderFactory.mockClear();
+    expect((await settingsRouter.request('/', putInit(modalBody))).status).toBe(200);
+    expect(mockProviderFactory.mock.calls[0]?.[0]).not.toHaveProperty('build_metadata');
   });
 });

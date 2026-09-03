@@ -3,7 +3,11 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import type { ISandboxProviderStore, UpsertSandboxProviderInput } from '../../src/db/sandboxProviderStore';
-import type { SandboxBuildMetadata, SandboxProviderManifest } from '../../src/schemas/sandboxProvider';
+import type {
+  DaytonaSandboxProvider,
+  SandboxBuildMetadata,
+  SandboxProviderManifest,
+} from '../../src/schemas/sandboxProvider';
 
 const TENANT = 'default';
 
@@ -12,7 +16,7 @@ const BUILD_METADATA: SandboxBuildMetadata = {
   image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff',
 };
 
-function manifest(overrides: Partial<SandboxProviderManifest> = {}): SandboxProviderManifest {
+function manifest(overrides: Partial<DaytonaSandboxProvider> = {}): SandboxProviderManifest {
   return {
     type: 'daytona',
     auth: { api_key: 'dtn-test' },

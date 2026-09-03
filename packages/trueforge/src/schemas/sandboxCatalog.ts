@@ -5,11 +5,10 @@
 import { z } from '@hono/zod-openapi';
 import { DaytonaSandboxProviderSchema } from './sandboxProvider';
 
-/**
- * Catalog wire type. Single variant today (avoids one-member `oneOf` in OpenAPI).
- * Widen to a discriminated union when a second provider ships.
- */
-export const CatalogSandboxProviderSchema = DaytonaSandboxProviderSchema.omit({ auth: true })
+// The settings UI contract currently models Daytona fields only. Keep Modal out
+// of discovery until that canonical contract can represent Modal configuration.
+export const CatalogSandboxProviderSchema = z
+  .object(DaytonaSandboxProviderSchema.omit({ auth: true }).shape)
   .strict()
   .openapi('CatalogSandboxProvider');
 

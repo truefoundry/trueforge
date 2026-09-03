@@ -5,7 +5,7 @@
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
  */
 import { z } from '@hono/zod-openapi';
-import type { DaytonaSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
+import type { DaytonaSandboxProviderOptions, ModalSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
 
 const DaytonaSandboxProviderAuthSchema = z
   .object({
@@ -47,14 +47,50 @@ export const DaytonaSandboxProviderSchema = z
       .nonnegative()
       .describe('Minutes before Daytona auto-deletes the sandbox (0 disables).'),
   })
-  .strict();
+  .strict()
+  .openapi('DaytonaSandboxProvider');
+
+const ModalSandboxProviderAuthSchema = z
+  .object({
+    token_id: z.string().min(1).describe('Modal token ID. Responses are redacted; a redacted PUT value keeps it.'),
+    token_secret: z
+      .string()
+      .min(1)
+      .describe('Modal token secret. Responses are redacted; a redacted PUT value keeps it.'),
+  })
+  .strict()
+  .describe('Modal authentication credentials.')
+  .openapi('ModalSandboxProviderAuth');
+
+export const ModalSandboxProviderSchema = z
+  .object({
+    type: z.literal('modal').describe('Modal sandbox provider.'),
+    auth: ModalSandboxProviderAuthSchema,
+    environment: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Modal environment; the workspace default is used when omitted.'),
+    app_name: z.string().min(1).default('trueforge').describe('Modal App used to own TrueForge sandboxes and images.'),
+    exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
+    sandbox_timeout_ms: z.number().int().positive().describe('Maximum lifetime of each Modal sandbox in milliseconds.'),
+    idle_timeout_ms: z
+      .number()
+      .int()
+      .positive()
+      .describe('Idle time before Modal terminates the sandbox in milliseconds.'),
+  })
+  .strict()
+  .openapi('ModalSandboxProvider');
 
 /**
  * Persisted jsonb: the provider config only (no build status). Single variant today —
  * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
  * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
  */
-export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
+export const SandboxProviderManifestSchema = z
+  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, ModalSandboxProviderSchema])
+  .openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -104,6 +140,7 @@ export const GetSandboxProviderResponseSchema = z
 /** Persisted jsonb — the provider config only (no build status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
+export type ModalSandboxProvider = z.infer<typeof ModalSandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
@@ -111,7 +148,7 @@ export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProvider
 export type UpdateSandboxProviderRequest = z.infer<typeof UpdateSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
-export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
+export function toDaytonaSandboxProviderInput(manifest: DaytonaSandboxProvider): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
@@ -123,5 +160,22 @@ export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest)
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,
     autoDeleteIntervalInMinutes: manifest.auto_delete_interval_in_minutes,
+  };
+}
+
+export function toModalSandboxProviderInput(
+  manifest: ModalSandboxProvider,
+): Pick<
+  ModalSandboxProviderOptions,
+  'tokenId' | 'tokenSecret' | 'environment' | 'appName' | 'timeoutMs' | 'sandboxTimeoutMs' | 'idleTimeoutMs'
+> {
+  return {
+    tokenId: manifest.auth.token_id,
+    tokenSecret: manifest.auth.token_secret,
+    environment: manifest.environment,
+    appName: manifest.app_name,
+    timeoutMs: manifest.exec_timeout_ms,
+    sandboxTimeoutMs: manifest.sandbox_timeout_ms,
+    idleTimeoutMs: manifest.idle_timeout_ms,
   };
 }
