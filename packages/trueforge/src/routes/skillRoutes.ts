@@ -4,10 +4,11 @@
  * /api/v1/skills.
  * Discovery catalog lives at GET /api/v1/catalogs/skills.
  */
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateSkillRequestSchema,
+  DeleteSkillResponseSchema,
   GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
   ListSkillsResponseSchema,
@@ -112,6 +113,37 @@ export const putSkillRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+  },
+});
+
+const SkillNameParamsSchema = z.object({
+  name: z.string().min(1).describe('Skill name.'),
+});
+
+export const deleteSkillRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.SKILLS],
+  summary: 'Delete a skill',
+  description: 'Permanently removes the configured skill by name. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['settings', 'skills'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: SkillNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteSkillResponseSchema } },
+      description: 'Skill deleted.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
 });

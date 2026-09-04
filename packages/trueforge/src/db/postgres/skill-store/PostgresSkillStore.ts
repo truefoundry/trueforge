@@ -97,4 +97,9 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
       .executeTakeFirstOrThrow();
     return toRecord(row);
   }
+
+  async deleteSkill(input: GetSkillInput, transaction?: Transaction<Database>): Promise<void> {
+    const db = transaction ?? this.#db;
+    await db.deleteFrom('skill').where('tenant_id', '=', input.tenant_id).where('name', '=', input.name).execute();
+  }
 }

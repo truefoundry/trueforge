@@ -56,4 +56,6 @@ export interface ISkillStore<TTransaction = never> {
   createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
   /** Single-row write: creates the skill or replaces the whole manifest. */
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
+  /** Permanently removes the skill row. Idempotent if already gone. */
+  deleteSkill(input: GetSkillInput, transaction?: TTransaction): Promise<void>;
 }

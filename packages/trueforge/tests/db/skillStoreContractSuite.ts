@@ -134,4 +134,25 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
 
     await expect(store.listSkills({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
   });
+
+  it('deleteSkill removes the row', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+
+    await store.deleteSkill({ tenant_id: TENANT, name: 'algorithmic-art' });
+
+    await expect(store.getSkill({ tenant_id: TENANT, name: 'algorithmic-art' })).resolves.toBeUndefined();
+  });
+
+  it('deleteSkill is idempotent for an unknown skill and leaves other tenants untouched', async () => {
+    const store = getStore();
+    const otherTenant = await store.upsertSkill({
+      tenant_id: 'other-tenant',
+      name: 'algorithmic-art',
+      manifest: manifest(),
+    });
+
+    await expect(store.deleteSkill({ tenant_id: TENANT, name: 'algorithmic-art' })).resolves.toBeUndefined();
+    await expect(store.getSkill({ tenant_id: 'other-tenant', name: 'algorithmic-art' })).resolves.toEqual(otherTenant);
+  });
 }

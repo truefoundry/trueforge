@@ -98,6 +98,7 @@ export const GetSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).
 export const ListSkillsResponseSchema = z
   .object({ data: z.array(ConfiguredSkillSchema) })
   .openapi('ListSkillsResponse');
+export const DeleteSkillResponseSchema = z.object({}).openapi('DeleteSkillResponse');
 
 /** Chat/composer read view — discovery fields only. */
 export const AvailableSkillSchema = z

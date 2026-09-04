@@ -132,4 +132,20 @@ describe('skills routers', () => {
     );
     expect(badUrl.status).toBe(400);
   });
+
+  it('DELETE /{name} removes the skill', async () => {
+    const response = await settingsRouter.request('/create-only-skill', { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+
+    const list = await settingsRouter.request('/');
+    const names = ((await list.json()) as { data: { name: string }[] }).data.map(skill => skill.name);
+    expect(names).not.toContain('create-only-skill');
+  });
+
+  it('DELETE /{name} is idempotent for an unknown skill', async () => {
+    const response = await settingsRouter.request('/never-existed', { method: 'DELETE' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+  });
 });
