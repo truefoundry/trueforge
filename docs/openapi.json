@@ -4913,7 +4913,7 @@
   "info": {
     "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.2.0-rc.0"
+    "version": "1.0.0-rc.1"
   },
   "openapi": "3.1.0",
   "paths": {

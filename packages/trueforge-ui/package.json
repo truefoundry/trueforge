@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge-ui",
-  "version": "0.3.0-rc.0",
+  "version": "0.3.0-rc.1",
   "description": "TrueForge Agent Chat UI (atoms + containers) built on assistant-ui, with owned theming, presets, and swappable slots.",
   "author": "TrueFoundry",
   "license": "MIT",

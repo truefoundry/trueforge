@@ -1,6 +1,6 @@
 {
     "name": "@truefoundry/trueforge-sdk",
-    "version": "0.1.4-rc.0",
+    "version": "0.1.4-rc.1",
     "private": false,
     "type": "commonjs",
     "main": "./dist/cjs/index.js",
