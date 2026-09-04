@@ -18,11 +18,15 @@ import {
 
 /** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
-  return error instanceof DaytonaError && error.statusCode === 401;
+  return error instanceof DaytonaError
+    ? error.statusCode === 401
+    : error instanceof Error && error.cause !== undefined && isDaytonaAuthError(error.cause);
 }
 
 export function isDaytonaPermissionError(error: unknown): boolean {
-  return error instanceof DaytonaError && error.statusCode === 403;
+  return error instanceof DaytonaError
+    ? error.statusCode === 403
+    : error instanceof Error && error.cause !== undefined && isDaytonaPermissionError(error.cause);
 }
 
 /**
@@ -38,11 +42,13 @@ export function toDaytonaSandboxProvider({
   tenant_id,
   logger,
   build_metadata,
+  onError,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
+  onError?: ((error: unknown) => Promise<void>) | undefined;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
@@ -54,6 +60,7 @@ export function toDaytonaSandboxProvider({
     buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
+    onError,
   });
 }
 
@@ -72,6 +79,36 @@ function sandboxStatusFromRecord(record: SandboxProviderRecord): SandboxStatus {
     status_reason: record.status_reason,
     build_metadata: record.build_metadata,
   };
+}
+
+export async function recordDaytonaAccessFailure({
+  store,
+  tenant_id,
+  error,
+  build_metadata,
+  expected_manifest,
+}: {
+  store: ISandboxProviderStore;
+  tenant_id: string;
+  error: unknown;
+  build_metadata?: SandboxBuildMetadata | null;
+  expected_manifest?: SandboxProviderManifest | undefined;
+}): Promise<SandboxStatus | undefined> {
+  const status_reason = isDaytonaAuthError(error)
+    ? 'Daytona rejected the API key. Check the configured credentials.'
+    : isDaytonaPermissionError(error)
+      ? 'Daytona denied access. Check the API key permissions.'
+      : undefined;
+  if (status_reason === undefined) {
+    return undefined;
+  }
+  const next: SandboxStatus = { status: 'failed', status_reason, build_metadata: build_metadata ?? null };
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_manifest });
+  if (updated !== undefined) {
+    return sandboxStatusFromRecord(updated);
+  }
+  const current = await store.getSandboxProvider(tenant_id);
+  return current === undefined ? undefined : sandboxStatusFromRecord(current);
 }
 
 // Daytona deactivates idle snapshots after 14 days; revalidate at 13 to stay a day ahead.
@@ -109,13 +146,35 @@ export async function checkSnapshotStatus({
     build_metadata: record.build_metadata,
   });
   let build: SandboxBuild;
-  if (record.status === 'ready') {
-    // this is because image may have deactivated
-    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
-  } else {
-    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
+  try {
+    if (record.status === 'ready') {
+      // this is because image may have deactivated
+      build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
+    } else {
+      build = await withTimeout(
+        provider.getImageBuildStatus(),
+        STATUS_REFRESH_TIMEOUT_MS,
+        'sandbox getImageBuildStatus',
+      );
+    }
+  } catch (error) {
+    const failed = await recordDaytonaAccessFailure({
+      store,
+      tenant_id,
+      error,
+      build_metadata: record.build_metadata,
+      expected_manifest: record.manifest,
+    });
+    if (failed !== undefined) {
+      return failed;
+    }
+    throw error;
   }
   const next = toSandboxStatus(build);
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-  return updated ? sandboxStatusFromRecord(updated) : next;
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next, expected_manifest: record.manifest });
+  if (updated !== undefined) {
+    return sandboxStatusFromRecord(updated);
+  }
+  const current = await store.getSandboxProvider(tenant_id);
+  return current === undefined ? undefined : sandboxStatusFromRecord(current);
 }

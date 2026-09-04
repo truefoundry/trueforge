@@ -1,4 +1,4 @@
-import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
 import type { SandboxBuildMetadata, SandboxProviderManifest } from '../../../schemas/sandboxProvider';
 import {
   type ISandboxProviderStore,
@@ -91,7 +91,8 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
     transaction?: Transaction<Database>,
   ): Promise<SandboxProviderRecord | undefined> {
     const db = transaction ?? this.#db;
-    return await db
+    const expectedManifest = input.expected_manifest;
+    let query = db
       .updateTable('sandbox_provider')
       .set({
         status: input.status,
@@ -99,8 +100,10 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
         build_metadata: input.build_metadata !== null ? jsonbBind(input.build_metadata) : null,
         updated_at: nowIso(),
       })
-      .where('tenant_id', '=', input.tenant_id)
-      .returning(recordColumns)
-      .executeTakeFirst();
+      .where('tenant_id', '=', input.tenant_id);
+    if (expectedManifest !== undefined) {
+      query = query.where(sql<boolean>`manifest = ${jsonbBind(expectedManifest)}`);
+    }
+    return await query.returning(recordColumns).executeTakeFirst();
   }
 }
