@@ -8,7 +8,7 @@ import {
 import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
-import { AllowAllExternalAuthorizer, type ExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -72,7 +72,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          externalAuthorizer: new AllowAllExternalAuthorizer(),
+          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -204,7 +204,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          externalAuthorizer: new AllowAllExternalAuthorizer(),
+          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -311,7 +311,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          externalAuthorizer: new AllowAllExternalAuthorizer(),
+          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -333,12 +333,12 @@ describe('turns', () => {
   });
 
   describe('create turn referenced agent', () => {
-    const denyAllAuthorizer: ExternalAuthorizer = {
+    const denyAllAuthorizer: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent: () => Promise.resolve(false),
     };
 
-    async function referencedAgentHarness(externalAuthorizer: ExternalAuthorizer) {
+    async function referencedAgentHarness(authorizer: Authorizer) {
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
       const sessionStore = new SqliteSessionStore(db);
@@ -387,14 +387,14 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          externalAuthorizer,
+          authorizer,
         }),
       );
       return { app, agent, agentStore };
     }
 
     it('returns 422 when the referenced agent no longer exists', async () => {
-      const { app, agent, agentStore } = await referencedAgentHarness(new AllowAllExternalAuthorizer());
+      const { app, agent, agentStore } = await referencedAgentHarness(new TrueForgeAuthorizer());
       await agentStore.deleteAgent({ tenant_id: 'default', id: agent.id });
       const response = await app.request('/s1/turns', {
         method: 'POST',

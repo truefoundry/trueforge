@@ -29,7 +29,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
-import type { ExternalAuthorizer } from '../auth/externalAuthorizer';
+import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
@@ -113,7 +113,7 @@ export interface TurnsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
-  externalAuthorizer: ExternalAuthorizer;
+  authorizer: Authorizer;
 }
 
 /**
@@ -724,7 +724,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 422);
       }
-      const canReadAgent = await deps.externalAuthorizer.canAccessAgent({
+      const canReadAgent = await deps.authorizer.canAccessAgent({
         context: requestContext,
         action: 'read',
         agent,

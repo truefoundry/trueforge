@@ -5,7 +5,7 @@ import { createClient } from 'redis';
 import { createLogger } from 'winston';
 import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
-import { AllowAllExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
+import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -55,7 +55,7 @@ describe('public CRUD after session deletion', () => {
         requestReplyRouter: new RequestReplyRouter(),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         logger: createLogger({ silent: true }),
-        externalAuthorizer: new AllowAllExternalAuthorizer(),
+        authorizer: new TrueForgeAuthorizer(),
       }),
     );
     app.route(
@@ -72,7 +72,7 @@ describe('public CRUD after session deletion', () => {
         sandboxProviderStore,
         logger: createLogger({ silent: true }),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-        externalAuthorizer: new AllowAllExternalAuthorizer(),
+        authorizer: new TrueForgeAuthorizer(),
       }),
     );
 

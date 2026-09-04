@@ -1,5 +1,5 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
-import { AllowAllExternalAuthorizer, type ExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -69,7 +69,7 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
-const denyAllAuthorizer: ExternalAuthorizer = {
+const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
   canAccessAgent: () => Promise.resolve(false),
 };
@@ -92,7 +92,7 @@ describe('agents router', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      externalAuthorizer: new AllowAllExternalAuthorizer(),
+      authorizer: new TrueForgeAuthorizer(),
     });
     deniedRouter = createAgentsRouter({
       resolveAgentStore: () => agentStore,
@@ -102,7 +102,7 @@ describe('agents router', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      externalAuthorizer: denyAllAuthorizer,
+      authorizer: denyAllAuthorizer,
     });
   });
 

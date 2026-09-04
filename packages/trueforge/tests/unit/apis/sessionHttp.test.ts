@@ -9,7 +9,7 @@ import {
   createSessionsRouter,
   type SessionsRouterDeps,
 } from '../../../src/apis/sessions';
-import { AllowAllExternalAuthorizer, type ExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -40,7 +40,7 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
-const denyAllAuthorizer: ExternalAuthorizer = {
+const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
   canAccessAgent: () => Promise.resolve(false),
 };
@@ -93,7 +93,7 @@ describe('sessions HTTP agent binding', () => {
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       logger: createLogger({ silent: true }),
-      externalAuthorizer: new AllowAllExternalAuthorizer(),
+      authorizer: new TrueForgeAuthorizer(),
     };
     sessionDeps = deps;
     app = new OpenAPIHono();
@@ -486,7 +486,7 @@ describe('sessions HTTP agent binding', () => {
     const deniedDeps = {
       ...sessionDeps,
       requestReplyRouter: new RequestReplyRouter(),
-      externalAuthorizer: denyAllAuthorizer,
+      authorizer: denyAllAuthorizer,
     };
     denyApp.route('/', createSessionsRouter(deniedDeps));
     denyApp.route('/api/internal/sessions', createInternalSessionsRouter(deniedDeps));

@@ -4,7 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import type { ExternalAuthorizer } from '../auth/externalAuthorizer';
+import type { Authorizer } from '../auth/authorizer';
 import {
   createdBySubjectFromRequestContext,
   hasAdminRole,
@@ -49,7 +49,7 @@ export interface SchedulesRouterDeps<TTransaction> {
   turnDeps: BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
-  externalAuthorizer: ExternalAuthorizer;
+  authorizer: Authorizer;
 }
 
 function toWireSchedule(record: ScheduleRecord): Schedule {
@@ -240,7 +240,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     validateManifest(body.manifest);
 
     const agent = await agentIfAccessible({
-      authorizer: deps.externalAuthorizer,
+      authorizer: deps.authorizer,
       context: requestContext,
       action: 'read',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, name: body.agent_name }),

@@ -4,7 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import type { ExternalAuthorizer } from '../auth/externalAuthorizer';
+import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import {
   AgentExternalIdConflictError,
@@ -38,7 +38,7 @@ export interface AgentsRouterDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
-  externalAuthorizer: ExternalAuthorizer;
+  authorizer: Authorizer;
 }
 
 /** Wire view: identity columns plus nested manifest. */
@@ -81,7 +81,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const records = await listAccessibleAgents({
       store: deps.resolveAgentStore(c),
       context: requestContext,
-      authorizer: deps.externalAuthorizer,
+      authorizer: deps.authorizer,
       action: 'read',
     });
     return c.json({ data: records.map(toWireAgent) }, 200);
@@ -118,7 +118,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const { agent_id: agentId } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
     const record = await agentIfAccessible({
-      authorizer: deps.externalAuthorizer,
+      authorizer: deps.authorizer,
       context: requestContext,
       action: 'read',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id: agentId }),
@@ -133,7 +133,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const { agent_id: agentId } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
     const record = await agentIfAccessible({
-      authorizer: deps.externalAuthorizer,
+      authorizer: deps.authorizer,
       context: requestContext,
       action: 'read',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id: agentId }),
@@ -162,7 +162,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     if (existing === undefined) {
       return c.json({}, 200);
     }
-    const canManageAgent = await deps.externalAuthorizer.canAccessAgent({
+    const canManageAgent = await deps.authorizer.canAccessAgent({
       context: requestContext,
       action: 'manage',
       agent: existing,
@@ -179,7 +179,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const existing = await agentIfAccessible({
-      authorizer: deps.externalAuthorizer,
+      authorizer: deps.authorizer,
       context: requestContext,
       action: 'manage',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id: agentId }),

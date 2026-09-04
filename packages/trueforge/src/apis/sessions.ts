@@ -21,7 +21,7 @@ import type { Context } from 'hono';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import type { ExternalAuthorizer } from '../auth/externalAuthorizer';
+import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
@@ -83,7 +83,7 @@ export interface SessionsRouterDeps {
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
-  externalAuthorizer: ExternalAuthorizer;
+  authorizer: Authorizer;
 }
 
 function cancelTurnOnThisExecutor(
@@ -236,7 +236,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveAgentStore'
   | 'sandboxProviderStore'
   | 'resolveRequestContext'
-  | 'externalAuthorizer'
+  | 'authorizer'
 >;
 
 function createGetOrCreateSessionByExternalIdHandler(
@@ -265,7 +265,7 @@ function createGetOrCreateSessionByExternalIdHandler(
     let agent: SessionRecord['agent'];
     if (isSessionAgentNameRef(body.agent)) {
       const named = await agentIfAccessible({
-        authorizer: deps.externalAuthorizer,
+        authorizer: deps.authorizer,
         context: requestContext,
         action: 'read',
         agent: await deps.resolveAgentStore(c).getAgent({
@@ -324,7 +324,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
     if (isSessionAgentNameRef(body.agent)) {
       const agent = await agentIfAccessible({
-        authorizer: deps.externalAuthorizer,
+        authorizer: deps.authorizer,
         context: requestContext,
         action: 'read',
         agent: await deps.resolveAgentStore(c).getAgent({

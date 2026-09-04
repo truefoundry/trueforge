@@ -1,15 +1,15 @@
 /**
- * Agent store reads narrowed by the external authorizer, shared by the agent,
- * session, and schedule handlers. Lives in the API layer because stores must
- * stay free of request identity.
+ * Agent store reads narrowed by the authorizer, shared by the agent, session,
+ * and schedule handlers. Lives in the API layer because stores must stay free
+ * of request identity.
  */
-import type { AgentAction, ExternalAuthorizer } from '../auth/externalAuthorizer';
+import type { AgentAction, Authorizer } from '../auth/authorizer';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 
 /** The agent only when the caller may act on it, so callers answer 404 for missing and forbidden alike. */
 export async function agentIfAccessible(input: {
-  authorizer: ExternalAuthorizer;
+  authorizer: Authorizer;
   context: RequestContext;
   action: AgentAction;
   agent: AgentRecord | undefined;
@@ -29,16 +29,12 @@ export async function agentIfAccessible(input: {
 export async function listAccessibleAgents<TTransaction>(input: {
   store: IAgentStore<TTransaction>;
   context: RequestContext;
-  authorizer: ExternalAuthorizer;
+  authorizer: Authorizer;
   action: AgentAction;
 }): Promise<AgentRecord[]> {
   const access = await input.authorizer.listAgentAccess({ context: input.context, action: input.action });
   if (access.kind === 'all') {
     return input.store.listAgents({ tenant_id: input.context.tenant_id });
-  }
-  if (access.kind === 'owner') {
-    const records = await input.store.listAgents({ tenant_id: input.context.tenant_id });
-    return records.filter(record => record.created_by_subject.subject_id === input.context.subject.id);
   }
   return input.store.listAgents({
     tenant_id: input.context.tenant_id,
