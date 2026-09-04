@@ -70,7 +70,7 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
-      'h-11',
+      'min-h-14',
       'border-b',
       'bg-topbar-bg',
       'px-2',

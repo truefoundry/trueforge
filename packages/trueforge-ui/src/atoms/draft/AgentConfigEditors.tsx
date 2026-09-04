@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { editableMountsFromSpec } from './agentConfigMounts.js';
+import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
 
 export type AgentConfigEditor = 'model' | 'model-settings' | 'runtime' | 'mcp' | 'skills';
 
@@ -49,13 +50,20 @@ export function AgentConfigEditors({
   const [toolsError, setToolsError] = useState<string | null>(null);
   const [toolsRequestEpoch, setToolsRequestEpoch] = useState(0);
   const mounts = useMemo(() => editableMountsFromSpec(spec.mcpServers), [spec.mcpServers]);
+  const catalogConnectors = useMemo(
+    () => connectorsWithSelectedStubs({ connectors, selected: mounts }),
+    [connectors, mounts],
+  );
   const activeConnectorAvailable =
-    activeConnectorId !== null && connectors.some(connector => connector.id === activeConnectorId);
+    activeConnectorId !== null && catalogConnectors.some(connector => connector.id === activeConnectorId);
   const firstMountedConnectorId = mounts
-    .map(mount => connectors.find(connector => connector.id === mount.id || connector.name === mount.name)?.id)
+    .map(mount => catalogConnectors.find(connector => connector.id === mount.id || connector.name === mount.name)?.id)
     .find((id): id is string => id !== undefined);
   const selectedConnectorId =
-    (activeConnectorAvailable ? activeConnectorId : null) ?? firstMountedConnectorId ?? connectors[0]?.id ?? null;
+    (activeConnectorAvailable ? activeConnectorId : null) ??
+    firstMountedConnectorId ??
+    catalogConnectors[0]?.id ??
+    null;
 
   useEffect(() => {
     if (editor !== 'mcp' || selectedConnectorId === null || loadMcpTools === undefined) return;

@@ -20,7 +20,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
   const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
 
   const labeledButtonClass =
-    'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center';
+    'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center';
   const hoverClass = 'hover:bg-secondary-button-hover hover:text-ghost-button-text';
 
   return (

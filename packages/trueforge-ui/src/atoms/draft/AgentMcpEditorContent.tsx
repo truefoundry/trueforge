@@ -8,6 +8,7 @@ import type { AgentSpec, ConnectorState, McpToolSelection } from '../../server/t
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Spinner } from '../primitives/Spinner.js';
 import { Switch } from '../primitives/Switch.js';
@@ -19,6 +20,8 @@ import {
   withEnabledTools,
   withPreload,
 } from './agentConfigMounts.js';
+import { useDraftCatalog } from './DraftCatalogProvider.js';
+import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -102,10 +105,12 @@ export function AgentMcpEditorContent({
   onRefreshConnectors,
   onChange,
 }: AgentMcpEditorContentProps) {
+  const { connectorsHasMore, connectorsLoadingMore, loading, loadMoreConnectors } = useDraftCatalog();
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
-  const selectedConnector = connectors.find(item => item.id === activeConnectorId);
+  const catalogConnectors = connectorsWithSelectedStubs({ connectors, selected: mcpMounts });
+  const selectedConnector = catalogConnectors.find(item => item.id === activeConnectorId);
   const activeMount = selectedConnector
     ? mcpMounts.find(item => item.id === selectedConnector.id || item.name === selectedConnector.name)
     : undefined;
@@ -113,13 +118,19 @@ export function AgentMcpEditorContent({
   const canAddActiveConnector = selectedConnector !== undefined && selectedConnector.authenticated === true;
   const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredConnectors = connectors.filter(item =>
+  const filteredConnectors = catalogConnectors.filter(item =>
     `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery),
   );
   const normalizedToolQuery = toolQuery.trim().toLowerCase();
   const filteredTools =
     normalizedToolQuery === '' ? tools : tools.filter(tool => tool.name.toLowerCase().includes(normalizedToolQuery));
 
+  const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
+    enabled: true,
+    hasMore: connectorsHasMore,
+    loading: connectorsLoadingMore || loading,
+    onLoadMore: loadMoreConnectors,
+  });
   const updateMount = (mountId: string, value: object) => {
     onChange({
       ...spec,
@@ -135,7 +146,7 @@ export function AgentMcpEditorContent({
   };
 
   const openMountConnector = (mount: (typeof mcpMounts)[number]) => {
-    const match = connectors.find(item => item.id === mount.id || item.name === mount.name);
+    const match = catalogConnectors.find(item => item.id === mount.id || item.name === mount.name);
     onSelectConnector(match?.id ?? mount.id);
   };
 
@@ -185,7 +196,7 @@ export function AgentMcpEditorContent({
             className={auiInputClass('h-9 w-full pl-7')}
           />
         </label>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div ref={connectorsListRef} className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredConnectors.map(connector => {
             const mounted = mcpMounts.some(item => item.id === connector.id || item.name === connector.name);
             const active = connector.id === activeConnectorId;
@@ -214,6 +225,11 @@ export function AgentMcpEditorContent({
               </button>
             );
           })}
+          {connectorsHasMore ? (
+            <div ref={connectorsSentinelRef} className="flex h-8 items-center justify-center" aria-hidden>
+              {connectorsLoadingMore ? <span className="text-text-secondary text-[10px]">Loading…</span> : null}
+            </div>
+          ) : null}
         </div>
       </div>
 

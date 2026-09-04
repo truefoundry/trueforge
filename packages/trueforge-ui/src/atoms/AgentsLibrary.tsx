@@ -15,6 +15,7 @@ import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
+import { PageHeader } from './PageHeader.js';
 import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './primitives/Table.js';
@@ -357,20 +358,19 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
-      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon name="library-big" className="text-text-primary size-4" />
-          <h1 className="text-text-primary truncate text-md font-semibold">Agents</h1>
-        </div>
-        <div className="ml-auto w-56 shrink-0">
-          <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
-          {isSearching ? (
-            <p className="sr-only" role="status">
-              Searching…
-            </p>
-          ) : null}
-        </div>
-      </header>
+      <PageHeader
+        title="Agents"
+        end={
+          <div className="w-56 shrink-0">
+            <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
+            {isSearching ? (
+              <p className="sr-only" role="status">
+                Searching…
+              </p>
+            ) : null}
+          </div>
+        }
+      />
 
       <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
         <div ref={listRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4" aria-label="Agents">

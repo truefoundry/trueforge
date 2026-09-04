@@ -12,11 +12,13 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
+import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
 
 /** Catalog-backed mount shape used by the draft picker (runtime mounts stay opaque). */
 export type DraftMount = { id: string; name: string };
@@ -222,7 +224,16 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 }
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
-  const { skills, connectors, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
+  const {
+    skills,
+    connectors,
+    connectorsHasMore,
+    connectorsLoadingMore,
+    loading,
+    ensureLoaded,
+    refreshConnectors,
+    loadMoreConnectors,
+  } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
@@ -343,17 +354,29 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
 
   useEffect(() => () => clearFlushTimer(), [clearFlushTimer]);
 
+  const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
+    enabled: open && tab === 'connectors',
+    hasMore: connectorsHasMore,
+    loading: connectorsLoadingMore || loading,
+    onLoadMore: loadMoreConnectors,
+  });
+
+  const catalogConnectors = useMemo(
+    () => connectorsWithSelectedStubs({ connectors, selected: selectedMcp }),
+    [connectors, selectedMcp],
+  );
+
   const filteredConnectors = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matches = needle
-      ? connectors.filter(
+      ? catalogConnectors.filter(
           c => c.name.toLowerCase().includes(needle) || (c.description?.toLowerCase().includes(needle) ?? false),
         )
-      : connectors;
+      : catalogConnectors;
     return [...matches].sort(
       (left, right) => Number(isUnauthenticatedDcrConnector(left)) - Number(isUnauthenticatedDcrConnector(right)),
     );
-  }, [connectors, query]);
+  }, [catalogConnectors, query]);
 
   const filteredSkills = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -474,7 +497,10 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             <span className="text-xs leading-none">{skillsDisabledReason}</span>
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+        <div
+          ref={tab === 'connectors' ? connectorsListRef : undefined}
+          className="min-h-0 flex-1 overflow-y-auto px-1 pb-2"
+        >
           {tab === 'connectors' ? (
             <>
               {pinnedSelectedConnectors.length > 0 ? (
@@ -515,17 +541,21 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   ))}
                 </>
               ) : null}
-              {filteredConnectors.length === 0 ? (
+              {filteredConnectors.length === 0 && connectors.length > 0 ? (
+                <DraftCatalogEmptyState loading={loading} emptyLabel="No connectors" settingsTarget="Connectors" />
+              ) : null}
+              {connectors.length === 0 ? (
                 <DraftCatalogEmptyState
                   loading={loading}
                   emptyLabel="No connectors"
                   settingsTarget="Connectors"
-                  onOpenSettings={
-                    connectors.length === 0 && shell && canConfigureConnectors
-                      ? () => openSettings('connectors')
-                      : undefined
-                  }
+                  onOpenSettings={shell && canConfigureConnectors ? () => openSettings('connectors') : undefined}
                 />
+              ) : null}
+              {connectorsHasMore ? (
+                <div ref={connectorsSentinelRef} className="flex h-8 items-center justify-center" aria-hidden>
+                  {connectorsLoadingMore ? <span className="text-text-secondary text-[10px]">Loading…</span> : null}
+                </div>
               ) : null}
             </>
           ) : (

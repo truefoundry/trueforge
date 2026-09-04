@@ -178,7 +178,7 @@ export function AgentConfigPanel({
 
   return (
     <div className="bg-card-bg text-text-primary flex h-full min-h-0 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
+      <header className="flex min-h-14 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />

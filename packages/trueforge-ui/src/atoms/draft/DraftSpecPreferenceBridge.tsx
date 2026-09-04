@@ -3,13 +3,22 @@
 import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useEffect } from 'react';
 
-import { withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
+import { type DraftPreferenceKind, withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
 import { mountName } from '../lib/mountName.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
+
+function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
+  if (spec.config === undefined) return undefined;
+  // `sandbox` is draft runtime config and may be absent from AgentRuntimeConfig typings.
+  const sandbox = Reflect.get(spec.config, 'sandbox');
+  if (typeof sandbox !== 'object' || sandbox === null) return undefined;
+  const enabled = Reflect.get(sandbox, 'enabled');
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
 
 function filterMounts<T extends object>(mounts: T[] | undefined, availableNames: Set<string>): T[] | undefined {
   if (mounts === undefined) return undefined;
@@ -25,12 +34,15 @@ export function reconcileDraftSpecPreferences({
   models,
   skills,
   connectors,
+  connectorsHasMore = false,
   skillsEnabled,
 }: {
   agentSpec: AgentSpec;
   models: ModelSelection[];
   skills: AgentSkill[];
   connectors: ConnectorState[];
+  /** When more MCP pages remain, off-page selections must not be treated as deleted. */
+  connectorsHasMore?: boolean;
   skillsEnabled: boolean | undefined;
 }): Partial<AgentSpec> {
   const update: Partial<AgentSpec> = {};
@@ -46,9 +58,12 @@ export function reconcileDraftSpecPreferences({
     }
   }
 
-  const nextMcpServers = filterMounts(agentSpec.mcpServers, new Set(connectors.map(connector => connector.name)));
-  if (nextMcpServers !== agentSpec.mcpServers) {
-    update.mcpServers = nextMcpServers;
+  // Paginated catalogs only include loaded pages — prune MCP only once the full list is known.
+  if (!connectorsHasMore) {
+    const nextMcpServers = filterMounts(agentSpec.mcpServers, new Set(connectors.map(connector => connector.name)));
+    if (nextMcpServers !== agentSpec.mcpServers) {
+      update.mcpServers = nextMcpServers;
+    }
   }
 
   if (skillsEnabled === false) {
@@ -70,10 +85,34 @@ export function reconcileDraftSpecPreferences({
 export function reconcileDraftSandbox({
   agentSpec,
   sandboxEnabled,
+  kind = 'agent',
 }: {
   agentSpec: AgentSpec;
   sandboxEnabled: boolean | null | undefined;
+  kind?: DraftPreferenceKind;
 }): Partial<AgentSpec> {
+  if (kind === 'chat') {
+    if (sandboxEnabled == null) return {};
+    const current = readDraftSandboxEnabled(agentSpec);
+    if (sandboxEnabled === true && current !== true) {
+      return {
+        config: {
+          ...agentSpec.config,
+          sandbox: { ...agentSpec.config?.sandbox, enabled: true },
+        },
+      };
+    }
+    if (sandboxEnabled === false && current === true) {
+      return {
+        config: {
+          ...agentSpec.config,
+          sandbox: { ...agentSpec.config?.sandbox, enabled: false },
+        },
+      };
+    }
+    return {};
+  }
+
   const nextSpec = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
@@ -89,7 +128,7 @@ export function DraftSpecPreferenceBridge() {
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
-  const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
+  const { models, skills, connectors, connectorsHasMore, loaded, error, ensureLoaded } = useDraftCatalog();
   const isPlainDraft = mode.status === 'active' && mode.isMutable && mode.agentId == null && pendingSessionId == null;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
 
@@ -104,9 +143,9 @@ export function DraftSpecPreferenceBridge() {
   }, [agentSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
 
   useEffect(() => {
-    // Sandbox / runtime config belongs to New Agent only.
-    if (!isPlainDraft || preferenceKind !== 'agent' || agentSpec == null || updateAgentSpec == null) return;
-    const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled });
+    // New Chat mirrors capabilities onto the live draft; New Agent only disables when unavailable.
+    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null) return;
+    const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled, kind: preferenceKind });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
@@ -120,6 +159,7 @@ export function DraftSpecPreferenceBridge() {
       models,
       skills,
       connectors,
+      connectorsHasMore,
       skillsEnabled: capabilities?.skill.enabled,
     });
     if (Object.keys(update).length > 0) {
@@ -129,6 +169,7 @@ export function DraftSpecPreferenceBridge() {
     agentSpec,
     capabilities?.skill.enabled,
     connectors,
+    connectorsHasMore,
     error,
     isPlainDraft,
     loaded,

@@ -256,6 +256,37 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-current', 'true');
   });
 
+  it('keeps an off-page selected MCP active via catalog stubs', async () => {
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [{ id: 'off-page', name: 'Off Page', enableTools: ['@all'] }],
+          }}
+          models={[]}
+          connectors={[{ id: 'github', name: 'GitHub', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('off-page'));
+    expect(screen.getByRole('button', { name: 'Off Page' })).toHaveAttribute('aria-current', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Off Page' }));
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledTimes(1));
+  });
+
   it('loads MCP tools lazily and preserves unrelated mount selectors', async () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },

@@ -95,7 +95,7 @@
     "@openuidev/react-headless": "^0.9.4",
     "@openuidev/react-lang": "^0.2.9",
     "@openuidev/react-ui": "^0.13.2",
-    "@truefoundry/assistant-ui-runtime": "0.1.26",
+    "@truefoundry/assistant-ui-runtime": "0.1.27",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",

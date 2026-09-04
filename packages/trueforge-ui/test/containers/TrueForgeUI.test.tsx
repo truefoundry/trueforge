@@ -542,8 +542,8 @@ describe('SidebarLayout', () => {
     const chatColumn = config.nextElementSibling;
     expect(config).toHaveClass('border-r');
     expect(chatColumn).not.toBeNull();
-    expect(config.querySelector('header')).toHaveClass('h-11');
-    expect(chatColumn?.querySelector('header')).toHaveClass('h-11');
+    expect(config.querySelector('header')).toHaveClass('min-h-14');
+    expect(chatColumn?.querySelector('header')).toHaveClass('min-h-14');
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
 
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });

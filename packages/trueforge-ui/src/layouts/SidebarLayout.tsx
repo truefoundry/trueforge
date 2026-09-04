@@ -16,6 +16,7 @@ import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
+import { PageHeader } from '../atoms/PageHeader.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
@@ -36,7 +37,7 @@ const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-18';
 
 const railActionButtonClassName =
-  'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text';
+  'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text';
 
 const railSelectedClassName =
   'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text';
@@ -226,17 +227,16 @@ export function SidebarLayout({ className }: { className?: string }) {
         {/* Desktop keeps shell chrome in the rail footer (always mounted, including
             when visually hidden on small screens so host action-slot state persists).
             Mobile reaches theme/settings via the nav drawer rail. */}
-        <header
+        <PageHeader
           className={cn(
-            'flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
+            'bg-topbar-bg',
             // Desktop: hide when settings/idle or the thread header has nothing to show
             // (empty untitled draft). Mobile still needs the menu button.
             // Builder mode keeps New Agent and its actions beside the persistent config.
             (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
-        >
-          {!overlayOpen ? (
-            <>
+          start={
+            !overlayOpen ? (
               <button
                 ref={menuBtnRef}
                 type="button"
@@ -247,15 +247,18 @@ export function SidebarLayout({ className }: { className?: string }) {
               >
                 <Icon name="bars" />
               </button>
-              <NamedAgentHeaderLabel />
-              <span className="min-w-0 flex-1" />
-              <ClearChatButton />
-              <SaveAgentButton />
-            </>
-          ) : (
-            <span className="min-w-0 flex-1" />
-          )}
-        </header>
+            ) : null
+          }
+          title={!overlayOpen ? <NamedAgentHeaderLabel /> : null}
+          end={
+            !overlayOpen ? (
+              <>
+                <ClearChatButton />
+                <SaveAgentButton />
+              </>
+            ) : null
+          }
+        />
 
         <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
           {settingsOpen ? (

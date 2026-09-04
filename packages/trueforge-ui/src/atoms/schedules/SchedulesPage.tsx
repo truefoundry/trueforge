@@ -12,6 +12,7 @@ import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { searchAllAgents } from '../lib/useSearchAgentsList.js';
+import { PageHeader } from '../PageHeader.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
@@ -344,51 +345,49 @@ export function SchedulesPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon name="calendar-clock" className="text-text-primary size-4" />
-          <h1 className="text-text-primary truncate text-md font-semibold">Scheduled Agents</h1>
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="w-full sm:w-56">
-            <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search schedules by name" />
-          </div>
-          <PopoverSelect
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            options={STATUS_FILTER_OPTIONS}
-            className="sm:w-40"
-            aria-label="Filter by status"
-          />
-          <PopoverSelect
-            value={agentFilter}
-            onValueChange={value => {
-              setAgentFilter(value);
-              setPageToken(undefined);
-              setPrevTokenStack([]);
-            }}
-            options={[
-              { value: 'all', label: 'All agents' },
-              ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
-            ]}
-            className="sm:w-40"
-            aria-label="Filter by agent"
-          />
-          <Button
-            type="button"
-            onClick={() =>
-              setDrawer({
-                kind: 'create',
-                agentId: agentFilter !== 'all' ? agentFilter : undefined,
-              })
-            }
-          >
-            <Icon name="plus" className="size-3.5" />
-            Create Schedule
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Scheduled Agents"
+        end={
+          <>
+            <div className="w-full sm:w-56">
+              <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search schedules by name" />
+            </div>
+            <PopoverSelect
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              options={STATUS_FILTER_OPTIONS}
+              className="sm:w-40"
+              aria-label="Filter by status"
+            />
+            <PopoverSelect
+              value={agentFilter}
+              onValueChange={value => {
+                setAgentFilter(value);
+                setPageToken(undefined);
+                setPrevTokenStack([]);
+              }}
+              options={[
+                { value: 'all', label: 'All agents' },
+                ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
+              ]}
+              className="sm:w-40"
+              aria-label="Filter by agent"
+            />
+            <Button
+              type="button"
+              onClick={() =>
+                setDrawer({
+                  kind: 'create',
+                  agentId: agentFilter !== 'all' ? agentFilter : undefined,
+                })
+              }
+            >
+              <Icon name="plus" className="size-3.5" />
+              Create Schedule
+            </Button>
+          </>
+        }
+      />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
         {loading ? (
