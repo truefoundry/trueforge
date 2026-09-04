@@ -1,8 +1,7 @@
-import { describe, expect, it } from 'vitest';
-
 import {
   clearScheduleShareSearch,
   readScheduleShareSearch,
+  writeOpenSchedulesForAgentSearch,
   writeScheduleShareSearch,
 } from '@/utils/scheduleShareUrl.js';
 
@@ -32,5 +31,16 @@ describe('scheduleShareUrl', () => {
 
     clearScheduleShareSearch(params);
     expect(params.toString()).toBe('theme=dark');
+  });
+
+  it('writeOpenSchedulesForAgentSearch clears library share keys and sets agent filter', () => {
+    window.history.replaceState(null, '', '/library/old?agentId=old&tab=overview&theme=dark');
+    writeOpenSchedulesForAgentSearch({ agentId: 'agt_1', isNew: true });
+    const url = new URL(window.location.href);
+    expect(url.searchParams.get('agent')).toBe('agt_1');
+    expect(url.searchParams.get('isNew')).toBe('true');
+    expect(url.searchParams.get('agentId')).toBeNull();
+    expect(url.searchParams.get('tab')).toBeNull();
+    expect(url.searchParams.get('theme')).toBe('dark');
   });
 });

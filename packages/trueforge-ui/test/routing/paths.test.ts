@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildPath,
+  buildSessionResumeHref,
   matchLocation,
   matchPath,
   placesEqual,
@@ -69,6 +70,17 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'library' }, disabled)).toBeNull();
     expect(buildPath({ type: 'libraryAgent', agentId: 'x' }, disabled)).toBeNull();
     expect(buildPath({ type: 'agent', agentName: 'x' }, disabled)).toBeNull();
+  });
+
+  it('builds an absolute resume href with basename and cleared share search', () => {
+    const withBasename = resolveRoutesConfig({ basename: '/trueforge' });
+    expect(
+      buildSessionResumeHref({
+        sessionId: 'sess-1',
+        routes: withBasename,
+        href: 'https://app.example/trueforge/library/agent-1?sessionId=old&agentId=agent-1&theme=dark',
+      }),
+    ).toBe('https://app.example/trueforge/sessions/sess-1?theme=dark');
   });
 });
 

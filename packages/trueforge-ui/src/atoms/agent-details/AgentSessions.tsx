@@ -5,12 +5,16 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
+import { buildSessionResumeHref } from '../../routing/paths.js';
+import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
 import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
+import { EmptyScreen } from '../EmptyScreen.js';
+import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentSessionsProps } from './types.js';
@@ -31,6 +35,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const shell = useOptionalShellMode();
+  const routes = useOptionalResolvedRoutes();
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
 
   const AgentSessionListRow = useSlot('AgentSessionListRow');
@@ -178,6 +183,10 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const resumeIsMutable =
     detailSession != null ? detailSession.isMutable : selectedEntry != null ? entryIsMutable(selectedEntry) : true;
   const resumeLabel = resumeIsCreateAgent ? 'Resume Agent building' : 'Resume Chat';
+  const resumeHref =
+    selectedSessionId != null && routes != null
+      ? buildSessionResumeHref({ sessionId: selectedSessionId, routes })
+      : null;
 
   const handleResume = () => {
     if (selectedSessionId == null || shell == null) return;
@@ -190,6 +199,26 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     });
   };
 
+  const resumeProps =
+    resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
+
+  // Full empty only when nothing is selected — keep the detail pane for deep-linked sessionIds
+  // (filters/time range can empty the list while share state still points at a session).
+  if (
+    !listLoading &&
+    !listFailed &&
+    entries.length === 0 &&
+    (selectedSessionId == null || selectedSessionId.length === 0)
+  ) {
+    return (
+      <EmptyScreen
+        title="No Sessions Found"
+        description="There are no sessions available at the moment."
+        className="bg-primary-bg"
+      />
+    );
+  }
+
   return (
     <Group
       id="agent-sessions-split"
@@ -198,7 +227,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       resizeTargetMinimumSize={{ coarse: 24, fine: 11 }}
     >
       <Panel id="agent-sessions-list" defaultSize="35%" minSize="20%" maxSize="50%">
-        <aside className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
+        <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
           <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
             {listLoading ? (
               <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">
@@ -208,8 +237,6 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
               </div>
             ) : listFailed ? (
               <p className="px-3 py-6 text-center text-xs text-text-secondary">Sessions could not be loaded.</p>
-            ) : entries.length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-text-secondary">No sessions are there yet</p>
             ) : (
               entries.map(entry => (
                 <AgentSessionListRow
@@ -249,9 +276,15 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
         <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-border transition-colors" />
         <div
           aria-hidden
-          className="absolute top-1/2 left-0 z-10 flex h-4 w-2 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xs bg-primary-button-bg shadow-sm"
+          className={cn(
+            'absolute top-1/2 left-0 z-10 flex h-4 w-2 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xs shadow-sm transition-colors',
+            'bg-secondary-button-bg text-text-secondary',
+            'group-hover/resizer:bg-primary-button-bg group-hover/resizer:text-primary-button-text',
+            'group-active/resizer:bg-primary-button-bg group-active/resizer:text-primary-button-text',
+            'group-focus-visible/resizer:bg-primary-button-bg group-focus-visible/resizer:text-primary-button-text',
+          )}
         >
-          <Icon name="grip-vertical" size={10} className="text-primary-button-text" />
+          <Icon name="grip-vertical" size={10} />
         </div>
       </Separator>
 
@@ -274,7 +307,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                 createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
                 view={shareView}
                 onClose={clearSelectedSession}
-                {...(shell != null ? { onResume: handleResume, resumeLabel } : {})}
+                {...resumeProps}
               />
               {detailLoading || detailEvents === undefined ? (
                 <div className="flex flex-1 flex-col p-4" role="status" aria-label="Loading session details">

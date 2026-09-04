@@ -225,6 +225,9 @@ function SessionTurnSection({
   AgentSessionTurnHeader: ComponentType<{
     turnNumber: number;
     totalTokens?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    cachedTokens?: number;
     durationMs?: number;
     totalCostInUsd?: number;
   }>;
@@ -240,6 +243,9 @@ function SessionTurnSection({
         <AgentSessionTurnHeader
           turnNumber={turn.turnNumber}
           totalTokens={turn.totalTokens}
+          inputTokens={turn.inputTokens}
+          outputTokens={turn.outputTokens}
+          cachedTokens={turn.cachedTokens}
           durationMs={turn.durationMs}
           totalCostInUsd={turn.totalCostInUsd}
         />

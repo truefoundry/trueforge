@@ -40,7 +40,12 @@ export type AgentSessionDetailHeaderProps = {
   createdAt?: string;
   view?: 'sessions' | null;
   onClose: () => void;
-  /** When set, shows Resume Chat / Resume Agent building. */
+  /**
+   * When set with `resumeLabel`, shows Resume Chat / Resume Agent building as a
+   * new-tab link (session deep link). Preferred over `onResume` when both are set.
+   */
+  resumeHref?: string;
+  /** In-shell resume fallback when no session deep link is available. */
   onResume?: () => void;
   /** Label for the resume action. */
   resumeLabel?: string;
@@ -49,6 +54,9 @@ export type AgentSessionDetailHeaderProps = {
 export type AgentSessionTurnHeaderProps = {
   turnNumber: number;
   totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedTokens?: number;
   durationMs?: number;
   totalCostInUsd?: number;
 };

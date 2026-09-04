@@ -9,8 +9,8 @@
  *
  * Migrations are owned by the server (`main.ts`). This process only connects to the
  * already-migrated database; the loops have per-pass error boundaries, so they retry
- * each tick until the schema is present. The loops call the server over HTTP at
- * `SERVER_URL`, so no Redis peering is wired here.
+ * each tick until the schema is present. The loops call the server over HTTP(S) at
+ * `SERVER_URL` (mutual TLS when `TRUEFORGE_MTLS_ENABLED`), so no Redis peering is wired here.
  */
 import configuration from './config';
 import { runController } from './controller';
@@ -41,8 +41,14 @@ try {
     idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
   });
 
+  const mtls = {
+    enabled: configuration.TRUEFORGE_MTLS_ENABLED,
+    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
+  };
+
   logger.info('Controller starting', {
     serverUrl: configuration.SERVER_URL,
+    mTlsEnabled: mtls.enabled,
   });
 
   runController({
@@ -50,6 +56,7 @@ try {
     withTransaction: callback => db.transaction().execute(callback),
     logger,
     baseUrl: configuration.SERVER_URL,
+    tls: mtls,
     gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS,
     onStopped: () => db.destroy(),
   });
