@@ -525,8 +525,8 @@ try {
   }
 
   const tlsServe = serverTlsServeOptions({
-    enabled: configuration.TLS_MUTUAL && !configuration.STANDALONE,
-    dir: configuration.TLS_DIR,
+    enabled: !configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED,
+    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
   });
   const server = serve(
     {

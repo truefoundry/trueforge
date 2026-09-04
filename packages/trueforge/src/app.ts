@@ -211,10 +211,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }
-  app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
-  if (configuration.TLS_MUTUAL && !configuration.STANDALONE) {
+  if (!configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED) {
     app.use('*', createClientCertificateMiddleware(deps.logger));
   }
+  app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
 
