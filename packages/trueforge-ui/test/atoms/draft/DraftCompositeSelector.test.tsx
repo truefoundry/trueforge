@@ -108,6 +108,9 @@ describe('DraftCompositeSelector', () => {
     expect(screen.getByRole('button', { name: 'Tools (2)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Capabilities/ })).not.toBeInTheDocument();
 
     agentSpec = { ...agentSpec, model: { name: '  ' } };
     view.rerender(
@@ -183,47 +186,6 @@ describe('DraftCompositeSelector', () => {
         { id: 'github', name: 'GitHub' },
       ],
       skills: [{ id: 'research', name: 'Research' }],
-    });
-  });
-
-  it('treats omitted capabilities as enabled and patches only capability branches', async () => {
-    agentSpec = { ...agentSpec, config: {} };
-    renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Capabilities/ }));
-
-    const generativeUi = screen.getByRole('switch', { name: 'Generative UI' });
-    expect(generativeUi).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(generativeUi);
-
-    expect(updateAgentSpec).toHaveBeenCalledWith({
-      config: {
-        generativeUi: { enabled: false },
-        dynamicSubAgents: { enabled: true },
-        askUserQuestions: { enabled: true },
-      },
-    });
-  });
-
-  it('folds dirty connector toggles into a capability update', async () => {
-    renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Capabilities/ }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Generative UI' }));
-
-    expect(updateAgentSpec).toHaveBeenCalledTimes(1);
-    expect(updateAgentSpec).toHaveBeenCalledWith({
-      mcpServers: [
-        { id: 'slack', name: 'Slack' },
-        { id: 'github', name: 'GitHub' },
-      ],
-      skills: [{ id: 'research', name: 'Research' }],
-      config: {
-        generativeUi: { enabled: false },
-        dynamicSubAgents: { enabled: true },
-        askUserQuestions: { enabled: true },
-      },
     });
   });
 

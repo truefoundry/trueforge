@@ -4,16 +4,19 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { AvailableMcpServer } from "./AvailableMcpServer.js";
+import { TokenPagination } from "./TokenPagination.js";
 
 export const ListAvailableMcpServersResponse: core.serialization.ObjectSchema<
     serializers.ListAvailableMcpServersResponse.Raw,
     TrueForge.ListAvailableMcpServersResponse
 > = core.serialization.object({
     data: core.serialization.list(AvailableMcpServer),
+    pagination: TokenPagination,
 });
 
 export declare namespace ListAvailableMcpServersResponse {
     export interface Raw {
         data: AvailableMcpServer.Raw[];
+        pagination: TokenPagination.Raw;
     }
 }

@@ -19,7 +19,7 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by' | 'external_id' | 'metadata'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by_subject' | 'external_id' | 'metadata'
 > & {
   custom: TSessionCustom | null;
 };
@@ -64,8 +64,8 @@ export interface ListSessionsInput {
   end_timestamp: Date | undefined;
   /** When set, only sessions bound to this named agent id. */
   agent_id: string | undefined;
-  /** When set, only sessions created by this identity. */
-  created_by: string | undefined;
+  /** When set, only sessions whose `created_by_subject.subject_id` matches. */
+  created_by_subject_id: string | undefined;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -222,7 +222,7 @@ export interface ISessionStore<
   /**
    * Persists a discriminated `agent` (ref | value). SQL backends may flatten to columns.
    * `session_id` is globally unique across tenants.
-   * Persists caller-supplied `created_by` (immutable after create).
+   * Persists caller-supplied `created_by_subject` (immutable after create).
    * Sets `last_activity_timestamp_ms` (= now) on create.
    */
   createSession(input: CreateSessionInput<TSessionCustom>): Promise<void>;
@@ -256,8 +256,9 @@ export interface ISessionStore<
    * (`order` defaults to `desc`, `session_id` tie-break). `page_token` is a
    * keyset cursor on `(updated_at, session_id)`. `start_timestamp` /
    * `end_timestamp` are inclusive instant bounds on `created_at`. Optional
-   * `agent_id` filters ref-bound sessions; optional `created_by` filters by
-   * creator identity. Does **not** bump `last_activity_timestamp_ms` (read path).
+   * `agent_id` filters ref-bound sessions; optional `created_by_subject_id`
+   * filters by `created_by_subject.subject_id`. Does **not** bump
+   * `last_activity_timestamp_ms` (read path).
    */
   listSessions(
     input: ListSessionsInput,

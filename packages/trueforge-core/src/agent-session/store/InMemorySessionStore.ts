@@ -187,7 +187,7 @@ export class InMemorySessionStore<
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
-      created_by: input.created_by,
+      created_by_subject: input.created_by_subject,
       agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,
@@ -273,7 +273,10 @@ export class InMemorySessionStore<
       ) {
         continue;
       }
-      if (input.created_by !== undefined && stored.record.created_by !== input.created_by) {
+      if (
+        input.created_by_subject_id !== undefined &&
+        stored.record.created_by_subject.subject_id !== input.created_by_subject_id
+      ) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();

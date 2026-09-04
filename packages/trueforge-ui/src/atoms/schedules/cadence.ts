@@ -24,6 +24,27 @@ export const TIMEZONE_OPTIONS = [
   { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
 ] as const;
 
+export function resolveLocalTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+export function getTimezoneOptions(selectedTimezone?: string): Array<{ value: string; label: string }> {
+  const localTimezone = resolveLocalTimezone();
+  const knownTimezones = new Set<string>(TIMEZONE_OPTIONS.map(option => option.value));
+  // Keep both browser-local and persisted zones selectable even when they are
+  // outside the curated common-timezone list.
+  const additionalTimezones = [localTimezone, selectedTimezone].flatMap(timezone => {
+    if (timezone == null || timezone.length === 0 || knownTimezones.has(timezone)) return [];
+    knownTimezones.add(timezone);
+    return [{ value: timezone, label: timezone === localTimezone ? `${timezone} (Local)` : timezone }];
+  });
+  return [...additionalTimezones, ...TIMEZONE_OPTIONS];
+}
+
 export const WEEKDAY_OPTIONS = [
   { value: 1, label: 'Mon' },
   { value: 2, label: 'Tue' },
@@ -55,7 +76,7 @@ export function defaultScheduleFormValues(): ScheduleFormValues {
     minute: 0,
     weekdays: [1],
     customCron: '0 9 * * *',
-    timezone: 'America/New_York',
+    timezone: resolveLocalTimezone(),
   };
 }
 

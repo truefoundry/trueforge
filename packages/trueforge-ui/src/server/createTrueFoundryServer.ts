@@ -35,6 +35,7 @@ export type CreateTrueFoundryServerOptions<
   getModels: () => Promise<TModel[]>;
   getSkills: () => Promise<TSkill[]>;
   getMcp: () => Promise<TMcp[]>;
+  getMcpTools?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpTools'];
   searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
   saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
   deleteAgent?: (req: { agentName: string }) => Promise<void>;
@@ -117,6 +118,7 @@ export function createTrueFoundryServer<
     getModels: opts.getModels,
     getSkills: opts.getSkills,
     getMcp: opts.getMcp,
+    ...(opts.getMcpTools === undefined ? {} : { getMcpTools: opts.getMcpTools }),
     searchAgents: opts.searchAgents,
     saveAgent: opts.saveAgent,
     deleteAgent: async req => {

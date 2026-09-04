@@ -40,6 +40,7 @@ const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
+const DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM = 'name';
 const DEFAULT_OIDC_USER_ROLE_CLAIM = 'groups';
 const DEFAULT_OIDC_ADMIN_ROLE_VALUE = 'admin';
 const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
@@ -140,6 +141,31 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
+/** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
+function parsePostgresSslMode(raw: string | undefined): string {
+  if (!raw) {
+    return '';
+  }
+  const mode = raw.trim();
+  if (mode === '') {
+    return '';
+  }
+  switch (mode) {
+    case 'disable':
+    case 'prefer':
+    case 'require':
+    case 'verify-ca':
+    case 'verify-full':
+    case 'no-verify':
+      return mode;
+    default:
+      throw new Error(
+        'Environment variable POSTGRES_SSL_MODE must be one of disable, prefer, require, verify-ca, ' +
+          `verify-full, no-verify; got "${mode}"`,
+      );
+  }
+}
+
 /**
  * Prefer `dist/_frontend` shipped in the npm tarball (npx / `pnpm start`).
  * Fall back to the monorepo sibling `../frontend/dist` (host-dev before a copy).
@@ -209,6 +235,7 @@ function resolvePostgresDatabaseUrl(): string {
   if (databaseUrl !== undefined && databaseUrl.trim() !== '') {
     return databaseUrl.trim();
   }
+
   const postgresUser = getEnv('POSTGRES_USER', { defaultValue: DEFAULT_POSTGRES_USER }) ?? DEFAULT_POSTGRES_USER;
   const postgresPassword =
     getEnv('POSTGRES_PASSWORD', { defaultValue: DEFAULT_POSTGRES_PASSWORD }) ?? DEFAULT_POSTGRES_PASSWORD;
@@ -219,6 +246,7 @@ function resolvePostgresDatabaseUrl(): string {
     raw: getEnv('POSTGRES_PORT'),
     defaultValue: DEFAULT_POSTGRES_PORT,
   });
+  const postgresSslMode = parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
   if (
     postgresUser.trim() === '' ||
     postgresPassword.trim() === '' ||
@@ -229,12 +257,14 @@ function resolvePostgresDatabaseUrl(): string {
       'Set DATABASE_URL, or set non-empty POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST when STANDALONE=false.',
     );
   }
+
   return buildPostgresConnectionString({
     user: postgresUser,
     password: postgresPassword,
     host: postgresHost,
     port: postgresPort,
     database: postgresDb,
+    sslMode: postgresSslMode,
   });
 }
 
@@ -245,8 +275,13 @@ function buildPostgresConnectionString(parts: {
   host: string;
   port: number;
   database: string;
+  sslMode: string;
 }): string {
-  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+  let connectionString = `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+  if (parts.sslMode !== '') {
+    connectionString += `?sslmode=${encodeURIComponent(parts.sslMode)}`;
+  }
+  return connectionString;
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -270,6 +305,9 @@ function resolveOIDCConfig(): OIDCConfig | undefined {
     OIDC_USER_REFERENCE_CLAIM:
       getEnv('OIDC_USER_REFERENCE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_REFERENCE_CLAIM }) ??
       DEFAULT_OIDC_USER_REFERENCE_CLAIM,
+    OIDC_USER_DISPLAY_NAME_CLAIM:
+      getEnv('OIDC_USER_DISPLAY_NAME_CLAIM', { defaultValue: DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM }) ??
+      DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM,
     OIDC_USER_ROLE_CLAIM:
       getEnv('OIDC_USER_ROLE_CLAIM', { defaultValue: DEFAULT_OIDC_USER_ROLE_CLAIM }) ?? DEFAULT_OIDC_USER_ROLE_CLAIM,
     OIDC_ADMIN_ROLE_VALUE:
@@ -294,6 +332,11 @@ export interface OIDCConfig {
    * Optional; defaults to "sub"
    */
   OIDC_USER_REFERENCE_CLAIM: string;
+  /** Claim used as the display name; e.g. "name" or "preferred_username".
+   * Optional; defaults to "name". Missing/empty falls back to the user reference.
+   * Env: `OIDC_USER_DISPLAY_NAME_CLAIM`.
+   */
+  OIDC_USER_DISPLAY_NAME_CLAIM: string;
   /** Claim to be used as the user role; e.g. "role" or "groups"
    * Optional; defaults to "groups"
    */
@@ -446,6 +489,10 @@ export interface SharedServerConfiguration {
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
+  /** Max ms for non-agent ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS`. Default 10000. */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: number;
+  /** Max ms for agent CRUD ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS`. Default 3000. */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: number;
   /**
    * Present this pod's client certificate on outbound calls to the ServiceFoundry server (internal
    * mutual TLS) and upgrade a mesh-direct peer URL from http to https. Off by default, so an
@@ -491,7 +538,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
-   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`.
+   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`
+   * (including optional `POSTGRES_SSL_MODE` as `sslmode`).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
    */
   DATABASE_URL: string;
@@ -620,6 +668,16 @@ const shared: SharedServerConfiguration = {
   SERVER_URL:
     getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS',
+    raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS'),
+    defaultValue: 10_000,
+  }),
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS',
+    raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS'),
+    defaultValue: 3_000,
+  }),
   TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
     envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
     raw: getEnv('TRUEFOUNDRY_MTLS_ENABLED'),
@@ -674,6 +732,27 @@ export function isTrueFoundryModeEnabled(
   config: ServerConfiguration = configuration,
 ): config is ServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
   return config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
+}
+
+/** Runtime auth/integration mode for this process. */
+export enum TrueForgeMode {
+  Standalone = 'standalone',
+  Oidc = 'oidc',
+  TrueFoundry = 'truefoundry',
+}
+
+/**
+ * Resolve the active {@link TrueForgeMode} from configuration.
+ * TrueFoundry wins over OIDC when both would otherwise be set (startup already rejects that combo).
+ */
+export function getTrueForgeMode(config: ServerConfiguration = configuration): TrueForgeMode {
+  if (isTrueFoundryModeEnabled(config)) {
+    return TrueForgeMode.TrueFoundry;
+  }
+  if (isOidcConfigured(config)) {
+    return TrueForgeMode.Oidc;
+  }
+  return TrueForgeMode.Standalone;
 }
 
 // TrueFoundry mode authenticates each caller with their own gateway token, so browser SSO must be

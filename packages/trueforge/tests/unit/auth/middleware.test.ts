@@ -2,8 +2,12 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
-import { adminAuthMiddleware, authMiddleware } from '../../../src/auth/middleware';
+import type { Authenticator } from '../../../src/auth/authenticator';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createAdminAuthMiddleware, createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
+import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
+import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
 import type { OIDCConfig } from '../../../src/config';
 
 const ISSUER = 'https://issuer.example.com';
@@ -14,6 +18,7 @@ const OIDC_CONFIG: OIDCConfig = {
   OIDC_CLIENT_ID: AUDIENCE,
   OIDC_CLIENT_SECRET: 'harness-secret',
   OIDC_USER_REFERENCE_CLAIM: 'sub',
+  OIDC_USER_DISPLAY_NAME_CLAIM: 'name',
   OIDC_USER_ROLE_CLAIM: 'groups',
   OIDC_ADMIN_ROLE_VALUE: 'admin',
   OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
@@ -27,7 +32,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function createApp() {
+function createApp(authenticator: Authenticator) {
   const app = new OpenAPIHono();
   app.onError((error, c) => {
     if (error instanceof HTTPException) {
@@ -44,40 +49,38 @@ function createApp() {
   app.get('/api/v1/openapi', c => c.json({ public: true }));
 
   const models = new OpenAPIHono();
-  models.use('*', authMiddleware);
-  models.get('/', c => c.json({ ok: true, user: c.get('user_context') }));
+  models.use('*', createAuthMiddleware(authenticator));
+  models.get('/', c => c.json({ ok: true, user: c.get('request_context') }));
   app.route('/api/v1/models', models);
 
   const settings = new OpenAPIHono();
-  settings.use('*', adminAuthMiddleware);
-  settings.get('/', c => c.json({ ok: true, user: c.get('user_context') }));
+  settings.use('*', createAdminAuthMiddleware(authenticator));
+  settings.get('/', c => c.json({ ok: true, user: c.get('request_context') }));
   app.route('/api/v1/settings', settings);
 
   return app;
 }
 
-describe('authMiddleware', () => {
-  it('allows settings without admin role when auth is disabled', async () => {
-    disableOidcAuth();
-    const res = await createApp().request('/api/v1/settings');
+describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
+  it('allows settings for standalone authenticator (always admin)', async () => {
+    const res = await createApp(new StandaloneAuthenticator()).request('/api/v1/settings');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      user: { userRef: 'trueforge-default', role: 'admin' },
+      user: STANDALONE_REQUEST_CONTEXT,
     });
   });
 
-  it('sets default user when auth is disabled', async () => {
-    disableOidcAuth();
-    const res = await createApp().request('/api/v1/models');
+  it('sets standalone request context when using StandaloneAuthenticator', async () => {
+    const res = await createApp(new StandaloneAuthenticator()).request('/api/v1/models');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      user: { userRef: 'trueforge-default', role: 'admin' },
+      user: STANDALONE_REQUEST_CONTEXT,
     });
   });
 
-  describe('when auth is enabled', () => {
+  describe('with OidcAuthenticator', () => {
     const realFetch = globalThis.fetch;
     let privateKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];
     let oidcClient: Configuration;
@@ -131,11 +134,15 @@ describe('authMiddleware', () => {
       sub?: string;
       groups?: string[];
       email?: string;
+      name?: string;
       exp?: string | number;
     }): Promise<string> {
       const claims: Record<string, unknown> = { groups: params?.groups ?? [] };
       if (params?.email !== undefined) {
         claims['email'] = params.email;
+      }
+      if (params?.name !== undefined) {
+        claims['name'] = params.name;
       }
       return new SignJWT(claims)
         .setProtectedHeader({ alg: 'RS256', kid: 'test-kid' })
@@ -147,14 +154,32 @@ describe('authMiddleware', () => {
         .sign(privateKey);
     }
 
+    function oidcRequestContext(params: {
+      subjectId: string;
+      roles: string[];
+      userCredential: string;
+      displayName?: string;
+    }) {
+      return {
+        tenant_id: 'default',
+        subject: {
+          id: params.subjectId,
+          type: 'user' as const,
+          display_name: params.displayName ?? params.subjectId,
+        },
+        roles: params.roles,
+        user_credential: params.userCredential,
+      };
+    }
+
     it('returns 401 when the id_token cookie and Bearer token are missing', async () => {
-      const res = await createApp().request('/api/v1/models');
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models');
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
     });
 
     it('returns 401 when the token is invalid', async () => {
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: 'id_token=not-a-jwt' },
       });
       expect(res.status).toBe(401);
@@ -162,7 +187,7 @@ describe('authMiddleware', () => {
     });
 
     it('returns 401 when the Bearer token is invalid', async () => {
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Authorization: 'Bearer not-a-jwt' },
       });
       expect(res.status).toBe(401);
@@ -171,7 +196,7 @@ describe('authMiddleware', () => {
 
     it('returns 401 when the token has the wrong issuer', async () => {
       const token = await createIdToken({ issuer: 'https://other.example.com' });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
@@ -180,7 +205,7 @@ describe('authMiddleware', () => {
 
     it('returns 401 when the token has the wrong audience', async () => {
       const token = await createIdToken({ audience: 'other-client' });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
@@ -189,41 +214,49 @@ describe('authMiddleware', () => {
 
     it('returns 401 when the token is expired', async () => {
       const token = await createIdToken({ exp: Math.floor(Date.now() / 1000) - 60 });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: { message: 'Authentication required' } });
     });
 
-    it('sets user context from claims (reference claim + role)', async () => {
+    it('sets request context from claims (reference claim + role)', async () => {
       const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'alice', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'alice',
+          roles: ['admin'],
+          userCredential: token,
+        }),
       });
     });
 
-    it('sets user context from Authorization Bearer ID token', async () => {
+    it('sets request context from Authorization Bearer ID token', async () => {
       const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Authorization: `Bearer ${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'alice', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'alice',
+          roles: ['admin'],
+          userCredential: token,
+        }),
       });
     });
 
     it('prefers Bearer over cookie when both are present', async () => {
       const cookieToken = await createIdToken({ sub: 'cookie-user', groups: [] });
       const bearerToken = await createIdToken({ sub: 'bearer-user', groups: ['admin'] });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: {
           Cookie: `id_token=${cookieToken}`,
           Authorization: `Bearer ${bearerToken}`,
@@ -232,13 +265,17 @@ describe('authMiddleware', () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'bearer-user', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'bearer-user',
+          roles: ['admin'],
+          userCredential: bearerToken,
+        }),
       });
     });
 
     it('ignores non-Bearer Authorization and falls back to cookie', async () => {
       const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: {
           Authorization: `Basic ${token}`,
           Cookie: `id_token=${token}`,
@@ -247,37 +284,49 @@ describe('authMiddleware', () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'alice', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'alice',
+          roles: ['admin'],
+          userCredential: token,
+        }),
       });
     });
 
     it('allows settings when the caller has admin role', async () => {
       const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
-      const res = await createApp().request('/api/v1/settings', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/settings', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'alice', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'alice',
+          roles: ['admin'],
+          userCredential: token,
+        }),
       });
     });
 
     it('allows settings with Bearer when the caller has admin role', async () => {
       const token = await createIdToken({ sub: 'alice', groups: ['admin'] });
-      const res = await createApp().request('/api/v1/settings', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/settings', {
         headers: { Authorization: `Bearer ${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'alice', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'alice',
+          roles: ['admin'],
+          userCredential: token,
+        }),
       });
     });
 
     it('returns 403 on settings when the caller is not admin', async () => {
       const token = await createIdToken({ sub: 'bob', groups: ['everyone'] });
-      const res = await createApp().request('/api/v1/settings', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/settings', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(403);
@@ -290,7 +339,7 @@ describe('authMiddleware', () => {
         oidcConfig: { ...OIDC_CONFIG, OIDC_ALLOWED_EMAILS: ['*@company.com'] },
       });
       const token = await createIdToken({ sub: 'alice', groups: ['admin'], email: 'alice@elsewhere.com' });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(401);
@@ -303,13 +352,17 @@ describe('authMiddleware', () => {
         oidcConfig: { ...OIDC_CONFIG, OIDC_ALLOWED_EMAILS: ['*@company.com'] },
       });
       const token = await createIdToken({ sub: 'alice', groups: ['admin'], email: 'alice@company.com' });
-      const res = await createApp().request('/api/v1/models', {
+      const res = await createApp(new OidcAuthenticator()).request('/api/v1/models', {
         headers: { Cookie: `id_token=${token}` },
       });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         ok: true,
-        user: { userRef: 'alice', role: 'admin' },
+        user: oidcRequestContext({
+          subjectId: 'alice',
+          roles: ['admin'],
+          userCredential: token,
+        }),
       });
     });
 
@@ -320,7 +373,7 @@ describe('authMiddleware', () => {
       '/api/v1/mcp-servers/oauth/callback',
       '/api/v1/openapi',
     ])('does not gate public mount %s', async path => {
-      const res = await createApp().request(path);
+      const res = await createApp(new OidcAuthenticator()).request(path);
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ public: true });
     });

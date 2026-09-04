@@ -5,7 +5,7 @@
 import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
@@ -99,14 +99,14 @@ describe('MCP OAuth authorize + callback', () => {
       tokenStore,
       withTransaction,
       logger,
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     mcpServersRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
       tokenStore,
       withTransaction,
       logger,
-      resolveUserContext: () => LOCAL_USER_CONTEXT,
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     oauthRouter = createMcpOAuthRouter({
       tokenStore,
@@ -186,7 +186,7 @@ describe('MCP OAuth authorize + callback', () => {
 
     const record = await mcpServerStore.getServer({ tenant_id: 'default', name: 'oauth-mcp' });
     expect(record).toBeDefined();
-    const token = await tokenStore.getToken({ id: record?.id ?? '', userRef: LOCAL_USER_CONTEXT.userRef });
+    const token = await tokenStore.getToken({ id: record?.id ?? '', userRef: STANDALONE_REQUEST_CONTEXT.subject.id });
     expect(token?.accessToken).toBe('access-1');
     expect(token?.refreshToken).toBe('refresh-1');
 
@@ -233,7 +233,12 @@ describe('MCP OAuth authorize + callback', () => {
       tokenStore,
       withTransaction,
       logger,
-      resolveUserContext: () => ({ userRef: 'other-user', role: 'user' }),
+      resolveRequestContext: () => ({
+        tenant_id: 'default',
+        subject: { id: 'other-user', type: 'user', display_name: 'other-user' },
+        roles: [],
+        user_credential: null,
+      }),
     });
 
     const put = await settingsRouter.request('/', {

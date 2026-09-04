@@ -7,6 +7,7 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
     OIDC_CLIENT_ID: 'client-id',
     OIDC_CLIENT_SECRET: 'client-secret',
     OIDC_USER_REFERENCE_CLAIM: 'sub',
+    OIDC_USER_DISPLAY_NAME_CLAIM: 'name',
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'admin',
     OIDC_SCOPES: ['openid', 'profile', 'email'],

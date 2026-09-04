@@ -26,7 +26,7 @@ export type AgentSessionListRowProps = {
   lastActivityAt: string;
   metrics: {
     totalTurns: number;
-    totalCostInUsd: number;
+    totalCostInUsd?: number;
     totalDurationMs: number;
   };
   active: boolean;
@@ -40,6 +40,10 @@ export type AgentSessionDetailHeaderProps = {
   createdAt?: string;
   view?: 'sessions' | null;
   onClose: () => void;
+  /** When set, shows Resume Chat / Resume Agent building. */
+  onResume?: () => void;
+  /** Label for the resume action. */
+  resumeLabel?: string;
 };
 
 export type AgentSessionTurnHeaderProps = {

@@ -12,9 +12,11 @@
  * agent. The UI filters with registry `agentId`.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import { readSessionIsCreateAgent } from '../../atoms/lib/sessionCreateAgent.js';
 import type { GeneratedChatInstructions } from '../../server/generateInstructionsFromChat.js';
 import type {
   AgentChatServer,
+  CreateSessionRequest,
   ListResult,
   Session,
   Turn,
@@ -29,6 +31,13 @@ export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from 
 export type CreateHarnessChatServerOptions = CreateTrueForgeClientOptions & {
   /** Injected client — skips creating one from options. */
   client?: TrueForge;
+};
+
+/** UI session with create-agent intent for resume chrome. */
+export type HarnessUiSession = Session<HarnessAgentSpec> & { isCreateAgent: boolean };
+
+export type HarnessCreateSessionRequest = CreateSessionRequest<HarnessAgentSpec> & {
+  metadata?: Record<string, string>;
 };
 
 function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
@@ -70,10 +79,11 @@ export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   };
 }
 
-function toUiSession(session: TrueForgeApi.Session): Session<HarnessAgentSpec> {
+function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
   return {
     id: session.id,
     isMutable: session.agent.type === 'inline',
+    isCreateAgent: readSessionIsCreateAgent(session.metadata),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
@@ -82,6 +92,11 @@ function toUiSession(session: TrueForgeApi.Session): Session<HarnessAgentSpec> {
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
   };
+}
+
+function createSessionMetadata(request: HarnessCreateSessionRequest): Record<string, string> | undefined {
+  if (request.metadata === undefined) return undefined;
+  return request.metadata;
 }
 
 /** Spread drops the interface identity, which is what makes the SDK's index-signature part type accept it. */
@@ -192,7 +207,11 @@ function readGeneratedChatInstructions(body: unknown): GeneratedChatInstructions
   return { instructions, currentInstructions, sources };
 }
 
-export type HarnessChatServer = AgentChatServer<HarnessAgentSpec> & {
+export type HarnessChatServer = AgentChatServer<
+  HarnessAgentSpec,
+  HarnessUiSession,
+  HarnessCreateSessionRequest
+> & {
   generateInstructionsFromChat: (request: { sessionId: string }) => Promise<GeneratedChatInstructions>;
 };
 
@@ -207,15 +226,18 @@ export function createHarnessChatServer(options: CreateHarnessChatServerOptions 
     },
 
     async createSession(request) {
+      const metadata = createSessionMetadata(request);
       if (request.agentName !== undefined && request.agentName.length > 0) {
         const created = await client.sessions.create({
           agent: { name: request.agentName },
+          ...(metadata === undefined ? {} : { metadata }),
         });
         return toUiSession(created.data);
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
           agent: { spec: toHarnessAgentSpec(request.agentSpec) },
+          ...(metadata === undefined ? {} : { metadata }),
         });
         return toUiSession(created.data);
       }

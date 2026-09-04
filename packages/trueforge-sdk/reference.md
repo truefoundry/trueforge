@@ -341,7 +341,7 @@ await client.agents.delete("agent_id");
 <dl>
 <dd>
 
-Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.
+Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. `type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.
 </dd>
 </dl>
 </dd>
@@ -441,7 +441,7 @@ await client.server.getCapabilities();
 </details>
 
 ## MCP Servers
-<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListAvailableMcpServersResponse</code></summary>
+<details><summary><code>client.mcpServers.<a href="/src/api/resources/mcpServers/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.AvailableMcpServer, TrueForge.ListAvailableMcpServersResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -453,7 +453,7 @@ await client.server.getCapabilities();
 <dl>
 <dd>
 
-MCP servers as a slim name/url list for the composer. No auth or auth_status.
+Paginated MCP servers as a slim name/url list for the composer.
 </dd>
 </dl>
 </dd>
@@ -484,6 +484,14 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
+**request:** `TrueForge.ListMcpServersRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
 **requestOptions:** `McpServersClient.RequestOptions` 
     
 </dd>
@@ -508,7 +516,7 @@ await client.mcpServers.list();
 <dl>
 <dd>
 
-Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.
+Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.
 </dd>
 </dl>
 </dd>
@@ -1227,7 +1235,7 @@ await client.schedules.listRuns("schedule_id");
 <dl>
 <dd>
 
-List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
 </dd>
 </dl>
 </dd>
@@ -1357,7 +1365,7 @@ await client.sessions.create({
 <dl>
 <dd>
 
-Fetch a session by ID. Only the session creator (`created_by`) may fetch it.
+Fetch a session by ID. Only the session creator may fetch it.
 </dd>
 </dl>
 </dd>
@@ -1420,7 +1428,7 @@ await client.sessions.get("session_id");
 <dl>
 <dd>
 
-Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.
+Delete a session and all related turns, events, and internal state. Only the session creator may delete it. Idempotent if already gone.
 </dd>
 </dl>
 </dd>
@@ -1483,7 +1491,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.
+Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -1554,7 +1562,7 @@ await client.sessions.update("session_id");
 <dl>
 <dd>
 
-Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.
+Cancel the running last turn for a session. Only the session creator may cancel.
 </dd>
 </dl>
 </dd>
@@ -1625,7 +1633,7 @@ await client.sessions.cancel("session_id");
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator may list events.
 </dd>
 </dl>
 </dd>
@@ -1696,7 +1704,7 @@ await client.sessions.listEvents("session_id");
 <dl>
 <dd>
 
-List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.
+List turns for a session (newest first by default), token-paginated. Only the session creator may list turns.
 </dd>
 </dl>
 </dd>
@@ -1768,7 +1776,7 @@ await client.sessions.listTurns("session_id");
 <dd>
 
 Create a turn within a session and execute it.
-Only the session creator (`created_by`) may create turns.
+Only the session creator may create turns.
 When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
 When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
 Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
@@ -1846,7 +1854,7 @@ for await (const item of response) {
 <dd>
 
 Create a turn within a session and execute it.
-Only the session creator (`created_by`) may create turns.
+Only the session creator may create turns.
 When `stream` is true (default), respond with a Server-Sent Events stream of turn events.
 When `stream` is false, return the turn immediately with `state.status: "running"` while execution continues in the background; use get turn or subscribe to observe completion.
 Use `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.
@@ -1920,7 +1928,7 @@ await client.sessions.createTurn("session_id", {});
 <dl>
 <dd>
 
-Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.
+Fetch a single turn by ID. Only the session creator may fetch it.
 </dd>
 </dl>
 </dd>
@@ -1991,7 +1999,7 @@ await client.sessions.getTurn("session_id", "turn_id");
 <dl>
 <dd>
 
-Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.
+Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator may download.
 </dd>
 </dl>
 </dd>
@@ -2072,7 +2080,7 @@ await client.sessions.downloadSandboxFile("session_id", "turn_id", {
 <dl>
 <dd>
 
-Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.
+Paginated persisted events for a turn (insertion order by default). Only the session creator may list events.
 </dd>
 </dl>
 </dd>
@@ -2151,7 +2159,7 @@ await client.sessions.listTurnEvents("session_id", "turn_id");
 <dl>
 <dd>
 
-Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
+Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).
 </dd>
 </dl>
 </dd>
@@ -2826,7 +2834,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 </details>
 
 ## Settings McpServers
-<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>() -> TrueForge.ListMcpServersResponse</code></summary>
+<details><summary><code>client.settings.mcpServers.<a href="/src/api/resources/settings/resources/mcpServers/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.ConfiguredMcpServer, TrueForge.ListMcpServersResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -2838,7 +2846,7 @@ await client.internal.agents.getCodeSnippets("agent_id");
 <dl>
 <dd>
 
-All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
+Paginated MCP servers with auth_status. Header secrets are redacted.
 </dd>
 </dl>
 </dd>
@@ -2865,6 +2873,14 @@ await client.settings.mcpServers.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.settings.ListMcpServersRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
@@ -3033,7 +3049,7 @@ await client.settings.mcpServers.createOrUpdate({
 <dl>
 <dd>
 
-A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
+A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.
 </dd>
 </dl>
 </dd>

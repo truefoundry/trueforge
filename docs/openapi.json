@@ -26,6 +26,9 @@
       "Agent": {
         "additionalProperties": false,
         "properties": {
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
           "id": {
             "description": "Immutable server-generated agent identifier.",
             "minLength": 1,
@@ -41,7 +44,8 @@
         "required": [
           "id",
           "name",
-          "manifest"
+          "manifest",
+          "created_by_subject"
         ],
         "type": "object"
       },
@@ -1102,6 +1106,33 @@
         },
         "type": "object"
       },
+      "CreatedBySubject": {
+        "additionalProperties": false,
+        "description": "Who created this resource.",
+        "properties": {
+          "subject_display_name": {
+            "description": "Display name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_id": {
+            "description": "Subject id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_type": {
+            "description": "Subject type.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "subject_type",
+          "subject_display_name"
+        ],
+        "type": "object"
+      },
       "CronExpression": {
         "description": "Standard 5-field cron expression, evaluated in `timezone`.",
         "pattern": "^[\\d*,\\-/]+(?:\\s+[\\d*,\\-/]+){4}$",
@@ -1342,27 +1373,34 @@
       },
       "GetMeResponse": {
         "properties": {
-          "email": {
-            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+          "data": {
+            "$ref": "#/components/schemas/Me"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetMeSubject": {
+        "properties": {
+          "display_name": {
+            "description": "Human-readable name for the caller.",
             "type": "string"
           },
-          "role": {
-            "description": "Caller role.",
+          "id": {
+            "description": "Stable subject identifier for the caller.",
             "type": "string"
           },
           "type": {
-            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
-            "enum": [
-              "default",
-              "oidc-connected"
-            ],
+            "description": "Subject kind as returned by the identity provider (stored as-is).",
             "type": "string"
           }
         },
         "required": [
+          "id",
           "type",
-          "email",
-          "role"
+          "display_name"
         ],
         "type": "object"
       },
@@ -1637,10 +1675,14 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -1695,10 +1737,14 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -2242,6 +2288,42 @@
           "name"
         ],
         "type": "object"
+      },
+      "Me": {
+        "properties": {
+          "roles": {
+            "description": "Roles for the authenticated caller.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/GetMeSubject"
+          },
+          "tenant_id": {
+            "description": "Tenant scope for the authenticated caller.",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MeSessionType"
+          }
+        },
+        "required": [
+          "type",
+          "tenant_id",
+          "subject",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "MeSessionType": {
+        "description": "`oidc-connected` when the process is running with browser OIDC login; `default` for standalone or TrueFoundry token auth.",
+        "enum": [
+          "default",
+          "oidc-connected"
+        ],
+        "type": "string"
       },
       "MetricsUnit": {
         "enum": [
@@ -3063,8 +3145,8 @@
             "format": "date-time",
             "type": "string"
           },
-          "created_by": {
-            "type": "string"
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
           },
           "id": {
             "type": "string"
@@ -3085,7 +3167,7 @@
           "agent_name",
           "name",
           "manifest",
-          "created_by",
+          "created_by_subject",
           "created_at",
           "updated_at"
         ],
@@ -3122,6 +3204,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
           "id": {
             "type": "string"
           },
@@ -3145,9 +3230,6 @@
               "null"
             ]
           },
-          "triggered_by": {
-            "type": "string"
-          },
           "updated_at": {
             "format": "date-time",
             "type": "string"
@@ -3159,7 +3241,7 @@
           "name",
           "scheduled_for",
           "status",
-          "triggered_by",
+          "created_by_subject",
           "triggered_at",
           "created_at",
           "updated_at"
@@ -3191,9 +3273,8 @@
             "description": "ISO 8601 creation timestamp.",
             "type": "string"
           },
-          "created_by": {
-            "description": "Caller identity that created the session (immutable).",
-            "type": "string"
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
           },
           "id": {
             "description": "Unique session id.",
@@ -3221,7 +3302,7 @@
           "id",
           "agent",
           "title",
-          "created_by",
+          "created_by_subject",
           "created_at",
           "updated_at",
           "metrics",
@@ -4823,14 +4904,14 @@
     "securitySchemes": {
       "BearerAuth": {
         "bearerFormat": "JWT",
-        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "description": "Caller credential (`Authorization: Bearer <token>`). Required on protected routes when auth is enabled. Browser sessions may use the HttpOnly `id_token` or `accessToken` cookie instead.",
         "scheme": "bearer",
         "type": "http"
       }
     }
   },
   "info": {
-    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
     "version": "0.2.0-rc.0"
   },
@@ -5529,7 +5610,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.",
+        "description": "Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. `type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
         "responses": {
           "200": {
             "content": {
@@ -5539,7 +5620,7 @@
                 }
               }
             },
-            "description": "Session type and identity for the current request."
+            "description": "Caller identity for the current request."
           },
           "401": {
             "content": {
@@ -5549,7 +5630,7 @@
                 }
               }
             },
-            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer token."
           }
         },
         "summary": "Current session",
@@ -5743,7 +5824,32 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "MCP servers as a slim name/url list for the composer. No auth or auth_status.",
+        "description": "Paginated MCP servers as a slim name/url list for the composer.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 100, max 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5753,7 +5859,17 @@
                 }
               }
             },
-            "description": "All MCP servers (chat projection)."
+            "description": "Paginated MCP servers (chat projection)."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -5770,6 +5886,11 @@
         "tags": [
           "MCP Servers"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -5926,7 +6047,7 @@
         "x-fern-sdk-method-name": "delete_authorization"
       },
       "get": {
-        "description": "Returns the current auth status for the MCP server. For OAuth (`auth.type` dcr), returns authenticated when a usable token exists; otherwise returns auth_required with an authorization URL. Optional return_to is where the OAuth callback redirects the browser; without it the callback returns JSON.",
+        "description": "Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -5940,12 +6061,12 @@
             }
           },
           {
-            "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
+            "description": "Same-origin path to land in the browser after consent.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
+              "description": "Same-origin path to land in the browser after consent.",
               "type": "string"
             }
           }
@@ -6622,7 +6743,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -6793,7 +6914,7 @@
     },
     "/api/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.",
+        "description": "Delete a session and all related turns, events, and internal state. Only the session creator may delete it. Idempotent if already gone.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6833,7 +6954,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID. Only the session creator (`created_by`) may fetch it.",
+        "description": "Fetch a session by ID. Only the session creator may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6890,7 +7011,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
+        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6979,7 +7100,7 @@
     },
     "/api/v1/sessions/{session_id}/cancel": {
       "post": {
-        "description": "Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.",
+        "description": "Cancel the running last turn for a session. Only the session creator may cancel.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7058,7 +7179,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7165,7 +7286,7 @@
     },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
-        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.",
+        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator may list turns.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7260,7 +7381,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nOnly the session creator (`created_by`) may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
+        "description": "Create a turn within a session and execute it.\nOnly the session creator may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7395,7 +7516,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.",
+        "description": "Fetch a single turn by ID. Only the session creator may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7465,7 +7586,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/download-sandbox-file": {
       "get": {
-        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator may download.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7597,7 +7718,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
-        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.",
+        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7714,7 +7835,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -7822,7 +7943,32 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 100, max 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -7832,7 +7978,17 @@
                 }
               }
             },
-            "description": "All MCP servers"
+            "description": "Paginated MCP servers"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -7859,6 +8015,11 @@
         "tags": [
           "MCP Servers"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"
@@ -8006,7 +8167,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
           {
             "description": "MCP server name.",

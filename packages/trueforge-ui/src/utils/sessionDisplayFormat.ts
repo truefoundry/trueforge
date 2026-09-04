@@ -27,8 +27,12 @@ export function formatDurationMs(durationMs: number): string {
 
 export function formatSessionListMetrics(metrics: {
   totalTurns: number;
-  totalCostInUsd: number;
+  totalCostInUsd?: number;
   totalDurationMs: number;
 }): string {
-  return `${metrics.totalTurns} turns | ${formatCostUsd(metrics.totalCostInUsd)} | ${formatDurationMs(metrics.totalDurationMs)}`;
+  return [
+    `${metrics.totalTurns} turns`,
+    ...(metrics.totalCostInUsd == null ? [] : [formatCostUsd(metrics.totalCostInUsd)]),
+    formatDurationMs(metrics.totalDurationMs),
+  ].join(' | ');
 }

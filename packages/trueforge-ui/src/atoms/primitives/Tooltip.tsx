@@ -69,6 +69,8 @@ export type TooltipProps = {
   followCursor?: boolean;
   /** When set, tooltip is pinned to these viewport coords instead of the trigger. */
   anchor?: TooltipAnchor | null;
+  /** Controls visibility when provided; otherwise hover/focus owns it. */
+  open?: boolean;
 };
 
 export function Tooltip({
@@ -80,8 +82,13 @@ export function Tooltip({
   dismissOnClick = true,
   followCursor = false,
   anchor = null,
+  open,
 }: TooltipProps) {
-  const [visible, setVisible] = useState(false);
+  const [uncontrolledVisible, setUncontrolledVisible] = useState(false);
+  const visible = open ?? uncontrolledVisible;
+  const setVisible = (next: boolean) => {
+    if (open === undefined) setUncontrolledVisible(next);
+  };
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
@@ -210,6 +217,7 @@ export type LightTooltipProps = {
   dismissOnClick?: boolean;
   followCursor?: boolean;
   anchor?: TooltipAnchor | null;
+  open?: boolean;
 };
 
 export function LightTooltip({
@@ -222,6 +230,7 @@ export function LightTooltip({
   dismissOnClick,
   followCursor,
   anchor,
+  open,
 }: LightTooltipProps) {
   return (
     <Tooltip
@@ -232,6 +241,7 @@ export function LightTooltip({
       dismissOnClick={dismissOnClick}
       followCursor={followCursor}
       anchor={anchor}
+      open={open}
     >
       {children}
     </Tooltip>

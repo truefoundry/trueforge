@@ -9,7 +9,20 @@ describe("AgentsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ id: "id", manifest: { model: { name: "name" } }, name: "name" }] };
+        const rawResponseBody = {
+            data: [
+                {
+                    created_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
+                    id: "id",
+                    manifest: { model: { name: "name" } },
+                    name: "name",
+                },
+            ],
+        };
 
         server.mockEndpoint().get("/api/v1/agents").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -17,6 +30,11 @@ describe("AgentsClient", () => {
         expect(response).toEqual({
             data: [
                 {
+                    createdBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
                     id: "id",
                     manifest: {
                         model: {
@@ -48,6 +66,11 @@ describe("AgentsClient", () => {
         const rawRequestBody = { manifest: { model: { name: "name" } }, name: "name" };
         const rawResponseBody = {
             data: {
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -80,6 +103,11 @@ describe("AgentsClient", () => {
         });
         expect(response).toEqual({
             data: {
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -198,6 +226,11 @@ describe("AgentsClient", () => {
 
         const rawResponseBody = {
             data: {
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -222,6 +255,11 @@ describe("AgentsClient", () => {
         const response = await client.agents.get("agent_id");
         expect(response).toEqual({
             data: {
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -278,6 +316,11 @@ describe("AgentsClient", () => {
         const rawRequestBody = { manifest: { model: { name: "name" } } };
         const rawResponseBody = {
             data: {
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -309,6 +352,11 @@ describe("AgentsClient", () => {
         });
         expect(response).toEqual({
             data: {
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     instructions: "instructions",

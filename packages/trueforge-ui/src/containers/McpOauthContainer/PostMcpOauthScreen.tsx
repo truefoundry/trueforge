@@ -8,13 +8,31 @@ import { Icon } from '../../icons/Icon.js';
 const BROADCAST_RETRY_DELAY_MS = 1000;
 const WINDOW_CLOSE_DELAY_MS = 5000;
 
+/**
+ * Prefer `isSuccess` when present; otherwise treat a `code` without `error` as success.
+ */
+function resolvePopupSuccess(searchParams: URLSearchParams): boolean {
+  if (searchParams.get('error')) {
+    return false;
+  }
+  const flag = searchParams.get('isSuccess')?.toLowerCase();
+  if (flag === 'true') {
+    return true;
+  }
+  if (flag === 'false') {
+    return false;
+  }
+  const code = searchParams.get('code');
+  return code != null && code.length > 0;
+}
+
 const PostMcpOauthScreen = () => {
   const [result, setResult] = useState<McpAuthPopupMessage | null>();
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const popupUid = searchParams.get('pUid');
-    const isSuccess = searchParams.get('isSuccess')?.toLowerCase() === 'true';
+    const isSuccess = resolvePopupSuccess(searchParams);
     setResult(popupUid ? { popupUid, isSuccess } : null);
 
     const broadcastResult = () => {

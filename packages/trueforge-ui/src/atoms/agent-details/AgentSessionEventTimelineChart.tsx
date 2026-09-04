@@ -9,7 +9,7 @@ import {
   type ChartOptions,
   type Plugin,
 } from 'chart.js';
-import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { Bar } from 'react-chartjs-2';
 
 import { useThemeMode } from '../../theme/SlotsProvider.js';
@@ -24,6 +24,7 @@ import {
 import {
   buildTimelineAxisTicks,
   getActiveTimelineMs,
+  getSubAgentHoverGroups,
   getSubAgentLanes,
   getTimelineHoverTargetId,
   getTimelineLayout,
@@ -39,6 +40,7 @@ import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   hasSessionEventTooltip,
   SessionEventTooltip,
+  SessionSubAgentGroupTooltip,
   SessionToolCallGroupTooltip,
   SessionTurnTooltip,
 } from './AgentSessionTimelineTooltip.js';
@@ -96,6 +98,7 @@ export function AgentSessionEventTimelineChart({
   const [tooltipTarget, setTooltipTarget] = useState<TimelineHoverTarget | null>(null);
   const [tooltipAnchor, setTooltipAnchor] = useState<{ left: number; top: number } | null>(null);
   const tooltipIdRef = useRef('');
+  const tooltipCursorXRef = useRef<number | null>(null);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -106,6 +109,33 @@ export function AgentSessionEventTimelineChart({
     observer.observe(wrapper);
     return () => observer.disconnect();
   }, []);
+
+  const refreshTooltipAnchor = useCallback(() => {
+    const wrapper = wrapperRef.current;
+    const left = tooltipCursorXRef.current;
+    if (wrapper == null || left == null) return;
+    setTooltipAnchor({ left, top: wrapper.getBoundingClientRect().bottom });
+  }, []);
+
+  const clearTooltip = useCallback(() => {
+    tooltipIdRef.current = '';
+    tooltipCursorXRef.current = null;
+    setTooltipTarget(null);
+    setTooltipAnchor(null);
+  }, []);
+
+  useEffect(() => {
+    if (tooltipTarget == null) return undefined;
+    // Anchors use viewport coordinates, so remeasure the chart whenever any
+    // scroll ancestor or the viewport moves it.
+    refreshTooltipAnchor();
+    window.addEventListener('scroll', refreshTooltipAnchor, true);
+    window.addEventListener('resize', refreshTooltipAnchor);
+    return () => {
+      window.removeEventListener('scroll', refreshTooltipAnchor, true);
+      window.removeEventListener('resize', refreshTooltipAnchor);
+    };
+  }, [refreshTooltipAnchor, tooltipTarget]);
 
   const activeTotalMs = Math.max(1, ...segments.map(segment => segment.endMs));
   const { turnStartsMs, turnOrdinals, turnRanges } = useMemo(() => getTimelineLayout(segments), [segments]);
@@ -150,6 +180,10 @@ export function AgentSessionEventTimelineChart({
     [visibleSegments],
   );
   const mainSubAgents = useMemo(() => pickLongestNonOverlappingSegments(subAgentSegments), [subAgentSegments]);
+  const subAgentGroups = useMemo(
+    () => getSubAgentHoverGroups({ bars: mainSubAgents, subAgentSegments }),
+    [mainSubAgents, subAgentSegments],
+  );
   const subAgentLanes = useMemo(
     () => getSubAgentLanes({ subAgentSegments, threadSegments: visibleSegments, minWidthMs: MARKER_PX * msPerPx }),
     [msPerPx, subAgentSegments, visibleSegments],
@@ -189,12 +223,14 @@ export function AgentSessionEventTimelineChart({
       ...subAgentLanes.flatMap(lane =>
         lane.segments.map((segment): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
       ),
-      ...mainEventSegments.map((segment): TimelineHoverTarget | null =>
-        segment.type === 'sub_agent' ? null : { type: TIMELINE_TYPE.event, segment },
-      ),
+      ...mainEventSegments.map((segment): TimelineHoverTarget | null => {
+        if (segment.type !== 'sub_agent') return { type: TIMELINE_TYPE.event, segment };
+        const group = subAgentGroups.find(candidate => candidate.barId === segment.id);
+        return group == null ? { type: TIMELINE_TYPE.event, segment } : { type: TIMELINE_TYPE.subAgentGroup, group };
+      }),
       ...toolCallGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.toolCallGroup, group })),
     ],
-    [mainEventSegments, subAgentLanes, toolCallGroups, turnBars],
+    [mainEventSegments, subAgentGroups, subAgentLanes, toolCallGroups, turnBars],
   );
 
   const barDataset = ({
@@ -336,6 +372,10 @@ export function AgentSessionEventTimelineChart({
         if (native?.target instanceof HTMLElement) {
           native.target.style.cursor = next?.type === TIMELINE_TYPE.turn ? 'pointer' : 'default';
         }
+        if (native instanceof MouseEvent) {
+          tooltipCursorXRef.current = native.clientX;
+          refreshTooltipAnchor();
+        }
         // Pointer between bars keeps the current tooltip; a bar without a tooltip dismisses it.
         if (hoveredDatasetIndex == null) return;
         const nextId = getTimelineHoverTargetId(next);
@@ -346,11 +386,7 @@ export function AgentSessionEventTimelineChart({
           setTooltipAnchor(null);
           return;
         }
-        if (!(native instanceof MouseEvent) || !(native.target instanceof HTMLElement)) return;
-        setTooltipAnchor({
-          left: native.clientX,
-          top: native.target.getBoundingClientRect().bottom,
-        });
+        refreshTooltipAnchor();
       },
       plugins: { legend: { display: false }, tooltip: { enabled: false } },
       scales: {
@@ -391,7 +427,7 @@ export function AgentSessionEventTimelineChart({
         },
       },
     }),
-    [axis, band, chartTargets, grid, onSelectTurn, timelineGaps, timelineMaxMs, totalMs],
+    [axis, band, chartTargets, grid, onSelectTurn, refreshTooltipAnchor, timelineGaps, timelineMaxMs, totalMs],
   );
 
   const tooltipTurn = tooltipTarget?.type === TIMELINE_TYPE.turn ? turns[tooltipTarget.bar.turnIndex] : undefined;
@@ -415,6 +451,8 @@ export function AgentSessionEventTimelineChart({
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.toolCallGroup ? (
       <SessionToolCallGroupTooltip group={tooltipTarget.group} />
+    ) : tooltipTarget?.type === TIMELINE_TYPE.subAgentGroup ? (
+      <SessionSubAgentGroupTooltip group={tooltipTarget.group} />
     ) : null;
 
   return (
@@ -424,10 +462,11 @@ export function AgentSessionEventTimelineChart({
         side="bottom"
         triggerClassName="block w-full"
         followCursor
+        open={tooltipTarget != null && tooltipContent != null}
         className="max-w-[min(25rem,calc(100vw-1rem))] whitespace-normal"
         anchor={tooltipAnchor}
       >
-        <div className="w-full" style={containerStyle}>
+        <div className="w-full" style={containerStyle} onMouseLeave={clearTooltip}>
           <Bar data={chartData} options={chartOptions} plugins={[turnLabelPlugin, overheadPlugin]} />
         </div>
       </LightTooltip>

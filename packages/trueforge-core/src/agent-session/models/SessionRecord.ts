@@ -1,4 +1,5 @@
 import type { SessionAgent, SessionMetadata, SessionMetrics } from '../schemas/session';
+import type { CreatedBySubject } from '../schemas/subject';
 
 /**
  * Session persistence record. Agent binding is a single discriminated `agent`
@@ -9,7 +10,7 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by: string;
+  created_by_subject: CreatedBySubject;
   agent: SessionAgent;
   /**
    * Public session title (nullable). Written via updateSession patch or createTurn's

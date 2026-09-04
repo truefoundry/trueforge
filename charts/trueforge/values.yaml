@@ -106,6 +106,7 @@ configs:
     #       name: trueforge-oidc
     #       key: client-secret
     userReferenceClaim: sub
+    userDisplayNameClaim: name
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
@@ -177,6 +178,9 @@ externalPostgres:
   #     secretKeyRef:
   #       name: my-postgres-secret
   #       key: password
+  # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
+  # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
+  sslMode: ""
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.

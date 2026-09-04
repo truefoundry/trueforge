@@ -14,6 +14,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
+import { StandaloneAuthenticator } from '../src/auth/standaloneAuthenticator';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
@@ -59,6 +60,7 @@ function canonicalise(value: unknown): unknown {
 const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const tokenStore = new SqliteOAuthTokenStore(db);
+const agentStore = new SqliteAgentStore(db);
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
@@ -75,7 +77,7 @@ const app = createServerApp({
   skillStore: new SqliteSkillStore(db),
   sandboxCatalog: SandboxCatalog.load(),
   sandboxProviderStore: new SqliteSandboxProviderStore(db),
-  agentStore: new SqliteAgentStore(db),
+  resolveAgentStore: () => agentStore,
   scheduleStore: new SqliteScheduleStore(db),
   sessionStore,
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
@@ -85,6 +87,7 @@ const app = createServerApp({
   eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
   oidcClient: undefined,
+  authenticator: new StandaloneAuthenticator(),
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed

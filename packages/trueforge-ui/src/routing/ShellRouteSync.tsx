@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
@@ -73,6 +74,7 @@ export function ShellRouteSync({
           shell.openHistorySession({
             sessionId,
             isMutable: session.isMutable,
+            isCreateAgent: sessionIsCreateAgent(session),
             ...(session.agentName != null ? { agentName: session.agentName } : {}),
           });
         })
