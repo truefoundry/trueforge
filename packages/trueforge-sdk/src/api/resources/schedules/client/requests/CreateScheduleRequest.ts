@@ -14,7 +14,7 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface CreateScheduleRequest {
-    agentName: TrueForge.ResourceName;
+    agentName: TrueForge.AgentName;
     manifest: TrueForge.ScheduleManifest;
     name: TrueForge.ResourceName;
 }

@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface Schedule {
-    agentName: TrueForge.ResourceName;
+    agentName: TrueForge.AgentName;
     createdAt: Date;
     createdBySubject: TrueForge.CreatedBySubject;
     id: string;

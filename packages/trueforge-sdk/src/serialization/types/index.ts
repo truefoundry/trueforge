@@ -4,6 +4,7 @@ export * from "./AgentCodeSnippet.js";
 export * from "./AgentCodeSnippetSampleCode.js";
 export * from "./AgentCodeSnippets.js";
 export * from "./AgentInfo.js";
+export * from "./AgentName.js";
 export * from "./AgentParent.js";
 export * from "./AgentSpec.js";
 export * from "./AlibabaModelProvider.js";

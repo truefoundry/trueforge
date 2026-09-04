@@ -3,16 +3,16 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { AgentName } from "./AgentName.js";
 import { AgentSpec } from "./AgentSpec.js";
 import { CreatedBySubject } from "./CreatedBySubject.js";
-import { ResourceName } from "./ResourceName.js";
 
 export const Agent: core.serialization.ObjectSchema<serializers.Agent.Raw, TrueForge.Agent> = core.serialization.object(
     {
         createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
         id: core.serialization.string(),
         manifest: AgentSpec,
-        name: ResourceName,
+        name: AgentName,
     },
 );
 
@@ -21,6 +21,6 @@ export declare namespace Agent {
         created_by_subject: CreatedBySubject.Raw;
         id: string;
         manifest: AgentSpec.Raw;
-        name: ResourceName.Raw;
+        name: AgentName.Raw;
     }
 }

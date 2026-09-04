@@ -7,5 +7,5 @@ export interface Agent {
     /** Immutable server-generated agent identifier. */
     id: string;
     manifest: TrueForge.AgentSpec;
-    name: TrueForge.ResourceName;
+    name: TrueForge.AgentName;
 }

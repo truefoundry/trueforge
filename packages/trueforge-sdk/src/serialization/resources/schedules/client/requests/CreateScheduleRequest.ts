@@ -3,6 +3,7 @@
 import type * as TrueForge from "../../../../../api/index.js";
 import * as core from "../../../../../core/index.js";
 import type * as serializers from "../../../../index.js";
+import { AgentName } from "../../../../types/AgentName.js";
 import { ResourceName } from "../../../../types/ResourceName.js";
 import { ScheduleManifest } from "../../../../types/ScheduleManifest.js";
 
@@ -10,14 +11,14 @@ export const CreateScheduleRequest: core.serialization.Schema<
     serializers.CreateScheduleRequest.Raw,
     TrueForge.CreateScheduleRequest
 > = core.serialization.object({
-    agentName: core.serialization.property("agent_name", ResourceName),
+    agentName: core.serialization.property("agent_name", AgentName),
     manifest: ScheduleManifest,
     name: ResourceName,
 });
 
 export declare namespace CreateScheduleRequest {
     export interface Raw {
-        agent_name: ResourceName.Raw;
+        agent_name: AgentName.Raw;
         manifest: ScheduleManifest.Raw;
         name: ResourceName.Raw;
     }

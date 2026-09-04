@@ -19,6 +19,20 @@ export const NameSchema = z
 
 export type ResourceName = z.infer<typeof NameSchema>;
 
+/** Agent registry names: matches SVC agent-identity / agent v2 (hyphen-only, 2–64). */
+export const AgentNameSchema = z
+  .string()
+  .min(2)
+  .max(64)
+  .regex(
+    /^[a-z][a-z0-9-]{0,62}[a-z0-9]$/,
+    'must be 2–64 lowercase chars: start with a letter, end with alphanumeric, hyphens only in between',
+  )
+  .openapi('AgentName');
+
+export type AgentName = z.infer<typeof AgentNameSchema>;
+
+/** Sessions and turns list page size (default = max). */
 export const PAGE_LIMIT = 25;
 /** Session/turn event list page size (default = max). */
 export const EVENTS_PAGE_LIMIT = 100;

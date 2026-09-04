@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface SessionAgentNameRef {
-    name: TrueForge.ResourceName;
+    name: TrueForge.AgentName;
 }
