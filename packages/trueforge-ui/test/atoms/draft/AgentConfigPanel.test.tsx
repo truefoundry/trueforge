@@ -69,6 +69,13 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Variables')).not.toBeInTheDocument();
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
+      'h-11',
+      'border-b',
+      'bg-topbar-bg',
+      'px-2',
+      'py-1.5',
+    );
   });
 
   it('routes editor actions and live instruction changes', () => {
@@ -119,6 +126,71 @@ describe('AgentConfigPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove GitHub' }));
     expect(onChange).toHaveBeenCalledWith({ ...spec, mcpServers: [] });
+  });
+
+  it('toggles MCP preload from the config chip', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onInstructionsChange={vi.fn()}
+          onInstructionsBlur={vi.fn()}
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preload tools for GitHub' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['issues.list'], preload: true }],
+    });
+  });
+
+  it('opens the MCP editor from the section add action', () => {
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onInstructionsChange={vi.fn()}
+          onInstructionsBlur={vi.fn()}
+          onOpenEditor={onOpenEditor}
+          onChange={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add MCP server' }));
+    expect(onOpenEditor).toHaveBeenCalledWith('mcp');
+  });
+
+  it('shows the MCP empty state without a selected-servers message', () => {
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={{ ...spec, mcpServers: [] }}
+          model={model}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onInstructionsChange={vi.fn()}
+          onInstructionsBlur={vi.fn()}
+          onOpenEditor={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByText('MCP Servers')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add MCP server' })).toBeInTheDocument();
+    expect(screen.queryByText('No MCP servers selected.')).not.toBeInTheDocument();
   });
 
   it('renders an optional close action for overlay layouts', () => {

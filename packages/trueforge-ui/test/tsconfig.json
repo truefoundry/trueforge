@@ -5,6 +5,7 @@
     "declarationMap": false,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "customConditions": ["trueforge-dev"],
     "rootDir": "..",
     "types": ["node", "vitest/globals"]
   },

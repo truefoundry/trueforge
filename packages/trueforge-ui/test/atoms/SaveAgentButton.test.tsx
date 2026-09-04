@@ -4,6 +4,10 @@ import { cloneElement, isValidElement, useEffect, useLayoutEffect, type ReactNod
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
+import {
+  AgentConfigInstructionsProvider,
+  useAgentConfigInstructions,
+} from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentSpec, AgentUIServer, SaveAgentRequest, SaveAgentResult } from '@/server/types.js';
@@ -13,11 +17,13 @@ import { createMockAgentUIServer } from '../server/mockServer.js';
 let agentSpec: AgentSpec;
 const flushAgentSpec = vi.fn(async () => undefined);
 const adoptAgentSpec = vi.fn();
+const updateAgentSpec = vi.fn();
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({ agentSpec, draftSessionId: 'draft-1' }),
   useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
   useTrueFoundryAdoptAgentSpec: () => adoptAgentSpec,
+  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
 }));
 
 beforeAll(() => {
@@ -110,6 +116,18 @@ function BoundMutableSaveButton({ agentId, agentName }: { agentId: string; agent
   return <SaveAgentButton />;
 }
 
+function SaveWithInstructionDraft() {
+  const { onChange } = useAgentConfigInstructions();
+  return (
+    <>
+      <button type="button" onClick={() => onChange('Instructions currently visible in the drawer.')}>
+        Edit instructions
+      </button>
+      <SaveAgentButton />
+    </>
+  );
+}
+
 function deferred<T>() {
   let resolvePromise: ((value: T) => void) | undefined;
   const promise = new Promise<T>(resolve => {
@@ -142,6 +160,7 @@ describe('SaveAgentButton', () => {
     flushAgentSpec.mockReset();
     flushAgentSpec.mockResolvedValue(undefined);
     adoptAgentSpec.mockClear();
+    updateAgentSpec.mockClear();
   });
 
   it('is hidden when the shell is locked to a named agent', () => {
@@ -151,7 +170,10 @@ describe('SaveAgentButton', () => {
 
   it('shows on an empty new chat when a model is selected', () => {
     renderButton();
-    expect(screen.getByRole('button', { name: 'Save Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Agent' })).toHaveClass(
+      'bg-primary-button-bg',
+      'text-primary-button-text',
+    );
   });
 
   it('is hidden when the draft has no model', () => {
@@ -240,11 +262,8 @@ describe('SaveAgentButton', () => {
     expect(within(dialog).getByText('generative UI:').parentElement).toHaveTextContent('off');
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Edit Connectors' }));
-    const mcpDialog = await findStackedDialog('Edit Connectors');
-    expect(await within(mcpDialog).findByRole('menuitemcheckbox', { name: /Slack/ })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    const mcpDialog = await findStackedDialog('Select MCP Tools');
+    expect(await within(mcpDialog).findByLabelText('Slack selected')).toBeInTheDocument();
   });
 
   it('uses the drawer instruction draft when opening before debounce sync completes', async () => {
@@ -257,6 +276,25 @@ describe('SaveAgentButton', () => {
 
     expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Instructions currently visible in the drawer.');
     expect(within(dialog).getByText('gpt-4.1')).toBeInTheDocument();
+  });
+
+  it('flushes the shared instruction draft when opening Save Agent', async () => {
+    renderButton({
+      children: (
+        <AgentConfigInstructionsProvider>
+          <SaveWithInstructionDraft />
+        </AgentConfigInstructionsProvider>
+      ),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit instructions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      instructions: 'Instructions currently visible in the drawer.',
+    });
+    expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Instructions currently visible in the drawer.');
   });
 
   it('labels an existing mutable binding as Update Agent and submits an update', async () => {
@@ -360,9 +398,10 @@ describe('SaveAgentButton', () => {
     fireEvent.change(within(saveDialog).getByLabelText('Agent name'), { target: { value: 'preserved-agent' } });
 
     fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
-    const mcpDialog = await findStackedDialog('Edit Connectors');
-    fireEvent.click(await within(mcpDialog).findByRole('checkbox', { name: 'Select Slack' }));
-    fireEvent.click(within(mcpDialog).getByRole('button', { name: 'Close' }));
+    const mcpDialog = await findStackedDialog('Select MCP Tools');
+    fireEvent.click(within(mcpDialog).getByRole('button', { name: 'Slack' }));
+    fireEvent.click(within(mcpDialog).getByRole('switch', { name: 'Enable all tools' }));
+    fireEvent.click(within(mcpDialog).getByRole('button', { name: 'Save' }));
 
     fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Skills' }));
     const skillsDialog = await findStackedDialog('Edit skills');
@@ -376,7 +415,7 @@ describe('SaveAgentButton', () => {
         agentSpec: expect.objectContaining({
           mcpServers: [
             { id: 'github', name: 'GitHub', enableTools: ['@read-only'], config: { project: 'sdk' } },
-            { id: 'slack', name: 'Slack' },
+            { id: 'slack', name: 'Slack', enableTools: ['@all'] },
           ],
           skills: [
             { id: 'research', name: 'Research', fqn: 'skills/research:1', config: { depth: 2 } },
@@ -405,10 +444,7 @@ describe('SaveAgentButton', () => {
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.change(within(saveDialog).getByLabelText('Agent name'), { target: { value: 'trimmed-agent' } });
 
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
-    const mcpDialog = await findStackedDialog('Edit Connectors');
-    fireEvent.click(await within(mcpDialog).findByRole('checkbox', { name: 'Deselect GitHub' }));
-    fireEvent.click(within(mcpDialog).getByRole('button', { name: 'Close' }));
+    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Remove GitHub' }));
 
     fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Skills' }));
     const skillsDialog = await findStackedDialog('Edit skills');
