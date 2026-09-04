@@ -5383,7 +5383,7 @@
     },
     "/api/v1/agents/{agent_id}": {
       "delete": {
-        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "description": "Delete a configured agent by immutable id.",
         "parameters": [
           {
             "description": "Immutable agent identifier.",
@@ -5418,6 +5418,16 @@
               }
             },
             "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
           }
         },
         "summary": "Delete an agent",
@@ -6472,7 +6482,17 @@
                 }
               }
             },
-            "description": "Unknown agent or invalid cron."
+            "description": "Invalid cron or timezone."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
           },
           "409": {
             "content": {
@@ -7561,7 +7581,7 @@
                 }
               }
             },
-            "description": "Session or prior turn not found."
+            "description": "Session, prior turn, or referenced agent not found."
           },
           "412": {
             "content": {

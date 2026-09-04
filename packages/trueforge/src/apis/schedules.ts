@@ -4,6 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import type { Authorizer } from '../auth/authorizer';
 import {
   createdBySubjectFromRequestContext,
   hasAdminRole,
@@ -38,15 +39,17 @@ import {
   type ScheduleManifest,
   type ScheduleRun,
 } from '../schemas/schedule';
+import { agentIfAccessible } from './agentAccess';
 import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   sessions: Sessions;
-  turnDeps: BeginTurnExecutionDeps;
+  resolveTurnDeps: (c: Context) => BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
+  authorizer: Authorizer;
 }
 
 function toWireSchedule(record: ScheduleRecord): Schedule {
@@ -178,6 +181,20 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
 
+    // Schedule ownership alone must not invoke an agent the caller cannot read.
+    const agent = await agentIfAccessible({
+      authorizer: deps.authorizer,
+      context: requestContext,
+      action: 'read',
+      agent: await deps.resolveAgentStore(c).getAgent({
+        tenant_id: requestContext.tenant_id,
+        name: schedule.agent_name,
+      }),
+    });
+    if (agent === undefined) {
+      return c.json({ error: { message: `Agent not found: ${schedule.agent_name}` } }, 404);
+    }
+
     const now = new Date();
     let run: ScheduleRunRecord;
     try {
@@ -203,7 +220,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         sessions: deps.sessions,
         agentStore: deps.resolveAgentStore(c),
         startTurn: async turnParams => {
-          await startTurnInProcess({ ...turnParams, deps: deps.turnDeps });
+          await startTurnInProcess({ ...turnParams, deps: deps.resolveTurnDeps(c) });
         },
       });
     } catch (error) {
@@ -236,12 +253,14 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
     validateManifest(body.manifest);
 
-    const agent = await deps.resolveAgentStore(c).getAgent({
-      tenant_id: requestContext.tenant_id,
-      name: body.agent_name,
+    const agent = await agentIfAccessible({
+      authorizer: deps.authorizer,
+      context: requestContext,
+      action: 'read',
+      agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, name: body.agent_name }),
     });
     if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 400);
+      return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 404);
     }
 
     let record: ScheduleRecord;
