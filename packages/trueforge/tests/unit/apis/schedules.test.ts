@@ -66,6 +66,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   });
 
   let current: RequestContext = ALICE;
+  let currentAuthorizer = authorizer;
   const app = new OpenAPIHono();
   app.route(
     '/',
@@ -87,17 +88,23 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
       }),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
-      authorizer,
+      authorizer: {
+        listAgentAccess: input => currentAuthorizer.listAgentAccess(input),
+        canAccessAgent: input => currentAuthorizer.canAccessAgent(input),
+      },
     }),
   );
 
   const asUser = (user: RequestContext) => {
     current = user;
   };
+  const setAuthorizer = (next: Authorizer) => {
+    currentAuthorizer = next;
+  };
   const postJson = (path: string, method: string, body: unknown) =>
     app.request(path, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-  return { app, asUser, postJson, agentStore, scheduleStore };
+  return { app, asUser, setAuthorizer, postJson, agentStore, scheduleStore };
 }
 
 describe('schedule RBAC — creator-scoped, admin sees all', () => {
@@ -361,5 +368,26 @@ describe('create schedule run', () => {
     const res = await postJson('/', 'POST', scheduleBody);
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+  });
+
+  it('returns 404 on run-now when the caller can access the schedule but not the agent', async () => {
+    const { asUser, setAuthorizer, postJson, scheduleStore } = await setup();
+
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
+
+    setAuthorizer({
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: () => Promise.resolve(false),
+    });
+
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+
+    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
+    expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
   });
 });

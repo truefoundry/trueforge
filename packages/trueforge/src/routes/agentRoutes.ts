@@ -127,7 +127,7 @@ export const deleteAgentRoute = createRoute({
   path: '/{agent_id}',
   tags: [OpenApiTag.AGENTS],
   summary: 'Delete an agent',
-  description: 'Delete a configured agent by immutable id. Idempotent if already gone.',
+  description: 'Delete a configured agent by immutable id.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'delete',
   request: {

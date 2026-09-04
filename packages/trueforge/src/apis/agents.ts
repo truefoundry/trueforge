@@ -155,19 +155,13 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
   const deleteHandler: RouteHandler<typeof deleteAgentRoute> = async c => {
     const { agent_id: agentId } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
-    const existing = await deps.resolveAgentStore(c).getAgent({
-      tenant_id: requestContext.tenant_id,
-      id: agentId,
-    });
-    if (existing === undefined) {
-      return c.json({}, 200);
-    }
-    const canManageAgent = await deps.authorizer.canAccessAgent({
+    const existing = await agentIfAccessible({
+      authorizer: deps.authorizer,
       context: requestContext,
       action: 'manage',
-      agent: existing,
+      agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id: agentId }),
     });
-    if (!canManageAgent) {
+    if (existing === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
     await deps.resolveAgentStore(c).deleteAgent({ tenant_id: requestContext.tenant_id, id: agentId });

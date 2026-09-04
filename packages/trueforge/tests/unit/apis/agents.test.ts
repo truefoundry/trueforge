@@ -168,7 +168,7 @@ describe('agents router', () => {
     expect(body.data.snippets.length).toBeGreaterThan(0);
   });
 
-  it('DELETE removes an agent by id and is idempotent', async () => {
+  it('DELETE removes an agent by id and returns 404 when already gone', async () => {
     const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'deletable' }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
@@ -179,8 +179,7 @@ describe('agents router', () => {
 
     expect((await router.request(`/${data.id}`)).status).toBe(404);
     const deletedAgain = await router.request(`/${data.id}`, { method: 'DELETE' });
-    expect(deletedAgain.status).toBe(200);
-    expect(await deletedAgain.json()).toEqual({});
+    expect(deletedAgain.status).toBe(404);
   });
 
   it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {

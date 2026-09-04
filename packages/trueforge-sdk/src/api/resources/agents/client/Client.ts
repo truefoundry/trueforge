@@ -437,7 +437,7 @@ export class AgentsClient {
     }
 
     /**
-     * Delete a configured agent by immutable id. Idempotent if already gone.
+     * Delete a configured agent by immutable id.
      *
      * @param {string} agent_id - Immutable agent identifier.
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
