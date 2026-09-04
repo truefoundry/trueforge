@@ -56,13 +56,8 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import {
-  AllowAllExternalAuthorizer,
-  OidcExternalAuthorizer,
-  TrueFoundryExternalAuthorizer,
-  type ExternalAuthorizer,
-} from './auth/externalAuthorizer';
 import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
@@ -92,6 +87,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
+import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
@@ -393,7 +389,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const oidcClient = await initOidc(oidc);
 
   let authenticator;
-  let externalAuthorizer: ExternalAuthorizer;
+  let authorizer: Authorizer;
   const mode = getTrueForgeMode(configuration);
   if (mode === TrueForgeMode.TrueFoundry) {
     if (!isTrueFoundryModeEnabled(configuration)) {
@@ -410,13 +406,13 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       mode: TrueForgeMode.TrueFoundry,
       trueFoundryClient,
     });
-    externalAuthorizer = new TrueFoundryExternalAuthorizer(trueFoundryClient);
+    authorizer = new TrueFoundryAuthorizer(trueFoundryClient);
   } else if (mode === TrueForgeMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
-    externalAuthorizer = new OidcExternalAuthorizer();
+    authorizer = new TrueForgeAuthorizer();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
-    externalAuthorizer = new AllowAllExternalAuthorizer();
+    authorizer = new TrueForgeAuthorizer();
   }
 
   // Standalone is one process, so it owns the control loops too.
@@ -452,7 +448,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     logger,
     oidcClient,
     authenticator,
-    externalAuthorizer,
+    authorizer,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

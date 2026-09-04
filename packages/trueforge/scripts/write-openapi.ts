@@ -14,7 +14,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
-import { AllowAllExternalAuthorizer } from '../src/auth/externalAuthorizer';
+import { TrueForgeAuthorizer } from '../src/auth/authorizer';
 import { StandaloneAuthenticator } from '../src/auth/standaloneAuthenticator';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
@@ -89,7 +89,7 @@ const app = createServerApp({
   logger: winston.createLogger({ silent: true }),
   oidcClient: undefined,
   authenticator: new StandaloneAuthenticator(),
-  externalAuthorizer: new AllowAllExternalAuthorizer(),
+  authorizer: new TrueForgeAuthorizer(),
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed
