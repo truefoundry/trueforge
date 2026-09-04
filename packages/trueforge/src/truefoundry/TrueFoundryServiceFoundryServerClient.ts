@@ -13,7 +13,7 @@ const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
-const AGENT_PERMISSIONS_PATH = 'api/svc/v1/authorize/permissions';
+const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 
 /**
