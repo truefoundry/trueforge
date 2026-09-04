@@ -3,9 +3,6 @@ import type { Context } from 'hono';
 
 import configuration, { getTrueForgeMode, isOidcConfigured, TrueForgeMode } from '../config';
 
-/** TrueFoundry Control Plane role treated as admin until mapping is settled. */
-export const TRUEFOUNDRY_ADMIN_ROLE = 'tenant-admin';
-
 /** Standalone / default TrueForge admin role string. */
 export const STANDALONE_ADMIN_ROLE = 'admin';
 
@@ -55,13 +52,12 @@ export function resolveRequestContext(c: Context): RequestContext {
  * Mode and OIDC admin claim value come from process config ({@link getTrueForgeMode}).
  * - Standalone: `roles` includes `admin`
  * - OIDC: `roles` includes configured `OIDC_ADMIN_ROLE_VALUE`
- * - TrueFoundry: `roles` includes `tenant-admin` (temporary; revisit mapping later)
+ * - TrueFoundry: no tenant-wide TrueForge admin
  */
 export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boolean {
   switch (getTrueForgeMode()) {
     case TrueForgeMode.TrueFoundry:
-      // TODO: stop treating `tenant-admin` as TrueForge admin once TFY role mapping is settled.
-      return requestContext.roles.includes(TRUEFOUNDRY_ADMIN_ROLE);
+      return false;
     case TrueForgeMode.Oidc: {
       const adminValue = isOidcConfigured(configuration)
         ? configuration.OIDC.OIDC_ADMIN_ROLE_VALUE
