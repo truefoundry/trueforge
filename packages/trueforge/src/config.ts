@@ -478,11 +478,24 @@ export interface SharedServerConfiguration {
   /**
    * Base URL the controller uses to reach the server's HTTP API when it runs as its
    * own process (`STANDALONE=false`, `dist/controller-main.js`). The control loops call
-   * the server over HTTP. Env: `SERVER_URL`. Default: `http://localhost:$PORT`,
-   * so in-cluster deployments MUST point this at the server Service. Unused in standalone
-   * mode, where the server process owns the controller and targets itself on localhost.
+   * the server over HTTP(S); when `TRUEFORGE_MTLS_ENABLED` is true the controller upgrades an
+   * `http://` URL to `https://` and presents the client cert. Env: `SERVER_URL`.
+   * Default: `http://localhost:$PORT`, so in-cluster deployments MUST point this at
+   * the server Service. Unused in standalone mode, where the server process owns the
+   * controller and targets itself on localhost.
    */
   SERVER_URL: string;
+  /**
+   * Mutual TLS for this process's HTTPS listener and controller→server. When true, serves HTTPS
+   * with client-cert enforcement (except `/healthz`) and the controller presents a client cert.
+   * Env: `TRUEFORGE_MTLS_ENABLED`. Default false.
+   */
+  TRUEFORGE_MTLS_ENABLED: boolean;
+  /**
+   * Directory holding the TLS cert triple (`tls.crt` / `tls.key` / `ca.crt`) when
+   * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
+   */
+  TRUEFORGE_MTLS_CERTS_DIR: string;
   /**
    * When set, models are listed from the TrueFoundry ServiceFoundry server and invoked
    * via the AI Gateway with the caller's token. Unset = local model-provider store.
@@ -667,6 +680,12 @@ const shared: SharedServerConfiguration = {
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
   SERVER_URL:
     getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
+  TRUEFORGE_MTLS_ENABLED: parseBoolean({
+    envKey: 'TRUEFORGE_MTLS_ENABLED',
+    raw: getEnv('TRUEFORGE_MTLS_ENABLED'),
+    defaultValue: false,
+  }),
+  TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
   TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
     envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS',

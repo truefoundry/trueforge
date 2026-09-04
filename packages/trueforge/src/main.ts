@@ -51,11 +51,12 @@ import {
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyExecutor, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
-import type { Transaction } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
 import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
@@ -78,6 +79,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
 import { mountFrontend } from './frontend';
+import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -86,6 +88,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
+import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
@@ -195,8 +198,9 @@ function buildResolveMcpServerStore<TTransaction>(options: {
 function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  db: Kysely<PostgresDatabase>;
 }): (c?: Context) => IAgentStore<Transaction<PostgresDatabase>> {
-  const { persistenceStore, client } = options;
+  const { persistenceStore, client, db } = options;
   if (!client) {
     return () => persistenceStore;
   }
@@ -207,6 +211,7 @@ function buildResolveAgentStore(options: {
           inner: persistenceStore,
           client,
           accessToken: requireRequestCredentialToken(c),
+          db,
         })
       : persistenceStore;
 }
@@ -346,6 +351,7 @@ async function createDistributedPersistence(options: {
     resolveAgentStore: buildResolveAgentStore({
       persistenceStore: agentStore,
       client: serviceFoundryClient,
+      db,
     }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -387,25 +393,30 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const oidcClient = await initOidc(oidc);
 
   let authenticator;
+  let authorizer: Authorizer;
   const mode = getTrueForgeMode(configuration);
   if (mode === TrueForgeMode.TrueFoundry) {
     if (!isTrueFoundryModeEnabled(configuration)) {
       throw new Error('TrueFoundry mode requires TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
     }
+    const trueFoundryClient = new TrueFoundryServiceFoundryServerClient({
+      serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+      logger,
+      httpTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
+      httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
+      tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+    });
     authenticator = createAuthenticator({
       mode: TrueForgeMode.TrueFoundry,
-      trueFoundryClient: new TrueFoundryServiceFoundryServerClient({
-        serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
-        logger,
-        httpTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
-        httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
-        tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
-      }),
+      trueFoundryClient,
     });
+    authorizer = new TrueFoundryAuthorizer(trueFoundryClient);
   } else if (mode === TrueForgeMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
+    authorizer = new TrueForgeAuthorizer();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
+    authorizer = new TrueForgeAuthorizer();
   }
 
   // Standalone is one process, so it owns the control loops too.
@@ -441,6 +452,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     logger,
     oidcClient,
     authenticator,
+    authorizer,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
@@ -523,11 +535,26 @@ try {
     await requestReplyExecutor.init();
   }
 
-  const server = serve({ fetch: app.fetch, port: configuration.PORT, hostname: configuration.HOST }, info => {
-    logger.info(`Agent server listening on http://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`);
-    // The controller calls this server over HTTP.
-    controller?.start();
+  const tlsServe = serverTlsServeOptions({
+    enabled: !configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED,
+    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
   });
+  const server = serve(
+    {
+      fetch: app.fetch,
+      port: configuration.PORT,
+      hostname: configuration.HOST,
+      ...(tlsServe ?? {}),
+    },
+    info => {
+      const scheme = tlsServe !== undefined ? 'https' : 'http';
+      logger.info(
+        `Agent server listening on ${scheme}://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`,
+      );
+      // The controller calls this server over HTTP(S).
+      controller?.start();
+    },
+  );
 
   server.on('error', (error: unknown) => {
     console.error('Failed to start server:', error instanceof Error ? error.message : error);

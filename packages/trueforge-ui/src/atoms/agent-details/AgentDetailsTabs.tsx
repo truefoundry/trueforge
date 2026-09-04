@@ -6,7 +6,7 @@ import type { AgentDetailsTab, AgentDetailsTabsProps } from './types.js';
 
 const tabs: Array<{ id: AgentDetailsTab; label: string; icon: string }> = [
   { id: 'overview', label: 'Overview', icon: 'info' },
-  { id: 'sessions', label: 'Sessions', icon: 'clock-rotate-left' },
+  { id: 'sessions', label: 'Sessions', icon: 'message-square-text' },
   { id: 'code', label: 'Use In Code', icon: 'code' },
   { id: 'metrics', label: 'Metrics', icon: 'chart' },
 ];

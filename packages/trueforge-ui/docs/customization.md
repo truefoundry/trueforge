@@ -143,9 +143,12 @@ Notes on behaviour:
 - A `/sessions/:sessionId` link is resolved through `getSession` so the chat
   opens with its own agent binding and mutability rather than as a new draft.
 - Unrecognized paths (and malformed escapes) normalize to the root place.
+- `/settings` is registered only while Settings chrome is available (catalog
+  present and `capabilities.settings.enabled !== false`). When that gate is
+  off, `/settings` is treated like an unknown path and replaces to root.
 - A URL naming a place the host cannot honor (e.g. `/agents/x` without the
-  agent library, or `/settings` when the settings capability is disabled) is
-  left in the address bar until the next navigation corrects it.
+  agent library) is left in the address bar until the next navigation
+  corrects it.
 
 Hosts serving the SDK must send the app shell for unknown paths (SPA
 fallback), otherwise deep links 404 before React boots.

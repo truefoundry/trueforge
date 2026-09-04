@@ -12,6 +12,9 @@ export type SessionTurnView = {
   done?: TurnDoneEvent;
   events: TurnEvent[];
   totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedTokens?: number;
   totalCostInUsd?: number;
   durationMs?: number;
 };
@@ -39,8 +42,18 @@ function isRenderableTurn(created: TurnCreatedEvent): boolean {
   });
 }
 
+function readMetricNumber(metrics: object, camel: string, snake: string): number | undefined {
+  const camelValue = Reflect.get(metrics, camel);
+  if (typeof camelValue === 'number' && Number.isFinite(camelValue)) return camelValue;
+  const snakeValue = Reflect.get(metrics, snake);
+  return typeof snakeValue === 'number' && Number.isFinite(snakeValue) ? snakeValue : undefined;
+}
+
 function metricsFromTerminalState(state: unknown): {
   totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedTokens?: number;
   totalCostInUsd?: number;
 } {
   if (typeof state !== 'object' || state == null || !('status' in state)) {
@@ -54,11 +67,27 @@ function metricsFromTerminalState(state: unknown): {
   if (metrics == null || typeof metrics !== 'object') {
     return {};
   }
-  const totalTokens = Reflect.get(metrics, 'totalTokens') ?? Reflect.get(metrics, 'total_tokens');
-  const totalCostInUsd = Reflect.get(metrics, 'totalCostInUsd') ?? Reflect.get(metrics, 'total_cost_in_usd');
+  const explicitTotal = readMetricNumber(metrics, 'totalTokens', 'total_tokens');
+  const rawInputTokens = readMetricNumber(metrics, 'totalInputTokens', 'total_input_tokens');
+  const outputTokens = readMetricNumber(metrics, 'totalOutputTokens', 'total_output_tokens');
+  const cacheRead = readMetricNumber(metrics, 'totalCacheReadTokens', 'total_cache_read_tokens');
+  const cacheWrite = readMetricNumber(metrics, 'totalCacheWriteTokens', 'total_cache_write_tokens');
+  const totalCostInUsd = readMetricNumber(metrics, 'totalCostInUsd', 'total_cost_in_usd');
+  const cachedTokens =
+    cacheRead !== undefined || cacheWrite !== undefined ? (cacheRead ?? 0) + (cacheWrite ?? 0) : undefined;
+  // Input in UI breakdowns is uncached so Input + Cached + Output does not double-count cache.
+  const inputTokens = rawInputTokens !== undefined ? Math.max(0, rawInputTokens - (cachedTokens ?? 0)) : undefined;
+  const totalTokens =
+    explicitTotal ??
+    (rawInputTokens !== undefined || outputTokens !== undefined
+      ? (rawInputTokens ?? 0) + (outputTokens ?? 0)
+      : undefined);
   return {
-    ...(typeof totalTokens === 'number' ? { totalTokens } : {}),
-    ...(typeof totalCostInUsd === 'number' ? { totalCostInUsd } : {}),
+    ...(totalTokens !== undefined ? { totalTokens } : {}),
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    ...(cachedTokens !== undefined ? { cachedTokens } : {}),
+    ...(totalCostInUsd !== undefined ? { totalCostInUsd } : {}),
   };
 }
 

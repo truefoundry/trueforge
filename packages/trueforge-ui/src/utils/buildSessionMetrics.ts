@@ -1,5 +1,4 @@
 import { getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
-import { isRecord } from './sessionTimelineEvents.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
 
 export type SessionMetricBarDatum = {
@@ -30,39 +29,22 @@ export type SessionListMetricsHint = {
   totalDurationMs: number;
 };
 
-function readNumber(record: Record<string, unknown>, camel: string, snake: string): number {
-  const camelValue = record[camel];
-  if (typeof camelValue === 'number' && Number.isFinite(camelValue)) return camelValue;
-  const snakeValue = record[snake];
-  return typeof snakeValue === 'number' && Number.isFinite(snakeValue) ? snakeValue : 0;
-}
-
-function readOptionalNumber({
-  record,
-  camel,
-  snake,
-}: {
-  record: Record<string, unknown>;
-  camel: string;
-  snake: string;
-}): number | undefined {
-  const camelValue = record[camel];
-  if (typeof camelValue === 'number' && Number.isFinite(camelValue)) return camelValue;
-  const snakeValue = record[snake];
-  return typeof snakeValue === 'number' && Number.isFinite(snakeValue) ? snakeValue : undefined;
-}
-
-function metricsRecord(state: unknown): Record<string, unknown> | undefined {
-  if (!isRecord(state)) return undefined;
-  return isRecord(state.metrics) ? state.metrics : undefined;
-}
-
 function segmentDurationMs(segment: SessionEventTimelineSegment): number {
   return Math.max(0, segment.endMs - segment.startMs);
 }
 
 function hintHasValues(hint?: SessionListMetricsHint): boolean {
   return hint != null && (hint.totalTurns > 0 || hint.totalCostInUsd != null || hint.totalDurationMs > 0);
+}
+
+function turnHasMetrics(turn: SessionTurnView): boolean {
+  return (
+    turn.totalTokens != null ||
+    turn.inputTokens != null ||
+    turn.outputTokens != null ||
+    turn.cachedTokens != null ||
+    turn.totalCostInUsd != null
+  );
 }
 
 export function buildSessionMetrics({
@@ -88,25 +70,18 @@ export function buildSessionMetrics({
   for (const turn of turns) {
     const label = `T${turn.turnNumber}`;
     derivedWallTimeMs += turn.durationMs ?? 0;
-    const metrics = metricsRecord(turn.done?.state);
-    if (metrics == null) {
+    if (!turnHasMetrics(turn)) {
       costPerTurn.push({ label, value: 0, color: getSessionEventColor('tool_call') });
       contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
       continue;
     }
 
-    const inputTokens = readNumber(metrics, 'totalInputTokens', 'total_input_tokens');
-    const outputTokens = readNumber(metrics, 'totalOutputTokens', 'total_output_tokens');
-    const cachedTokens =
-      readNumber(metrics, 'totalCacheReadTokens', 'total_cache_read_tokens') +
-      readNumber(metrics, 'totalCacheWriteTokens', 'total_cache_write_tokens');
-    const uncachedInputTokens = Math.max(0, inputTokens - cachedTokens);
-    const turnTotalTokens = readNumber(metrics, 'totalTokens', 'total_tokens') || inputTokens + outputTokens;
-    const turnCostUsd = readOptionalNumber({
-      record: metrics,
-      camel: 'totalCostInUsd',
-      snake: 'total_cost_in_usd',
-    });
+    // Prefer canonical turn fields from sessionTurnViews (uncached input already).
+    const uncachedInputTokens = turn.inputTokens ?? 0;
+    const outputTokens = turn.outputTokens ?? 0;
+    const cachedTokens = turn.cachedTokens ?? 0;
+    const turnTotalTokens = turn.totalTokens ?? uncachedInputTokens + cachedTokens + outputTokens;
+    const turnCostUsd = turn.totalCostInUsd;
 
     if (turnCostUsd != null) {
       derivedCostUsd += turnCostUsd;

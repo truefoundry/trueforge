@@ -119,5 +119,12 @@ export function createHarnessBuilderServer(
       const created = await client.agents.create({ name: agentName, manifest });
       return { agentId: created.data.id };
     },
+
+    async deleteAgent({ agentName }) {
+      const { data } = await client.agents.list();
+      const existing = data.find(agent => agent.name === agentName);
+      if (!existing) return;
+      await client.agents.delete(existing.id);
+    },
   };
 }

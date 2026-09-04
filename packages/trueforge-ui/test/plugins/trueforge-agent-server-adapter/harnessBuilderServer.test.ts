@@ -332,4 +332,49 @@ describe('harnessBuilderServer', () => {
       },
     });
   });
+
+  it('deleteAgent deletes by name via list + DELETE', async () => {
+    const requests: { method: string; url: string }[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      requests.push({ method, url });
+      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
+        });
+      }
+      if (url.endsWith('/api/v1/agents/agt_1') && method === 'DELETE') {
+        return Response.json({});
+      }
+      return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    await builder.deleteAgent?.({ agentName: 'writer' });
+
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0]?.method, 'GET');
+    assert.equal(requests[1]?.method, 'DELETE');
+    assert.ok(requests[1]?.url.endsWith('/api/v1/agents/agt_1'));
+  });
+
+  it('deleteAgent is a no-op when the name is missing', async () => {
+    const requests: { method: string; url: string }[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      requests.push({ method, url });
+      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+        return Response.json({ data: [] });
+      }
+      return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    await builder.deleteAgent?.({ agentName: 'missing' });
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0]?.method, 'GET');
+  });
 });
