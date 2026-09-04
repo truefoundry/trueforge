@@ -54,11 +54,13 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   ),
 }));
 
+import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { TrueForgeUI, type ChatLayout } from '@/containers/TrueForgeUI.js';
 import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
 import { StackChatPanel } from '@/layouts/StackChatPanel.js';
 import { WidgetLayout } from '@/layouts/WidgetLayout.js';
+import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -80,6 +82,19 @@ beforeAll(() => {
     this.dispatchEvent(new Event('close'));
   };
 });
+
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
 
 describe('TrueForgeUI', () => {
   const server = mockServer();
@@ -117,6 +132,24 @@ describe('TrueForgeUI', () => {
       }
     });
     expect(container.querySelector('.h-96')).toBeInTheDocument();
+  });
+
+  it('keeps the widget open across mutable runtime remounts', async () => {
+    render(
+      <TrueForgeUI server={mockServer()} agentConfig={{ mode: 'AgentComposer' }} layout="widget" className="h-96" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Chat' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Agent' }));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+    });
   });
 
   it('mounts a custom layout component inside providers', async () => {
@@ -352,6 +385,40 @@ describe('StackChatPanel', () => {
 });
 
 describe('SidebarLayout', () => {
+  it('lets mobile builders close and reopen Agent Config', () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+
+    try {
+      render(
+        <SlotsProvider>
+          <ServerProvider server={mockServer(stubCatalog)}>
+            <ShellModeProvider>
+              <AgentConfigInstructionsProvider>
+                <RuntimeHarness messages={[]}>
+                  <div className="h-96">
+                    <SidebarLayout />
+                  </div>
+                </RuntimeHarness>
+              </AgentConfigInstructionsProvider>
+            </ShellModeProvider>
+          </ServerProvider>
+        </SlotsProvider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close agent config' }));
+      expect(screen.queryByRole('dialog', { name: 'Agent Config' })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Agent config' }));
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
+  });
+
   it('shows the app brand in the mobile navigation drawer', () => {
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: { src: '/acme.svg' } } }}>
@@ -449,11 +516,13 @@ describe('SidebarLayout', () => {
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
           <ShellModeProvider>
-            <RuntimeHarness messages={[]}>
-              <div className="h-96">
-                <SidebarLayout />
-              </div>
-            </RuntimeHarness>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
           </ShellModeProvider>
         </ServerProvider>
       </SlotsProvider>,
@@ -465,8 +534,17 @@ describe('SidebarLayout', () => {
     expect(newAgent).not.toHaveAttribute('aria-current');
 
     fireEvent.click(newAgent);
-    expect(newAgent).toHaveAttribute('aria-current', 'page');
-    expect(newChat).not.toHaveAttribute('aria-current');
+    const selectedNewAgent = await screen.findByRole('button', { name: 'Start new agent' });
+    const deselectedNewChat = screen.getByRole('button', { name: 'Start new chat' });
+    expect(selectedNewAgent).toHaveAttribute('aria-current', 'page');
+    expect(deselectedNewChat).not.toHaveAttribute('aria-current');
+    const config = await screen.findByRole('dialog', { name: 'Agent Config' });
+    const chatColumn = config.nextElementSibling;
+    expect(config).toHaveClass('border-r');
+    expect(chatColumn).not.toBeNull();
+    expect(config.querySelector('header')).toHaveClass('h-11');
+    expect(chatColumn?.querySelector('header')).toHaveClass('h-11');
+    expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
 
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
@@ -476,8 +554,8 @@ describe('SidebarLayout', () => {
     fireEvent.click(settingsButton);
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(settingsButton).toHaveAttribute('aria-current', 'page');
-    expect(newChat).not.toHaveAttribute('aria-current');
-    expect(newAgent).not.toHaveAttribute('aria-current');
+    expect(deselectedNewChat).not.toHaveAttribute('aria-current');
+    expect(selectedNewAgent).not.toHaveAttribute('aria-current');
   });
 
   it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
@@ -599,6 +677,10 @@ describe('layout slot overrides', () => {
     return <button type="button">custom clear</button>;
   }
 
+  function CustomSaveAgent() {
+    return <button type="button">custom save</button>;
+  }
+
   function CustomActionSlot() {
     return <button type="button">custom action</button>;
   }
@@ -625,6 +707,24 @@ describe('layout slot overrides', () => {
 
     expect(screen.getByRole('button', { name: 'custom clear' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+  });
+
+  it.each(hosts)('%s places Clear Chat immediately before Save Agent', (_name, Layout) => {
+    render(
+      <SlotsProvider overrides={{ ClearChatButton: CustomClearChat, SaveAgentButton: CustomSaveAgent }}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <Layout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+
+    const clearChat = screen.getByRole('button', { name: 'custom clear' });
+    const saveAgent = screen.getByRole('button', { name: 'custom save' });
+    expect(clearChat.nextElementSibling).toBe(saveAgent);
   });
 
   it.each(hosts)('%s honors overrides.ShellActionsActionSlot to the right of shell actions', (_name, Layout) => {
@@ -699,11 +799,13 @@ describe('WidgetLayout a11y', () => {
   it('opens chat dialog, focuses it, and restores FAB focus on Escape', async () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <WidgetLayout />
-          </div>
-        </RuntimeHarness>
+        <WidgetVisibilityProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <WidgetLayout />
+            </div>
+          </RuntimeHarness>
+        </WidgetVisibilityProvider>
       </SlotsProvider>,
     );
 

@@ -14,6 +14,7 @@ import {
 import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -161,6 +162,7 @@ function SidebarRail({
 
 export function SidebarLayout({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
+  const isMobile = useIsMobile();
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
@@ -178,6 +180,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const showAgentConfig =
+    shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const hasChatHeaderContent = useChatHeaderContentVisible();
 
   useEffect(() => {
@@ -208,17 +212,26 @@ export function SidebarLayout({ className }: { className?: string }) {
     <div className={cn('relative flex h-full min-h-0 w-full min-w-0', className)}>
       <SidebarRail className="hidden md:flex" />
 
+      {showAgentConfig ? (
+        <aside
+          role="dialog"
+          aria-label="Agent Config"
+          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:w-88 md:max-w-none md:shrink-0 md:shadow-none"
+        >
+          <AgentConfigDrawerContainer showClose={isMobile} />
+        </aside>
+      ) : null}
+
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-primary-bg">
         {/* Desktop keeps shell chrome in the rail footer (always mounted, including
             when visually hidden on small screens so host action-slot state persists).
             Mobile reaches theme/settings via the nav drawer rail. */}
         <header
           className={cn(
-            'flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
+            'flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5',
             // Desktop: hide when settings/idle or the thread header has nothing to show
             // (empty untitled draft). Mobile still needs the menu button.
-            // Keep visible while Agent Config is open so New Agent / title stay in chrome;
-            // SaveAgentButton is omitted below to avoid duplicating the drawer's save control.
+            // Builder mode keeps New Agent and its actions beside the persistent config.
             (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
           )}
         >
@@ -237,7 +250,7 @@ export function SidebarLayout({ className }: { className?: string }) {
               <NamedAgentHeaderLabel />
               <span className="min-w-0 flex-1" />
               <ClearChatButton />
-              {!shell?.agentConfigOpen ? <SaveAgentButton /> : null}
+              <SaveAgentButton />
             </>
           ) : (
             <span className="min-w-0 flex-1" />
@@ -290,16 +303,6 @@ export function SidebarLayout({ className }: { className?: string }) {
           )}
         </div>
       </div>
-
-      {shell?.agentConfigOpen ? (
-        <aside
-          role="dialog"
-          aria-label="Agent Config"
-          className="absolute inset-y-0 right-0 z-20 w-full max-w-sm border-l border-border shadow-xl md:static md:z-auto md:w-[22rem] md:max-w-none md:shrink-0 md:shadow-none"
-        >
-          <AgentConfigDrawerContainer />
-        </aside>
-      ) : null}
 
       {/* Mobile: same narrow rail as desktop */}
       {mobileNavOpen ? (

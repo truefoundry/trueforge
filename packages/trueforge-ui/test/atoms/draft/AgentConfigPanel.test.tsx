@@ -69,6 +69,13 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Variables')).not.toBeInTheDocument();
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
+      'h-11',
+      'border-b',
+      'bg-topbar-bg',
+      'px-2',
+      'py-1.5',
+    );
   });
 
   it('routes editor actions and live instruction changes', () => {

@@ -3,11 +3,13 @@
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
 
+import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
@@ -227,9 +229,11 @@ function ChatProviderFromShell({
       initialSessionId={pendingSessionId ?? hostInitialSessionId}
     >
       <DraftCatalogProvider>
-        <DraftSpecPreferenceBridge />
-        {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
-        {children}
+        <AgentConfigInstructionsProvider>
+          <DraftSpecPreferenceBridge />
+          {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
+          {children}
+        </AgentConfigInstructionsProvider>
       </DraftCatalogProvider>
     </TrueFoundryChatProvider>
   );
@@ -297,15 +301,18 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
       </ChatProviderFromShell>
     </ShellModeProvider>
   );
+  // Widget visibility provider is used to control the visibility of the widget with isolated state
+  const visibilityTree =
+    layout === 'widget' ? <WidgetVisibilityProvider>{shellTree}</WidgetVisibilityProvider> : shellTree;
 
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <CustomActionRenderersProvider renderers={customActionRenderers}>
         <ServerProvider server={server}>
           {resolvedRoutes != null ? (
-            <ResolvedRoutesProvider routes={resolvedRoutes}>{shellTree}</ResolvedRoutesProvider>
+            <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
           ) : (
-            shellTree
+            visibilityTree
           )}
         </ServerProvider>
       </CustomActionRenderersProvider>

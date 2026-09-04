@@ -2,6 +2,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
+import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { AgentConfigDrawerContainer } from '@/containers/AgentConfigDrawerContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
@@ -30,7 +32,7 @@ beforeAll(() => {
   };
 });
 
-function TestView() {
+function TestView({ compact = true }: { compact?: boolean }) {
   const shell = useShellMode();
   return (
     <>
@@ -43,8 +45,9 @@ function TestView() {
       >
         Open config
       </button>
+      <SaveAgentButton />
       <output data-testid="config-open">{String(shell.agentConfigOpen)}</output>
-      {shell.agentConfigOpen ? <AgentConfigDrawerContainer showClose /> : null}
+      {shell.agentConfigOpen ? <AgentConfigDrawerContainer showClose={compact} /> : null}
     </>
   );
 }
@@ -55,7 +58,9 @@ describe('AgentConfigDrawerContainer', () => {
       <SlotsProvider>
         <ServerProvider server={createMockAgentUIServer()}>
           <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
-            <TestView />
+            <AgentConfigInstructionsProvider>
+              <TestView />
+            </AgentConfigInstructionsProvider>
           </ShellModeProvider>
         </ServerProvider>
       </SlotsProvider>,
@@ -71,5 +76,25 @@ describe('AgentConfigDrawerContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.getByTestId('config-open')).toHaveTextContent('false');
+  });
+
+  it('does not close the persistent sidebar panel on Escape', () => {
+    render(
+      <SlotsProvider>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+            <AgentConfigInstructionsProvider>
+              <TestView compact={false} />
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open config' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(screen.getByTestId('config-open')).toHaveTextContent('true');
+    expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
   });
 });

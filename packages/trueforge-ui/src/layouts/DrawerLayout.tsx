@@ -7,11 +7,12 @@ import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
@@ -22,6 +23,7 @@ const SchedulesPage = lazy(() =>
 export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const isMobile = useIsMobile();
   const ClearChatButton = useSlot('ClearChatButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
@@ -35,6 +37,8 @@ export function DrawerLayout({ className }: { className?: string }) {
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const showAgentConfig =
+    shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const showNewActions = shell?.isNewChatEnabled !== false;
 
   const handleNewChat = () => {
@@ -58,18 +62,47 @@ export function DrawerLayout({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn('relative flex h-full min-h-0 w-full flex-col bg-primary-bg', className)}>
-      {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
-      <header className="flex shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
-        {!overlayOpen ? (
-          <>
-            <NamedAgentHeaderLabel />
-            <span className="min-w-0 flex-1" />
-            <ClearChatButton />
-            {!shell?.agentConfigOpen ? <SaveAgentButton /> : null}
-          </>
-        ) : libraryOpen || schedulesOpen ? (
-          <>
+    <div className={cn('relative flex h-full min-h-0 w-full bg-primary-bg', className)}>
+      {showAgentConfig ? (
+        <aside
+          role="dialog"
+          aria-label="Agent Config"
+          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:w-88 md:max-w-none md:shrink-0 md:shadow-none"
+        >
+          <AgentConfigDrawerContainer showClose={isMobile} />
+        </aside>
+      ) : null}
+
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* Keep ShellActions mounted across Settings open/close so host action-slot state persists. */}
+        <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
+          {!overlayOpen ? (
+            <>
+              <NamedAgentHeaderLabel />
+              {showNewActions ? (
+                <button
+                  type="button"
+                  aria-label="New Chat"
+                  title="New Chat"
+                  className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                  onClick={handleNewChat}
+                >
+                  <Icon name="square-pen" />
+                </button>
+              ) : null}
+              {showNewActions && shell?.isComposerEnabled ? (
+                <button
+                  type="button"
+                  aria-label="New Agent"
+                  title="New Agent"
+                  className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                  onClick={handleNewAgent}
+                >
+                  <Icon name="agent-2" />
+                </button>
+              ) : null}
+            </>
+          ) : libraryOpen || schedulesOpen ? (
             <button
               type="button"
               className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
@@ -81,40 +114,18 @@ export function DrawerLayout({ className }: { className?: string }) {
               <Icon name="arrow-left" />
               Back to chat
             </button>
-            <span className="min-w-0 flex-1" />
-          </>
-        ) : (
+          ) : (
+            <span />
+          )}
+          <ShellActions key="shell-actions" />
           <span className="min-w-0 flex-1" />
-        )}
-        <ShellActions key="shell-actions" />
-        {!overlayOpen ? (
-          <>
-            {showNewActions ? (
-              <button
-                type="button"
-                aria-label="New Chat"
-                title="New Chat"
-                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                onClick={handleNewChat}
-              >
-                <Icon name="square-pen" />
-              </button>
-            ) : null}
-            {showNewActions && shell?.isComposerEnabled ? (
-              <button
-                type="button"
-                aria-label="New Agent"
-                title="New Agent"
-                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                onClick={handleNewAgent}
-              >
-                <Icon name="agent-2" />
-              </button>
-            ) : null}
-          </>
-        ) : null}
-      </header>
-      <div className="flex min-h-0 min-w-0 flex-1">
+          {!overlayOpen ? (
+            <>
+              <ClearChatButton />
+              <SaveAgentButton />
+            </>
+          ) : null}
+        </header>
         <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
           {settingsOpen ? (
             <Suspense
@@ -160,15 +171,6 @@ export function DrawerLayout({ className }: { className?: string }) {
             <Thread />
           )}
         </div>
-        {shell?.agentConfigOpen ? (
-          <aside
-            role="dialog"
-            aria-label="Agent Config"
-            className="absolute inset-y-0 right-0 z-20 w-full max-w-sm border-l border-border shadow-xl md:static md:z-auto md:w-[22rem] md:max-w-none md:shrink-0 md:shadow-none"
-          >
-            <AgentConfigDrawerContainer />
-          </aside>
-        ) : null}
       </div>
     </div>
   );

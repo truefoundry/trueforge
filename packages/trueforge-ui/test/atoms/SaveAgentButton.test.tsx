@@ -4,6 +4,10 @@ import { cloneElement, isValidElement, useEffect, useLayoutEffect, type ReactNod
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
+import {
+  AgentConfigInstructionsProvider,
+  useAgentConfigInstructions,
+} from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentSpec, AgentUIServer, SaveAgentRequest, SaveAgentResult } from '@/server/types.js';
@@ -13,11 +17,13 @@ import { createMockAgentUIServer } from '../server/mockServer.js';
 let agentSpec: AgentSpec;
 const flushAgentSpec = vi.fn(async () => undefined);
 const adoptAgentSpec = vi.fn();
+const updateAgentSpec = vi.fn();
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({ agentSpec, draftSessionId: 'draft-1' }),
   useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
   useTrueFoundryAdoptAgentSpec: () => adoptAgentSpec,
+  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
 }));
 
 beforeAll(() => {
@@ -110,6 +116,18 @@ function BoundMutableSaveButton({ agentId, agentName }: { agentId: string; agent
   return <SaveAgentButton />;
 }
 
+function SaveWithInstructionDraft() {
+  const { onChange } = useAgentConfigInstructions();
+  return (
+    <>
+      <button type="button" onClick={() => onChange('Instructions currently visible in the drawer.')}>
+        Edit instructions
+      </button>
+      <SaveAgentButton />
+    </>
+  );
+}
+
 function deferred<T>() {
   let resolvePromise: ((value: T) => void) | undefined;
   const promise = new Promise<T>(resolve => {
@@ -142,6 +160,7 @@ describe('SaveAgentButton', () => {
     flushAgentSpec.mockReset();
     flushAgentSpec.mockResolvedValue(undefined);
     adoptAgentSpec.mockClear();
+    updateAgentSpec.mockClear();
   });
 
   it('is hidden when the shell is locked to a named agent', () => {
@@ -151,7 +170,10 @@ describe('SaveAgentButton', () => {
 
   it('shows on an empty new chat when a model is selected', () => {
     renderButton();
-    expect(screen.getByRole('button', { name: 'Save Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Agent' })).toHaveClass(
+      'bg-primary-button-bg',
+      'text-primary-button-text',
+    );
   });
 
   it('is hidden when the draft has no model', () => {
@@ -254,6 +276,25 @@ describe('SaveAgentButton', () => {
 
     expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Instructions currently visible in the drawer.');
     expect(within(dialog).getByText('gpt-4.1')).toBeInTheDocument();
+  });
+
+  it('flushes the shared instruction draft when opening Save Agent', async () => {
+    renderButton({
+      children: (
+        <AgentConfigInstructionsProvider>
+          <SaveWithInstructionDraft />
+        </AgentConfigInstructionsProvider>
+      ),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit instructions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      instructions: 'Instructions currently visible in the drawer.',
+    });
+    expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Instructions currently visible in the drawer.');
   });
 
   it('labels an existing mutable binding as Update Agent and submits an update', async () => {

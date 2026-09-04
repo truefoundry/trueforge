@@ -24,7 +24,6 @@ import { runtimeConfigSummary } from './runtimeConfigSummary.js';
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
   model?: ModelSelection;
-  saveAction?: ReactNode;
   skillsAvailable: boolean;
   instructions: string;
   onInstructionsChange: (value: string) => void;
@@ -149,7 +148,6 @@ export function AgentConfigSection({
 export function AgentConfigPanel({
   spec,
   model,
-  saveAction,
   skillsAvailable,
   instructions,
   onInstructionsChange,
@@ -180,11 +178,10 @@ export function AgentConfigPanel({
 
   return (
     <div className="bg-card-bg text-text-primary flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
-        {saveAction}
         {onClose ? (
           <button
             type="button"
