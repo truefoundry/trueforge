@@ -16,7 +16,7 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+          '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
           className,
         ),
       })}

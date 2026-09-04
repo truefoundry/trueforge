@@ -35,7 +35,7 @@ const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-18';
 
 const railActionButtonClassName =
-  'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-3 text-[10px] leading-tight !justify-center text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text';
+  'h-auto w-full flex-col gap-1 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text';
 
 const railSelectedClassName =
   'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text';
@@ -77,7 +77,7 @@ function SidebarNav(): ReactNode {
   };
 
   return (
-    <nav className="flex min-h-0 flex-1 flex-col items-center gap-2 p-1" aria-label="Sidebar">
+    <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 p-1" aria-label="Sidebar">
       {showNewActions ? (
         <button
           type="button"
