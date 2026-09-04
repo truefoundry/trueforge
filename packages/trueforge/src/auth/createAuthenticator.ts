@@ -5,8 +5,6 @@ import { OidcAuthenticator } from './oidcAuthenticator';
 import { StandaloneAuthenticator } from './standaloneAuthenticator';
 import { TrueFoundryAuthenticator } from './trueFoundryAuthenticator';
 
-export { TrueForgeAuthMode as TrueForgeMode };
-
 export type CreateAuthenticatorParams =
   | { mode: TrueForgeAuthMode.Standalone }
   | { mode: TrueForgeAuthMode.Oidc }

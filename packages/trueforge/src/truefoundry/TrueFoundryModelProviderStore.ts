@@ -22,7 +22,6 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   readonly #accessToken: string;
 
   constructor(input: { client: TrueFoundryServiceFoundryServerClient; accessToken: string }) {
-    console.log('Creating TrueFoundry model provider store', { accessToken: input.accessToken });
     this.#client = input.client;
     this.#accessToken = input.accessToken;
   }
@@ -63,7 +62,6 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   }
 
   async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
-    console.log('Listing models', { input, transaction });
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 

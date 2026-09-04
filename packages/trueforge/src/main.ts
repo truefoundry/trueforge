@@ -24,16 +24,16 @@ import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
-let getTrueForgeMode: typeof import('./config').getTrueForgeAuthMode;
-let TrueForgeMode: typeof import('./config').TrueForgeAuthMode;
+let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
+let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
 
 try {
   ({
     default: configuration,
     isOidcConfigured,
     isTrueFoundryModeEnabled,
-    getTrueForgeAuthMode: getTrueForgeMode,
-    TrueForgeAuthMode: TrueForgeMode,
+    getTrueForgeAuthMode,
+    TrueForgeAuthMode,
   } = await import('./config'));
 } catch (error) {
   console.error(
@@ -389,21 +389,21 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   let authenticator;
   let authorizer: Authorizer;
-  const mode = getTrueForgeMode(configuration);
-  if (mode === TrueForgeMode.TrueFoundry) {
+  const mode = getTrueForgeAuthMode(configuration);
+  if (mode === TrueForgeAuthMode.TrueFoundry) {
     if (serviceFoundryClient === undefined) {
       throw new Error('TrueFoundry mode requires TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
     }
     authenticator = createAuthenticator({
-      mode: TrueForgeMode.TrueFoundry,
+      mode: TrueForgeAuthMode.TrueFoundry,
       serviceFoundryClient,
     });
     authorizer = new TrueFoundryAuthorizer(serviceFoundryClient);
-  } else if (mode === TrueForgeMode.Oidc) {
-    authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
+  } else if (mode === TrueForgeAuthMode.Oidc) {
+    authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Oidc });
     authorizer = new TrueForgeAuthorizer();
   } else {
-    authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
+    authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Standalone });
     authorizer = new TrueForgeAuthorizer();
   }
 

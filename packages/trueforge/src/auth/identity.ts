@@ -61,7 +61,7 @@ export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boo
       return false;
     case TrueForgeAuthMode.Oidc: {
       if (!isOidcConfigured(configuration)) {
-        // this is technically unreachable since case TrueForgeMode.Oidc already ensures OIDC is configured
+        // this is technically unreachable since case TrueForgeAuthMode.Oidc already ensures OIDC is configured
         return false;
       }
       return requestContext.roles.includes(configuration.OIDC.OIDC_ADMIN_ROLE_VALUE);
