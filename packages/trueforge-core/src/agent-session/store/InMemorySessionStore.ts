@@ -279,6 +279,14 @@ export class InMemorySessionStore<
       ) {
         continue;
       }
+      const metadataFilter = input.metadata;
+      if (
+        metadataFilter !== undefined &&
+        Object.keys(metadataFilter).length > 0 &&
+        !Object.entries(metadataFilter).every(([key, value]) => stored.record.metadata[key] === value)
+      ) {
+        continue;
+      }
       const createdAt = stored.record.created_at.getTime();
       if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) {
         continue;

@@ -24,7 +24,7 @@ api:
         prefer-undiscriminated-unions-with-literals: true
         only-include-referenced-schemas: true
         type-dates-as-strings: true
-        object-query-parameters: false
+        object-query-parameters: true
         idiomatic-request-names: true
         respect-nullable-schemas: true
         wrap-references-to-nullable-in-optional: false

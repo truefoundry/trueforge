@@ -409,6 +409,15 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(tooLongKey.status).toBe(400);
 
+    const badCharsetKey = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { 'env[prod]': 'v' },
+      }),
+    );
+    expect(badCharsetKey.status).toBe(400);
+
     const tooLongValue = await app.request(
       '/',
       jsonInit('POST', {

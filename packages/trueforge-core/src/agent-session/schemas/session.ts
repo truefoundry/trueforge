@@ -6,9 +6,13 @@ import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema } from './agentSpec';
 import { CreatedBySubjectSchema } from './subject';
 
-/** Max key length for session metadata (aligned with LLM gateway HeaderMetadata). */
 const SESSION_METADATA_MAX_KEY_LENGTH = 32;
-/** Max value length for session metadata (aligned with LLM gateway HeaderMetadata). */
+/**
+ * Metadata keys: alphanumeric start; then alphanumeric, `.`, `_`, `:`, `-`.
+ * Bans `[]` (collide with deepObject / reserved `metadata[key][op]`) and whitespace.
+ */
+const SESSION_METADATA_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,31}$/;
+/** Max value length for session metadata  */
 const SESSION_METADATA_MAX_VALUE_LENGTH = 128;
 /** Max number of keys in session metadata. */
 const SESSION_METADATA_MAX_KEYS = 50;
@@ -19,6 +23,7 @@ export const SessionMetadataSchema = z
       .string()
       .min(1)
       .max(SESSION_METADATA_MAX_KEY_LENGTH)
+      .regex(SESSION_METADATA_KEY_PATTERN)
       .describe(`Metadata key; 1–${String(SESSION_METADATA_MAX_KEY_LENGTH)} characters.`),
     z
       .string()

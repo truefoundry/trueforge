@@ -249,6 +249,9 @@ export async function listSessions(
   if (input.created_by_subject_id !== undefined) {
     query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
   }
+  if (input.metadata !== undefined && Object.keys(input.metadata).length > 0) {
+    query = query.where(sql<boolean>`metadata @> ${json(input.metadata)}`);
+  }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp);
   }

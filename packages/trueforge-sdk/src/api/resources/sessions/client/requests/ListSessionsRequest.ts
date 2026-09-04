@@ -19,4 +19,6 @@ export interface ListSessionsRequest {
     endTimestamp?: Date;
     /** When set, only sessions bound to this agent id are returned. */
     agentId?: string;
+    /** Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs. */
+    metadata?: Record<string, string>;
 }
