@@ -81,10 +81,6 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     return row === undefined ? undefined : toRecord(row);
   }
 
-  withTransaction<T>(fn: (transaction: Transaction<Database>) => Promise<T>): Promise<T> {
-    return this.#db.transaction().execute(fn);
-  }
-
   async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
     const db = transaction ?? this.#db;
     try {

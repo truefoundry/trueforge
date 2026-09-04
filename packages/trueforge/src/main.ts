@@ -51,7 +51,7 @@ import {
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyExecutor, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
-import type { Transaction } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
@@ -79,6 +79,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
 import { mountFrontend } from './frontend';
+import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -197,8 +198,9 @@ function buildResolveMcpServerStore<TTransaction>(options: {
 function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  db: Kysely<PostgresDatabase>;
 }): (c?: Context) => IAgentStore<Transaction<PostgresDatabase>> {
-  const { persistenceStore, client } = options;
+  const { persistenceStore, client, db } = options;
   if (!client) {
     return () => persistenceStore;
   }
@@ -209,6 +211,7 @@ function buildResolveAgentStore(options: {
           inner: persistenceStore,
           client,
           accessToken: requireRequestCredentialToken(c),
+          db,
         })
       : persistenceStore;
 }
@@ -348,6 +351,7 @@ async function createDistributedPersistence(options: {
     resolveAgentStore: buildResolveAgentStore({
       persistenceStore: agentStore,
       client: serviceFoundryClient,
+      db,
     }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -531,11 +535,26 @@ try {
     await requestReplyExecutor.init();
   }
 
-  const server = serve({ fetch: app.fetch, port: configuration.PORT, hostname: configuration.HOST }, info => {
-    logger.info(`Agent server listening on http://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`);
-    // The controller calls this server over HTTP.
-    controller?.start();
+  const tlsServe = serverTlsServeOptions({
+    enabled: !configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED,
+    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
   });
+  const server = serve(
+    {
+      fetch: app.fetch,
+      port: configuration.PORT,
+      hostname: configuration.HOST,
+      ...(tlsServe ?? {}),
+    },
+    info => {
+      const scheme = tlsServe !== undefined ? 'https' : 'http';
+      logger.info(
+        `Agent server listening on ${scheme}://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`,
+      );
+      // The controller calls this server over HTTP(S).
+      controller?.start();
+    },
+  );
 
   server.on('error', (error: unknown) => {
     console.error('Failed to start server:', error instanceof Error ? error.message : error);
