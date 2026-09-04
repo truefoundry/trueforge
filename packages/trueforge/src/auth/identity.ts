@@ -54,15 +54,17 @@ export function resolveRequestContext(c: Context): RequestContext {
  * - OIDC: `roles` includes configured `OIDC_ADMIN_ROLE_VALUE`
  * - TrueFoundry: no tenant-wide TrueForge admin
  */
+// TODO (chiragjn): hasAdminRole will be renamed to canAccessSettings once all authorizer changes are done
 export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boolean {
   switch (getTrueForgeMode()) {
     case TrueForgeMode.TrueFoundry:
       return false;
     case TrueForgeMode.Oidc: {
-      const adminValue = isOidcConfigured(configuration)
-        ? configuration.OIDC.OIDC_ADMIN_ROLE_VALUE
-        : STANDALONE_ADMIN_ROLE;
-      return requestContext.roles.includes(adminValue);
+      if (!isOidcConfigured(configuration)) {
+        // this is technically unreachable since case TrueForgeMode.Oidc already ensures OIDC is configured
+        return false;
+      }
+      return requestContext.roles.includes(configuration.OIDC.OIDC_ADMIN_ROLE_VALUE);
     }
     case TrueForgeMode.Standalone:
       return requestContext.roles.includes(STANDALONE_ADMIN_ROLE);
