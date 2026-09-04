@@ -71,7 +71,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
       <section className="flex min-h-64 flex-col rounded-lg border border-border bg-card-bg p-4 text-text-primary">
         <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-            <Icon name="book-open" className="size-4 text-primary-button-bg" />
+            <Icon name="book-open" className="size-4 text-text-secondary" />
             Instructions
           </h2>
           {instructions ? (
