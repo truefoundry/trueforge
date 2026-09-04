@@ -70,8 +70,8 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
     <div className="grid min-h-0 flex-1 gap-3 overflow-auto p-4 md:grid-cols-[minmax(0,1fr)_18rem] md:overflow-hidden">
       <section className="flex min-h-64 flex-col rounded-lg border border-border bg-card-bg p-4 text-text-primary">
         <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold">
-            <Icon name="file" className="size-4 text-text-secondary" />
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
+            <Icon name="book-open" className="size-4 text-text-secondary" />
             Instructions
           </h2>
           {instructions ? (
@@ -120,6 +120,32 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
       </section>
 
       <aside className="flex min-h-0 min-w-0 flex-col gap-3 md:overflow-auto">
+        <AgentOverviewCard title="Model Configuration" icon="cpu">
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+            <dt className="text-text-secondary">Model</dt>
+            <dd className={cn(valueClassName, 'truncate')} title={spec.model.name}>
+              {displayModelName(spec.model.name)}
+            </dd>
+            {typeof maxTokens === 'number' ? (
+              <>
+                <dt className="text-text-secondary">Max tokens</dt>
+                <dd className={valueClassName}>{maxTokens}</dd>
+              </>
+            ) : null}
+            {spec.model.params?.reasoningEffort !== undefined ? (
+              <>
+                <dt className="text-text-secondary">Reasoning</dt>
+                <dd className={valueClassName}>{spec.model.params.reasoningEffort}</dd>
+              </>
+            ) : null}
+            {typeof temperature === 'number' ? (
+              <>
+                <dt className="text-text-secondary">Temperature</dt>
+                <dd className={valueClassName}>{temperature}</dd>
+              </>
+            ) : null}
+          </dl>
+        </AgentOverviewCard>
         <AgentOverviewCard title="MCP Servers" icon="plug" count={connectors.length}>
           {connectors.length === 0 ? (
             <p className="text-xs text-text-secondary">No connectors attached.</p>
@@ -159,33 +185,6 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
               ))}
             </ul>
           )}
-        </AgentOverviewCard>
-
-        <AgentOverviewCard title="Model Configuration" icon="cpu">
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-            <dt className="text-text-secondary">Model</dt>
-            <dd className={cn(valueClassName, 'truncate')} title={spec.model.name}>
-              {displayModelName(spec.model.name)}
-            </dd>
-            {typeof maxTokens === 'number' ? (
-              <>
-                <dt className="text-text-secondary">Max tokens</dt>
-                <dd className={valueClassName}>{maxTokens}</dd>
-              </>
-            ) : null}
-            {spec.model.params?.reasoningEffort !== undefined ? (
-              <>
-                <dt className="text-text-secondary">Reasoning</dt>
-                <dd className={valueClassName}>{spec.model.params.reasoningEffort}</dd>
-              </>
-            ) : null}
-            {typeof temperature === 'number' ? (
-              <>
-                <dt className="text-text-secondary">Temperature</dt>
-                <dd className={valueClassName}>{temperature}</dd>
-              </>
-            ) : null}
-          </dl>
         </AgentOverviewCard>
 
         {execution.length > 0 ? (

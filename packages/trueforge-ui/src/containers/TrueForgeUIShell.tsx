@@ -10,6 +10,7 @@ import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../ato
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
+import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
@@ -274,30 +275,38 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const server = resolved.server;
   const layoutTree = <LayoutChildren layout={layout} className={className} />;
 
+  const shellTree = (
+    <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+      <LibrarySessionShareBoot />
+      {resolvedRoutes != null ? (
+        <Suspense fallback={null}>
+          <ShellRouteSync
+            routes={resolvedRoutes}
+            activeRemoteId={activeRemoteId}
+            initialSettingsOpen={initialSettingsOpen}
+          />
+        </Suspense>
+      ) : null}
+      <ChatProviderFromShell
+        server={server}
+        onError={onError}
+        onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+        {...providerRest}
+      >
+        {layoutTree}
+      </ChatProviderFromShell>
+    </ShellModeProvider>
+  );
+
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <CustomActionRenderersProvider renderers={customActionRenderers}>
         <ServerProvider server={server}>
-          <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-            <LibrarySessionShareBoot />
-            {resolvedRoutes != null ? (
-              <Suspense fallback={null}>
-                <ShellRouteSync
-                  routes={resolvedRoutes}
-                  activeRemoteId={activeRemoteId}
-                  initialSettingsOpen={initialSettingsOpen}
-                />
-              </Suspense>
-            ) : null}
-            <ChatProviderFromShell
-              server={server}
-              onError={onError}
-              onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
-              {...providerRest}
-            >
-              {layoutTree}
-            </ChatProviderFromShell>
-          </ShellModeProvider>
+          {resolvedRoutes != null ? (
+            <ResolvedRoutesProvider routes={resolvedRoutes}>{shellTree}</ResolvedRoutesProvider>
+          ) : (
+            shellTree
+          )}
         </ServerProvider>
       </CustomActionRenderersProvider>
     </SlotsProvider>

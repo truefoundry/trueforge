@@ -81,6 +81,7 @@ export function reconcileDraftSandbox({
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
+ * New Chat and New Agent keep separate seeds; chat never persists runtime config.
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
@@ -90,6 +91,7 @@ export function DraftSpecPreferenceBridge() {
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isPlainDraft = mode.status === 'active' && mode.isMutable && mode.agentId == null && pendingSessionId == null;
+  const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
 
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
@@ -97,17 +99,18 @@ export function DraftSpecPreferenceBridge() {
 
   useEffect(() => {
     if (isPlainDraft && agentSpec != null) {
-      rememberDraftSpec(agentSpec);
+      rememberDraftSpec(agentSpec, preferenceKind);
     }
-  }, [agentSpec, isPlainDraft, rememberDraftSpec]);
+  }, [agentSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
 
   useEffect(() => {
-    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null) return;
+    // Sandbox / runtime config belongs to New Agent only.
+    if (!isPlainDraft || preferenceKind !== 'agent' || agentSpec == null || updateAgentSpec == null) return;
     const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isPlainDraft, sandboxEnabled, updateAgentSpec]);
+  }, [agentSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;

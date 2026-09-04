@@ -18,7 +18,7 @@ export type TableProps = React.HTMLAttributes<HTMLTableElement> & {
 export function Table({ className, containerClassName, ...props }: TableProps) {
   return (
     <div className={cn('w-full overflow-x-auto', containerClassName)}>
-      <table className={cn('w-full min-w-full border-collapse text-sm', className)} {...props} />
+      <table className={cn('w-full min-w-full border-collapse bg-primary-bg text-sm', className)} {...props} />
     </div>
   );
 }
