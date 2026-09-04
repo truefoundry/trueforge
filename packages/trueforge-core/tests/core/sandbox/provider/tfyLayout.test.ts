@@ -1,6 +1,11 @@
 import { absolutizeRelativeExecEnv } from '../../../../src/core/sandbox/provider/execEnv';
+import { SANDBOX_EXEC_ABORTED } from '../../../../src/core/sandbox/provider/Provider';
 import { TFYSandboxProvider, withMcpClientOnPath } from '../../../../src/core/sandbox/provider/TFYSandboxProvider';
 import { makeSilentLogger } from '../../harnessMocks';
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 describe('TFYSandboxProvider layout', () => {
   it('keeps exec writes cwd-relative (no extra FS jail)', () => {
@@ -52,5 +57,53 @@ describe('TFYSandboxProvider layout', () => {
     expect(withMcpClientOnPath('')).toBe('mcp-client/bin');
     expect(withMcpClientOnPath('/usr/bin:/bin')).toBe('mcp-client/bin:/usr/bin:/bin');
     expect(withMcpClientOnPath('mcp-client/bin:/usr/bin')).toBe('mcp-client/bin:/usr/bin');
+  });
+
+  it('aborts the exec fetch when the turn signal aborts', async () => {
+    const provider = new TFYSandboxProvider({
+      serverUrl: 'http://sandbox.example',
+      natsBridgeUrl: 'ws://nats.example',
+      tenantName: 'acme',
+      fileMaxBytesForDownload: 1024,
+      logger: makeSilentLogger(),
+    });
+    const sandboxId = 'acme.00000000-0000-0000-0000-000000000001';
+    const fetchMock = jest.spyOn(globalThis, 'fetch');
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          success: true,
+          response: { exitCode: 0, result: '/sandbox/root\n/usr/bin\n' },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    const execFetchStarted = new Promise<void>(resolve => {
+      fetchMock.mockImplementationOnce((_url, init) => {
+        const signal = init?.signal;
+        if (signal === undefined || signal === null) {
+          return Promise.reject(new Error('Expected fetch signal'));
+        }
+        resolve();
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              const error = new Error('Aborted');
+              error.name = 'AbortError';
+              reject(error);
+            },
+            { once: true },
+          );
+        });
+      });
+    });
+    const controller = new AbortController();
+
+    const exec = provider.exec({ sandboxId, command: 'sleep 60', signal: controller.signal });
+    await execFetchStarted;
+    controller.abort();
+
+    await expect(exec).resolves.toEqual({ success: false, error: SANDBOX_EXEC_ABORTED });
   });
 });

@@ -4,6 +4,7 @@ import dedent from 'dedent';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
+import { isSignalAborted, onSignalAbort } from '../../util/abort';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
@@ -17,6 +18,7 @@ import {
 import { absolutizeRelativeExecEnv } from './execEnv';
 import {
   ensureExecSuccess,
+  SANDBOX_EXEC_ABORTED,
   shellEscape,
   type ExecResult,
   type SandboxBuild,
@@ -152,9 +154,15 @@ export class TFYSandboxProvider implements SandboxProvider {
 
       const controller = new AbortController();
       const clientTimeoutMs = (timeoutSeconds + CLIENT_TIMEOUT_BUFFER_SECONDS) * 1000;
+      const abortState: { source: 'timeout' | 'turn' | undefined } = { source: undefined };
       const timer = setTimeout(() => {
+        abortState.source = 'timeout';
         controller.abort();
       }, clientTimeoutMs);
+      const cleanupAbort = onSignalAbort(params.signal, () => {
+        abortState.source = 'turn';
+        controller.abort();
+      });
 
       try {
         const response = await fetch(`${this.serverUrl}/exec`, {
@@ -174,6 +182,9 @@ export class TFYSandboxProvider implements SandboxProvider {
         return result;
       } catch (e: unknown) {
         if (e instanceof Error && e.name === 'AbortError') {
+          if (abortState.source === 'turn' && isSignalAborted(params.signal)) {
+            return { success: false, error: SANDBOX_EXEC_ABORTED };
+          }
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, extractErrorLogFields(e));
           return { success: false, error: `Sandbox exec timed out after ${String(timeoutSeconds)}s` };
         }
@@ -182,6 +193,7 @@ export class TFYSandboxProvider implements SandboxProvider {
         return { success: false, error: message };
       } finally {
         clearTimeout(timer);
+        cleanupAbort();
       }
     });
   }

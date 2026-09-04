@@ -14,6 +14,8 @@ export interface ExecErrorResult {
 
 export type ExecResult = ExecSuccessResult | ExecErrorResult;
 
+export const SANDBOX_EXEC_ABORTED = 'Sandbox exec aborted';
+
 /**
  * Wraps a value in single quotes for safe use in a shell command. Inner single quotes are
  * escaped via the standard shell idiom: ' -> '\''. Use for any user-controlled value that is
@@ -44,6 +46,7 @@ export interface SandboxExecParams {
   command: string;
   cwd?: string | undefined;
   env?: Record<string, string> | undefined;
+  signal?: AbortSignal | undefined;
   /** Overrides the provider's default exec timeout (e.g. for long skill downloads). */
   timeoutSeconds?: number | undefined;
 }
