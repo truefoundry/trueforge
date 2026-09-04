@@ -1,15 +1,14 @@
 import { sql, type Kysely } from 'kysely';
-import {
-  SCHEDULE_AGENT_ID_IDX,
-  SCHEDULE_CREATED_BY_SUBJECT_ID_IDX,
-} from '../../indexes';
+import { SCHEDULE_AGENT_ID_IDX, SCHEDULE_CREATED_BY_SUBJECT_ID_IDX } from '../../indexes';
 
 /**
  * Add NOT NULL `agent_id` on schedule — mirrors
  * db/postgres/migrations/20260904_000001_schedule_agent_id.ts.
+ * Drops the `(tenant_id, agent_name)` FK; binding is `agent(id)` only.
  *
  * SQLite STRICT cannot ADD a NOT NULL column without a DEFAULT, so rebuild
  * `schedule` (FKs off so `schedule_run` rows survive the drop/rename).
+ * better-sqlite3 prepares one statement per call — keep statements separate.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`PRAGMA foreign_keys = OFF`.execute(db);
@@ -28,7 +27,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
           PRIMARY KEY (id),
-          FOREIGN KEY (tenant_id, agent_name) REFERENCES agent (tenant_id, name) ON DELETE CASCADE,
           FOREIGN KEY (agent_id) REFERENCES agent (id) ON DELETE CASCADE
         ) STRICT
       `.execute(trx);
