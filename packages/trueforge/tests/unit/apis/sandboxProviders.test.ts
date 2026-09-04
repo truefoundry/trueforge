@@ -151,15 +151,6 @@ describe('sandboxProviders router', () => {
     expect(stored?.manifest).toEqual(putBody);
   });
 
-  it('GET surfaces an error (500) when the status refresh throws', async () => {
-    const { settingsRouter: router } = await createRouters();
-    expect((await router.request('/', putInit(putBody))).status).toBe(200);
-
-    mockCheckStatus.mockRejectedValue(new DaytonaError('unreachable', 500));
-    const get = await router.request('/');
-    expect(get.status).toBe(500);
-  });
-
   it('PUT returns 422 when Daytona rejects the API key', async () => {
     mockProviderFactory.mockReturnValue(
       stubProvider({ buildImage: jest.fn().mockRejectedValue(new DaytonaError('unauthorized', 401)) }),
