@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
+import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
 import type { AgentSpec } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
@@ -17,6 +18,116 @@ beforeAll(() => {
 });
 
 describe('AgentConfigEditors', () => {
+  it('edits instructions and initial user messages in a drawer', () => {
+    const baseSpec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec = withInitialUserMessages({
+      spec: baseSpec,
+      messages: [{ type: 'user.message', content: 'Existing message' }],
+    });
+    const onInstructionsSave = vi.fn();
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="instructions"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          instructions="Existing instructions"
+          onInstructionsSave={onInstructionsSave}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Instructions' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Agent instructions')).toHaveClass('min-h-64');
+
+    fireEvent.change(screen.getByLabelText('Agent instructions'), {
+      target: { value: 'Updated instructions' },
+    });
+    expect(onInstructionsSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add User Message' }));
+    fireEvent.change(screen.getByLabelText('User Message 2'), {
+      target: { value: 'New message' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove User Message 1' }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onInstructionsSave).toHaveBeenCalledWith({
+      instructions: 'Updated instructions',
+      messages: [{ type: 'user.message', content: 'New message' }],
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not persist blank initial user messages', () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="instructions"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add User Message' }));
+    fireEvent.change(screen.getByLabelText('User Message 1'), { target: { value: '   ' } });
+
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onChange).toHaveBeenCalledWith(withInitialUserMessages({ spec, messages: [] }));
+  });
+
+  it('discards instruction changes when the drawer closes without saving', () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' }, instructions: 'Original' };
+    const onInstructionsSave = vi.fn();
+    const onChange = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="instructions"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onInstructionsSave={onInstructionsSave}
+          onChange={onChange}
+          onClose={onClose}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Agent instructions'), { target: { value: 'Discarded' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(onInstructionsSave).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('renders model context metadata', () => {
     render(
       <SlotsProvider>

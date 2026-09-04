@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigPanel } from '@/atoms/draft/AgentConfigPanel.js';
+import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
 import type { AgentSpec, ModelSelection } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
@@ -43,8 +44,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={vi.fn()}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={vi.fn()}
         />
       </SlotsProvider>,
@@ -78,8 +77,7 @@ describe('AgentConfigPanel', () => {
     );
   });
 
-  it('routes editor actions and live instruction changes', () => {
-    const onInstructionsChange = vi.fn();
+  it('routes editor actions from the configuration summary', () => {
     const onOpenEditor = vi.fn();
     render(
       <SlotsProvider>
@@ -88,8 +86,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={onInstructionsChange}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={onOpenEditor}
         />
       </SlotsProvider>,
@@ -101,10 +97,33 @@ describe('AgentConfigPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit Runtime Config' }));
     expect(onOpenEditor).toHaveBeenCalledWith('runtime');
 
-    fireEvent.change(screen.getByPlaceholderText('Enter detailed instructions for your agent…'), {
-      target: { value: 'New instructions' },
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Instructions' }));
+    expect(onOpenEditor).toHaveBeenCalledWith('instructions');
+  });
+
+  it('previews instructions and summarizes initial user messages', () => {
+    const specWithMessages = withInitialUserMessages({
+      spec,
+      messages: [
+        { type: 'user.message', content: 'First prompt' },
+        { type: 'user.message', content: 'Second prompt' },
+      ],
     });
-    expect(onInstructionsChange).toHaveBeenCalledWith('New instructions');
+
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={specWithMessages}
+          model={model}
+          skillsAvailable
+          instructions="Use the configured tools carefully."
+          onOpenEditor={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByText('Use the configured tools carefully.')).toBeInTheDocument();
+    expect(screen.getByText('2 user messages')).toBeInTheDocument();
   });
 
   it('removes an MCP server directly from its config chip', () => {
@@ -116,8 +135,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={vi.fn()}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={vi.fn()}
           onChange={onChange}
         />
@@ -137,8 +154,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={vi.fn()}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={vi.fn()}
           onChange={onChange}
         />
@@ -161,8 +176,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={vi.fn()}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={onOpenEditor}
           onChange={vi.fn()}
         />
@@ -181,8 +194,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={vi.fn()}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={vi.fn()}
         />
       </SlotsProvider>,
@@ -202,8 +213,6 @@ describe('AgentConfigPanel', () => {
           model={model}
           skillsAvailable
           instructions={spec.instructions ?? ''}
-          onInstructionsChange={vi.fn()}
-          onInstructionsBlur={vi.fn()}
           onOpenEditor={vi.fn()}
           onClose={onClose}
         />

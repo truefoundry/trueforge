@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import type { AgentInstructionsDraft } from './AgentInstructionsDrawer.js';
+import { initialUserMessagesFromSpec, withInitialUserMessages } from './agentConfigMessages.js';
 import { editableMountsFromSpec } from './agentConfigMounts.js';
 
-export type AgentConfigEditor = 'model' | 'model-settings' | 'runtime' | 'mcp' | 'skills';
+export type AgentConfigEditor = 'instructions' | 'model' | 'model-settings' | 'runtime' | 'mcp' | 'skills';
 
 export type AgentConfigEditorsProps = {
   editor: AgentConfigEditor | null;
@@ -18,6 +20,8 @@ export type AgentConfigEditorsProps = {
   error: string | null;
   skillsDisabled?: boolean;
   sandboxAvailable?: boolean;
+  instructions?: string;
+  onInstructionsSave?: (draft: AgentInstructionsDraft) => void;
   loadMcpTools?: (connectorId: string) => Promise<McpToolSelection[]>;
   onRefreshConnectors?: () => Promise<void>;
   onChange: (spec: AgentSpec) => void;
@@ -34,6 +38,8 @@ export function AgentConfigEditors({
   error,
   skillsDisabled = false,
   sandboxAvailable = false,
+  instructions,
+  onInstructionsSave,
   loadMcpTools,
   onRefreshConnectors,
   onChange,
@@ -42,6 +48,7 @@ export function AgentConfigEditors({
   const AgentModelConfigModal = useSlot('AgentModelConfigModal');
   const AgentResourceConfigModal = useSlot('AgentResourceConfigModal');
   const AgentRuntimeConfigModal = useSlot('AgentRuntimeConfigModal');
+  const AgentInstructionsDrawer = useSlot('AgentInstructionsDrawer');
   const [query, setQuery] = useState('');
   const [activeConnectorId, setActiveConnectorId] = useState<string | null>(null);
   const [tools, setTools] = useState<McpToolSelection[]>([]);
@@ -88,9 +95,30 @@ export function AgentConfigEditors({
 
   const modelEditor = editor === 'model' || editor === 'model-settings' ? editor : null;
   const resourceEditor = editor === 'mcp' || editor === 'skills' ? editor : null;
+  const saveInstructions = (draft: AgentInstructionsDraft) => {
+    if (onInstructionsSave !== undefined) {
+      onInstructionsSave(draft);
+      return;
+    }
+    onChange(
+      withInitialUserMessages({
+        spec: { ...spec, instructions: draft.instructions || undefined },
+        messages: draft.messages,
+      }),
+    );
+  };
 
   return (
     <>
+      {editor === 'instructions' ? (
+        <AgentInstructionsDrawer
+          open
+          instructions={instructions ?? spec.instructions ?? ''}
+          messages={initialUserMessagesFromSpec(spec)}
+          onSave={saveInstructions}
+          onClose={close}
+        />
+      ) : null}
       {modelEditor ? (
         <AgentModelConfigModal
           editor={modelEditor}

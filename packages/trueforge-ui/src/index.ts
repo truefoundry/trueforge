@@ -464,6 +464,8 @@ export { AgentConfigEditors } from './atoms/draft/AgentConfigEditors.js';
 export type { AgentConfigEditor, AgentConfigEditorsProps } from './atoms/draft/AgentConfigEditors.js';
 export { AgentConfigPanel, AgentConfigSection } from './atoms/draft/AgentConfigPanel.js';
 export type { AgentConfigPanelProps } from './atoms/draft/AgentConfigPanel.js';
+export { AgentInstructionsDrawer } from './atoms/draft/AgentInstructionsDrawer.js';
+export type { AgentInstructionsDrawerProps } from './atoms/draft/AgentInstructionsDrawer.js';
 export { AgentMcpEditorContent } from './atoms/draft/AgentMcpEditorContent.js';
 export type { AgentMcpEditorContentProps } from './atoms/draft/AgentMcpEditorContent.js';
 export { AgentModelConfigModal } from './atoms/draft/AgentModelConfigModal.js';

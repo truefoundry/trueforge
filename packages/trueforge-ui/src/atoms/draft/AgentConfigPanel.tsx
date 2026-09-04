@@ -1,15 +1,15 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import type { AgentSpec, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
-import { auiInputClass } from '../lib/inputClasses.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
+import { initialUserMessagesFromSpec } from './agentConfigMessages.js';
 import {
   editableMountsFromSpec,
   enabledToolsFromMount,
@@ -26,8 +26,6 @@ export type AgentConfigPanelProps = {
   model?: ModelSelection;
   skillsAvailable: boolean;
   instructions: string;
-  onInstructionsChange: (value: string) => void;
-  onInstructionsBlur: () => void;
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
   onClose?: () => void;
@@ -150,18 +148,17 @@ export function AgentConfigPanel({
   model,
   skillsAvailable,
   instructions,
-  onInstructionsChange,
-  onInstructionsBlur,
   onOpenEditor,
   onChange,
   onClose,
 }: AgentConfigPanelProps) {
-  const instructionsId = useId();
   const Section = useSlot('AgentConfigSection');
   const mcp = editableMountsFromSpec(spec.mcpServers);
   const skills = editableMountsFromSpec(spec.skills);
   const modelParams = modelParamSummary(spec.model.params);
   const runtimeConfig = runtimeConfigSummary(spec.config);
+  const instructionPreview = instructions.trim();
+  const userMessageCount = initialUserMessagesFromSpec(spec).length;
   const modelInfo = [
     model?.properties.contextLength === undefined ? null : formatTokens(model.properties.contextLength),
   ].filter((value): value is string => value !== null);
@@ -247,18 +244,27 @@ export function AgentConfigPanel({
         </Section>
 
         <Section title="Instructions" description="Define the agent's role, goals, and behavior.">
-          <label htmlFor={instructionsId} className="sr-only">
-            Agent instructions
-          </label>
-          <textarea
-            id={instructionsId}
-            value={instructions}
-            rows={5}
-            placeholder="Enter detailed instructions for your agent…"
-            className={auiInputClass('resize-y py-2')}
-            onChange={event => onInstructionsChange(event.target.value)}
-            onBlur={onInstructionsBlur}
-          />
+          <button
+            type="button"
+            aria-label="Edit Instructions"
+            className="border-border hover:bg-ghost-button-hover flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
+            onClick={() => onOpenEditor('instructions')}
+          >
+            <div className="min-w-0 flex-1">
+              <p
+                className={cn(
+                  'line-clamp-3 whitespace-pre-wrap text-sm',
+                  instructionPreview ? 'text-text-primary' : 'text-text-secondary',
+                )}
+              >
+                {instructionPreview || 'No instructions added.'}
+              </p>
+              <p className="text-text-secondary mt-2 text-xs">
+                {userMessageCount} user {userMessageCount === 1 ? 'message' : 'messages'}
+              </p>
+            </div>
+            <Icon name="chevron-right" className="text-text-secondary size-4 shrink-0" />
+          </button>
         </Section>
 
         <Section
