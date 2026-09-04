@@ -38,7 +38,9 @@ export function manualRunName(): string {
 export interface ScheduleRecord {
   id: string;
   tenant_id: string;
-  /** Immutable FK to `agent.name` (with tenant); agent version resolves at run time. */
+  /** Immutable FK to `agent.id`. */
+  agent_id: string;
+  /** Create-time snapshot of registry agent name. */
   agent_name: string;
   /** Slug-shaped label, unique per agent (`schedule_name_uq`). */
   name: string;
@@ -108,6 +110,7 @@ export interface GetScheduleInput {
 
 export interface CreateScheduleInput {
   tenant_id: string;
+  agent_id: string;
   agent_name: string;
   name: string;
   manifest: ScheduleManifest;

@@ -39,6 +39,7 @@ function scheduleColumns(eb: ExpressionBuilder<Database, 'schedule'>) {
   return [
     'id' as const,
     'tenant_id' as const,
+    'agent_id' as const,
     'agent_name' as const,
     'name' as const,
     jsonText<ScheduleManifest>(eb.ref('manifest')).as('manifest'),
@@ -67,6 +68,7 @@ function runColumns(eb: ExpressionBuilder<Database, 'schedule_run'>) {
 interface ScheduleRow {
   id: string;
   tenant_id: string;
+  agent_id: string;
   agent_name: string;
   name: string;
   manifest: ScheduleManifest;
@@ -146,6 +148,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
         .values({
           id: newId(),
           tenant_id: input.tenant_id,
+          agent_id: input.agent_id,
           agent_name: input.agent_name,
           name: input.name,
           manifest: jsonbBind(input.manifest),

@@ -250,6 +250,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         const { schedule } = await deps.scheduleStore.createScheduleAndRun(
           {
             tenant_id: requestContext.tenant_id,
+            agent_id: agent.id,
             agent_name: agent.name,
             name: body.name,
             manifest: body.manifest,

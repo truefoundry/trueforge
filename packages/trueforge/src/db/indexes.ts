@@ -13,5 +13,8 @@ export const SESSION_CREATED_BY_SUBJECT_ID_IDX = 'session_created_by_subject_id_
 /** `(tenant_id, created_by_subject.subject_id)` on schedule. */
 export const SCHEDULE_CREATED_BY_SUBJECT_ID_IDX = 'schedule_created_by_subject_id_idx';
 
+/** `(tenant_id, agent_id)` on schedule — list schedules for one agent by id. */
+export const SCHEDULE_AGENT_ID_IDX = 'schedule_agent_id_idx';
+
 /** `(tenant_id, created_by_subject.subject_id)` on schedule_run. */
 export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_subject_id_idx';

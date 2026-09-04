@@ -23,6 +23,7 @@ function item(): ScheduleDispatchItem {
     schedule: {
       id: 'sched-1',
       tenant_id: 'default',
+      agent_id: 'agent-1',
       agent_name: 'reporter',
       name: 'daily',
       manifest: ScheduleManifestSchema.parse({
