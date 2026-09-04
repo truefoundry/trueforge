@@ -75,7 +75,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
       sessions: {
         getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
       } as never,
-      turnDeps: {
+      resolveTurnDeps: () => ({
         activeTurns: {} as never,
         eventSubscriptions: {} as never,
         modelProviderStore: {} as never,
@@ -84,7 +84,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
         agentStore,
         sandboxProviderStore: {} as never,
         logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
-      },
+      }),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
       authorizer,

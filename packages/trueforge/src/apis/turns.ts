@@ -117,9 +117,9 @@ export interface TurnsRouterDeps {
 }
 
 /**
- * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
- * carries already-resolved `modelProviderStore` / `mcpServerStore` / `agentStore` (the scheduler has no request
- * context to resolve them).
+ * Deps needed to create a turn and drain events in-process (no HTTP). Carries already-resolved
+ * `modelProviderStore` / `mcpServerStore` / `agentStore`, so callers must resolve them from the
+ * caller's request context to keep TrueFoundry mode token-bound.
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,

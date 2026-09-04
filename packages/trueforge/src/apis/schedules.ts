@@ -46,7 +46,7 @@ export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   sessions: Sessions;
-  turnDeps: BeginTurnExecutionDeps;
+  resolveTurnDeps: (c: Context) => BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -206,7 +206,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         sessions: deps.sessions,
         agentStore: deps.resolveAgentStore(c),
         startTurn: async turnParams => {
-          await startTurnInProcess({ ...turnParams, deps: deps.turnDeps });
+          await startTurnInProcess({ ...turnParams, deps: deps.resolveTurnDeps(c) });
         },
       });
     } catch (error) {

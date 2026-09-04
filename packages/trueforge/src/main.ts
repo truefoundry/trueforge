@@ -97,9 +97,9 @@ import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundry
 interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
-  resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
-  resolveAgentStore: (c?: Context) => IAgentStore<TTransaction>;
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
@@ -135,18 +135,18 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
   });
 }
 
-/**
- * Per-request model-provider store over a shared ServiceFoundry client.
- * Without request context (e.g. scheduler) falls back to {@link persistenceStore}.
- */
+/** Per-request model-provider store over a shared ServiceFoundry client, else {@link persistenceStore}. */
 function buildResolveModelProviderStore<TTransaction>(options: {
   persistenceStore: IModelProviderStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (c?: Context) => IModelProviderStore<TTransaction> {
-  const { persistenceStore, client } = options;
-  return (c?: Context) => {
-    if (c && client) {
-      return new TrueFoundryModelProviderStore<TTransaction>({ client, accessToken: requireRequestCredentialToken(c) });
+}): (c: Context) => IModelProviderStore<TTransaction> {
+  return (c: Context) => {
+    const { persistenceStore, client } = options;
+    if (client) {
+      return new TrueFoundryModelProviderStore<TTransaction>({
+        client,
+        accessToken: requireRequestCredentialToken(c),
+      });
     }
     return persistenceStore;
   };
@@ -182,29 +182,24 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   };
 }
 
-/**
- * Per-request agent store decorator over DB persistence. Without request context falls back to
- * {@link persistenceStore}.
- */
+/** Per-request agent store decorator over DB persistence, else {@link persistenceStore}. */
 function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   db: Kysely<PostgresDatabase>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (c?: Context) => IAgentStore<Transaction<PostgresDatabase>> {
+}): (c: Context) => IAgentStore<Transaction<PostgresDatabase>> {
   const { persistenceStore, client, db } = options;
-  if (!client) {
-    return () => persistenceStore;
-  }
-  // No request context (e.g. the scheduler) means no caller token, so fall back to persistence.
-  return c =>
-    c
-      ? new TrueFoundryAgentStore({
-          inner: persistenceStore,
-          client,
-          accessToken: requireRequestCredentialToken(c),
-          db,
-        })
-      : persistenceStore;
+  return (c: Context) => {
+    if (client) {
+      return new TrueFoundryAgentStore({
+        inner: persistenceStore,
+        client,
+        accessToken: requireRequestCredentialToken(c),
+        db,
+      });
+    }
+    return persistenceStore;
+  };
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */

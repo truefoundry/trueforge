@@ -166,21 +166,15 @@ export interface ServerDeps<TTransaction> {
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
+  /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
-   * Called without a context (e.g. the scheduler) it returns the DB persistence store.
-   */
-  resolveModelProviderStore: (c?: Context) => IModelProviderStore<TTransaction>;
-  /**
-   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
-   * Called without a context (e.g. the scheduler / OAuth callback) it returns the DB persistence store.
+   * The unauthenticated OAuth callback has no context and gets the DB persistence store.
    */
   resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
-  /**
-   * Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode.
-   * Called without a context (e.g. the scheduler) it returns the DB persistence store.
-   */
-  resolveAgentStore: (c?: Context) => IAgentStore<TTransaction>;
+  /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
@@ -321,16 +315,16 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         scheduleStore: deps.scheduleStore,
         resolveAgentStore: deps.resolveAgentStore,
         sessions: deps.sessions,
-        turnDeps: {
+        resolveTurnDeps: c => ({
           activeTurns: deps.activeTurns,
           eventSubscriptions: deps.eventSubscriptions,
-          modelProviderStore: deps.resolveModelProviderStore(),
-          mcpServerStore: deps.resolveMcpServerStore(),
+          modelProviderStore: deps.resolveModelProviderStore(c),
+          mcpServerStore: deps.resolveMcpServerStore(c),
           skillStore: deps.skillStore,
-          agentStore: deps.resolveAgentStore(),
+          agentStore: deps.resolveAgentStore(c),
           sandboxProviderStore: deps.sandboxProviderStore,
           logger: deps.logger,
-        },
+        }),
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
