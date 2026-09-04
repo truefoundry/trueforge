@@ -116,8 +116,11 @@ export function AgentLibraryRow({
   const mcpNames = (spec?.mcpServers ?? [])
     .map(mountName)
     .filter((name: string | null): name is string => name != null);
-  const connectorsTitle = mcpNames.length ? `Connectors: ${mcpNames.join(', ')}` : `${mcpCount} connectors`;
-  const skillsTitle = skillNames.length ? `Skills: ${skillNames.join(', ')}` : `${skillsCount} skills`;
+  const modelLabel = modelName != null ? displayModelLabel(modelName) : null;
+  const modelTitle = modelName ?? '';
+  const connectorsTitle = mcpNames.length ? mcpNames.join(', ') : `${mcpCount} connectors`;
+  const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
+  const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
 
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
 
@@ -141,34 +144,45 @@ export function AgentLibraryRow({
                 {agent.name}
               </button>
             )}
-            {spec != null ? (
-              <div className="text-text-secondary mt-1 flex min-w-0 items-center gap-2">
-                {modelName ? (
-                  <span className="bg-primary-button-bg/10 text-primary-button-bg inline-flex max-w-[8rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium">
-                    <Icon name="cpu" className="size-3.5 shrink-0" />
-                    <span className="truncate">{displayModelLabel(modelName)}</span>
-                  </span>
-                ) : null}
-                {mcpCount > 0 ? (
-                  <Tooltip content={connectorsTitle}>
-                    <span className="inline-flex items-center gap-1 text-xs" aria-label={connectorsTitle}>
-                      <Icon name="plug" className="size-3.5" />
-                      {mcpCount}
-                    </span>
-                  </Tooltip>
-                ) : null}
-                {skillsCount > 0 ? (
-                  <Tooltip content={skillsTitle}>
-                    <span className="inline-flex items-center gap-1 text-xs" aria-label={skillsTitle}>
-                      <Icon name="lightbulb" className="size-3.5" />
-                      {skillsCount}
-                    </span>
-                  </Tooltip>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </div>
+      </TableCell>
+      <TableCell>
+        {hasConfiguration ? (
+          <div className="text-text-secondary flex min-w-0 items-center gap-2">
+            {modelLabel != null ? (
+              <Tooltip content={modelTitle}>
+                <span
+                  className="bg-primary-button-bg/10 text-primary-button-bg inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium"
+                  aria-label={modelTitle}
+                >
+                  <Icon name="cpu" className="size-3.5 shrink-0" />
+                  <span className="truncate">{modelLabel}</span>
+                </span>
+              </Tooltip>
+            ) : null}
+            {skillsCount > 0 ? (
+              <Tooltip content={skillsTitle}>
+                <span className="inline-flex items-center gap-1 text-xs" aria-label={`Skills: ${skillsTitle}`}>
+                  <Icon name="lightbulb" className="size-3.5 shrink-0" />
+                  {skillsCount}
+                </span>
+              </Tooltip>
+            ) : null}
+            {mcpCount > 0 ? (
+              <Tooltip content={connectorsTitle}>
+                <span className="inline-flex items-center gap-1 text-xs" aria-label={`Connectors: ${connectorsTitle}`}>
+                  <Icon name="plug" className="size-3.5 shrink-0" />
+                  {mcpCount}
+                </span>
+              </Tooltip>
+            ) : null}
+          </div>
+        ) : (
+          <span className="text-text-secondary text-sm" aria-label={`Configuration unavailable for ${agent.name}`}>
+            —
+          </span>
+        )}
       </TableCell>
       {scheduleSummary !== undefined ? (
         <TableCell>
@@ -388,6 +402,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Agent name</TableHead>
+                      <TableHead>Configuration</TableHead>
                       {showSchedulesColumn ? <TableHead className="w-[8rem]">Schedules</TableHead> : null}
                       <TableHead className="w-px">
                         <span className="sr-only">Actions</span>

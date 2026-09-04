@@ -257,7 +257,7 @@ describe('AgentsLibrary', () => {
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
   });
 
-  it('shows model name, skills count, and MCP count from agentSpec', async () => {
+  it('shows model, skills, and connector under a Configuration column with tooltips', async () => {
     const server = mockServer([
       {
         name: 'algo-art',
@@ -279,12 +279,14 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
-      expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Configuration' })).toBeInTheDocument();
     });
+    expect(screen.getByLabelText('openai/gpt-5-5')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
     expect(screen.getByLabelText('Connectors: github')).toBeInTheDocument();
     expect(screen.getByLabelText('Skills: paint')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent bare' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('0 skills')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Configuration unavailable for bare')).toBeInTheDocument();
   });
 
   it('hides Edit when composer is disabled (AgentLibrary only)', async () => {
