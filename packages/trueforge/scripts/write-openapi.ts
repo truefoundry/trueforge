@@ -75,7 +75,7 @@ const app = createServerApp({
     }),
   tokenStore,
   skillCatalog: SkillCatalog.load(),
-  skillStore: new SqliteSkillStore(db),
+  resolveSkillStore: () => new SqliteSkillStore(db),
   sandboxCatalog: SandboxCatalog.load(),
   sandboxProviderStore: new SqliteSandboxProviderStore(db),
   resolveAgentStore: () => agentStore,

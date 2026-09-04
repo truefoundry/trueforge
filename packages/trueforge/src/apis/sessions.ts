@@ -74,7 +74,7 @@ export interface SessionsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveMcpServerStore: (c: Context) => IMcpServerStore;
-  skillStore: ISkillStore;
+  resolveSkillStore: (c: Context) => ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   sandboxProviderStore: ISandboxProviderStore;
   redis?: RedisClientType | undefined;
@@ -229,7 +229,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'sessions'
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
-  | 'skillStore'
+  | 'resolveSkillStore'
   | 'resolveAgentStore'
   | 'sandboxProviderStore'
   | 'resolveRequestContext'
@@ -274,7 +274,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         tenant_id: requestContext.tenant_id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
-        skillStore: deps.skillStore,
+        skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.sandboxProviderStore,
       });
       agent = { type: 'inline', spec: body.agent.spec };
@@ -337,7 +337,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
-      skillStore: deps.skillStore,
+      skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.sandboxProviderStore,
     });
     const session = await deps.sessions.create({
@@ -425,7 +425,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         tenant_id: requestContext.tenant_id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
-        skillStore: deps.skillStore,
+        skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.sandboxProviderStore,
       });
     }

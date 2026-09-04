@@ -73,7 +73,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
           tokenStore,
           clientName: 'test-client',
         }),
-      skillStore: new SqliteSkillStore(db),
+      resolveSkillStore: () => new SqliteSkillStore(db),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),

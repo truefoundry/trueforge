@@ -86,6 +86,9 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
+import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
+import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
@@ -102,7 +105,7 @@ interface ServerPersistence<TTransaction> {
   resolveAgentStore: (c?: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
+  resolveSkillStore: (c?: Context) => ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   destroyDb: () => Promise<void>;
@@ -182,12 +185,38 @@ function buildResolveMcpServerStore<TTransaction>(options: {
     }
     const requestContext = resolveRequestContext(c);
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
-    return new TrueFoundryMcpServerStore<TTransaction>({
+    const store = new TrueFoundryMcpServerStore<TTransaction>({
       client,
       accessToken: requireRequestCredentialToken(c),
       subject: requestContext.subject,
       perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
     });
+    const rawInline = c.req.header(X_TFG_MCP);
+    if (rawInline === undefined) {
+      return store;
+    }
+    return new InlineMcpServerStore<TTransaction>({ inner: store, inline: parseInlineMcpServers(rawInline) });
+  };
+}
+
+/**
+ * Per-request skill store resolver. Skills are always DB-backed; in TrueFoundry mode a request may
+ * additionally carry its own definitions, which take precedence over the tenant's registry.
+ */
+function buildResolveSkillStore<TTransaction>(options: {
+  persistenceStore: ISkillStore<TTransaction>;
+  trueFoundryMode: boolean;
+}): (c?: Context) => ISkillStore<TTransaction> {
+  const { persistenceStore, trueFoundryMode } = options;
+  if (!trueFoundryMode) {
+    return () => persistenceStore;
+  }
+  return c => {
+    const rawInline = c?.req.header(X_TFG_SKILLS);
+    if (rawInline === undefined) {
+      return persistenceStore;
+    }
+    return new InlineSkillStore<TTransaction>({ inner: persistenceStore, inline: parseInlineSkills(rawInline) });
   };
 }
 
@@ -272,7 +301,10 @@ async function createStandalonePersistence(options: {
     resolveAgentStore: () => agentStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
-    skillStore: new SqliteSkillStore(db),
+    resolveSkillStore: buildResolveSkillStore({
+      persistenceStore: new SqliteSkillStore(db),
+      trueFoundryMode: false,
+    }),
     sandboxProviderStore: new SqliteSandboxProviderStore(db),
     scheduleStore: new SqliteScheduleStore(db),
     destroyDb: () => db.destroy(),
@@ -355,7 +387,10 @@ async function createDistributedPersistence(options: {
     }),
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
-    skillStore: new PostgresSkillStore(db),
+    resolveSkillStore: buildResolveSkillStore({
+      persistenceStore: new PostgresSkillStore(db),
+      trueFoundryMode: serviceFoundryClient !== undefined,
+    }),
     sandboxProviderStore: new PostgresSandboxProviderStore(db),
     scheduleStore: new PostgresScheduleStore(db),
     destroyDb: () => db.destroy(),
@@ -373,7 +408,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveAgentStore,
     withTransaction,
     tokenStore,
-    skillStore,
+    resolveSkillStore,
     sandboxProviderStore,
     scheduleStore,
     destroyDb,
@@ -439,7 +474,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveAgentStore,
     withTransaction,
     tokenStore,
-    skillStore,
+    resolveSkillStore,
     sandboxProviderStore,
     scheduleStore,
     sessionStore,

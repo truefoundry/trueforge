@@ -32,7 +32,7 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
+  resolveSkillStore: (c: Context) => ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
@@ -53,12 +53,14 @@ async function validateManifest<TTransaction>({
   deps,
   modelProviderStore,
   mcpServerStore,
+  skillStore,
   tenant_id,
 }: {
   spec: AgentSpec;
   deps: AgentsRouterDeps<TTransaction>;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
   tenant_id: string;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
@@ -66,7 +68,7 @@ async function validateManifest<TTransaction>({
     tenant_id,
     modelProviderStore,
     mcpServerStore,
-    skillStore: deps.skillStore,
+    skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
   });
   return spec;
@@ -87,6 +89,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      skillStore: deps.resolveSkillStore(c),
       tenant_id: requestContext.tenant_id,
     });
     try {
@@ -156,6 +159,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      skillStore: deps.resolveSkillStore(c),
       tenant_id: requestContext.tenant_id,
     });
     const record = await deps.resolveAgentStore(c).updateAgent({

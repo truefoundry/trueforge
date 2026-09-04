@@ -183,7 +183,7 @@ export interface ServerDeps<TTransaction> {
   resolveAgentStore: (c?: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
+  resolveSkillStore: (c?: Context) => ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessionStore: ISessionStore;
@@ -291,7 +291,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/skills',
     withAuth(
       createAvailableSkillsRouter({
-        skillStore: deps.skillStore,
+        skillStore: deps.resolveSkillStore(),
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
@@ -305,7 +305,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
@@ -325,7 +325,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           eventSubscriptions: deps.eventSubscriptions,
           modelProviderStore: deps.resolveModelProviderStore(),
           mcpServerStore: deps.resolveMcpServerStore(),
-          skillStore: deps.skillStore,
+          skillStore: deps.resolveSkillStore(),
           agentStore: deps.resolveAgentStore(),
           sandboxProviderStore: deps.sandboxProviderStore,
           logger: deps.logger,
@@ -343,7 +343,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
-        skillStore: deps.skillStore,
+        skillStore: deps.resolveSkillStore(),
         sandboxProviderStore: deps.sandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -359,7 +359,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         resolveRequestContext,
@@ -386,7 +386,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         sandboxProviderStore: deps.sandboxProviderStore,
         redis: deps.redis,
@@ -406,7 +406,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         sandboxProviderStore: deps.sandboxProviderStore,
