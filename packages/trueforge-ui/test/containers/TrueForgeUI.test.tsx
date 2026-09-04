@@ -539,13 +539,11 @@ describe('SidebarLayout', () => {
     expect(selectedNewAgent).toHaveAttribute('aria-current', 'page');
     expect(deselectedNewChat).not.toHaveAttribute('aria-current');
     const config = await screen.findByRole('dialog', { name: 'Agent Config' });
-    const clearChat = await screen.findByRole('button', { name: 'Clear chat' });
-    const saveAgent = await screen.findByRole('button', { name: 'Save Agent' });
+    const chatColumn = config.nextElementSibling;
     expect(config).toHaveClass('border-r');
-    expect(config.nextElementSibling).toContainElement(saveAgent);
-    expect(clearChat.nextElementSibling).toBe(saveAgent);
+    expect(chatColumn).not.toBeNull();
     expect(config.querySelector('header')).toHaveClass('h-11');
-    expect(saveAgent.closest('header')).toHaveClass('h-11');
+    expect(chatColumn?.querySelector('header')).toHaveClass('h-11');
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
 
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
@@ -679,6 +677,10 @@ describe('layout slot overrides', () => {
     return <button type="button">custom clear</button>;
   }
 
+  function CustomSaveAgent() {
+    return <button type="button">custom save</button>;
+  }
+
   function CustomActionSlot() {
     return <button type="button">custom action</button>;
   }
@@ -705,6 +707,24 @@ describe('layout slot overrides', () => {
 
     expect(screen.getByRole('button', { name: 'custom clear' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+  });
+
+  it.each(hosts)('%s places Clear Chat immediately before Save Agent', (_name, Layout) => {
+    render(
+      <SlotsProvider overrides={{ ClearChatButton: CustomClearChat, SaveAgentButton: CustomSaveAgent }}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <Layout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+
+    const clearChat = screen.getByRole('button', { name: 'custom clear' });
+    const saveAgent = screen.getByRole('button', { name: 'custom save' });
+    expect(clearChat.nextElementSibling).toBe(saveAgent);
   });
 
   it.each(hosts)('%s honors overrides.ShellActionsActionSlot to the right of shell actions', (_name, Layout) => {
