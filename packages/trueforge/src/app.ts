@@ -39,6 +39,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
+import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
@@ -211,6 +212,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
+  if (configuration.TLS_MUTUAL && !configuration.STANDALONE) {
+    app.use('*', createClientCertificateMiddleware(deps.logger));
+  }
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
 

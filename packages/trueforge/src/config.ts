@@ -478,9 +478,11 @@ export interface SharedServerConfiguration {
   /**
    * Base URL the controller uses to reach the server's HTTP API when it runs as its
    * own process (`STANDALONE=false`, `dist/controller-main.js`). The control loops call
-   * the server over HTTP. Env: `SERVER_URL`. Default: `http://localhost:$PORT`,
-   * so in-cluster deployments MUST point this at the server Service. Unused in standalone
-   * mode, where the server process owns the controller and targets itself on localhost.
+   * the server over HTTP(S); when `TLS_MUTUAL` is true the controller upgrades an
+   * `http://` URL to `https://` and presents the client cert. Env: `SERVER_URL`.
+   * Default: `http://localhost:$PORT`, so in-cluster deployments MUST point this at
+   * the server Service. Unused in standalone mode, where the server process owns the
+   * controller and targets itself on localhost.
    */
   SERVER_URL: string;
   /**
@@ -506,6 +508,17 @@ export interface SharedServerConfiguration {
    * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
+  /**
+   * Mutual TLS for this process's HTTPS listener and controller→server. When true, serves HTTPS
+   * with client-cert enforcement (except `/healthz`) and the controller presents a client cert.
+   * Env: `TLS_MUTUAL`. Default false.
+   */
+  TLS_MUTUAL: boolean;
+  /**
+   * Directory holding the TLS cert triple (`tls.crt` / `tls.key` / `ca.crt`) when `TLS_MUTUAL`
+   * is true. Env: `TLS_DIR`. Default `/etc/tls`.
+   */
+  TLS_DIR: string;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -685,6 +698,12 @@ const shared: SharedServerConfiguration = {
   }),
   TRUEFOUNDRY_MTLS_CERTS_DIR:
     getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
+  TLS_MUTUAL: parseBoolean({
+    envKey: 'TLS_MUTUAL',
+    raw: getEnv('TLS_MUTUAL'),
+    defaultValue: false,
+  }),
+  TLS_DIR: getEnv('TLS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
 };
 
 const configuration: ServerConfiguration = standalone

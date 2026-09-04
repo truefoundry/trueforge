@@ -78,6 +78,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
 import { mountFrontend } from './frontend';
+import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -523,11 +524,26 @@ try {
     await requestReplyExecutor.init();
   }
 
-  const server = serve({ fetch: app.fetch, port: configuration.PORT, hostname: configuration.HOST }, info => {
-    logger.info(`Agent server listening on http://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`);
-    // The controller calls this server over HTTP.
-    controller?.start();
+  const tlsServe = serverTlsServeOptions({
+    enabled: configuration.TLS_MUTUAL && !configuration.STANDALONE,
+    dir: configuration.TLS_DIR,
   });
+  const server = serve(
+    {
+      fetch: app.fetch,
+      port: configuration.PORT,
+      hostname: configuration.HOST,
+      ...(tlsServe ?? {}),
+    },
+    info => {
+      const scheme = tlsServe !== undefined ? 'https' : 'http';
+      logger.info(
+        `Agent server listening on ${scheme}://${configuration.HOST}:${String(info.port)} (docs at /api/v1/docs)`,
+      );
+      // The controller calls this server over HTTP(S).
+      controller?.start();
+    },
+  );
 
   server.on('error', (error: unknown) => {
     console.error('Failed to start server:', error instanceof Error ? error.message : error);
