@@ -218,6 +218,18 @@ describe('AgentDetailsPage', () => {
     );
   });
 
+  it('shows a single empty screen when the agent has no sessions', async () => {
+    renderPage({
+      listSessions: vi.fn(async () => ({ data: [] })),
+    });
+    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+    expect(await screen.findByText('No Sessions Found')).toBeInTheDocument();
+    expect(screen.getByText('There are no sessions available at the moment.')).toBeInTheDocument();
+    expect(screen.queryByText('Select a session to view details')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Resize session list')).not.toBeInTheDocument();
+  });
+
   it('ignores a stale list response after the agent filter changes', async () => {
     const first = deferred<{ data: SessionListEntry[] }>();
     const second = deferred<{ data: SessionListEntry[] }>();

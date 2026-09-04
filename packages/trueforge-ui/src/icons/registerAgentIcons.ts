@@ -6,6 +6,7 @@ import Agent2Icon from './agent-2.svg';
 import AiIcon from './ai.svg';
 import BrainRegularIcon from './brain-regular.svg';
 import CompareIcon from './compare.svg';
+import EmptyIcon from './empty.svg';
 import McpServerIcon from './mcp-server.svg';
 import SearchGlobeIcon from './search-globe.svg';
 import TrueForgeLogomarkDarkIcon from './trueforge-logomark-dark.svg';
@@ -23,6 +24,7 @@ registerIcons({
   ai: AiIcon as unknown as SvgIcon,
   searchGlobe: SearchGlobeIcon as unknown as SvgIcon,
   'brain-regular': BrainRegularIcon as unknown as SvgIcon,
+  empty: EmptyIcon as unknown as SvgIcon,
   'trueforge-logomark-light': TrueForgeLogomarkLightIcon as unknown as SvgIcon,
   'trueforge-logomark-dark': TrueForgeLogomarkDarkIcon as unknown as SvgIcon,
 });

@@ -13,6 +13,7 @@ import type { Session, SessionEventItem, SessionListEntry } from '../../server/t
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
+import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
 import { Skeleton } from '../primitives/Skeleton.js';
@@ -201,6 +202,18 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const resumeProps =
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
+  // One full empty surface — avoid a hollow list pane beside “Select a session…”.
+  if (!listLoading && !listFailed && entries.length === 0) {
+    return (
+      <EmptyScreen
+        title="No Sessions Found"
+        description="You haven’t started any sessions yet. Begin a conversation to view your session history here."
+
+        className="bg-primary-bg"
+      />
+    );
+  }
+
   return (
     <Group
       id="agent-sessions-split"
@@ -219,8 +232,6 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
               </div>
             ) : listFailed ? (
               <p className="px-3 py-6 text-center text-xs text-text-secondary">Sessions could not be loaded.</p>
-            ) : entries.length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-text-secondary">No sessions are there yet</p>
             ) : (
               entries.map(entry => (
                 <AgentSessionListRow

@@ -317,7 +317,8 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
-      expect(screen.getByText('No agents yet. Build one in a chat, then save it as an agent.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'No Agents Found' })).toBeInTheDocument();
+      expect(screen.getByText('Build one in a chat, then save it as an agent.')).toBeInTheDocument();
     });
   });
 
@@ -331,9 +332,11 @@ describe('AgentsLibrary', () => {
     fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'zzz' } });
 
     await waitFor(() => {
-      expect(screen.getByText('No agents match "zzz".')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'No Agents Found' })).toBeInTheDocument();
+      expect(screen.getByText('zzz')).toBeInTheDocument();
+      expect(screen.getByText(/No search results found for/)).toBeInTheDocument();
     });
-    expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
 
   it('closes via Escape', () => {

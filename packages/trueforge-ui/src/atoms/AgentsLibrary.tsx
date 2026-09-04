@@ -10,6 +10,7 @@ import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js'
 import { useSlot } from '../theme/SlotsProvider.js';
 import { writeOpenSchedulesForAgentSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
+import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { mountName } from './lib/mountName.js';
@@ -368,11 +369,18 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
           ) : error ? (
             <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
           ) : agents.length === 0 ? (
-            <p className="text-text-secondary px-3 py-8 text-center text-sm">
-              {query.trim()
-                ? `No agents match "${query.trim()}".`
-                : 'No agents yet. Build one in a chat, then save it as an agent.'}
-            </p>
+            <EmptyScreen
+              title="No Agents Found"
+              description={
+                query.trim() ? (
+                  <>
+                    No search results found for <EmptyScreenQueryHighlight>{query.trim()}</EmptyScreenQueryHighlight>
+                  </>
+                ) : (
+                  'Build one in a chat, then save it as an agent.'
+                )
+              }
+            />
           ) : (
             <>
               <div className="overflow-hidden rounded-lg border border-border">
