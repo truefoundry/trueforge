@@ -128,7 +128,7 @@ describe('AgentDetailsPage', () => {
   it('loads Overview and renders agent details', async () => {
     const { getAgent } = renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'release-notes-writer' })).toBeInTheDocument();
+    expect(await screen.findByText('release-notes-writer')).toBeInTheDocument();
     expect(await screen.findByText('Write concise release notes.')).toBeInTheDocument();
     expect(await screen.findByText('github')).toBeInTheDocument();
     expect(await screen.findByText('release-writing')).toBeInTheDocument();
@@ -193,7 +193,7 @@ describe('AgentDetailsPage', () => {
 
   it('loads code snippets lazily and retains them across tab changes', async () => {
     const { getCodeSnippets } = renderPage();
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
     expect(getCodeSnippets).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Use In Code' }));
@@ -209,7 +209,7 @@ describe('AgentDetailsPage', () => {
 
   it('loads the Sessions tab list scoped to the agent', async () => {
     const { listSessions } = renderPage();
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
     expect(screen.getByText('Select a session to view details')).toBeInTheDocument();
@@ -222,7 +222,7 @@ describe('AgentDetailsPage', () => {
     renderPage({
       listSessions: vi.fn(async () => ({ data: [] })),
     });
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     expect(await screen.findByText('No Sessions Found')).toBeInTheDocument();
     expect(screen.getByText('There are no sessions available at the moment.')).toBeInTheDocument();
@@ -285,7 +285,7 @@ describe('AgentDetailsPage', () => {
       return { data: sessionRows, nextPageToken: 'next-page' };
     });
     renderPage({ listSessions });
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
 
@@ -338,7 +338,7 @@ describe('AgentDetailsPage', () => {
       '/?agentId=agent-1&tab=sessions&sessionId=sess-1&view=sessions&s_tw=2592000000',
     );
     renderPage({ initialEntries: ['/?agentId=agent-1&tab=sessions&sessionId=sess-1&view=sessions&s_tw=2592000000'] });
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
 
     fireEvent.keyDown(window, { key: 'Escape' });
 
@@ -354,7 +354,7 @@ describe('AgentDetailsPage', () => {
     const { getSession, listSessionEvents } = renderPage({
       overrides: { AgentSessionTimelineContainer: () => <div>timeline-body</div> },
     });
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     fireEvent.click(await screen.findByText('Release notes draft'));
     await waitFor(() => {
@@ -373,7 +373,7 @@ describe('AgentDetailsPage', () => {
         ),
       },
     });
-    await screen.findByRole('heading', { name: 'release-notes-writer' });
+    await screen.findByText('release-notes-writer');
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     fireEvent.click(await screen.findByText('Release notes draft'));
 

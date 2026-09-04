@@ -202,13 +202,18 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const resumeProps =
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
-  // One full empty surface — avoid a hollow list pane beside “Select a session…”.
-  if (!listLoading && !listFailed && entries.length === 0) {
+  // Full empty only when nothing is selected — keep the detail pane for deep-linked sessionIds
+  // (filters/time range can empty the list while share state still points at a session).
+  if (
+    !listLoading &&
+    !listFailed &&
+    entries.length === 0 &&
+    (selectedSessionId == null || selectedSessionId.length === 0)
+  ) {
     return (
       <EmptyScreen
         title="No Sessions Found"
-        description="You haven’t started any sessions yet. Begin a conversation to view your session history here."
-
+        description="There are no sessions available at the moment."
         className="bg-primary-bg"
       />
     );
