@@ -157,7 +157,7 @@ describe('AgentsLibrary', () => {
     });
   });
 
-  it('shows Edit when composer is enabled and agentSpec is present', async () => {
+  it('shows Edit/Clone/Delete when composer is enabled and agentSpec is present', async () => {
     const server = mockServer([
       {
         name: 'writer',
@@ -177,8 +177,84 @@ describe('AgentsLibrary', () => {
     const actions = await screen.findByRole('button', { name: 'Actions for writer' });
     fireEvent.click(actions);
     expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Actions for try-only' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+    fireEvent.click(actions); // close without dismissing the library (Escape closes library)
+
+    // No spec → Edit/Clone hidden; Delete still available.
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for try-only' }));
+    expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Clone' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
+  });
+
+  it('clones an agent after confirm and stays on the library', async () => {
+    const saveAgent = vi.fn(async () => ({ agentId: 'writer-copy-id' }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'writer',
+          agentId: 'writer-id',
+          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        },
+      ]),
+      saveAgent,
+      deleteAgent: vi.fn(async () => {}),
+    });
+
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clone' }));
+
+    expect(screen.getByRole('dialog', { name: 'Clone agent' })).toBeInTheDocument();
+    expect(screen.getByText(/This will create “writer-copy”/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clone' }));
+
+    await waitFor(() => {
+      expect(saveAgent).toHaveBeenCalledWith({
+        agentName: 'writer-copy',
+        agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        intent: 'create',
+      });
+    });
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+  });
+
+  it('deletes an agent after confirm and stays on the library', async () => {
+    const deleteAgent = vi.fn(async () => {});
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'writer',
+          agentId: 'writer-id',
+          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        },
+      ]),
+      deleteAgent,
+    });
+
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
+    });
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
   });
 
   it('shows model name, skills count, and MCP count from agentSpec', async () => {

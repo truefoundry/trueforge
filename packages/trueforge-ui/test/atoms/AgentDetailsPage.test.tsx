@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentDetailsPage } from '@/atoms/agent-details/AgentDetailsPage.js';
 import { AgentSessions } from '@/atoms/agent-details/AgentSessions.js';
@@ -17,6 +17,16 @@ import type {
 } from '@/server/types.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
 
 const detail: AgentDetail = {
   agentId: 'agent-1',
@@ -77,6 +87,7 @@ function renderPage({
   metrics,
   overrides,
   initialEntries = ['/library/agent-1'],
+  serverOverrides,
 }: {
   getAgent?: () => Promise<AgentDetail>;
   getCodeSnippets?: () => Promise<CodeSnippet[]>;
@@ -87,11 +98,13 @@ function renderPage({
   metrics?: AgentMetricsServer;
   overrides?: SlotOverrides;
   initialEntries?: string[];
+  serverOverrides?: Parameters<typeof createMockAgentUIServer>[0];
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
     ...(withSessions ? { sessions: { getAgent, getCodeSnippets, listSessions, listSessionEvents } } : {}),
     ...(metrics == null ? {} : { metrics }),
+    ...serverOverrides,
   });
   render(
     <MemoryRouter initialEntries={initialEntries}>
@@ -104,7 +117,7 @@ function renderPage({
       </SlotsProvider>
     </MemoryRouter>,
   );
-  return { getAgent, getCodeSnippets, listSessions, listSessionEvents, getSession };
+  return { getAgent, getCodeSnippets, listSessions, listSessionEvents, getSession, server };
 }
 
 describe('AgentDetailsPage', () => {
@@ -120,6 +133,26 @@ describe('AgentDetailsPage', () => {
     expect(await screen.findByText('github')).toBeInTheDocument();
     expect(await screen.findByText('release-writing')).toBeInTheDocument();
     expect(getAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows overflow actions (Edit in menu, not a standalone Edit button) and deletes after confirm', async () => {
+    const deleteAgent = vi.fn(async () => {});
+    renderPage({ serverOverrides: { deleteAgent } });
+
+    expect(await screen.findByRole('button', { name: 'Try agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit agent' })).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for release-notes-writer' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'release-notes-writer' });
+    });
   });
 
   it('renders tab bodies through SlotProvider overrides', async () => {

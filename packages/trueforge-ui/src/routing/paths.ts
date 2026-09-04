@@ -77,6 +77,29 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
 }
 
 /**
+ * Absolute href that boots the shell on a history session (`/sessions/:id`).
+ * Includes `routes.basename` and clears place-owned share query keys.
+ */
+export function buildSessionResumeHref({
+  sessionId,
+  routes,
+  href = typeof window === 'undefined' ? 'http://localhost/' : window.location.href,
+}: {
+  sessionId: string;
+  routes: ResolvedRoutes;
+  href?: string;
+}): string | null {
+  const sessionPath = buildPath({ type: 'session', sessionId }, routes);
+  if (sessionPath == null) return null;
+  const url = new URL(href);
+  const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
+  url.pathname = `${basename}${sessionPath}` || '/';
+  url.search = sanitizeSearchForPlace({ type: 'session', sessionId }, url.search);
+  url.hash = '';
+  return url.toString();
+}
+
+/**
  * Remove query state owned by a different shell place while preserving host
  * parameters. Settings is an overlay, so it retains the underlying place state.
  */

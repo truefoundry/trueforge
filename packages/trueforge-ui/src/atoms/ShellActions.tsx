@@ -3,6 +3,7 @@
 import { Icon } from '../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { isSettingsChromeEnabled } from '../server/settingsChrome.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -16,6 +17,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
   const ActionSlot = useSlot('ShellActionsActionSlot');
   const isDark = mode === 'dark';
   const themeLabel = isDark ? 'Light' : 'Dark';
+  const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
 
   const labeledButtonClass =
     'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center';
@@ -42,7 +44,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
         <Icon name={isDark ? 'sun' : 'moon'} size={labeled ? 16 : undefined} />
         {labeled ? <span className="text-center">{themeLabel}</span> : null}
       </button>
-      {shell != null && catalog != null && capabilities?.settings?.enabled !== false ? (
+      {shell != null && settingsChromeEnabled ? (
         <button
           type="button"
           aria-label="Settings"

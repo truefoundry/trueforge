@@ -8,13 +8,12 @@ import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../se
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { writeScheduleShareSearch } from '../utils/scheduleShareUrl.js';
-import { writeSessionShareSearch } from '../utils/sessionShareUrl.js';
+import { writeOpenSchedulesForAgentSearch } from '../utils/scheduleShareUrl.js';
+import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
-import { DropdownMenu, DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './primitives/Table.js';
@@ -31,13 +30,15 @@ export type AgentScheduleSummary = {
 
 export type AgentLibraryRowProps = {
   agent: AgentLibraryEntry;
-  showEdit: boolean;
+  canMutate: boolean;
+  canManageSchedules: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
   onCreateSchedule?: () => void;
   onOpen?: () => void;
   onTry: () => void;
   onEdit: () => void;
+  onManageSchedules?: () => void;
 };
 
 /** Short label for model fqns like `provider/gpt-4.1` → `gpt-4.1`. */
@@ -96,13 +97,15 @@ function AgentSchedulesBadge({
 
 export function AgentLibraryRow({
   agent,
-  showEdit,
+  canMutate,
+  canManageSchedules,
   scheduleSummary,
   onOpenSchedules,
   onCreateSchedule,
   onOpen,
   onTry,
   onEdit,
+  onManageSchedules,
 }: AgentLibraryRowProps) {
   const spec = agent.agentSpec;
   const modelName = spec?.model.name;
@@ -193,25 +196,14 @@ export function AgentLibraryRow({
             <Icon name="play" className="size-3.5" />
             Try
           </button>
-          {showEdit ? (
-            <DropdownMenu
-              align="end"
-              trigger={
-                <button
-                  type="button"
-                  className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                  aria-label={`Actions for ${agent.name}`}
-                >
-                  <Icon name="ellipsis" className="size-4" />
-                </button>
-              }
-            >
-              <DropdownMenuItem onClick={onEdit}>
-                <Icon name="pencil" className="size-3.5" />
-                Edit
-              </DropdownMenuItem>
-            </DropdownMenu>
-          ) : null}
+          <AgentOverflowMenu
+            agentName={agent.name}
+            {...(spec != null ? { agentSpec: spec } : {})}
+            canMutate={canMutate}
+            canManageSchedules={canManageSchedules}
+            onEdit={onEdit}
+            {...(onManageSchedules != null ? { onManageSchedules } : {})}
+          />
         </div>
       </TableCell>
     </TableRow>
@@ -267,9 +259,10 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary> | null>(null);
   const open = shell.libraryOpen;
 
-  const canEdit = shell.isComposerEnabled === true;
+  const canMutate = shell.isComposerEnabled === true;
   const agentsListEpoch = shell.agentsListEpoch;
   const showSchedulesColumn = scheduleServer != null;
+  const canManageSchedules = scheduleServer != null;
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -319,22 +312,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   }, [agents, open, scheduleServer, agentsListEpoch]);
 
   const openSchedulesForAgent = ({ agentId, isNew }: { agentId: string; isNew?: boolean }) => {
-    const url = new URL(window.location.href);
-    writeSessionShareSearch(url.searchParams, {
-      sessionId: null,
-      agentId: null,
-      tab: null,
-      view: null,
-      timeRange: null,
-    });
-    writeScheduleShareSearch(url.searchParams, {
-      agent: agentId,
-      status: null,
-      q: null,
-      isNew: isNew === true ? true : null,
-    });
-    window.history.replaceState(window.history.state, '', url);
-    shell.setLibraryOpen(false);
+    writeOpenSchedulesForAgentSearch({ agentId, ...(isNew === true ? { isNew: true } : {}) });
     shell.setSchedulesOpen(true);
   };
 
@@ -413,7 +391,6 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                       const agentSpec = agent.agentSpec;
                       const agentId = agent.agentId;
                       const id = libraryAgentId(agent);
-                      const showEdit = canEdit && agentSpec != null;
                       const summary = showSchedulesColumn
                         ? (scheduleByAgent?.get(id) ??
                           scheduleByAgent?.get(agent.name) ??
@@ -423,12 +400,14 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                         <SlottedAgentLibraryRow
                           key={id}
                           agent={agent}
-                          showEdit={showEdit}
+                          canMutate={canMutate}
+                          canManageSchedules={canManageSchedules}
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
                           {...(showSchedulesColumn
                             ? {
                                 onOpenSchedules: () => openSchedulesForAgent({ agentId: id }),
                                 onCreateSchedule: () => openSchedulesForAgent({ agentId: id, isNew: true }),
+                                onManageSchedules: () => openSchedulesForAgent({ agentId: id }),
                               }
                             : {})}
                           {...(sessionsServer != null && agentId != null

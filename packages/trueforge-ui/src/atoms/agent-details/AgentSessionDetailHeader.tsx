@@ -18,6 +18,7 @@ export function AgentSessionDetailHeader({
   createdAt,
   view,
   onClose,
+  resumeHref,
   onResume,
   resumeLabel,
 }: AgentSessionDetailHeaderProps) {
@@ -57,7 +58,17 @@ export function AgentSessionDetailHeader({
           </button>
         </LightTooltip>
       </div>
-      {onResume != null && resumeLabel != null ? (
+      {resumeLabel != null && resumeHref != null ? (
+        <a
+          href={resumeHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={auiButtonClass({ variant: 'outline', size: 'sm' })}
+        >
+          {resumeLabel}
+          <Icon name="square-arrow-out-up-right" size="0.875em" className="shrink-0" />
+        </a>
+      ) : resumeLabel != null && onResume != null ? (
         <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })} onClick={onResume}>
           {resumeLabel}
         </button>
