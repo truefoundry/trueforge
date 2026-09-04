@@ -84,8 +84,6 @@ describe('getMcpConnection', () => {
         tenant_id: 'default',
         name: 'oauth-mcp',
         store: mcpServerStore,
-        tokenStore,
-        clientName: 'test-client',
         userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       });
       expect(connection).toBeDefined();
@@ -144,8 +142,6 @@ describe('getMcpConnection', () => {
       tenant_id: 'default',
       name: 'tokened-mcp',
       store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
       userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(connection).toBeDefined();
@@ -173,8 +169,6 @@ describe('getMcpConnection', () => {
       tenant_id: 'default',
       name: 'open-mcp',
       store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
       userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(connection).toBeDefined();
@@ -203,8 +197,6 @@ describe('getMcpConnection', () => {
       tenant_id: 'default',
       name: 'header-mcp',
       store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
       userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(connection).toBeDefined();
@@ -216,30 +208,44 @@ describe('getMcpConnection', () => {
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 
-  it('skips local DCR for truefoundry servers even when wire auth is dcr', async () => {
-    await mcpServerStore.upsertServer({
-      tenant_id: 'default',
-      name: 'tfy-mcp',
-      manifest: {
-        type: 'truefoundry',
+  describe('truefoundry dcr mid-turn', () => {
+    it('uses store resolveInvokeHeaders (async authRequired path)', async () => {
+      const record = {
+        id: 'mcp-id-1',
+        tenant_id: 'default',
         name: 'tfy-mcp',
-        url: 'https://gateway.example/mcp-server/tfy-mcp',
-        description: 'TrueFoundry-managed MCP.',
-        auth: { type: 'dcr' },
-      },
-    });
+        manifest: {
+          type: 'truefoundry' as const,
+          name: 'tfy-mcp',
+          url: 'https://gateway.example/mcp-server/tfy-mcp',
+          description: 'TrueFoundry-managed MCP.',
+          auth: { type: 'dcr' as const },
+        },
+        created_at: '2026-01-15T12:00:00.000Z',
+        updated_at: '2026-01-16T12:00:00.000Z',
+      };
+      const store = Object.create(mcpServerStore) as IMcpServerWithAuthStore;
+      store.getServer = async () => record;
+      store.resolveInvokeHeaders = () => async () => ({
+        authRequired: {
+          servers: [{ id: 'tfy-mcp', name: 'tfy-mcp', auth_url: 'https://consent.example/authorize' }],
+        },
+      });
 
-    const connection = await getMcpConnection({
-      tenant_id: 'default',
-      name: 'tfy-mcp',
-      store: mcpServerStore,
-      tokenStore,
-      clientName: 'test-client',
-      userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
-    });
-    expect(connection).toEqual({
-      url: 'https://gateway.example/mcp-server/tfy-mcp',
-      headers: {},
+      const connection = await getMcpConnection({
+        tenant_id: 'default',
+        name: 'tfy-mcp',
+        store,
+        userRef: 'user-1',
+      });
+      if (connection === undefined || typeof connection.headers !== 'function') {
+        throw new Error('expected async headers resolver');
+      }
+      await expect(connection.headers()).resolves.toEqual({
+        authRequired: {
+          servers: [{ id: 'tfy-mcp', name: 'tfy-mcp', auth_url: 'https://consent.example/authorize' }],
+        },
+      });
     });
   });
 
@@ -249,8 +255,6 @@ describe('getMcpConnection', () => {
         tenant_id: 'default',
         name: 'missing-mcp',
         store: mcpServerStore,
-        tokenStore,
-        clientName: 'test-client',
         userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       }),
     ).resolves.toBeUndefined();

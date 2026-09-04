@@ -22,6 +22,10 @@ export type ResourceName = z.infer<typeof NameSchema>;
 export const PAGE_LIMIT = 25;
 /** Session/turn event list page size (default = max). */
 export const EVENTS_PAGE_LIMIT = 100;
+/** MCP server list default page size. */
+export const MCP_SERVERS_PAGE_LIMIT = 100;
+/** MCP server list max page size. */
+export const MCP_SERVERS_PAGE_LIMIT_MAX = 200;
 
 /** Adds a validation issue if two entries share a name. */
 export function uniqueNames(entries: { name: string }[], ctx: z.RefinementCtx): void {

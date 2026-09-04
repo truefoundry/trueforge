@@ -46,7 +46,14 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
         session_id: 's1',
         tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
         agent_spec: { model: { name: 'test-provider/test-model' } },
-        record: { last_turn_id: null, created_by: STANDALONE_REQUEST_CONTEXT.subject.id },
+        record: {
+          last_turn_id: null,
+          created_by_subject: {
+            subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+            subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+            subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+          },
+        },
         createTurn: () => Promise.reject(error),
       }),
   } as unknown as Sessions;
@@ -66,9 +73,8 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
           tokenStore,
           clientName: 'test-client',
         }),
-      tokenStore,
       skillStore: new SqliteSkillStore(db),
-      agentStore: new SqliteAgentStore(db),
+      resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),

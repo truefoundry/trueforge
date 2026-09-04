@@ -1,6 +1,3 @@
-/**
- * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
- */
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
@@ -17,12 +14,10 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { IMcpServerStore, IMcpServerWithAuthStore, McpServerRecord } from '../db/mcpServerStore';
+import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
-import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
@@ -100,79 +95,29 @@ export async function getModelDetails({
   };
 }
 
-function dcrHeadersResolver(params: {
-  record: McpServerRecord;
-  tokenStore: IOAuthTokenStore;
-  mcpServerStore: IMcpServerStore;
-  clientName: string;
-  userRef: string;
-}): RemoteMcpHeaders {
-  const { record, tokenStore, mcpServerStore, clientName, userRef } = params;
-  return async () => {
-    const result = await resolveMcpAuth({
-      tokenStore,
-      mcpServerStore,
-      serverId: record.id,
-      userRef,
-      mcpServerUrl: record.manifest.url,
-      mcpServerName: record.name,
-      clientName,
-    });
-    if (isMcpAuthRequired(result)) {
-      // Wire `id` must match RemoteMCP.id (AgentSpec name), not the DB row ULID —
-      // init events, tool-call metadata, and snapshots all key by name.
-      return {
-        authRequired: {
-          servers: [{ id: record.name, name: record.name, auth_url: result.authUrl.href }],
-        },
-      };
-    }
-    return { headers: result.headers };
-  };
-}
-
 /**
- * Load MCP url + headers for a configured server.
- * - Local `remote` + `dcr`: resolveMcpAuth via the harness token store.
- * - Otherwise: {@link IMcpServerWithAuthStore.resolveInvokeHeaders}
- *   (TrueFoundry gateway Bearer, configured header auth, or `{}`).
- * Returns undefined when the server is not registered — callers choose the response.
+ * Load MCP url + headers for a configured server. Returns undefined when unregistered.
+ *
+ * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
 export async function getMcpConnection({
   tenant_id,
   name,
   store,
-  tokenStore,
-  clientName,
   userRef,
 }: {
   tenant_id: string;
   name: string;
   store: IMcpServerWithAuthStore;
-  tokenStore: IOAuthTokenStore;
-  clientName: string;
   userRef: string;
 }): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
   }
-  // TrueFoundry wire `dcr` is Connect UX only — invoke uses store Bearer, not local DCR.
-  if (record.manifest.type !== 'truefoundry' && record.manifest.auth?.type === 'dcr') {
-    return {
-      url: record.manifest.url,
-      headers: dcrHeadersResolver({
-        record,
-        tokenStore,
-        mcpServerStore: store,
-        clientName,
-        userRef,
-      }),
-    };
-  }
   return {
     url: record.manifest.url,
-    headers: store.resolveInvokeHeaders(record),
+    headers: store.resolveInvokeHeaders({ record, userRef }),
   };
 }
 
@@ -332,7 +277,14 @@ export async function validateAgentSpec({
   if (requestedMcpServers.length > 0) {
     const names = requestedMcpServers.map(server => server.name);
     const configuredNames = new Set(
-      (await mcpServerStore.listServers({ tenant_id, names })).map(record => record.name),
+      (
+        await mcpServerStore.listServers({
+          tenant_id,
+          names,
+          limit: Math.max(names.length, 1),
+          page_token: undefined,
+        })
+      ).data.map(record => record.name),
     );
     const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
     if (unknown !== undefined) {

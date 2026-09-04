@@ -1,4 +1,4 @@
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { IAgentStore } from '../../src/db/agentStore';
 import { cronRunName, ScheduleNameConflictError, type IScheduleStore } from '../../src/db/scheduleStore';
 import { nextTriggerAfter } from '../../src/runtime/cron';
@@ -6,6 +6,11 @@ import { ScheduleManifestSchema, type ScheduleManifest } from '../../src/schemas
 
 const TENANT = 'default';
 const USER = 'tester';
+const USER_SUBJECT: CreatedBySubject = {
+  subject_id: USER,
+  subject_type: 'user',
+  subject_display_name: USER,
+};
 
 function manifest(overrides: Partial<ScheduleManifest> = {}): ScheduleManifest {
   return ScheduleManifestSchema.parse({
@@ -24,6 +29,7 @@ export function runScheduleStoreContractSuite(deps: {
   async function seedAgent(): Promise<{ id: string; name: string }> {
     const agent = await deps.getAgentStore().createAgent({
       tenant_id: TENANT,
+      created_by_subject: USER_SUBJECT,
       name: `agent-${String(Date.now())}-${String(Math.random()).slice(2, 8)}`,
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -45,7 +51,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'daily',
       manifest: m,
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom,
     });
 
@@ -53,7 +59,7 @@ export function runScheduleStoreContractSuite(deps: {
       expect.objectContaining({
         schedule_id: schedule.id,
         status: 'scheduled',
-        triggered_by: USER,
+        created_by_subject: USER_SUBJECT,
         scheduled_for: nextTriggerAfter({ cron: m.cron, timezone: m.timezone, from: runFrom }).toISOString(),
       }),
     );
@@ -68,7 +74,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'paused-at-create',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -84,7 +90,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'toggle',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date('2026-08-27T10:15:00.000Z'),
     });
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toBeDefined();
@@ -122,7 +128,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'reclock',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom,
     });
     expect(first?.scheduled_for).toBe(
@@ -154,7 +160,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'label-only',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'old task' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom,
     });
     expect(first).toBeDefined();
@@ -183,7 +189,7 @@ export function runScheduleStoreContractSuite(deps: {
         agent_name: agent.name,
         name,
         manifest: manifest({ status: 'paused' }),
-        created_by: USER,
+        created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       });
 
@@ -200,7 +206,7 @@ export function runScheduleStoreContractSuite(deps: {
         agent_name: agentName,
         name: 'daily-report',
         manifest: manifest({ status: 'paused' }),
-        created_by: USER,
+        created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       });
 
@@ -216,7 +222,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'taken',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
     const { schedule: other } = await store.createScheduleAndRun({
@@ -224,7 +230,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'free',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -247,7 +253,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'paused-edit',
       manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date('2026-08-27T08:00:00.000Z'),
     });
 
@@ -274,7 +280,7 @@ export function runScheduleStoreContractSuite(deps: {
         agent_name: agent.name,
         name,
         manifest: manifest({ status: 'paused' }),
-        created_by: USER,
+        created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       });
       return schedule;
@@ -290,7 +296,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(past),
       scheduled_for: past,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
 
     const triggeredSeed = await store.createRun({
@@ -299,7 +305,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(past),
       scheduled_for: past,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
     await store.updateRunStatus({
       tenant_id: TENANT,
@@ -313,7 +319,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(future),
       scheduled_for: future,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
 
     // `listScheduledRuns` is deliberately unscoped — dispatch sweeps every schedule —
@@ -335,7 +341,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'to-delete',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -345,7 +351,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(past),
       scheduled_for: past,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
     await store.updateRunStatus({
       tenant_id: TENANT,
@@ -359,7 +365,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(future),
       scheduled_for: future,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
 
     await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
@@ -378,7 +384,7 @@ export function runScheduleStoreContractSuite(deps: {
         agent_name: 'no-such-agent',
         name: 'orphan',
         manifest: manifest(),
-        created_by: USER,
+        created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       }),
     ).rejects.toThrow();
@@ -392,7 +398,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'bound-to-agent',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date('2026-08-27T10:00:00.000Z'),
     });
     expect(pendingRun).toBeDefined();
@@ -415,7 +421,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'name-unique',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -426,7 +432,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(triggersAt),
       scheduled_for: triggersAt,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
     await store.updateRunStatus({ tenant_id: TENANT, id: first.id, status: 'triggered' });
 
@@ -437,7 +443,7 @@ export function runScheduleStoreContractSuite(deps: {
         name: cronRunName(triggersAt),
         scheduled_for: triggersAt,
         status: 'scheduled',
-        triggered_by: USER,
+        created_by_subject: USER_SUBJECT,
       }),
     ).rejects.toThrow();
   });
@@ -450,7 +456,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'one-pending',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -462,7 +468,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(firstSlot),
       scheduled_for: firstSlot,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
 
     await expect(
@@ -472,7 +478,7 @@ export function runScheduleStoreContractSuite(deps: {
         name: cronRunName(secondSlot),
         scheduled_for: secondSlot,
         status: 'scheduled',
-        triggered_by: USER,
+        created_by_subject: USER_SUBJECT,
       }),
     ).rejects.toThrow();
   });
@@ -487,7 +493,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agentA.name,
       name: 'list-older',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
     // Distinct `created_at` so newest-first order is stable.
@@ -497,7 +503,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agentA.name,
       name: 'list-newer',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
     await new Promise(resolve => setTimeout(resolve, 5));
@@ -506,7 +512,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agentB.name,
       name: 'list-other-agent',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -585,7 +591,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agentA.name,
       name: 'runs-a',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
     const older = await store.createRun({
@@ -594,7 +600,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(olderSlot),
       scheduled_for: olderSlot,
       status: 'triggered',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
     const newer = await store.createRun({
       tenant_id: TENANT,
@@ -602,7 +608,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(newerSlot),
       scheduled_for: newerSlot,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
 
     const { schedule: scheduleB } = await store.createScheduleAndRun({
@@ -610,7 +616,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agentB.name,
       name: 'runs-b',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
     const otherScheduleRun = await store.createRun({
@@ -619,7 +625,7 @@ export function runScheduleStoreContractSuite(deps: {
       name: cronRunName(newerSlot),
       scheduled_for: newerSlot,
       status: 'scheduled',
-      triggered_by: USER,
+      created_by_subject: USER_SUBJECT,
     });
 
     const forA = await store.listRuns({ tenant_id: TENANT, schedule_id: scheduleA.id });
@@ -638,7 +644,7 @@ export function runScheduleStoreContractSuite(deps: {
       agent_name: agent.name,
       name: 'run-status',
       manifest: manifest({ status: 'paused' }),
-      created_by: USER,
+      created_by_subject: USER_SUBJECT,
       runFrom: new Date(),
     });
 
@@ -649,7 +655,7 @@ export function runScheduleStoreContractSuite(deps: {
         name: cronRunName(triggersAt),
         scheduled_for: triggersAt,
         status: 'scheduled',
-        triggered_by: USER,
+        created_by_subject: USER_SUBJECT,
       });
     }
 

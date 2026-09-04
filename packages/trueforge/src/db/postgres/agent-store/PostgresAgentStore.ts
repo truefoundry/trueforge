@@ -9,8 +9,10 @@ import {
   type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
+  type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
+import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import { AGENT_EXTERNAL_ID_UQ } from '../../indexes';
 import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -23,6 +25,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     name: row.name,
     manifest: parseStoredAgentSpec(row.manifest),
     external_id: row.external_id,
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -53,9 +56,16 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     this.#db = db;
   }
 
-  async listAgents(tenantId: string, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+  async listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+    if (input.external_ids?.length === 0) {
+      return [];
+    }
     const db = transaction ?? this.#db;
-    const rows = await db.selectFrom('agent').selectAll().where('tenant_id', '=', tenantId).orderBy('name').execute();
+    let query = db.selectFrom('agent').selectAll().where('tenant_id', '=', input.tenant_id);
+    if (input.external_ids !== undefined) {
+      query = query.where('external_id', 'in', [...input.external_ids]);
+    }
+    const rows = await query.orderBy('name').execute();
     return rows.map(toRecord);
   }
 
@@ -71,6 +81,10 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     return row === undefined ? undefined : toRecord(row);
   }
 
+  withTransaction<T>(fn: (transaction: Transaction<Database>) => Promise<T>): Promise<T> {
+    return this.#db.transaction().execute(fn);
+  }
+
   async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
     const db = transaction ?? this.#db;
     try {
@@ -82,6 +96,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
           name: input.name,
           manifest: json(input.manifest),
           external_id: input.external_id,
+          created_by_subject: json(input.created_by_subject),
           created_at: now(),
           updated_at: now(),
         })

@@ -141,6 +141,31 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
+/** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
+function parsePostgresSslMode(raw: string | undefined): string {
+  if (!raw) {
+    return '';
+  }
+  const mode = raw.trim();
+  if (mode === '') {
+    return '';
+  }
+  switch (mode) {
+    case 'disable':
+    case 'prefer':
+    case 'require':
+    case 'verify-ca':
+    case 'verify-full':
+    case 'no-verify':
+      return mode;
+    default:
+      throw new Error(
+        'Environment variable POSTGRES_SSL_MODE must be one of disable, prefer, require, verify-ca, ' +
+          `verify-full, no-verify; got "${mode}"`,
+      );
+  }
+}
+
 /**
  * Prefer `dist/_frontend` shipped in the npm tarball (npx / `pnpm start`).
  * Fall back to the monorepo sibling `../frontend/dist` (host-dev before a copy).
@@ -210,6 +235,7 @@ function resolvePostgresDatabaseUrl(): string {
   if (databaseUrl !== undefined && databaseUrl.trim() !== '') {
     return databaseUrl.trim();
   }
+
   const postgresUser = getEnv('POSTGRES_USER', { defaultValue: DEFAULT_POSTGRES_USER }) ?? DEFAULT_POSTGRES_USER;
   const postgresPassword =
     getEnv('POSTGRES_PASSWORD', { defaultValue: DEFAULT_POSTGRES_PASSWORD }) ?? DEFAULT_POSTGRES_PASSWORD;
@@ -220,6 +246,7 @@ function resolvePostgresDatabaseUrl(): string {
     raw: getEnv('POSTGRES_PORT'),
     defaultValue: DEFAULT_POSTGRES_PORT,
   });
+  const postgresSslMode = parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
   if (
     postgresUser.trim() === '' ||
     postgresPassword.trim() === '' ||
@@ -230,12 +257,14 @@ function resolvePostgresDatabaseUrl(): string {
       'Set DATABASE_URL, or set non-empty POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, and POSTGRES_HOST when STANDALONE=false.',
     );
   }
+
   return buildPostgresConnectionString({
     user: postgresUser,
     password: postgresPassword,
     host: postgresHost,
     port: postgresPort,
     database: postgresDb,
+    sslMode: postgresSslMode,
   });
 }
 
@@ -246,8 +275,13 @@ function buildPostgresConnectionString(parts: {
   host: string;
   port: number;
   database: string;
+  sslMode: string;
 }): string {
-  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+  let connectionString = `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
+  if (parts.sslMode !== '') {
+    connectionString += `?sslmode=${encodeURIComponent(parts.sslMode)}`;
+  }
+  return connectionString;
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -455,6 +489,10 @@ export interface SharedServerConfiguration {
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
+  /** Max ms for non-agent ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS`. Default 10000. */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: number;
+  /** Max ms for agent CRUD ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS`. Default 3000. */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: number;
   /**
    * Present this pod's client certificate on outbound calls to the ServiceFoundry server (internal
    * mutual TLS) and upgrade a mesh-direct peer URL from http to https. Off by default, so an
@@ -500,7 +538,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
-   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`.
+   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`
+   * (including optional `POSTGRES_SSL_MODE` as `sslmode`).
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
    */
   DATABASE_URL: string;
@@ -629,6 +668,16 @@ const shared: SharedServerConfiguration = {
   SERVER_URL:
     getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS',
+    raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS'),
+    defaultValue: 10_000,
+  }),
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS',
+    raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS'),
+    defaultValue: 3_000,
+  }),
   TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
     envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
     raw: getEnv('TRUEFOUNDRY_MTLS_ENABLED'),

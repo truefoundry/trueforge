@@ -79,7 +79,7 @@ describe('agents router', () => {
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
     agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
-      agentStore,
+      resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
@@ -169,6 +169,12 @@ describe('agents router', () => {
   it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {
     const badName = await router.request('/', jsonInit('POST', { ...writeBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
+
+    const reservedTfg = await router.request('/', jsonInit('POST', { ...writeBody, name: 'tfg' }));
+    expect(reservedTfg.status).toBe(400);
+
+    const reservedTrueforge = await router.request('/', jsonInit('POST', { ...writeBody, name: 'trueforge' }));
+    expect(reservedTrueforge.status).toBe(400);
 
     const unknownModel = await router.request(
       '/',

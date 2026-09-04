@@ -24,7 +24,7 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
     const metrics = await deps.sessionMetricsStore.getSessionMetricsMeters({
       tenant_id: requestContext.tenant_id,
       agent_id: query.agent_id,
-      created_by: requestContext.subject.id,
+      created_by_subject_id: requestContext.subject.id,
       start_timestamp: query.start_timestamp,
       end_timestamp: query.end_timestamp,
     });
@@ -41,7 +41,7 @@ export function createInternalMetricsRouter(deps: InternalMetricsRouterDeps) {
     const chartData = await deps.sessionMetricsStore.getSessionMetricsChartData({
       tenant_id: requestContext.tenant_id,
       agent_id: query.agent_id,
-      created_by: requestContext.subject.id,
+      created_by_subject_id: requestContext.subject.id,
       start_timestamp: query.start_timestamp,
       end_timestamp: query.end_timestamp,
       chart_name: query.chart_name,
