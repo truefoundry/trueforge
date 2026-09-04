@@ -103,6 +103,7 @@ export function AgentMcpEditorContent({
   onChange,
 }: AgentMcpEditorContentProps) {
   const [toolQuery, setToolQuery] = useState('');
+  const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
   const selectedConnector = connectors.find(item => item.id === activeConnectorId);
   const activeMount = selectedConnector
@@ -139,8 +140,9 @@ export function AgentMcpEditorContent({
   };
 
   const toggleTool = (toolName: string) => {
-    if (!selectedConnector || !canAddActiveConnector) return;
+    if (!selectedConnector) return;
     if (!activeMount) {
+      if (!canAddActiveConnector) return;
       onChange({
         ...spec,
         mcpServers: [
@@ -351,7 +353,20 @@ export function AgentMcpEditorContent({
               {mcpMounts.map(mount => {
                 const selected = enabledToolsFromMount(mount.value);
                 return (
-                  <details key={mount.id} open className="group/mount">
+                  <details
+                    key={mount.id}
+                    className="group/mount"
+                    open={!collapsedMountIds.has(mount.id)}
+                    onToggle={event => {
+                      const nextOpen = event.currentTarget.open;
+                      setCollapsedMountIds(prev => {
+                        const next = new Set(prev);
+                        if (nextOpen) next.delete(mount.id);
+                        else next.add(mount.id);
+                        return next;
+                      });
+                    }}
+                  >
                     <summary
                       className="hover:bg-ghost-button-hover flex cursor-pointer list-none items-center gap-1 rounded-md [&::-webkit-details-marker]:hidden"
                       onClick={() => openMountConnector(mount)}
@@ -369,7 +384,7 @@ export function AgentMcpEditorContent({
                         </span>
                         <Tooltip
                           content="Remove All Tools"
-                          triggerClassName="absolute inset-0 flex items-center justify-center opacity-0 group-hover/mount:opacity-100 group-focus-within/mount:opacity-100"
+                          triggerClassName="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 group-hover/mount:pointer-events-auto group-hover/mount:opacity-100 group-focus-within/mount:pointer-events-auto group-focus-within/mount:opacity-100"
                         >
                           <button
                             type="button"
