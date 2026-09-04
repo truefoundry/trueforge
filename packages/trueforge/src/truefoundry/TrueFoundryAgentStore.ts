@@ -1,5 +1,5 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
-import { sql, type Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import {
   type AgentRecord,
   type CreateAgentInput,
@@ -34,57 +34,55 @@ function toPutRemoteAgentPayload({
   };
 }
 
-type TrueFoundryAgentInner<TTransaction> = IAgentStore<TTransaction> & {
-  withTransaction<T>(fn: (transaction: TTransaction) => Promise<T>): Promise<T>;
-};
-
 /**
  *   create:  createDB(null) → putRemote → updateDB(external_id) | on put/update fail → deleteDB (+ deleteRemote if put ok)
  *   update:  lock → get → putRemote(new) → updateDB | on DB fail → putRemote(old) | both fail → AggregateError
  *   delete:  lock → get → deleteRemote(404 ok) → deleteDB
  */
-export class TrueFoundryAgentStore<
-  TTransaction extends Transaction<Database> = Transaction<Database>,
-> implements IAgentStore<TTransaction> {
-  readonly #inner: TrueFoundryAgentInner<TTransaction>;
+export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>> {
+  readonly #inner: IAgentStore<Transaction<Database>>;
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #accessToken: string;
+  readonly #db: Kysely<Database>;
 
   constructor(input: {
-    inner: TrueFoundryAgentInner<TTransaction>;
+    inner: IAgentStore<Transaction<Database>>;
     client: TrueFoundryServiceFoundryServerClient;
     accessToken: string;
+    db: Kysely<Database>;
   }) {
     this.#inner = input.inner;
     this.#client = input.client;
     this.#accessToken = input.accessToken;
+    this.#db = input.db;
   }
 
-  listAgents(input: ListAgentsInput, transaction?: TTransaction): Promise<AgentRecord[]> {
+  listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
     return this.#inner.listAgents(input, transaction);
   }
 
-  getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined> {
+  getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
     return this.#inner.getAgent(input, transaction);
   }
 
   // Serializes updates for this tenant ID and agent id.
   // Prevents concurrent MCP writes from desyncing the remote agent.
+  // Opens a txn via db when the caller omits transaction (does not require one).
   #withUpdateLock<T>(
     input: { tenant_id: string; id: string },
-    transaction: TTransaction | undefined,
-    fn: (transaction: TTransaction) => Promise<T>,
+    transaction: Transaction<Database> | undefined,
+    fn: (transaction: Transaction<Database>) => Promise<T>,
   ): Promise<T> {
-    const run = async (txn: TTransaction) => {
+    const run = async (txn: Transaction<Database>) => {
       const key = `tf:agent:${input.tenant_id}:${input.id}`;
       await sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`.execute(txn);
       return fn(txn);
     };
-    return transaction !== undefined ? run(transaction) : this.#inner.withTransaction(run);
+    return transaction !== undefined ? run(transaction) : this.#db.transaction().execute(run);
   }
 
-  async createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord> {
-    // Lets the DB unique constraint pick one winner for this tenant ID and name.
+  async createAgent(input: CreateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord> {
+    // Unique (tenant_id, name) picks one winner even when transaction is omitted (auto-commit inserts).
     // Prevents concurrent requests from both creating the same remote agent.
     const created = await this.#inner.createAgent({ ...input, external_id: null }, transaction);
 
@@ -123,7 +121,7 @@ export class TrueFoundryAgentStore<
     }
   }
 
-  async updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined> {
+  async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
     const nextManifest = input.manifest;
     if (nextManifest === undefined) {
       // No manifest means only `external_id` changed; pass through to the inner store.
@@ -169,7 +167,7 @@ export class TrueFoundryAgentStore<
     });
   }
 
-  async deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void> {
+  async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
     return this.#withUpdateLock(input, transaction, async txn => {
       const previous = await this.#inner.getAgent({ tenant_id: input.tenant_id, id: input.id }, txn);
       if (previous?.external_id) {

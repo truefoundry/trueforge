@@ -1,8 +1,10 @@
 import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { Kysely, Transaction } from 'kysely';
 import { createLogger } from 'winston';
 
-import type { AgentRecord } from '../../../src/db/agentStore';
+import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
 import { AgentNameConflictError } from '../../../src/db/agentStore';
+import type { Database } from '../../../src/db/postgres/types';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -20,7 +22,7 @@ const CREATED_BY_SUBJECT: CreatedBySubject = {
   subject_display_name: 'tester',
 };
 
-function mockTransaction() {
+function mockTransaction(): Transaction<Database> {
   const executor = {
     transformQuery(node: unknown) {
       return node;
@@ -37,7 +39,7 @@ function mockTransaction() {
     getExecutor() {
       return executor;
     },
-  };
+  } as unknown as Transaction<Database>;
 }
 
 const TXN = mockTransaction();
@@ -65,16 +67,39 @@ function record(overrides: Partial<AgentRecord> = {}): AgentRecord {
   };
 }
 
-function mockInner(overrides = {}) {
+function mockDb(
+  transactionExecute: <T>(fn: (txn: Transaction<Database>) => Promise<T>) => Promise<T> = async fn => fn(TXN),
+): Kysely<Database> {
+  return {
+    transaction: () => ({
+      execute: async <T>(fn: (txn: Transaction<Database>) => Promise<T>): Promise<T> => transactionExecute(fn),
+    }),
+  } as unknown as Kysely<Database>;
+}
+
+function mockInner(overrides = {}): IAgentStore<Transaction<Database>> {
   return {
     listAgents: jest.fn(),
     getAgent: jest.fn(),
     createAgent: jest.fn(),
     updateAgent: jest.fn(),
     deleteAgent: jest.fn(),
-    withTransaction: jest.fn(async fn => fn(TXN)),
     ...overrides,
   };
+}
+
+function tfStore(input: {
+  inner: IAgentStore<Transaction<Database>>;
+  client: TrueFoundryServiceFoundryServerClient;
+  accessToken?: string;
+  db?: Kysely<Database>;
+}) {
+  return new TrueFoundryAgentStore({
+    inner: input.inner,
+    client: input.client,
+    accessToken: input.accessToken ?? TOKEN,
+    db: input.db ?? mockDb(),
+  });
 }
 
 function mockClient(
@@ -109,10 +134,9 @@ describe('TrueFoundryAgentStore', () => {
     const agents = [record()];
     const listAgents = jest.fn(async () => agents);
     const getAgent = jest.fn(async () => agents[0]);
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ listAgents, getAgent }),
       client: mockClient(),
-      accessToken: TOKEN,
     });
 
     await expect(store.listAgents({ tenant_id: TENANT }, TXN)).resolves.toBe(agents);
@@ -136,10 +160,9 @@ describe('TrueFoundryAgentStore', () => {
     });
     const createAgent = jest.fn(async () => local);
     const updateAgent = jest.fn(async () => linked);
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -174,10 +197,9 @@ describe('TrueFoundryAgentStore', () => {
     const putRemoteAgent = jest.fn();
     const updateAgent = jest.fn();
     const deleteRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent, deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -205,10 +227,9 @@ describe('TrueFoundryAgentStore', () => {
     });
     const createAgent = jest.fn(async () => record({ external_id: null }));
     const updateAgent = jest.fn(async () => record({ external_id: 'sf-1' }));
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ createAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await store.createAgent(
@@ -233,10 +254,9 @@ describe('TrueFoundryAgentStore', () => {
       throw new Error('sf failed');
     });
     const deleteRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ putRemoteAgent, deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -264,10 +284,9 @@ describe('TrueFoundryAgentStore', () => {
     });
     const deleteAgent = jest.fn(async () => undefined);
     const deleteRemoteAgent = jest.fn(async () => undefined);
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -298,10 +317,9 @@ describe('TrueFoundryAgentStore', () => {
     const deleteRemoteAgent = jest.fn(async () => {
       throw new Error('remote cleanup failed');
     });
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -329,10 +347,9 @@ describe('TrueFoundryAgentStore', () => {
     const updated = record({ external_id: 'sf-agent-1' });
     const updateAgent = jest.fn(async () => updated);
     const putRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(store.updateAgent({ tenant_id: TENANT, id: 'agent-1', external_id: 'sf-agent-1' })).resolves.toBe(
@@ -349,10 +366,9 @@ describe('TrueFoundryAgentStore', () => {
     const getAgent = jest.fn(async () => undefined);
     const updateAgent = jest.fn();
     const putRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -362,21 +378,39 @@ describe('TrueFoundryAgentStore', () => {
     expect(putRemoteAgent).not.toHaveBeenCalled();
   });
 
-  it('updateAgent reads the agent inside the transaction for manifest updates', async () => {
+  it('updateAgent opens a db transaction when the caller does not pass one', async () => {
     const previous = record({ external_id: 'sf-1' });
     const updatedManifest = manifest({ instructions: 'Updated.' });
     const updated = record({ manifest: updatedManifest, external_id: 'sf-1' });
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
-    const withTransaction = jest.fn(async fn => fn(TXN));
-    const store = new TrueFoundryAgentStore({
-      inner: mockInner({ getAgent, updateAgent, withTransaction }),
+    const transactionOpens: unknown[] = [];
+    const store = tfStore({
+      inner: mockInner({ getAgent, updateAgent }),
       client: mockClient(),
-      accessToken: TOKEN,
+      db: mockDb(async fn => {
+        transactionOpens.push(true);
+        return fn(TXN);
+      }),
     });
 
     await store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest });
-    expect(withTransaction).toHaveBeenCalled();
+    expect(transactionOpens).toHaveLength(1);
+    expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
+  });
+
+  it('updateAgent reads the agent inside the caller transaction for manifest updates', async () => {
+    const previous = record({ external_id: 'sf-1' });
+    const updatedManifest = manifest({ instructions: 'Updated.' });
+    const updated = record({ manifest: updatedManifest, external_id: 'sf-1' });
+    const getAgent = jest.fn(async () => previous);
+    const updateAgent = jest.fn(async () => updated);
+    const store = tfStore({
+      inner: mockInner({ getAgent, updateAgent }),
+      client: mockClient(),
+    });
+
+    await store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest }, TXN);
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
   });
 
@@ -387,15 +421,14 @@ describe('TrueFoundryAgentStore', () => {
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
     const putRemoteAgent = jest.fn(async () => ({ externalId: 'sf-1' }));
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
-    await expect(store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest })).resolves.toBe(
-      updated,
-    );
+    await expect(
+      store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest }, TXN),
+    ).resolves.toBe(updated);
     expect(putRemoteAgent).toHaveBeenCalledTimes(1);
     expect(updateAgent).toHaveBeenCalledTimes(1);
     expect(updateAgent).toHaveBeenCalledWith(
@@ -416,10 +449,9 @@ describe('TrueFoundryAgentStore', () => {
     const getAgent = jest.fn(async () => previous);
     const updateAgent = jest.fn(async () => updated);
     const putRemoteAgent = jest.fn(async () => ({ externalId: 'sf-new' }));
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     const result = await store.updateAgent(
@@ -450,10 +482,9 @@ describe('TrueFoundryAgentStore', () => {
     const putRemoteAgent = jest.fn(async () => {
       throw new Error('sf failed');
     });
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -473,10 +504,9 @@ describe('TrueFoundryAgentStore', () => {
       .fn()
       .mockResolvedValueOnce({ externalId: 'sf-new' })
       .mockResolvedValueOnce({ externalId: 'sf-old' });
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: updatedManifest })).rejects.toThrow(
@@ -503,10 +533,9 @@ describe('TrueFoundryAgentStore', () => {
       .fn()
       .mockResolvedValueOnce({ externalId: 'sf-new' })
       .mockRejectedValueOnce(new Error('sf restore failed'));
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(
@@ -524,10 +553,9 @@ describe('TrueFoundryAgentStore', () => {
     const previous = record({ external_id: 'sf-1' });
     const getAgent = jest.fn(async () => previous);
     const deleteAgent = jest.fn(async () => undefined);
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient(),
-      accessToken: TOKEN,
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
@@ -539,10 +567,9 @@ describe('TrueFoundryAgentStore', () => {
     const getAgent = jest.fn(async () => previous);
     const deleteAgent = jest.fn(async () => undefined);
     const deleteRemoteAgent = jest.fn(async () => undefined);
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
@@ -556,10 +583,9 @@ describe('TrueFoundryAgentStore', () => {
     const getAgent = jest.fn(async () => previous);
     const deleteAgent = jest.fn(async () => undefined);
     const deleteRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
@@ -571,10 +597,9 @@ describe('TrueFoundryAgentStore', () => {
     const getAgent = jest.fn(async () => undefined);
     const deleteAgent = jest.fn(async () => undefined);
     const deleteRemoteAgent = jest.fn();
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: 'missing' });
@@ -589,10 +614,9 @@ describe('TrueFoundryAgentStore', () => {
     const deleteRemoteAgent = jest.fn(async () => {
       throw new Error('sf delete failed');
     });
-    const store = new TrueFoundryAgentStore({
+    const store = tfStore({
       inner: mockInner({ getAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
-      accessToken: TOKEN,
     });
 
     await expect(store.deleteAgent({ tenant_id: TENANT, id: previous.id })).rejects.toThrow('sf delete failed');
