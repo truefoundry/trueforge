@@ -221,7 +221,7 @@ Use \`previous_turn_id\` to chain to the session's last turn (defaults to \`auto
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session or prior turn not found.',
+      description: 'Session, prior turn, or referenced agent not found.',
     },
     412: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

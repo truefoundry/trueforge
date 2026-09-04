@@ -4,6 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import type { ExternalAuthorizer } from '../auth/externalAuthorizer';
 import {
   createdBySubjectFromRequestContext,
   hasAdminRole,
@@ -38,6 +39,7 @@ import {
   type ScheduleManifest,
   type ScheduleRun,
 } from '../schemas/schedule';
+import { agentIfAccessible } from './agentAccess';
 import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
@@ -47,6 +49,7 @@ export interface SchedulesRouterDeps<TTransaction> {
   turnDeps: BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
+  externalAuthorizer: ExternalAuthorizer;
 }
 
 function toWireSchedule(record: ScheduleRecord): Schedule {
@@ -236,12 +239,14 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
     validateManifest(body.manifest);
 
-    const agent = await deps.resolveAgentStore(c).getAgent({
-      tenant_id: requestContext.tenant_id,
-      name: body.agent_name,
+    const agent = await agentIfAccessible({
+      authorizer: deps.externalAuthorizer,
+      context: requestContext,
+      action: 'read',
+      agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, name: body.agent_name }),
     });
     if (agent === undefined) {
-      return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 400);
+      return c.json({ error: { message: `Agent not found: ${body.agent_name}` } }, 404);
     }
 
     let record: ScheduleRecord;

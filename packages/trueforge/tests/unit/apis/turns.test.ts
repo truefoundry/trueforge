@@ -8,6 +8,7 @@ import {
 import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
+import { AllowAllExternalAuthorizer, type ExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -71,6 +72,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          externalAuthorizer: new AllowAllExternalAuthorizer(),
         }),
       );
 
@@ -153,6 +155,10 @@ describe('turns', () => {
                 subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
                 subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
               },
+              agent: {
+                type: 'inline',
+                spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+              },
             },
             createTurn: () =>
               Promise.resolve({
@@ -198,6 +204,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          externalAuthorizer: new AllowAllExternalAuthorizer(),
         }),
       );
 
@@ -304,6 +311,7 @@ describe('turns', () => {
           sandboxProviderStore: new SqliteSandboxProviderStore(db),
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          externalAuthorizer: new AllowAllExternalAuthorizer(),
         }),
       );
 
@@ -321,6 +329,91 @@ describe('turns', () => {
             typeof message === 'string' && message.includes('Turn stream ended after session/turn was removed'),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe('create turn referenced agent', () => {
+    const denyAllAuthorizer: ExternalAuthorizer = {
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: () => Promise.resolve(false),
+    };
+
+    async function referencedAgentHarness(externalAuthorizer: ExternalAuthorizer) {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const sessions = new Sessions({ sessionStore });
+      const agentStore = new SqliteAgentStore(db);
+      const agent = await agentStore.createAgent({
+        tenant_id: 'default',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        name: 'named-for-turn',
+        manifest: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+        }),
+        external_id: null,
+      });
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: 's1',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        agent: { type: 'reference', id: agent.id, name: agent.name },
+        custom: null,
+        metadata: {},
+        external_id: null,
+      });
+      const tokenStore = new SqliteOAuthTokenStore(db);
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions,
+          sessionStore,
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          skillStore: new SqliteSkillStore(db),
+          resolveAgentStore: () => agentStore,
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          logger: createLogger({ silent: true }),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          externalAuthorizer,
+        }),
+      );
+      return { app, agent, agentStore };
+    }
+
+    it('returns 422 when the referenced agent no longer exists', async () => {
+      const { app, agent, agentStore } = await referencedAgentHarness(new AllowAllExternalAuthorizer());
+      await agentStore.deleteAgent({ tenant_id: 'default', id: agent.id });
+      const response = await app.request('/s1/turns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stream: false }),
+      });
+      expect(response.status).toBe(422);
+      expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
+    });
+
+    it('returns 404 when the caller cannot read the referenced agent', async () => {
+      const { app, agent } = await referencedAgentHarness(denyAllAuthorizer);
+      const response = await app.request('/s1/turns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stream: false }),
+      });
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
     });
   });
 });

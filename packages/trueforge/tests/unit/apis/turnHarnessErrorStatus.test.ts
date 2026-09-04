@@ -3,6 +3,7 @@ import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { AllowAllExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -53,6 +54,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
             subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
             subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
           },
+          agent: { type: 'inline', spec: { model: { name: 'test-provider/test-model' } } },
         },
         createTurn: () => Promise.reject(error),
       }),
@@ -79,6 +81,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      externalAuthorizer: new AllowAllExternalAuthorizer(),
     }),
   );
 

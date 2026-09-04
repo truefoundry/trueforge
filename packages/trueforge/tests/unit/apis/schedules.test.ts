@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createSchedulesRouter } from '../../../src/apis/schedules';
+import { AllowAllExternalAuthorizer, type ExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
 import type { RequestContext } from '../../../src/auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -47,7 +48,7 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
-async function setup() {
+async function setup(externalAuthorizer: ExternalAuthorizer = new AllowAllExternalAuthorizer()) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const agentStore = new SqliteAgentStore(db);
@@ -86,6 +87,7 @@ async function setup() {
       },
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
+      externalAuthorizer,
     }),
   );
 
@@ -348,5 +350,16 @@ describe('create schedule run', () => {
     const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     const runNow = runs.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
+  });
+
+  it('returns 404 when creating a schedule for an agent the caller cannot read', async () => {
+    const denyAll: ExternalAuthorizer = {
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: () => Promise.resolve(false),
+    };
+    const { postJson } = await setup(denyAll);
+    const res = await postJson('/', 'POST', scheduleBody);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
   });
 });

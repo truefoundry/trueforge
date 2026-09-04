@@ -21,6 +21,7 @@ import type { Context } from 'hono';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
+import type { ExternalAuthorizer } from '../auth/externalAuthorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
@@ -43,6 +44,7 @@ import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
+import { agentIfAccessible } from './agentAccess';
 
 /** Request-reply path a replica serves to cancel a turn it owns. */
 export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
@@ -81,6 +83,7 @@ export interface SessionsRouterDeps {
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
+  externalAuthorizer: ExternalAuthorizer;
 }
 
 function cancelTurnOnThisExecutor(
@@ -233,6 +236,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveAgentStore'
   | 'sandboxProviderStore'
   | 'resolveRequestContext'
+  | 'externalAuthorizer'
 >;
 
 function createGetOrCreateSessionByExternalIdHandler(
@@ -260,9 +264,14 @@ function createGetOrCreateSessionByExternalIdHandler(
 
     let agent: SessionRecord['agent'];
     if (isSessionAgentNameRef(body.agent)) {
-      const named = await deps.resolveAgentStore(c).getAgent({
-        tenant_id: requestContext.tenant_id,
-        name: body.agent.name,
+      const named = await agentIfAccessible({
+        authorizer: deps.externalAuthorizer,
+        context: requestContext,
+        action: 'read',
+        agent: await deps.resolveAgentStore(c).getAgent({
+          tenant_id: requestContext.tenant_id,
+          name: body.agent.name,
+        }),
       });
       if (named === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
@@ -314,9 +323,14 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const requestContext = deps.resolveRequestContext(c);
 
     if (isSessionAgentNameRef(body.agent)) {
-      const agent = await deps.resolveAgentStore(c).getAgent({
-        tenant_id: requestContext.tenant_id,
-        name: body.agent.name,
+      const agent = await agentIfAccessible({
+        authorizer: deps.externalAuthorizer,
+        context: requestContext,
+        action: 'read',
+        agent: await deps.resolveAgentStore(c).getAgent({
+          tenant_id: requestContext.tenant_id,
+          name: body.agent.name,
+        }),
       });
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);

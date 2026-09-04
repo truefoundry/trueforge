@@ -9,6 +9,7 @@ import {
   createSessionsRouter,
   type SessionsRouterDeps,
 } from '../../../src/apis/sessions';
+import { AllowAllExternalAuthorizer, type ExternalAuthorizer } from '../../../src/auth/externalAuthorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -39,10 +40,16 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+const denyAllAuthorizer: ExternalAuthorizer = {
+  listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+  canAccessAgent: () => Promise.resolve(false),
+};
+
 describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
   let sessionStore: SqliteSessionStore;
+  let sessionDeps: SessionsRouterDeps;
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
@@ -73,7 +80,6 @@ describe('sessions HTTP agent binding', () => {
       },
     });
 
-    app = new OpenAPIHono();
     const deps: SessionsRouterDeps = {
       sessions,
       sessionStore,
@@ -87,7 +93,10 @@ describe('sessions HTTP agent binding', () => {
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       logger: createLogger({ silent: true }),
+      externalAuthorizer: new AllowAllExternalAuthorizer(),
     };
+    sessionDeps = deps;
+    app = new OpenAPIHono();
     app.route('/', createSessionsRouter(deps));
     app.route('/api/internal/sessions', createInternalSessionsRouter(deps));
     app.route(
@@ -458,6 +467,40 @@ describe('sessions HTTP agent binding', () => {
     expect(await forbidden.json()).toEqual({
       error: { message: 'Only the session creator can access this session' },
     });
+  });
+
+  it('returns 404 when creating a session for a named agent the caller cannot read', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'forbidden-agent',
+      manifest: inlineSpec,
+      external_id: null,
+    });
+
+    const denyApp = new OpenAPIHono();
+    const deniedDeps = {
+      ...sessionDeps,
+      requestReplyRouter: new RequestReplyRouter(),
+      externalAuthorizer: denyAllAuthorizer,
+    };
+    denyApp.route('/', createSessionsRouter(deniedDeps));
+    denyApp.route('/api/internal/sessions', createInternalSessionsRouter(deniedDeps));
+
+    const created = await denyApp.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(created.status).toBe(404);
+    expect(await created.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
+
+    const getOrCreate = await denyApp.request(
+      '/api/internal/sessions/get-or-create-by-external-id',
+      jsonInit('POST', { external_id: 'denied-run', agent: { name: agent.name } }),
+    );
+    expect(getOrCreate.status).toBe(404);
+    expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
