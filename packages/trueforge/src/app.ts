@@ -24,6 +24,7 @@ import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
+import type { ExternalAuthorizer } from './auth/externalAuthorizer';
 import { resolveRequestContext } from './auth/identity';
 import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
@@ -199,6 +200,8 @@ export interface ServerDeps<TTransaction> {
   oidcClient: Configuration | undefined;
   /** Startup-selected authenticator; middleware is built from this once per app. */
   authenticator: Authenticator;
+  /** Startup-selected external agent authorization policy. */
+  externalAuthorizer: ExternalAuthorizer;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
