@@ -31,7 +31,7 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
-import configuration, { getTrueForgeMode, TrueForgeMode } from './config';
+import configuration, { getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -209,7 +209,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
-  const authEnabled = getTrueForgeMode() !== TrueForgeMode.Standalone;
+  const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
 
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));

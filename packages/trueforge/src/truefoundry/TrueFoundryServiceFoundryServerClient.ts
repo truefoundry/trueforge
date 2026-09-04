@@ -466,7 +466,7 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: error,
       });
     }
-    this.#logger.info('TrueFoundry ServiceFoundry server request completed', {
+    this.#logger.debug('TrueFoundry ServiceFoundry server request completed', {
       url: input.url.href,
       method: input.method,
       status: response.status,
