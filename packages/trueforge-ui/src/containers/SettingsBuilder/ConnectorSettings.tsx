@@ -44,6 +44,7 @@ const ConnectorSettings = () => {
   const [connectorAwaitingKey, setConnectorAwaitingKey] = useState<ConnectorCatalogEntry | null>(null);
   const [selectedConnector, setSelectedConnector] = useState<ConnectorBase | null>(null);
   const [apiKey, setApiKey] = useState('');
+  const [probeLog, setProbeLog] = useState<string[]>([]);
 
   const connectorIconMap = useMemo(() => {
     return (catalog ?? []).reduce(
@@ -141,6 +142,7 @@ const ConnectorSettings = () => {
   const closeApiKeyModal = () => {
     setConnectorAwaitingKey(null);
     setApiKey('');
+    setProbeLog([]);
     setFormError(null);
   };
 
@@ -166,6 +168,7 @@ const ConnectorSettings = () => {
   const handleConnect = (entry: ConnectorCatalogEntry) => {
     if (entry.auth.type === 'header') {
       setApiKey('');
+      setProbeLog([]);
       setFormError(null);
       setConnectorAwaitingKey(entry);
       return;
@@ -176,38 +179,78 @@ const ConnectorSettings = () => {
     }).catch(() => {});
   };
 
+  /**
+   * A pasted key's required scheme (none, `Bearer `, `Basic `, …) isn't knowable up front, so try
+   * the key as typed first, then the common schemes, in order — deduping a candidate that's
+   * byte-identical to one already tried (e.g. the user already typed the `Bearer ` prefix).
+   */
+  const buildAuthCandidates = (rawKey: string): { label: string; value: string }[] => {
+    const trimmed = rawKey.trim();
+    const candidates: { label: string; value: string }[] = [{ label: 'Testing key…', value: trimmed }];
+    if (!/^bearer\s/i.test(trimmed)) {
+      candidates.push({ label: 'Trying with prefix "Bearer"…', value: `Bearer ${trimmed}` });
+    }
+    if (!/^basic\s/i.test(trimmed)) {
+      candidates.push({ label: 'Trying with prefix "Basic"…', value: `Basic ${trimmed}` });
+    }
+    return candidates;
+  };
+
   const handleApiKeySubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!connectorAwaitingKey || !apiKey.trim()) return;
 
     const entry = connectorAwaitingKey;
+    const headerName = entry.auth.type === 'header' ? entry.auth.headerName : undefined;
+    const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
+    const existingConnector = existing?.isConfigured ? existing.connector : undefined;
+
     setFormError(null);
-    void runMutation(async () => {
-      const auth: ConnectorAuth = {
-        type: 'header',
-        apiKey: apiKey.trim(),
-        ...(entry.auth.type === 'header' && entry.auth.headerName ? { headerName: entry.auth.headerName } : {}),
-      };
-      const existing = connectors.ordered.find(({ connector }) => connector.id === entry.id);
-      const existingConnector = existing?.isConfigured ? existing.connector : undefined;
-      if (existingConnector) {
-        await connectorCatalog.updateConnector({
-          id: existingConnector.id,
-          name: existingConnector.name,
-          description: existingConnector.description,
-          url: existingConnector.url,
-          auth,
-        });
-      } else {
-        await createFromCatalog(entry, auth);
+    setError(null);
+    setProbeLog([]);
+    setBusy(true);
+    void (async () => {
+      let lastError = 'Connection failed';
+      for (const candidate of buildAuthCandidates(apiKey)) {
+        setProbeLog(log => [...log, candidate.label]);
+        const auth: ConnectorAuth = {
+          type: 'header',
+          apiKey: candidate.value,
+          ...(headerName ? { headerName } : {}),
+        };
+        try {
+          if (existingConnector) {
+            await connectorCatalog.updateConnector({
+              id: existingConnector.id,
+              name: existingConnector.name,
+              description: existingConnector.description,
+              url: existingConnector.url,
+              auth,
+            });
+          } else {
+            await createFromCatalog(entry, auth);
+          }
+          await connectorCatalog.getToolsByConnectorId({ id: entry.id });
+          setProbeLog(log => [...log.slice(0, -1), `${candidate.label} succeeded`]);
+          setBusy(false);
+          closeApiKeyModal();
+          await refresh();
+          setTimeout(() => {
+            toaster?.showSuccess({
+              title: `${entry.name} ${existingConnector ? 'updated' : 'connected'}`,
+            });
+          }, 100);
+          return;
+        } catch (err) {
+          lastError = getErrorMessage(err, 'Connection failed');
+          setProbeLog(log => [...log.slice(0, -1), `${candidate.label} failed`]);
+        }
       }
-      closeApiKeyModal();
-      setTimeout(() => {
-        toaster?.showSuccess({
-          title: `${entry.name} ${existingConnector ? 'updated' : 'connected'}`,
-        });
-      }, 100);
-    }, setFormError).catch(() => {});
+      setBusy(false);
+      setFormError(
+        `Could not connect with the provided key (tried as-is, with "Bearer", and with "Basic"). Last error: ${lastError}`,
+      );
+    })();
   };
 
   const handleAddMcpServer = async (draft: AddMcpServerDraft) => {
@@ -305,6 +348,7 @@ const ConnectorSettings = () => {
                 onClick={event => {
                   event.stopPropagation();
                   setApiKey('');
+                  setProbeLog([]);
                   setConnectorAwaitingKey(connector);
                 }}
               >
@@ -507,9 +551,15 @@ const ConnectorSettings = () => {
                     placeholder={`Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}`}
                     autoFocus
                     required
-                    className={auiInputClass('h-11')}
+                    disabled={busy}
+                    className={auiInputClass('h-11 disabled:opacity-60')}
                   />
                 </div>
+                {probeLog.length > 0 ? (
+                  <pre className="whitespace-pre-wrap rounded-md border border-border bg-secondary-bg/40 px-3 py-2 font-mono text-xs text-text-secondary">
+                    {probeLog.join('\n')}
+                  </pre>
+                ) : null}
                 {formError ? <p className="text-failure-bg text-sm">{formError}</p> : null}
               </div>
 
@@ -518,7 +568,7 @@ const ConnectorSettings = () => {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={!apiKey.trim() || busy}>
-                  {isReplacingKey ? 'Replace Key' : 'Connect'}
+                  {busy ? 'Testing…' : isReplacingKey ? 'Replace Key' : 'Connect'}
                 </Button>
               </footer>
             </form>
