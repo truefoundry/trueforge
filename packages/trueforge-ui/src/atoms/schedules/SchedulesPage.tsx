@@ -8,6 +8,7 @@ import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
+import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { searchAllAgents } from '../lib/useSearchAgentsList.js';
@@ -399,72 +400,85 @@ export function SchedulesPage() {
         ) : error != null ? (
           <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
         ) : schedules.length === 0 ? (
-          <div className="bg-secondary-bg/50 text-text-secondary flex items-center justify-center rounded-lg border border-border px-4 py-16 text-sm">
-            No schedules yet. Create one to get started.
+          <EmptyScreen title="No Schedules Found" description="Create one to get started." className="min-h-full" />
+        ) : filtered.length === 0 ? (
+          <div className="flex min-h-full flex-col">
+            <EmptyScreen title="No Schedules Found" description="No schedules match your filters." className="flex-1" />
+            {hasPageNav ? (
+              <TableTokenPagination
+                pageSize={pageSize}
+                rowCount={0}
+                canPrev={prevTokenStack.length > 0}
+                canNext={nextPageToken != null}
+                onPrev={goPrev}
+                onNext={goNext}
+                pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
+                onPageSizeChange={size => {
+                  const next = clampPageSize(size);
+                  setPageSize(next);
+                  setPageToken(undefined);
+                  setPrevTokenStack([]);
+                }}
+              />
+            ) : null}
           </div>
         ) : (
           <div className="rounded-lg border border-border">
-            {filtered.length === 0 ? (
-              <div className="bg-secondary-bg/50 text-text-secondary flex items-center justify-center px-4 py-16 text-sm">
-                No schedules match your filters.
-              </div>
-            ) : (
-              <Table className="min-w-[48rem]">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Cadence</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last 5 runs</TableHead>
-                    <TableHead>
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(schedule => {
-                    const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
-                    const agentLabel = schedule.agentName ?? agentNameById.get(schedule.agentId) ?? schedule.agentId;
-                    return (
-                      <TableRow key={schedule.id}>
-                        <TableCell className="text-text-primary font-medium">
-                          <button
-                            type="button"
-                            className="text-primary-button-bg hover:underline text-left"
-                            onClick={() => setDrawer({ kind: 'edit', schedule })}
-                          >
-                            {schedule.name}
-                          </button>
-                        </TableCell>
-                        <TableCell>{agentLabel}</TableCell>
-                        <TableCell>{cadence}</TableCell>
-                        <TableCell>
-                          <ScheduleStatusBadge status={schedule.status} />
-                        </TableCell>
-                        <TableCell>
-                          {runsLoading ? (
-                            <span className="text-text-secondary text-sm">…</span>
-                          ) : (
-                            <ScheduleLastRunsCell runs={runsByScheduleId[schedule.id] ?? []} />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <ScheduleRowActions
-                            schedule={schedule}
-                            running={runningScheduleIds.has(schedule.id)}
-                            onRunNow={() => void handleRunNow(schedule)}
-                            onEdit={() => setDrawer({ kind: 'edit', schedule })}
-                            onTogglePause={() => void handleTogglePause(schedule)}
-                            onDelete={() => setPendingDelete(schedule)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+            <Table className="min-w-[48rem]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Name</TableHead>
+                  <TableHead>Agent</TableHead>
+                  <TableHead>Cadence</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last 5 runs</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(schedule => {
+                  const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
+                  const agentLabel = schedule.agentName ?? agentNameById.get(schedule.agentId) ?? schedule.agentId;
+                  return (
+                    <TableRow key={schedule.id}>
+                      <TableCell className="text-text-primary font-medium">
+                        <button
+                          type="button"
+                          className="text-primary-button-bg hover:underline text-left"
+                          onClick={() => setDrawer({ kind: 'edit', schedule })}
+                        >
+                          {schedule.name}
+                        </button>
+                      </TableCell>
+                      <TableCell>{agentLabel}</TableCell>
+                      <TableCell>{cadence}</TableCell>
+                      <TableCell>
+                        <ScheduleStatusBadge status={schedule.status} />
+                      </TableCell>
+                      <TableCell>
+                        {runsLoading ? (
+                          <span className="text-text-secondary text-sm">…</span>
+                        ) : (
+                          <ScheduleLastRunsCell runs={runsByScheduleId[schedule.id] ?? []} />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ScheduleRowActions
+                          schedule={schedule}
+                          running={runningScheduleIds.has(schedule.id)}
+                          onRunNow={() => void handleRunNow(schedule)}
+                          onEdit={() => setDrawer({ kind: 'edit', schedule })}
+                          onTogglePause={() => void handleTogglePause(schedule)}
+                          onDelete={() => setPendingDelete(schedule)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
             {(filtered.length > 0 || hasPageNav) && (
               <TableTokenPagination
                 pageSize={pageSize}

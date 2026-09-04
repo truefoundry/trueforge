@@ -13,6 +13,7 @@ const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
+const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 
 /**
@@ -60,6 +61,21 @@ const ServiceFoundryErrorSchema = z.object({
 const PutRemoteAgentResponseSchema = z.object({
   agentId: z.string().min(1),
 });
+
+const AgentPermissionSchema = z.enum(['READ_AGENT', 'MANAGE_AGENT']);
+export type AgentPermission = z.infer<typeof AgentPermissionSchema>;
+
+/** ServiceFoundry may return grants we do not use; drop them instead of failing. */
+const AgentPermissionsSchema = z.record(
+  z.string(),
+  z.array(z.string()).transform(permissions =>
+    permissions.flatMap(permission => {
+      const parsed = AgentPermissionSchema.safeParse(permission);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  ),
+);
+export type AgentPermissions = z.infer<typeof AgentPermissionsSchema>;
 
 export interface PutRemoteAgentInput {
   accessToken: string;
@@ -353,6 +369,32 @@ export class TrueFoundryServiceFoundryServerClient {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
     return { user: parsed.data.user };
+  }
+
+  async getAgentPermissions(input: {
+    accessToken: string;
+    externalIds?: readonly string[];
+  }): Promise<AgentPermissions> {
+    const payload = await this.#requestJson({
+      url: this.#url(AGENT_PERMISSIONS_PATH, {
+        resourceType: 'agent',
+        v2: 'true',
+        ...(input.externalIds === undefined ? {} : { resourceIds: JSON.stringify(input.externalIds) }),
+      }),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    const parsed = AgentPermissionsSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.#logger.error('TrueFoundry ServiceFoundry agent permissions response was malformed', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry agent permissions response was malformed',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
   }
 
   #parseListResponse(payload: unknown): ListResponse {

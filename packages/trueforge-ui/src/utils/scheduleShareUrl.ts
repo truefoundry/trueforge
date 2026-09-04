@@ -1,4 +1,5 @@
 import type { ScheduleStatus } from '../server/types.js';
+import { writeSessionShareSearch } from './sessionShareUrl.js';
 
 export const SCHEDULE_AGENT_QUERY = 'agent';
 export const SCHEDULE_STATUS_QUERY = 'status';
@@ -69,4 +70,26 @@ export function replaceScheduleShareSearch(next: ScheduleShareWrite): string {
   window.history.replaceState(window.history.state, '', url);
   window.dispatchEvent(new Event(SCHEDULE_SHARE_CHANGE_EVENT));
   return url.search;
+}
+
+/**
+ * Point the address bar at schedules filtered to `agentId` (clears library agent
+ * share keys). Caller still opens the schedules place via shell.
+ */
+export function writeOpenSchedulesForAgentSearch({ agentId, isNew }: { agentId: string; isNew?: boolean }): void {
+  const url = new URL(window.location.href);
+  writeSessionShareSearch(url.searchParams, {
+    sessionId: null,
+    agentId: null,
+    tab: null,
+    view: null,
+    timeRange: null,
+  });
+  writeScheduleShareSearch(url.searchParams, {
+    agent: agentId,
+    status: null,
+    q: null,
+    isNew: isNew === true ? true : null,
+  });
+  window.history.replaceState(window.history.state, '', url);
 }

@@ -56,6 +56,7 @@ import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 import { createServerApp } from './app';
+import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
 import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
@@ -86,6 +87,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
+import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
@@ -390,25 +392,30 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const oidcClient = await initOidc(oidc);
 
   let authenticator;
+  let authorizer: Authorizer;
   const mode = getTrueForgeMode(configuration);
   if (mode === TrueForgeMode.TrueFoundry) {
     if (!isTrueFoundryModeEnabled(configuration)) {
       throw new Error('TrueFoundry mode requires TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL');
     }
+    const trueFoundryClient = new TrueFoundryServiceFoundryServerClient({
+      serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
+      logger,
+      httpTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
+      httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
+      tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+    });
     authenticator = createAuthenticator({
       mode: TrueForgeMode.TrueFoundry,
-      trueFoundryClient: new TrueFoundryServiceFoundryServerClient({
-        serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
-        logger,
-        httpTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
-        httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
-        tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
-      }),
+      trueFoundryClient,
     });
+    authorizer = new TrueFoundryAuthorizer(trueFoundryClient);
   } else if (mode === TrueForgeMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeMode.Oidc });
+    authorizer = new TrueForgeAuthorizer();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeMode.Standalone });
+    authorizer = new TrueForgeAuthorizer();
   }
 
   // Standalone is one process, so it owns the control loops too.
@@ -444,6 +451,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     logger,
     oidcClient,
     authenticator,
+    authorizer,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
