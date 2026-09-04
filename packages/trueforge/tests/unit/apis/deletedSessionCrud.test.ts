@@ -48,7 +48,7 @@ describe('public CRUD after session deletion', () => {
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
         skillStore,
-        agentStore,
+        resolveAgentStore: () => agentStore,
         sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
@@ -64,9 +64,8 @@ describe('public CRUD after session deletion', () => {
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,
-        tokenStore,
         skillStore,
-        agentStore,
+        resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         sandboxProviderStore,
         logger: createLogger({ silent: true }),
@@ -77,7 +76,11 @@ describe('public CRUD after session deletion', () => {
     await sessionStore.createSession({
       tenant_id: 'default',
       session_id: 's1',
-      created_by: STANDALONE_REQUEST_CONTEXT.subject.id,
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
       agent: {
         type: 'inline',
         spec: AgentSpecSchema.parse({

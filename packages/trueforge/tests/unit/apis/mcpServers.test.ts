@@ -179,7 +179,63 @@ describe('mcp-servers routers', () => {
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({
       data: [configured(putBody, 'not_required')],
+      pagination: { limit: 100 },
     });
+  });
+
+  it('GET / settings and chat list honor limit and page_token', async () => {
+    await mcpServerStore.upsertServer({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'page-alpha',
+      manifest: {
+        type: 'remote',
+        name: 'page-alpha',
+        url: 'https://mcp.alpha.example/mcp',
+        description: 'Page alpha.',
+      },
+    });
+    await mcpServerStore.upsertServer({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'page-bravo',
+      manifest: {
+        type: 'remote',
+        name: 'page-bravo',
+        url: 'https://mcp.bravo.example/mcp',
+        description: 'Page bravo.',
+      },
+    });
+
+    const first = await settingsRouter.request('/?limit=1');
+    expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as {
+      data: { name: string }[];
+      pagination: { limit: number; next_page_token?: string };
+    };
+    expect(firstBody.data).toHaveLength(1);
+    expect(firstBody.pagination.limit).toBe(1);
+    expect(firstBody.pagination.next_page_token).toBeDefined();
+
+    const second = await settingsRouter.request(
+      `/?limit=1&page_token=${encodeURIComponent(firstBody.pagination.next_page_token ?? '')}`,
+    );
+    expect(second.status).toBe(200);
+    const secondBody = (await second.json()) as {
+      data: { name: string }[];
+      pagination: { limit: number; previous_page_token?: string };
+    };
+    expect(secondBody.data).toHaveLength(1);
+    expect(secondBody.data[0]?.name).not.toBe(firstBody.data[0]?.name);
+    expect(secondBody.pagination.previous_page_token).toBeDefined();
+
+    const chatFirst = await mcpServersRouter.request('/?limit=1');
+    expect(chatFirst.status).toBe(200);
+    const chatBody = (await chatFirst.json()) as {
+      data: unknown[];
+      pagination: { limit: number; next_page_token?: string };
+    };
+    expect(chatBody.data).toHaveLength(1);
+    expect(chatBody.pagination.limit).toBe(1);
+    expect(chatBody.pagination.next_page_token).toBeDefined();
   });
 
   it('POST creates a server and returns 409 on name clash', async () => {

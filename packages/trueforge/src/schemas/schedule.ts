@@ -1,5 +1,5 @@
 import { z } from '@hono/zod-openapi';
-import { TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
 /**
@@ -95,7 +95,7 @@ export const ScheduleSchema = z
     agent_name: NameSchema,
     name: NameSchema,
     manifest: ScheduleManifestSchema,
-    created_by: z.string(),
+    created_by_subject: CreatedBySubjectSchema,
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,
   })
@@ -144,7 +144,7 @@ export const ScheduleRunSchema = z
     name: z.string(),
     scheduled_for: IsoTimestamp,
     status: ScheduleRunStatusSchema,
-    triggered_by: z.string(),
+    created_by_subject: CreatedBySubjectSchema,
     triggered_at: NullableIsoTimestamp,
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,

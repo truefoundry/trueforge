@@ -1,4 +1,4 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -10,8 +10,10 @@ import {
   type DeleteAgentInput,
   type GetAgentInput,
   type IAgentStore,
+  type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
+import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -24,6 +26,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
     'name' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
     'external_id' as const,
+    jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -35,10 +38,15 @@ function toRecord(row: {
   name: AgentRecord['name'];
   manifest: AgentSpec;
   external_id: string | null;
+  created_by_subject: CreatedBySubject;
   created_at: string;
   updated_at: string;
 }): AgentRecord {
-  return { ...row, manifest: parseStoredAgentSpec(row.manifest) };
+  return {
+    ...row,
+    manifest: parseStoredAgentSpec(row.manifest),
+    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+  };
 }
 
 export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
@@ -48,14 +56,16 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     this.#db = db;
   }
 
-  async listAgents(tenantId: string, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+  async listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+    if (input.external_ids?.length === 0) {
+      return [];
+    }
     const db = transaction ?? this.#db;
-    const rows = await db
-      .selectFrom('agent')
-      .select(recordColumns)
-      .where('tenant_id', '=', tenantId)
-      .orderBy('name')
-      .execute();
+    let query = db.selectFrom('agent').select(recordColumns).where('tenant_id', '=', input.tenant_id);
+    if (input.external_ids !== undefined) {
+      query = query.where('external_id', 'in', [...input.external_ids]);
+    }
+    const rows = await query.orderBy('name').execute();
     return rows.map(toRecord);
   }
 
@@ -83,6 +93,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           name: input.name,
           manifest: jsonbBind(input.manifest),
           external_id: input.external_id,
+          created_by_subject: jsonbBind(input.created_by_subject),
           created_at: timestamp,
           updated_at: timestamp,
         })

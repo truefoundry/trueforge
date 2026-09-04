@@ -13,7 +13,7 @@
  *
  * Implementations: PostgresScheduleStore and SqliteScheduleStore.
  */
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { randomUUID } from 'node:crypto';
 import {
   ScheduleManifestSchema,
@@ -38,14 +38,15 @@ export function manualRunName(): string {
 export interface ScheduleRecord {
   id: string;
   tenant_id: string;
-  /** Immutable FK to `agent.name` (with tenant); agent version resolves at run time. */
+  /** Immutable FK to `agent.id`. */
+  agent_id: string;
+  /** Create-time snapshot of registry agent name. */
   agent_name: string;
   /** Slug-shaped label, unique per agent (`schedule_name_uq`). */
   name: string;
   manifest: ScheduleManifest;
   status: ScheduleStatus;
-  /** userRef every run of this schedule executes as. */
-  created_by: string;
+  created_by_subject: CreatedBySubject;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
@@ -60,8 +61,7 @@ export interface ScheduleRunRecord {
   /** ISO-8601 UTC instant this run was scheduled for. Preserved even when `missed`. */
   scheduled_for: string;
   status: ScheduleRunStatus;
-  /** userRef the run executes as. */
-  triggered_by: string;
+  created_by_subject: CreatedBySubject;
   triggered_at: string | null;
   created_at: string;
   updated_at: string;
@@ -94,7 +94,7 @@ export interface ListSchedulesInput {
   page_token: string | undefined;
   /** When set, only schedules for these agent names */
   agent_names: readonly string[] | undefined;
-  created_by?: string | undefined;
+  created_by_subject_id?: string | undefined;
 }
 
 /** User-facing run listing, scoped to one schedule. */
@@ -110,10 +110,11 @@ export interface GetScheduleInput {
 
 export interface CreateScheduleInput {
   tenant_id: string;
+  agent_id: string;
   agent_name: string;
   name: string;
   manifest: ScheduleManifest;
-  created_by: string;
+  created_by_subject: CreatedBySubject;
   /** Instant used to compute the first pending run when status is active. */
   runFrom: Date;
 }
@@ -140,7 +141,7 @@ export interface CreateScheduleRunInput {
   schedule_id: string;
   name: string;
   scheduled_for: Date;
-  triggered_by: string;
+  created_by_subject: CreatedBySubject;
   status: ScheduleRunStatus;
   triggered_at?: Date | null;
 }

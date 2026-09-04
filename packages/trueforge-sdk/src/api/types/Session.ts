@@ -6,8 +6,7 @@ export interface Session {
     agent: TrueForge.SessionAgent;
     /** ISO 8601 creation timestamp. */
     createdAt: string;
-    /** Caller identity that created the session (immutable). */
-    createdBy: string;
+    createdBySubject: TrueForge.CreatedBySubject;
     /** Unique session id. */
     id: string;
     metadata: TrueForge.SessionMetadata;

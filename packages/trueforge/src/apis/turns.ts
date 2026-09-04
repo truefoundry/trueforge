@@ -36,7 +36,6 @@ import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import type { IOAuthTokenStore } from '../mcp/auth/types';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -106,9 +105,8 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore;
-  tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
-  agentStore: IAgentStore;
+  resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   sandboxProviderStore: ISandboxProviderStore;
@@ -118,15 +116,16 @@ export interface TurnsRouterDeps {
 
 /**
  * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
- * carries already-resolved `modelProviderStore` / `mcpServerStore` (the scheduler has no request
+ * carries already-resolved `modelProviderStore` / `mcpServerStore` / `agentStore` (the scheduler has no request
  * context to resolve them).
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'tokenStore' | 'skillStore' | 'agentStore' | 'sandboxProviderStore' | 'logger'
+  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'sandboxProviderStore' | 'logger'
 > & {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
+  agentStore: IAgentStore;
 };
 
 /**
@@ -135,7 +134,6 @@ export type BeginTurnExecutionDeps = Pick<
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerWithAuthStore;
-  tokenStore: IOAuthTokenStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
@@ -148,7 +146,6 @@ function createTurnResolver(deps: {
 }): TurnResourceResolver {
   const {
     mcpServerStore,
-    tokenStore,
     skillStore,
     sandboxProviderStore,
     agentStore,
@@ -181,8 +178,6 @@ function createTurnResolver(deps: {
         tenant_id,
         name,
         store: mcpServerStore,
-        tokenStore,
-        clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         userRef,
       });
       if (connection === undefined) {
@@ -378,7 +373,6 @@ export async function beginTurnExecution(params: {
   const tenant_id = session.tenant_id;
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
-    tokenStore: deps.tokenStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
     agentStore: deps.agentStore,
@@ -515,9 +509,15 @@ export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?:
   return bodyAfterSequenceNumber;
 }
 
-/** True when the subject is the session creator (`created_by`). */
-function checkTurnAccess({ subject_id, createdBy }: { subject_id: string; createdBy: string }): boolean {
-  return createdBy === subject_id;
+/** True when the subject is the session creator (`created_by_subject.subject_id`). */
+function checkTurnAccess({
+  subject_id,
+  created_by_subject,
+}: {
+  subject_id: string;
+  created_by_subject: { subject_id: string };
+}): boolean {
+  return created_by_subject.subject_id === subject_id;
 }
 
 const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
@@ -539,7 +539,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (
       !checkTurnAccess({
         subject_id: requestContext.subject.id,
-        createdBy: session.record.created_by,
+        created_by_subject: session.record.created_by_subject,
       })
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
@@ -571,7 +571,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (
       !checkTurnAccess({
         subject_id: requestContext.subject.id,
-        createdBy: session.record.created_by,
+        created_by_subject: session.record.created_by_subject,
       })
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
@@ -603,7 +603,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (
         !checkTurnAccess({
           subject_id: requestContext.subject.id,
-          createdBy: session.record.created_by,
+          created_by_subject: session.record.created_by_subject,
         })
       ) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
@@ -668,7 +668,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (
       !checkTurnAccess({
         subject_id: requestContext.subject.id,
-        createdBy: session.record.created_by,
+        created_by_subject: session.record.created_by_subject,
       })
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
@@ -707,7 +707,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (
       !checkTurnAccess({
         subject_id: requestContext.subject.id,
-        createdBy: session.record.created_by,
+        created_by_subject: session.record.created_by_subject,
       })
     ) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
@@ -722,6 +722,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
+        agentStore: deps.resolveAgentStore(c),
       },
     };
 
@@ -779,7 +780,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (
       !checkTurnAccess({
         subject_id: requestContext.subject.id,
-        createdBy: session.record.created_by,
+        created_by_subject: session.record.created_by_subject,
       })
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);

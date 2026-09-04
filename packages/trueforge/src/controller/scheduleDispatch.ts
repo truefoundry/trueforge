@@ -105,7 +105,7 @@ export async function startScheduleRun(params: {
   const { session } = await sessions.getOrCreateByExternalId({
     tenant_id: schedule.tenant_id,
     external_id: run.id,
-    created_by: schedule.created_by,
+    created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
   });
 
@@ -119,7 +119,7 @@ export async function startScheduleRun(params: {
     session,
     input: [{ type: 'user.message', content: schedule.manifest.task }],
     previous_turn_id: 'none',
-    userRef: schedule.created_by,
+    userRef: schedule.created_by_subject.subject_id,
   });
 }
 
@@ -180,7 +180,7 @@ async function finishScheduledRun<TTransaction>(params: {
         name: cronRunName(nextTrigger),
         scheduled_for: nextTrigger,
         status: 'scheduled',
-        triggered_by: latest.created_by,
+        created_by_subject: latest.created_by_subject,
       },
       txn,
     );

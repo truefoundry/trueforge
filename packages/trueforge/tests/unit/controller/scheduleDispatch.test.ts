@@ -15,7 +15,7 @@ function item(): ScheduleDispatchItem {
       name: 'sched-1',
       scheduled_for: '2026-08-31T00:00:00.000Z',
       status: 'scheduled',
-      triggered_by: 'tester',
+      created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       triggered_at: null,
       created_at: '2026-08-31T00:00:00.000Z',
       updated_at: '2026-08-31T00:00:00.000Z',
@@ -23,6 +23,7 @@ function item(): ScheduleDispatchItem {
     schedule: {
       id: 'sched-1',
       tenant_id: 'default',
+      agent_id: 'agent-1',
       agent_name: 'reporter',
       name: 'daily',
       manifest: ScheduleManifestSchema.parse({
@@ -32,7 +33,7 @@ function item(): ScheduleDispatchItem {
         status: 'active',
       }),
       status: 'active',
-      created_by: 'tester',
+      created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       created_at: '2026-08-31T00:00:00.000Z',
       updated_at: '2026-08-31T00:00:00.000Z',
     },
@@ -151,7 +152,7 @@ describe('startScheduleRun', () => {
     expect(getOrCreateByExternalId).toHaveBeenCalledWith({
       tenant_id: 'default',
       external_id: 'run-1',
-      created_by: 'tester',
+      created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       agent: { type: 'reference', id: 'agent-1', name: 'reporter' },
     });
     expect(startTurn).toHaveBeenCalledWith({

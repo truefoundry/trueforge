@@ -114,6 +114,23 @@ jobs:
   # - typecheck next (package pretypecheck emits SDK .d.ts; core resolves from src/)
   # - lint after typecheck (type-aware eslint reuses those declarations)
   # - build last (full emit; SDK JS built once via the root graph, still always-on as a ship gate)
+  migration-order:
+    name: Migration Order
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Refresh main branch reference
+        run: git fetch --no-tags origin main
+
+      - name: Check migration ordering
+        run: bash scripts/check-migration-order.sh
+
   typecheck-and-build:
     name: Format, Typecheck, Lint and Build
     runs-on: ubuntu-latest
@@ -268,6 +285,7 @@ jobs:
     if: always()
     needs:
       - detect-changes
+      - migration-order
       - typecheck-and-build
       - package-checks
       - chart-checks
@@ -278,14 +296,16 @@ jobs:
       - name: Decide whether the needed jobs succeeded or failed
         env:
           DETECT_CHANGES: ${{ needs.detect-changes.result }}
+          MIGRATION_ORDER: ${{ needs.migration-order.result }}
           TYPECHECK_AND_BUILD: ${{ needs.typecheck-and-build.result }}
           PACKAGE_CHECKS: ${{ needs.package-checks.result }}
           CHART_CHECKS: ${{ needs.chart-checks.result }}
           STORE_TESTS: ${{ needs.store-tests.result }}
         run: |
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
-          echo "detect-changes=$DETECT_CHANGES typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS store-tests=$STORE_TESTS"
+          echo "detect-changes=$DETECT_CHANGES migration-order=$MIGRATION_ORDER typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS store-tests=$STORE_TESTS"
           [ "$DETECT_CHANGES" = success ] || exit 1
+          [ "$MIGRATION_ORDER" = success ] || exit 1
           [ "$TYPECHECK_AND_BUILD" = success ] || exit 1
           ok "$PACKAGE_CHECKS" || exit 1
           ok "$CHART_CHECKS" || exit 1

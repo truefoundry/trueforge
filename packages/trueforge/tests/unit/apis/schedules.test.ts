@@ -54,6 +54,11 @@ async function setup() {
   const scheduleStore = new SqliteScheduleStore(db);
   await agentStore.createAgent({
     tenant_id: 'default',
+    created_by_subject: {
+      subject_id: 'alice',
+      subject_type: 'user',
+      subject_display_name: 'alice',
+    },
     name: 'reporter',
     manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
     external_id: null,
@@ -65,7 +70,7 @@ async function setup() {
     '/',
     createSchedulesRouter({
       scheduleStore,
-      agentStore,
+      resolveAgentStore: () => agentStore,
       sessions: {
         getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
       } as never,
@@ -74,7 +79,6 @@ async function setup() {
         eventSubscriptions: {} as never,
         modelProviderStore: {} as never,
         mcpServerStore: {} as never,
-        tokenStore: {} as never,
         skillStore: {} as never,
         agentStore,
         sandboxProviderStore: {} as never,
@@ -168,6 +172,11 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     // A second agent so both schedules can share the same name without colliding.
     await agentStore.createAgent({
       tenant_id: 'default',
+      created_by_subject: {
+        subject_id: 'alice',
+        subject_type: 'user',
+        subject_display_name: 'alice',
+      },
       name: 'reporter-two',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: null,
@@ -204,6 +213,11 @@ describe('schedule list agent_names filter', () => {
     const { app, asUser, agentStore, postJson } = await setup();
     await agentStore.createAgent({
       tenant_id: 'default',
+      created_by_subject: {
+        subject_id: 'alice',
+        subject_type: 'user',
+        subject_display_name: 'alice',
+      },
       name: 'reporter-two',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: null,
@@ -273,7 +287,11 @@ describe('create schedule run', () => {
       expect.objectContaining({
         schedule_id: scheduleId,
         status: 'triggered',
-        triggered_by: 'alice',
+        created_by_subject: {
+          subject_id: 'alice',
+          subject_type: 'user',
+          subject_display_name: 'alice',
+        },
         name: expect.stringMatching(/^manual-/),
       }),
     );
@@ -307,7 +325,11 @@ describe('create schedule run', () => {
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(201);
     const body = CreateScheduleRunResponseSchema.parse(await res.json());
-    expect(body.data.triggered_by).toBe('root');
+    expect(body.data.created_by_subject).toEqual({
+      subject_id: 'root',
+      subject_type: 'user',
+      subject_display_name: 'root',
+    });
     expect(mockedStartScheduleRun).toHaveBeenCalled();
   });
 

@@ -112,7 +112,11 @@ describe('createScheduleServer schedule runs', () => {
     scheduledFor: new Date('2024-06-01T12:00:00.000Z'),
     status: 'triggered' as const,
     triggeredAt: new Date('2024-06-01T12:00:01.000Z'),
-    triggeredBy: 'alice',
+    createdBySubject: {
+      subjectId: 'alice',
+      subjectType: 'user',
+      subjectDisplayName: 'alice',
+    },
     createdAt: new Date('2024-06-01T12:00:00.000Z'),
     updatedAt: new Date('2024-06-01T12:00:01.000Z'),
   };

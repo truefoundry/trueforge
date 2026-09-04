@@ -17,18 +17,18 @@ describe("McpServersClient", () => {
                     name: "name",
                 },
             ],
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
         server
-            .mockEndpoint()
+            .mockEndpoint({ once: false })
             .get("/api/v1/settings/mcp-servers")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.mcpServers.list();
-        expect(response).toEqual({
+        const expected = {
             data: [
                 {
                     authStatus: {
@@ -43,10 +43,40 @@ describe("McpServersClient", () => {
                     name: "name",
                 },
             ],
-        });
+            pagination: {
+                limit: 1,
+                nextPageToken: "next_page_token",
+                previousPageToken: "previous_page_token",
+            },
+        };
+        const page = await client.settings.mcpServers.list();
+
+        expect(expected.data).toEqual(page.data);
+        expect(page.hasNextPage()).toBe(true);
+        const nextPage = await page.getNextPage();
+        expect(expected.data).toEqual(nextPage.data);
     });
 
     test("list (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/settings/mcp-servers")
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.list();
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("list (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -65,7 +95,7 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
-    test("list (3)", async () => {
+    test("list (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 

@@ -14,7 +14,11 @@ describe("SchedulesClient", () => {
                 {
                     agent_name: "agent_name",
                     created_at: "2024-01-15T09:30:00Z",
-                    created_by: "created_by",
+                    created_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
                     id: "id",
                     manifest: { cron: "cron", task: "task" },
                     name: "name",
@@ -37,7 +41,11 @@ describe("SchedulesClient", () => {
                 {
                     agentName: "agent_name",
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
-                    createdBy: "created_by",
+                    createdBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
                     id: "id",
                     manifest: {
                         cron: "cron",
@@ -95,7 +103,11 @@ describe("SchedulesClient", () => {
             data: {
                 agent_name: "agent_name",
                 created_at: "2024-01-15T09:30:00Z",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 manifest: { cron: "cron", status: "active", task: "task", timezone: "timezone" },
                 name: "name",
@@ -124,7 +136,11 @@ describe("SchedulesClient", () => {
             data: {
                 agentName: "agent_name",
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     cron: "cron",
@@ -199,13 +215,17 @@ describe("SchedulesClient", () => {
         const rawResponseBody = {
             data: {
                 created_at: "2024-01-15T09:30:00Z",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 name: "name",
                 schedule_id: "schedule_id",
                 scheduled_for: "2024-01-15T09:30:00Z",
                 status: "scheduled",
                 triggered_at: "2024-01-15T09:30:00Z",
-                triggered_by: "triggered_by",
                 updated_at: "2024-01-15T09:30:00Z",
             },
         };
@@ -225,13 +245,17 @@ describe("SchedulesClient", () => {
         expect(response).toEqual({
             data: {
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 name: "name",
                 scheduleId: "schedule_id",
                 scheduledFor: new Date("2024-01-15T09:30:00.000Z"),
                 status: "scheduled",
                 triggeredAt: new Date("2024-01-15T09:30:00.000Z"),
-                triggeredBy: "triggered_by",
                 updatedAt: new Date("2024-01-15T09:30:00.000Z"),
             },
         });
@@ -355,7 +379,11 @@ describe("SchedulesClient", () => {
             data: {
                 agent_name: "agent_name",
                 created_at: "2024-01-15T09:30:00Z",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 manifest: { cron: "cron", status: "active", task: "task", timezone: "timezone" },
                 name: "name",
@@ -376,7 +404,11 @@ describe("SchedulesClient", () => {
             data: {
                 agentName: "agent_name",
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     cron: "cron",
@@ -436,7 +468,11 @@ describe("SchedulesClient", () => {
             data: {
                 agent_name: "agent_name",
                 created_at: "2024-01-15T09:30:00Z",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
                 manifest: { cron: "cron", status: "active", task: "task", timezone: "timezone" },
                 name: "name",
@@ -464,7 +500,11 @@ describe("SchedulesClient", () => {
             data: {
                 agentName: "agent_name",
                 createdAt: new Date("2024-01-15T09:30:00.000Z"),
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
                 manifest: {
                     cron: "cron",
@@ -646,13 +686,17 @@ describe("SchedulesClient", () => {
             data: [
                 {
                     created_at: "2024-01-15T09:30:00Z",
+                    created_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
                     id: "id",
                     name: "name",
                     schedule_id: "schedule_id",
                     scheduled_for: "2024-01-15T09:30:00Z",
                     status: "scheduled",
                     triggered_at: "2024-01-15T09:30:00Z",
-                    triggered_by: "triggered_by",
                     updated_at: "2024-01-15T09:30:00Z",
                 },
             ],
@@ -671,13 +715,17 @@ describe("SchedulesClient", () => {
             data: [
                 {
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                    createdBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
                     id: "id",
                     name: "name",
                     scheduleId: "schedule_id",
                     scheduledFor: new Date("2024-01-15T09:30:00.000Z"),
                     status: "scheduled",
                     triggeredAt: new Date("2024-01-15T09:30:00.000Z"),
-                    triggeredBy: "triggered_by",
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
             ],
