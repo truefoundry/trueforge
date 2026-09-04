@@ -534,11 +534,13 @@ describe('SidebarLayout', () => {
     expect(newAgent).not.toHaveAttribute('aria-current');
 
     fireEvent.click(newAgent);
-    expect(newAgent).toHaveAttribute('aria-current', 'page');
-    expect(newChat).not.toHaveAttribute('aria-current');
-    const config = screen.getByRole('dialog', { name: 'Agent Config' });
-    const clearChat = screen.getByRole('button', { name: 'Clear chat' });
-    const saveAgent = screen.getByRole('button', { name: 'Save Agent' });
+    const selectedNewAgent = await screen.findByRole('button', { name: 'Start new agent' });
+    const deselectedNewChat = screen.getByRole('button', { name: 'Start new chat' });
+    expect(selectedNewAgent).toHaveAttribute('aria-current', 'page');
+    expect(deselectedNewChat).not.toHaveAttribute('aria-current');
+    const config = await screen.findByRole('dialog', { name: 'Agent Config' });
+    const clearChat = await screen.findByRole('button', { name: 'Clear chat' });
+    const saveAgent = await screen.findByRole('button', { name: 'Save Agent' });
     expect(config).toHaveClass('border-r');
     expect(config.nextElementSibling).toContainElement(saveAgent);
     expect(clearChat.nextElementSibling).toBe(saveAgent);
@@ -554,8 +556,8 @@ describe('SidebarLayout', () => {
     fireEvent.click(settingsButton);
     expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(settingsButton).toHaveAttribute('aria-current', 'page');
-    expect(newChat).not.toHaveAttribute('aria-current');
-    expect(newAgent).not.toHaveAttribute('aria-current');
+    expect(deselectedNewChat).not.toHaveAttribute('aria-current');
+    expect(selectedNewAgent).not.toHaveAttribute('aria-current');
   });
 
   it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
