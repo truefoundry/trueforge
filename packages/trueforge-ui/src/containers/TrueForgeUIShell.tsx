@@ -8,6 +8,7 @@ import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBri
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
@@ -297,15 +298,18 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
       </ChatProviderFromShell>
     </ShellModeProvider>
   );
+  // Widget visibility provider is used to control the visibility of the widget with isolated state
+  const visibilityTree =
+    layout === 'widget' ? <WidgetVisibilityProvider>{shellTree}</WidgetVisibilityProvider> : shellTree;
 
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <CustomActionRenderersProvider renderers={customActionRenderers}>
         <ServerProvider server={server}>
           {resolvedRoutes != null ? (
-            <ResolvedRoutesProvider routes={resolvedRoutes}>{shellTree}</ResolvedRoutesProvider>
+            <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
           ) : (
-            shellTree
+            visibilityTree
           )}
         </ServerProvider>
       </CustomActionRenderersProvider>

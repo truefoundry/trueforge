@@ -151,7 +151,10 @@ describe('SaveAgentButton', () => {
 
   it('shows on an empty new chat when a model is selected', () => {
     renderButton();
-    expect(screen.getByRole('button', { name: 'Save Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Agent' })).toHaveClass(
+      'bg-primary-button-bg',
+      'text-primary-button-text',
+    );
   });
 
   it('is hidden when the draft has no model', () => {

@@ -59,6 +59,7 @@ import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
 import { StackChatPanel } from '@/layouts/StackChatPanel.js';
 import { WidgetLayout } from '@/layouts/WidgetLayout.js';
+import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -117,6 +118,29 @@ describe('TrueForgeUI', () => {
       }
     });
     expect(container.querySelector('.h-96')).toBeInTheDocument();
+  });
+
+  it('keeps the widget open across mutable runtime remounts', async () => {
+    render(
+      <TrueForgeUI
+        server={mockServer()}
+        agentConfig={{ mode: 'AgentComposer' }}
+        layout="widget"
+        className="h-96"
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Chat' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Agent' }));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+    });
   });
 
   it('mounts a custom layout component inside providers', async () => {
@@ -467,6 +491,15 @@ describe('SidebarLayout', () => {
     fireEvent.click(newAgent);
     expect(newAgent).toHaveAttribute('aria-current', 'page');
     expect(newChat).not.toHaveAttribute('aria-current');
+    const config = screen.getByRole('dialog', { name: 'Agent Config' });
+    const clearChat = screen.getByRole('button', { name: 'Clear chat' });
+    const saveAgent = screen.getByRole('button', { name: 'Save Agent' });
+    expect(config).toHaveClass('border-r');
+    expect(config.nextElementSibling).toContainElement(saveAgent);
+    expect(clearChat.nextElementSibling).toBe(saveAgent);
+    expect(config.querySelector('header')).toHaveClass('h-11');
+    expect(saveAgent.closest('header')).toHaveClass('h-11');
+    expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
 
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
@@ -699,11 +732,13 @@ describe('WidgetLayout a11y', () => {
   it('opens chat dialog, focuses it, and restores FAB focus on Escape', async () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <WidgetLayout />
-          </div>
-        </RuntimeHarness>
+        <WidgetVisibilityProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <WidgetLayout />
+            </div>
+          </RuntimeHarness>
+        </WidgetVisibilityProvider>
       </SlotsProvider>,
     );
 

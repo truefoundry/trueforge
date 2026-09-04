@@ -122,7 +122,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         </div>
       ) : (
         <>
-          <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
+          <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
             {showNewActions ? (
               <button
                 type="button"
@@ -146,10 +146,10 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
               </button>
             ) : null}
             <NamedAgentHeaderLabel />
+            {threadHeaderEnd}
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
             <SaveAgentButton />
-            {threadHeaderEnd}
           </header>
           <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>
         </>

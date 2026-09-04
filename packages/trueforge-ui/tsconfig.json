@@ -19,7 +19,8 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["node"]
+    "types": ["node"],
+    "customConditions": ["trueforge-dev"]
   },
   "include": ["src"]
 }
