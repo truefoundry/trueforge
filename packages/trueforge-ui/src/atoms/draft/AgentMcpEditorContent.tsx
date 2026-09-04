@@ -9,6 +9,7 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
+import { Spinner } from '../primitives/Spinner.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import {
@@ -130,6 +131,11 @@ export function AgentMcpEditorContent({
       ...spec,
       mcpServers: mcpMounts.filter(item => item.id !== mountId).map(item => item.value),
     });
+  };
+
+  const openMountConnector = (mount: (typeof mcpMounts)[number]) => {
+    const match = connectors.find(item => item.id === mount.id || item.name === mount.name);
+    onSelectConnector(match?.id ?? mount.id);
   };
 
   const toggleTool = (toolName: string) => {
@@ -274,7 +280,11 @@ export function AgentMcpEditorContent({
                 />
               </label>
               <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-                {toolsLoading ? <p className="text-text-secondary p-3 text-sm">Loading tools…</p> : null}
+                {toolsLoading ? (
+                  <div className="flex h-full min-h-24 items-center justify-center p-3" aria-label="Loading tools">
+                    <Spinner size={20} className="text-text-secondary" />
+                  </div>
+                ) : null}
                 {toolsError ? (
                   <div className="p-3">
                     <p className="text-failure-bg text-sm">{toolsError}</p>
@@ -287,29 +297,31 @@ export function AgentMcpEditorContent({
                     </button>
                   </div>
                 ) : null}
-                {filteredTools.map(tool => {
-                  const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
-                  return (
-                    <button
-                      key={tool.id}
-                      type="button"
-                      role="menuitemcheckbox"
-                      aria-checked={checked}
-                      aria-label={tool.name}
-                      disabled={!canAddActiveConnector && activeMount === undefined}
-                      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                      onClick={() => toggleTool(tool.name)}
-                    >
-                      <ToolCheckbox checked={checked} />
-                      <span className="min-w-0 flex-1">
-                        <span className="text-text-primary block truncate text-sm font-medium">{tool.name}</span>
-                        {tool.description ? (
-                          <span className="text-text-secondary line-clamp-1 text-xs">{tool.description}</span>
-                        ) : null}
-                      </span>
-                    </button>
-                  );
-                })}
+                {!toolsLoading
+                  ? filteredTools.map(tool => {
+                      const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
+                      return (
+                        <button
+                          key={tool.id}
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={checked}
+                          aria-label={tool.name}
+                          disabled={!canAddActiveConnector && activeMount === undefined}
+                          className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                          onClick={() => toggleTool(tool.name)}
+                        >
+                          <ToolCheckbox checked={checked} />
+                          <span className="min-w-0 flex-1">
+                            <span className="text-text-primary block truncate text-sm font-medium">{tool.name}</span>
+                            {tool.description ? (
+                              <span className="text-text-secondary line-clamp-1 text-xs">{tool.description}</span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })
+                  : null}
               </div>
               <label className="text-text-secondary flex shrink-0 cursor-pointer items-center justify-end gap-2 border-t border-border p-3 text-xs has-[:disabled]:cursor-not-allowed">
                 Preload tools
@@ -340,7 +352,10 @@ export function AgentMcpEditorContent({
                 const selected = enabledToolsFromMount(mount.value);
                 return (
                   <details key={mount.id} open className="group/mount">
-                    <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md [&::-webkit-details-marker]:hidden">
+                    <summary
+                      className="hover:bg-ghost-button-hover flex cursor-pointer list-none items-center gap-1 rounded-md [&::-webkit-details-marker]:hidden"
+                      onClick={() => openMountConnector(mount)}
+                    >
                       <Icon
                         name="chevron-down"
                         className="text-text-secondary size-3.5 shrink-0 -rotate-90 transition-transform group-open/mount:rotate-0"
@@ -376,19 +391,26 @@ export function AgentMcpEditorContent({
                       </span>
                     </summary>
                     {selected === 'all' ? (
-                      <p className="text-text-secondary flex items-center gap-1.5 px-2 py-1.5 pl-7 text-[11px] font-medium tracking-wide uppercase">
+                      <button
+                        type="button"
+                        className="text-text-secondary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 pl-7 text-left text-[11px] font-medium tracking-wide uppercase"
+                        onClick={() => openMountConnector(mount)}
+                      >
                         <Icon name="wrench" className="size-3 shrink-0" />
                         ALL TOOLS ENABLED
-                      </p>
+                      </button>
                     ) : selected.length ? (
                       selected.map(toolName => (
-                        <div
+                        <button
                           key={`${mount.id}:${toolName}`}
-                          className="text-text-primary flex items-center gap-1.5 px-2 py-1 pl-7 text-[11px]"
+                          type="button"
+                          aria-label={`Open ${mount.name} for ${toolName}`}
+                          className="text-text-primary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 pl-7 text-left text-[11px]"
+                          onClick={() => openMountConnector(mount)}
                         >
                           <Icon name="wrench" className="text-text-secondary size-3 shrink-0" />
                           <span className="min-w-0 truncate">{toolName}</span>
-                        </div>
+                        </button>
                       ))
                     ) : (
                       <p className="text-text-secondary px-2 py-1.5 pl-7 text-[11px]">No tools selected.</p>

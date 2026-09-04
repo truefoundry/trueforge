@@ -479,6 +479,42 @@ describe('AgentConfigEditors', () => {
     });
   });
 
+  it('opens the MCP for a selected-tools row click', async () => {
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [
+              { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+              { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
+            ],
+          }}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Slack for messages.list' }));
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
+    expect(screen.getByRole('button', { name: 'Slack' })).toHaveAttribute('aria-current', 'true');
+  });
+
   it('shows Selected Tools (All) when every mount enables all tools', () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },

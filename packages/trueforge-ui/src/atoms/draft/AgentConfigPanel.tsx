@@ -282,7 +282,7 @@ export function AgentConfigPanel({
         <section className="group border-b border-border px-4 py-4">
           <div className={cn('flex items-center justify-between gap-3', mcp.length ? 'mb-3' : null)}>
             <div className="flex min-w-0 items-center gap-2">
-              <Icon name="library-big" className="text-text-secondary size-4 shrink-0" />
+              <Icon name="mcp-server" className="text-text-secondary size-4 shrink-0" />
               <h3 className="text-text-primary text-sm font-semibold">MCP Servers</h3>
             </div>
             <button
