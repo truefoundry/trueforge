@@ -32,6 +32,10 @@ export function withEnabledTools(value: object, enabledTools: string[] | 'all'):
   };
 }
 
+export function preloadFromMount(value: object): boolean {
+  return Reflect.get(value, 'preload') === true;
+}
+
 export function withPreload(value: object, preload: boolean): object {
   return { ...value, preload };
 }
