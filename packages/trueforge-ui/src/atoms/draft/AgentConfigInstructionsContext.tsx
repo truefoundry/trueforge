@@ -16,10 +16,7 @@ const AgentConfigInstructionsContext = createContext<AgentConfigInstructionsCont
 export function AgentConfigInstructionsProvider({ children }: { children: ReactNode }) {
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
-  const commit = useCallback(
-    (instructions: string) => updateAgentSpec?.({ instructions }),
-    [updateAgentSpec],
-  );
+  const commit = useCallback((instructions: string) => updateAgentSpec?.({ instructions }), [updateAgentSpec]);
   const { draft, onChange, flush } = useDebouncedAgentInstructions({
     value: agentSpec?.instructions ?? '',
     onCommit: commit,

@@ -297,9 +297,7 @@ describe('SaveAgentButton', () => {
     expect(updateAgentSpec).toHaveBeenCalledWith({
       instructions: 'Instructions currently visible in the drawer.',
     });
-    expect(within(dialog).getByLabelText('Instructions')).toHaveValue(
-      'Instructions currently visible in the drawer.',
-    );
+    expect(within(dialog).getByLabelText('Instructions')).toHaveValue('Instructions currently visible in the drawer.');
   });
 
   it('labels an existing mutable binding as Update Agent and submits an update', async () => {

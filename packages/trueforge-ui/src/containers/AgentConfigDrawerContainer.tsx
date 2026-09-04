@@ -7,8 +7,8 @@ import {
 } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
+import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { shellIsCreateAgent, useShellMode } from '../server/ShellModeContext.js';

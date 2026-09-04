@@ -136,12 +136,7 @@ describe('TrueForgeUI', () => {
 
   it('keeps the widget open across mutable runtime remounts', async () => {
     render(
-      <TrueForgeUI
-        server={mockServer()}
-        agentConfig={{ mode: 'AgentComposer' }}
-        layout="widget"
-        className="h-96"
-      />,
+      <TrueForgeUI server={mockServer()} agentConfig={{ mode: 'AgentComposer' }} layout="widget" className="h-96" />,
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));

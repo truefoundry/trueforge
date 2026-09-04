@@ -14,8 +14,8 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec, McpToolSelection } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
-import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
 import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
+import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
 import { editableMountsFromSpec, withPreload } from './draft/agentConfigMounts.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -116,9 +116,7 @@ function SaveAgentButtonContent({
     if (flushedAgentSpec === null) return;
     const instructionsDraft = instructionsOverride ?? configInstructions?.draft;
     const latestAgentSpec =
-      instructionsDraft === undefined
-        ? flushedAgentSpec
-        : { ...flushedAgentSpec, instructions: instructionsDraft };
+      instructionsDraft === undefined ? flushedAgentSpec : { ...flushedAgentSpec, instructions: instructionsDraft };
     const currentName = shell?.mode.status === 'active' ? (shell.mode.agentName ?? shell.mode.agentId ?? '') : '';
     setIntent(currentName ? 'update' : 'create');
     setName(currentName);
