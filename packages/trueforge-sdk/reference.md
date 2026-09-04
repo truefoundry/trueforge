@@ -277,7 +277,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-Delete a configured agent by immutable id. Idempotent if already gone.
+Delete a configured agent by immutable id.
 </dd>
 </dl>
 </dd>

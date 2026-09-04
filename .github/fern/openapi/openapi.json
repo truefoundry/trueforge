@@ -5282,7 +5282,7 @@
     },
     "/api/v1/agents/{agent_id}": {
       "delete": {
-        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "description": "Delete a configured agent by immutable id.",
         "parameters": [
           {
             "description": "Immutable agent identifier.",
