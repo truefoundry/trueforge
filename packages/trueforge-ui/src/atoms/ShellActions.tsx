@@ -18,7 +18,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
   const themeLabel = isDark ? 'Light' : 'Dark';
 
   const labeledButtonClass =
-    'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center';
+    'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-3 text-[10px] leading-tight !justify-center';
 
   return (
     <div

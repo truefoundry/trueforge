@@ -216,7 +216,7 @@ describe('TrueForgeUI', () => {
     fireEvent.click(within(modelDialog).getByRole('button', { name: 'Close' }));
 
     fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
-    const mcpDialog = document.querySelector('dialog[aria-label="Edit Connectors"]');
+    const mcpDialog = document.querySelector('dialog[aria-label="Select MCP Tools"]');
     if (!(mcpDialog instanceof HTMLDialogElement)) throw new Error('expected stacked MCP dialog');
     expect(await within(mcpDialog).findByText('GitHub')).toBeInTheDocument();
     expect(getModels).toHaveBeenCalled();
