@@ -21,7 +21,7 @@ maintainers:
 # externalPostgres / externalRedis.
 dependencies:
   - name: postgresql
-    version: "16.7.27"
+    version: 18.8.17
     repository: oci://registry-1.docker.io/bitnamicharts
     condition: postgresql.enabled
   - name: redis
