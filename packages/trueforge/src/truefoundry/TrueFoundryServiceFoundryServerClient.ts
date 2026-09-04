@@ -63,9 +63,18 @@ const PutRemoteAgentResponseSchema = z.object({
 });
 
 const AgentPermissionSchema = z.enum(['READ_AGENT', 'MANAGE_AGENT']);
-const AgentPermissionsSchema = z.record(z.string(), z.array(AgentPermissionSchema));
-
 export type AgentPermission = z.infer<typeof AgentPermissionSchema>;
+
+/** ServiceFoundry may return grants we do not use; drop them instead of failing. */
+const AgentPermissionsSchema = z.record(
+  z.string(),
+  z.array(z.string()).transform(permissions =>
+    permissions.flatMap(permission => {
+      const parsed = AgentPermissionSchema.safeParse(permission);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  ),
+);
 export type AgentPermissions = z.infer<typeof AgentPermissionsSchema>;
 
 export interface PutRemoteAgentInput {
