@@ -73,7 +73,7 @@ describe('capabilities routers', () => {
     const db = createSqliteDb(':memory:');
     return withAuth(
       createCapabilitiesRouter({
-        sandboxProviderStore: new SqliteSandboxProviderStore(db),
+        resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
         withTransaction: callback => db.transaction().execute(callback),
         logger: silentLogger,
         resolveRequestContext,
@@ -246,7 +246,7 @@ describe('capabilities routers', () => {
       await migrateSqliteToLatest(db);
       const router = withAuth(
         createCapabilitiesRouter({
-          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           withTransaction: callback => db.transaction().execute(callback),
           logger: silentLogger,
           resolveRequestContext,

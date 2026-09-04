@@ -83,7 +83,7 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });

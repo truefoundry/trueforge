@@ -49,7 +49,7 @@ async function buildApp() {
       skillStore: new SqliteSkillStore(db),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       logger: createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),

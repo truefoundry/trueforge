@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -21,7 +22,7 @@ function skillDisabledReason(status: SandboxBuildStatus | undefined): string {
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -34,7 +35,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     let status: SandboxBuildStatus | undefined;
     try {
       const refreshed = await checkSnapshotStatus({
-        store: deps.sandboxProviderStore,
+        store: deps.resolveSandboxProviderStore(c),
         tenant_id: requestContext.tenant_id,
         logger: deps.logger,
       });

@@ -417,6 +417,22 @@ export interface SharedServerConfiguration {
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
   /**
+   * When TrueFoundry mode is on, enable the shared Daytona sandbox for all tenants
+   * (settings-server snapshot; no per-tenant PUT). Env: `SANDBOX_ENABLED`. Default false.
+   */
+  SANDBOX_ENABLED: boolean;
+  /**
+   * Shared Daytona API key used when `SANDBOX_ENABLED` is true in TrueFoundry mode.
+   * Env: `SANDBOX_API_KEY`.
+   */
+  SANDBOX_API_KEY: string | undefined;
+  /**
+   * Trusted internal URL that returns Daytona snapshot name and lifecycle settings
+   * (`snapshotName`, intervals, `timeoutMs`). Used when `SANDBOX_ENABLED` is true in
+   * TrueFoundry mode. Env: `SANDBOX_SETTINGS_SERVER_URL`.
+   */
+  SANDBOX_SETTINGS_SERVER_URL: string | undefined;
+  /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
   MAX_REQUEST_BODY_BYTES: number;
@@ -631,6 +647,13 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
   }),
+  SANDBOX_ENABLED: parseBoolean({
+    envKey: 'SANDBOX_ENABLED',
+    raw: getEnv('SANDBOX_ENABLED'),
+    defaultValue: false,
+  }),
+  SANDBOX_API_KEY: getEnv('SANDBOX_API_KEY', { required: false }),
+  SANDBOX_SETTINGS_SERVER_URL: getEnv('SANDBOX_SETTINGS_SERVER_URL', { required: false }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
@@ -774,12 +797,52 @@ export function getTrueForgeMode(config: ServerConfiguration = configuration): T
   return TrueForgeMode.Standalone;
 }
 
+/**
+ * Shared sandbox provider selected by env in TrueFoundry mode
+ * Daytona today; add a `tfy` branch when `TFY_SANDBOX_SERVER_URL` ships.
+ */
+export interface TrueFoundrySandboxProviderConfig {
+  type: 'daytona';
+  apiKey: string;
+  settingsServerUrl: string;
+}
+
+/**
+ * Returns the configured shared sandbox provider when `SANDBOX_ENABLED`, or undefined.
+ * Prefer Daytona when `SANDBOX_API_KEY` + `SANDBOX_SETTINGS_SERVER_URL` are set.
+ */
+export function resolveTrueFoundrySandboxProviderConfig(
+  config: ServerConfiguration = configuration,
+): TrueFoundrySandboxProviderConfig | undefined {
+  if (!config.SANDBOX_ENABLED) {
+    return undefined;
+  }
+  if (config.SANDBOX_API_KEY !== undefined && config.SANDBOX_SETTINGS_SERVER_URL !== undefined) {
+    return {
+      type: 'daytona',
+      apiKey: config.SANDBOX_API_KEY,
+      settingsServerUrl: config.SANDBOX_SETTINGS_SERVER_URL,
+    };
+  }
+  return undefined;
+}
+
 // TrueFoundry mode authenticates each caller with their own gateway token, so browser SSO must be
 // off — the two auth models are mutually exclusive.
 if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) {
   throw new Error(
     'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL (TrueFoundry mode) and OIDC (SSO) cannot both be enabled at once.',
   );
+}
+
+// Shared sandbox in TrueFoundry mode: SANDBOX_ENABLED requires a provider (Daytona today).
+if (isTrueFoundryModeEnabled(configuration) && configuration.SANDBOX_ENABLED) {
+  if (resolveTrueFoundrySandboxProviderConfig(configuration) === undefined) {
+    throw new Error(
+      'SANDBOX_ENABLED is true in TrueFoundry mode but no sandbox provider is configured. ' +
+        'Set SANDBOX_API_KEY + SANDBOX_SETTINGS_SERVER_URL, or set SANDBOX_ENABLED=false.',
+    );
+  }
 }
 
 /**

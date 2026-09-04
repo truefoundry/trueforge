@@ -109,23 +109,24 @@ export interface TurnsRouterDeps {
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  sandboxProviderStore: ISandboxProviderStore;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
 }
 
 /**
  * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
- * carries already-resolved `modelProviderStore` / `mcpServerStore` / `agentStore` (the scheduler has no request
- * context to resolve them).
+ * carries already-resolved `modelProviderStore` / `mcpServerStore` / `agentStore` / `sandboxProviderStore`
+ * (the scheduler has no request context to resolve them).
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'sandboxProviderStore' | 'logger'
+  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'logger'
 > & {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   agentStore: IAgentStore;
+  sandboxProviderStore: ISandboxProviderStore;
 };
 
 /**
@@ -622,7 +623,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
       const provider = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.sandboxProviderStore,
+        store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
       });
@@ -723,6 +724,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         agentStore: deps.resolveAgentStore(c),
+        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },
     };
 

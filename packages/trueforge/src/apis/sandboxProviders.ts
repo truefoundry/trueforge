@@ -1,5 +1,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { withTimeout } from '@truefoundry/trueforge-core/core';
+import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
@@ -19,7 +20,7 @@ import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretVal
 const BUILD_REQUEST_TIMEOUT_MS = 3_000;
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -36,13 +37,14 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
   const getHandler: RouteHandler<typeof getSandboxProviderRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const record = await deps.sandboxProviderStore.getSandboxProvider(requestContext.tenant_id);
+    const store = deps.resolveSandboxProviderStore(c);
+    const record = await store.getSandboxProvider(requestContext.tenant_id);
     if (record === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
     const status = await checkSnapshotStatus({
-      store: deps.sandboxProviderStore,
+      store,
       tenant_id: requestContext.tenant_id,
       logger: deps.logger,
     });
@@ -61,6 +63,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
     const body: UpdateSandboxProviderRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
+    const store = deps.resolveSandboxProviderStore(c);
     const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
@@ -74,10 +77,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     try {
       // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
       const { manifest, status } = await deps.withTransaction(async transaction => {
-        const locked = await deps.sandboxProviderStore.getSandboxProviderForUpdate(
-          requestContext.tenant_id,
-          transaction,
-        );
+        const locked = await store.getSandboxProviderForUpdate(requestContext.tenant_id, transaction);
         const resolved = resolveManifest(locked);
         // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
         // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
@@ -90,7 +90,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
-        await deps.sandboxProviderStore.upsertSandboxProvider(
+        await store.upsertSandboxProvider(
           { tenant_id: requestContext.tenant_id, manifest: resolved, ...built },
           transaction,
         );
