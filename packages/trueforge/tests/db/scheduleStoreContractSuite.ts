@@ -48,6 +48,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     const { schedule, pendingRun } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'daily',
       manifest: m,
@@ -71,6 +72,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule, pendingRun } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'paused-at-create',
       manifest: manifest({ status: 'paused' }),
@@ -87,6 +89,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'toggle',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
@@ -125,6 +128,7 @@ export function runScheduleStoreContractSuite(deps: {
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
     const { schedule, pendingRun: first } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'reclock',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC' }),
@@ -157,6 +161,7 @@ export function runScheduleStoreContractSuite(deps: {
     const runFrom = new Date('2026-08-27T08:00:00.000Z');
     const { schedule, pendingRun: first } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'label-only',
       manifest: manifest({ cron: '0 9 * * *', timezone: 'UTC', task: 'old task' }),
@@ -186,6 +191,7 @@ export function runScheduleStoreContractSuite(deps: {
     const create = (name: string) =>
       store.createScheduleAndRun({
         tenant_id: TENANT,
+        agent_id: agent.id,
         agent_name: agent.name,
         name,
         manifest: manifest({ status: 'paused' }),
@@ -200,18 +206,19 @@ export function runScheduleStoreContractSuite(deps: {
   it('allows the same schedule name under different agents', async () => {
     const store = deps.getScheduleStore();
     const [first, second] = [await seedAgent(), await seedAgent()];
-    const create = (agentName: string) =>
+    const create = (agent: { id: string; name: string }) =>
       store.createScheduleAndRun({
         tenant_id: TENANT,
-        agent_name: agentName,
+        agent_id: agent.id,
+        agent_name: agent.name,
         name: 'daily-report',
         manifest: manifest({ status: 'paused' }),
         created_by_subject: USER_SUBJECT,
         runFrom: new Date(),
       });
 
-    await create(first.name);
-    await expect(create(second.name)).resolves.toBeDefined();
+    await create(first);
+    await expect(create(second)).resolves.toBeDefined();
   });
 
   it('rejects renaming a schedule onto a name already taken for the agent', async () => {
@@ -219,6 +226,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'taken',
       manifest: manifest({ status: 'paused' }),
@@ -227,6 +235,7 @@ export function runScheduleStoreContractSuite(deps: {
     });
     const { schedule: other } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'free',
       manifest: manifest({ status: 'paused' }),
@@ -250,6 +259,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'paused-edit',
       manifest: manifest({ status: 'paused', cron: '0 9 * * *' }),
@@ -277,6 +287,7 @@ export function runScheduleStoreContractSuite(deps: {
     async function pausedSchedule(name: string) {
       const { schedule } = await store.createScheduleAndRun({
         tenant_id: TENANT,
+        agent_id: agent.id,
         agent_name: agent.name,
         name,
         manifest: manifest({ status: 'paused' }),
@@ -338,6 +349,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'to-delete',
       manifest: manifest({ status: 'paused' }),
@@ -381,6 +393,7 @@ export function runScheduleStoreContractSuite(deps: {
     await expect(
       store.createScheduleAndRun({
         tenant_id: TENANT,
+        agent_id: 'no-such-id',
         agent_name: 'no-such-agent',
         name: 'orphan',
         manifest: manifest(),
@@ -395,6 +408,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule, pendingRun } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'bound-to-agent',
       manifest: manifest({ cron: '0 * * * *', timezone: 'UTC' }),
@@ -418,6 +432,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'name-unique',
       manifest: manifest({ status: 'paused' }),
@@ -453,6 +468,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'one-pending',
       manifest: manifest({ status: 'paused' }),
@@ -490,6 +506,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     const older = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agentA.id,
       agent_name: agentA.name,
       name: 'list-older',
       manifest: manifest({ status: 'paused' }),
@@ -500,6 +517,7 @@ export function runScheduleStoreContractSuite(deps: {
     await new Promise(resolve => setTimeout(resolve, 5));
     const newer = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agentA.id,
       agent_name: agentA.name,
       name: 'list-newer',
       manifest: manifest({ status: 'paused' }),
@@ -509,6 +527,7 @@ export function runScheduleStoreContractSuite(deps: {
     await new Promise(resolve => setTimeout(resolve, 5));
     const otherAgent = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agentB.id,
       agent_name: agentB.name,
       name: 'list-other-agent',
       manifest: manifest({ status: 'paused' }),
@@ -588,6 +607,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     const { schedule: scheduleA } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agentA.id,
       agent_name: agentA.name,
       name: 'runs-a',
       manifest: manifest({ status: 'paused' }),
@@ -613,6 +633,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     const { schedule: scheduleB } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agentB.id,
       agent_name: agentB.name,
       name: 'runs-b',
       manifest: manifest({ status: 'paused' }),
@@ -641,6 +662,7 @@ export function runScheduleStoreContractSuite(deps: {
     const agent = await seedAgent();
     const { schedule } = await store.createScheduleAndRun({
       tenant_id: TENANT,
+      agent_id: agent.id,
       agent_name: agent.name,
       name: 'run-status',
       manifest: manifest({ status: 'paused' }),

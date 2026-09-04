@@ -37,6 +37,7 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
   return {
     id: row.id,
     tenant_id: row.tenant_id,
+    agent_id: row.agent_id,
     agent_name: row.agent_name,
     name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
@@ -140,6 +141,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
         .values({
           id: newId(),
           tenant_id: input.tenant_id,
+          agent_id: input.agent_id,
           agent_name: input.agent_name,
           name: input.name,
           manifest: json(input.manifest),
