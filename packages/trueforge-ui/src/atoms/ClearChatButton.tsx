@@ -5,7 +5,8 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 
-// Resets the current chat / draft (Try Agent, New Chat, New Agent, Edit). Hidden while idle.
+// Resets the current chat / draft (Try Agent, New Chat, New Agent, Edit).
+// Hidden while idle and on a fresh chat.
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
   const visible = useChatChromeActionsVisible();

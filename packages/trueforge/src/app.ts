@@ -40,6 +40,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
+import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
@@ -212,6 +213,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
 
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
+  }
+  if (!configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED) {
+    app.use('*', createClientCertificateMiddleware(deps.logger));
   }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 

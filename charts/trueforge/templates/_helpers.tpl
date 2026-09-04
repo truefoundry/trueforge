@@ -231,5 +231,46 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env . -}}
 {{- end -}}
 
+{{- if .Values.mtls.enabled -}}
+{{- $_ := required "mtls.secretName is required when mtls.enabled is true" .Values.mtls.secretName -}}
+{{- $env = append $env (dict "name" "TRUEFORGE_MTLS_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "TRUEFORGE_MTLS_CERTS_DIR" "value" .Values.mtls.certsDir) -}}
+{{- end -}}
+
 {{- toYaml $env -}}
+{{- end }}
+
+{{/*
+httpGet probe with scheme HTTPS when mtls.enabled (kubelet speaks TLS without a client cert).
+Expects dict: probe (values probe object), root (chart root context).
+*/}}
+{{- define "trueforge.httpProbe" -}}
+{{- $probe := deepCopy (index . "probe") -}}
+{{- $root := index . "root" -}}
+{{- if and $root.Values.mtls.enabled $probe.httpGet -}}
+{{- $_ := set $probe.httpGet "scheme" "HTTPS" -}}
+{{- end -}}
+{{- toYaml $probe -}}
+{{- end }}
+
+{{/*
+mTLS secret volume when mtls.enabled.
+*/}}
+{{- define "trueforge.mtlsVolume" -}}
+{{- if .Values.mtls.enabled -}}
+- name: mtls
+  secret:
+    secretName: {{ .Values.mtls.secretName | quote }}
+{{- end -}}
+{{- end }}
+
+{{/*
+mTLS secret volumeMount when mtls.enabled.
+*/}}
+{{- define "trueforge.mtlsVolumeMount" -}}
+{{- if .Values.mtls.enabled -}}
+- name: mtls
+  mountPath: {{ .Values.mtls.certsDir | quote }}
+  readOnly: true
+{{- end -}}
 {{- end }}

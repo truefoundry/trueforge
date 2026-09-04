@@ -51,11 +51,11 @@ export function AgentConfigEditors({
   const mounts = useMemo(() => editableMountsFromSpec(spec.mcpServers), [spec.mcpServers]);
   const activeConnectorAvailable =
     activeConnectorId !== null && connectors.some(connector => connector.id === activeConnectorId);
+  const firstMountedConnectorId = mounts
+    .map(mount => connectors.find(connector => connector.id === mount.id || connector.name === mount.name)?.id)
+    .find((id): id is string => id !== undefined);
   const selectedConnectorId =
-    (activeConnectorAvailable ? activeConnectorId : null) ??
-    connectors.find(connector => mounts.some(mount => mount.id === connector.id || mount.name === connector.name))
-      ?.id ??
-    null;
+    (activeConnectorAvailable ? activeConnectorId : null) ?? firstMountedConnectorId ?? connectors[0]?.id ?? null;
 
   useEffect(() => {
     if (editor !== 'mcp' || selectedConnectorId === null || loadMcpTools === undefined) return;

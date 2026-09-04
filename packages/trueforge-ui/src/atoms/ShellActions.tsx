@@ -20,13 +20,14 @@ export function ShellActions({ className, labeled = false }: { className?: strin
   const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
 
   const labeledButtonClass =
-    'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center';
+    'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center';
+  const hoverClass = 'hover:bg-secondary-button-hover hover:text-ghost-button-text';
 
   return (
     <div
       className={cn(
         'flex shrink-0 items-center gap-1 text-text-primary',
-        labeled && 'w-full flex-col gap-2',
+        labeled && 'w-full flex-col gap-1',
         className,
       )}
     >
@@ -37,7 +38,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
         className={auiButtonClass({
           variant: 'ghost',
           size: labeled ? undefined : 'icon',
-          className: labeled ? labeledButtonClass : undefined,
+          className: cn(hoverClass, labeled && labeledButtonClass),
         })}
         onClick={() => setTheme(isDark ? 'light' : 'dark')}
       >
@@ -55,7 +56,8 @@ export function ShellActions({ className, labeled = false }: { className?: strin
             variant: 'ghost',
             size: labeled ? undefined : 'icon',
             className: cn(
-              labeled ? labeledButtonClass : undefined,
+              hoverClass,
+              labeled && labeledButtonClass,
               shell.settingsOpen &&
                 'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
             ),
