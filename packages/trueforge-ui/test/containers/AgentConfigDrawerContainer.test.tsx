@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
+import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { AgentConfigDrawerContainer } from '@/containers/AgentConfigDrawerContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
@@ -57,7 +58,9 @@ describe('AgentConfigDrawerContainer', () => {
       <SlotsProvider>
         <ServerProvider server={createMockAgentUIServer()}>
           <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
-            <TestView />
+            <AgentConfigInstructionsProvider>
+              <TestView />
+            </AgentConfigInstructionsProvider>
           </ShellModeProvider>
         </ServerProvider>
       </SlotsProvider>,
@@ -80,7 +83,9 @@ describe('AgentConfigDrawerContainer', () => {
       <SlotsProvider>
         <ServerProvider server={createMockAgentUIServer()}>
           <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
-            <TestView compact={false} />
+            <AgentConfigInstructionsProvider>
+              <TestView compact={false} />
+            </AgentConfigInstructionsProvider>
           </ShellModeProvider>
         </ServerProvider>
       </SlotsProvider>,

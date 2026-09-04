@@ -14,6 +14,7 @@ import {
 import { useAui } from '../assistant-ui.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
+import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -161,6 +162,7 @@ function SidebarRail({
 
 export function SidebarLayout({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
+  const isMobile = useIsMobile();
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
@@ -178,7 +180,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
-  const showAgentConfig = shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen;
+  const showAgentConfig =
+    shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const hasChatHeaderContent = useChatHeaderContentVisible();
 
   useEffect(() => {
@@ -215,7 +218,7 @@ export function SidebarLayout({ className }: { className?: string }) {
           aria-label="Agent Config"
           className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:w-88 md:max-w-none md:shrink-0 md:shadow-none"
         >
-          <AgentConfigDrawerContainer />
+          <AgentConfigDrawerContainer showClose={isMobile} />
         </aside>
       ) : null}
 

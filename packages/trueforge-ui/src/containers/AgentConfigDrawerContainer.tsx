@@ -7,9 +7,9 @@ import {
 } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
 import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
-import { useDebouncedAgentInstructions } from '../hooks/useDebouncedAgentInstructions.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { shellIsCreateAgent, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec, McpToolSelection } from '../server/types.js';
@@ -27,18 +27,11 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   const AgentConfigEditors = useSlot('AgentConfigEditors');
   const [editor, setEditor] = useState<AgentConfigEditor | null>(null);
   const isBuilder = shellIsCreateAgent(shell.mode);
-  const commitInstructions = useCallback(
-    (instructions: string) => updateAgentSpec?.({ instructions }),
-    [updateAgentSpec],
-  );
   const {
     draft: instructionDraft,
     onChange: onInstructionChange,
     flush: flushInstructions,
-  } = useDebouncedAgentInstructions({
-    value: agentSpec?.instructions ?? '',
-    onCommit: commitInstructions,
-  });
+  } = useAgentConfigInstructions();
   const closeDrawer = useCallback(() => {
     flushInstructions();
     void flushAgentSpec();

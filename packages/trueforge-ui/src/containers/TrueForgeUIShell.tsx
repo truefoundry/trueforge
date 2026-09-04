@@ -3,6 +3,7 @@
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
 
+import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -228,9 +229,11 @@ function ChatProviderFromShell({
       initialSessionId={pendingSessionId ?? hostInitialSessionId}
     >
       <DraftCatalogProvider>
-        <DraftSpecPreferenceBridge />
-        {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
-        {children}
+        <AgentConfigInstructionsProvider>
+          <DraftSpecPreferenceBridge />
+          {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
+          {children}
+        </AgentConfigInstructionsProvider>
       </DraftCatalogProvider>
     </TrueFoundryChatProvider>
   );

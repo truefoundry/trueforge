@@ -14,6 +14,7 @@ import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec, McpToolSelection } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
+import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
 import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
 import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
 import { editableMountsFromSpec, withPreload } from './draft/agentConfigMounts.js';
@@ -76,6 +77,7 @@ function SaveAgentButtonContent({
   const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
+  const configInstructions = useOptionalAgentConfigInstructions();
   const catalog = useDraftCatalog();
   const serverCapabilities = useServerCapabilities();
   const AgentConfigEditors = useSlot('AgentConfigEditors');
@@ -108,13 +110,15 @@ function SaveAgentButtonContent({
     if (agentSpecRef.current === null || builder === null) return;
     setError(null);
     catalog.ensureLoaded();
+    configInstructions?.flush();
     await flushAgentSpec();
     const flushedAgentSpec = agentSpecRef.current;
     if (flushedAgentSpec === null) return;
+    const instructionsDraft = instructionsOverride ?? configInstructions?.draft;
     const latestAgentSpec =
-      instructionsOverride === undefined
+      instructionsDraft === undefined
         ? flushedAgentSpec
-        : { ...flushedAgentSpec, instructions: instructionsOverride };
+        : { ...flushedAgentSpec, instructions: instructionsDraft };
     const currentName = shell?.mode.status === 'active' ? (shell.mode.agentName ?? shell.mode.agentId ?? '') : '';
     setIntent(currentName ? 'update' : 'create');
     setName(currentName);

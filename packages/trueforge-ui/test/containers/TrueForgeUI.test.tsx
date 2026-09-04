@@ -54,6 +54,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   ),
 }));
 
+import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { TrueForgeUI, type ChatLayout } from '@/containers/TrueForgeUI.js';
 import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
@@ -81,6 +82,19 @@ beforeAll(() => {
     this.dispatchEvent(new Event('close'));
   };
 });
+
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
 
 describe('TrueForgeUI', () => {
   const server = mockServer();
@@ -376,6 +390,40 @@ describe('StackChatPanel', () => {
 });
 
 describe('SidebarLayout', () => {
+  it('lets mobile builders close and reopen Agent Config', () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+
+    try {
+      render(
+        <SlotsProvider>
+          <ServerProvider server={mockServer(stubCatalog)}>
+            <ShellModeProvider>
+              <AgentConfigInstructionsProvider>
+                <RuntimeHarness messages={[]}>
+                  <div className="h-96">
+                    <SidebarLayout />
+                  </div>
+                </RuntimeHarness>
+              </AgentConfigInstructionsProvider>
+            </ShellModeProvider>
+          </ServerProvider>
+        </SlotsProvider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close agent config' }));
+      expect(screen.queryByRole('dialog', { name: 'Agent Config' })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Agent config' }));
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
+  });
+
   it('shows the app brand in the mobile navigation drawer', () => {
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: { src: '/acme.svg' } } }}>
@@ -473,11 +521,13 @@ describe('SidebarLayout', () => {
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
           <ShellModeProvider>
-            <RuntimeHarness messages={[]}>
-              <div className="h-96">
-                <SidebarLayout />
-              </div>
-            </RuntimeHarness>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
           </ShellModeProvider>
         </ServerProvider>
       </SlotsProvider>,
