@@ -81,15 +81,13 @@ function stripFence(raw: string): string {
 /**
  * Walk newest-first events, keep user turns and root-agent replies, then
  * reverse so the prompt reads oldest to newest within the character budget.
+ * User text is reserved first so a long latest assistant reply cannot evict
+ * earlier preferences (or trip the short-chat gate as if they were gone).
  */
 export function extractChatTranscript(events: readonly SessionEventItem[]): ChatInstructionLine[] {
   const newestFirst: ChatInstructionLine[] = [];
-  let used = 0;
 
   for (const item of events) {
-    if (used >= MAX_TRANSCRIPT_CHARS) {
-      break;
-    }
     const event = item.event;
     if (event.type === EventType.TURN_CREATED) {
       const input = event.input ?? [];
@@ -104,12 +102,7 @@ export function extractChatTranscript(events: readonly SessionEventItem[]): Chat
         if (text.length === 0) {
           continue;
         }
-        const clipped = text.slice(0, MAX_TRANSCRIPT_CHARS - used);
-        newestFirst.push({ turn_id: item.turn_id, role: 'user', text: clipped });
-        used += clipped.length;
-        if (used >= MAX_TRANSCRIPT_CHARS) {
-          break;
-        }
+        newestFirst.push({ turn_id: item.turn_id, role: 'user', text });
       }
       continue;
     }
@@ -120,12 +113,47 @@ export function extractChatTranscript(events: readonly SessionEventItem[]): Chat
     if (text.length === 0) {
       continue;
     }
-    const clipped = text.slice(0, MAX_TRANSCRIPT_CHARS - used);
-    newestFirst.push({ turn_id: item.turn_id, role: 'assistant', text: clipped });
-    used += clipped.length;
+    newestFirst.push({ turn_id: item.turn_id, role: 'assistant', text });
   }
 
-  return newestFirst.reverse();
+  return clipTranscriptToBudget(newestFirst).reverse();
+}
+
+function clipTranscriptToBudget(newestFirst: readonly ChatInstructionLine[]): ChatInstructionLine[] {
+  let used = 0;
+  const clipped: Array<string | undefined> = Array.from({ length: newestFirst.length });
+
+  const take = (index: number): void => {
+    if (used >= MAX_TRANSCRIPT_CHARS) {
+      return;
+    }
+    const text = newestFirst[index]?.text;
+    if (text === undefined) {
+      return;
+    }
+    const kept = text.slice(0, MAX_TRANSCRIPT_CHARS - used);
+    if (kept.length === 0) {
+      return;
+    }
+    clipped[index] = kept;
+    used += kept.length;
+  };
+
+  for (let i = 0; i < newestFirst.length; i += 1) {
+    if (newestFirst[i]?.role === 'user') {
+      take(i);
+    }
+  }
+  for (let i = 0; i < newestFirst.length; i += 1) {
+    if (newestFirst[i]?.role === 'assistant') {
+      take(i);
+    }
+  }
+
+  return newestFirst.flatMap((line, index) => {
+    const text = clipped[index];
+    return text === undefined ? [] : [{ ...line, text }];
+  });
 }
 
 export function sourcesFromTranscript(lines: readonly ChatInstructionLine[]): ChatInstructionSource[] {

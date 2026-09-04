@@ -120,6 +120,21 @@ describe('chatInstructionTranscript', () => {
     expect(() => assertTranscriptHasInstructionSignal(lines)).toThrow(InsufficientChatSignalError);
   });
 
+  it('keeps earlier user preferences when a long latest assistant reply exceeds the budget', () => {
+    const userText =
+      'You are a release notes writer. Always group changes by feature, bugfix, and breaking. Never mention Jira keys.';
+    const lines = extractChatTranscript([
+      assistantMessage({ turnId: 't2', text: 'x'.repeat(20_000), eventId: 'e4' }),
+      userTurn({ turnId: 't2', text: 'Thanks.', eventId: 'e3' }),
+      assistantMessage({ turnId: 't1', text: 'Got it.', eventId: 'e2' }),
+      userTurn({ turnId: 't1', text: userText, eventId: 'e1' }),
+    ]);
+    const userChars = lines.filter(line => line.role === 'user').reduce((sum, line) => sum + line.text.length, 0);
+    expect(lines.some(line => line.text.includes('Never mention Jira keys'))).toBe(true);
+    expect(userChars).toBeGreaterThanOrEqual(80);
+    expect(() => assertTranscriptHasInstructionSignal(lines)).not.toThrow();
+  });
+
   it('does not let a long assistant reply pad a short user greeting past the gate', () => {
     const canned =
       'I am a helpful assistant. I can write code, summarize documents, and answer questions about your project in as much detail as you would like.';

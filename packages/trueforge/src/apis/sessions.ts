@@ -556,17 +556,26 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
 
   const generateSessionInstructionsHandler: RouteHandler<typeof generateSessionInstructionsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
-    const session = await deps.sessions.get({ tenant_id: TENANT_ID, session_id: sessionId });
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (!checkSessionAccess({ userRef: deps.resolveUserContext(c).userRef, createdBy: session.record.created_by })) {
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
 
     const spec = await resolveSessionAgentSpec({
       agent: session.record.agent,
-      getAgentById: id => deps.agentStore.getAgent({ tenant_id: TENANT_ID, id }),
+      getAgentById: id => deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id }),
     });
     if (spec === undefined) {
       return c.json({ error: { message: `Agent not found for session: ${sessionId}` } }, 422);
@@ -595,9 +604,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
 
     const { providerConfig } = await getModelDetails({
-      tenant_id: TENANT_ID,
+      tenant_id: requestContext.tenant_id,
       name: spec.model.name,
-      store: deps.modelProviderStore,
+      store: deps.resolveModelProviderStore(c),
     });
 
     try {
