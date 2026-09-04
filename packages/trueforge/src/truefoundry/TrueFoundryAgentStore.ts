@@ -9,6 +9,7 @@ import {
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
+import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStore';
 import type { Database } from '../db/postgres/types';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -35,18 +36,41 @@ function toPutRemoteAgentPayload({
 }
 
 /**
- *   create:  createDB(null) → putRemote → updateDB(external_id) | on put/update fail → deleteDB (+ deleteRemote if put ok)
- *   update:  lock → get → putRemote(new) → updateDB | on DB fail → putRemote(old) | both fail → AggregateError
- *   delete:  lock → get → deleteRemote(404 ok) → deleteDB
+ * Postgres agent store that keeps a matching ServiceFoundry remote agent in sync.
+ *
+ * DB and ServiceFoundry are not one atomic transaction. Cleanup on failure is
+ * best-effort: a delete/restore step can itself fail, leaving temporary SF↔DB skew
+ * (orphan remote, orphan local row, or mismatched manifest). create / update /
+ * delete stay retryable — a later successful call is expected to recover.
+ *
+ * create
+ *   Happy path: insert local row (external_id null) → put remote → set external_id.
+ *   Name clash on insert: throw; no remote call.
+ *   putRemote fails: delete local row; rethrow.
+ *   update(external_id) fails after put: delete remote (if put returned an id), then
+ *   delete local; if cleanup also fails, AggregateError (primary + cleanup errors).
+ *
+ * update (manifest)
+ *   Happy path: lock → load row → put remote (new manifest) → write local.
+ *   Missing row: return undefined (no remote call).
+ *   putRemote fails: leave local unchanged; rethrow.
+ *   local write fails after put: best-effort putRemote(old manifest); if restore fails,
+ *   AggregateError; if restore ok, rethrow the DB error (local still old, remote restored).
+ *   external_id-only patches skip ServiceFoundry and go straight to the inner store.
+ *
+ * delete
+ *   Happy path: lock → load row → delete remote when external_id is set → delete local.
+ *   Missing row or null external_id: skip remote; still delete local (idempotent).
+ *   remote delete fails: do not delete local; rethrow (local kept so retry can finish).
  */
 export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>> {
-  readonly #inner: IAgentStore<Transaction<Database>>;
+  readonly #inner: PostgresAgentStore;
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #accessToken: string;
   readonly #db: Kysely<Database>;
 
   constructor(input: {
-    inner: IAgentStore<Transaction<Database>>;
+    inner: PostgresAgentStore;
     client: TrueFoundryServiceFoundryServerClient;
     accessToken: string;
     db: Kysely<Database>;
@@ -65,9 +89,10 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
     return this.#inner.getAgent(input, transaction);
   }
 
-  // Serializes updates for this tenant ID and agent id.
-  // Prevents concurrent MCP writes from desyncing the remote agent.
-  // Opens a txn via db when the caller omits transaction (does not require one).
+  // Takes a Postgres transaction advisory lock for this tenant + agent id so concurrent
+  // update/delete cannot desync ServiceFoundry MCP grants. The lock only lasts for the
+  // lifetime of a DB transaction: if the caller passed one, use it; otherwise open a
+  // short transaction on db just for this critical section.
   #withUpdateLock<T>(
     input: { tenant_id: string; id: string },
     transaction: Transaction<Database> | undefined,

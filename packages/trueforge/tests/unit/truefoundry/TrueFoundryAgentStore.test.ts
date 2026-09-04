@@ -2,8 +2,9 @@ import { AgentSpecSchema, type CreatedBySubject } from '@truefoundry/trueforge-c
 import type { Kysely, Transaction } from 'kysely';
 import { createLogger } from 'winston';
 
-import type { AgentRecord, IAgentStore } from '../../../src/db/agentStore';
+import type { AgentRecord } from '../../../src/db/agentStore';
 import { AgentNameConflictError } from '../../../src/db/agentStore';
+import type { PostgresAgentStore } from '../../../src/db/postgres/agent-store/PostgresAgentStore';
 import type { Database } from '../../../src/db/postgres/types';
 import { TrueFoundryAgentStore } from '../../../src/truefoundry/TrueFoundryAgentStore';
 import {
@@ -77,7 +78,7 @@ function mockDb(
   } as unknown as Kysely<Database>;
 }
 
-function mockInner(overrides = {}): IAgentStore<Transaction<Database>> {
+function mockInner(overrides = {}): PostgresAgentStore {
   return {
     listAgents: jest.fn(),
     getAgent: jest.fn(),
@@ -85,11 +86,11 @@ function mockInner(overrides = {}): IAgentStore<Transaction<Database>> {
     updateAgent: jest.fn(),
     deleteAgent: jest.fn(),
     ...overrides,
-  };
+  } as unknown as PostgresAgentStore;
 }
 
 function tfStore(input: {
-  inner: IAgentStore<Transaction<Database>>;
+  inner: PostgresAgentStore;
   client: TrueFoundryServiceFoundryServerClient;
   accessToken?: string;
   db?: Kysely<Database>;
