@@ -127,7 +127,7 @@ export const deleteAgentRoute = createRoute({
   path: '/{agent_id}',
   tags: [OpenApiTag.AGENTS],
   summary: 'Delete an agent',
-  description: 'Delete a configured agent by immutable id. Idempotent if already gone.',
+  description: 'Delete a configured agent by immutable id.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -141,6 +141,10 @@ export const deleteAgentRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Agent not found.',
     },
   },
 });

@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createSchedulesRouter } from '../../../src/apis/schedules';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -47,7 +48,7 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
-async function setup() {
+async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const agentStore = new SqliteAgentStore(db);
@@ -65,6 +66,7 @@ async function setup() {
   });
 
   let current: RequestContext = ALICE;
+  let currentAuthorizer = authorizer;
   const app = new OpenAPIHono();
   app.route(
     '/',
@@ -74,7 +76,7 @@ async function setup() {
       sessions: {
         getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
       } as never,
-      turnDeps: {
+      resolveTurnDeps: () => ({
         activeTurns: {} as never,
         eventSubscriptions: {} as never,
         modelProviderStore: {} as never,
@@ -83,19 +85,26 @@ async function setup() {
         agentStore,
         sandboxProviderStore: {} as never,
         logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
-      },
+      }),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
+      authorizer: {
+        listAgentAccess: input => currentAuthorizer.listAgentAccess(input),
+        canAccessAgent: input => currentAuthorizer.canAccessAgent(input),
+      },
     }),
   );
 
   const asUser = (user: RequestContext) => {
     current = user;
   };
+  const setAuthorizer = (next: Authorizer) => {
+    currentAuthorizer = next;
+  };
   const postJson = (path: string, method: string, body: unknown) =>
     app.request(path, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-  return { app, asUser, postJson, agentStore, scheduleStore };
+  return { app, asUser, setAuthorizer, postJson, agentStore, scheduleStore };
 }
 
 describe('schedule RBAC — creator-scoped, admin sees all', () => {
@@ -348,5 +357,37 @@ describe('create schedule run', () => {
     const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     const runNow = runs.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
+  });
+
+  it('returns 404 when creating a schedule for an agent the caller cannot read', async () => {
+    const denyAll: Authorizer = {
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: () => Promise.resolve(false),
+    };
+    const { postJson } = await setup(denyAll);
+    const res = await postJson('/', 'POST', scheduleBody);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+  });
+
+  it('returns 404 on run-now when the caller can access the schedule but not the agent', async () => {
+    const { asUser, setAuthorizer, postJson, scheduleStore } = await setup();
+
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
+
+    setAuthorizer({
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: () => Promise.resolve(false),
+    });
+
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+
+    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
+    expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
   });
 });

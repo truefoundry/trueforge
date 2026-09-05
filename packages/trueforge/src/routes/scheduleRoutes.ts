@@ -166,7 +166,11 @@ export const createScheduleRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unknown agent or invalid cron.',
+      description: 'Invalid cron or timezone.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Named agent not found.',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

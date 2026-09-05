@@ -496,29 +496,6 @@ export interface SharedServerConfiguration {
    * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
   TRUEFORGE_MTLS_CERTS_DIR: string;
-  /**
-   * When set, models are listed from the TrueFoundry ServiceFoundry server and invoked
-   * via the AI Gateway with the caller's token. Unset = local model-provider store.
-   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
-   */
-  TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
-  /** Max ms for non-agent ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS`. Default 10000. */
-  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: number;
-  /** Max ms for agent CRUD ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS`. Default 3000. */
-  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: number;
-  /**
-   * Present this pod's client certificate on outbound calls to the ServiceFoundry server (internal
-   * mutual TLS) and upgrade a mesh-direct peer URL from http to https. Off by default, so an
-   * unconfigured deployment keeps calling over plain HTTP exactly as before.
-   * Env: `TRUEFOUNDRY_MTLS_ENABLED`. Default false.
-   */
-  TRUEFOUNDRY_MTLS_ENABLED: boolean;
-  /**
-   * Directory holding the internal mTLS material used when `TRUEFOUNDRY_MTLS_ENABLED` is true — the
-   * cert triple `tls.crt` / `tls.key` / `ca.crt`, so one chart value configures every component.
-   * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
-   */
-  TRUEFOUNDRY_MTLS_CERTS_DIR: string;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -575,6 +552,29 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Undefined means browser login is disabled.
    */
   OIDC: OIDCConfig | undefined;
+  /**
+   * When set, models/MCP/agents are backed by the TrueFoundry ServiceFoundry server with the
+   * caller's token. Unset = local Postgres stores. Mutually exclusive with OIDC.
+   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+   */
+  TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
+  /** Max ms for non-agent ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS`. Default 10000. */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: number;
+  /** Max ms for agent CRUD ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS`. Default 3000. */
+  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: number;
+  /**
+   * Present this pod's client certificate on outbound calls to the ServiceFoundry server (internal
+   * mutual TLS) and upgrade a mesh-direct peer URL from http to https. Off by default, so an
+   * unconfigured deployment keeps calling over plain HTTP exactly as before.
+   * Env: `TRUEFOUNDRY_MTLS_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_MTLS_ENABLED: boolean;
+  /**
+   * Directory holding the internal mTLS material used when `TRUEFOUNDRY_MTLS_ENABLED` is true — the
+   * cert triple `tls.crt` / `tls.key` / `ca.crt`, so one chart value configures every component.
+   * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
+   */
+  TRUEFOUNDRY_MTLS_CERTS_DIR: string;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -686,24 +686,6 @@ const shared: SharedServerConfiguration = {
     defaultValue: false,
   }),
   TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
-  TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
-  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS',
-    raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS'),
-    defaultValue: 10_000,
-  }),
-  TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS',
-    raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS'),
-    defaultValue: 3_000,
-  }),
-  TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
-    envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
-    raw: getEnv('TRUEFOUNDRY_MTLS_ENABLED'),
-    defaultValue: false,
-  }),
-  TRUEFOUNDRY_MTLS_CERTS_DIR:
-    getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
 };
 
 const configuration: ServerConfiguration = standalone
@@ -735,6 +717,24 @@ const configuration: ServerConfiguration = standalone
       }),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
+      TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS',
+        raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS'),
+        defaultValue: 10_000,
+      }),
+      TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS',
+        raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS'),
+        defaultValue: 3_000,
+      }),
+      TRUEFOUNDRY_MTLS_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_MTLS_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_MTLS_ENABLED'),
+        defaultValue: false,
+      }),
+      TRUEFOUNDRY_MTLS_CERTS_DIR:
+        getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
     };
 
 export function isOidcConfigured(
@@ -744,38 +744,37 @@ export function isOidcConfigured(
 }
 
 /**
- * TrueFoundry mode: trueforge is backed by the ServiceFoundry server (models today, MCP and other
- * resources later) rather than its local catalog. Gated on `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+ * TrueFoundry mode: ServiceFoundry-backed models/MCP/agents. Only available on
+ * distributed config when `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set.
  */
 export function isTrueFoundryModeEnabled(
   config: ServerConfiguration = configuration,
-): config is ServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
-  return config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
+): config is DistributedServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
+  return !config.STANDALONE && config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
 }
 
 /** Runtime auth/integration mode for this process. */
-export enum TrueForgeMode {
+export enum TrueForgeAuthMode {
   Standalone = 'standalone',
   Oidc = 'oidc',
   TrueFoundry = 'truefoundry',
 }
 
 /**
- * Resolve the active {@link TrueForgeMode} from configuration.
+ * Resolve the active {@link TrueForgeAuthMode} from configuration.
  * TrueFoundry wins over OIDC when both would otherwise be set (startup already rejects that combo).
  */
-export function getTrueForgeMode(config: ServerConfiguration = configuration): TrueForgeMode {
+export function getTrueForgeAuthMode(config: ServerConfiguration = configuration): TrueForgeAuthMode {
   if (isTrueFoundryModeEnabled(config)) {
-    return TrueForgeMode.TrueFoundry;
+    return TrueForgeAuthMode.TrueFoundry;
   }
   if (isOidcConfigured(config)) {
-    return TrueForgeMode.Oidc;
+    return TrueForgeAuthMode.Oidc;
   }
-  return TrueForgeMode.Standalone;
+  return TrueForgeAuthMode.Standalone;
 }
 
-// TrueFoundry mode authenticates each caller with their own gateway token, so browser SSO must be
-// off — the two auth models are mutually exclusive.
+// TrueFoundry authenticates each caller with their own gateway token, so browser SSO must be off.
 if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) {
   throw new Error(
     'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL (TrueFoundry mode) and OIDC (SSO) cannot both be enabled at once.',
