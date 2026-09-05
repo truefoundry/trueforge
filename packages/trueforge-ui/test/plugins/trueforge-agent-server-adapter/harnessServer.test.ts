@@ -286,6 +286,28 @@ describe('createHarnessChatServer', () => {
     ]);
   });
 
+  it('drafts instructions from chat without applying them', async () => {
+    const fetchGenerate: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      if (url.endsWith('/api/v1/sessions/ses_1/generate-instructions') && method === 'POST') {
+        return Response.json({
+          data: {
+            instructions: 'Write changelog-style release notes.',
+            current_instructions: 'Be helpful.',
+            sources: [{ turn_id: 't1', role: 'user', excerpt: 'Always use a changelog.' }],
+          },
+        });
+      }
+      return fetchMock(input, init);
+    };
+    const server = createHarnessChatServer({ fetch: fetchGenerate });
+    const result = await server.generateInstructionsFromChat({ sessionId: 'ses_1' });
+    assert.equal(result.instructions, 'Write changelog-style release notes.');
+    assert.equal(result.currentInstructions, 'Be helpful.');
+    assert.deepEqual(result.sources, [{ turnId: 't1', role: 'user', excerpt: 'Always use a changelog.' }]);
+  });
+
   it('fills missing turn.done metrics fields for the runtime contract', async () => {
     const fetchGetTurn: typeof fetch = async (input, init) => {
       const url = input instanceof Request ? input.url : String(input);

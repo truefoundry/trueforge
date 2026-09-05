@@ -33,6 +33,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const aui = useAui();
   const shell = useOptionalShellMode();
   const ClearChatButton = useSlot('ClearChatButton');
+  const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
@@ -149,6 +150,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             {threadHeaderEnd}
             <span className="min-w-0 flex-1" />
             <ClearChatButton />
+            <GenerateInstructionsButton />
             <SaveAgentButton />
           </header>
           <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>

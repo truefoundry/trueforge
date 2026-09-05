@@ -68,6 +68,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'DraftCompositeSelector',
   'DraftModelSelector',
   'ToasterProvider',
+  'GenerateInstructionsButton',
   'HistoryLoader',
   'HistoryLoaderContainer',
   'IS_CREATE_AGENT_METADATA_KEY',

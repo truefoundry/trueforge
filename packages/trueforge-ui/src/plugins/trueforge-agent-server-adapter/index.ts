@@ -53,6 +53,7 @@ export {
   toHarnessAgentSpec,
   toUiAgentSpec,
   type CreateHarnessChatServerOptions,
+  type HarnessChatServer,
 } from './chatServer.js';
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';

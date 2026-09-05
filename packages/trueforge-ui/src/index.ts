@@ -493,6 +493,8 @@ export { DraftCompositeSelector } from './atoms/draft/DraftCompositeSelector.js'
 export type { DraftCompositeSelectorProps } from './atoms/draft/DraftCompositeSelector.js';
 export { DraftModelSelector } from './atoms/draft/DraftModelSelector.js';
 export type { DraftModelSelectorProps } from './atoms/draft/DraftModelSelector.js';
+export { GenerateInstructionsButton } from './atoms/GenerateInstructionsButton.js';
+export type { GenerateInstructionsButtonProps } from './atoms/GenerateInstructionsButton.js';
 export { SaveAgentButton } from './atoms/SaveAgentButton.js';
 export type { SaveAgentButtonProps } from './atoms/SaveAgentButton.js';
 export { SaveAgentForm } from './atoms/SaveAgentForm.js';

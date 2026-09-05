@@ -13,6 +13,7 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { readSessionIsCreateAgent } from '../../atoms/lib/sessionCreateAgent.js';
+import type { GeneratedChatInstructions } from '../../server/generateInstructionsFromChat.js';
 import type {
   AgentChatServer,
   CreateSessionRequest,
@@ -158,9 +159,63 @@ function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
   );
 }
 
-export function createHarnessChatServer(
-  options: CreateHarnessChatServerOptions = {},
-): AgentChatServer<HarnessAgentSpec, HarnessUiSession, HarnessCreateSessionRequest> {
+function readApiErrorMessage(body: unknown, fallback: string): string {
+  if (typeof body !== 'object' || body === null) {
+    return fallback;
+  }
+  const error = Reflect.get(body, 'error');
+  if (typeof error !== 'object' || error === null) {
+    return fallback;
+  }
+  const message = Reflect.get(error, 'message');
+  return typeof message === 'string' && message.trim() !== '' ? message : fallback;
+}
+
+function readGeneratedChatInstructions(body: unknown): GeneratedChatInstructions | undefined {
+  if (typeof body !== 'object' || body === null) {
+    return undefined;
+  }
+  const data = Reflect.get(body, 'data');
+  if (typeof data !== 'object' || data === null) {
+    return undefined;
+  }
+  const instructions = Reflect.get(data, 'instructions');
+  if (typeof instructions !== 'string' || instructions.trim() === '') {
+    return undefined;
+  }
+  const current = Reflect.get(data, 'current_instructions');
+  const currentInstructions = typeof current === 'string' ? current : null;
+  const sourcesRaw = Reflect.get(data, 'sources');
+  const sources: GeneratedChatInstructions['sources'] = [];
+  if (Array.isArray(sourcesRaw)) {
+    for (const item of sourcesRaw) {
+      if (typeof item !== 'object' || item === null) {
+        continue;
+      }
+      const turnId = Reflect.get(item, 'turn_id');
+      const role = Reflect.get(item, 'role');
+      const excerpt = Reflect.get(item, 'excerpt');
+      if (typeof turnId !== 'string' || typeof excerpt !== 'string') {
+        continue;
+      }
+      if (role !== 'user' && role !== 'assistant') {
+        continue;
+      }
+      sources.push({ turnId, role, excerpt });
+    }
+  }
+  return { instructions, currentInstructions, sources };
+}
+
+export type HarnessChatServer = AgentChatServer<
+  HarnessAgentSpec,
+  HarnessUiSession,
+  HarnessCreateSessionRequest
+> & {
+  generateInstructionsFromChat: (request: { sessionId: string }) => Promise<GeneratedChatInstructions>;
+};
+
+export function createHarnessChatServer(options: CreateHarnessChatServerOptions = {}): HarnessChatServer {
   const client = options.client ?? createTrueForgeClient(options);
   return {
     // The sandbox is resolved server-side from the turn, so `sandboxId` is accepted for parity
@@ -286,6 +341,21 @@ export function createHarnessChatServer(
         ...(limit === undefined ? {} : { limit }),
       });
       return toListResult(page, toUiEventItem);
+    },
+
+    async generateInstructionsFromChat({ sessionId }) {
+      const response = await client.fetch(`/api/v1/sessions/${encodeURIComponent(sessionId)}/generate-instructions`, {
+        method: 'POST',
+      });
+      const body: unknown = await response.json().catch(() => undefined);
+      if (!response.ok) {
+        throw new Error(readApiErrorMessage(body, 'Could not generate instructions from this chat'));
+      }
+      const parsed = readGeneratedChatInstructions(body);
+      if (parsed === undefined) {
+        throw new Error('Could not generate instructions from this chat');
+      }
+      return parsed;
     },
   };
 }

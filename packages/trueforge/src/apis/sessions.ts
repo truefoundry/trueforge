@@ -10,7 +10,7 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, VercelAILLM } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
@@ -33,6 +33,7 @@ import {
   cancelSessionRoute,
   createSessionRoute,
   deleteSessionRoute,
+  generateSessionInstructionsRoute,
   getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
   listSessionEventsRoute,
@@ -40,8 +41,18 @@ import {
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
+import {
+  assertTranscriptHasInstructionSignal,
+  extractChatTranscript,
+  InsufficientChatSignalError,
+} from '../runtime/chatInstructionTranscript';
+import {
+  draftInstructionsFromChat,
+  loadInstructionTranscriptEvents,
+  resolveSessionAgentSpec,
+} from '../runtime/generateSessionInstructions';
 import { executorFromTurnId } from '../runtime/peeringIds';
-import { validateAgentSpec } from '../runtime/sessionResources';
+import { getModelDetails, validateAgentSpec } from '../runtime/sessionResources';
 import { isSessionAgentNameRef, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 import { agentIfAccessible } from './agentAccess';
@@ -557,6 +568,84 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
+  const generateSessionInstructionsHandler: RouteHandler<typeof generateSessionInstructionsRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (
+      !checkSessionAccess({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+
+    const spec = await resolveSessionAgentSpec({
+      agent: session.record.agent,
+      getAgentById: id => deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id }),
+    });
+    if (spec === undefined) {
+      return c.json({ error: { message: `Agent not found for session: ${sessionId}` } }, 422);
+    }
+
+    let events;
+    try {
+      events = await loadInstructionTranscriptEvents(session);
+    } catch (error) {
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      throw error;
+    }
+
+    try {
+      assertTranscriptHasInstructionSignal(extractChatTranscript(events));
+    } catch (error) {
+      if (error instanceof InsufficientChatSignalError) {
+        return c.json({ error: { message: error.message } }, 422);
+      }
+      throw error;
+    }
+
+    const { providerConfig } = await getModelDetails({
+      tenant_id: requestContext.tenant_id,
+      name: spec.model.name,
+      store: deps.resolveModelProviderStore(c),
+    });
+
+    try {
+      const data = await draftInstructionsFromChat({
+        events,
+        currentInstructions: spec.instructions,
+        llm: new VercelAILLM({
+          providerConfig,
+          logger: deps.logger,
+          signal: c.req.raw.signal,
+        }),
+      });
+      return c.json({ data }, 200);
+    } catch (error) {
+      if (error instanceof InsufficientChatSignalError) {
+        return c.json({ error: { message: error.message } }, 422);
+      }
+      deps.logger.warn('Failed to generate session instructions', {
+        sessionId,
+        ...extractErrorLogFields(error),
+      });
+      return c.json({ error: { message: 'Failed to generate instructions from this chat' } }, 502);
+    }
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
@@ -565,6 +654,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  router.openapi(generateSessionInstructionsRoute, generateSessionInstructionsHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

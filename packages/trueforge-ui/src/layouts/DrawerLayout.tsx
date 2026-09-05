@@ -25,6 +25,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const shell = useOptionalShellMode();
   const isMobile = useIsMobile();
   const ClearChatButton = useSlot('ClearChatButton');
+  const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
@@ -122,6 +123,7 @@ export function DrawerLayout({ className }: { className?: string }) {
           {!overlayOpen ? (
             <>
               <ClearChatButton />
+              <GenerateInstructionsButton />
               <SaveAgentButton />
             </>
           ) : null}
