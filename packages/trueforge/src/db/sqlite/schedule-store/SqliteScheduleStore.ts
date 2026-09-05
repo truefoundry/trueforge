@@ -17,6 +17,7 @@ import {
   type CreateScheduleInput,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
+  type GetOwnedIdsInput,
   type GetRunInput,
   type GetScheduledRunForInput,
   type GetScheduleInput,
@@ -289,6 +290,21 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .execute();
     const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
     return { data: data.map(toScheduleRecord), pagination };
+  }
+
+  async getOwnedIds(input: GetOwnedIdsInput, transaction?: Transaction<Database>): Promise<readonly string[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('schedule')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.subject_id)
+      .execute();
+    return rows.map(row => row.id);
   }
 
   async listRuns(input: ListRunsInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord[]> {

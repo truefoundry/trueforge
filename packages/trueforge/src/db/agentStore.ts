@@ -37,6 +37,22 @@ export interface ListAgentsInput {
   external_ids?: readonly string[];
 }
 
+export interface GetOwnedIdsInput {
+  tenant_id: string;
+  ids: readonly string[];
+  subject_id: string;
+}
+
+export interface GetExternalIdsByIdsInput {
+  tenant_id: string;
+  ids: readonly string[];
+}
+
+export interface AgentExternalIdRow {
+  id: string;
+  external_id: string;
+}
+
 export interface CreateAgentInput {
   tenant_id: string;
   name: ResourceName;
@@ -89,6 +105,13 @@ export class AgentExternalIdConflictError extends Error {
 
 export interface IAgentStore<TTransaction = never> {
   listAgents(input: ListAgentsInput, transaction?: TTransaction): Promise<AgentRecord[]>;
+  /** Ids among `ids` owned by `subject_id`. Empty `ids` → `[]`. */
+  getOwnedIds(input: GetOwnedIdsInput, transaction?: TTransaction): Promise<readonly string[]>;
+  /** Agents with a non-null `external_id` among `ids`. Empty `ids` → `[]`. */
+  getExternalIdsByIds(
+    input: GetExternalIdsByIdsInput,
+    transaction?: TTransaction,
+  ): Promise<readonly AgentExternalIdRow[]>;
   getAgent(input: GetAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Inserts a new agent with a generated ULID. Throws AgentNameConflictError or AgentExternalIdConflictError on unique clash. */
   createAgent(input: CreateAgentInput, transaction?: TTransaction): Promise<AgentRecord>;

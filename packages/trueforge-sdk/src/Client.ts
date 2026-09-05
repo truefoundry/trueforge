@@ -23,6 +23,7 @@ export declare namespace TrueForge {
 
 export class TrueForge {
     protected readonly _options: NormalizedClientOptionsWithAuth<TrueForge.Options>;
+    protected _internal: InternalClient | undefined;
     protected _agents: AgentsClient | undefined;
     protected _auth: AuthClient | undefined;
     protected _server: ServerClient | undefined;
@@ -32,11 +33,14 @@ export class TrueForge {
     protected _sessions: SessionsClient | undefined;
     protected _skills: SkillsClient | undefined;
     protected _catalogs: CatalogsClient | undefined;
-    protected _internal: InternalClient | undefined;
     protected _settings: SettingsClient | undefined;
 
     constructor(options: TrueForge.Options) {
         this._options = normalizeClientOptionsWithAuth(options);
+    }
+
+    public get internal(): InternalClient {
+        return (this._internal ??= new InternalClient(this._options));
     }
 
     public get agents(): AgentsClient {
@@ -73,10 +77,6 @@ export class TrueForge {
 
     public get catalogs(): CatalogsClient {
         return (this._catalogs ??= new CatalogsClient(this._options));
-    }
-
-    public get internal(): InternalClient {
-        return (this._internal ??= new InternalClient(this._options));
     }
 
     public get settings(): SettingsClient {

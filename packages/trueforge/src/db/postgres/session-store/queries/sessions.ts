@@ -9,6 +9,7 @@ import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/mo
 import type {
   CreateSessionInput,
   DeleteSessionInput,
+  GetOwnedIdsInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
   ListSessionsInput,
@@ -155,6 +156,20 @@ export async function getSession(
   }
 
   return mapRowToSessionRecord(row);
+}
+
+export async function getOwnedIds(db: Kysely<Database>, input: GetOwnedIdsInput): Promise<readonly string[]> {
+  if (input.ids.length === 0) {
+    return [];
+  }
+  const rows = await db
+    .selectFrom('session')
+    .select('session_id')
+    .where('tenant_id', '=', input.tenant_id)
+    .where('session_id', 'in', [...input.ids])
+    .where(sql`created_by_subject->>'subject_id'`, '=', input.subject_id)
+    .execute();
+  return rows.map(row => row.session_id);
 }
 
 export async function getSessionByExternalId(

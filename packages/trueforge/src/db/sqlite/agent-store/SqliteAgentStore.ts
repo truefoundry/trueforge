@@ -1,14 +1,17 @@
 import type { AgentSpec, CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
-import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
   parseStoredAgentSpec,
+  type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
   type DeleteAgentInput,
   type GetAgentInput,
+  type GetExternalIdsByIdsInput,
+  type GetOwnedIdsInput,
   type IAgentStore,
   type ListAgentsInput,
   type UpdateAgentInput,
@@ -67,6 +70,39 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     }
     const rows = await query.orderBy('name').execute();
     return rows.map(toRecord);
+  }
+
+  async getOwnedIds(input: GetOwnedIdsInput, transaction?: Transaction<Database>): Promise<readonly string[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('agent')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.subject_id)
+      .execute();
+    return rows.map(row => row.id);
+  }
+
+  async getExternalIdsByIds(
+    input: GetExternalIdsByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentExternalIdRow[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('agent')
+      .select(['id', 'external_id'])
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .where('external_id', 'is not', null)
+      .execute();
+    return rows.flatMap(row => (row.external_id ? [{ id: row.id, external_id: row.external_id }] : []));
   }
 
   async getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {

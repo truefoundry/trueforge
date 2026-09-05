@@ -43,6 +43,12 @@ export interface GetSessionInput {
   session_id: string;
 }
 
+export interface GetOwnedIdsInput {
+  tenant_id: string;
+  ids: readonly string[];
+  subject_id: string;
+}
+
 export interface GetSessionByExternalIdInput {
   tenant_id: string;
   external_id: string;
@@ -235,6 +241,12 @@ export interface ISessionStore<
    * Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  /**
+   * Session ids among `ids` owned by `subject_id`. Empty `ids` → `[]`.
+   * Does **not** bump `last_activity_timestamp_ms`.
+   */
+  getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]>;
 
   /**
    * Lookup by tenant-scoped `external_id`. Missing or null external ids are not found.

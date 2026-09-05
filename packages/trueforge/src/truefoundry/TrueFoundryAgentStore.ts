@@ -1,10 +1,13 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import {
+  type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
   type DeleteAgentInput,
   type GetAgentInput,
+  type GetExternalIdsByIdsInput,
+  type GetOwnedIdsInput,
   type IAgentStore,
   type ListAgentsInput,
   type UpdateAgentInput,
@@ -83,6 +86,17 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
   listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
     return this.#inner.listAgents(input, transaction);
+  }
+
+  getOwnedIds(input: GetOwnedIdsInput, transaction?: Transaction<Database>): Promise<readonly string[]> {
+    return this.#inner.getOwnedIds(input, transaction);
+  }
+
+  getExternalIdsByIds(
+    input: GetExternalIdsByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentExternalIdRow[]> {
+    return this.#inner.getExternalIdsByIds(input, transaction);
   }
 
   getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
