@@ -94,6 +94,7 @@ describe('public CRUD after session deletion', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);
 

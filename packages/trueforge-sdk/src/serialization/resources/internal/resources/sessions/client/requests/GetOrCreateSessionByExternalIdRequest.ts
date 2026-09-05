@@ -4,6 +4,7 @@ import type * as TrueForge from "../../../../../../../api/index.js";
 import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
 import { CreateSessionAgent } from "../../../../../../types/CreateSessionAgent.js";
+import { SessionSource } from "../../../../../../types/SessionSource.js";
 
 export const GetOrCreateSessionByExternalIdRequest: core.serialization.Schema<
     serializers.internal.GetOrCreateSessionByExternalIdRequest.Raw,
@@ -11,11 +12,13 @@ export const GetOrCreateSessionByExternalIdRequest: core.serialization.Schema<
 > = core.serialization.object({
     agent: CreateSessionAgent,
     externalId: core.serialization.property("external_id", core.serialization.string()),
+    source: SessionSource.optionalNullable(),
 });
 
 export declare namespace GetOrCreateSessionByExternalIdRequest {
     export interface Raw {
         agent: CreateSessionAgent.Raw;
         external_id: string;
+        source?: ((SessionSource.Raw | undefined) | null | undefined) | null;
     }
 }

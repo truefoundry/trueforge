@@ -1,4 +1,8 @@
-import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import {
+  CreatedBySubjectSchema,
+  type CreatedBySubject,
+  type TokenPagination,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -7,7 +11,6 @@ import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kyse
 import { nextTriggerAfter } from '../../../runtime/cron';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../../schemas/schedule';
 import { newId } from '../../../utils/id';
-import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import {
   cronRunName,
   parseStoredScheduleManifest,
@@ -95,14 +98,14 @@ function toScheduleRecord(row: ScheduleRow): ScheduleRecord {
   return {
     ...row,
     manifest: parseStoredScheduleManifest(row.manifest),
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
   };
 }
 
 function toRunRecord(row: RunRow): ScheduleRunRecord {
   return {
     ...row,
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
   };
 }
 

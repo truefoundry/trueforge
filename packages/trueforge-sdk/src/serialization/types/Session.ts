@@ -7,6 +7,7 @@ import { CreatedBySubject } from "./CreatedBySubject.js";
 import { SessionAgent } from "./SessionAgent.js";
 import { SessionMetadata } from "./SessionMetadata.js";
 import { SessionMetrics } from "./SessionMetrics.js";
+import { SessionSource } from "./SessionSource.js";
 
 export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, TrueForge.Session> =
     core.serialization.object({
@@ -16,6 +17,7 @@ export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, T
         id: core.serialization.string(),
         metadata: SessionMetadata,
         metrics: SessionMetrics,
+        source: SessionSource.nullable(),
         title: core.serialization.string().nullable(),
         updatedAt: core.serialization.property("updated_at", core.serialization.string()),
     });
@@ -28,6 +30,7 @@ export declare namespace Session {
         id: string;
         metadata: SessionMetadata.Raw;
         metrics: SessionMetrics.Raw;
+        source?: (SessionSource.Raw | undefined) | null;
         title?: string | null;
         updated_at: string;
     }

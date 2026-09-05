@@ -146,6 +146,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'token',
   'auth_data',
   'created_by_subject',
+  'source',
 ]);
 
 /** Top-level row field only — `$[0]."body"`, not `$[0]."body"."content"`. */

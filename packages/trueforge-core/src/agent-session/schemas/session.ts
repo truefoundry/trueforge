@@ -69,6 +69,24 @@ export const SessionAgentSchema = z
   .discriminatedUnion('type', [SessionAgentReferenceSchema, SessionAgentInlineSchema])
   .openapi('SessionAgent');
 
+export const SessionSourceTypeSchema = z.enum(['schedule']).openapi('SessionSourceType');
+
+export type SessionSourceType = z.infer<typeof SessionSourceTypeSchema>;
+
+export const SessionSourceScheduleSchema = z
+  .object({
+    type: z.literal(SessionSourceTypeSchema.enum.schedule).describe('Session was created by a schedule run.'),
+    id: z.string().min(1).describe('Schedule id.'),
+    run_id: z.string().min(1).describe('Schedule run id.'),
+  })
+  .strict()
+  .openapi('SessionSourceSchedule');
+
+/** How a session was created (schedule runs today). */
+export const SessionSourceSchema = z.discriminatedUnion('type', [SessionSourceScheduleSchema]).openapi('SessionSource');
+
+export type SessionSource = z.infer<typeof SessionSourceSchema>;
+
 export const SessionSchema = z
   .object({
     id: z.string().describe('Unique session id.'),
@@ -79,6 +97,9 @@ export const SessionSchema = z
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,
     metadata: SessionMetadataSchema,
+    source: SessionSourceSchema.nullable().describe(
+      'How this session was created (e.g. a schedule run). Null for interactive sessions.',
+    ),
   })
   .openapi('Session');
 

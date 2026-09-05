@@ -15,4 +15,5 @@ export interface GetOrCreateSessionByExternalIdRequest {
     agent: TrueForge.CreateSessionAgent;
     /** Caller-supplied id unique within the tenant. */
     externalId: string;
+    source?: TrueForge.SessionSource | null;
 }

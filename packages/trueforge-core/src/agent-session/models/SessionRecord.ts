@@ -1,4 +1,4 @@
-import type { SessionAgent, SessionMetadata, SessionMetrics } from '../schemas/session';
+import type { SessionAgent, SessionMetadata, SessionMetrics, SessionSource } from '../schemas/session';
 import type { CreatedBySubject } from '../schemas/subject';
 
 /**
@@ -22,6 +22,10 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * Null means the session has no external id.
    */
   external_id: string | null;
+  /**
+   * How the session was created. Null for interactive sessions.
+   */
+  source: SessionSource | null;
   /**
    * Session tip — used for `previous_turn_id: 'auto'` resolution and turn
    * listing anchors. Advanced only by `createTurn` (atomic link).

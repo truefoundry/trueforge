@@ -192,6 +192,7 @@ export class InMemorySessionStore<
       title: null,
       last_turn_id: null,
       external_id: externalId,
+      source: input.source !== null ? deepCopy(input.source) : null,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
@@ -277,6 +278,12 @@ export class InMemorySessionStore<
         input.created_by_subject_id !== undefined &&
         stored.record.created_by_subject.subject_id !== input.created_by_subject_id
       ) {
+        continue;
+      }
+      if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
+        continue;
+      }
+      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();

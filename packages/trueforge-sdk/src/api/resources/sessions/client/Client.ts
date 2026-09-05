@@ -24,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+     * List the sessions (newest first by default).
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -44,7 +44,16 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 25, order, pageToken, startTimestamp, endTimestamp, agentId } = request;
+                const {
+                    limit = 25,
+                    order,
+                    pageToken,
+                    startTimestamp,
+                    endTimestamp,
+                    agentId,
+                    sourceType,
+                    sourceId,
+                } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -60,6 +69,16 @@ export class SessionsClient {
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                     agent_id: agentId,
+                    source_type:
+                        sourceType != null
+                            ? serializers.SessionSourceType.jsonOrThrow(sourceType, {
+                                  unrecognizedObjectKeys: "passthrough",
+                                  allowUnrecognizedUnionMembers: true,
+                                  allowUnrecognizedEnumValues: true,
+                                  omitUndefined: true,
+                              })
+                            : undefined,
+                    source_id: sourceId,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(

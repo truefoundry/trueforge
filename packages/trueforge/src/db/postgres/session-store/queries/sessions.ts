@@ -1,10 +1,13 @@
-import type {
-  AgentSpec,
-  CreatedBySubject,
-  SessionMetadata,
-  SessionMetrics,
+import {
+  CreatedBySubjectSchema,
+  SessionMetadataSchema,
+  SessionSourceSchema,
+  type AgentSpec,
+  type CreatedBySubject,
+  type SessionMetadata,
+  type SessionMetrics,
+  type SessionSource,
 } from '@truefoundry/trueforge-core/agent-session';
-import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -25,7 +28,6 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
-import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import { SESSION_EXTERNAL_ID_UQ } from '../../../indexes';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isPgConstraint, isUniqueViolation } from '../../client';
@@ -57,6 +59,7 @@ function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
   created_by_subject: CreatedBySubject;
+  source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
   agent_spec: AgentSpec | null;
@@ -73,7 +76,8 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
@@ -103,6 +107,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         tenant_id: input.tenant_id,
         session_id: input.session_id,
         created_by_subject: json(input.created_by_subject),
+        source: input.source !== null ? json(input.source) : null,
         agent_id: columns.agent_id,
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
@@ -248,6 +253,12 @@ export async function listSessions(
   }
   if (input.created_by_subject_id !== undefined) {
     query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
+  }
+  if (input.source_type !== undefined) {
+    query = query.where(sql`source->>'type'`, '=', input.source_type);
+  }
+  if (input.source_id !== undefined) {
+    query = query.where(sql`source->>'id'`, '=', input.source_id);
   }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp);

@@ -34,6 +34,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createSession({
         tenant_id: tenant,
@@ -43,6 +44,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'metrics-session', turnId: 'metrics-turn' }));
       const turn = mustGet(await sessionStore.getTurn({ session_id: 'metrics-session', turn_id: 'metrics-turn' }));
@@ -123,6 +125,7 @@ export function runSessionMetricsStoreContractSuite(
           custom: null,
           metadata: {},
           external_id: null,
+          source: null,
         });
         for (const [index, durationMs] of definition.turnDurations.entries()) {
           const turnId = `${definition.id}-turn-${String(index)}`;
@@ -173,6 +176,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createSession({
         tenant_id: tenant,
@@ -182,6 +186,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'inflight-session', turnId: 'inflight-turn' }));
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'completed-session', turnId: 'completed-turn' }));

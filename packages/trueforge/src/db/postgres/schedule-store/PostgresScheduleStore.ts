@@ -1,4 +1,4 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { CreatedBySubjectSchema, type TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import {
   decodeOffsetPageToken,
   paginateOffsetRows,
@@ -6,7 +6,6 @@ import {
 import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
-import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import {
   cronRunName,
   parseStoredScheduleManifest,
@@ -42,7 +41,7 @@ function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
     name: row.name,
     manifest: parseStoredScheduleManifest(row.manifest),
     status: row.status,
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -56,7 +55,7 @@ function toRunRecord(row: Selectable<ScheduleRunTable>): ScheduleRunRecord {
     name: row.name,
     scheduled_for: row.scheduled_for.toISOString(),
     status: row.status,
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     triggered_at: row.triggered_at === null ? null : row.triggered_at.toISOString(),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),

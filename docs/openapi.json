@@ -1440,6 +1440,9 @@
             "maxLength": 128,
             "minLength": 1,
             "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SessionSource"
           }
         },
         "required": [
@@ -3286,6 +3289,9 @@
           "metrics": {
             "$ref": "#/components/schemas/SessionMetrics"
           },
+          "source": {
+            "$ref": "#/components/schemas/SessionSource"
+          },
           "title": {
             "description": "Optional human-readable title; null until set.",
             "type": [
@@ -3306,7 +3312,8 @@
           "created_at",
           "updated_at",
           "metrics",
-          "metadata"
+          "metadata",
+          "source"
         ],
         "type": "object"
       },
@@ -3700,6 +3707,52 @@
           "value"
         ],
         "type": "object"
+      },
+      "SessionSource": {
+        "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SessionSourceSchedule"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "SessionSourceSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Schedule id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "description": "Schedule run id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Session was created by a schedule run.",
+            "enum": [
+              "schedule"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "SessionSourceType": {
+        "description": "When set, returns only sessions created by this source type.",
+        "enum": [
+          "schedule"
+        ],
+        "type": "string"
       },
       "SettingsCapability": {
         "properties": {
@@ -6763,7 +6816,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the sessions (newest first by default).",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -6827,6 +6880,26 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "When set, returns only sessions created by this source type.",
+            "in": "query",
+            "name": "source_type",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SessionSourceType"
+            }
+          },
+          {
+            "description": "When set, returns only sessions from this specific source. Requires source_type.",
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "description": "When set, returns only sessions from this specific source. Requires source_type.",
               "minLength": 1,
               "type": "string"
             }

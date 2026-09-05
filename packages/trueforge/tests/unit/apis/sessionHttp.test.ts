@@ -194,6 +194,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     await sessionStore.createSession({
       tenant_id: 'default',
@@ -203,6 +204,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     const start = new Date(Date.now() - 60 * 60 * 1000);
     const end = new Date(Date.now() + 60 * 60 * 1000);
@@ -265,6 +267,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
@@ -458,6 +461,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: 'run-theirs',
+      source: null,
     });
     const forbidden = await app.request(
       '/api/internal/sessions/get-or-create-by-external-id',

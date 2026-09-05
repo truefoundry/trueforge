@@ -59,6 +59,7 @@ function executeScheduledRun(client: ScheduleRunApiClient): (item: ScheduleDispa
     const { data: session } = await client.internal.sessions.getOrCreateByExternalId({
       externalId: run.id,
       agent: { name: schedule.agent_name },
+      source: { type: 'schedule', id: schedule.id, runId: run.id },
     });
 
     const turns = await client.sessions.listTurns(session.id, { limit: 1 });
@@ -107,6 +108,7 @@ export async function startScheduleRun(params: {
     external_id: run.id,
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
+    source: { type: 'schedule', id: schedule.id, run_id: run.id },
   });
 
   // idempotency check

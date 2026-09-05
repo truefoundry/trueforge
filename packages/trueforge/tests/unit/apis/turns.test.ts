@@ -54,6 +54,7 @@ describe('turns', () => {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
 
       const tokenStore = new SqliteOAuthTokenStore(db);
