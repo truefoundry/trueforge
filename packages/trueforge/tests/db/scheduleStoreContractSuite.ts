@@ -765,6 +765,7 @@ export function runScheduleStoreContractSuite(deps: {
 
     const toTrigger = await seedScheduled(new Date('2026-08-27T10:00:00.000Z'));
     expect(toTrigger.triggered_at).toBeNull();
+    expect(toTrigger.reason).toBeNull();
     const triggered = await store.updateRunStatus({
       tenant_id: TENANT,
       id: toTrigger.id,
@@ -774,6 +775,7 @@ export function runScheduleStoreContractSuite(deps: {
       expect.objectContaining({
         id: toTrigger.id,
         status: 'triggered',
+        reason: null,
       }),
     );
     if (triggered === undefined) {
@@ -788,12 +790,58 @@ export function runScheduleStoreContractSuite(deps: {
       tenant_id: TENANT,
       id: toFail.id,
       status: 'failed',
+      reason: 'hand-off blew up',
     });
     expect(failed).toEqual(
       expect.objectContaining({
         id: toFail.id,
         status: 'failed',
         triggered_at: null,
+        reason: 'hand-off blew up',
+      }),
+    );
+
+    const toFailWithoutReason = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: schedule.id,
+      name: cronRunName(new Date('2026-08-27T13:00:00.000Z')),
+      scheduled_for: new Date('2026-08-27T13:00:00.000Z'),
+      status: 'scheduled',
+      created_by_subject: USER_SUBJECT,
+    });
+    const failedWithoutReason = await store.updateRunStatus({
+      tenant_id: TENANT,
+      id: toFailWithoutReason.id,
+      status: 'failed',
+    });
+    expect(failedWithoutReason).toEqual(
+      expect.objectContaining({
+        id: toFailWithoutReason.id,
+        status: 'failed',
+        reason: null,
+      }),
+    );
+
+    const toClearReason = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: schedule.id,
+      name: cronRunName(new Date('2026-08-27T14:00:00.000Z')),
+      scheduled_for: new Date('2026-08-27T14:00:00.000Z'),
+      status: 'scheduled',
+      created_by_subject: USER_SUBJECT,
+      reason: 'stale failure',
+    });
+    expect(toClearReason.reason).toBe('stale failure');
+    const cleared = await store.updateRunStatus({
+      tenant_id: TENANT,
+      id: toClearReason.id,
+      status: 'triggered',
+    });
+    expect(cleared).toEqual(
+      expect.objectContaining({
+        id: toClearReason.id,
+        status: 'triggered',
+        reason: null,
       }),
     );
 

@@ -1,10 +1,23 @@
 import {
   ScheduleAgentNotFoundError,
   scheduleDispatchLoop,
+  scheduleRunFailureReason,
   startScheduleRun,
 } from '../../../src/controller/scheduleDispatch';
 import type { ScheduleDispatchItem, ScheduleRunRecord } from '../../../src/db/scheduleStore';
 import { ScheduleManifestSchema } from '../../../src/schemas/schedule';
+
+describe('scheduleRunFailureReason', () => {
+  it('uses Error.message when non-empty', () => {
+    expect(scheduleRunFailureReason(new Error('executor unavailable'))).toBe('executor unavailable');
+  });
+
+  it('falls back when message is blank or value is not an Error', () => {
+    expect(scheduleRunFailureReason(new Error('   '))).toBe('Schedule run failed');
+    expect(scheduleRunFailureReason('boom')).toBe('Schedule run failed');
+    expect(scheduleRunFailureReason(null)).toBe('Schedule run failed');
+  });
+});
 
 function item(): ScheduleDispatchItem {
   return {
