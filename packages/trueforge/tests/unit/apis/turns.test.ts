@@ -403,9 +403,12 @@ describe('turns', () => {
   });
 
   describe('create turn referenced agent', () => {
+    const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) =>
+      Promise.resolve(false),
+    );
     const denyAllAuthorizer: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-      canAccessAgent: () => Promise.resolve(false),
+      canAccessAgent: deniedCanAccessAgent,
     };
 
     async function referencedAgentHarness(authorizer: Authorizer) {
@@ -475,7 +478,8 @@ describe('turns', () => {
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
     });
 
-    it('returns 404 when the caller cannot read the referenced agent', async () => {
+    it('returns 404 when the caller cannot use the referenced agent', async () => {
+      deniedCanAccessAgent.mockClear();
       const { app, agent } = await referencedAgentHarness(denyAllAuthorizer);
       const response = await app.request('/s1/turns', {
         method: 'POST',
@@ -484,6 +488,7 @@ describe('turns', () => {
       });
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
+      expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
     });
   });
 });
