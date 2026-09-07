@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
+import { PageHeader } from '../atoms/PageHeader.js';
 import { ShellActions } from '../atoms/ShellActions.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -122,35 +123,42 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         </div>
       ) : (
         <>
-          <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
-            {showNewActions ? (
-              <button
-                type="button"
-                aria-label="New Chat"
-                title="New Chat"
-                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                onClick={handleNewChat}
-              >
-                <Icon name="square-pen" />
-              </button>
-            ) : null}
-            {showNewActions && shell?.isComposerEnabled ? (
-              <button
-                type="button"
-                aria-label="New Agent"
-                title="New Agent"
-                className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-                onClick={handleNewAgent}
-              >
-                <Icon name="agent-2" />
-              </button>
-            ) : null}
-            <NamedAgentHeaderLabel />
-            <span className="min-w-0 flex-1" />
-            <ClearChatButton />
-            <SaveAgentButton />
-            {threadHeaderEnd}
-          </header>
+          <PageHeader
+            start={
+              <>
+                {showNewActions ? (
+                  <button
+                    type="button"
+                    aria-label="New Chat"
+                    title="New Chat"
+                    className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                    onClick={handleNewChat}
+                  >
+                    <Icon name="square-pen" />
+                  </button>
+                ) : null}
+                {showNewActions && shell?.isComposerEnabled ? (
+                  <button
+                    type="button"
+                    aria-label="New Agent"
+                    title="New Agent"
+                    className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+                    onClick={handleNewAgent}
+                  >
+                    <Icon name="agent-2" />
+                  </button>
+                ) : null}
+              </>
+            }
+            title={<NamedAgentHeaderLabel />}
+            end={
+              <>
+                <ClearChatButton />
+                <SaveAgentButton />
+                {threadHeaderEnd}
+              </>
+            }
+          />
           <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>
         </>
       )}

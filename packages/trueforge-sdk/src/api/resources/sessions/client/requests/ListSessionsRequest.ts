@@ -19,6 +19,8 @@ export interface ListSessionsRequest {
     endTimestamp?: Date;
     /** When set, only sessions bound to this agent id are returned. */
     agentId?: string;
+    /** When true, only sessions created by the authenticated subject. */
+    createdByMe?: boolean;
     /** When set, returns only sessions created by this source type. */
     sourceType?: TrueForge.SessionSourceType;
     /** When set, returns only sessions from this specific source. Requires source_type. */

@@ -40,7 +40,7 @@ describe('ClearChatButton', () => {
     expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
   });
 
-  it('is visible on an empty named agent chat', () => {
+  it('is hidden on a fresh chat with no messages', () => {
     render(
       <SlotsProvider>
         <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
@@ -50,7 +50,20 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+  });
+
+  it('is hidden on a fresh draft (New Chat / New Agent)', () => {
+    render(
+      <SlotsProvider>
+        <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+          <RuntimeHarness messages={[]}>
+            <ClearChatButton />
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
   });
 
   it('is visible on mutable sessions', () => {

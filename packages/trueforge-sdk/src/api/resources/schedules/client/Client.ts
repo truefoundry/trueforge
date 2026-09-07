@@ -24,7 +24,7 @@ export class SchedulesClient {
     }
 
     /**
-     * List schedules for the tenant, newest first. Optionally filter by `agent_names`.
+     * List schedules for the tenant, newest first.
      *
      * @param {TrueForge.ListSchedulesRequest} request
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -45,11 +45,12 @@ export class SchedulesClient {
             async (
                 request: TrueForge.ListSchedulesRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSchedulesResponse>> => {
-                const { limit = 25, pageToken, agentNames } = request;
+                const { limit = 25, pageToken, agentNames, createdByMe } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
                     agent_names: agentNames,
+                    created_by_me: createdByMe,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
@@ -144,6 +145,7 @@ export class SchedulesClient {
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
@@ -218,6 +220,17 @@ export class SchedulesClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,
@@ -739,7 +752,7 @@ export class SchedulesClient {
     }
 
     /**
-     * List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.
+     * List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.
      *
      * @param {string} schedule_id - Immutable schedule identifier.
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.

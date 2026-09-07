@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
+import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
 import type { AgentSpec } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
@@ -17,6 +18,116 @@ beforeAll(() => {
 });
 
 describe('AgentConfigEditors', () => {
+  it('edits instructions and initial user messages in a drawer', () => {
+    const baseSpec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const spec = withInitialUserMessages({
+      spec: baseSpec,
+      messages: [{ type: 'user.message', content: 'Existing message' }],
+    });
+    const onInstructionsSave = vi.fn();
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="instructions"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          instructions="Existing instructions"
+          onInstructionsSave={onInstructionsSave}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Instructions' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Agent instructions')).toHaveClass('min-h-64');
+
+    fireEvent.change(screen.getByLabelText('Agent instructions'), {
+      target: { value: 'Updated instructions' },
+    });
+    expect(onInstructionsSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add User Message' }));
+    fireEvent.change(screen.getByLabelText('User Message 2'), {
+      target: { value: 'New message' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove User Message 1' }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onInstructionsSave).toHaveBeenCalledWith({
+      instructions: 'Updated instructions',
+      messages: [{ type: 'user.message', content: 'New message' }],
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not persist blank initial user messages', () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="instructions"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add User Message' }));
+    fireEvent.change(screen.getByLabelText('User Message 1'), { target: { value: '   ' } });
+
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onChange).toHaveBeenCalledWith(withInitialUserMessages({ spec, messages: [] }));
+  });
+
+  it('discards instruction changes when the drawer closes without saving', () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' }, instructions: 'Original' };
+    const onInstructionsSave = vi.fn();
+    const onChange = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="instructions"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onInstructionsSave={onInstructionsSave}
+          onChange={onChange}
+          onClose={onClose}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Agent instructions'), { target: { value: 'Discarded' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(onInstructionsSave).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('renders model context metadata', () => {
     render(
       <SlotsProvider>
@@ -197,6 +308,96 @@ describe('AgentConfigEditors', () => {
     });
   });
 
+  it('selects the first mounted MCP on open, otherwise the first connector', async () => {
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    const { rerender } = render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [
+              { id: 'slack', name: 'Slack', enableTools: ['@all'] },
+              { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+            ],
+          }}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+            { id: 'linear', name: 'Linear', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
+    expect(screen.getByRole('button', { name: 'Slack' })).toHaveAttribute('aria-current', 'true');
+
+    rerender(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('github'));
+    expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('keeps an off-page selected MCP active via catalog stubs', async () => {
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [{ id: 'off-page', name: 'Off Page', enableTools: ['@all'] }],
+          }}
+          models={[]}
+          connectors={[{ id: 'github', name: 'GitHub', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('off-page'));
+    expect(screen.getByRole('button', { name: 'Off Page' })).toHaveAttribute('aria-current', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Off Page' }));
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledTimes(1));
+  });
+
   it('loads MCP tools lazily and preserves unrelated mount selectors', async () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },
@@ -232,7 +433,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /GitHub/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub' }));
     await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('github'));
     const issueRows = await screen.findAllByRole('menuitemcheckbox', { name: /issues.list/ });
     const availableIssueRow = issueRows[0];
@@ -252,7 +453,7 @@ describe('AgentConfigEditors', () => {
     });
   });
 
-  it('opens MCP rows without selecting them and selects through the checkbox or tools', async () => {
+  it('opens MCP rows without selecting them and selects through tools', async () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     const onChange = vi.fn();
     const loadMcpTools = vi.fn(async () => [
@@ -276,24 +477,19 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Slack/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Slack' }));
     await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
     expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Slack selected')).not.toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /messages.list/ }));
     expect(onChange).toHaveBeenLastCalledWith({
       ...spec,
       mcpServers: [{ id: 'slack', name: 'Slack', enableTools: ['messages.list'] }],
     });
-
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Slack' }));
-    expect(onChange).toHaveBeenLastCalledWith({
-      ...spec,
-      mcpServers: [{ id: 'slack', name: 'Slack' }],
-    });
   });
 
-  it('allows browsing but not adding an unauthenticated non-DCR connector', async () => {
+  it('shows connect empty state for unauthenticated connectors', async () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     const onChange = vi.fn();
 
@@ -314,15 +510,82 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Private/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
 
-    expect(await screen.findByRole('menuitemcheckbox', { name: /secret.read/ })).toBeDisabled();
-    expect(screen.getByRole('switch', { name: 'Enable all tools' })).toBeDisabled();
-    expect(screen.getByRole('checkbox', { name: 'Select Private' })).toBeDisabled();
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect During Chat' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: /secret.read/ })).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('groups selected tools across MCP servers and summarizes all-tools mounts', async () => {
+  it('mounts an unauthenticated connector with Connect During Chat', async () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[{ id: 'slack', name: 'Slack', authenticated: false }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Slack' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect During Chat' }));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      mcpServers: [{ id: 'slack', name: 'Slack', enableTools: ['@all'] }],
+    });
+  });
+
+  it('groups selected tools across MCP servers and summarizes all-tools mounts', () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt' },
+      mcpServers: [
+        { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+        { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
+      ],
+    };
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={async () => []}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('dialog', { name: 'Select MCP Tools' })).toBeInTheDocument();
+    expect(screen.getByText('Selected Tools (1)')).toBeInTheDocument();
+    expect(screen.getByText('ALL TOOLS ENABLED')).toBeInTheDocument();
+    expect(screen.getByLabelText('GitHub selected')).toBeInTheDocument();
+    expect(screen.getByLabelText('Slack selected')).toBeInTheDocument();
+    expect(screen.getAllByText('messages.list').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /Remove messages.list/ })).not.toBeInTheDocument();
+  });
+
+  it('removes all tools for an MCP from the selected-tools list', () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },
       mcpServers: [
@@ -345,24 +608,109 @@ describe('AgentConfigEditors', () => {
           skills={[]}
           loading={false}
           error={null}
-          loadMcpTools={async () => []}
           onChange={onChange}
           onClose={vi.fn()}
         />
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('dialog', { name: 'MCP Servers' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'GitHub' })).toBeInTheDocument();
-    expect(screen.getByText('All tools enabled')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Slack' })).toBeInTheDocument();
-    expect(screen.getAllByText('messages.list').length).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remove messages.list from Slack' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove all tools for Slack' }));
     expect(onChange).toHaveBeenCalledWith({
       ...spec,
       mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['@all'] }],
     });
+  });
+
+  it('opens the MCP for a selected-tools row click', async () => {
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [
+              { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+              { id: 'slack', name: 'Slack', enableTools: ['messages.list'] },
+            ],
+          }}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Slack for messages.list' }));
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
+    expect(screen.getByRole('button', { name: 'Slack' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('shows Selected Tools (All) when every mount enables all tools', () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt' },
+      mcpServers: [
+        { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+        { id: 'slack', name: 'Slack', enableTools: ['@all'] },
+      ],
+    };
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={spec}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByText('Selected Tools (All)')).toBeInTheDocument();
+  });
+
+  it('closes via Save without writing the spec again', () => {
+    const onChange = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[{ id: 'github', name: 'GitHub', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={onClose}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onClose).toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('deselects an MCP server when all of its tools are disabled', () => {
@@ -424,13 +772,13 @@ describe('AgentConfigEditors', () => {
     const rendered = render(renderEditors(githubSpec));
 
     expect((await screen.findAllByRole('menuitemcheckbox', { name: /issues.list/ })).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /GitHub/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub' }));
     await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('github'));
     rendered.rerender(renderEditors(slackSpec));
 
     expect(loadMcpTools).toHaveBeenLastCalledWith('github');
     expect(screen.getAllByRole('menuitemcheckbox', { name: /issues.list/ }).length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'Slack' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Slack selected')).toBeInTheDocument();
   });
 
   it('enables sandbox when a skill is added', () => {
