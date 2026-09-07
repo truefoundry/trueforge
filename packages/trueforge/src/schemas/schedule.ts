@@ -146,7 +146,7 @@ export const ScheduleRunSchema = z
     status: ScheduleRunStatusSchema,
     created_by_subject: CreatedBySubjectSchema,
     triggered_at: NullableIsoTimestamp,
-    reason: z.string().nullable().describe('Failure detail when status is failed; otherwise null.'),
+    reason: z.string().nullable(),
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,
   })
