@@ -5,7 +5,6 @@ import type { ComponentType, ReactNode } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import { formatCostUsd, formatReadableDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import { formatTimelineDuration } from '../../utils/sessionEventTimeline.js';
-import { cn } from '../lib/cn.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   HorizontalBarRows,
@@ -49,12 +48,7 @@ function SessionMetricTile({
 export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripProps) {
   return (
     <div className="@container overflow-hidden border-b border-border" data-slot="agent-session-metrics-strip">
-      <div
-        className={cn(
-          '-mb-px -mr-px grid grid-cols-3 @min-[24rem]:grid-cols-4',
-          metrics.totalCostUsd == null ? '@min-[48rem]:grid-cols-7' : '@min-[48rem]:grid-cols-8',
-        )}
-      >
+      <div className="-mb-px -mr-px grid grid-cols-3 @min-[24rem]:grid-cols-4 @min-[48rem]:grid-cols-8">
         <SessionMetricTile id="turns" label="Turns" value={metrics.totalTurns} />
         <SessionMetricTile
           id="wall-time"
