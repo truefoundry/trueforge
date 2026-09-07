@@ -986,6 +986,57 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(page2.pagination.next_page_token).toBeUndefined();
     });
 
+    it('filters listSessions by metadata containment', async () => {
+      const store = createStore();
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'prod-platform',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { env: 'prod', team: 'platform' },
+        external_id: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'prod-only',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { env: 'prod' },
+        external_id: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'staging',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { env: 'staging' },
+        external_id: null,
+      });
+
+      const listArgs = {
+        agent_id: undefined,
+        created_by_or_agent_ids: undefined,
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: 'asc' as const,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+      };
+
+      const byEnv = await store.listSessions({ ...listArgs, metadata: { env: 'prod' } });
+      expect(byEnv.data.map(s => s.session_id).sort()).toEqual(['prod-only', 'prod-platform']);
+
+      const byBoth = await store.listSessions({
+        ...listArgs,
+        metadata: { env: 'prod', team: 'platform' },
+      });
+      expect(byBoth.data.map(s => s.session_id)).toEqual(['prod-platform']);
+    });
+
     it('filters by creator or named-agent ids', async () => {
       const store = createStore();
       await store.createSession({
