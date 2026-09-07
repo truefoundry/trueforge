@@ -26,20 +26,29 @@ export function Table({ className, containerClassName, ...props }: TableProps) {
 export type TableHeaderProps = React.HTMLAttributes<HTMLTableSectionElement>;
 
 export function TableHeader({ className, ...props }: TableHeaderProps) {
-  return <thead className={cn('bg-secondary-bg/60', className)} {...props} />;
+  return <thead className={cn('bg-primary-bg', className)} {...props} />;
 }
 
 export type TableBodyProps = React.HTMLAttributes<HTMLTableSectionElement>;
 
 export function TableBody({ className, ...props }: TableBodyProps) {
-  return <tbody className={cn(className)} {...props} />;
+  return <tbody className={cn('[&>tr:not(:last-child)>td]:after:block', className)} {...props} />;
 }
 
 export type TableRowProps = React.HTMLAttributes<HTMLTableRowElement>;
 
 export function TableRow({ className, ...props }: TableRowProps) {
   return (
-    <tr className={cn('border-b border-border last:border-b-0 hover:bg-ghost-button-hover/40', className)} {...props} />
+    <tr
+      className={cn(
+        'group/table-row hover:bg-ghost-button-hover/40',
+        '[&_td:first-child_a]:text-text-primary [&_td:first-child_button]:text-text-primary',
+        // `:hover` on the row (not group-hover) so the rule lives on the same element as the target descendants.
+        'hover:[&_td:first-child_a]:underline hover:[&_td:first-child_button]:underline',
+        className,
+      )}
+      {...props}
+    />
   );
 }
 
@@ -48,10 +57,7 @@ export type TableHeadProps = React.ThHTMLAttributes<HTMLTableCellElement>;
 export function TableHead({ className, ...props }: TableHeadProps) {
   return (
     <th
-      className={cn(
-        'text-text-secondary border-b border-border px-3 py-2.5 text-left text-xs font-semibold tracking-wide uppercase',
-        className,
-      )}
+      className={cn('text-text-secondary p-3 text-left text-xs font-normal tracking-wide uppercase', className)}
       {...props}
     />
   );
@@ -60,7 +66,18 @@ export function TableHead({ className, ...props }: TableHeadProps) {
 export type TableCellProps = React.TdHTMLAttributes<HTMLTableCellElement>;
 
 export function TableCell({ className, ...props }: TableCellProps) {
-  return <td className={cn('text-text-secondary px-3 py-3', className)} {...props} />;
+  return (
+    <td
+      className={cn(
+        'text-text-secondary relative px-3 py-3',
+        // Inset row divider (aligns with cell padding); shown for non-last body rows via TableBody.
+        'after:bg-border after:pointer-events-none after:absolute after:right-0 after:bottom-0 after:left-0 after:hidden after:h-px',
+        'first:after:left-3 last:after:right-3',
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export type TablePaginationProps = {
@@ -97,7 +114,7 @@ export function TablePagination({
   return (
     <div
       className={cn(
-        'text-text-secondary flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2 text-sm',
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm',
         className,
       )}
     >
@@ -125,7 +142,7 @@ export function TablePagination({
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={() => onPageChange(safePage - 1)}
           >
-            <Icon name="chevron-left" className="size-4" />
+            <Icon name="chevron-left" />
           </button>
           <span className="min-w-[4.5rem] text-center tabular-nums">
             {String(safePage + 1)} / {String(pageCount)}
@@ -137,7 +154,7 @@ export function TablePagination({
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={() => onPageChange(safePage + 1)}
           >
-            <Icon name="chevron-right" className="size-4" />
+            <Icon name="chevron-right" />
           </button>
         </div>
       </div>
@@ -177,7 +194,7 @@ export function TableTokenPagination({
   return (
     <div
       className={cn(
-        'text-text-secondary flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2 text-sm',
+        'text-text-secondary flex flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm',
         className,
       )}
     >
@@ -205,7 +222,7 @@ export function TableTokenPagination({
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={onPrev}
           >
-            <Icon name="chevron-left" className="size-4" />
+            <Icon name="chevron-left" />
           </button>
           <button
             type="button"
@@ -214,7 +231,7 @@ export function TableTokenPagination({
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={onNext}
           >
-            <Icon name="chevron-right" className="size-4" />
+            <Icon name="chevron-right" />
           </button>
         </div>
       </div>

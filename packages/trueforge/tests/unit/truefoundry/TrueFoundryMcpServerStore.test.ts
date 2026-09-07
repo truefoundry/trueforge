@@ -140,13 +140,8 @@ describe('TrueFoundryMcpServerStore', () => {
     });
 
     it('throws McpServerNotFoundError when the server is missing', async () => {
-      const client = createMockClient();
+      const { store, client } = createStore();
       client.getMcpServerByName.mockResolvedValue(undefined);
-      const store = new TrueFoundryMcpServerStore({
-        client,
-        accessToken: ACCESS_TOKEN,
-        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
-      });
       await expect(store.authorize({ tenant_id: TENANT, name: 'missing', userRef: 'user-1' })).rejects.toBeInstanceOf(
         McpServerNotFoundError,
       );

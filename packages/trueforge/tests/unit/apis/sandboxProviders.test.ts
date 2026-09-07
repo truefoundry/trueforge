@@ -86,7 +86,7 @@ async function createRouters(): Promise<{
   const sandboxProviderStore = new SqliteSandboxProviderStore(db);
   return {
     settingsRouter: createSandboxProvidersRouter({
-      sandboxProviderStore,
+      resolveSandboxProviderStore: () => sandboxProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger: silentLogger,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -113,7 +113,7 @@ describe('sandboxProviders router', () => {
     await migrateSqliteToLatest(db);
     sandboxProviderStore = new SqliteSandboxProviderStore(db);
     settingsRouter = createSandboxProvidersRouter({
-      sandboxProviderStore,
+      resolveSandboxProviderStore: () => sandboxProviderStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger: silentLogger,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

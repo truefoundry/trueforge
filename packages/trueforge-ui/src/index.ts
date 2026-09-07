@@ -32,7 +32,8 @@ export type {
 
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
-export type { ButtonProps, ButtonSize, ButtonVariant } from './atoms/primitives/Button.js';
+export { Button } from './atoms/primitives/Button.js';
+export type { ButtonProps, ButtonSize, ButtonVariant, FixedVariantButtonProps } from './atoms/primitives/Button.js';
 export { CenteredModal } from './atoms/primitives/CenteredModal.js';
 export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';

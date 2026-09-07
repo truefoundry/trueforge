@@ -7,13 +7,13 @@ import { auiInputClass } from './inputClasses.js';
  * visually identical; callers pass `className` for width and placement only.
  */
 export function auiSelectTriggerClass(className?: string): string {
-  return auiInputClass(cn('flex h-9 cursor-pointer items-center justify-between gap-2 pr-2 text-left', className));
+  return auiInputClass(cn('flex h-8 cursor-pointer items-center justify-between gap-2 pr-2 text-left', className));
 }
 
 /** Prefixed chip trigger: static label | selected chip + chevron. */
 export function auiSelectPrefixTriggerClass(className?: string): string {
   return cn(
-    'inline-flex h-9 w-full cursor-pointer items-center rounded-md border border-border bg-input-box-bg text-left text-sm text-text-primary outline-none',
+    'inline-flex h-8 w-full cursor-pointer items-center rounded-md border border-border bg-input-box-bg text-left text-sm text-text-primary outline-none',
     'focus-visible:ring-2 focus-visible:ring-focus-ring/40 disabled:cursor-not-allowed disabled:opacity-50',
     className,
   );
