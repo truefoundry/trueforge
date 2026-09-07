@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import { LRUCache } from 'lru-cache';
 import { z } from 'zod';
 import type {
   ISandboxProviderStore,
@@ -29,12 +30,13 @@ const DaytonaSandboxSettingsSchema = z.object({
 
 type DaytonaSandboxSettings = z.infer<typeof DaytonaSandboxSettingsSchema>;
 
-let cachedRemoteDaytonaSettings:
-  | {
-      value: DaytonaSandboxSettings;
-      expiresAt: number;
-    }
-  | undefined;
+const DAYTONA_SETTINGS_CACHE_KEY = 'daytona-settings';
+
+/** Process-wide shared settings, TTL refresh, single slot. */
+const daytonaSettingsCache = new LRUCache<string, DaytonaSandboxSettings>({
+  max: 1,
+  ttl: SETTINGS_CACHE_TTL_MS,
+});
 
 async function resolveDaytonaSandboxSettings({
   accessToken,
@@ -43,8 +45,9 @@ async function resolveDaytonaSandboxSettings({
   accessToken: string;
   settingsServerUrl: string;
 }): Promise<DaytonaSandboxSettings> {
-  if (cachedRemoteDaytonaSettings !== undefined && Date.now() < cachedRemoteDaytonaSettings.expiresAt) {
-    return cachedRemoteDaytonaSettings.value;
+  const cached = daytonaSettingsCache.get(DAYTONA_SETTINGS_CACHE_KEY);
+  if (cached !== undefined) {
+    return cached;
   }
   // Deployment settings server (config), not tenant-configurable — trusted like CONTROL_PLANE_URL.
   let response: Response;
@@ -67,7 +70,7 @@ async function resolveDaytonaSandboxSettings({
     throw new Error(`Sandbox settings endpoint returned ${String(response.status)}: ${body}`);
   }
   const settings = DaytonaSandboxSettingsSchema.parse(await response.json());
-  cachedRemoteDaytonaSettings = { value: settings, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+  daytonaSettingsCache.set(DAYTONA_SETTINGS_CACHE_KEY, settings);
   return settings;
 }
 

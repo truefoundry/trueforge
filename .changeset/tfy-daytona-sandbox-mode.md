@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-TrueFoundry mode: shared Daytona sandbox via SANDBOX_ENABLED, SANDBOX_API_KEY, and settings-server snapshot.
+TrueFoundry mode: shared Daytona sandbox via TRUEFOUNDRY_SANDBOX_* env and settings-server snapshot (lru-cache TTL).
