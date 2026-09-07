@@ -156,7 +156,6 @@ describe('TrueFoundryAgentStore', () => {
         description: 'research',
         model: 'openai-gateway/gpt-5',
         mcp_servers: ['slack'],
-        skills: [],
       });
       return { externalId: 'sf-1' };
     });
@@ -225,7 +224,6 @@ describe('TrueFoundryAgentStore', () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input.description).toBe('research');
       expect(input.mcp_servers).toEqual([]);
-      expect(input.skills).toEqual([]);
       return { externalId: 'sf-1' };
     });
     const createAgent = jest.fn(async () => record({ external_id: null }));
