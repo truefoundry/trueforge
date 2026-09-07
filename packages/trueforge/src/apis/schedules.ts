@@ -6,7 +6,7 @@ import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-cor
 import type { Context } from 'hono';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
+import { ScheduleAgentNotFoundError, scheduleRunFailureReason, startScheduleRun } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {
   manualRunName,
@@ -232,6 +232,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         tenant_id: requestContext.tenant_id,
         id: run.id,
         status: 'failed',
+        reason: scheduleRunFailureReason(error),
       });
 
       if (error instanceof ScheduleAgentNotFoundError) {
