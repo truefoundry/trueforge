@@ -1442,7 +1442,7 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/SessionSource"
+            "$ref": "#/components/schemas/SessionSourceSchedule"
           }
         },
         "required": [
@@ -3709,14 +3709,35 @@
         "type": "object"
       },
       "SessionSource": {
+        "additionalProperties": false,
         "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/SessionSourceSchedule"
+        "properties": {
+          "id": {
+            "description": "Schedule id.",
+            "minLength": 1,
+            "type": "string"
           },
-          {
-            "type": "null"
+          "run_id": {
+            "description": "Schedule run id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Session was created by a schedule run.",
+            "enum": [
+              "schedule"
+            ],
+            "type": "string"
           }
+        },
+        "required": [
+          "type",
+          "id",
+          "run_id"
+        ],
+        "type": [
+          "object",
+          "null"
         ]
       },
       "SessionSourceSchedule": {

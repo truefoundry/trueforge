@@ -30,7 +30,7 @@ export declare namespace Session {
         id: string;
         metadata: SessionMetadata.Raw;
         metrics: SessionMetrics.Raw;
-        source?: (SessionSource.Raw | undefined) | null;
+        source?: SessionSource.Raw | null;
         title?: string | null;
         updated_at: string;
     }
