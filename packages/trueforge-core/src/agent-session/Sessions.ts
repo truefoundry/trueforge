@@ -12,12 +12,16 @@ import type {
 } from './store/ISessionStore';
 import { SessionExternalIdConflictError } from './store/SessionStoreErrors';
 
+/**
+ * Domain create input: same as {@link CreateSessionInput}, but `custom`,
+ * `metadata`, and `source` are optional — {@link Sessions.create} defaults them
+ * (`null` / `{}` / `null`). The store contract requires those fields explicitly.
+ */
 export type SessionsCreateInput<TSessionCustom extends object> = Omit<
   CreateSessionInput<TSessionCustom>,
-  'custom' | 'metadata'
+  'custom' | 'metadata' | 'source'
 > & {
-  custom?: TSessionCustom | undefined;
-  metadata?: CreateSessionInput<TSessionCustom>['metadata'] | undefined;
+  [K in 'custom' | 'metadata' | 'source']?: CreateSessionInput<TSessionCustom>[K] | undefined;
 };
 
 export class Sessions<
@@ -38,6 +42,7 @@ export class Sessions<
       ...input,
       custom: input.custom ?? null,
       metadata: input.metadata ?? {},
+      source: input.source ?? null,
     });
     const record = await this.store.getSession({
       tenant_id: input.tenant_id,
