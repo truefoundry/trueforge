@@ -132,6 +132,7 @@ describe('turns', () => {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       const app = new OpenAPIHono();
       app.route(
@@ -441,6 +442,7 @@ describe('turns', () => {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();

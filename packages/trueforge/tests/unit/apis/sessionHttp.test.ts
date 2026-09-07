@@ -253,6 +253,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     const managerAuthorizer: Authorizer = {
       listAgentAccess: input =>
