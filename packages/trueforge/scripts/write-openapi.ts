@@ -77,7 +77,7 @@ const app = createServerApp({
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),
   sandboxCatalog: SandboxCatalog.load(),
-  sandboxProviderStore: new SqliteSandboxProviderStore(db),
+  resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
   resolveAgentStore: () => agentStore,
   scheduleStore: new SqliteScheduleStore(db),
   sessionStore,
