@@ -751,7 +751,7 @@ export class SchedulesClient {
     }
 
     /**
-     * List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.
+     * List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.
      *
      * @param {string} schedule_id - Immutable schedule identifier.
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
