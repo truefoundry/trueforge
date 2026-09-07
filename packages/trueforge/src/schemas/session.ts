@@ -182,8 +182,6 @@ export const ListSessionsRequestQuerySchema = z
       .optional()
       .describe('When true, only sessions created by the authenticated subject.')
       .openapi({ type: 'boolean' }),
-    // Like NameSchema → ResourceName: keep a plain $ref. Extra schema `.describe()` /
-    // `description` makes zod-openapi emit allOf (OAS 3.0 cannot sibling-describe a $ref).
     metadata: SessionMetadataSchema.optional()
       .openapi({
         param: {
