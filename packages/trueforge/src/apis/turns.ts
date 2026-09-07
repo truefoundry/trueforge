@@ -32,7 +32,7 @@ import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
-import type { IAgentStore } from '../db/agentStore';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -101,12 +101,23 @@ export function toContentDisposition(path: string): string {
   return `attachment; filename*=UTF-8''${encoded}`;
 }
 
+/** Stores a turn runs on. Resolved as a pair so both share one access token. */
+export interface TurnStores<TTransaction = never> {
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
+}
+
+/** `runAsAgent` is set only for turns a saved agent executes. */
+export type ResolveTurnStores<TTransaction = never> = (
+  c: Context,
+  runAsAgent: AgentRecord | undefined,
+) => TurnStores<TTransaction>;
+
 export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore;
+  resolveTurnStores: ResolveTurnStores;
   skillStore: ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
@@ -727,6 +738,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
+    let referencedAgent: AgentRecord | undefined;
     if (session.record.agent.type === 'reference') {
       const agentId = session.record.agent.id;
       const agent = await deps.resolveAgentStore(c).getAgent({
@@ -744,6 +756,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (!canUseAgent) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
       }
+      referencedAgent = agent;
     }
 
     const turnParams = {
@@ -753,8 +766,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       userRef: requestContext.subject.id,
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
+        ...deps.resolveTurnStores(c, referencedAgent),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },

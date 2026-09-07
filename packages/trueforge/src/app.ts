@@ -22,7 +22,7 @@ import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import { createTurnsRouter } from './apis/turns';
+import { createTurnsRouter, type ResolveTurnStores } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
@@ -173,6 +173,8 @@ export interface ServerDeps<TTransaction> {
    * The unauthenticated OAuth callback has no context and gets the DB persistence store.
    */
   resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
+  /** Model + MCP stores for one turn, sharing a single access token. */
+  resolveTurnStores: ResolveTurnStores<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -319,11 +321,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         scheduleStore: deps.scheduleStore,
         resolveAgentStore: deps.resolveAgentStore,
         sessions: deps.sessions,
-        resolveTurnDeps: c => ({
+        resolveTurnDeps: (c, runAsAgent) => ({
           activeTurns: deps.activeTurns,
           eventSubscriptions: deps.eventSubscriptions,
-          modelProviderStore: deps.resolveModelProviderStore(c),
-          mcpServerStore: deps.resolveMcpServerStore(c),
+          ...deps.resolveTurnStores(c, runAsAgent),
           skillStore: deps.skillStore,
           agentStore: deps.resolveAgentStore(c),
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
@@ -408,8 +409,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveTurnStores: deps.resolveTurnStores,
         skillStore: deps.skillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,

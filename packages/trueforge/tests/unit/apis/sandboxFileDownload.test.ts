@@ -40,13 +40,14 @@ async function buildApp() {
       sessions,
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
+      resolveTurnStores: () => ({
+        modelProviderStore: new SqliteModelProviderStore(db),
+        mcpServerStore: new McpServerWithAuthStore({
           store: new SqliteMcpServerStore(db),
           tokenStore,
           clientName: 'test-client',
         }),
+      }),
       skillStore: new SqliteSkillStore(db),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),

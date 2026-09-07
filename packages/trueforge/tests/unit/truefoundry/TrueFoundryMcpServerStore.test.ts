@@ -50,7 +50,7 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    accessToken: input?.accessToken ?? ACCESS_TOKEN,
+    resolveAccessToken: () => Promise.resolve(input?.accessToken ?? ACCESS_TOKEN),
     subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
   });
   return { store, client };

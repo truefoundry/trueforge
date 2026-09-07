@@ -7,6 +7,7 @@ import type {
   UpdateSandboxStatusInput,
   UpsertSandboxProviderInput,
 } from '../db/sandboxProviderStore';
+import type { ResolveAccessToken } from './accessToken';
 import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 
@@ -79,10 +80,10 @@ function managed(): never {
 }
 
 export class TrueFoundrySandboxProviderStore<TTransaction = never> implements ISandboxProviderStore<TTransaction> {
-  readonly #accessToken: string;
+  readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: { accessToken: string }) {
-    this.#accessToken = input.accessToken;
+  constructor(input: { resolveAccessToken: ResolveAccessToken }) {
+    this.#resolveAccessToken = input.resolveAccessToken;
   }
 
   async getSandboxProvider(tenantId: string, transaction?: TTransaction): Promise<SandboxProviderRecord | undefined> {
@@ -92,7 +93,7 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
       return undefined;
     }
     const settings = await resolveDaytonaSandboxSettings({
-      accessToken: this.#accessToken,
+      accessToken: await this.#resolveAccessToken(),
       settingsServerUrl: providerConfig.settingsServerUrl,
     });
     const now = new Date().toISOString();
