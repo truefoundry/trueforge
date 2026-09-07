@@ -29,7 +29,7 @@ function toPutRemoteAgentPayload({
 }): Omit<PutRemoteAgentInput, 'accessToken'> {
   return {
     name,
-    description: manifest.instructions ?? name,
+    description: name,
     model: manifest.model.name,
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
   };
