@@ -21,9 +21,12 @@ const observerStub: IntersectionObserver = {
   thresholds: [],
 };
 
+let lastRootMargin: string | undefined;
+
 class FakeIntersectionObserver implements IntersectionObserver {
-  constructor(callback: ObserverCallback) {
+  constructor(callback: ObserverCallback, options?: IntersectionObserverInit) {
     observerCallback = callback;
+    lastRootMargin = options?.rootMargin;
   }
   observe = observe;
   unobserve = vi.fn();
@@ -96,6 +99,7 @@ function ControlledProbe({ onLoadMore }: { onLoadMore: () => void }): ReactEleme
 describe('useInfiniteScrollSentinel', () => {
   beforeEach(() => {
     observerCallback = null;
+    lastRootMargin = undefined;
     observe.mockClear();
     disconnect.mockClear();
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
@@ -103,6 +107,12 @@ describe('useInfiniteScrollSentinel', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('passes a px/percent rootMargin (IntersectionObserver rejects rem)', async () => {
+    render(<Probe hasMore loading={false} onLoadMore={() => undefined} />);
+    await waitFor(() => expect(observe).toHaveBeenCalled());
+    expect(lastRootMargin).toMatch(/^-?\d+(\.\d+)?(px|%)(\s+-?\d+(\.\d+)?(px|%)){0,3}$/);
   });
 
   it('re-observes after loading settles so a still-visible sentinel can load again', async () => {

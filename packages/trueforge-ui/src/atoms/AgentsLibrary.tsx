@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
+import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
@@ -277,8 +278,9 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
 
   const canMutate = shell.isComposerEnabled === true;
   const agentsListEpoch = shell.agentsListEpoch;
-  const showSchedulesColumn = scheduleServer != null;
-  const canManageSchedules = scheduleServer != null;
+  const showSchedulesColumn = isSchedulesChromeEnabled({ schedules: scheduleServer });
+  const canManageSchedules = showSchedulesColumn;
+  const canOpenAgentDetails = isSessionsChromeEnabled({ sessions: sessionsServer });
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -433,7 +435,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                                 onManageSchedules: () => openSchedulesForAgent({ agentId: id }),
                               }
                             : {})}
-                          {...(sessionsServer != null && agentId != null
+                          {...(canOpenAgentDetails && agentId != null
                             ? {
                                 onOpen: () => {
                                   updateShareSearch({

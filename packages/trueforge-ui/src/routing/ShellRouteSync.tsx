@@ -4,9 +4,15 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
-import { useOptionalCatalogServer, useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
+import {
+  useOptionalAgentSessionsServer,
+  useOptionalCatalogServer,
+  useOptionalScheduleServer,
+  useOptionalServer,
+  useServerCapabilities,
+} from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
-import { isSettingsChromeEnabled } from '../server/settingsChrome.js';
+import { toEffectiveRoutes } from '../server/serverChrome.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
@@ -27,16 +33,25 @@ export function ShellRouteSync({
   const shell = useShellMode();
   const server = useOptionalServer();
   const catalog = useOptionalCatalogServer();
+  const sessions = useOptionalAgentSessionsServer();
+  const schedules = useOptionalScheduleServer();
   const capabilities = useServerCapabilities();
   const navigate = useNavigate();
   const location = useLocation();
-  // Same gate as the Settings sidebar button: no catalog / settings capability
-  // off → `/settings` is unregistered (match + build return null).
-  const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
+  // Same gates as sidebar chrome: missing optional ports unregister their paths.
   const effectiveRoutes = useMemo(
-    () => (settingsChromeEnabled ? routes : { ...routes, settings: null }),
-    [routes, settingsChromeEnabled],
+    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules }),
+    [routes, catalog, capabilities, sessions, schedules],
   );
+  const settingsChromeEnabled = effectiveRoutes.settings != null;
+  // Gate identity only — avoid re-syncing when capabilities object identity churns
+  // without changing which paths are registered (would clobber window share query).
+  const routeGatesKey = [
+    effectiveRoutes.settings,
+    effectiveRoutes.sessionsBrowser,
+    effectiveRoutes.libraryAgent,
+    effectiveRoutes.schedules,
+  ].join('\0');
 
   const snapshot: ShellSnapshot = {
     settingsOpen: shell.settingsOpen,
@@ -216,7 +231,7 @@ export function ShellRouteSync({
     navigate({ pathname: target, search: targetSearch, hash: location.hash }, { replace });
     // location.pathname intentionally excluded: only react to shell-derived place changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeKey, settingsChromeEnabled]);
+  }, [placeKey, routeGatesKey]);
 
   // URL -> shell: apply on genuine location changes (Back/Forward, manual edits).
   useEffect(() => {
