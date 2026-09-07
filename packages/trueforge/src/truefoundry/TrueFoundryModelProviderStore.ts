@@ -9,6 +9,7 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import type { ResolveAccessToken } from './accessToken';
 import { mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
@@ -19,11 +20,11 @@ function managed(): never {
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #accessToken: string;
+  readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: { client: TrueFoundryServiceFoundryServerClient; accessToken: string }) {
+  constructor(input: { client: TrueFoundryServiceFoundryServerClient; resolveAccessToken: ResolveAccessToken }) {
     this.#client = input.client;
-    this.#accessToken = input.accessToken;
+    this.#resolveAccessToken = input.resolveAccessToken;
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
@@ -66,15 +67,16 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   }
 
   async #records(input: { tenant_id: string }): Promise<ModelProviderRecord[]> {
+    const accessToken = await this.#resolveAccessToken();
     const [integrations, installations] = await Promise.all([
-      this.#client.listProviderIntegrations(this.#accessToken),
-      this.#client.listGatewayInstallations(this.#accessToken),
+      this.#client.listProviderIntegrations(accessToken),
+      this.#client.listGatewayInstallations(accessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
     return toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
-      accessToken: this.#accessToken,
+      accessToken,
       models: mapEnabledModels({ integrations }),
     });
   }

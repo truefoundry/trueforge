@@ -575,6 +575,10 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
+  /**
+   * Required when `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set. Env: `TRUEFOUNDRY_API_KEY`.
+   */
+  TRUEFOUNDRY_API_KEY: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -735,6 +739,7 @@ const configuration: ServerConfiguration = standalone
       }),
       TRUEFOUNDRY_MTLS_CERTS_DIR:
         getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
+      TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -779,6 +784,10 @@ if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) 
   throw new Error(
     'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL (TrueFoundry mode) and OIDC (SSO) cannot both be enabled at once.',
   );
+}
+
+if (isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_API_KEY === undefined) {
+  throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
 }
 
 /**

@@ -50,7 +50,7 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    accessToken: input?.accessToken ?? ACCESS_TOKEN,
+    resolveAccessToken: () => Promise.resolve(input?.accessToken ?? ACCESS_TOKEN),
     subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
   });
   return { store, client };
@@ -144,7 +144,7 @@ describe('TrueFoundryMcpServerStore', () => {
       client.getMcpServerByName.mockResolvedValue(undefined);
       const store = new TrueFoundryMcpServerStore({
         client,
-        accessToken: ACCESS_TOKEN,
+        resolveAccessToken: () => Promise.resolve(ACCESS_TOKEN),
         subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       });
       await expect(store.authorize({ tenant_id: TENANT, name: 'missing', userRef: 'user-1' })).rejects.toBeInstanceOf(

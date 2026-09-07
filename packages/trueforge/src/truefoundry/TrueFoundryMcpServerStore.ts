@@ -22,6 +22,7 @@ import {
 } from '../db/mcpServerStore';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
+import type { ResolveAccessToken } from './accessToken';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
@@ -68,30 +69,30 @@ export function resolveAuthorizeRedirectURL(input: { returnTo?: string }): strin
 /** Read-only MCP registry for TrueFoundry mode (writes managed elsewhere). */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
-  readonly #accessToken: string;
+  readonly #resolveAccessToken: ResolveAccessToken;
   readonly #subject: RequestSubject;
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
   constructor(input: {
     client: TrueFoundryMcpApiClient;
-    accessToken: string;
+    resolveAccessToken: ResolveAccessToken;
     subject: RequestSubject;
     perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#client = input.client;
-    this.#accessToken = input.accessToken;
+    this.#resolveAccessToken = input.resolveAccessToken;
     this.#subject = input.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
-  /** Caller Bearer plus optional per-server overrides; oauth servers re-check auth before invoke. */
+  /** Bearer resolved at connect time plus optional per-server overrides; oauth servers re-check auth first. */
   resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
-    const staticHeaders = {
+    const headers = async (): Promise<Record<string, string>> => ({
       ...withoutAuthorization(this.#perServerHeaders[record.name]),
-      Authorization: `Bearer ${this.#accessToken}`,
-    };
+      Authorization: `Bearer ${await this.#resolveAccessToken()}`,
+    });
     if (record.manifest.auth?.type === 'dcr') {
       return async () => {
         const status = await this.authorize({
@@ -112,10 +113,10 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
             },
           };
         }
-        return { headers: staticHeaders };
+        return { headers: await headers() };
       };
     }
-    return staticHeaders;
+    return async () => ({ headers: await headers() });
   }
 
   async listServers(
@@ -129,7 +130,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     }
 
     const rows = await this.#client.listMcpServers({
-      accessToken: this.#accessToken,
+      accessToken: await this.#resolveAccessToken(),
       limit: input.limit + 1,
       offset,
       ...(input.names !== undefined ? { names: input.names } : {}),
@@ -143,7 +144,10 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
     void transaction;
-    const row = await this.#client.getMcpServerByName({ accessToken: this.#accessToken, name: input.name });
+    const row = await this.#client.getMcpServerByName({
+      accessToken: await this.#resolveAccessToken(),
+      name: input.name,
+    });
     if (row === undefined) {
       return undefined;
     }
@@ -204,7 +208,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
         out.set(
           record.name,
           await this.#client.getMcpAuthStatus({
-            accessToken: this.#accessToken,
+            accessToken: await this.#resolveAccessToken(),
             mcpServerId: record.id,
             subjectId: this.#subject.id,
             subjectType: this.#subject.type,
@@ -224,7 +228,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       throw new McpServerNotFoundError(input.name);
     }
     return this.#client.getMcpAuthorize({
-      accessToken: this.#accessToken,
+      accessToken: await this.#resolveAccessToken(),
       mcpServerId: record.id,
       redirectURL: resolveAuthorizeRedirectURL({
         ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
@@ -239,7 +243,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       throw new McpServerNotFoundError(input.name);
     }
     await this.#client.deleteMcpAuth({
-      accessToken: this.#accessToken,
+      accessToken: await this.#resolveAccessToken(),
       mcpServerId: record.id,
       subjectId: this.#subject.id,
       subjectType: this.#subject.type,
@@ -249,7 +253,8 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async #resolveGatewayUrl(): Promise<string> {
     if (this.#gatewayUrl === undefined) {
-      this.#gatewayUrl = resolveDefaultGatewayUrl(await this.#client.listGatewayInstallations(this.#accessToken));
+      const installations = await this.#client.listGatewayInstallations(await this.#resolveAccessToken());
+      this.#gatewayUrl = resolveDefaultGatewayUrl(installations);
     }
     return this.#gatewayUrl;
   }
