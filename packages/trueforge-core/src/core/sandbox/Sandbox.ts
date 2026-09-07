@@ -731,6 +731,13 @@ export class Sandbox extends LocalToolMCP {
       gitDownloaderPath: this.provider.getGitDownloaderPath(sandboxId),
     });
     if (skillInit) {
+      for (const upload of skillInit.uploads) {
+        await this.provider.uploadFile({
+          sandboxId,
+          remotePath: upload.remotePath,
+          content: upload.content,
+        });
+      }
       initSteps.push(skillInit.command);
     }
 

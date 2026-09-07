@@ -6,6 +6,7 @@ import {
   type AgentTracing,
   type GitSkill,
   type ModelParams,
+  type RegistrySkill,
   type RemoteMcpHeaders,
   type SandboxProvider,
   type VercelAIProviderConfig,
@@ -212,17 +213,18 @@ export async function resolveSandboxProvider({
 }
 
 /**
- * Builds a Sandbox for one turn from a resolved provider and git mounts.
+ * Builds a Sandbox for one turn from a resolved provider and skill mounts.
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
   logger: Logger;
-  gitSkills: readonly GitSkill[];
+  gitSkills?: readonly GitSkill[];
+  registrySkills?: readonly RegistrySkill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
 }): Sandbox {
-  const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
+  // Empty mounter still uploads desired-file so reused sandboxes can prune.
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
@@ -230,7 +232,10 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    ...(skillMounter ? { skillMounter } : {}),
+    skillMounter: new SkillMounter({
+      gitSkills: input.gitSkills ?? [],
+      registrySkills: input.registrySkills ?? [],
+    }),
     tracing: input.tracing,
     logger: input.logger,
   });
