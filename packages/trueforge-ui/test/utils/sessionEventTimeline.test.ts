@@ -4,7 +4,7 @@ import { describe, it } from 'vitest';
 import type { SessionEventItem } from '@/server/types.js';
 import { buildSessionMetrics } from '@/utils/buildSessionMetrics.js';
 import { buildSessionTimelineSegments } from '@/utils/buildSessionTimelineSegments.js';
-import type { SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
+import { getSessionEventColor, type SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import {
   buildTimelineAxisTicks,
   compressInterTurnGaps,
@@ -17,6 +17,15 @@ import {
   pickLongestNonOverlappingSegments,
 } from '@/utils/sessionEventTimelineChart.js';
 import { buildSessionTurnViews } from '@/utils/sessionTurnViews.js';
+
+describe('session event colors', () => {
+  it('uses dark overrides when present and otherwise falls back to the base color', () => {
+    assert.equal(getSessionEventColor('model'), '#3b82f6');
+    assert.equal(getSessionEventColor('model', true), '#6366f1');
+    assert.equal(getSessionEventColor('sub_agent', true), '#3f3f46');
+    assert.equal(getSessionEventColor('tool_call', true), '#f59e0b');
+  });
+});
 
 function created({
   turnId,

@@ -1,5 +1,6 @@
 'use client';
 
+import { useThemeMode } from '../../theme/SlotsProvider.js';
 import { formatCostUsd, formatDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import {
   formatTimelineDuration,
@@ -66,6 +67,7 @@ export function SessionTurnTooltip({
   durationMs: number;
   segments: SessionEventTimelineSegment[];
 }) {
+  const isDark = useThemeMode() === 'dark';
   return (
     <div className="max-h-72 w-72 max-w-full overflow-auto text-xs text-text-primary">
       <div className="flex items-center justify-between gap-3">
@@ -84,7 +86,7 @@ export function SessionTurnTooltip({
             <div key={segment.id} className="flex min-w-0 items-center gap-1.5">
               <span
                 className="size-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: getSessionEventColor(segment.type) }}
+                style={{ backgroundColor: getSessionEventColor(segment.type, isDark) }}
               />
               <span className="min-w-0 flex-1 truncate">{label}</span>
               {segment.isMarker ? null : (
@@ -124,6 +126,7 @@ export function SessionToolCallGroupTooltip({ group }: { group: TimelineToolCall
 }
 
 export function SessionMarkerGroupTooltip({ group }: { group: TimelineMarkerGroup }) {
+  const isDark = useThemeMode() === 'dark';
   return (
     <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
       <span className="font-medium text-text-secondary">Events</span>
@@ -132,7 +135,7 @@ export function SessionMarkerGroupTooltip({ group }: { group: TimelineMarkerGrou
           <div key={segment.id} className="flex min-w-0 items-start gap-1.5 py-0.5">
             <span
               className="mt-1 size-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: getSessionEventColor(segment.type) }}
+              style={{ backgroundColor: getSessionEventColor(segment.type, isDark) }}
             />
             <div className="min-w-0">
               <div className="font-medium text-text-secondary">{getSessionEventTooltipHeading(segment.type)}</div>

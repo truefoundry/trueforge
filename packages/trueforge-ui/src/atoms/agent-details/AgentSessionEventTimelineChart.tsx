@@ -308,7 +308,7 @@ export function AgentSessionEventTimelineChart({
         ),
         ...markerGroups.map(group => {
           const type = group.segments.length === 1 ? group.segments[0]?.type : 'system';
-          const color = getSessionEventColor(type ?? 'system');
+          const color = getSessionEventColor(type ?? 'system', isDark);
           return {
             type: 'scatter' as const,
             label: group.segments.map(segment => getSessionEventLabel(segment.type)).join(', '),
@@ -318,7 +318,7 @@ export function AgentSessionEventTimelineChart({
             pointHoverRadius: 6,
             clip: false,
             backgroundColor: color,
-            hoverBackgroundColor: getSessionEventHoverColor(type ?? 'system'),
+            hoverBackgroundColor: getSessionEventHoverColor(type ?? 'system', isDark),
             borderWidth: 0,
             order: 0,
           } satisfies ChartDataset<'scatter', MarkerPoint[]>;
@@ -329,8 +329,8 @@ export function AgentSessionEventTimelineChart({
               label: `${getSessionEventLabel(segment.type)}: ${segment.title}`,
               range: segment,
               y: centers[eventRow + 1 + lane.lane] ?? 0,
-              color: getSessionEventColor(segment.type),
-              hover: getSessionEventHoverColor(segment.type),
+              color: getSessionEventColor(segment.type, isDark),
+              hover: getSessionEventHoverColor(segment.type, isDark),
               thickness: 12,
               order: eventOrder(segment.type),
               inflateAmount: 0.5,
@@ -342,8 +342,8 @@ export function AgentSessionEventTimelineChart({
             label: `${getSessionEventLabel(segment.type)}: ${segment.title}`,
             range: segment,
             y: centers[eventRow] ?? 0,
-            color: getSessionEventColor(segment.type),
-            hover: getSessionEventHoverColor(segment.type),
+            color: getSessionEventColor(segment.type, isDark),
+            hover: getSessionEventHoverColor(segment.type, isDark),
             thickness: 28,
             order: eventOrder(segment.type),
             inflateAmount: 0.5,
@@ -354,8 +354,8 @@ export function AgentSessionEventTimelineChart({
             label: 'Parallel tool calls',
             range: group,
             y: centers[eventRow] ?? 0,
-            color: getSessionEventColor('tool_call'),
-            hover: getSessionEventHoverColor('tool_call'),
+            color: getSessionEventColor('tool_call', isDark),
+            hover: getSessionEventHoverColor('tool_call', isDark),
             thickness: 28,
             order: eventOrder('tool_call'),
             inflateAmount: 0.5,
@@ -366,6 +366,7 @@ export function AgentSessionEventTimelineChart({
     [
       centers,
       eventRow,
+      isDark,
       mainEventSegments,
       markerGroups,
       markerRow,
