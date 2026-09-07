@@ -8,7 +8,12 @@ import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
-import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
+import {
+  createMockAgentSessionsServer,
+  createMockAgentUIServer,
+  createMockCatalog,
+  createMockScheduleServer,
+} from '../server/mockServer.js';
 
 const routes = resolveRoutesConfig();
 
@@ -39,13 +44,19 @@ function SettingsCatalogProvider({
   children,
   settingsEnabled = true,
   includeCatalog = true,
+  includeSessions = true,
+  includeSchedules = false,
 }: {
   children: ReactNode;
   settingsEnabled?: boolean;
   includeCatalog?: boolean;
+  includeSessions?: boolean;
+  includeSchedules?: boolean;
 }) {
   const server = createMockAgentUIServer({
     ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
+    ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
+    ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
     getCapabilities: async () => ({
       data: {
         sandbox: { enabled: true },
@@ -70,17 +81,26 @@ function Harness({
   initialSettingsOpen = false,
   settingsEnabled = true,
   includeCatalog = true,
+  includeSessions = true,
+  includeSchedules = false,
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
   initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
   includeCatalog?: boolean;
+  includeSessions?: boolean;
+  includeSchedules?: boolean;
 }) {
   const [remoteId, setId] = useState<string | undefined>(initialRemoteId);
   setRemoteId = setId;
   return (
-    <SettingsCatalogProvider settingsEnabled={settingsEnabled} includeCatalog={includeCatalog}>
+    <SettingsCatalogProvider
+      settingsEnabled={settingsEnabled}
+      includeCatalog={includeCatalog}
+      includeSessions={includeSessions}
+      includeSchedules={includeSchedules}
+    >
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
         <CaptureShell />
         <CaptureLocation />
@@ -96,6 +116,8 @@ function renderSync(opts: {
   initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
   includeCatalog?: boolean;
+  includeSessions?: boolean;
+  includeSchedules?: boolean;
 }) {
   return render(
     <MemoryRouter initialEntries={opts.initialEntries ?? ['/']}>
@@ -104,6 +126,8 @@ function renderSync(opts: {
         initialSettingsOpen={opts.initialSettingsOpen}
         settingsEnabled={opts.settingsEnabled}
         includeCatalog={opts.includeCatalog}
+        includeSessions={opts.includeSessions}
+        includeSchedules={opts.includeSchedules}
       />
     </MemoryRouter>,
   );
@@ -237,6 +261,68 @@ describe('ShellRouteSync', () => {
     expect(shell.libraryOpen).toBe(true);
     expect(shell.libraryAgentId).toBe('agent-7');
     expect(pathname).toBe('/library/agent-7');
+  });
+
+  it('unregisters /library/:agentId when sessions port is missing', async () => {
+    renderSync({
+      initialEntries: ['/library/agent-7'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSessions: false,
+    });
+    await waitFor(() => {
+      expect(shell.libraryAgentId).toBeNull();
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.openLibraryAgent('agent-7'));
+    expect(shell.libraryAgentId).toBeNull();
+  });
+
+  it('unregisters sessions browser when sessions port is missing', async () => {
+    renderSync({
+      initialEntries: ['/sessions'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSessions: false,
+    });
+    await waitFor(() => {
+      expect(shell.sessionsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setSessionsOpen(true));
+    expect(shell.sessionsOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors sessions browser open through history when sessions port is present', () => {
+    renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    act(() => shell.setSessionsOpen(true));
+    expect(shell.sessionsOpen).toBe(true);
+    expect(pathname).toBe('/sessions');
+  });
+
+  it('unregisters /schedules when schedules port is missing', async () => {
+    renderSync({
+      initialEntries: ['/schedules'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSchedules: false,
+    });
+    await waitFor(() => {
+      expect(shell.schedulesOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setSchedulesOpen(true));
+    expect(shell.schedulesOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors schedules open through history when schedules port is present', () => {
+    renderSync({
+      initialEntries: ['/'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSchedules: true,
+    });
+    act(() => shell.setSchedulesOpen(true));
+    expect(shell.schedulesOpen).toBe(true);
+    expect(pathname).toBe('/schedules');
   });
 
   it('returns to the chat place when a /library deep link is closed', () => {

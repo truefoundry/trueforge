@@ -4,6 +4,7 @@ import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { defaultSessionTimeRange, readSessionShareSearch } from '../utils/sessionShareUrl.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
@@ -18,8 +19,9 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
   const shell = useOptionalShellMode();
   const { updateShareSearch } = useSessionShareSearch();
   const sessionsOpen = shell?.sessionsOpen === true;
+  const enabled = isSessionsChromeEnabled({ sessions: sessionsServer }) && shell != null;
 
-  if (sessionsServer == null || shell == null) return null;
+  if (!enabled) return null;
 
   return (
     <div className={cn('relative min-w-0 w-full', className)}>

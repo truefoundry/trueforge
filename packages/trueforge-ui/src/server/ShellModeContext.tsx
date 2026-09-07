@@ -10,13 +10,14 @@ import {
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
+import { isSchedulesChromeEnabled, isSessionsChromeEnabled, isSettingsChromeEnabled } from './serverChrome.js';
 import {
+  useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
   useOptionalRefreshServerCapabilities,
   useOptionalScheduleServer,
   useServerCapabilities,
 } from './ServerContext.js';
-import { isSettingsChromeEnabled } from './settingsChrome.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
 /** Host-facing shell configuration for agent / library / composer chrome. */
@@ -209,6 +210,7 @@ export function ShellModeProvider({
   const capabilities = useServerCapabilities();
   const catalog = useOptionalCatalogServer();
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
+  const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
   const chatSeedRef = useRef(
     readDraftSpecPreferences('chat') ?? selectDraftSpecPreferences(mutableSeedFromConfig(agentConfig), 'chat'),
@@ -237,22 +239,26 @@ export function ShellModeProvider({
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
   const settingsOpen = settingsEnabled && settingsOpenState;
-  const schedulesEnabled = scheduleServer != null;
+  const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
+  const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
-  const sessionsOpen = sessionsOpenState;
-  const setSessionsOpen = useCallback((open: boolean) => {
-    if (open) {
-      setSettingsOpenState(false);
-      setAgentConfigOpenState(false);
-      setLibraryOpenState(false);
-      setLibraryAgentId(null);
-      setSchedulesOpenState(false);
-    } else {
-      replaceSessionShareSearch({ view: null });
-    }
-    setSessionsOpenState(open);
-  }, []);
+  const sessionsOpen = sessionsEnabled && sessionsOpenState;
+  const setSessionsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSchedulesOpenState(false);
+      } else {
+        replaceSessionShareSearch({ view: null });
+      }
+      setSessionsOpenState(sessionsEnabled && open);
+    },
+    [sessionsEnabled],
+  );
   const setLibraryOpen = useCallback(
     (open: boolean) => {
       if (!isLibraryEnabled) return;
@@ -269,7 +275,7 @@ export function ShellModeProvider({
   );
   const openLibraryAgent = useCallback(
     (agentId: string) => {
-      if (!isLibraryEnabled) return;
+      if (!isLibraryEnabled || !sessionsEnabled) return;
       setSettingsOpenState(false);
       setAgentConfigOpenState(false);
       setSessionsOpen(false);
@@ -277,7 +283,7 @@ export function ShellModeProvider({
       setLibraryOpenState(true);
       setLibraryAgentId(agentId);
     },
-    [isLibraryEnabled, setSessionsOpen],
+    [isLibraryEnabled, sessionsEnabled, setSessionsOpen],
   );
   const closeLibraryAgent = useCallback(() => {
     setLibraryAgentId(null);
@@ -330,6 +336,13 @@ export function ShellModeProvider({
       setSettingsOpenState(false);
     }
   }, [settingsEnabled]);
+
+  useEffect(() => {
+    if (!sessionsEnabled) {
+      setSessionsOpenState(false);
+      setLibraryAgentId(null);
+    }
+  }, [sessionsEnabled]);
 
   useEffect(() => {
     if (!schedulesEnabled) {
