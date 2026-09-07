@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
 import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
@@ -11,6 +11,7 @@ import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 const flushAgentSpec = vi.fn(async () => undefined);
+const updateAgentSpec = vi.fn();
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({
@@ -18,7 +19,7 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
     draftSessionId: 'draft-1',
   }),
   useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
-  useTrueFoundryUpdateAgentSpec: () => vi.fn(),
+  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
   useTrueFoundryAdoptAgentSpec: () => vi.fn(),
 }));
 
@@ -30,6 +31,10 @@ beforeAll(() => {
     this.removeAttribute('open');
     this.dispatchEvent(new Event('close'));
   };
+});
+
+beforeEach(() => {
+  updateAgentSpec.mockReset();
 });
 
 function TestView({ compact = true }: { compact?: boolean }) {
@@ -96,5 +101,33 @@ describe('AgentConfigDrawerContainer', () => {
 
     expect(screen.getByTestId('config-open')).toHaveTextContent('true');
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
+  });
+
+  it('commits drawer instructions and messages in one spec update', () => {
+    render(
+      <SlotsProvider>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+            <AgentConfigInstructionsProvider>
+              <TestView compact={false} />
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open config' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Instructions' }));
+    fireEvent.change(screen.getByLabelText('Agent instructions'), { target: { value: 'Updated instructions' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add User Message' }));
+    fireEvent.change(screen.getByLabelText('User Message 1'), { target: { value: 'Start here' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(updateAgentSpec).toHaveBeenCalledOnce();
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      model: { name: 'openai/gpt-4.1' },
+      instructions: 'Updated instructions',
+      messages: [{ type: 'user.message', content: 'Start here' }],
+    });
   });
 });

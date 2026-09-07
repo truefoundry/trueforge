@@ -4,9 +4,10 @@ import { useAuiState } from '../assistant-ui.js';
 import { useNamedAgentHeaderState } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { cn } from './lib/cn.js';
+import { pageHeaderTitleClassName } from './PageHeader.js';
 import { Tooltip } from './primitives/Tooltip.js';
 
-/** Left-of-header title for named agents and New Chat / New Agent drafts. */
+/** Dynamic chat title for named agents and New Chat / New Agent drafts. */
 export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const state = useNamedAgentHeaderState();
   const threadTitle = useAuiState(s => s.threadListItem.title);
@@ -16,14 +17,7 @@ export function NamedAgentHeaderLabel({ className }: { className?: string }) {
   const displayName = state.allowThreadTitle && syncedTitle.length > 0 ? syncedTitle : state.name;
 
   return (
-    <h1
-      className={cn(
-        // Match sm/icon chrome buttons so header height doesn't collapse when Clear/Save hide.
-        'flex min-h-8 min-w-0 items-center gap-1.5 px-1 text-sm font-medium text-text-primary',
-        className,
-      )}
-    >
-      <Icon name={state.icon} className="size-3.5 shrink-0" />
+    <h1 className={cn('flex min-w-0 items-center gap-1.5', pageHeaderTitleClassName, className)}>
       <span className="truncate" title={displayName}>
         {displayName}
       </span>
