@@ -11,4 +11,6 @@ export interface ListSchedulesRequest {
     pageToken?: string;
     /** Filter by one or more agent names (comma-separated). When set, at least one name is required. */
     agentNames?: string;
+    /** When true, only schedules created by the authenticated subject. When omitted or false, also includes schedules for agents the caller manages. */
+    createdByMe?: boolean;
 }
