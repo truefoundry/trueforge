@@ -35,7 +35,7 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -56,12 +56,14 @@ async function validateManifest<TTransaction>({
   deps,
   modelProviderStore,
   mcpServerStore,
+  sandboxProviderStore,
   tenant_id,
 }: {
   spec: AgentSpec;
   deps: AgentsRouterDeps<TTransaction>;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   tenant_id: string;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
@@ -70,7 +72,7 @@ async function validateManifest<TTransaction>({
     modelProviderStore,
     mcpServerStore,
     skillStore: deps.skillStore,
-    sandboxProviderStore: deps.sandboxProviderStore,
+    sandboxProviderStore,
   });
   return spec;
 }
@@ -95,6 +97,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       tenant_id: requestContext.tenant_id,
     });
     try {
@@ -158,7 +161,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const existing = await agentIfAccessible({
       authorizer: deps.authorizer,
       context: requestContext,
-      action: 'manage',
+      action: 'delete',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id: agentId }),
     });
     if (existing === undefined) {
@@ -186,6 +189,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       tenant_id: requestContext.tenant_id,
     });
     const record = await deps.resolveAgentStore(c).updateAgent({

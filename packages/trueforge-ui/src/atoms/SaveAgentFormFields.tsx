@@ -6,7 +6,7 @@ import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
 import { enabledToolsFromMount, type EditableMount } from './draft/agentConfigMounts.js';
 import { displayModelLabel, ProviderMark } from './draft/DraftModelCatalogPanel.js';
 import { modelParamSummary } from './draft/modelParamsSummary.js';
-import { runtimeConfigSummary } from './draft/runtimeConfigSummary.js';
+import { runtimeConfigSummary, runtimeConfigValueClassName } from './draft/runtimeConfigSummary.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { Tooltip } from './primitives/Tooltip.js';
@@ -125,7 +125,7 @@ export function SaveAgentFormFields({
           {runtimeConfig.map(entry => (
             <div key={entry.label} className="flex gap-1">
               <dt>{entry.label}:</dt>
-              <dd className="text-text-primary font-medium">{entry.value}</dd>
+              <dd className={runtimeConfigValueClassName(entry.value)}>{entry.value}</dd>
             </div>
           ))}
         </dl>

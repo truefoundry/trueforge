@@ -19,7 +19,7 @@ import {
 } from './agentConfigMounts.js';
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
-import { runtimeConfigSummary } from './runtimeConfigSummary.js';
+import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
 
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
@@ -33,11 +33,6 @@ export type AgentConfigPanelProps = {
 
 function formatTokens(value: number): string {
   return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-}
-
-// Runtime summary values read as state, so `off` takes the failure hue and everything else the accent.
-function runtimeValueClass(value: string): string {
-  return value === 'off' ? 'text-failure-bg' : 'text-primary-button-bg';
 }
 
 function McpServerChip({
@@ -326,7 +321,7 @@ export function AgentConfigPanel({
             {runtimeConfig.map(entry => (
               <div key={entry.label} className="flex gap-1">
                 <dt>{entry.label}:</dt>
-                <dd className={cn('font-medium tracking-wide', runtimeValueClass(entry.value))}>{entry.value}</dd>
+                <dd className={runtimeConfigValueClassName(entry.value)}>{entry.value}</dd>
               </div>
             ))}
           </dl>

@@ -1,10 +1,13 @@
-import type {
-  AgentSpec,
-  CreatedBySubject,
-  SessionMetadata,
-  SessionMetrics,
+import {
+  CreatedBySubjectSchema,
+  SessionMetadataSchema,
+  SessionSourceSchema,
+  type AgentSpec,
+  type CreatedBySubject,
+  type SessionMetadata,
+  type SessionMetrics,
+  type SessionSource,
 } from '@truefoundry/trueforge-core/agent-session';
-import { SessionMetadataSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
@@ -25,7 +28,6 @@ import {
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
-import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText, nowIso, whereCreatedByOrAgentIds } from '../../sqlExpressions';
@@ -56,6 +58,7 @@ function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
   created_by_subject: CreatedBySubject;
+  source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
   agent_spec: AgentSpec | null;
@@ -72,7 +75,8 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
@@ -96,6 +100,7 @@ function sessionSelectColumns() {
     'tenant_id' as const,
     'session_id' as const,
     jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<SessionSource | null>(sql.ref('source')).as('source'),
     'agent_id' as const,
     'agent_name' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
@@ -122,6 +127,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         tenant_id: input.tenant_id,
         session_id: input.session_id,
         created_by_subject: jsonbBind(input.created_by_subject),
+        source: input.source !== null ? jsonbBind(input.source) : null,
         agent_id: columns.agent_id,
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
@@ -130,7 +136,6 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         metadata: jsonbBind(input.metadata),
         external_id: input.external_id,
         metrics: jsonbBind({
-          total_cost_in_usd: 0,
           total_duration_ms: 0,
           total_turns: 0,
         }),
@@ -263,6 +268,24 @@ export async function listSessions(
     query = query.where('agent_id', '=', input.agent_id);
   }
   query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
+  if (input.metadata !== undefined) {
+    if (Object.keys(input.metadata).length === 0) {
+      query = query.where(sql<boolean>`NOT EXISTS (SELECT 1 FROM json_each(metadata))`);
+    } else {
+      for (const [key, value] of Object.entries(input.metadata)) {
+        // Match metadata keys exactly; some key names are parsed as JSON paths.
+        query = query.where(
+          sql<boolean>`EXISTS (SELECT 1 FROM json_each(metadata) WHERE key = ${key} AND atom = ${value})`,
+        );
+      }
+    }
+  }
+  if (input.source_type !== undefined) {
+    query = query.where(sql`json_extract(source, '$.type')`, '=', input.source_type);
+  }
+  if (input.source_id !== undefined) {
+    query = query.where(sql`json_extract(source, '$.id')`, '=', input.source_id);
+  }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp.toISOString());
   }

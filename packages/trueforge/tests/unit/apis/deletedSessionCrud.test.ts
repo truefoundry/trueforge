@@ -50,7 +50,7 @@ describe('public CRUD after session deletion', () => {
         resolveMcpServerStore: () => mcpServerStore,
         skillStore,
         resolveAgentStore: () => agentStore,
-        sandboxProviderStore,
+        resolveSandboxProviderStore: () => sandboxProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -69,7 +69,7 @@ describe('public CRUD after session deletion', () => {
         skillStore,
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
-        sandboxProviderStore,
+        resolveSandboxProviderStore: () => sandboxProviderStore,
         logger: createLogger({ silent: true }),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         authorizer: new TrueForgeAuthorizer(),
@@ -94,6 +94,7 @@ describe('public CRUD after session deletion', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     expect((await app.request('/s1', { method: 'DELETE' })).status).toBe(204);
 

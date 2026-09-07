@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
+import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
@@ -11,11 +12,11 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { writeOpenSchedulesForAgentSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { PageHeader } from './PageHeader.js';
+import { Button } from './primitives/Button.js';
 import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './primitives/Table.js';
@@ -138,11 +139,11 @@ export function AgentLibraryRow({
             ) : (
               <button
                 type="button"
-                className="hover:text-primary-button-bg block max-w-full cursor-pointer truncate text-left hover:underline"
+                className="block max-w-full cursor-pointer text-left"
                 aria-label={`Open ${agent.name}`}
                 onClick={onOpen}
               >
-                {agent.name}
+                <span className="block truncate">{agent.name}</span>
               </button>
             )}
           </div>
@@ -154,7 +155,7 @@ export function AgentLibraryRow({
             {modelLabel != null ? (
               <Tooltip content={modelTitle}>
                 <span
-                  className="bg-primary-button-bg/10 text-primary-button-bg inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium"
+                  className="bg-secondary-bg text-text-secondary inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium"
                   aria-label={modelTitle}
                 >
                   <Icon name="cpu" className="size-3.5 shrink-0" />
@@ -200,18 +201,10 @@ export function AgentLibraryRow({
       ) : null}
       <TableCell className="w-px">
         <div className="flex items-center justify-end gap-1.5">
-          <button
-            type="button"
-            aria-label={`Try agent ${agent.name}`}
-            className={auiButtonClass({
-              variant: 'outline',
-              size: 'sm',
-            })}
-            onClick={onTry}
-          >
+          <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
             <Icon name="play" className="size-3.5" />
             Try
-          </button>
+          </Button.Secondary>
           <AgentOverflowMenu
             agentName={agent.name}
             {...(spec != null ? { agentSpec: spec } : {})}
@@ -277,8 +270,9 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
 
   const canMutate = shell.isComposerEnabled === true;
   const agentsListEpoch = shell.agentsListEpoch;
-  const showSchedulesColumn = scheduleServer != null;
-  const canManageSchedules = scheduleServer != null;
+  const showSchedulesColumn = isSchedulesChromeEnabled({ schedules: scheduleServer });
+  const canManageSchedules = showSchedulesColumn;
+  const canOpenAgentDetails = isSessionsChromeEnabled({ sessions: sessionsServer });
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -433,7 +427,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                                 onManageSchedules: () => openSchedulesForAgent({ agentId: id }),
                               }
                             : {})}
-                          {...(sessionsServer != null && agentId != null
+                          {...(canOpenAgentDetails && agentId != null
                             ? {
                                 onOpen: () => {
                                   updateShareSearch({

@@ -62,7 +62,7 @@ const PutRemoteAgentResponseSchema = z.object({
   agentId: z.string().min(1),
 });
 
-const AgentPermissionSchema = z.enum(['READ_AGENT', 'MANAGE_AGENT']);
+const AgentPermissionSchema = z.enum(['READ_AGENT', 'USE_AGENT', 'MANAGE_AGENT', 'DELETE_AGENT']);
 export type AgentPermission = z.infer<typeof AgentPermissionSchema>;
 
 /** ServiceFoundry may return grants we do not use; drop them instead of failing. */

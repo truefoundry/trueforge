@@ -41,9 +41,10 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-  canAccessAgent: () => Promise.resolve(false),
+  canAccessAgent: deniedCanAccessAgent,
 };
 
 describe('sessions HTTP agent binding', () => {
@@ -90,7 +91,7 @@ describe('sessions HTTP agent binding', () => {
       resolveMcpServerStore: () => mcpServerStore,
       skillStore,
       resolveAgentStore: () => agentStore,
-      sandboxProviderStore,
+      resolveSandboxProviderStore: () => sandboxProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -134,7 +135,7 @@ describe('sessions HTTP agent binding', () => {
       subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
       subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
     });
-    expect(json.data.metrics).toEqual({ total_cost_in_usd: 0, total_duration_ms: 0, total_turns: 0 });
+    expect(json.data.metrics).toEqual({ total_duration_ms: 0, total_turns: 0 });
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {
@@ -198,6 +199,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     await sessionStore.createSession({
       tenant_id: 'default',
@@ -207,6 +209,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     const start = new Date(Date.now() - 60 * 60 * 1000);
     const end = new Date(Date.now() + 60 * 60 * 1000);
@@ -251,6 +254,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
     const managerAuthorizer: Authorizer = {
       listAgentAccess: input =>
@@ -349,6 +353,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
 
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
@@ -493,6 +498,15 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(tooLongKey.status).toBe(400);
 
+    const badCharsetKey = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { 'env[prod]': 'v' },
+      }),
+    );
+    expect(badCharsetKey.status).toBe(400);
+
     const tooLongValue = await app.request(
       '/',
       jsonInit('POST', {
@@ -501,6 +515,31 @@ describe('sessions HTTP agent binding', () => {
       }),
     );
     expect(tooLongValue.status).toBe(400);
+  });
+
+  it('lists by metadata[key]=value containment and rejects bare metadata', async () => {
+    const prod = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'prod', team: 'platform' } }),
+    );
+    expect(prod.status).toBe(201);
+    const prodId = ((await prod.json()) as { data: { id: string } }).data.id;
+
+    const staging = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'staging' } }),
+    );
+    expect(staging.status).toBe(201);
+    const stagingId = ((await staging.json()) as { data: { id: string } }).data.id;
+
+    const filtered = await app.request('/?metadata[env]=prod&metadata[team]=platform');
+    expect(filtered.status).toBe(200);
+    const filteredIds = ListSessionsResponseSchema.parse(await filtered.json()).data.map(session => session.id);
+    expect(filteredIds).toContain(prodId);
+    expect(filteredIds).not.toContain(stagingId);
+
+    const bare = await app.request(`/?metadata=${encodeURIComponent(JSON.stringify({ env: 'prod' }))}`);
+    expect(bare.status).toBe(400);
   });
 
   it('POST get-or-create-by-external-id is idempotent and 403s for another creator', async () => {
@@ -542,6 +581,7 @@ describe('sessions HTTP agent binding', () => {
       custom: null,
       metadata: {},
       external_id: 'run-theirs',
+      source: null,
     });
     const forbidden = await app.request(
       '/api/internal/sessions/get-or-create-by-external-id',
@@ -553,7 +593,8 @@ describe('sessions HTTP agent binding', () => {
     });
   });
 
-  it('returns 404 when creating a session for a named agent the caller cannot read', async () => {
+  it('returns 404 when creating a session for a named agent the caller cannot use', async () => {
+    deniedCanAccessAgent.mockClear();
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
       created_by_subject: {
@@ -585,6 +626,7 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(getOrCreate.status).toBe(404);
     expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
+    expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {

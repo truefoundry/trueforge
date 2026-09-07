@@ -15,6 +15,8 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Button } from '../primitives/Button.js';
+import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
@@ -68,6 +70,8 @@ function Checkbox({ checked }: { checked: boolean }) {
 export function CatalogRow({
   title,
   description,
+  logo,
+  fallbackIcon,
   checked,
   disabled = false,
   onToggle,
@@ -76,6 +80,9 @@ export function CatalogRow({
 }: {
   title: string;
   description?: string;
+  /** Catalog logo URL; when absent, `fallbackIcon` (or the title initial) is shown. */
+  logo?: string | undefined;
+  fallbackIcon?: string;
   checked: boolean;
   disabled?: boolean;
   onToggle: () => void;
@@ -84,8 +91,17 @@ export function CatalogRow({
 }) {
   const content = (
     <>
-      <span className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
-        {title.charAt(0).toUpperCase()}
+      <span
+        className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border text-xs font-semibold"
+        aria-hidden
+      >
+        {logo ? (
+          <CatalogLogo src={logo} alt={title} className="size-4" />
+        ) : fallbackIcon ? (
+          <Icon name={fallbackIcon} className="text-text-primary size-4" />
+        ) : (
+          title.charAt(0).toUpperCase()
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="text-text-primary block truncate text-sm font-medium">{title}</span>
@@ -163,11 +179,11 @@ export function ConnectorConnectButton({
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
 
   return (
-    <button
+    <Button.Secondary
       type="button"
       aria-label={`Connect ${connector.name}`}
       disabled={isOAuthLoading}
-      className={auiButtonClass({ variant: 'secondary', size: 'sm' })}
+      size="small"
       onKeyDown={event => {
         event.stopPropagation();
       }}
@@ -179,7 +195,7 @@ export function ConnectorConnectButton({
       }}
     >
       {isOAuthLoading ? 'Connecting...' : 'Connect'}
-    </button>
+    </Button.Secondary>
   );
 }
 
@@ -227,6 +243,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const {
     skills,
     connectors,
+    connectorLogos,
     connectorsHasMore,
     connectorsLoadMoreFailed,
     connectorsLoadingMore,
@@ -511,7 +528,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     <CatalogRow
                       key={c.id}
                       title={c.name}
-                      description={c.description}
+                      logo={connectorLogos[c.name]}
+                      fallbackIcon="mcp-server"
                       checked={selectedMcpIds.has(c.id)}
                       action={
                         isUnauthenticatedDcrConnector(c) ? (
@@ -530,7 +548,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     <CatalogRow
                       key={c.id}
                       title={c.name}
-                      description={c.description}
+                      logo={connectorLogos[c.name]}
+                      fallbackIcon="mcp-server"
                       checked={selectedMcpIds.has(c.id)}
                       action={
                         isUnauthenticatedDcrConnector(c) ? (
@@ -561,7 +580,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   {connectorsLoadMoreFailed ? (
                     <button
                       type="button"
-                      className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+                      className={auiButtonClass({ variant: 'ghost', size: 'small' })}
                       onClick={loadMoreConnectors}
                     >
                       Retry loading connectors
@@ -636,11 +655,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            className={auiButtonClass({
-              variant: 'ghost',
-              size: 'sm',
-              className: 'h-8 rounded-md px-2 text-xs',
-            })}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={() => {
               if (open) {
                 setOpenAndFlush(false);
@@ -651,7 +666,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           >
             {/* Icon-only trigger; the count and name reach assistive tech via aria-label
                 and sighted users via the tooltip, which lists the selected tools. */}
-            <Icon name="wrench" className="size-3.5" />
+            <Icon name="wrench" />
           </button>
         </Tooltip>
       ) : null}

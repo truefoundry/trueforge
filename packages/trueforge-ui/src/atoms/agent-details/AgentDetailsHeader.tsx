@@ -1,6 +1,7 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
+import { isSchedulesChromeEnabled } from '../../server/serverChrome.js';
 import { useOptionalScheduleServer, useOptionalServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import { writeOpenSchedulesForAgentSearch } from '../../utils/scheduleShareUrl.js';
@@ -8,6 +9,7 @@ import { AgentOverflowMenu } from '../AgentOverflowMenu.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { PageHeader, pageHeaderTitleClassName } from '../PageHeader.js';
+import { Button } from '../primitives/Button.js';
 import type { AgentDetailsHeaderProps } from './types.js';
 
 export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHeaderProps) {
@@ -15,7 +17,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
   const scheduleServer = useOptionalScheduleServer();
   const builder = useOptionalServer();
   const canMutate = shell.isComposerEnabled && detail != null && builder != null;
-  const canManageSchedules = scheduleServer != null && detail != null;
+  const canManageSchedules = isSchedulesChromeEnabled({ schedules: scheduleServer }) && detail != null;
 
   const handleTry = () => {
     if (detail == null) return;
@@ -67,16 +69,16 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
       }
       end={
         <>
-          <button
+          <Button.Primary
             type="button"
             aria-label="Try agent"
+            size="large"
             disabled={detail == null}
-            className={auiButtonClass({ variant: 'default', size: 'sm' })}
             onClick={handleTry}
           >
             <Icon name="play" className="size-3.5" />
             Try
-          </button>
+          </Button.Primary>
           {detail != null ? (
             <AgentOverflowMenu
               agentName={detail.name}

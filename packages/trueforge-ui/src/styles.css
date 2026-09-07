@@ -57,6 +57,7 @@
     --input-border: var(--color-gray-250);
     --text-primary: var(--color-gray-1000);
     --text-secondary: var(--color-gray-550);
+    --sidebar-text: var(--text-primary);
     --card-bg: var(--color-white);
     --dropdown-selected-item-bg: var(--color-gray-125);
     --dropdown-selected-item-text: var(--color-gray-1000);
@@ -67,7 +68,7 @@
     --primary-button-bg: var(--color-black);
     --primary-button-hover: #27272a;
     --primary-button-text: var(--color-white);
-    --secondary-button-bg: var(--color-gray-100);
+    --secondary-button-bg: var(--primary-bg);
     --secondary-button-hover: var(--color-gray-200);
     --secondary-button-text: var(--color-gray-1000);
     --ghost-button-bg: transparent;
@@ -80,7 +81,7 @@
     --warning-bg: #d97706;
     --warning-text: var(--color-white);
     --focus-ring: var(--color-black);
-    --radius: 0.5rem;
+    --radius: 0.375rem;
     --composer-radius: 1.5rem;
     --overlay: rgb(9 9 11 / 0.5);
     --shadow-color: var(--color-black);
@@ -120,6 +121,7 @@
     --input-border: var(--color-gray-275);
     --text-primary: var(--color-gray-1000);
     --text-secondary: var(--color-gray-600);
+    --sidebar-text: var(--text-primary);
     --card-bg: var(--color-gray-150);
     --dropdown-selected-item-bg: var(--color-gray-275);
     --dropdown-selected-item-text: var(--color-gray-1000);
@@ -202,13 +204,18 @@
   font-weight: 400;
 }
 
+/* trueforge: circular composer send control (icon-only up-arrow). */
+.aui-theme-root[data-preset='trueforge'] [data-slot='aui_composer-send'] {
+  border-radius: 100%;
+}
+
 /*
  * Token-driven default color for every SDK surface, not just thread shells.
  * Without this, chrome outside `.aui-root` (sidebar, headers, footers, icon
  * buttons) inherits the host page color and goes unreadable in dark mode.
  */
 .aui-theme-root {
-  --thread-list-item-radius: 0.5rem;
+  --thread-list-item-radius: 0.75rem;
   color: var(--text-primary);
 }
 
@@ -257,6 +264,7 @@
  * ──────────────────────────────────────────────────────────────────── */
 @theme inline {
   --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-text: var(--sidebar-text);
   --color-topbar-bg: var(--topbar-bg);
   --color-primary-bg: var(--primary-bg);
   --color-secondary-bg: var(--secondary-bg);

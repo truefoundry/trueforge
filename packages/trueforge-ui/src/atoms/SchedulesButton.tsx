@@ -3,7 +3,8 @@
 import { Icon } from '../icons/Icon.js';
 import { useOptionalScheduleServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { isSchedulesChromeEnabled } from '../server/serverChrome.js';
+import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
 export type SchedulesButtonProps = {
@@ -15,13 +16,13 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
   const shell = useOptionalShellMode();
   const scheduleServer = useOptionalScheduleServer();
 
-  const enabled = scheduleServer != null && shell != null;
+  const enabled = isSchedulesChromeEnabled({ schedules: scheduleServer }) && shell != null;
   const open = shell?.schedulesOpen === true;
 
   if (!enabled) return null;
 
   return (
-    <div className={cn('relative min-w-0 w-full', className)}>
+    <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
       <button
         type="button"
         aria-label={compact ? 'Schedules' : undefined}
@@ -30,17 +31,16 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
         className={auiButtonClass({
           variant: 'ghost',
           className: cn(
-            'rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
-            compact
-              ? 'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center'
-              : 'h-8 w-full !justify-start px-2.5',
+            sidebarButtonRadiusClassName,
+            'font-normal text-sidebar-text shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+            compact ? sidebarRailButtonClassName : 'h-8 w-full !justify-start px-2.5 text-sm',
             open &&
-              'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
+              'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
         onClick={() => shell.setSchedulesOpen(!open)}
       >
-        <Icon name="calendar-clock" size={compact ? 16 : undefined} />
+        <Icon name="calendar-clock" size={compact ? 14 : undefined} />
         {compact ? (
           <span className="text-center">Schedules</span>
         ) : (

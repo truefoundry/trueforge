@@ -18,7 +18,7 @@ import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
 import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
 import { editableMountsFromSpec, withPreload } from './draft/agentConfigMounts.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { Button } from './primitives/Button.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
 type SaveIntent = 'create' | 'update';
@@ -188,19 +188,16 @@ function SaveAgentButtonContent({
 
   return (
     <>
-      <button
+      <Button.Primary
         type="button"
+        size="large"
         disabled={disabled || builder === null || agentSpec === null}
-        className={auiButtonClass({
-          variant: 'default',
-          size: 'sm',
-          className,
-        })}
+        className={className}
         onClick={() => void show()}
       >
         <Icon name="save" className="size-3.5" />
         {triggerLabel}
-      </button>
+      </Button.Primary>
 
       <CenteredModal
         open={open}

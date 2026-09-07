@@ -4,9 +4,12 @@ import {
   AgentSpecSchema,
   SessionMetadataSchema,
   SessionSchema,
+  SessionSourceScheduleSchema,
+  SessionSourceTypeSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema, PAGE_LIMIT } from './common';
+import { foldDeepObjectQueryParam } from './deepObjectQuery';
 
 /** Create arm: bind by unique registry agent name. */
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
@@ -43,6 +46,8 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
   .object({
     external_id: z.string().min(1).max(128).describe('Caller-supplied id unique within the tenant.'),
     agent: CreateSessionAgentSchema,
+    /** Internal-only provenance; not on public create/update. */
+    source: SessionSourceScheduleSchema.optional(),
   })
   .strict()
   .openapi('GetOrCreateSessionByExternalIdRequest');
@@ -63,6 +68,9 @@ const IsoTimestampQueryParam = z.iso
   .datetime({ offset: true })
   .openapi({ type: 'string', format: 'date-time' })
   .transform(s => new Date(s));
+
+/** Max metadata equality filters on list sessions (clause-budget style). */
+export const LIST_SESSIONS_METADATA_FILTER_MAX_KEYS = 10;
 
 export const ListSessionsRequestQuerySchema = z
   .object({
@@ -97,8 +105,45 @@ export const ListSessionsRequestQuerySchema = z
       .optional()
       .describe('When true, only sessions created by the authenticated subject.')
       .openapi({ type: 'boolean' }),
+    metadata: SessionMetadataSchema.optional()
+      .openapi({
+        param: {
+          style: 'deepObject',
+          explode: true,
+          description: 'Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs.',
+        },
+      })
+      .transform(metadata => (metadata === undefined || Object.keys(metadata).length === 0 ? undefined : metadata)),
+    source_type: SessionSourceTypeSchema.optional().describe(
+      'When set, returns only sessions created by this source type.',
+    ),
+    source_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('When set, returns only sessions from this specific source. Requires source_type.'),
+  })
+  .refine(q => q.source_id === undefined || q.source_type !== undefined, {
+    message: 'source_id requires source_type',
+    path: ['source_id'],
   })
   .openapi('ListSessionsRequestQuery');
+
+export type ListSessionsRequestQuery = z.infer<typeof ListSessionsRequestQuerySchema>;
+
+/**
+ * Parse list-sessions query after folding Hono's flat `metadata[key]` params.
+ * OpenAPIHono's query validator cannot nest deepObject keys; callers pass `c.req.queries()`.
+ */
+export function parseListSessionsQuery(raw: object): ListSessionsRequestQuery {
+  return ListSessionsRequestQuerySchema.parse(
+    foldDeepObjectQueryParam({
+      query: raw,
+      name: 'metadata',
+      maxKeys: LIST_SESSIONS_METADATA_FILTER_MAX_KEYS,
+    }),
+  );
+}
 
 export const GetSessionResponseSchema = z
   .object({

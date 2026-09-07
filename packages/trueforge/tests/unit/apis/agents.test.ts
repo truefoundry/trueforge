@@ -1,5 +1,5 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
-import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
+import { TrueForgeAuthorizer, type AgentListAccess, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -69,9 +69,14 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+const deniedListAgentAccess = jest.fn(
+  (_input: Parameters<Authorizer['listAgentAccess']>[0]): Promise<AgentListAccess> =>
+    Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+);
+const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
 const denyAllAuthorizer: Authorizer = {
-  listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-  canAccessAgent: () => Promise.resolve(false),
+  listAgentAccess: deniedListAgentAccess,
+  canAccessAgent: deniedCanAccessAgent,
 };
 
 describe('agents router', () => {
@@ -89,7 +94,7 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
@@ -99,7 +104,7 @@ describe('agents router', () => {
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,
@@ -209,6 +214,8 @@ describe('agents router', () => {
   });
 
   it('lists, gets, updates, and deletes as not found when the authorizer denies the agent', async () => {
+    deniedListAgentAccess.mockClear();
+    deniedCanAccessAgent.mockClear();
     const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'denied-agent' }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
@@ -222,5 +229,12 @@ describe('agents router', () => {
     expect((await deniedRouter.request(`/${data.id}`, jsonInit('PUT', updateBody))).status).toBe(404);
     expect((await deniedRouter.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(404);
     expect((await router.request(`/${data.id}`)).status).toBe(200);
+    expect(deniedListAgentAccess.mock.calls.map(([input]) => input.action)).toEqual(['read']);
+    expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual([
+      'read',
+      'read',
+      'manage',
+      'delete',
+    ]);
   });
 });

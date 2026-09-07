@@ -2,7 +2,7 @@
 
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
+import { Button } from '../primitives/Button.js';
 import { CenteredModal } from '../primitives/CenteredModal.js';
 
 export type AgentResourceConfigModalProps = {
@@ -43,9 +43,9 @@ export function AgentResourceConfigModal({ editor, onClose, ...contentProps }: A
       footer={
         selectingMcp ? (
           <div className="flex justify-end">
-            <button type="button" className={auiButtonClass()} onClick={onClose}>
+            <Button.Primary type="button" onClick={onClose}>
               Save
-            </button>
+            </Button.Primary>
           </div>
         ) : undefined
       }

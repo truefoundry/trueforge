@@ -62,6 +62,26 @@ describe('Table', () => {
     expect(table).not.toHaveClass('min-w-[48rem]');
   });
 
+  it('underlines first-cell links and buttons on row hover', () => {
+    render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell>
+              <button type="button">Open</button>
+            </TableCell>
+            <TableCell>meta</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+
+    const row = screen.getByRole('row');
+    expect(row.className).toMatch(/group\/table-row/);
+    expect(row.className).toMatch(/\[&_td:first-child_button\]:text-text-primary/);
+    expect(row.className).toMatch(/hover:\[&_td:first-child_button\]:underline/);
+  });
+
   it('renders header and body cells', () => {
     render(
       <Table>

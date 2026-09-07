@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentMetricsServer, useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
+import { isMetricsChromeEnabled } from '../../server/serverChrome.js';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
@@ -17,7 +18,8 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const share = useSessionShareSearch();
   const { updateShareSearch } = share;
   const requestedTab = libraryAgentTabFromSearch(share, agentId);
-  const activeTab = requestedTab === 'metrics' && metricsServer == null ? 'overview' : requestedTab;
+  const showMetrics = isMetricsChromeEnabled({ metrics: metricsServer });
+  const activeTab = requestedTab === 'metrics' && !showMetrics ? 'overview' : requestedTab;
   const AgentDetailsHeader = useSlot('AgentDetailsHeader');
   const AgentDetailsTabs = useSlot('AgentDetailsTabs');
   const AgentDetailsUnavailable = useSlot('AgentDetailsUnavailable');
@@ -133,7 +135,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
       {sessionsServer != null && !detailFailed ? (
         <AgentDetailsTabs
           activeTab={activeTab}
-          showMetrics={metricsServer != null}
+          showMetrics={showMetrics}
           onTabChange={tab =>
             updateShareSearch({
               agentId,

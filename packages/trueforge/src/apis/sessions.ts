@@ -42,7 +42,8 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
-import { isSessionAgentNameRef, type Session } from '../schemas/session';
+import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
+import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
 
@@ -67,6 +68,7 @@ export function toWireSession(record: SessionRecord): Session {
     updated_at: record.updated_at.toISOString(),
     metrics: record.metrics,
     metadata: record.metadata,
+    source: record.source,
   };
 }
 
@@ -78,7 +80,7 @@ export interface SessionsRouterDeps {
   resolveMcpServerStore: (c: Context) => IMcpServerStore;
   skillStore: ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
-  sandboxProviderStore: ISandboxProviderStore;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
@@ -234,7 +236,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveMcpServerStore'
   | 'skillStore'
   | 'resolveAgentStore'
-  | 'sandboxProviderStore'
+  | 'resolveSandboxProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -270,7 +272,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       const named = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -287,7 +289,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.skillStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -297,6 +299,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       external_id: body.external_id,
       created_by_subject: createdBySubjectFromRequestContext(requestContext),
       agent,
+      source: body.source ?? null,
     });
     if (
       !created &&
@@ -332,7 +335,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const agent = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -358,7 +361,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.skillStore,
-      sandboxProviderStore: deps.sandboxProviderStore,
+      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -449,7 +452,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.skillStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       });
     }
     try {
@@ -480,7 +483,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
-    const query = c.req.valid('query');
+    const query = parseListSessionsQuery(honoQueriesToRecord(c.req.queries()));
     const requestContext = deps.resolveRequestContext(c);
     try {
       const managedAgentIds = query.created_by_me
@@ -497,11 +500,14 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
           agent_ids: managedAgentIds,
         },
         tenant_id: requestContext.tenant_id,
+        metadata: query.metadata,
         limit: query.limit,
         order: query.order,
         page_token: query.page_token,
         start_timestamp: query.start_timestamp,
         end_timestamp: query.end_timestamp,
+        source_type: query.source_type,
+        source_id: query.source_id,
       });
       return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {

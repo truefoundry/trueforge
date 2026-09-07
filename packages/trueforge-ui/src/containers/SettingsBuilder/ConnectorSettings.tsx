@@ -297,9 +297,8 @@ const ConnectorSettings = () => {
               </span>
             </div>
             {connector.auth.type === 'header' ? (
-              <Button
-                variant="secondary"
-                size="sm"
+              <Button.Secondary
+                size="small"
                 type="button"
                 disabled={busy}
                 onClick={event => {
@@ -310,7 +309,7 @@ const ConnectorSettings = () => {
               >
                 <Icon name="wrench" className="size-3" />
                 Replace Key
-              </Button>
+              </Button.Secondary>
             ) : null}
             <Icon name="chevron-right" className="size-4" />
           </div>
@@ -354,9 +353,8 @@ const ConnectorSettings = () => {
           <span className="hidden text-xs text-text-secondary sm:inline">
             {AUTH_TYPE_LABELS[entry.auth.type] ?? AUTH_TYPE_LABELS.none}
           </span>
-          <Button
-            variant="secondary"
-            size="sm"
+          <Button.Secondary
+            size="small"
             type="button"
             disabled={busy}
             onClick={() => {
@@ -364,7 +362,7 @@ const ConnectorSettings = () => {
             }}
           >
             {entry.auth.type === 'dcr' ? 'Add' : 'Connect'}
-          </Button>
+          </Button.Secondary>
         </div>
       </article>
     );
@@ -414,8 +412,7 @@ const ConnectorSettings = () => {
             <div className="flex-1">
               <SearchInput query={query} setQuery={setQuery} placeholder="Search connectors" />
             </div>
-            <Button
-              variant="secondary"
+            <Button.Secondary
               type="button"
               onClick={() => {
                 setFormError(null);
@@ -424,7 +421,7 @@ const ConnectorSettings = () => {
             >
               <Icon name="plus" size="1rem" className="mr-1" />
               Add MCP Server
-            </Button>
+            </Button.Secondary>
           </div>
 
           <div className="flex flex-1 flex-col gap-5 overflow-y-auto pb-1">
@@ -514,12 +511,12 @@ const ConnectorSettings = () => {
               </div>
 
               <footer className="flex justify-end gap-2 border-t border-border px-5 py-4">
-                <Button variant="ghost" type="button" onClick={closeApiKeyModal} disabled={busy}>
+                <Button.Ghost type="button" onClick={closeApiKeyModal} disabled={busy}>
                   Cancel
-                </Button>
-                <Button type="submit" disabled={!apiKey.trim() || busy}>
+                </Button.Ghost>
+                <Button.Primary type="submit" disabled={!apiKey.trim() || busy}>
                   {isReplacingKey ? 'Replace Key' : 'Connect'}
-                </Button>
+                </Button.Primary>
               </footer>
             </form>
           </CenteredModal>

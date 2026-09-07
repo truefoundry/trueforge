@@ -1,4 +1,8 @@
-import type { AgentSpec, CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import {
+  CreatedBySubjectSchema,
+  type AgentSpec,
+  type CreatedBySubject,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -13,7 +17,6 @@ import {
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
-import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
 import type { Database } from '../types';
@@ -45,7 +48,7 @@ function toRecord(row: {
   return {
     ...row,
     manifest: parseStoredAgentSpec(row.manifest),
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
   };
 }
 
