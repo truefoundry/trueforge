@@ -3,6 +3,7 @@
 import { Icon } from '../icons/Icon.js';
 import { useOptionalScheduleServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { isSchedulesChromeEnabled } from '../server/serverChrome.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
@@ -15,7 +16,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
   const shell = useOptionalShellMode();
   const scheduleServer = useOptionalScheduleServer();
 
-  const enabled = scheduleServer != null && shell != null;
+  const enabled = isSchedulesChromeEnabled({ schedules: scheduleServer }) && shell != null;
   const open = shell?.schedulesOpen === true;
 
   if (!enabled) return null;

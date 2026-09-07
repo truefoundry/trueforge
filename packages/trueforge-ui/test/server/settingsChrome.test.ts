@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { isSettingsChromeEnabled } from '@/server/settingsChrome.js';
 import { createMockCatalog } from './mockServer.js';
 
+/** Re-export path still works for Settings chrome. */
 describe('isSettingsChromeEnabled', () => {
   const catalog = createMockCatalog();
 
