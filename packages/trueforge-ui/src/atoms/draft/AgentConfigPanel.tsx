@@ -35,9 +35,9 @@ function formatTokens(value: number): string {
   return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
 
-// Runtime summary values read as state, so `off` takes a warning hue and everything else the accent.
+// Runtime summary values read as state, so `off` takes the failure hue and everything else the accent.
 function runtimeValueClass(value: string): string {
-  return value === 'off' ? 'text-rose-500 dark:text-rose-400' : 'text-indigo-600 dark:text-indigo-400';
+  return value === 'off' ? 'text-failure-bg' : 'text-primary-button-bg';
 }
 
 function McpServerChip({
@@ -145,10 +145,12 @@ export function AgentConfigSection({
       role={onEdit ? 'button' : undefined}
       tabIndex={onEdit ? 0 : undefined}
       onClick={onEdit}
-      // Make keyboard accessible
+      // Enter/Space activate the block like a native button. Keys aimed at nested
+      // controls must pass through, or preventDefault here cancels their activation.
       onKeyDown={
         onEdit
           ? event => {
+              if (event.target !== event.currentTarget) return;
               if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
               onEdit();

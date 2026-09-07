@@ -167,6 +167,27 @@ describe('AgentConfigPanel', () => {
     });
   });
 
+  it('leaves keyboard activation of chip controls to the chip', () => {
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={onOpenEditor}
+          onChange={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Remove GitHub' }), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Preload tools for GitHub' }), { key: ' ' });
+
+    expect(onOpenEditor).not.toHaveBeenCalled();
+  });
+
   it('opens the MCP editor from the section add action', () => {
     const onOpenEditor = vi.fn();
     render(
