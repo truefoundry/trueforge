@@ -111,7 +111,7 @@ export interface TurnsRouterDeps {
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  sandboxProviderStore: ISandboxProviderStore;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -119,16 +119,18 @@ export interface TurnsRouterDeps {
 
 /**
  * Deps needed to create a turn and drain events in-process (no HTTP). Carries already-resolved
- * `modelProviderStore` / `mcpServerStore` / `agentStore`, so callers must resolve them from the
- * caller's request context to keep TrueFoundry mode token-bound.
+ * `modelProviderStore` / `mcpServerStore` / `agentStore` / `sandboxProviderStore`; callers must
+ * resolve them from the request context (e.g. schedule `resolveTurnDeps(c)`) so TrueFoundry mode
+ * stays token-bound.
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'sandboxProviderStore' | 'logger'
+  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'logger'
 > & {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   agentStore: IAgentStore;
+  sandboxProviderStore: ISandboxProviderStore;
 };
 
 /**
@@ -631,7 +633,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
       const provider = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.sandboxProviderStore,
+        store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
       });
@@ -754,6 +756,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         agentStore: deps.resolveAgentStore(c),
+        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },
     };
 

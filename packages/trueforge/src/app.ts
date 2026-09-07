@@ -175,10 +175,14 @@ export interface ServerDeps<TTransaction> {
   resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  /**
+   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode
+   * (env + settings-server Daytona).
+   */
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
@@ -227,7 +231,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/capabilities',
     withAuth(
       createCapabilitiesRouter({
-        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -300,7 +304,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -322,7 +326,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           mcpServerStore: deps.resolveMcpServerStore(c),
           skillStore: deps.skillStore,
           agentStore: deps.resolveAgentStore(c),
-          sandboxProviderStore: deps.sandboxProviderStore,
+          sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           logger: deps.logger,
         }),
         withTransaction: deps.withTransaction,
@@ -340,7 +344,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
         skillStore: deps.skillStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -357,7 +361,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         resolveAgentStore: deps.resolveAgentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -387,7 +391,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         resolveAgentStore: deps.resolveAgentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,
@@ -409,7 +413,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         skillStore: deps.skillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
-        sandboxProviderStore: deps.sandboxProviderStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,
