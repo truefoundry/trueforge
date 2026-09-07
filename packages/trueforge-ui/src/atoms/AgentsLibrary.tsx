@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../server/ServerContext.js';
@@ -32,6 +33,8 @@ export type AgentScheduleSummary = {
 export type AgentLibraryRowProps = {
   agent: AgentLibraryEntry;
   canMutate: boolean;
+  canManageAgent?: boolean;
+  canDeleteAgent?: boolean;
   canManageSchedules: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
@@ -99,6 +102,8 @@ function AgentSchedulesBadge({
 export function AgentLibraryRow({
   agent,
   canMutate,
+  canManageAgent = true,
+  canDeleteAgent = true,
   canManageSchedules,
   scheduleSummary,
   onOpenSchedules,
@@ -215,6 +220,8 @@ export function AgentLibraryRow({
             agentName={agent.name}
             {...(spec != null ? { agentSpec: spec } : {})}
             canMutate={canMutate}
+            canManage={canManageAgent}
+            canDelete={canDeleteAgent}
             canManageSchedules={canManageSchedules}
             onEdit={onEdit}
             {...(onManageSchedules != null ? { onManageSchedules } : {})}
@@ -305,6 +312,11 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       query,
       refreshKey: agentsListEpoch,
     });
+  const permissionAgentIds = open ? agents.map(libraryAgentId) : [];
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: permissionAgentIds,
+  });
 
   useEffect(() => {
     if (!open || scheduleServer == null || agents.length === 0) {
@@ -424,6 +436,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                           key={id}
                           agent={agent}
                           canMutate={canMutate}
+                          canManageAgent={allows(id, 'MANAGE')}
+                          canDeleteAgent={allows(id, 'DELETE')}
                           canManageSchedules={canManageSchedules}
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
                           {...(showSchedulesColumn
@@ -449,7 +463,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                             : {})}
                           onTry={() => handleTry(agent)}
                           onEdit={() => {
-                            if (agentSpec != null) handleEdit(agent, agentSpec);
+                            if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
                           }}
                         />
                       );

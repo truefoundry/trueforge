@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -21,8 +22,10 @@ export function AgentSessionDetailHeader({
   resumeHref,
   onResume,
   resumeLabel,
+  canResume = true,
 }: AgentSessionDetailHeaderProps) {
   const [copied, setCopied] = useState(false);
+  const PermissionGuard = useSlot('PermissionGuard');
 
   useEffect(() => {
     if (!copied) return undefined;
@@ -58,7 +61,7 @@ export function AgentSessionDetailHeader({
           </button>
         </LightTooltip>
       </div>
-      {resumeLabel != null && resumeHref != null ? (
+      {resumeLabel != null && resumeHref != null && canResume ? (
         <a
           href={resumeHref}
           target="_blank"
@@ -68,10 +71,25 @@ export function AgentSessionDetailHeader({
           {resumeLabel}
           <Icon name="square-arrow-out-up-right" size="0.875em" className="shrink-0" />
         </a>
+      ) : resumeLabel != null && resumeHref != null ? (
+        <PermissionGuard allowed={false}>
+          <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })}>
+            {resumeLabel}
+            <Icon name="square-arrow-out-up-right" size="0.875em" className="shrink-0" />
+          </button>
+        </PermissionGuard>
       ) : resumeLabel != null && onResume != null ? (
-        <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })} onClick={onResume}>
-          {resumeLabel}
-        </button>
+        <PermissionGuard allowed={canResume}>
+          <button
+            type="button"
+            className={auiButtonClass({ variant: 'outline', size: 'sm' })}
+            onClick={() => {
+              if (canResume) onResume();
+            }}
+          >
+            {resumeLabel}
+          </button>
+        </PermissionGuard>
       ) : null}
       <button
         type="button"

@@ -26,6 +26,21 @@ loading or if the call failed. Use it to gate your own chrome the same way the S
 sandbox, skill, and settings affordances. See
 [Server contract](/ui-sdk/setup-custom-servers/server-contract#capabilities).
 
+## Resource permissions
+
+```ts
+const { allows, loading, error } = useResourcePermissions({
+  resourceType: "agent",
+  resourceIds: ["agent-1"],
+});
+```
+
+The hook batches up to 100 ids per request. Without `server.permissions`, it
+makes no request and `allows(...)` returns `true`. With the plugin configured,
+it fails closed while loading or on error; omitted response ids are denied.
+Use `useOptionalPermissionsServer()` when implementing custom permission-aware
+chrome directly.
+
 ## MCP auth
 
 ```ts

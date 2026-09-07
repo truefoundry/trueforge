@@ -8,6 +8,7 @@ import {
 import { useMemo, useRef, useState } from 'react';
 
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -77,10 +78,17 @@ function SaveAgentButtonContent({
   const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
+  const agentId = shell?.mode.status === 'active' ? shell.mode.agentId : undefined;
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: agentId == null ? [] : [agentId],
+  });
+  const canManageAgent = allows(agentId, 'MANAGE');
   const configInstructions = useOptionalAgentConfigInstructions();
   const catalog = useDraftCatalog();
   const serverCapabilities = useServerCapabilities();
   const AgentConfigEditors = useSlot('AgentConfigEditors');
+  const PermissionGuard = useSlot('PermissionGuard');
   const SaveAgentForm = useSlot('SaveAgentForm');
   const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
@@ -108,6 +116,7 @@ function SaveAgentButtonContent({
 
   const show = async () => {
     if (agentSpecRef.current === null || builder === null) return;
+    if (agentId != null && !canManageAgent) return;
     setError(null);
     catalog.ensureLoaded();
     configInstructions?.flush();
@@ -126,6 +135,7 @@ function SaveAgentButtonContent({
 
   const save = async () => {
     if (builder === null || draftSpec === null) return;
+    if (intent === 'update' && !canManageAgent) return;
     const normalizedName = name.trim();
     if (!normalizedName || !draftSpec.model.name.trim()) return;
     setSaving(true);
@@ -188,19 +198,21 @@ function SaveAgentButtonContent({
 
   return (
     <>
-      <button
-        type="button"
-        disabled={disabled || builder === null || agentSpec === null}
-        className={auiButtonClass({
-          variant: 'default',
-          size: 'sm',
-          className,
-        })}
-        onClick={() => void show()}
-      >
-        <Icon name="save" className="size-3.5" />
-        {triggerLabel}
-      </button>
+      <PermissionGuard allowed={canManageAgent}>
+        <button
+          type="button"
+          disabled={disabled || builder === null || agentSpec === null}
+          className={auiButtonClass({
+            variant: 'default',
+            size: 'sm',
+            className,
+          })}
+          onClick={() => void show()}
+        >
+          <Icon name="save" className="size-3.5" />
+          {triggerLabel}
+        </button>
+      </PermissionGuard>
 
       <CenteredModal
         open={open}

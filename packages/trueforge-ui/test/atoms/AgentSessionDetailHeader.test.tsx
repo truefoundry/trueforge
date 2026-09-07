@@ -104,4 +104,20 @@ describe('AgentSessionDetailHeader', () => {
     expect(screen.getByRole('link', { name: /Resume Chat/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Resume Chat' })).not.toBeInTheDocument();
   });
+
+  it('disables Resume Chat when session MANAGE is denied', () => {
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        resumeHref="https://app.example/sessions/sess-1"
+        resumeLabel="Resume Chat"
+        canResume={false}
+      />,
+    );
+
+    expect(screen.queryByRole('link', { name: /Resume Chat/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Resume Chat/i })).toBeDisabled();
+  });
 });

@@ -134,7 +134,7 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
               transform: align === 'end' ? 'translateX(-100%)' : undefined,
             }}
             className={cn(
-              'fixed z-[200] min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
+              'fixed z-[200] min-w-[8rem] rounded-md border border-border bg-card-bg p-1 *:w-full',
               'text-text-primary shadow-md',
               className,
             )}

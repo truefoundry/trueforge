@@ -7,6 +7,7 @@ import { useRef } from 'react';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
+import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
 import { AskUserContainer } from './AskUserContainer.js';
@@ -28,9 +29,11 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
+  const canManageSession = useActiveSessionCanManage();
   const cancel = useTrueFoundryCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canSubmit = !isBusy && hasText && (!requiresModel || hasModel);
+  const disabled = isBusy || !canManageSession;
+  const canSubmit = !disabled && hasText && (!requiresModel || hasModel);
   const submit = () => {
     if (!canSubmit) return;
     send(() => aui.composer().send());
@@ -54,7 +57,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
         }}
       />
       <ComposerPrimitive.AttachmentDropzone
-        disabled={isBusy}
+        disabled={disabled}
         data-slot="aui_composer-attachment-dropzone"
         className="w-full rounded-[0.75rem] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
       >
@@ -73,21 +76,26 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
               <ComposerPrimitive.Input
                 data-slot="aui_composer-input"
                 placeholder={placeholder}
-                disabled={isBusy}
+                disabled={disabled}
                 submitMode="enter"
                 aria-label="Message input"
                 className="text-text-primary placeholder:text-text-secondary/80 max-h-[10lh] min-h-10 w-full resize-none overflow-y-auto rounded-lg border-none bg-transparent px-1 py-1 text-base leading-normal shadow-none outline-none disabled:cursor-not-allowed"
               />
             }
-            disabled={isBusy}
+            disabled={disabled}
+            permissionDenied={!canManageSession}
             canSubmit={canSubmit}
             isRunning={isBusy}
             onSubmit={submit}
-            onCancel={() => {
-              resetBusy();
-              void cancel();
-            }}
-            onAttach={() => fileInputRef.current?.click()}
+            onCancel={
+              canManageSession
+                ? () => {
+                    resetBusy();
+                    void cancel();
+                  }
+                : undefined
+            }
+            onAttach={canManageSession ? () => fileInputRef.current?.click() : undefined}
           />
         </ComposerPrimitive.Root>
       </ComposerPrimitive.AttachmentDropzone>
@@ -99,6 +107,7 @@ export function ComposerContainer({
   placeholder = 'Ask anything... (Shift+Enter for new line)',
 }: ComposerContainerProps) {
   const pauseView = useComposerPauseView();
+  const canManageSession = useActiveSessionCanManage();
   const shell = useOptionalShellMode();
   const parentLeftSection = useSlot('ComposerLeftSection');
   const parentRightSection = useSlot('ComposerRightSection');
@@ -109,13 +118,13 @@ export function ComposerContainer({
   const canMutateSpec = shell?.mode.status === 'active' && shell.mode.isMutable;
 
   if (pauseView.kind === 'mcp') {
-    return <McpAuthContainer />;
+    return <McpAuthContainer disabled={!canManageSession} />;
   }
   if (pauseView.kind === 'custom') {
-    return <CustomActionContainer />;
+    return <CustomActionContainer disabled={!canManageSession} />;
   }
   if (pauseView.kind === 'ask-user') {
-    return <AskUserContainer />;
+    return <AskUserContainer disabled={!canManageSession} />;
   }
 
   if (canMutateSpec) {

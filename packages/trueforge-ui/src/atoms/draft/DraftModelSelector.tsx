@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -18,14 +19,16 @@ import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
 export type DraftModelSelectorProps = {
   disabled?: boolean;
   isRunning?: boolean;
+  permissionDenied?: boolean;
 };
 
-export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
+export function DraftModelSelector({ disabled, isRunning, permissionDenied = false }: DraftModelSelectorProps) {
   const { models, loading, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
+  const PermissionGuard = useSlot('PermissionGuard');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -113,24 +116,26 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled || isRunning}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        title="Select model"
-        className={auiButtonClass({
-          variant: 'ghost',
-          size: 'sm',
-          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
-        })}
-        onClick={() => setOpen(v => !v)}
-      >
-        <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
-        <span className="truncate">{label}</span>
-        <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
-      </button>
+      <PermissionGuard allowed={!permissionDenied}>
+        <button
+          type="button"
+          disabled={disabled || isRunning}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          title="Select model"
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'sm',
+            className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
+          })}
+          onClick={() => setOpen(v => !v)}
+        >
+          <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
+          <span className="truncate">{label}</span>
+          <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
+        </button>
+      </PermissionGuard>
 
       {open ? (
         isMobile || compactLayout ? (

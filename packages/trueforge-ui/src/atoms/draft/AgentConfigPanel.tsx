@@ -31,6 +31,7 @@ export type AgentConfigPanelProps = {
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
   onClose?: () => void;
+  disabled?: boolean;
 };
 
 function formatTokens(value: number): string {
@@ -155,6 +156,7 @@ export function AgentConfigPanel({
   onOpenEditor,
   onChange,
   onClose,
+  disabled = false,
 }: AgentConfigPanelProps) {
   const instructionsId = useId();
   const Section = useSlot('AgentConfigSection');
@@ -211,6 +213,7 @@ export function AgentConfigPanel({
               type="button"
               aria-label="Edit Model"
               title="Edit Model"
+              disabled={disabled}
               className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
               onClick={() => onOpenEditor('model')}
             >
@@ -234,6 +237,7 @@ export function AgentConfigPanel({
               type="button"
               aria-label="Model settings"
               title="Model settings"
+              disabled={disabled}
               className={auiButtonClass({
                 variant: 'ghost',
                 size: 'icon',
@@ -255,6 +259,7 @@ export function AgentConfigPanel({
             value={instructions}
             rows={5}
             placeholder="Enter detailed instructions for your agent…"
+            disabled={disabled}
             className={auiInputClass('resize-y py-2')}
             onChange={event => onInstructionsChange(event.target.value)}
             onBlur={onInstructionsBlur}
@@ -264,7 +269,7 @@ export function AgentConfigPanel({
         <Section
           title="Runtime Config"
           description="Control execution and context behavior."
-          onEdit={() => onOpenEditor('runtime')}
+          onEdit={disabled ? undefined : () => onOpenEditor('runtime')}
         >
           <dl className="text-text-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed">
             {runtimeConfig.map(entry => (
@@ -285,6 +290,7 @@ export function AgentConfigPanel({
             <button
               type="button"
               aria-label="Add MCP server"
+              disabled={disabled}
               className={auiButtonClass({
                 variant: 'ghost',
                 size: 'icon',
@@ -302,7 +308,7 @@ export function AgentConfigPanel({
                   key={item.id}
                   item={item}
                   onRemove={
-                    onChange
+                    onChange && !disabled
                       ? () =>
                           onChange({
                             ...spec,
@@ -311,7 +317,7 @@ export function AgentConfigPanel({
                       : undefined
                   }
                   onTogglePreload={
-                    onChange
+                    onChange && !disabled
                       ? () =>
                           onChange({
                             ...spec,
@@ -329,7 +335,7 @@ export function AgentConfigPanel({
           ) : null}
         </section>
 
-        <Section title="Skills" onEdit={() => onOpenEditor('skills')}>
+        <Section title="Skills" onEdit={disabled ? undefined : () => onOpenEditor('skills')}>
           {!skillsAvailable ? (
             <p className="text-text-secondary text-xs">Skills require an available sandbox.</p>
           ) : skills.length ? (

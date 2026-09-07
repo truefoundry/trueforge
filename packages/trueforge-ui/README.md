@@ -550,6 +550,7 @@ type AgentUIServer = AgentChatServer &
     catalog?: CatalogServer;
     sessions?: AgentSessionsServer;
     metrics?: AgentMetricsServer;
+    permissions?: PermissionsServer;
   };
 ```
 
@@ -558,6 +559,11 @@ type AgentUIServer = AgentChatServer &
 | `AgentChatServer`    | Sessions, turns, streaming, draft `AgentSpec` sync                  |
 | `AgentBuilderServer` | `getModels` / `getSkills` / `getMcp` / `searchAgents` / `saveAgent` |
 | `AgentMetricsServer` | Agent meter aggregates, chart definitions, and chart data           |
+| `PermissionsServer`  | Batch MANAGE/DELETE grants for agents, schedules, and sessions      |
+
+`permissions` is optional. When omitted, the UI makes no permission request and
+keeps actions enabled. When provided, protected actions stay visible but disabled
+while grants load, when access is denied, or when the permissions request fails.
 
 **Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
 

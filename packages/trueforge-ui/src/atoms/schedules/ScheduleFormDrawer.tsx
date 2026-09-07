@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
 import { mountName } from '../lib/mountName.js';
 import { searchAllAgents } from '../lib/useSearchAgentsList.js';
@@ -44,6 +46,7 @@ function ScheduleFormDrawerBody({
   const scheduleServer = useScheduleServer();
   const server = useServer();
   const toaster = useToasterOptional();
+  const PermissionGuard = useSlot('PermissionGuard');
   const [form, setForm] = useState<ScheduleFormValues>(defaultScheduleFormValues);
   const [agentId, setAgentId] = useState(initialAgentId);
   const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
@@ -53,6 +56,12 @@ function ScheduleFormDrawerBody({
   const [error, setError] = useState<string | null>(null);
 
   const savedFromCreate = view.kind === 'form' ? view.saved : view.schedule;
+  const permissionScheduleId = savedFromCreate?.id ?? schedule?.id;
+  const { allows } = useResourcePermissions({
+    resourceType: 'schedule',
+    resourceIds: permissionScheduleId == null ? [] : [permissionScheduleId],
+  });
+  const canManageSchedule = allows(permissionScheduleId, 'MANAGE');
   const isExternalEdit = mode === 'edit' && view.kind === 'form' && view.saved == null && schedule != null;
   const isCreatedEdit = view.kind === 'form' && view.saved != null;
 
@@ -142,7 +151,7 @@ function ScheduleFormDrawerBody({
 
   const handleSave = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || !canManageSchedule) return;
     const cron = valuesToCron(form);
     setSaving(true);
     setError(null);
@@ -202,7 +211,7 @@ function ScheduleFormDrawerBody({
   };
 
   const handleActivate = async () => {
-    if (view.kind !== 'test') return;
+    if (!canManageSchedule || view.kind !== 'test') return;
     setActivating(true);
     setError(null);
     try {
@@ -240,15 +249,17 @@ function ScheduleFormDrawerBody({
     footer = (
       <div className="flex flex-col gap-2">
         {error != null ? <p className="text-failure-bg text-sm">{error}</p> : null}
-        <Button
-          type="button"
-          variant="secondary"
-          className="w-full"
-          disabled={activating}
-          onClick={() => void handleActivate()}
-        >
-          Activate Anyway
-        </Button>
+        <PermissionGuard allowed={canManageSchedule}>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            disabled={activating}
+            onClick={() => void handleActivate()}
+          >
+            Activate Anyway
+          </Button>
+        </PermissionGuard>
       </div>
     );
   } else {
@@ -259,9 +270,11 @@ function ScheduleFormDrawerBody({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button type="submit" form="schedule-form" disabled={!canSubmit || saving}>
-            Save
-          </Button>
+          <PermissionGuard allowed={canManageSchedule}>
+            <Button type="submit" form="schedule-form" disabled={!canSubmit || saving}>
+              Save
+            </Button>
+          </PermissionGuard>
         </div>
       </div>
     );
@@ -290,6 +303,7 @@ function ScheduleFormDrawerBody({
           schedule={view.schedule}
           agentName={agentLabel}
           mcpMounts={mcpMounts}
+          disabled={!canManageSchedule}
           onEditConfiguration={() => {
             setError(null);
             setView({ kind: 'form', saved: view.schedule });

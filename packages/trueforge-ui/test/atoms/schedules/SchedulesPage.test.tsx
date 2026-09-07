@@ -61,6 +61,7 @@ function renderPage(
   overrides: Partial<ScheduleServer> = {},
   listImpl?: ScheduleServer['listSchedules'],
   searchAgents?: AgentUIServer['searchAgents'],
+  serverOverrides?: Partial<AgentUIServer>,
 ) {
   const scheduleServer: ScheduleServer = {
     listSchedules: vi.fn(
@@ -80,6 +81,7 @@ function renderPage(
   const server = createMockAgentUIServer({
     searchAgents: searchAgents ?? vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
     schedules: scheduleServer,
+    ...serverOverrides,
   });
   render(
     <ServerProvider server={server}>
@@ -293,6 +295,21 @@ describe('SchedulesPage', () => {
       expect(listScheduleRuns).toHaveBeenCalledTimes(2);
     });
     expect(scheduleServer.createScheduleRun).toHaveBeenCalledWith({ scheduleId: 's1' });
+  });
+
+  it('keeps denied schedule actions visible and disabled', async () => {
+    const listPermissions = vi.fn(async () => ({ data: { s1: [] } }));
+    renderPage(sampleSchedules, {}, undefined, undefined, {
+      permissions: { listPermissions },
+    });
+
+    expect(await screen.findByRole('button', { name: 'Run now daily-digest' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'daily-digest' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for daily-digest' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Pause' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+    expect(listPermissions).toHaveBeenCalledWith({ resourceType: 'schedule', resourceIds: ['s1'] });
   });
 
   it('deletes only after the confirmation dialog is accepted', async () => {

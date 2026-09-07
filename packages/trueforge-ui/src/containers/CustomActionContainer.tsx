@@ -7,7 +7,7 @@ import { useCallback } from 'react';
 import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 
 /** Host custom-action UI for a pending client-side tool response. */
-export function CustomActionContainer() {
+export function CustomActionContainer({ disabled = false }: { disabled?: boolean }) {
   const renderers = useOptionalCustomActionRenderers();
   const { pending, respond } = useTrueFoundryToolResponses();
   const isRunning = useThreadIsRunning();
@@ -15,17 +15,17 @@ export function CustomActionContainer() {
 
   const onSubmit = useCallback(
     (content: string) => {
-      if (item == null) return;
+      if (disabled || item == null) return;
       const trimmed = content.trim();
       if (!trimmed) return;
       respond({ toolCallId: item.toolCallId, content: trimmed });
     },
-    [item, respond],
+    [disabled, item, respond],
   );
 
   if (item == null || item.toolName == null) return null;
   const Renderer = renderers?.[item.toolName];
   if (Renderer == null) return null;
 
-  return <Renderer args={item.args ?? {}} disabled={isRunning} onSubmit={onSubmit} />;
+  return <Renderer args={item.args ?? {}} disabled={disabled || isRunning} onSubmit={onSubmit} />;
 }

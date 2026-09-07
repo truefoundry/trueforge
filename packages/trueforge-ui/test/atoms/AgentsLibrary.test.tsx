@@ -189,6 +189,36 @@ describe('AgentsLibrary', () => {
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
   });
 
+  it('keeps denied agent actions visible and disabled', async () => {
+    const listPermissions = vi.fn(async () => ({ data: { 'writer-id': ['MANAGE' as const] } }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'writer',
+          agentId: 'writer-id',
+          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        },
+      ]),
+      permissions: { listPermissions },
+    });
+
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    await waitFor(() =>
+      expect(listPermissions).toHaveBeenCalledWith({ resourceType: 'agent', resourceIds: ['writer-id'] }),
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for writer' }));
+
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete agent' })).not.toBeInTheDocument();
+  });
+
   it('clones an agent after confirm and stays on the library', async () => {
     const saveAgent = vi.fn(async () => ({ agentId: 'writer-copy-id' }));
     const server = createMockAgentUIServer({

@@ -37,10 +37,33 @@ Each form resolves differently. An `AgentUIServer` object is used immediately. B
 ## The composed contract
 
 ```ts
-type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
+type AgentUIServer = AgentChatServer &
+  AgentBuilderServer & {
+    catalog?: CatalogServer;
+    sessions?: AgentSessionsServer;
+    schedules?: ScheduleServer;
+    metrics?: AgentMetricsServer;
+    permissions?: PermissionsServer;
+  };
 ```
 
-Chat and session operations, agent-builder operations, and an optional settings catalog. Only the first two are required.
+Chat and agent-builder operations are required. Settings, agent details, schedules, metrics, and permissions are optional plugins.
+
+When `permissions` is omitted, the UI does not request grants and actions keep
+their normal enabled state. A configured permissions server is fail-closed:
+MANAGE/DELETE actions remain visible but disabled while loading, when denied,
+or when the request fails.
+
+```ts
+interface PermissionsServer {
+  listPermissions(req: {
+    resourceType: "agent" | "schedule" | "session";
+    resourceIds: string[];
+  }): Promise<{
+    data: Record<string, ("MANAGE" | "DELETE")[]>;
+  }>;
+}
+```
 
 Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so when your backend returns richer objects you widen the type parameters rather than casting or stripping fields. See [widening](#widening-the-types) below.
 

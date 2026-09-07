@@ -66,6 +66,7 @@ import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
 import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
+import { PermissionGuard } from '../atoms/PermissionGuard.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
@@ -140,6 +141,7 @@ export const defaultSlots = {
   ComposerLeftSection,
   ComposerRightSection,
   ComposerSendButton,
+  PermissionGuard,
   DraftComposerLeftSection,
   DraftComposerRightSection,
   DraftAgentConfigTrigger,

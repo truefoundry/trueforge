@@ -155,6 +155,21 @@ describe('AgentDetailsPage', () => {
     });
   });
 
+  it('disables denied actions in agent details', async () => {
+    renderPage({
+      serverOverrides: {
+        permissions: {
+          listPermissions: vi.fn(async () => ({ data: { 'agent-1': [] } })),
+        },
+      },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for release-notes-writer' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+  });
+
   it('renders tab bodies through SlotProvider overrides', async () => {
     renderPage({ overrides: { AgentOverview: () => <div>Custom overview</div> } });
     expect(await screen.findByText('Custom overview')).toBeInTheDocument();

@@ -1,5 +1,6 @@
 'use client';
 
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useOptionalScheduleServer, useOptionalServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
@@ -12,7 +13,10 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
   const shell = useShellMode();
   const scheduleServer = useOptionalScheduleServer();
   const builder = useOptionalServer();
+  const { allows } = useResourcePermissions({ resourceType: 'agent', resourceIds: [agentId] });
   const canMutate = shell.isComposerEnabled && detail != null && builder != null;
+  const canManage = allows(agentId, 'MANAGE');
+  const canDelete = allows(agentId, 'DELETE');
   const canManageSchedules = scheduleServer != null && detail != null;
 
   const handleTry = () => {
@@ -25,7 +29,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
   };
 
   const handleEdit = () => {
-    if (detail == null) return;
+    if (!canManage || detail == null) return;
     shell.selectLibraryAgent({
       isMutable: true,
       isCreateAgent: true,
@@ -76,6 +80,8 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
             agentName={detail.name}
             agentSpec={detail.agentSpec}
             canMutate={canMutate}
+            canManage={canManage}
+            canDelete={canDelete}
             canManageSchedules={canManageSchedules}
             onEdit={handleEdit}
             {...(canManageSchedules ? { onManageSchedules: handleManageSchedules } : {})}

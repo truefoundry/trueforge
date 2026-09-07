@@ -14,6 +14,7 @@ import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { PermissionsServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -59,10 +60,12 @@ function renderThreadList({
   adapter,
   onThreadOpen,
   canDelete = false,
+  permissions,
 }: {
   adapter: ExternalStoreThreadListAdapter;
   onThreadOpen?: () => void;
   canDelete?: boolean;
+  permissions?: PermissionsServer;
 }) {
   const list = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
@@ -79,7 +82,14 @@ function renderThreadList({
   }
 
   return render(
-    <ServerProvider server={createMockAgentUIServer({ deleteSession: async () => {} })}>{list}</ServerProvider>,
+    <ServerProvider
+      server={createMockAgentUIServer({
+        deleteSession: async () => {},
+        ...(permissions === undefined ? {} : { permissions }),
+      })}
+    >
+      {list}
+    </ServerProvider>,
   );
 }
 
@@ -183,6 +193,27 @@ describe('ThreadListContainer', () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
+  });
+
+  it('keeps session delete visible and disabled when DELETE is denied', async () => {
+    const onDelete = vi.fn(async () => {});
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [{ status: 'regular', id: 'thread-1', remoteId: 'session-1', title: 'Remote session' }],
+        onDelete,
+      },
+      canDelete: true,
+      permissions: {
+        listPermissions: vi.fn(async () => ({ data: { 'session-1': [] } })),
+      },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Session actions' }));
+    const deleteAction = screen.getByRole('button', { name: 'Delete' });
+    expect(deleteAction).toBeDisabled();
+    fireEvent.click(deleteAction);
+    expect(onDelete).not.toHaveBeenCalled();
   });
 
   it('clears chat selection highlight while a sidebar top nav tab is open', () => {

@@ -316,6 +316,25 @@ describe('SaveAgentButton', () => {
     );
   });
 
+  it('disables updating an agent without MANAGE permission', async () => {
+    const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'writer' }));
+    renderButton({
+      saveAgent,
+      serverOverrides: {
+        permissions: {
+          listPermissions: vi.fn(async () => ({ data: { writer: ['DELETE' as const] } })),
+        },
+      },
+      children: <BoundMutableSaveButton agentId="writer" />,
+    });
+
+    const trigger = await screen.findByRole('button', { name: 'Update Agent' });
+    await waitFor(() => expect(trigger).toBeDisabled());
+    fireEvent.click(trigger);
+    expect(screen.queryByRole('dialog', { name: 'Update agent' })).not.toBeInTheDocument();
+    expect(saveAgent).not.toHaveBeenCalled();
+  });
+
   it('discards modal-only changes when closed', async () => {
     renderButton();
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));

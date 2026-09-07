@@ -8,6 +8,7 @@ import type {
   AgentSessionsServer,
   AgentUIServer,
   CatalogServer,
+  PermissionsServer,
   ScheduleServer,
 } from './types.js';
 
@@ -122,4 +123,8 @@ export function useScheduleServer(): ScheduleServer {
 
 export function useOptionalScheduleServer(): ScheduleServer | null {
   return useOptionalServer()?.schedules ?? null;
+}
+
+export function useOptionalPermissionsServer(): PermissionsServer | null {
+  return useOptionalServer()?.permissions ?? null;
 }

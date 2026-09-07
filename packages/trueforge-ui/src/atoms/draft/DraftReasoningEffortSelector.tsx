@@ -4,6 +4,7 @@ import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefou
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -15,12 +16,18 @@ import { hasReasoningEfforts, modelPatchWithReasoningEffort, resolveReasoningEff
 export type DraftReasoningEffortSelectorProps = {
   disabled?: boolean;
   isRunning?: boolean;
+  permissionDenied?: boolean;
 };
 
-export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReasoningEffortSelectorProps) {
+export function DraftReasoningEffortSelector({
+  disabled,
+  isRunning,
+  permissionDenied = false,
+}: DraftReasoningEffortSelectorProps) {
   const { models, ensureLoaded } = useDraftCatalog();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const PermissionGuard = useSlot('PermissionGuard');
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const clearedStickyEffortForModelRef = useRef<string | null>(null);
@@ -115,26 +122,28 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled || isRunning}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        title="Select reasoning effort"
-        className={auiButtonClass({
-          variant: 'ghost',
-          size: 'sm',
-          className: cn(
-            'h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium',
-            'hover:bg-ghost-button-hover',
-          ),
-        })}
-        onClick={() => setOpen(v => !v)}
-      >
-        <span className="truncate">{resolved}</span>
-        <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
-      </button>
+      <PermissionGuard allowed={!permissionDenied}>
+        <button
+          type="button"
+          disabled={disabled || isRunning}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          title="Select reasoning effort"
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'sm',
+            className: cn(
+              'h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium',
+              'hover:bg-ghost-button-hover',
+            ),
+          })}
+          onClick={() => setOpen(v => !v)}
+        >
+          <span className="truncate">{resolved}</span>
+          <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
+        </button>
+      </PermissionGuard>
 
       {open ? (
         isMobile || compactLayout ? (

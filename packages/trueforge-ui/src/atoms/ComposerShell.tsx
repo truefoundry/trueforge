@@ -9,6 +9,7 @@ export type ComposerShellProps = {
   /** Message input node, supplied by the container (e.g. `<ComposerPrimitive.Input />`). */
   input: ReactNode;
   disabled: boolean;
+  permissionDenied?: boolean;
   canSubmit: boolean;
   isRunning?: boolean;
   attachments?: ReactNode;
@@ -24,6 +25,7 @@ export type ComposerShellProps = {
 export function ComposerShell({
   input,
   disabled,
+  permissionDenied = false,
   canSubmit,
   isRunning = false,
   attachments,
@@ -38,6 +40,7 @@ export function ComposerShell({
   const ComposerLeftSection = useSlot('ComposerLeftSection');
   const ComposerRightSection = useSlot('ComposerRightSection');
   const ComposerSendButton = useSlot('ComposerSendButton');
+  const PermissionGuard = useSlot('PermissionGuard');
 
   return (
     <div
@@ -56,7 +59,12 @@ export function ComposerShell({
       {input}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-1">
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-          <ComposerLeftSection disabled={disabled} isRunning={isRunning} onAttach={onAttach} />
+          <ComposerLeftSection
+            disabled={disabled}
+            isRunning={isRunning}
+            permissionDenied={permissionDenied}
+            onAttach={onAttach}
+          />
           {connectorStatusLabel && (
             <span className="text-text-secondary max-w-[12rem] truncate text-xs">{connectorStatusLabel}</span>
           )}
@@ -68,14 +76,16 @@ export function ComposerShell({
               <span className="truncate">{modelLabel}</span>
             </span>
           )}
-          <ComposerRightSection disabled={disabled} isRunning={isRunning} />
-          <ComposerSendButton
-            disabled={disabled}
-            canSubmit={canSubmit}
-            isRunning={isRunning}
-            onSubmit={onSubmit}
-            onCancel={onCancel}
-          />
+          <ComposerRightSection disabled={disabled} isRunning={isRunning} permissionDenied={permissionDenied} />
+          <PermissionGuard allowed={!permissionDenied}>
+            <ComposerSendButton
+              disabled={disabled}
+              canSubmit={canSubmit}
+              isRunning={isRunning}
+              onSubmit={onSubmit}
+              onCancel={onCancel}
+            />
+          </PermissionGuard>
         </div>
       </div>
     </div>

@@ -5,12 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ComposerContainer } from '@/containers/ComposerContainer.js';
 import { ComposerBusyProvider } from '@/hooks/useComposerBusyState.js';
+import { ActiveSessionPermissionsProvider } from '@/hooks/useResourcePermissions.js';
 import {
   CustomActionRenderersProvider,
   type CustomActionRendererProps,
 } from '@/server/CustomActionRenderersContext.js';
+import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer } from '../server/mockServer.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
 const agentSpecState: { agentSpec: { model: { name: string } } | undefined } = {
@@ -103,6 +106,32 @@ describe('ComposerContainer', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(input.value).toBe(''));
     expect(onNew).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables session mutations without MANAGE permission', async () => {
+    const onNew = vi.fn(async () => {});
+    const server = createMockAgentUIServer({
+      permissions: {
+        listPermissions: vi.fn(async () => ({ data: { 'session-1': ['DELETE' as const] } })),
+      },
+    });
+    render(
+      <ServerProvider server={server}>
+        <ActiveSessionPermissionsProvider sessionId="session-1">
+          <RuntimeHarness messages={[]} onNew={onNew}>
+            <ComposerBusyProvider>
+              <ComposerContainer />
+            </ComposerBusyProvider>
+          </RuntimeHarness>
+        </ActiveSessionPermissionsProvider>
+      </ServerProvider>,
+    );
+
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    await waitFor(() => expect(input).toBeDisabled());
+    fireEvent.change(input, { target: { value: 'blocked' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onNew).not.toHaveBeenCalled();
   });
 
   it('disables send when no model is selected in mutable draft', async () => {

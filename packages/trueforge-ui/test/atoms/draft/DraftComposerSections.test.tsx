@@ -23,10 +23,12 @@ function DraftSections({
   onAttach,
   disabled = false,
   isRunning = false,
+  permissionDenied = false,
 }: {
   onAttach?: () => void;
   disabled?: boolean;
   isRunning?: boolean;
+  permissionDenied?: boolean;
 }) {
   const server = createMockAgentUIServer({
     getModels: async () => [
@@ -42,8 +44,13 @@ function DraftSections({
   return (
     <ServerProvider server={server}>
       <DraftCatalogProvider>
-        <DraftComposerLeftSection disabled={disabled} isRunning={isRunning} onAttach={onAttach} />
-        <DraftComposerRightSection disabled={disabled} isRunning={isRunning} />
+        <DraftComposerLeftSection
+          disabled={disabled}
+          isRunning={isRunning}
+          permissionDenied={permissionDenied}
+          onAttach={onAttach}
+        />
+        <DraftComposerRightSection disabled={disabled} isRunning={isRunning} permissionDenied={permissionDenied} />
       </DraftCatalogProvider>
     </ServerProvider>
   );
@@ -124,5 +131,18 @@ describe('draft composer sections', () => {
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
     expect(await screen.findByTitle('Select model')).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
+  });
+
+  it('explains permission-disabled tools and model controls', async () => {
+    render(<DraftSections disabled permissionDenied />);
+
+    const tools = screen.getByRole('button', { name: 'Tools (3)' });
+    fireEvent.mouseEnter(tools);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('You do not have permission');
+
+    fireEvent.mouseLeave(tools);
+    const model = await screen.findByTitle('Select model');
+    fireEvent.mouseEnter(model.parentElement ?? model);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('You do not have permission');
   });
 });

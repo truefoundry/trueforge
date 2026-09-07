@@ -1,4 +1,4 @@
-# Plan: Server abstraction (UI SDK only)
+# Server abstraction
 
 Host-facing port so TrueFoundry gateway **or** bring-your-own APIs plug into one
 contract:
@@ -6,17 +6,16 @@ contract:
 - **Chat** — sessions, turns, draft `AgentSpec` sync
 - **Builder** — catalog (models / skills / MCP, read-only) + `saveAgent`
   (promote draft → named agent)
+- **Optional plugins** — settings catalog, agent details, schedules, metrics,
+  and resource permissions
 
-## Constraint
+Canonical server-port types live in `@truefoundry/assistant-ui-runtime` and are
+re-exported by this package. `PermissionsServer.listPermissions` returns
+MANAGE/DELETE grants for batches of agent, schedule, or session ids. Omitting
+the plugin makes no permission request and leaves actions enabled; a configured
+plugin fails closed while loading or on error.
 
-Everything lives in **`@truefoundry/trueforge-ui`**.
-
-**No changes** to `@truefoundry/assistant-ui-runtime`.
-
-The runtime keeps accepting `client: AgentSessionClient` (and `privateClient`
-for draft). This package owns the host-facing `Server` façade and adapters.
-
-## Implication (explicit)
+## Implication
 
 | Concern                                                          | Reality in this plan                                                                                                                          |
 | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -471,7 +470,7 @@ TrueForgeUI({ server, agentConfig, … })
 ### Phase 0 — Spec freeze
 
 1. Keep this doc as the source of truth for interfaces and mapping.
-2. Confirm compose type: `AgentUIServer = AgentChatServer & AgentBuilderServer`.
+2. Confirm compose type: required chat + builder ports with optional feature plugins.
 
 **Done when:** interfaces agreed; no code required.
 
@@ -828,7 +827,6 @@ chat either on gateway or a compatible adapter.
 
 ## Non-goals (v1)
 
-- Any PR to `@truefoundry/assistant-ui-runtime`
 - Full BYO chat streaming without gateway-shaped clients
 - Typed `saveAgent` response (stays `unknown` / host-defined)
 - Multi-agent

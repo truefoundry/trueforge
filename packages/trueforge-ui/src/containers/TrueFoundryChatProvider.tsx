@@ -1,19 +1,25 @@
 'use client';
 
-import { AssistantRuntimeProvider } from '@assistant-ui/react';
+import { AssistantRuntimeProvider, useAuiState } from '@assistant-ui/react';
 import {
   trueFoundryAttachmentAdapter,
   useTrueFoundryAgentRuntime,
   type TrueFoundryAgentConfig,
   type UseTrueFoundryAgentRuntimeOptions,
 } from '@truefoundry/assistant-ui-runtime';
-import { useCallback, useMemo, type ReactNode } from 'react';
+import { createElement, useCallback, useMemo, type ReactNode } from 'react';
 
 import { notifyComposerBusyFailure } from '../hooks/useComposerBusyState.js';
+import { ActiveSessionPermissionsProvider } from '../hooks/useResourcePermissions.js';
 import type { AgentUIServer } from '../server/types.js';
 import { ToasterProvider, useToaster } from './ToasterContainer.js';
 
 type RuntimeAdapters = NonNullable<UseTrueFoundryAgentRuntimeOptions['adapters']>;
+
+function ActiveSessionPermissionScope({ children }: { children: ReactNode }) {
+  const remoteId = useAuiState(state => state.threadListItem.remoteId);
+  return createElement(ActiveSessionPermissionsProvider, { sessionId: remoteId, children });
+}
 
 export type TrueFoundryChatProviderProps = {
   server: AgentUIServer;
@@ -73,7 +79,11 @@ function ChatRuntimeScope({
     },
   });
 
-  return <AssistantRuntimeProvider runtime={runtime as never}>{children}</AssistantRuntimeProvider>;
+  return (
+    <AssistantRuntimeProvider runtime={runtime as never}>
+      <ActiveSessionPermissionScope>{children}</ActiveSessionPermissionScope>
+    </AssistantRuntimeProvider>
+  );
 }
 
 /**

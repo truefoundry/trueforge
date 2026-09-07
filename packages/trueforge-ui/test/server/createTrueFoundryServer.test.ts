@@ -42,6 +42,9 @@ describe('createTrueFoundryServer', () => {
       listSessions: vi.fn(async () => ({ data: [] })),
       listSessionEvents: vi.fn(async () => ({ data: [] })),
     };
+    const permissions = {
+      listPermissions: vi.fn(async () => ({ data: { 'agent-1': ['MANAGE' as const] } })),
+    };
 
     const server = createTrueFoundryServer({
       chatServer,
@@ -53,12 +56,14 @@ describe('createTrueFoundryServer', () => {
       searchAgents,
       saveAgent,
       sessions,
+      permissions,
     });
 
     expect(server.createSession).toBe(chatServer.createSession);
     expect(server.listSessions).toBe(chatServer.listSessions);
     expect(server.catalog).toBeUndefined();
     expect(server.sessions).toBe(sessions);
+    expect(server.permissions).toBe(permissions);
 
     await expect(server.getCapabilities()).resolves.toEqual(capabilities);
     await expect(server.getModels()).resolves.toHaveLength(1);

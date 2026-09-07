@@ -6,6 +6,7 @@ import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer, useScheduleServer } from '../../server/ServerContext.js';
 import type { ConnectorState, Schedule, ScheduleRun } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { useDraftCatalog } from '../draft/DraftCatalogProvider.js';
 import { ConnectorConnectButton } from '../draft/DraftCompositeSelector.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -25,6 +26,7 @@ export type TestScheduleScreenProps = {
   agentName: string;
   mcpMounts: readonly ScheduleMcpMount[];
   onEditConfiguration: () => void;
+  disabled?: boolean;
 };
 
 function mountConnector(connectors: ConnectorState[], name: string): ConnectorState | null {
@@ -52,15 +54,23 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   );
 }
 
-export function TestScheduleScreen({ schedule, agentName, mcpMounts, onEditConfiguration }: TestScheduleScreenProps) {
+export function TestScheduleScreen({
+  schedule,
+  agentName,
+  mcpMounts,
+  onEditConfiguration,
+  disabled = false,
+}: TestScheduleScreenProps) {
   const scheduleServer = useScheduleServer();
   const toaster = useToasterOptional();
+  const PermissionGuard = useSlot('PermissionGuard');
   const { connectors, ensureLoaded, refreshConnectors, loading, error } = useDraftCatalog();
   const [running, setRunning] = useState(false);
   const [lastTestRun, setLastTestRun] = useState<ScheduleRun | null>(null);
   const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
 
   const handleRunTest = async () => {
+    if (disabled) return;
     setRunning(true);
     try {
       const run = await scheduleServer.createScheduleRun({ scheduleId: schedule.id });
@@ -99,10 +109,12 @@ export function TestScheduleScreen({ schedule, agentName, mcpMounts, onEditConfi
           <ScheduleStatusBadge status={schedule.status} />
         </DetailRow>
         <div className="flex justify-end px-3 py-2.5">
-          <Button type="button" variant="outline" size="sm" onClick={onEditConfiguration}>
-            <Icon name="pencil" className="size-3.5" />
-            Edit Configuration
-          </Button>
+          <PermissionGuard allowed={!disabled}>
+            <Button type="button" variant="outline" size="sm" onClick={onEditConfiguration}>
+              <Icon name="pencil" className="size-3.5" />
+              Edit Configuration
+            </Button>
+          </PermissionGuard>
         </div>
       </section>
 
@@ -151,15 +163,17 @@ export function TestScheduleScreen({ schedule, agentName, mcpMounts, onEditConfi
       <section className="overflow-hidden rounded-lg border border-border bg-card-bg">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <h3 className="text-text-secondary text-[10px] font-semibold tracking-wide uppercase">Test Run</h3>
-          <button
-            type="button"
-            disabled={running}
-            onClick={() => void handleRunTest()}
-            className={auiButtonClass({ variant: 'default', size: 'sm' })}
-          >
-            <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
-            Run Test
-          </button>
+          <PermissionGuard allowed={!disabled}>
+            <button
+              type="button"
+              disabled={running}
+              onClick={() => void handleRunTest()}
+              className={auiButtonClass({ variant: 'default', size: 'sm' })}
+            >
+              <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
+              Run Test
+            </button>
+          </PermissionGuard>
         </div>
         {lastTestRun == null ? (
           <p className="text-text-secondary px-3 py-3 text-sm">

@@ -10,6 +10,7 @@ import type {
   CatalogServer,
   ConnectorState,
   ModelSelection,
+  PermissionsServer,
   SaveAgentRequest,
   SaveAgentResult,
   ScheduleServer,
@@ -28,6 +29,7 @@ export type CreateTrueFoundryServerOptions<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TPermissions extends PermissionsServer = PermissionsServer,
 > = {
   /** Chat port — e.g. from `@truefoundry/agent-server-adapter`. */
   chatServer: AgentChatServer<TSpec>;
@@ -47,6 +49,8 @@ export type CreateTrueFoundryServerOptions<
   metrics?: TMetrics;
   /** Schedules listing + CRUD. Optional. */
   schedules?: TSchedules;
+  /** Per-resource mutation grants. Optional: When omitted, actions remain enabled by default. */
+  permissions?: TPermissions;
 };
 
 export type TrueFoundryServer<
@@ -61,12 +65,14 @@ export type TrueFoundryServer<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TPermissions extends PermissionsServer = PermissionsServer,
 > = AgentChatServer<TSpec> &
   AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
     catalog?: TCatalog;
     sessions?: TSessions;
     metrics?: TMetrics;
     schedules?: TSchedules;
+    permissions?: TPermissions;
   };
 
 /**
@@ -86,6 +92,7 @@ export function createTrueFoundryServer<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TPermissions extends PermissionsServer = PermissionsServer,
 >(
   opts: CreateTrueFoundryServerOptions<
     TSpec,
@@ -98,7 +105,8 @@ export function createTrueFoundryServer<
     TCapabilities,
     TSessions,
     TMetrics,
-    TSchedules
+    TSchedules,
+    TPermissions
   >,
 ): TrueFoundryServer<
   TSpec,
@@ -111,7 +119,8 @@ export function createTrueFoundryServer<
   TCapabilities,
   TSessions,
   TMetrics,
-  TSchedules
+  TSchedules,
+  TPermissions
 > {
   const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> = {
     getCapabilities: opts.getCapabilities,
@@ -141,7 +150,8 @@ export function createTrueFoundryServer<
     TCapabilities,
     TSessions,
     TMetrics,
-    TSchedules
+    TSchedules,
+    TPermissions
   > = {
     ...opts.chatServer,
     ...builder,
@@ -149,6 +159,7 @@ export function createTrueFoundryServer<
     ...(opts.sessions != null ? { sessions: opts.sessions } : {}),
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
+    ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
   };
   return server;
 }

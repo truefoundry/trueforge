@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
@@ -37,6 +38,11 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const shell = useOptionalShellMode();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
+  const { allows } = useResourcePermissions({
+    resourceType: 'session',
+    resourceIds: selectedSessionId == null ? [] : [selectedSessionId],
+  });
+  const canResume = allows(selectedSessionId, 'MANAGE');
 
   const AgentSessionListRow = useSlot('AgentSessionListRow');
   const AgentSessionDetailHeader = useSlot('AgentSessionDetailHeader');
@@ -189,7 +195,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       : null;
 
   const handleResume = () => {
-    if (selectedSessionId == null || shell == null) return;
+    if (!canResume || selectedSessionId == null || shell == null) return;
     const agentName = detailSession?.agentName ?? selectedEntry?.agentName;
     shell.openHistorySession({
       sessionId: selectedSessionId,
@@ -307,6 +313,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                 createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
                 view={shareView}
                 onClose={clearSelectedSession}
+                canResume={canResume}
                 {...resumeProps}
               />
               {detailLoading || detailEvents === undefined ? (

@@ -9,12 +9,14 @@ import { auiButtonClass } from './lib/buttonClasses.js';
 export type ComposerLeftSectionProps = {
   disabled: boolean;
   isRunning: boolean;
+  permissionDenied?: boolean;
   onAttach?: () => void;
 };
 
 export type ComposerRightSectionProps = {
   disabled: boolean;
   isRunning: boolean;
+  permissionDenied?: boolean;
 };
 
 export type ComposerSendButtonProps = {

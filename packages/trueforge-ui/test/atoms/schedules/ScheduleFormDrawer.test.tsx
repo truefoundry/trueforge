@@ -147,6 +147,27 @@ describe('ScheduleFormDrawer', () => {
     expect(await screen.findByLabelText('Agent')).toBeDisabled();
   });
 
+  it('disables saving an existing schedule without MANAGE permission', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
+      getMcp: vi.fn(async () => []),
+      permissions: {
+        listPermissions: vi.fn(async () => ({ data: { new: ['DELETE' as const] } })),
+      },
+    });
+    const schedules = mockScheduleServer();
+    renderDrawer({
+      server,
+      scheduleServer: schedules,
+      mode: 'edit',
+      schedule: pausedSchedule({ status: 'active' }),
+    });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(schedules.updateSchedule).not.toHaveBeenCalled();
+  });
+
   it('offers only standard recurrence modes and labels the preview as Frequency', async () => {
     renderDrawer({});
 

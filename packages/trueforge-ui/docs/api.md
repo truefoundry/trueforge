@@ -51,6 +51,12 @@ agent-detail Metrics tab. Custom servers can provide `metrics` with
 surface is split across the `AgentMetrics`, `AgentMetricsView`,
 `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, and `AgentMetricChart` slots.
 
+It also includes `PermissionsServer`, which batches MANAGE/DELETE grants for
+agents, schedules, and sessions. Custom servers may omit `permissions`; then
+`useResourcePermissions` performs no request and allows actions. Use
+`PermissionGuard` to keep denied controls visible, disabled, and explained by a
+tooltip.
+
 ## Compose
 
 | Export                                                        | Notes                           |

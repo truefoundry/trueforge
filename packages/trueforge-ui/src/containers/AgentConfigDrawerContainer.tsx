@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
 import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { shellIsCreateAgent, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec, McpToolSelection } from '../server/types.js';
@@ -27,6 +28,12 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   const AgentConfigEditors = useSlot('AgentConfigEditors');
   const [editor, setEditor] = useState<AgentConfigEditor | null>(null);
   const isBuilder = shellIsCreateAgent(shell.mode);
+  const agentId = shell.mode.status === 'active' ? shell.mode.agentId : undefined;
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: agentId == null ? [] : [agentId],
+  });
+  const canManageAgent = allows(agentId, 'MANAGE');
   const {
     draft: instructionDraft,
     onChange: onInstructionChange,
@@ -41,6 +48,10 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   useEffect(() => {
     if (isBuilder) catalog.ensureLoaded();
   }, [catalog, isBuilder]);
+
+  useEffect(() => {
+    if (!canManageAgent) setEditor(null);
+  }, [canManageAgent]);
 
   useEffect(() => {
     if (!showClose || !shell.agentConfigOpen) return;
@@ -69,6 +80,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
 
   const updateSpec = useCallback(
     (next: AgentSpec) => {
+      if (!canManageAgent) return;
       if (next.skills && next.skills.length > 0 && capabilities?.sandbox.enabled === true) {
         updateAgentSpec?.({
           ...next,
@@ -82,7 +94,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
       }
       updateAgentSpec?.({ ...next, instructions: instructionDraft });
     },
-    [capabilities?.sandbox.enabled, instructionDraft, updateAgentSpec],
+    [canManageAgent, capabilities?.sandbox.enabled, instructionDraft, updateAgentSpec],
   );
 
   const loadMcpTools = useCallback(
@@ -108,9 +120,12 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         instructions={instructionDraft}
         onInstructionsChange={onInstructionChange}
         onInstructionsBlur={flushInstructions}
-        onOpenEditor={setEditor}
+        onOpenEditor={nextEditor => {
+          if (canManageAgent) setEditor(nextEditor);
+        }}
         onChange={updateSpec}
         onClose={showClose ? closeDrawer : undefined}
+        disabled={!canManageAgent}
       />
       <AgentConfigEditors
         editor={editor}

@@ -10,7 +10,12 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js';
 
-export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: ComposerLeftSectionProps) {
+export function DraftComposerLeftSection({
+  disabled,
+  isRunning,
+  permissionDenied,
+  onAttach,
+}: ComposerLeftSectionProps) {
   const shell = useOptionalShellMode();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
   const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
@@ -20,7 +25,14 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      {!isBuilder ? <DraftCompositeSelector disabled={disabled} isRunning={isRunning} onAttach={onAttach} /> : null}
+      {!isBuilder ? (
+        <DraftCompositeSelector
+          disabled={disabled}
+          isRunning={isRunning}
+          permissionDenied={permissionDenied}
+          onAttach={onAttach}
+        />
+      ) : null}
       {isBuilder && (compact || isMobile) ? (
         <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} />
       ) : null}
@@ -41,13 +53,13 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
   );
 }
 
-export function DraftComposerRightSection({ disabled, isRunning }: ComposerRightSectionProps) {
+export function DraftComposerRightSection({ disabled, isRunning, permissionDenied }: ComposerRightSectionProps) {
   const DraftModelSelector = useSlot('DraftModelSelector');
 
   return (
     <div className="flex min-w-0 items-center gap-1">
-      <DraftModelSelector disabled={disabled} isRunning={isRunning} />
-      <DraftReasoningEffortSelector disabled={disabled} isRunning={isRunning} />
+      <DraftModelSelector disabled={disabled} isRunning={isRunning} permissionDenied={permissionDenied} />
+      <DraftReasoningEffortSelector disabled={disabled} isRunning={isRunning} permissionDenied={permissionDenied} />
     </div>
   );
 }

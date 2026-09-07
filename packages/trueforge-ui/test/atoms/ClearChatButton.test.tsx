@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ClearChatButton } from '@/atoms/ClearChatButton.js';
 import { SelectAgentEmptyState } from '@/atoms/SelectAgentEmptyState.js';
+import { ActiveSessionPermissionsProvider } from '@/hooks/useResourcePermissions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -91,6 +92,29 @@ describe('ClearChatButton', () => {
     );
     expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
+  });
+
+  it('disables Clear chat without session MANAGE permission', async () => {
+    const server = createMockAgentUIServer({
+      permissions: {
+        listPermissions: vi.fn(async () => ({ data: { 'session-1': ['DELETE' as const] } })),
+      },
+    });
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ActiveSessionPermissionsProvider sessionId="session-1">
+            <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+              <RuntimeHarness messages={startedMessages}>
+                <ClearChatButton />
+              </RuntimeHarness>
+            </ShellModeProvider>
+          </ActiveSessionPermissionsProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Clear chat' })).toBeDisabled();
   });
 });
 

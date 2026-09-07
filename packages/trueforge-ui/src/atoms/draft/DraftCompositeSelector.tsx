@@ -8,6 +8,7 @@ import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -210,6 +211,7 @@ function SearchField({
 export type DraftCompositeSelectorProps = {
   disabled?: boolean;
   isRunning?: boolean;
+  permissionDenied?: boolean;
   onAttach?: () => void;
 };
 
@@ -221,13 +223,19 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
   );
 }
 
-export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
+export function DraftCompositeSelector({
+  disabled,
+  isRunning,
+  permissionDenied = false,
+  onAttach,
+}: DraftCompositeSelectorProps) {
   const { skills, connectors, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
   const { agentSpec } = useTrueFoundryAgentSpec();
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const PermissionGuard = useSlot('PermissionGuard');
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AttachTab>('connectors');
   const [query, setQuery] = useState('');
@@ -579,51 +587,66 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     </>
   );
 
-  // Gapless row: now that both triggers are icon-only, their ghost hover targets butt
+  const toolsTrigger = (
+    <button
+      type="button"
+      disabled={disabled || isRunning || permissionDenied}
+      aria-label={`Tools (${toolsCount})`}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-controls={open ? menuId : undefined}
+      className={auiButtonClass({
+        variant: 'ghost',
+        size: 'sm',
+        className: 'h-8 rounded-md px-2 text-xs',
+      })}
+      onClick={() => {
+        if (permissionDenied) return;
+        if (open) {
+          setOpenAndFlush(false);
+          return;
+        }
+        openPicker();
+      }}
+    >
+      <Icon name="wrench" className="size-3.5" />
+    </button>
+  );
+  const attachTrigger =
+    onAttach == null ? null : (
+      <button
+        type="button"
+        disabled={disabled || isRunning || permissionDenied}
+        aria-label="Attach a file"
+        className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+        onClick={() => {
+          if (!permissionDenied) onAttach();
+        }}
+      >
+        <Icon name="paperclip" />
+      </button>
+    );
+
+  // Gapless row: now that both triggers are icon-only, their ghost hover targets but
   // together as one toolbar cluster rather than reading as separate chips.
   return (
     <div ref={containerRef} className="relative flex flex-wrap items-center">
       {hasValidModel ? (
-        <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
-          <button
-            type="button"
-            disabled={disabled || isRunning}
-            aria-label={`Tools (${toolsCount})`}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-controls={open ? menuId : undefined}
-            className={auiButtonClass({
-              variant: 'ghost',
-              size: 'sm',
-              className: 'h-8 rounded-md px-2 text-xs',
-            })}
-            onClick={() => {
-              if (open) {
-                setOpenAndFlush(false);
-                return;
-              }
-              openPicker();
-            }}
-          >
-            {/* Icon-only trigger; the count and name reach assistive tech via aria-label
-                and sighted users via the tooltip, which lists the selected tools. */}
-            <Icon name="wrench" className="size-3.5" />
-          </button>
-        </Tooltip>
+        permissionDenied ? (
+          <PermissionGuard allowed={false}>{toolsTrigger}</PermissionGuard>
+        ) : (
+          <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
+            {toolsTrigger}
+          </Tooltip>
+        )
       ) : null}
 
-      {onAttach ? (
-        <Tooltip content="Attach a file">
-          <button
-            type="button"
-            disabled={disabled || isRunning}
-            aria-label="Attach a file"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={onAttach}
-          >
-            <Icon name="paperclip" />
-          </button>
-        </Tooltip>
+      {attachTrigger != null ? (
+        permissionDenied ? (
+          <PermissionGuard allowed={false}>{attachTrigger}</PermissionGuard>
+        ) : (
+          <Tooltip content="Attach a file">{attachTrigger}</Tooltip>
+        )
       ) : null}
 
       {open && hasValidModel ? (
