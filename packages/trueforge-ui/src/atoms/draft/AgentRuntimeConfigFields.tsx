@@ -1,8 +1,10 @@
 'use client';
 
 import type { AgentRuntimeConfig } from '../../server/types.js';
+import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { Switch } from '../primitives/Switch.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 
 export type AgentRuntimeConfigFieldsProps = {
   value: AgentRuntimeConfig;
@@ -26,11 +28,14 @@ function parsePositiveInteger(raw: string): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
+
 type RuntimeSwitchField = {
   label: string;
   description: string;
   checked: boolean;
   disabled?: boolean;
+  disabledTooltip?: string;
   update: (enabled: boolean) => AgentRuntimeConfig;
 };
 
@@ -70,6 +75,11 @@ export function AgentRuntimeConfigFields({
     description: 'Provide an isolated environment for code, files, and skills.',
     checked: sandboxEnabled,
     disabled: !sandboxAvailable || hasSkills,
+    disabledTooltip: !sandboxAvailable
+      ? NO_SANDBOX_PROVIDER_HINT
+      : hasSkills
+        ? 'Always on while skills are attached — remove them to turn it off'
+        : undefined,
     update: enabled => ({ ...value, sandbox: { ...value.sandbox, enabled } }),
   };
   const fileDownloadsField: RuntimeSwitchField = {
@@ -100,6 +110,7 @@ export function AgentRuntimeConfigFields({
     description: 'Move large tool output to the sandbox and retain a preview.',
     checked: value.contextManagement?.largeToolResponse?.enabled ?? true,
     disabled: !sandboxAvailable,
+    disabledTooltip: !sandboxAvailable ? `Offloading needs a sandbox. ${NO_SANDBOX_PROVIDER_HINT}` : undefined,
     update: enabled => ({
       ...value,
       contextManagement: {
@@ -111,30 +122,51 @@ export function AgentRuntimeConfigFields({
   };
   const runtimeFields = [sandboxField, fileDownloadsField, compactionField, largeToolResponseField];
   const compactionThreshold = value.contextManagement?.compaction?.trigger?.value ?? 50_000;
-  const switchField = (field: (typeof runtimeFields)[number], className = '') => (
-    <label key={field.label} className={className || 'flex items-center justify-between gap-3 py-1.5'}>
-      <span className="min-w-0">
-        <span className="text-text-primary block text-xs font-medium">{field.label}</span>
-        {layout === 'detailed' ? (
-          <span className="text-text-secondary mt-0.5 block text-xs leading-snug">{field.description}</span>
-        ) : null}
-      </span>
-      <Switch
-        checked={field.checked}
-        disabled={disabled || field.disabled}
-        onCheckedChange={enabled => onChange(field.update(enabled))}
-        aria-label={field.label}
-      />
-    </label>
+  
+  const switchField = ({
+    field,
+    className,
+    wrapperClassName,
+  }: {
+    field: RuntimeSwitchField;
+    className?: string;
+    wrapperClassName?: string;
+  }) => (
+    <Tooltip
+      key={field.label}
+      content={field.disabledTooltip ?? ''}
+      triggerClassName={cn('flex w-full min-w-0', wrapperClassName)}
+    >
+      <label className={cn('flex w-full', className ?? 'items-center justify-between gap-3 py-1.5')}>
+        <span className="min-w-0">
+          <span className={cn('text-text-primary text-xs', layout === 'detailed' && 'block font-medium')}>
+            {field.label}
+          </span>
+          {layout === 'detailed' ? (
+            <span className="text-text-secondary mt-0.5 block text-xs leading-snug">{field.description}</span>
+          ) : null}
+        </span>
+        <Switch
+          checked={field.checked}
+          disabled={disabled || field.disabled}
+          onCheckedChange={enabled => onChange(field.update(enabled))}
+          aria-label={field.label}
+        />
+      </label>
+    </Tooltip>
   );
 
   if (layout === 'detailed') {
     return (
       <div className="space-y-5">
         {showCapabilities ? (
-          <div className="grid gap-3 md:grid-cols-3">
-            {capabilityFields.map(field =>
-              switchField(field, 'flex min-h-24 items-start justify-between gap-3 rounded-lg border border-border p-3'),
+          <div className="flex gap-3">
+            {capabilityFields.map((field, index) =>
+              switchField({
+                field,
+                className: 'items-start justify-between gap-3',
+                wrapperClassName: cn('flex-1', index < capabilityFields.length - 1 && 'border-r border-border pr-3'),
+              }),
             )}
           </div>
         ) : null}
@@ -160,13 +192,13 @@ export function AgentRuntimeConfigFields({
         </label>
         <div className="divide-y divide-border">
           <section className="py-3">
-            {switchField(sandboxField, 'flex items-center justify-between gap-4')}
+            {switchField({ field: sandboxField, className: 'items-center justify-between gap-4' })}
             <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
-              {switchField(fileDownloadsField, 'flex items-center justify-between gap-4')}
+              {switchField({ field: fileDownloadsField, className: 'items-center justify-between gap-4' })}
             </div>
           </section>
           <section className="py-3">
-            {switchField(compactionField, 'flex items-center justify-between gap-4')}
+            {switchField({ field: compactionField, className: 'items-center justify-between gap-4' })}
             <label
               className={`mt-3 flex items-center justify-between gap-4 border-l-2 border-primary-button-bg/50 pl-3 ${
                 compactionEnabled ? '' : 'opacity-50'
@@ -203,7 +235,7 @@ export function AgentRuntimeConfigFields({
               />
             </label>
           </section>
-          {switchField(largeToolResponseField, 'flex items-center justify-between gap-4 py-3')}
+          {switchField({ field: largeToolResponseField, className: 'items-center justify-between gap-4 py-3' })}
         </div>
       </div>
     );
@@ -226,17 +258,7 @@ export function AgentRuntimeConfigFields({
           }}
         />
       </label>
-      {[...runtimeFields, ...(showCapabilities ? capabilityFields : [])].map(field => (
-        <label key={field.label} className="flex items-center justify-between gap-3 py-1.5">
-          <span className="text-text-primary text-xs">{field.label}</span>
-          <Switch
-            checked={field.checked}
-            disabled={disabled || field.disabled}
-            onCheckedChange={enabled => onChange(field.update(enabled))}
-            aria-label={field.label}
-          />
-        </label>
-      ))}
+      {[...runtimeFields, ...(showCapabilities ? capabilityFields : [])].map(field => switchField({ field }))}
     </div>
   );
 }

@@ -35,6 +35,11 @@ function formatTokens(value: number): string {
   return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
 
+// Runtime summary values read as state, so `off` takes a warning hue and everything else the accent.
+function runtimeValueClass(value: string): string {
+  return value === 'off' ? 'text-rose-500 dark:text-rose-400' : 'text-indigo-600 dark:text-indigo-400';
+}
+
 function McpServerChip({
   item,
   onRemove,
@@ -81,7 +86,10 @@ function McpServerChip({
                 ? 'bg-primary-button-bg text-primary-button-text'
                 : 'text-text-secondary hover:bg-ghost-button-hover',
             )}
-            onClick={onTogglePreload}
+            onClick={event => {
+              event.stopPropagation();
+              onTogglePreload();
+            }}
           >
             <Icon name="book-open" className="size-3.5" />
           </button>
@@ -98,7 +106,10 @@ function McpServerChip({
             size: 'icon',
             className: 'mx-1 size-5',
           })}
-          onClick={onRemove}
+          onClick={event => {
+            event.stopPropagation();
+            onRemove();
+          }}
         >
           <Icon name="xmark" className="size-3" />
         </button>
@@ -112,32 +123,68 @@ function McpServerChip({
 export function AgentConfigSection({
   title,
   description,
+  icon,
+  actionIcon = 'pencil',
+  actionLabel,
   onEdit,
   children,
 }: {
-  title: string;
+  title?: string;
   description?: string;
+  icon?: string;
+  actionIcon?: string;
+  actionLabel?: string;
   onEdit?: () => void;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
+  const action = actionLabel ?? `Edit ${title}`;
+
   return (
-    <section className="border-b border-border px-4 py-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-text-primary text-sm font-semibold">{title}</h3>
-          {description ? <p className="text-text-secondary mt-0.5 text-xs">{description}</p> : null}
+    <section
+      className={cn('group border-b border-border px-4 py-4', onEdit ? 'cursor-pointer' : null)}
+      role={onEdit ? 'button' : undefined}
+      tabIndex={onEdit ? 0 : undefined}
+      onClick={onEdit}
+      // Make keyboard accessible
+      onKeyDown={
+        onEdit
+          ? event => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              onEdit();
+            }
+          : undefined
+      }
+    >
+      {title && (
+        <div className={cn('flex items-start justify-between gap-3', children ? 'mb-3' : null)}>
+          <div className="flex min-w-0 items-start gap-2">
+            {icon ? <Icon name={icon} className="text-text-secondary mt-0.5 size-4 shrink-0" /> : null}
+            <div className="min-w-0">
+              <h3 className="text-text-primary text-sm font-semibold">{title}</h3>
+              {description ? <p className="text-text-secondary mt-0.5 text-xs">{description}</p> : null}
+            </div>
+          </div>
+          {onEdit ? (
+            <button
+              type="button"
+              aria-label={action}
+              title={action}
+              className={auiButtonClass({
+                variant: 'ghost',
+                size: 'icon',
+                className: 'size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+              })}
+              onClick={event => {
+                event.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Icon name={actionIcon} className="size-3.5" />
+            </button>
+          ) : null}
         </div>
-        {onEdit ? (
-          <button
-            type="button"
-            aria-label={`Edit ${title}`}
-            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
-            onClick={onEdit}
-          >
-            <Icon name="pencil" className="size-3.5" />
-          </button>
-        ) : null}
-      </div>
+      )}
       {children}
     </section>
   );
@@ -191,7 +238,7 @@ export function AgentConfigPanel({
         ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <Section title="Model">
+        <Section>
           <div className="flex items-center gap-2">
             <ProviderMark
               logo={model?.provider.logo}
@@ -270,37 +317,26 @@ export function AgentConfigPanel({
         <Section
           title="Runtime Config"
           description="Control execution and context behavior."
+          actionIcon="sliders"
           onEdit={() => onOpenEditor('runtime')}
         >
           <dl className="text-text-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed">
             {runtimeConfig.map(entry => (
               <div key={entry.label} className="flex gap-1">
                 <dt>{entry.label}:</dt>
-                <dd className="text-text-primary font-medium">{entry.value}</dd>
+                <dd className={cn('font-medium tracking-wide', runtimeValueClass(entry.value))}>{entry.value}</dd>
               </div>
             ))}
           </dl>
         </Section>
 
-        <section className="group border-b border-border px-4 py-4">
-          <div className={cn('flex items-center justify-between gap-3', mcp.length ? 'mb-3' : null)}>
-            <div className="flex min-w-0 items-center gap-2">
-              <Icon name="mcp-server" className="text-text-secondary size-4 shrink-0" />
-              <h3 className="text-text-primary text-sm font-semibold">MCP Servers</h3>
-            </div>
-            <button
-              type="button"
-              aria-label="Add MCP server"
-              className={auiButtonClass({
-                variant: 'ghost',
-                size: 'icon',
-                className: 'size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
-              })}
-              onClick={() => onOpenEditor('mcp')}
-            >
-              <Icon name="plus" className="size-3.5" />
-            </button>
-          </div>
+        <Section
+          title="MCP Servers"
+          icon="mcp-server"
+          actionIcon="plus"
+          actionLabel="Add MCP server"
+          onEdit={() => onOpenEditor('mcp')}
+        >
           {mcp.length ? (
             <div className="flex flex-wrap gap-1.5">
               {mcp.map(item => (
@@ -333,9 +369,9 @@ export function AgentConfigPanel({
               ))}
             </div>
           ) : null}
-        </section>
+        </Section>
 
-        <Section title="Skills" onEdit={() => onOpenEditor('skills')}>
+        <Section title="Skills" actionIcon="plus" actionLabel="Add skill" onEdit={() => onOpenEditor('skills')}>
           {!skillsAvailable ? (
             <p className="text-text-secondary text-xs">Skills require an available sandbox.</p>
           ) : skills.length ? (
