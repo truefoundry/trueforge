@@ -23,4 +23,8 @@ export interface ListSessionsRequest {
     createdByMe?: boolean;
     /** Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs. */
     metadata?: Record<string, string>;
+    /** When set, returns only sessions created by this source type. */
+    sourceType?: TrueForge.SessionSourceType;
+    /** When set, returns only sessions from this specific source. Requires source_type. */
+    sourceId?: string;
 }

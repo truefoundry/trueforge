@@ -184,11 +184,11 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
 
-    // Schedule ownership alone must not invoke an agent the caller cannot read.
+    // Schedule ownership alone must not invoke an agent the caller cannot use.
     const agent = await agentIfAccessible({
       authorizer: deps.authorizer,
       context: requestContext,
-      action: 'read',
+      action: 'use',
       agent: await deps.resolveAgentStore(c).getAgent({
         tenant_id: requestContext.tenant_id,
         name: schedule.agent_name,
@@ -259,7 +259,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     const agent = await agentIfAccessible({
       authorizer: deps.authorizer,
       context: requestContext,
-      action: 'read',
+      action: 'use',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, name: body.agent_name }),
     });
     if (agent === undefined) {

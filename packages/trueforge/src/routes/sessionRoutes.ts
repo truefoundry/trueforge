@@ -202,7 +202,7 @@ export const listSessionsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List sessions',
-  description: "List the caller's sessions (newest first by default)",
+  description: 'List the sessions (newest first by default).',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,

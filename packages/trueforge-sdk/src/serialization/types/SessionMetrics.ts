@@ -6,14 +6,14 @@ import type * as serializers from "../index.js";
 
 export const SessionMetrics: core.serialization.ObjectSchema<serializers.SessionMetrics.Raw, TrueForge.SessionMetrics> =
     core.serialization.object({
-        totalCostInUsd: core.serialization.property("total_cost_in_usd", core.serialization.number()),
+        totalCostInUsd: core.serialization.property("total_cost_in_usd", core.serialization.number().optional()),
         totalDurationMs: core.serialization.property("total_duration_ms", core.serialization.number()),
         totalTurns: core.serialization.property("total_turns", core.serialization.number()),
     });
 
 export declare namespace SessionMetrics {
     export interface Raw {
-        total_cost_in_usd: number;
+        total_cost_in_usd?: number | null;
         total_duration_ms: number;
         total_turns: number;
     }

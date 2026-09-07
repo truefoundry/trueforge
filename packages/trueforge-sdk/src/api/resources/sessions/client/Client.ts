@@ -24,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the caller's sessions (newest first by default)
+     * List the sessions (newest first by default).
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -53,6 +53,8 @@ export class SessionsClient {
                     agentId,
                     createdByMe,
                     metadata,
+                    sourceType,
+                    sourceId,
                 } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
@@ -71,6 +73,16 @@ export class SessionsClient {
                     agent_id: agentId,
                     created_by_me: createdByMe,
                     metadata,
+                    source_type:
+                        sourceType != null
+                            ? serializers.SessionSourceType.jsonOrThrow(sourceType, {
+                                  unrecognizedObjectKeys: "passthrough",
+                                  allowUnrecognizedUnionMembers: true,
+                                  allowUnrecognizedEnumValues: true,
+                                  omitUndefined: true,
+                              })
+                            : undefined,
+                    source_id: sourceId,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(

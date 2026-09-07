@@ -1235,7 +1235,7 @@ await client.schedules.listRuns("schedule_id");
 <dl>
 <dd>
 
-List the caller's sessions (newest first by default)
+List the sessions (newest first by default).
 </dd>
 </dl>
 </dd>

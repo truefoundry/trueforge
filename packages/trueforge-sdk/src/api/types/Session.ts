@@ -11,6 +11,7 @@ export interface Session {
     id: string;
     metadata: TrueForge.SessionMetadata;
     metrics: TrueForge.SessionMetrics;
+    source: TrueForge.SessionSource | null;
     /** Optional human-readable title; null until set. */
     title: string | null;
     /** ISO 8601 last-update timestamp. */

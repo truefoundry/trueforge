@@ -67,6 +67,7 @@ export function toWireSession(record: SessionRecord): Session {
     updated_at: record.updated_at.toISOString(),
     metrics: record.metrics,
     metadata: record.metadata,
+    source: record.source,
   };
 }
 
@@ -270,7 +271,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       const named = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -297,6 +298,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       external_id: body.external_id,
       created_by_subject: createdBySubjectFromRequestContext(requestContext),
       agent,
+      source: body.source ?? null,
     });
     if (
       !created &&
@@ -332,7 +334,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const agent = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -503,6 +505,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         page_token: query.page_token,
         start_timestamp: query.start_timestamp,
         end_timestamp: query.end_timestamp,
+        source_type: query.source_type,
+        source_id: query.source_id,
       });
       return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {

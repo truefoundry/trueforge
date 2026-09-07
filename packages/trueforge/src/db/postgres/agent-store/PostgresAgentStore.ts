@@ -1,3 +1,4 @@
+import { CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -12,7 +13,6 @@ import {
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
-import { parseStoredCreatedBySubject } from '../../createdBySubject';
 import { AGENT_EXTERNAL_ID_UQ } from '../../indexes';
 import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -25,7 +25,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     name: row.name,
     manifest: parseStoredAgentSpec(row.manifest),
     external_id: row.external_id,
-    created_by_subject: parseStoredCreatedBySubject(row.created_by_subject),
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };

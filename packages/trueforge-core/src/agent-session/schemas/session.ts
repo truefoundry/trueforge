@@ -40,7 +40,7 @@ export type SessionMetadata = z.infer<typeof SessionMetadataSchema>;
 
 export const SessionMetricsSchema = z
   .object({
-    total_cost_in_usd: z.number().nonnegative(),
+    total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this session'),
     total_duration_ms: z.number().int().nonnegative(),
     total_turns: z.number().int().nonnegative(),
   })
@@ -74,6 +74,32 @@ export const SessionAgentSchema = z
   .discriminatedUnion('type', [SessionAgentReferenceSchema, SessionAgentInlineSchema])
   .openapi('SessionAgent');
 
+export const SessionSourceTypeSchema = z.enum(['schedule']).openapi('SessionSourceType');
+
+export type SessionSourceType = z.infer<typeof SessionSourceTypeSchema>;
+
+function sessionSourceScheduleObject() {
+  return z
+    .object({
+      type: z.literal(SessionSourceTypeSchema.enum.schedule).describe('Session was created by a schedule run.'),
+      id: z.string().min(1).describe('Schedule id.'),
+      run_id: z.string().min(1).describe('Schedule run id.'),
+    })
+    .strict();
+}
+
+export const SessionSourceScheduleSchema = sessionSourceScheduleObject().openapi('SessionSourceSchedule');
+
+/**
+ * How a session was created. Same shape as {@link SessionSourceScheduleSchema} today;
+ * switch to `discriminatedUnion('type', …)` when a second source arm lands.
+ */
+export const SessionSourceSchema = sessionSourceScheduleObject()
+  .describe('How this session was created (e.g. a schedule run). Null for interactive sessions.')
+  .openapi('SessionSource');
+
+export type SessionSource = z.infer<typeof SessionSourceSchema>;
+
 export const SessionSchema = z
   .object({
     id: z.string().describe('Unique session id.'),
@@ -84,6 +110,7 @@ export const SessionSchema = z
     updated_at: z.string().describe('ISO 8601 last-update timestamp.'),
     metrics: SessionMetricsSchema,
     metadata: SessionMetadataSchema,
+    source: SessionSourceSchema.nullable(),
   })
   .openapi('Session');
 
