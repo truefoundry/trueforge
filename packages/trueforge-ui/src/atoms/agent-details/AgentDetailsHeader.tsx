@@ -9,6 +9,7 @@ import { AgentOverflowMenu } from '../AgentOverflowMenu.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { PageHeader, pageHeaderTitleClassName } from '../PageHeader.js';
+import { Button } from '../primitives/Button.js';
 import type { AgentDetailsHeaderProps } from './types.js';
 
 export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHeaderProps) {
@@ -68,16 +69,16 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
       }
       end={
         <>
-          <button
+          <Button.Primary
             type="button"
             aria-label="Try agent"
+            size="large"
             disabled={detail == null}
-            className={auiButtonClass({ variant: 'default', size: 'sm' })}
             onClick={handleTry}
           >
             <Icon name="play" className="size-3.5" />
             Try
-          </button>
+          </Button.Primary>
           {detail != null ? (
             <AgentOverflowMenu
               agentName={detail.name}

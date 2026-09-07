@@ -280,8 +280,7 @@ const ModelSettings = () => {
             <div className="flex-1">
               <SearchInput query={query} setQuery={setQuery} placeholder="Search providers and models" />
             </div>
-            <Button
-              variant="secondary"
+            <Button.Secondary
               type="button"
               onClick={() => {
                 setFormError(null);
@@ -291,7 +290,7 @@ const ModelSettings = () => {
             >
               <Icon name="plus" size="1rem" className="mr-1" />
               Add Custom Provider
-            </Button>
+            </Button.Secondary>
           </div>
 
           <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
@@ -335,9 +334,8 @@ const ModelSettings = () => {
                               <span className="h-1.5 w-1.5 rounded-full bg-success-bg"></span>
                               Connected
                             </span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
+                            <Button.Secondary
+                              size="small"
                               className="text-[0.8125rem]"
                               type="button"
                               aria-label={`Edit ${provider.name}`}
@@ -358,11 +356,10 @@ const ModelSettings = () => {
                             >
                               <Icon name="wrench" className="size-3.5" />
                               Edit
-                            </Button>
+                            </Button.Secondary>
                             {modelCatalog.deleteModelProvider ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
+                              <Button.Secondary
+                                size="small"
                                 className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
                                 type="button"
                                 disabled={busy}
@@ -371,7 +368,7 @@ const ModelSettings = () => {
                                 }}
                               >
                                 Remove
-                              </Button>
+                              </Button.Secondary>
                             ) : null}
                           </div>
                         </header>
@@ -411,9 +408,8 @@ const ModelSettings = () => {
                                   className="flex min-h-12 items-center gap-3 border-b border-border px-3 py-2 text-sm text-text-primary last:border-b-0"
                                 >
                                   <span className="min-w-0 flex-1 truncate">{model.name}</span>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
+                                  <Button.Secondary
+                                    size="small"
                                     type="button"
                                     disabled={busy}
                                     onClick={() => {
@@ -421,7 +417,7 @@ const ModelSettings = () => {
                                     }}
                                   >
                                     Add
-                                  </Button>
+                                  </Button.Secondary>
                                 </div>
                               ))}
                             </section>
@@ -467,8 +463,7 @@ const ModelSettings = () => {
                               </p>
                             </div>
                           </div>
-                          <Button
-                            variant="secondary"
+                          <Button.Secondary
                             type="button"
                             disabled={busy}
                             onClick={() => {
@@ -479,7 +474,7 @@ const ModelSettings = () => {
                           >
                             <Icon name="wrench" className="size-4" />
                             Configure
-                          </Button>
+                          </Button.Secondary>
                         </header>
                       </article>
                     );

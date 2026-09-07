@@ -19,7 +19,7 @@ import {
 } from './agentConfigMounts.js';
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
-import { runtimeConfigSummary } from './runtimeConfigSummary.js';
+import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
 
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
@@ -276,7 +276,7 @@ export function AgentConfigPanel({
             {runtimeConfig.map(entry => (
               <div key={entry.label} className="flex gap-1">
                 <dt>{entry.label}:</dt>
-                <dd className="text-text-primary font-medium">{entry.value}</dd>
+                <dd className={runtimeConfigValueClassName(entry.value)}>{entry.value}</dd>
               </div>
             ))}
           </dl>

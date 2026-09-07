@@ -15,6 +15,7 @@ import { auiInputClass } from '../lib/inputClasses.js';
 import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Button } from '../primitives/Button.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
@@ -163,11 +164,11 @@ export function ConnectorConnectButton({
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
 
   return (
-    <button
+    <Button.Secondary
       type="button"
       aria-label={`Connect ${connector.name}`}
       disabled={isOAuthLoading}
-      className={auiButtonClass({ variant: 'secondary', size: 'sm' })}
+      size="small"
       onKeyDown={event => {
         event.stopPropagation();
       }}
@@ -179,7 +180,7 @@ export function ConnectorConnectButton({
       }}
     >
       {isOAuthLoading ? 'Connecting...' : 'Connect'}
-    </button>
+    </Button.Secondary>
   );
 }
 
@@ -561,7 +562,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   {connectorsLoadMoreFailed ? (
                     <button
                       type="button"
-                      className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+                      className={auiButtonClass({ variant: 'ghost', size: 'small' })}
                       onClick={loadMoreConnectors}
                     >
                       Retry loading connectors
@@ -636,11 +637,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            className={auiButtonClass({
-              variant: 'ghost',
-              size: 'sm',
-              className: 'h-8 rounded-md px-2 text-xs',
-            })}
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             onClick={() => {
               if (open) {
                 setOpenAndFlush(false);
@@ -651,7 +648,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
           >
             {/* Icon-only trigger; the count and name reach assistive tech via aria-label
                 and sighted users via the tooltip, which lists the selected tools. */}
-            <Icon name="wrench" className="size-3.5" />
+            <Icon name="wrench" />
           </button>
         </Tooltip>
       ) : null}

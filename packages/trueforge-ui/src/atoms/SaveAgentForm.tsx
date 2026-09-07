@@ -6,8 +6,8 @@ import type { AgentSpec, ModelSelection } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
 import type { EditableMount } from './draft/agentConfigMounts.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
 import { auiInputClass } from './lib/inputClasses.js';
+import { Button } from './primitives/Button.js';
 
 export type SaveAgentFormProps = {
   intent: 'create' | 'update';
@@ -63,7 +63,7 @@ export function SaveAgentForm({
             disabled={saving || intent === 'update'}
             onChange={event => onNameChange(event.target.value)}
             placeholder="release-notes"
-            className={auiInputClass('h-9 disabled:opacity-60')}
+            className={auiInputClass('h-8 disabled:opacity-60')}
           />
         </label>
 
@@ -102,17 +102,12 @@ export function SaveAgentForm({
       </div>
 
       <div className="bg-card-bg sticky bottom-0 z-10 flex shrink-0 justify-end gap-2 border-t border-border px-5 py-4">
-        <button type="button" disabled={saving} className={auiButtonClass({ variant: 'secondary' })} onClick={onCancel}>
+        <Button.Secondary type="button" disabled={saving} onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="button"
-          disabled={saving || !name.trim() || !spec.model.name.trim()}
-          className={auiButtonClass({ variant: 'default' })}
-          onClick={onSave}
-        >
+        </Button.Secondary>
+        <Button.Primary type="button" disabled={saving || !name.trim() || !spec.model.name.trim()} onClick={onSave}>
           {saving ? 'Saving…' : 'Save changes'}
-        </button>
+        </Button.Primary>
       </div>
     </div>
   );

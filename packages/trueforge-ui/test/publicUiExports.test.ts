@@ -45,6 +45,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'AvatarImage',
   'BottomSheet',
   'BrandLogo',
+  'Button',
   'CenteredModal',
   'ChatFileDownload',
   'ClearChatButton',
