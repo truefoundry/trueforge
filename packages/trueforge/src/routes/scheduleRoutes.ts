@@ -80,7 +80,7 @@ export const listScheduleRunsRoute = createRoute({
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List runs of a schedule',
   description:
-    'List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.',
+    'List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list_runs',
   request: {
@@ -93,7 +93,7 @@ export const listScheduleRunsRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The caller is not the schedule creator.',
+      description: 'The caller cannot read the schedule.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

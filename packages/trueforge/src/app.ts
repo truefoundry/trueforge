@@ -370,6 +370,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createInternalMetricsRouter({
         sessionMetricsStore: deps.sessionMetricsStore,
         resolveRequestContext,
+        resolveAgentStore: deps.resolveAgentStore,
+        authorizer: deps.authorizer,
       }),
       authMiddleware,
     ),

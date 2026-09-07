@@ -28,7 +28,7 @@ import { sql, type Kysely } from 'kysely';
 import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';
-import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
+import { jsonbBind, jsonText, nowIso, whereCreatedByOrAgentIds } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
 type SessionCustom = Record<string, never>;
@@ -262,9 +262,7 @@ export async function listSessions(
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
   }
-  if (input.created_by_subject_id !== undefined) {
-    query = query.where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
-  }
+  query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp.toISOString());
   }
