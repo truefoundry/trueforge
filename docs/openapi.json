@@ -6268,7 +6268,7 @@
     },
     "/api/v1/schedules": {
       "get": {
-        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_names`.",
+        "description": "List schedules for the tenant, newest first.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",
@@ -6301,6 +6301,16 @@
             "schema": {
               "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
               "type": "string"
+            }
+          },
+          {
+            "description": "When true, only schedules created by the authenticated subject.",
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "description": "When true, only schedules created by the authenticated subject.",
+              "type": "boolean"
             }
           }
         ],
@@ -6763,7 +6773,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id` and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.",
+        "description": "List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id`, `created_by_me`, and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -6829,6 +6839,16 @@
               "description": "When set, only sessions bound to this agent id are returned.",
               "minLength": 1,
               "type": "string"
+            }
+          },
+          {
+            "description": "When true, only sessions created by the authenticated subject.",
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "description": "When true, only sessions created by the authenticated subject.",
+              "type": "boolean"
             }
           },
           {

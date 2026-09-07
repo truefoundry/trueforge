@@ -25,7 +25,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id` and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.
+     * List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id`, `created_by_me`, and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -45,7 +45,16 @@ export class SessionsClient {
             async (
                 request: TrueForge.ListSessionsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSessionsResponse>> => {
-                const { limit = 25, order, pageToken, startTimestamp, endTimestamp, agentId, metadata } = request;
+                const {
+                    limit = 25,
+                    order,
+                    pageToken,
+                    startTimestamp,
+                    endTimestamp,
+                    agentId,
+                    createdByMe,
+                    metadata,
+                } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     order:
@@ -61,6 +70,7 @@ export class SessionsClient {
                     start_timestamp: startTimestamp != null ? startTimestamp?.toISOString() : undefined,
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                     agent_id: agentId,
+                    created_by_me: createdByMe,
                     metadata: metadata != null ? toJson(metadata) : undefined,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
