@@ -32,6 +32,7 @@ function toPutRemoteAgentPayload({
     description: name,
     model: manifest.model.name,
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
+    skills: (manifest.skills ?? []).map(skill => skill.name),
   };
 }
 

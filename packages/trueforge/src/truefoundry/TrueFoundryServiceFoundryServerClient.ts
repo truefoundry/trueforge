@@ -83,6 +83,7 @@ export interface PutRemoteAgentInput {
   description: string;
   model: string;
   mcp_servers: string[];
+  skills: string[];
 }
 
 export interface PutRemoteAgentResult {
@@ -217,7 +218,7 @@ export class TrueFoundryServiceFoundryServerClient {
     return rows[0];
   }
 
-  /** PUT `/internal/tfg/agents` — create/reuse remote agent + sync model/MCP grants. */
+  /** PUT `/internal/tfg/agents` — create/reuse remote agent + sync model/MCP/skill ML-repo grants. */
   async putRemoteAgent(input: PutRemoteAgentInput): Promise<PutRemoteAgentResult> {
     const payload = await this.#requestJson({
       url: this.#url(TFG_AGENTS_PATH),
@@ -229,6 +230,7 @@ export class TrueFoundryServiceFoundryServerClient {
         description: input.description,
         model: input.model,
         mcp_servers: input.mcp_servers,
+        skills: input.skills,
       },
     });
     const parsed = PutRemoteAgentResponseSchema.safeParse(payload);
