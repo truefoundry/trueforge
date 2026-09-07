@@ -219,6 +219,35 @@ describe('AgentSessionEventTimelineChart', () => {
     expect(screen.queryByText('Sub-agent 1: Researcher')).not.toBeInTheDocument();
   });
 
+  it('shows the event directly for a single diamond', () => {
+    render(
+      <SessionMarkerGroupTooltip
+        group={{
+          id: 'marker-user',
+          startMs: 0,
+          endMs: 0,
+          segments: [
+            {
+              id: 'user',
+              type: 'user',
+              title: 'user.message',
+              description: 'Hello',
+              startMs: 0,
+              endMs: 0,
+              turnIndex: 0,
+              threadId: 'main',
+              isMarker: true,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('User Message')).toBeInTheDocument();
+    expect(screen.getByText('Hello')).toBeInTheDocument();
+    expect(screen.queryByText('Events')).not.toBeInTheDocument();
+  });
+
   it('lists every event represented by a shared diamond', () => {
     render(
       <SessionMarkerGroupTooltip

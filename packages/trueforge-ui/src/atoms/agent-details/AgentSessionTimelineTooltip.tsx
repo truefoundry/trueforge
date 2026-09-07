@@ -127,6 +127,9 @@ export function SessionToolCallGroupTooltip({ group }: { group: TimelineToolCall
 
 export function SessionMarkerGroupTooltip({ group }: { group: TimelineMarkerGroup }) {
   const isDark = useThemeMode() === 'dark';
+  const singleSegment = group.segments.length === 1 ? group.segments[0] : undefined;
+  if (singleSegment != null) return <SessionEventTooltip segment={singleSegment} />;
+
   return (
     <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
       <span className="font-medium text-text-secondary">Events</span>
