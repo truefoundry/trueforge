@@ -5,10 +5,15 @@ import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type { AgentPermission, TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
+const permissionByAction: Record<AgentAction, AgentPermission> = {
+  read: 'READ_AGENT',
+  use: 'USE_AGENT',
+  manage: 'MANAGE_AGENT',
+  delete: 'DELETE_AGENT',
+};
+
 function allowsAction(permissions: readonly AgentPermission[], action: AgentAction): boolean {
-  return action === 'manage'
-    ? permissions.includes('MANAGE_AGENT')
-    : permissions.includes('READ_AGENT') || permissions.includes('MANAGE_AGENT');
+  return permissions.includes(permissionByAction[action]);
 }
 
 function requireUserCredential(context: RequestContext): string {

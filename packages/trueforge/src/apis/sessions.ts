@@ -271,7 +271,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       const named = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -334,7 +334,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const agent = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,

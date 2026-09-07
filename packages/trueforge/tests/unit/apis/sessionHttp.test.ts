@@ -41,9 +41,10 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-  canAccessAgent: () => Promise.resolve(false),
+  canAccessAgent: deniedCanAccessAgent,
 };
 
 describe('sessions HTTP agent binding', () => {
@@ -558,7 +559,8 @@ describe('sessions HTTP agent binding', () => {
     });
   });
 
-  it('returns 404 when creating a session for a named agent the caller cannot read', async () => {
+  it('returns 404 when creating a session for a named agent the caller cannot use', async () => {
+    deniedCanAccessAgent.mockClear();
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
       created_by_subject: {
@@ -590,6 +592,7 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(getOrCreate.status).toBe(404);
     expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
+    expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
