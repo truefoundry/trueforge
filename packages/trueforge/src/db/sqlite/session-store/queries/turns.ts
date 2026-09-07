@@ -1,3 +1,4 @@
+import type { SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   type TerminalTurnState,
@@ -117,7 +118,7 @@ async function addSessionCostAndDuration(
   const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
   const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   const turnCost = input.turn_state.metrics?.total_cost_in_usd;
-  const withDuration = sql`jsonb_set(
+  const withDuration = sql<SessionMetrics>`jsonb_set(
     metrics,
     '$.total_duration_ms',
     jsonb((metrics->>'total_duration_ms') + ${total_duration_ms})
@@ -128,7 +129,7 @@ async function addSessionCostAndDuration(
       metrics:
         turnCost === undefined
           ? withDuration
-          : sql`jsonb_set(
+          : sql<SessionMetrics>`jsonb_set(
               ${withDuration},
               '$.total_cost_in_usd',
               jsonb(COALESCE(metrics->>'total_cost_in_usd', 0) + ${turnCost})
