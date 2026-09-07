@@ -277,7 +277,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-Delete a configured agent by immutable id. Idempotent if already gone.
+Delete a configured agent by immutable id.
 </dd>
 </dl>
 </dd>
@@ -1171,7 +1171,7 @@ await client.schedules.delete("schedule_id");
 <dl>
 <dd>
 
-List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.
+List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.
 </dd>
 </dl>
 </dd>
