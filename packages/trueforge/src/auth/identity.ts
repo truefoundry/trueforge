@@ -1,10 +1,7 @@
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 
-import configuration, { getTrueForgeMode, isOidcConfigured, TrueForgeMode } from '../config';
-
-/** TrueFoundry Control Plane role treated as admin until mapping is settled. */
-export const TRUEFOUNDRY_ADMIN_ROLE = 'tenant-admin';
+import configuration, { getTrueForgeAuthMode, isOidcConfigured, TrueForgeAuthMode } from '../config';
 
 /** Standalone / default TrueForge admin role string. */
 export const STANDALONE_ADMIN_ROLE = 'admin';
@@ -52,23 +49,24 @@ export function resolveRequestContext(c: Context): RequestContext {
 
 /**
  * Whether the caller is treated as admin for settings, capabilities, and schedule bypass.
- * Mode and OIDC admin claim value come from process config ({@link getTrueForgeMode}).
+ * Mode and OIDC admin claim value come from process config ({@link getTrueForgeAuthMode}).
  * - Standalone: `roles` includes `admin`
  * - OIDC: `roles` includes configured `OIDC_ADMIN_ROLE_VALUE`
- * - TrueFoundry: `roles` includes `tenant-admin` (temporary; revisit mapping later)
+ * - TrueFoundry: no tenant-wide TrueForge admin
  */
+// TODO (chiragjn): hasAdminRole will be renamed to canAccessSettings once all authorizer changes are done
 export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boolean {
-  switch (getTrueForgeMode()) {
-    case TrueForgeMode.TrueFoundry:
-      // TODO: stop treating `tenant-admin` as TrueForge admin once TFY role mapping is settled.
-      return requestContext.roles.includes(TRUEFOUNDRY_ADMIN_ROLE);
-    case TrueForgeMode.Oidc: {
-      const adminValue = isOidcConfigured(configuration)
-        ? configuration.OIDC.OIDC_ADMIN_ROLE_VALUE
-        : STANDALONE_ADMIN_ROLE;
-      return requestContext.roles.includes(adminValue);
+  switch (getTrueForgeAuthMode()) {
+    case TrueForgeAuthMode.TrueFoundry:
+      return false;
+    case TrueForgeAuthMode.Oidc: {
+      if (!isOidcConfigured(configuration)) {
+        // this is technically unreachable since case TrueForgeAuthMode.Oidc already ensures OIDC is configured
+        return false;
+      }
+      return requestContext.roles.includes(configuration.OIDC.OIDC_ADMIN_ROLE_VALUE);
     }
-    case TrueForgeMode.Standalone:
+    case TrueForgeAuthMode.Standalone:
       return requestContext.roles.includes(STANDALONE_ADMIN_ROLE);
   }
 }

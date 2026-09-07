@@ -5,6 +5,8 @@ import { shellIsCreateAgent, useOptionalShellMode } from '../../server/ShellMode
 import { useSlot } from '../../theme/SlotsProvider.js';
 import type { ComposerLeftSectionProps, ComposerRightSectionProps } from '../ComposerSections.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
+import { useCompactLayout } from '../lib/CompactLayoutContext.js';
+import { useIsMobile } from '../lib/useIsMobile.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js';
 
@@ -12,12 +14,16 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
   const shell = useOptionalShellMode();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
   const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
+  const compact = useCompactLayout();
+  const isMobile = useIsMobile();
   const isBuilder = shell != null && shellIsCreateAgent(shell.mode);
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {!isBuilder ? <DraftCompositeSelector disabled={disabled} isRunning={isRunning} onAttach={onAttach} /> : null}
-      {isBuilder ? <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} /> : null}
+      {isBuilder && (compact || isMobile) ? (
+        <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} />
+      ) : null}
       {isBuilder && onAttach != null ? (
         <Tooltip content="Attach a file">
           <button

@@ -8,8 +8,12 @@ import {
   selectDraftSpecPreferences,
   withCapabilitiesSandbox,
   writeDraftSpecPreferences,
+  type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
+import { isSchedulesChromeEnabled, isSessionsChromeEnabled, isSettingsChromeEnabled } from './serverChrome.js';
 import {
+  useOptionalAgentSessionsServer,
+  useOptionalCatalogServer,
   useOptionalRefreshServerCapabilities,
   useOptionalScheduleServer,
   useServerCapabilities,
@@ -107,8 +111,8 @@ type ShellModeContextValue = {
   openDraft: () => void;
   /** Open New Agent builder (mutable + Agent Config drawer). */
   openAgentBuilder: () => void;
-  /** Remember plain-draft composer choices as the seed for future new chats. */
-  rememberDraftSpec: (agentSpec: AgentSpec) => void;
+  /** Remember plain-draft composer choices as the seed for future New Chat / New Agent. */
+  rememberDraftSpec: (agentSpec: AgentSpec, kind?: DraftPreferenceKind) => void;
   /**
    * Open a history session, remounting when mutability/identity changes.
    * Prefer explicit `isMutable` from the session row; when omitted, agentName
@@ -204,25 +208,23 @@ export function ShellModeProvider({
   children: ReactNode;
 }) {
   const capabilities = useServerCapabilities();
+  const catalog = useOptionalCatalogServer();
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
+  const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
-  const rememberedSpecRef = useRef<AgentSpec | null>(readDraftSpecPreferences());
-  const mutableSeedRef = useRef(rememberedSpecRef.current ?? mutableSeedFromConfig(agentConfig));
-  if (
-    rememberedSpecRef.current == null &&
-    (agentConfig.mode === 'AgentComposer' || agentConfig.mode === 'AgentLibraryWithComposer') &&
-    agentConfig.defaultAgentSpec != null
-  ) {
-    mutableSeedRef.current = agentConfig.defaultAgentSpec;
-  }
-  const mutableSeed = mutableSeedRef.current;
+  const chatSeedRef = useRef(
+    readDraftSpecPreferences('chat') ?? selectDraftSpecPreferences(mutableSeedFromConfig(agentConfig), 'chat'),
+  );
+  const agentSeedRef = useRef(
+    readDraftSpecPreferences('agent') ?? selectDraftSpecPreferences(mutableSeedFromConfig(agentConfig), 'agent'),
+  );
 
   const isLibraryEnabled = agentConfig.mode === 'AgentLibrary' || agentConfig.mode === 'AgentLibraryWithComposer';
   const isComposerEnabled = agentConfig.mode === 'AgentComposer' || agentConfig.mode === 'AgentLibraryWithComposer';
   const isNewChatEnabled = agentConfig.mode !== 'AgentLibrary';
   const locked = agentConfig.mode === 'SingleAgent';
 
-  const [mode, setMode] = useState<ShellMode>(() => initialMode(agentConfig, mutableSeed));
+  const [mode, setMode] = useState<ShellMode>(() => initialMode(agentConfig, chatSeedRef.current));
   const [mutableEpoch, setMutableEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
@@ -235,24 +237,28 @@ export function ShellModeProvider({
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
-  const settingsEnabled = capabilities?.settings?.enabled !== false;
+  const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
   const settingsOpen = settingsEnabled && settingsOpenState;
-  const schedulesEnabled = scheduleServer != null;
+  const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
+  const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
-  const sessionsOpen = sessionsOpenState;
-  const setSessionsOpen = useCallback((open: boolean) => {
-    if (open) {
-      setSettingsOpenState(false);
-      setAgentConfigOpenState(false);
-      setLibraryOpenState(false);
-      setLibraryAgentId(null);
-      setSchedulesOpenState(false);
-    } else {
-      replaceSessionShareSearch({ view: null });
-    }
-    setSessionsOpenState(open);
-  }, []);
+  const sessionsOpen = sessionsEnabled && sessionsOpenState;
+  const setSessionsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSchedulesOpenState(false);
+      } else {
+        replaceSessionShareSearch({ view: null });
+      }
+      setSessionsOpenState(sessionsEnabled && open);
+    },
+    [sessionsEnabled],
+  );
   const setLibraryOpen = useCallback(
     (open: boolean) => {
       if (!isLibraryEnabled) return;
@@ -269,7 +275,7 @@ export function ShellModeProvider({
   );
   const openLibraryAgent = useCallback(
     (agentId: string) => {
-      if (!isLibraryEnabled) return;
+      if (!isLibraryEnabled || !sessionsEnabled) return;
       setSettingsOpenState(false);
       setAgentConfigOpenState(false);
       setSessionsOpen(false);
@@ -277,7 +283,7 @@ export function ShellModeProvider({
       setLibraryOpenState(true);
       setLibraryAgentId(agentId);
     },
-    [isLibraryEnabled, setSessionsOpen],
+    [isLibraryEnabled, sessionsEnabled, setSessionsOpen],
   );
   const closeLibraryAgent = useCallback(() => {
     setLibraryAgentId(null);
@@ -332,6 +338,13 @@ export function ShellModeProvider({
   }, [settingsEnabled]);
 
   useEffect(() => {
+    if (!sessionsEnabled) {
+      setSessionsOpenState(false);
+      setLibraryAgentId(null);
+    }
+  }, [sessionsEnabled]);
+
+  useEffect(() => {
     if (!schedulesEnabled) {
       setSchedulesOpenState(false);
     }
@@ -384,13 +397,14 @@ export function ShellModeProvider({
         setSchedulesOpen(false);
         setPendingSessionId(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
+        const kind: DraftPreferenceKind = isCreateAgent ? 'agent' : 'chat';
         setMode({
           status: 'active',
           isMutable: true,
           isCreateAgent,
           agentId: req.agentId,
           agentName: req.agentName,
-          agentSpec: req.agentSpec ?? mutableSeedRef.current,
+          agentSpec: req.agentSpec ?? (kind === 'agent' ? agentSeedRef.current : chatSeedRef.current),
           locked: false,
         });
         setAgentConfigOpenState(isCreateAgent);
@@ -449,22 +463,26 @@ export function ShellModeProvider({
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
-    selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: mutableSeedRef.current });
+    selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: chatSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
-    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: mutableSeedRef.current });
+    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const rememberDraftSpec = useCallback(
-    (agentSpec: AgentSpec) => {
-      const preferences = withCapabilitiesSandbox(selectDraftSpecPreferences(agentSpec), sandboxEnabled);
-      rememberedSpecRef.current = preferences;
-      mutableSeedRef.current = preferences;
-      writeDraftSpecPreferences(preferences);
+    (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
+      const selected = selectDraftSpecPreferences(agentSpec, kind);
+      const preferences = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      if (kind === 'chat') {
+        chatSeedRef.current = preferences;
+      } else {
+        agentSeedRef.current = preferences;
+      }
+      writeDraftSpecPreferences(kind, preferences);
     },
     [sandboxEnabled],
   );
@@ -495,7 +513,7 @@ export function ShellModeProvider({
           status: 'active',
           isMutable: true,
           isCreateAgent,
-          agentSpec: mutableSeedRef.current,
+          agentSpec: isCreateAgent ? agentSeedRef.current : chatSeedRef.current,
           locked: false,
         });
         setAgentConfigOpenState(isCreateAgent);
@@ -535,13 +553,14 @@ export function ShellModeProvider({
     setPendingSessionId(undefined);
     if (effectiveMode.isMutable) {
       // Preserve Edit / builder vs chat intent; blank drafts fall back to host seed.
+      const kind: DraftPreferenceKind = effectiveMode.isCreateAgent ? 'agent' : 'chat';
       setMode({
         status: 'active',
         isMutable: true,
         isCreateAgent: effectiveMode.isCreateAgent,
         agentId: effectiveMode.agentId,
         agentName: effectiveMode.agentName,
-        agentSpec: effectiveMode.agentSpec ?? mutableSeedRef.current,
+        agentSpec: effectiveMode.agentSpec ?? (kind === 'agent' ? agentSeedRef.current : chatSeedRef.current),
         locked: false,
       });
       setAgentConfigOpenState(effectiveMode.isCreateAgent);

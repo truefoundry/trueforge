@@ -94,7 +94,7 @@ export function DraftModelCatalogPanel({
   return (
     <>
       <div className="border-b border-border px-3 py-2">
-        {showHeading ? <p className="text-text-primary mb-2 text-sm font-semibold">Select model</p> : null}
+        {showHeading ? <p className="text-text-primary mb-2 text-sm font-normal">Select model</p> : null}
         <label className="relative block">
           <Icon
             name="search"
@@ -169,7 +169,7 @@ export function DraftModelCatalogPanel({
                       onClick={() => onSelect(model)}
                     >
                       <span className="min-w-0">
-                        <span className="block truncate font-medium">{displayModelLabel(model.name)}</span>
+                        <span className="block truncate font-normal">{displayModelLabel(model.name)}</span>
                         {showHeading &&
                         (model.properties.contextLength !== undefined ||
                           model.properties.maxOutputTokens !== undefined) ? (

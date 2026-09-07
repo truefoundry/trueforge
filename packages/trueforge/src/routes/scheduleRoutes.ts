@@ -43,6 +43,11 @@ export const ListSchedulesQuerySchema = z
       })
       .transform(value => parseCommaSeparatedQuery(value))
       .pipe(z.array(NameSchema).min(1).optional()),
+    created_by_me: z
+      .stringbool()
+      .optional()
+      .describe('When true, only schedules created by the authenticated subject.')
+      .openapi({ type: 'boolean' }),
   })
   .openapi('ListSchedulesQuery');
 
@@ -51,7 +56,7 @@ export const listSchedulesRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List schedules',
-  description: 'List schedules for the tenant, newest first. Optionally filter by `agent_names`.',
+  description: 'List schedules for the tenant, newest first.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -80,7 +85,7 @@ export const listScheduleRunsRoute = createRoute({
   tags: [OpenApiTag.SCHEDULES],
   summary: 'List runs of a schedule',
   description:
-    'List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.',
+    'List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list_runs',
   request: {
@@ -93,7 +98,7 @@ export const listScheduleRunsRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'The caller is not the schedule creator.',
+      description: 'The caller cannot read the schedule.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -166,7 +171,11 @@ export const createScheduleRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Unknown agent or invalid cron.',
+      description: 'Invalid cron or timezone.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Named agent not found.',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

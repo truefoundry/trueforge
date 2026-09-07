@@ -34,6 +34,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createSession({
         tenant_id: tenant,
@@ -43,6 +44,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'metrics-session', turnId: 'metrics-turn' }));
       const turn = mustGet(await sessionStore.getTurn({ session_id: 'metrics-session', turn_id: 'metrics-turn' }));
@@ -97,6 +99,15 @@ export function runSessionMetricsStoreContractSuite(
       expect(costChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1.25);
       expect(sessionsChart.graphs[0]?.graph_lines[0]?.values.some(point => point.value === 0)).toBe(true);
 
+      const allCreatorsQuery = { ...metricsQuery, created_by_subject_id: undefined };
+      const allCreatorsMeters = await metricsStore.getSessionMetricsMeters(allCreatorsQuery);
+      const allCreatorsChart = await metricsStore.getSessionMetricsChartData({
+        ...allCreatorsQuery,
+        chart_name: 'sessions_over_time',
+      });
+      expect(allCreatorsMeters.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(2);
+      expect(allCreatorsChart.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(2);
+
       const dailyChart = await metricsStore.getSessionMetricsChartData({
         ...metricsQuery,
         start_timestamp: new Date(start.getTime() - 24 * 60 * 60 * 1000),
@@ -123,6 +134,7 @@ export function runSessionMetricsStoreContractSuite(
           custom: null,
           metadata: {},
           external_id: null,
+          source: null,
         });
         for (const [index, durationMs] of definition.turnDurations.entries()) {
           const turnId = `${definition.id}-turn-${String(index)}`;
@@ -173,6 +185,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createSession({
         tenant_id: tenant,
@@ -182,6 +195,7 @@ export function runSessionMetricsStoreContractSuite(
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'inflight-session', turnId: 'inflight-turn' }));
       await sessionStore.createTurn(makeCreateTurnInput({ sessionId: 'completed-session', turnId: 'completed-turn' }));

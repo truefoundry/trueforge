@@ -25,6 +25,7 @@ vi.mock('@/atoms/MonacoEditorCore.js', () => ({
       data-value={value}
       data-height={String(height)}
       data-line-numbers={String(options?.lineNumbers)}
+      data-render-final-newline={String(options?.renderFinalNewline)}
     >
       <button type="button" onClick={() => onChange?.('edited')}>
         Edit
@@ -118,8 +119,11 @@ describe('CodeEditor', () => {
     vi.useFakeTimers();
     render(<CodeEditor value="copy me" />);
 
+    const copyButton = screen.getByRole('button', { name: 'Copy' });
+    expect(copyButton.className).toMatch(/border/);
+
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+      fireEvent.click(copyButton);
       await Promise.resolve();
     });
 
@@ -130,6 +134,11 @@ describe('CodeEditor', () => {
       vi.advanceTimersByTime(2000);
     });
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+  });
+
+  it('disables Monaco final-newline rendering so a trailing \\n is not an empty row', () => {
+    render(<CodeEditor value={'line\n'} />);
+    expect(screen.getByTestId('monaco-editor')).toHaveAttribute('data-render-final-newline', 'off');
   });
 
   it('expands and collapses the editor while keeping Monaco fill-height', () => {

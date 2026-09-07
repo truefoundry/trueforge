@@ -157,7 +157,7 @@ describe('AgentsLibrary', () => {
     });
   });
 
-  it('shows Edit when composer is enabled and agentSpec is present', async () => {
+  it('shows Edit/Clone/Delete when composer is enabled and agentSpec is present', async () => {
     const server = mockServer([
       {
         name: 'writer',
@@ -177,11 +177,87 @@ describe('AgentsLibrary', () => {
     const actions = await screen.findByRole('button', { name: 'Actions for writer' });
     fireEvent.click(actions);
     expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Actions for try-only' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+    fireEvent.click(actions); // close without dismissing the library (Escape closes library)
+
+    // No spec → Edit/Clone hidden; Delete still available.
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for try-only' }));
+    expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Clone' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
   });
 
-  it('shows model name, skills count, and MCP count from agentSpec', async () => {
+  it('clones an agent after confirm and stays on the library', async () => {
+    const saveAgent = vi.fn(async () => ({ agentId: 'writer-copy-id' }));
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'writer',
+          agentId: 'writer-id',
+          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        },
+      ]),
+      saveAgent,
+      deleteAgent: vi.fn(async () => {}),
+    });
+
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Clone' }));
+
+    expect(screen.getByRole('dialog', { name: 'Clone agent' })).toBeInTheDocument();
+    expect(screen.getByText(/This will create “writer-copy”/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clone' }));
+
+    await waitFor(() => {
+      expect(saveAgent).toHaveBeenCalledWith({
+        agentName: 'writer-copy',
+        agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        intent: 'create',
+      });
+    });
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+  });
+
+  it('deletes an agent after confirm and stays on the library', async () => {
+    const deleteAgent = vi.fn(async () => {});
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'writer',
+          agentId: 'writer-id',
+          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        },
+      ]),
+      deleteAgent,
+    });
+
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'writer' });
+    });
+    expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+  });
+
+  it('shows model, skills, and connector under a Configuration column with tooltips', async () => {
     const server = mockServer([
       {
         name: 'algo-art',
@@ -203,12 +279,14 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
-      expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'Configuration' })).toBeInTheDocument();
     });
+    expect(screen.getByLabelText('openai/gpt-5-5')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5-5')).toBeInTheDocument();
     expect(screen.getByLabelText('Connectors: github')).toBeInTheDocument();
     expect(screen.getByLabelText('Skills: paint')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent bare' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('0 skills')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Configuration unavailable for bare')).toBeInTheDocument();
   });
 
   it('hides Edit when composer is disabled (AgentLibrary only)', async () => {
@@ -241,7 +319,8 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
-      expect(screen.getByText('No agents yet. Build one in a chat, then save it as an agent.')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'No Agents Found' })).toBeInTheDocument();
+      expect(screen.getByText('Build one in a chat, then save it as an agent.')).toBeInTheDocument();
     });
   });
 
@@ -255,9 +334,11 @@ describe('AgentsLibrary', () => {
     fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: 'zzz' } });
 
     await waitFor(() => {
-      expect(screen.getByText('No agents match "zzz".')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'No Agents Found' })).toBeInTheDocument();
+      expect(screen.getByText('zzz')).toBeInTheDocument();
+      expect(screen.getByText(/No search results found for/)).toBeInTheDocument();
     });
-    expect(screen.queryByText('No agents yet. Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
 
   it('closes via Escape', () => {

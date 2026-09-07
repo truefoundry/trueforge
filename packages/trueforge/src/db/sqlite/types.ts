@@ -11,6 +11,7 @@ import type {
   PersistedTurnEvent,
   SessionMetadata,
   SessionMetrics,
+  SessionSource,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -59,6 +60,8 @@ export interface SessionTable {
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
   created_by_subject: JsonbColumn<CreatedBySubject>;
+  /** Optional provenance (e.g. schedule). Null for interactive sessions. */
+  source: JsonbColumn<SessionSource> | null;
   /** Named registry binding; XOR with `agent_spec`. */
   agent_id: string | null;
   /**
@@ -231,13 +234,15 @@ export interface AgentTable {
 /**
  * Configured schedules.
  * PRIMARY KEY (id).
- * FK (tenant_id, agent_name) → agent(tenant_id, name) ON DELETE CASCADE.
+ * FK (agent_id) → agent(id) ON DELETE CASCADE.
  */
 export interface ScheduleTable {
   /** application-generated (ulid); FK target for schedule_run */
   id: string;
   tenant_id: string;
-  /** FK with tenant_id → agent(tenant_id, name). Immutable; agent version resolves at run time. */
+  /** FK → agent(id). Immutable. */
+  agent_id: string;
+  /** Create-time snapshot of registry agent name. */
   agent_name: string;
   /** Display label; not unique. */
   name: string;

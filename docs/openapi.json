@@ -1440,6 +1440,9 @@
             "maxLength": 128,
             "minLength": 1,
             "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SessionSourceSchedule"
           }
         },
         "required": [
@@ -3286,6 +3289,9 @@
           "metrics": {
             "$ref": "#/components/schemas/SessionMetrics"
           },
+          "source": {
+            "$ref": "#/components/schemas/SessionSource"
+          },
           "title": {
             "description": "Optional human-readable title; null until set.",
             "type": [
@@ -3306,7 +3312,8 @@
           "created_at",
           "updated_at",
           "metrics",
-          "metadata"
+          "metadata",
+          "source"
         ],
         "type": "object"
       },
@@ -3484,6 +3491,7 @@
         "description": "Rolled-up cost, duration, and turn counters for a session.",
         "properties": {
           "total_cost_in_usd": {
+            "description": "Estimated total cost in USD for this session",
             "minimum": 0,
             "type": "number"
           },
@@ -3497,7 +3505,6 @@
           }
         },
         "required": [
-          "total_cost_in_usd",
           "total_duration_ms",
           "total_turns"
         ],
@@ -3700,6 +3707,73 @@
           "value"
         ],
         "type": "object"
+      },
+      "SessionSource": {
+        "additionalProperties": false,
+        "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
+        "properties": {
+          "id": {
+            "description": "Schedule id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "description": "Schedule run id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Session was created by a schedule run.",
+            "enum": [
+              "schedule"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "run_id"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "SessionSourceSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Schedule id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "description": "Schedule run id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Session was created by a schedule run.",
+            "enum": [
+              "schedule"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "SessionSourceType": {
+        "description": "When set, returns only sessions created by this source type.",
+        "enum": [
+          "schedule"
+        ],
+        "type": "string"
       },
       "SettingsCapability": {
         "properties": {
@@ -4913,7 +4987,7 @@
   "info": {
     "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.2.0-rc.0"
+    "version": "0.2.0-rc.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -5282,7 +5356,7 @@
     },
     "/api/v1/agents/{agent_id}": {
       "delete": {
-        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "description": "Delete a configured agent by immutable id.",
         "parameters": [
           {
             "description": "Immutable agent identifier.",
@@ -5317,6 +5391,16 @@
               }
             },
             "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
           }
         },
         "summary": "Delete an agent",
@@ -6258,7 +6342,7 @@
     },
     "/api/v1/schedules": {
       "get": {
-        "description": "List schedules for the tenant, newest first. Optionally filter by `agent_names`.",
+        "description": "List schedules for the tenant, newest first.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",
@@ -6291,6 +6375,16 @@
             "schema": {
               "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
               "type": "string"
+            }
+          },
+          {
+            "description": "When true, only schedules created by the authenticated subject.",
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "description": "When true, only schedules created by the authenticated subject.",
+              "type": "boolean"
             }
           }
         ],
@@ -6371,7 +6465,17 @@
                 }
               }
             },
-            "description": "Unknown agent or invalid cron."
+            "description": "Invalid cron or timezone."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
           },
           "409": {
             "content": {
@@ -6684,7 +6788,7 @@
     },
     "/api/v1/schedules/{schedule_id}/runs": {
       "get": {
-        "description": "List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.",
+        "description": "List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.",
         "parameters": [
           {
             "description": "Immutable schedule identifier.",
@@ -6718,7 +6822,7 @@
                 }
               }
             },
-            "description": "The caller is not the schedule creator."
+            "description": "The caller cannot read the schedule."
           },
           "404": {
             "content": {
@@ -6743,7 +6847,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the sessions (newest first by default).",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -6807,6 +6911,36 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "When true, only sessions created by the authenticated subject.",
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "description": "When true, only sessions created by the authenticated subject.",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "When set, returns only sessions created by this source type.",
+            "in": "query",
+            "name": "source_type",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SessionSourceType"
+            }
+          },
+          {
+            "description": "When set, returns only sessions from this specific source. Requires source_type.",
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "description": "When set, returns only sessions from this specific source. Requires source_type.",
               "minLength": 1,
               "type": "string"
             }
@@ -7460,7 +7594,7 @@
                 }
               }
             },
-            "description": "Session or prior turn not found."
+            "description": "Session, prior turn, or referenced agent not found."
           },
           "412": {
             "content": {

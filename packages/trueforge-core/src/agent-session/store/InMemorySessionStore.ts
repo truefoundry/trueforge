@@ -192,11 +192,11 @@ export class InMemorySessionStore<
       title: null,
       last_turn_id: null,
       external_id: externalId,
+      source: input.source !== null ? deepCopy(input.source) : null,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
       metrics: {
-        total_cost_in_usd: 0,
         total_duration_ms: 0,
         total_turns: 0,
       },
@@ -263,6 +263,7 @@ export class InMemorySessionStore<
     input: ListSessionsInput,
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }> {
     const records: SessionRecord<TSessionCustom>[] = [];
+    const createdByOrAgentIds = input.created_by_or_agent_ids;
     for (const stored of this.sessions.values()) {
       if (stored.record.tenant_id !== input.tenant_id) {
         continue;
@@ -273,10 +274,19 @@ export class InMemorySessionStore<
       ) {
         continue;
       }
-      if (
-        input.created_by_subject_id !== undefined &&
-        stored.record.created_by_subject.subject_id !== input.created_by_subject_id
-      ) {
+      if (createdByOrAgentIds !== undefined) {
+        const creatorMatches =
+          stored.record.created_by_subject.subject_id === createdByOrAgentIds.created_by_subject_id;
+        const agentMatches =
+          stored.record.agent.type === 'reference' && createdByOrAgentIds.agent_ids.includes(stored.record.agent.id);
+        if (!creatorMatches && !agentMatches) {
+          continue;
+        }
+      }
+      if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
+        continue;
+      }
+      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();
@@ -445,14 +455,17 @@ export class InMemorySessionStore<
     return;
   }
 
-  /** Cost from turn metrics; duration is completed_at − created_at, floored at 0. */
+  /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
   private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
     const stored = this.sessions.get(sessionKey(sessionId));
     if (!stored) {
       throw new SessionNotFoundError(sessionId);
     }
     const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
-    stored.record.metrics.total_cost_in_usd += state.metrics?.total_cost_in_usd ?? 0;
+    const turnCost = state.metrics?.total_cost_in_usd;
+    if (turnCost !== undefined) {
+      stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
+    }
     stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 

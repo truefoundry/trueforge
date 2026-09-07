@@ -1,13 +1,22 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
+import { isSchedulesChromeEnabled } from '../../server/serverChrome.js';
+import { useOptionalScheduleServer, useOptionalServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
+import { writeOpenSchedulesForAgentSearch } from '../../utils/scheduleShareUrl.js';
+import { AgentOverflowMenu } from '../AgentOverflowMenu.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
+import { cn } from '../lib/cn.js';
+import { PageHeader, pageHeaderTitleClassName } from '../PageHeader.js';
 import type { AgentDetailsHeaderProps } from './types.js';
 
 export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHeaderProps) {
   const shell = useShellMode();
-  const canEdit = shell.isComposerEnabled && detail != null;
+  const scheduleServer = useOptionalScheduleServer();
+  const builder = useOptionalServer();
+  const canMutate = shell.isComposerEnabled && detail != null && builder != null;
+  const canManageSchedules = isSchedulesChromeEnabled({ schedules: scheduleServer }) && detail != null;
 
   const handleTry = () => {
     if (detail == null) return;
@@ -29,9 +38,15 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
     });
   };
 
+  const handleManageSchedules = () => {
+    writeOpenSchedulesForAgentSearch({ agentId });
+    shell.setSchedulesOpen(true);
+  };
+
   return (
-    <header className="shrink-0 border-b border-border bg-primary-bg">
-      <div className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2">
+    <PageHeader
+      className="bg-primary-bg"
+      start={
         <button
           type="button"
           aria-label="Back to Agents"
@@ -41,17 +56,18 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
         >
           <Icon name="arrow-left" />
         </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1 text-xs text-text-secondary">
-            <button type="button" className="cursor-pointer truncate hover:text-text-primary" onClick={onBack}>
-              Agents
-            </button>
-            <Icon name="chevron-right" className="size-3 shrink-0" />
-            <span className="truncate">{detail?.name ?? agentId}</span>
-          </div>
-          <h1 className="truncate text-lg font-semibold tracking-tight text-text-primary">{detail?.name ?? agentId}</h1>
+      }
+      title={
+        <div className={cn('flex min-w-0 items-center gap-1', pageHeaderTitleClassName)}>
+          <button type="button" className="cursor-pointer truncate hover:text-text-primary" onClick={onBack}>
+            Agents
+          </button>
+          <Icon name="chevron-right" className="size-3 shrink-0" />
+          <span className="truncate">{detail?.name ?? agentId}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+      }
+      end={
+        <>
           <button
             type="button"
             aria-label="Try agent"
@@ -62,20 +78,20 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
             <Icon name="play" className="size-3.5" />
             Try
           </button>
-          {canEdit ? (
-            <button
-              type="button"
-              aria-label="Edit agent"
-              className={auiButtonClass({ variant: 'outline', size: 'sm' })}
-              onClick={handleEdit}
-            >
-              <Icon name="pencil" className="size-3.5" />
-              Edit
-            </button>
+          {detail != null ? (
+            <AgentOverflowMenu
+              agentName={detail.name}
+              agentSpec={detail.agentSpec}
+              canMutate={canMutate}
+              canManageSchedules={canManageSchedules}
+              onEdit={handleEdit}
+              {...(canManageSchedules ? { onManageSchedules: handleManageSchedules } : {})}
+              onDeleted={onBack}
+            />
           ) : null}
-        </div>
-      </div>
-    </header>
+        </>
+      }
+    />
   );
 }
 

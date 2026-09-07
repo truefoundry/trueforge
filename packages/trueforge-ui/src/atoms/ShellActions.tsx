@@ -3,6 +3,7 @@
 import { Icon } from '../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { isSettingsChromeEnabled } from '../server/serverChrome.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
@@ -16,15 +17,17 @@ export function ShellActions({ className, labeled = false }: { className?: strin
   const ActionSlot = useSlot('ShellActionsActionSlot');
   const isDark = mode === 'dark';
   const themeLabel = isDark ? 'Light' : 'Dark';
+  const settingsChromeEnabled = isSettingsChromeEnabled({ catalog, capabilities });
 
   const labeledButtonClass =
-    'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center';
+    'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center';
+  const hoverClass = 'hover:bg-secondary-button-hover hover:text-ghost-button-text';
 
   return (
     <div
       className={cn(
         'flex shrink-0 items-center gap-1 text-text-primary',
-        labeled && 'w-full flex-col gap-2',
+        labeled && 'w-full flex-col gap-1',
         className,
       )}
     >
@@ -35,14 +38,14 @@ export function ShellActions({ className, labeled = false }: { className?: strin
         className={auiButtonClass({
           variant: 'ghost',
           size: labeled ? undefined : 'icon',
-          className: labeled ? labeledButtonClass : undefined,
+          className: cn(hoverClass, labeled && labeledButtonClass),
         })}
         onClick={() => setTheme(isDark ? 'light' : 'dark')}
       >
         <Icon name={isDark ? 'sun' : 'moon'} size={labeled ? 16 : undefined} />
         {labeled ? <span className="text-center">{themeLabel}</span> : null}
       </button>
-      {shell != null && catalog != null && capabilities?.settings?.enabled !== false ? (
+      {shell != null && settingsChromeEnabled ? (
         <button
           type="button"
           aria-label="Settings"
@@ -53,7 +56,8 @@ export function ShellActions({ className, labeled = false }: { className?: strin
             variant: 'ghost',
             size: labeled ? undefined : 'icon',
             className: cn(
-              labeled ? labeledButtonClass : undefined,
+              hoverClass,
+              labeled && labeledButtonClass,
               shell.settingsOpen &&
                 'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
             ),

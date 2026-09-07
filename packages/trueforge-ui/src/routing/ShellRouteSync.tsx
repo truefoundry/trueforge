@@ -1,11 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
-import { useOptionalServer } from '../server/ServerContext.js';
+import {
+  useOptionalAgentSessionsServer,
+  useOptionalCatalogServer,
+  useOptionalScheduleServer,
+  useOptionalServer,
+  useServerCapabilities,
+} from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
+import { toEffectiveRoutes } from '../server/serverChrome.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
@@ -25,8 +32,26 @@ export function ShellRouteSync({
 }) {
   const shell = useShellMode();
   const server = useOptionalServer();
+  const catalog = useOptionalCatalogServer();
+  const sessions = useOptionalAgentSessionsServer();
+  const schedules = useOptionalScheduleServer();
+  const capabilities = useServerCapabilities();
   const navigate = useNavigate();
   const location = useLocation();
+  // Same gates as sidebar chrome: missing optional ports unregister their paths.
+  const effectiveRoutes = useMemo(
+    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules }),
+    [routes, catalog, capabilities, sessions, schedules],
+  );
+  const settingsChromeEnabled = effectiveRoutes.settings != null;
+  // Gate identity only — avoid re-syncing when capabilities object identity churns
+  // without changing which paths are registered (would clobber window share query).
+  const routeGatesKey = [
+    effectiveRoutes.settings,
+    effectiveRoutes.sessionsBrowser,
+    effectiveRoutes.libraryAgent,
+    effectiveRoutes.schedules,
+  ].join('\0');
 
   const snapshot: ShellSnapshot = {
     settingsOpen: shell.settingsOpen,
@@ -144,12 +169,12 @@ export function ShellRouteSync({
     const urlPlace = matchLocation({
       pathname: location.pathname,
       search: location.search,
-      routes,
+      routes: effectiveRoutes,
     }) ?? { type: 'root' };
-    const settingsOnBoot = initialSettingsOpen || urlPlace.type === 'settings';
+    const settingsOnBoot = settingsChromeEnabled && (initialSettingsOpen || urlPlace.type === 'settings');
 
     if (urlPlace.type === 'settings') {
-      shell.setSettingsOpen(true);
+      if (settingsChromeEnabled) shell.setSettingsOpen(true);
     } else if (urlPlace.type === 'library') {
       shell.setLibraryOpen(true);
     } else if (urlPlace.type === 'sessionsBrowser') {
@@ -161,11 +186,11 @@ export function ShellRouteSync({
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
-      if (initialSettingsOpen) shell.setSettingsOpen(true);
+      if (settingsOnBoot) shell.setSettingsOpen(true);
     }
 
     const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
-    const desiredPath = buildPath(desiredPlace, routes);
+    const desiredPath = buildPath(desiredPlace, effectiveRoutes);
     const desiredSearch = sanitizeSearchForPlace(desiredPlace, location.search);
     prevPlaceRef.current = desiredPlace;
     if (desiredPath != null && (desiredPath !== location.pathname || desiredSearch !== location.search)) {
@@ -183,9 +208,11 @@ export function ShellRouteSync({
       shellSyncStartedRef.current = true;
       return;
     }
-    const target = buildPath(place, routes);
+    const target = buildPath(place, effectiveRoutes);
     if (target == null) return; // place has no configured URL (e.g. settings disabled)
-    const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
+    const basename = effectiveRoutes.basename.endsWith('/')
+      ? effectiveRoutes.basename.slice(0, -1)
+      : effectiveRoutes.basename;
     const browserPathname = `${basename}${location.pathname}` || '/';
     const latestSearch = window.location.pathname === browserPathname ? window.location.search : location.search;
     const targetSearch = sanitizeSearchForPlace(place, latestSearch);
@@ -204,7 +231,7 @@ export function ShellRouteSync({
     navigate({ pathname: target, search: targetSearch, hash: location.hash }, { replace });
     // location.pathname intentionally excluded: only react to shell-derived place changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeKey]);
+  }, [placeKey, routeGatesKey]);
 
   // URL -> shell: apply on genuine location changes (Back/Forward, manual edits).
   useEffect(() => {
@@ -220,11 +247,11 @@ export function ShellRouteSync({
     const urlPlace = matchLocation({
       pathname: location.pathname,
       search: location.search,
-      routes,
+      routes: effectiveRoutes,
     });
     if (urlPlace == null) {
       // Unknown path: normalize to root.
-      const rootPath = routes.root;
+      const rootPath = effectiveRoutes.root;
       const rootSearch = sanitizeSearchForPlace({ type: 'root' }, location.search);
       selfNavPathRef.current = rootPath;
       navigate({ pathname: rootPath, search: rootSearch, hash: location.hash }, { replace: true });

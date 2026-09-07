@@ -65,7 +65,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
   const logger = createLogger({ silent: true });
   let seq = 0;
 
-  async function seedAgent(): Promise<string> {
+  async function seedAgent(): Promise<{ id: string; name: string }> {
     seq += 1;
     const agent = await deps.getAgentStore().createAgent({
       tenant_id: TENANT,
@@ -77,7 +77,7 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
       }),
       external_id: null,
     });
-    return agent.name;
+    return { id: agent.id, name: agent.name };
   }
 
   async function scheduledRunsFor(scheduleId: string): Promise<ScheduleRunRecord[]> {
@@ -104,12 +104,13 @@ export function runScheduleDispatchContractSuite<TTransaction>(deps: {
     createdBySubject?: CreatedBySubject;
   }): Promise<{ schedule: ScheduleRecord; run: ScheduleRunRecord }> {
     const store = deps.getScheduleStore();
-    const agentName = await seedAgent();
+    const agent = await seedAgent();
     const status = params.status ?? 'active';
     const cron = params.cron ?? CRON;
     const { schedule, pendingRun } = await store.createScheduleAndRun({
       tenant_id: TENANT,
-      agent_name: agentName,
+      agent_id: agent.id,
+      agent_name: agent.name,
       name: `sched-${String(Date.now())}-${String(seq)}`,
       manifest: manifest({ status, cron }),
       created_by_subject: USER_SUBJECT,

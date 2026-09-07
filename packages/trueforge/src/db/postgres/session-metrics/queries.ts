@@ -17,7 +17,7 @@ async function fetchSessionMetricsAggregate(
 ): Promise<SessionMetricsAggregate> {
   // Every session in the window (including zero-turn / zero-duration); matches foldSessionMetricsAggregate.
   // COALESCE keeps empty windows at 0 (percentile_cont would otherwise be null).
-  const aggregateRow = await db
+  let query = db
     .selectFrom('session')
     .select([
       sql<number>`COUNT(*)::int`.as('total_sessions'),
@@ -44,8 +44,11 @@ async function fetchSessionMetricsAggregate(
       ),
     ])
     .where('tenant_id', '=', input.tenant_id)
-    .where('agent_id', '=', input.agent_id)
-    .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
+    .where('agent_id', '=', input.agent_id);
+  if (input.created_by_subject_id !== undefined) {
+    query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
+  }
+  const aggregateRow = await query
     .where('created_at', '>=', input.start_timestamp)
     .where('created_at', '<=', input.end_timestamp)
     .executeTakeFirstOrThrow();
@@ -73,7 +76,7 @@ async function fetchSessionMetricsBuckets(
   const bucketTimestamp = sql<number>`
     (FLOOR(EXTRACT(EPOCH FROM created_at) / ${step_seconds}) * ${step_seconds})::double precision
   `;
-  const bucketRows = await db
+  let query = db
     .selectFrom('session')
     .select([
       bucketTimestamp.as('timestamp_seconds'),
@@ -82,8 +85,11 @@ async function fetchSessionMetricsBuckets(
       sql<number>`COALESCE(SUM((metrics->>'total_cost_in_usd')::double precision), 0)::double precision`.as('cost'),
     ])
     .where('tenant_id', '=', input.tenant_id)
-    .where('agent_id', '=', input.agent_id)
-    .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
+    .where('agent_id', '=', input.agent_id);
+  if (input.created_by_subject_id !== undefined) {
+    query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
+  }
+  const bucketRows = await query
     .where('created_at', '>=', input.start_timestamp)
     .where('created_at', '<=', input.end_timestamp)
     .groupBy(sql`1`)

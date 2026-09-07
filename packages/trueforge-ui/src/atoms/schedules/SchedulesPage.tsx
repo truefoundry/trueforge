@@ -8,9 +8,11 @@ import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
+import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { searchAllAgents } from '../lib/useSearchAgentsList.js';
+import { PageHeader } from '../PageHeader.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
@@ -343,51 +345,49 @@ export function SchedulesPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 md:px-6">
-        <div className="flex min-w-0 items-center gap-2">
-          <Icon name="calendar-clock" className="text-text-primary size-4" />
-          <h1 className="text-text-primary truncate text-md font-semibold">Scheduled Agents</h1>
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="w-full sm:w-56">
-            <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search schedules by name" />
-          </div>
-          <PopoverSelect
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-            options={STATUS_FILTER_OPTIONS}
-            className="sm:w-40"
-            aria-label="Filter by status"
-          />
-          <PopoverSelect
-            value={agentFilter}
-            onValueChange={value => {
-              setAgentFilter(value);
-              setPageToken(undefined);
-              setPrevTokenStack([]);
-            }}
-            options={[
-              { value: 'all', label: 'All agents' },
-              ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
-            ]}
-            className="sm:w-40"
-            aria-label="Filter by agent"
-          />
-          <Button
-            type="button"
-            onClick={() =>
-              setDrawer({
-                kind: 'create',
-                agentId: agentFilter !== 'all' ? agentFilter : undefined,
-              })
-            }
-          >
-            <Icon name="plus" className="size-3.5" />
-            Create Schedule
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Scheduled Agents"
+        end={
+          <>
+            <div className="w-full sm:w-56">
+              <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search schedules by name" />
+            </div>
+            <PopoverSelect
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              options={STATUS_FILTER_OPTIONS}
+              className="sm:w-40"
+              aria-label="Filter by status"
+            />
+            <PopoverSelect
+              value={agentFilter}
+              onValueChange={value => {
+                setAgentFilter(value);
+                setPageToken(undefined);
+                setPrevTokenStack([]);
+              }}
+              options={[
+                { value: 'all', label: 'All agents' },
+                ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
+              ]}
+              className="sm:w-40"
+              aria-label="Filter by agent"
+            />
+            <Button
+              type="button"
+              onClick={() =>
+                setDrawer({
+                  kind: 'create',
+                  agentId: agentFilter !== 'all' ? agentFilter : undefined,
+                })
+              }
+            >
+              <Icon name="plus" className="size-3.5" />
+              Create Schedule
+            </Button>
+          </>
+        }
+      />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
         {loading ? (
@@ -399,72 +399,85 @@ export function SchedulesPage() {
         ) : error != null ? (
           <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
         ) : schedules.length === 0 ? (
-          <div className="bg-secondary-bg/50 text-text-secondary flex items-center justify-center rounded-lg border border-border px-4 py-16 text-sm">
-            No schedules yet. Create one to get started.
+          <EmptyScreen title="No Schedules Found" description="Create one to get started." className="min-h-full" />
+        ) : filtered.length === 0 ? (
+          <div className="flex min-h-full flex-col">
+            <EmptyScreen title="No Schedules Found" description="No schedules match your filters." className="flex-1" />
+            {hasPageNav ? (
+              <TableTokenPagination
+                pageSize={pageSize}
+                rowCount={0}
+                canPrev={prevTokenStack.length > 0}
+                canNext={nextPageToken != null}
+                onPrev={goPrev}
+                onNext={goNext}
+                pageSizeOptions={SCHEDULES_PAGE_SIZE_OPTIONS}
+                onPageSizeChange={size => {
+                  const next = clampPageSize(size);
+                  setPageSize(next);
+                  setPageToken(undefined);
+                  setPrevTokenStack([]);
+                }}
+              />
+            ) : null}
           </div>
         ) : (
           <div className="rounded-lg border border-border">
-            {filtered.length === 0 ? (
-              <div className="bg-secondary-bg/50 text-text-secondary flex items-center justify-center px-4 py-16 text-sm">
-                No schedules match your filters.
-              </div>
-            ) : (
-              <Table className="min-w-[48rem]">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Cadence</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last 5 runs</TableHead>
-                    <TableHead>
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(schedule => {
-                    const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
-                    const agentLabel = schedule.agentName ?? agentNameById.get(schedule.agentId) ?? schedule.agentId;
-                    return (
-                      <TableRow key={schedule.id}>
-                        <TableCell className="text-text-primary font-medium">
-                          <button
-                            type="button"
-                            className="text-primary-button-bg hover:underline text-left"
-                            onClick={() => setDrawer({ kind: 'edit', schedule })}
-                          >
-                            {schedule.name}
-                          </button>
-                        </TableCell>
-                        <TableCell>{agentLabel}</TableCell>
-                        <TableCell>{cadence}</TableCell>
-                        <TableCell>
-                          <ScheduleStatusBadge status={schedule.status} />
-                        </TableCell>
-                        <TableCell>
-                          {runsLoading ? (
-                            <span className="text-text-secondary text-sm">…</span>
-                          ) : (
-                            <ScheduleLastRunsCell runs={runsByScheduleId[schedule.id] ?? []} />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <ScheduleRowActions
-                            schedule={schedule}
-                            running={runningScheduleIds.has(schedule.id)}
-                            onRunNow={() => void handleRunNow(schedule)}
-                            onEdit={() => setDrawer({ kind: 'edit', schedule })}
-                            onTogglePause={() => void handleTogglePause(schedule)}
-                            onDelete={() => setPendingDelete(schedule)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+            <Table className="min-w-[48rem]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Name</TableHead>
+                  <TableHead>Agent</TableHead>
+                  <TableHead>Cadence</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last 5 runs</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(schedule => {
+                  const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
+                  const agentLabel = schedule.agentName ?? agentNameById.get(schedule.agentId) ?? schedule.agentId;
+                  return (
+                    <TableRow key={schedule.id}>
+                      <TableCell className="text-text-primary font-medium">
+                        <button
+                          type="button"
+                          className="text-primary-button-bg hover:underline text-left"
+                          onClick={() => setDrawer({ kind: 'edit', schedule })}
+                        >
+                          {schedule.name}
+                        </button>
+                      </TableCell>
+                      <TableCell>{agentLabel}</TableCell>
+                      <TableCell>{cadence}</TableCell>
+                      <TableCell>
+                        <ScheduleStatusBadge status={schedule.status} />
+                      </TableCell>
+                      <TableCell>
+                        {runsLoading ? (
+                          <span className="text-text-secondary text-sm">…</span>
+                        ) : (
+                          <ScheduleLastRunsCell runs={runsByScheduleId[schedule.id] ?? []} />
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ScheduleRowActions
+                          schedule={schedule}
+                          running={runningScheduleIds.has(schedule.id)}
+                          onRunNow={() => void handleRunNow(schedule)}
+                          onEdit={() => setDrawer({ kind: 'edit', schedule })}
+                          onTogglePause={() => void handleTogglePause(schedule)}
+                          onDelete={() => setPendingDelete(schedule)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
             {(filtered.length > 0 || hasPageNav) && (
               <TableTokenPagination
                 pageSize={pageSize}

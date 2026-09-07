@@ -3,7 +3,8 @@
  * JSON authority: SQLite JSON1 — bind text via jsonb(?); read via json(column).
  * ParseJSONResultsPlugin parses top-level json() columns only (see createSqliteDb).
  */
-import { sql, type Expression, type RawBuilder } from 'kysely';
+import { sql, type Expression, type RawBuilder, type SelectQueryBuilder } from 'kysely';
+import type { Database } from './types';
 
 /** Bind a JS value as SQLite JSONB BLOB (stringify in JS, convert in SQL). */
 export function jsonbBind(value: unknown): RawBuilder<string> {
@@ -33,4 +34,28 @@ export function nowIso(): string {
 
 export function isoMsAgo(ms: number): string {
   return new Date(Date.now() - ms).toISOString();
+}
+
+/** Creator match, or creator OR `agent_id IN agent_ids` when the list is non-empty. */
+export function whereCreatedByOrAgentIds<TB extends 'session' | 'schedule', O>(
+  query: SelectQueryBuilder<Database, TB, O>,
+  filter:
+    | {
+        created_by_subject_id: string;
+        agent_ids: readonly string[];
+      }
+    | undefined,
+): SelectQueryBuilder<Database, TB, O> {
+  if (filter === undefined) {
+    return query;
+  }
+  if (filter.agent_ids.length === 0) {
+    return query.where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', filter.created_by_subject_id);
+  }
+  return query.where(eb =>
+    eb.or([
+      eb(sql<string>`json_extract(created_by_subject, '$.subject_id')`, '=', filter.created_by_subject_id),
+      eb(sql<string>`agent_id`, 'in', [...filter.agent_ids]),
+    ]),
+  );
 }

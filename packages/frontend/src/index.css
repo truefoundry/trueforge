@@ -22,6 +22,17 @@ body {
   height: 100%;
 }
 
+/* New Agent welcome only: polka-dot canvas on the empty thread viewport.
+   `.new-agent-welcome` is set by NewAgentWelcomeScreen; WelcomeScreen unmounts once the thread has messages. */
+[data-slot='aui_thread-viewport']:has(.new-agent-welcome) {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--border, #d4d4d8) 85%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 1.25rem 1.25rem;
+}
+
 .boot-screen {
   min-height: 100dvh;
   display: grid;

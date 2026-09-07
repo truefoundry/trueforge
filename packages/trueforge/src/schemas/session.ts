@@ -4,6 +4,8 @@ import {
   AgentSpecSchema,
   SessionMetadataSchema,
   SessionSchema,
+  SessionSourceScheduleSchema,
+  SessionSourceTypeSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema, PAGE_LIMIT } from './common';
@@ -43,6 +45,8 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
   .object({
     external_id: z.string().min(1).max(128).describe('Caller-supplied id unique within the tenant.'),
     agent: CreateSessionAgentSchema,
+    /** Internal-only provenance; not on public create/update. */
+    source: SessionSourceScheduleSchema.optional(),
   })
   .strict()
   .openapi('GetOrCreateSessionByExternalIdRequest');
@@ -92,6 +96,23 @@ export const ListSessionsRequestQuerySchema = z
       'Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).',
     ),
     agent_id: z.string().min(1).optional().describe('When set, only sessions bound to this agent id are returned.'),
+    created_by_me: z
+      .stringbool()
+      .optional()
+      .describe('When true, only sessions created by the authenticated subject.')
+      .openapi({ type: 'boolean' }),
+    source_type: SessionSourceTypeSchema.optional().describe(
+      'When set, returns only sessions created by this source type.',
+    ),
+    source_id: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('When set, returns only sessions from this specific source. Requires source_type.'),
+  })
+  .refine(q => q.source_id === undefined || q.source_type !== undefined, {
+    message: 'source_id requires source_type',
+    path: ['source_id'],
   })
   .openapi('ListSessionsRequestQuery');
 

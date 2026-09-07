@@ -106,8 +106,11 @@ describe('SyntaxHighlighter', () => {
     vi.useFakeTimers();
     render(<SyntaxHighlighter code="copy me" />);
 
+    const copyButton = screen.getByRole('button', { name: 'Copy' });
+    expect(copyButton.className).toMatch(/border/);
+
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+      fireEvent.click(copyButton);
       await Promise.resolve();
     });
 
@@ -119,5 +122,23 @@ describe('SyntaxHighlighter', () => {
     });
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it('strips a trailing newline so line numbers do not show an empty last row', () => {
+    render(<SyntaxHighlighter code={'const x = 1;\n'} showLineNumbers />);
+
+    expect(screen.getByTestId('syntax-engine')).toHaveTextContent('const x = 1;');
+    expect(screen.getByTestId('syntax-engine').textContent).not.toMatch(/\n$/);
+  });
+
+  it('copies the exact source including a trailing newline', async () => {
+    render(<SyntaxHighlighter code={'copy me\n'} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+      await Promise.resolve();
+    });
+
+    expect(writeText).toHaveBeenCalledWith('copy me\n');
   });
 });

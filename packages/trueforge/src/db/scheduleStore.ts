@@ -38,7 +38,9 @@ export function manualRunName(): string {
 export interface ScheduleRecord {
   id: string;
   tenant_id: string;
-  /** Immutable FK to `agent.name` (with tenant); agent version resolves at run time. */
+  /** Immutable FK to `agent.id`. */
+  agent_id: string;
+  /** Create-time snapshot of registry agent name. */
   agent_name: string;
   /** Slug-shaped label, unique per agent (`schedule_name_uq`). */
   name: string;
@@ -92,7 +94,13 @@ export interface ListSchedulesInput {
   page_token: string | undefined;
   /** When set, only schedules for these agent names */
   agent_names: readonly string[] | undefined;
-  created_by_subject_id?: string | undefined;
+  /** When set, match creator or agent binding. Empty `agent_ids` means creator-only. */
+  created_by_or_agent_ids:
+    | {
+        created_by_subject_id: string;
+        agent_ids: readonly string[];
+      }
+    | undefined;
 }
 
 /** User-facing run listing, scoped to one schedule. */
@@ -108,6 +116,7 @@ export interface GetScheduleInput {
 
 export interface CreateScheduleInput {
   tenant_id: string;
+  agent_id: string;
   agent_name: string;
   name: string;
   manifest: ScheduleManifest;

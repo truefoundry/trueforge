@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createSchedulesRouter } from '../../../src/apis/schedules';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -47,7 +48,7 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
-async function setup() {
+async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const agentStore = new SqliteAgentStore(db);
@@ -61,10 +62,11 @@ async function setup() {
     },
     name: 'reporter',
     manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
-    external_id: null,
+    external_id: 'reporter-external-id',
   });
 
   let current: RequestContext = ALICE;
+  let currentAuthorizer = authorizer;
   const app = new OpenAPIHono();
   app.route(
     '/',
@@ -74,7 +76,7 @@ async function setup() {
       sessions: {
         getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
       } as never,
-      turnDeps: {
+      resolveTurnDeps: () => ({
         activeTurns: {} as never,
         eventSubscriptions: {} as never,
         modelProviderStore: {} as never,
@@ -83,22 +85,29 @@ async function setup() {
         agentStore,
         sandboxProviderStore: {} as never,
         logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
-      },
+      }),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
+      authorizer: {
+        listAgentAccess: input => currentAuthorizer.listAgentAccess(input),
+        canAccessAgent: input => currentAuthorizer.canAccessAgent(input),
+      },
     }),
   );
 
   const asUser = (user: RequestContext) => {
     current = user;
   };
+  const setAuthorizer = (next: Authorizer) => {
+    currentAuthorizer = next;
+  };
   const postJson = (path: string, method: string, body: unknown) =>
     app.request(path, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-  return { app, asUser, postJson, agentStore, scheduleStore };
+  return { app, asUser, setAuthorizer, postJson, agentStore, scheduleStore };
 }
 
-describe('schedule RBAC — creator-scoped, admin sees all', () => {
+describe('schedule RBAC', () => {
   it("hides another user's schedule from get, update, delete, list, and run trigger", async () => {
     const { app, asUser, postJson } = await setup();
 
@@ -147,7 +156,7 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     expect((await postJson('/runs', 'POST', { schedule_id: '01jqzz000000000000000nope' })).status).toBe(404);
   });
 
-  it("lets an admin see and manage any user's schedule", async () => {
+  it("does not let an OIDC settings admin access another user's schedule", async () => {
     const { app, asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -155,56 +164,48 @@ describe('schedule RBAC — creator-scoped, admin sees all', () => {
     const { id } = ((await created.json()) as { data: { id: string } }).data;
 
     asUser(ADMIN);
-    expect((await app.request(`/${id}`)).status).toBe(200);
-
+    expect((await app.request(`/${id}`)).status).toBe(403);
     const adminList = await app.request('/');
-    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data).toHaveLength(1);
-    const adminRuns = await app.request(`/${id}/runs`);
-    expect(ListScheduleRunsResponseSchema.parse(await adminRuns.json()).data).toHaveLength(1);
-
-    const renamed = await postJson(`/${id}`, 'PUT', { name: 'admin-renamed', manifest: scheduleBody.manifest });
-    expect(renamed.status).toBe(200);
-    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
+    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data).toEqual([]);
+    expect((await app.request(`/${id}/runs`)).status).toBe(403);
+    expect((await postJson(`/${id}`, 'PUT', { name: 'admin-renamed', manifest: scheduleBody.manifest })).status).toBe(
+      403,
+    );
+    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403);
+    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
   });
 
-  it('shows an admin schedules across multiple creators in list', async () => {
-    const { app, asUser, agentStore, postJson } = await setup();
-    // A second agent so both schedules can share the same name without colliding.
-    await agentStore.createAgent({
-      tenant_id: 'default',
-      created_by_subject: {
-        subject_id: 'alice',
-        subject_type: 'user',
-        subject_display_name: 'alice',
-      },
-      name: 'reporter-two',
-      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
-      external_id: null,
+  it('lets an agent manager read schedules and runs but keeps mutations creator-only', async () => {
+    const { app, asUser, setAuthorizer, postJson } = await setup();
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const id = ((await created.json()) as { data: { id: string } }).data.id;
+    setAuthorizer({
+      listAgentAccess: input =>
+        Promise.resolve(
+          input.action === 'manage'
+            ? { kind: 'agent_external_ids', agent_external_ids: ['reporter-external-id'] }
+            : { kind: 'agent_external_ids', agent_external_ids: [] },
+        ),
+      canAccessAgent: () => Promise.resolve(false),
     });
+    asUser(BOB);
+    expect((await app.request(`/${id}`)).status).toBe(200);
+    expect(ListSchedulesResponseSchema.parse(await (await app.request('/')).json()).data).toHaveLength(1);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data,
+    ).toHaveLength(0);
+    expect(ListScheduleRunsResponseSchema.parse(await (await app.request(`/${id}/runs`)).json()).data).toHaveLength(1);
+    expect((await postJson(`/${id}`, 'PUT', { name: 'renamed', manifest: scheduleBody.manifest })).status).toBe(403);
+    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403);
+    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
 
     asUser(ALICE);
-    const aliceCreated = await postJson('/', 'POST', scheduleBody);
-    const aliceId = ((await aliceCreated.json()) as { data: { id: string } }).data.id;
-    asUser(BOB);
-    const bobCreated = await postJson('/', 'POST', { ...scheduleBody, agent_name: 'reporter-two' });
-    const bobId = ((await bobCreated.json()) as { data: { id: string } }).data.id;
-
-    asUser(ADMIN);
-    const adminList = await app.request('/');
-    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data).toHaveLength(2);
-    // An admin reaches the runs of a schedule created by anyone.
-    expect(ListScheduleRunsResponseSchema.parse(await (await app.request(`/${bobId}/runs`)).json()).data).toEqual([
-      expect.objectContaining({ schedule_id: bobId }),
-    ]);
-
-    // A regular user still sees only their own.
-    asUser(BOB);
-    const bobList = await app.request('/');
-    expect(ListSchedulesResponseSchema.parse(await bobList.json()).data).toHaveLength(1);
-    expect(ListScheduleRunsResponseSchema.parse(await (await app.request(`/${bobId}/runs`)).json()).data).toHaveLength(
-      1,
-    );
-    expect((await app.request(`/${aliceId}/runs`)).status).toBe(403);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data.map(
+        row => row.id,
+      ),
+    ).toEqual([id]);
   });
 });
 
@@ -314,7 +315,7 @@ describe('create schedule run', () => {
     expect(runs.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
   });
 
-  it('lets an admin trigger a run owned by another user', async () => {
+  it('does not let an OIDC settings admin trigger another creator schedule', async () => {
     const { asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -323,14 +324,8 @@ describe('create schedule run', () => {
 
     asUser(ADMIN);
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
-    expect(res.status).toBe(201);
-    const body = CreateScheduleRunResponseSchema.parse(await res.json());
-    expect(body.data.created_by_subject).toEqual({
-      subject_id: 'root',
-      subject_type: 'user',
-      subject_display_name: 'root',
-    });
-    expect(mockedStartScheduleRun).toHaveBeenCalled();
+    expect(res.status).toBe(403);
+    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
   });
 
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {
@@ -348,5 +343,41 @@ describe('create schedule run', () => {
     const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     const runNow = runs.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
+  });
+
+  it('returns 404 when creating a schedule for an agent the caller cannot use', async () => {
+    const canAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
+    const denyAll: Authorizer = {
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent,
+    };
+    const { postJson } = await setup(denyAll);
+    const res = await postJson('/', 'POST', scheduleBody);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+    expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
+  });
+
+  it('returns 404 on run-now when the caller can access the schedule but not the agent', async () => {
+    const { asUser, setAuthorizer, postJson, scheduleStore } = await setup();
+
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
+
+    const canAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
+    setAuthorizer({
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent,
+    });
+
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+
+    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
+    expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
+    expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
   });
 });

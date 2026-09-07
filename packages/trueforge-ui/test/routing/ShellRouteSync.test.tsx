@@ -1,12 +1,19 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from '@testing-library/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
+import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
+import {
+  createMockAgentSessionsServer,
+  createMockAgentUIServer,
+  createMockCatalog,
+  createMockScheduleServer,
+} from '../server/mockServer.js';
 
 const routes = resolveRoutesConfig();
 
@@ -33,38 +40,103 @@ function CaptureLocation() {
   return null;
 }
 
+function SettingsCatalogProvider({
+  children,
+  settingsEnabled = true,
+  includeCatalog = true,
+  includeSessions = true,
+  includeSchedules = false,
+}: {
+  children: ReactNode;
+  settingsEnabled?: boolean;
+  includeCatalog?: boolean;
+  includeSessions?: boolean;
+  includeSchedules?: boolean;
+}) {
+  const server = createMockAgentUIServer({
+    ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
+    ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
+    ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
+    getCapabilities: async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { enabled: settingsEnabled },
+      },
+    }),
+    getSession: async ({ sessionId }) => ({
+      id: sessionId,
+      title: 'Session',
+      isMutable: true,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    }),
+  });
+  return <ServerProvider server={server}>{children}</ServerProvider>;
+}
+
 function Harness({
   agentConfig,
   initialRemoteId,
   initialSettingsOpen = false,
+  settingsEnabled = true,
+  includeCatalog = true,
+  includeSessions = true,
+  includeSchedules = false,
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
   initialSettingsOpen?: boolean;
+  settingsEnabled?: boolean;
+  includeCatalog?: boolean;
+  includeSessions?: boolean;
+  includeSchedules?: boolean;
 }) {
   const [remoteId, setId] = useState<string | undefined>(initialRemoteId);
   setRemoteId = setId;
   return (
-    <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-      <CaptureShell />
-      <CaptureLocation />
-      <ShellRouteSync routes={routes} activeRemoteId={remoteId} initialSettingsOpen={initialSettingsOpen} />
-    </ShellModeProvider>
+    <SettingsCatalogProvider
+      settingsEnabled={settingsEnabled}
+      includeCatalog={includeCatalog}
+      includeSessions={includeSessions}
+      includeSchedules={includeSchedules}
+    >
+      <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+        <CaptureShell />
+        <CaptureLocation />
+        <ShellRouteSync routes={routes} activeRemoteId={remoteId} initialSettingsOpen={initialSettingsOpen} />
+      </ShellModeProvider>
+    </SettingsCatalogProvider>
   );
 }
 
-function renderSync(opts: { initialEntries?: string[]; agentConfig?: AgentConfig; initialSettingsOpen?: boolean }) {
+function renderSync(opts: {
+  initialEntries?: string[];
+  agentConfig?: AgentConfig;
+  initialSettingsOpen?: boolean;
+  settingsEnabled?: boolean;
+  includeCatalog?: boolean;
+  includeSessions?: boolean;
+  includeSchedules?: boolean;
+}) {
   return render(
     <MemoryRouter initialEntries={opts.initialEntries ?? ['/']}>
-      <Harness agentConfig={opts.agentConfig} initialSettingsOpen={opts.initialSettingsOpen} />
+      <Harness
+        agentConfig={opts.agentConfig}
+        initialSettingsOpen={opts.initialSettingsOpen}
+        settingsEnabled={opts.settingsEnabled}
+        includeCatalog={opts.includeCatalog}
+        includeSessions={opts.includeSessions}
+        includeSchedules={opts.includeSchedules}
+      />
     </MemoryRouter>,
   );
 }
 
 describe('ShellRouteSync', () => {
-  it('applies a session deep link on boot', () => {
+  it('applies a session deep link on boot', async () => {
     renderSync({ initialEntries: ['/sessions/abc'] });
-    expect(shell.pendingSessionId).toBe('abc');
+    await waitFor(() => expect(shell.pendingSessionId).toBe('abc'));
     expect(pathname).toBe('/sessions/abc');
   });
 
@@ -80,10 +152,12 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/agents/foo');
   });
 
-  it('mirrors settings open/close through history', () => {
+  it('mirrors settings open/close through history', async () => {
     renderSync({ initialEntries: ['/'] });
-    act(() => shell.setSettingsOpen(true));
-    expect(pathname).toBe('/settings');
+    await waitFor(() => {
+      act(() => shell.setSettingsOpen(true));
+      expect(pathname).toBe('/settings');
+    });
     act(() => shell.setSettingsOpen(false));
     expect(pathname).toBe('/');
   });
@@ -125,24 +199,46 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/sessions/new-session');
   });
 
-  it('opens settings on boot when initialSettingsOpen is set and pushes the URL', () => {
+  it('opens settings on boot when initialSettingsOpen is set and pushes the URL', async () => {
     renderSync({ initialEntries: ['/'], initialSettingsOpen: true });
-    expect(shell.settingsOpen).toBe(true);
-    expect(pathname).toBe('/settings');
+    await waitFor(() => {
+      expect(shell.settingsOpen).toBe(true);
+      expect(pathname).toBe('/settings');
+    });
   });
 
   // Boot replaces into /settings, so Back would leave the app instead of closing it.
-  it('returns to the chat place when settings opened on boot is closed', () => {
+  it('returns to the chat place when settings opened on boot is closed', async () => {
     renderSync({ initialEntries: ['/'], initialSettingsOpen: true });
+    await waitFor(() => expect(pathname).toBe('/settings'));
     act(() => shell.setSettingsOpen(false));
     expect(pathname).toBe('/');
   });
 
-  it('returns to the chat place when a /settings deep link is closed', () => {
+  it('returns to the chat place when a /settings deep link is closed', async () => {
     renderSync({ initialEntries: ['/settings'] });
-    expect(shell.settingsOpen).toBe(true);
+    await waitFor(() => expect(shell.settingsOpen).toBe(true));
     act(() => shell.setSettingsOpen(false));
     expect(pathname).toBe('/');
+  });
+
+  it('unregisters /settings when settings capability is disabled', async () => {
+    renderSync({ initialEntries: ['/settings'], settingsEnabled: false });
+    await waitFor(() => {
+      expect(shell.settingsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setSettingsOpen(true));
+    expect(shell.settingsOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('ignores initialSettingsOpen when Settings chrome has no catalog', async () => {
+    renderSync({ initialEntries: ['/'], initialSettingsOpen: true, includeCatalog: false });
+    await waitFor(() => {
+      expect(shell.settingsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
   });
 
   it('opens library on boot from a /library deep link', () => {
@@ -165,6 +261,68 @@ describe('ShellRouteSync', () => {
     expect(shell.libraryOpen).toBe(true);
     expect(shell.libraryAgentId).toBe('agent-7');
     expect(pathname).toBe('/library/agent-7');
+  });
+
+  it('unregisters /library/:agentId when sessions port is missing', async () => {
+    renderSync({
+      initialEntries: ['/library/agent-7'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSessions: false,
+    });
+    await waitFor(() => {
+      expect(shell.libraryAgentId).toBeNull();
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.openLibraryAgent('agent-7'));
+    expect(shell.libraryAgentId).toBeNull();
+  });
+
+  it('unregisters sessions browser when sessions port is missing', async () => {
+    renderSync({
+      initialEntries: ['/sessions'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSessions: false,
+    });
+    await waitFor(() => {
+      expect(shell.sessionsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setSessionsOpen(true));
+    expect(shell.sessionsOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors sessions browser open through history when sessions port is present', () => {
+    renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    act(() => shell.setSessionsOpen(true));
+    expect(shell.sessionsOpen).toBe(true);
+    expect(pathname).toBe('/sessions');
+  });
+
+  it('unregisters /schedules when schedules port is missing', async () => {
+    renderSync({
+      initialEntries: ['/schedules'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSchedules: false,
+    });
+    await waitFor(() => {
+      expect(shell.schedulesOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setSchedulesOpen(true));
+    expect(shell.schedulesOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors schedules open through history when schedules port is present', () => {
+    renderSync({
+      initialEntries: ['/'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeSchedules: true,
+    });
+    act(() => shell.setSchedulesOpen(true));
+    expect(shell.schedulesOpen).toBe(true);
+    expect(pathname).toBe('/schedules');
   });
 
   it('returns to the chat place when a /library deep link is closed', () => {
