@@ -4,7 +4,8 @@
  * Rolled-up cost, duration, and turn counters for a session.
  */
 export interface SessionMetrics {
-    totalCostInUsd: number;
+    /** Estimated total cost in USD for this session; omitted when unavailable. */
+    totalCostInUsd?: number;
     totalDurationMs: number;
     totalTurns: number;
 }

@@ -35,7 +35,7 @@ export type SessionMetadata = z.infer<typeof SessionMetadataSchema>;
 
 export const SessionMetricsSchema = z
   .object({
-    total_cost_in_usd: z.number().nonnegative(),
+    total_cost_in_usd: z.number().nonnegative().optional().describe('Estimated total cost in USD for this session'),
     total_duration_ms: z.number().int().nonnegative(),
     total_turns: z.number().int().nonnegative(),
   })

@@ -115,16 +115,24 @@ async function addSessionCostAndDuration(
   input: { session_id: string; turn_created_at: Date; turn_state: TerminalTurnState },
 ): Promise<void> {
   const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
-  const total_cost_in_usd = input.turn_state.metrics?.total_cost_in_usd ?? 0;
   const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
+  const turnCost = input.turn_state.metrics?.total_cost_in_usd;
+  const withDuration = sql`jsonb_set(
+    metrics,
+    '$.total_duration_ms',
+    jsonb((metrics->>'total_duration_ms') + ${total_duration_ms})
+  )`;
   await trx
     .updateTable('session')
     .set({
-      metrics: sql`jsonb_set(
-        jsonb_set(metrics, '$.total_cost_in_usd', jsonb((metrics->>'total_cost_in_usd') + ${total_cost_in_usd})),
-        '$.total_duration_ms',
-        jsonb((metrics->>'total_duration_ms') + ${total_duration_ms})
-      )`,
+      metrics:
+        turnCost === undefined
+          ? withDuration
+          : sql`jsonb_set(
+              ${withDuration},
+              '$.total_cost_in_usd',
+              jsonb(COALESCE(metrics->>'total_cost_in_usd', 0) + ${turnCost})
+            )`,
     })
     .where('session_id', '=', input.session_id)
     .execute();
