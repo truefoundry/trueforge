@@ -1,6 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import configuration, { resolveTrueFoundrySandboxProviderConfig } from '../config';
+import { resolveTrueFoundrySandboxProviderConfig } from '../config';
 import type {
   ISandboxProviderStore,
   SandboxProviderRecord,
@@ -38,13 +38,11 @@ let cachedRemoteDaytonaSettings:
 
 async function resolveDaytonaSandboxSettings({
   accessToken,
+  settingsServerUrl,
 }: {
   accessToken: string;
+  settingsServerUrl: string;
 }): Promise<DaytonaSandboxSettings> {
-  const settingsServerUrl = configuration.SANDBOX_SETTINGS_SERVER_URL;
-  if (settingsServerUrl === undefined) {
-    throw new Error('SANDBOX_SETTINGS_SERVER_URL is required when resolving Daytona sandbox settings');
-  }
   if (cachedRemoteDaytonaSettings !== undefined && Date.now() < cachedRemoteDaytonaSettings.expiresAt) {
     return cachedRemoteDaytonaSettings.value;
   }
@@ -90,7 +88,10 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
     if (!providerConfig) {
       return undefined;
     }
-    const settings = await resolveDaytonaSandboxSettings({ accessToken: this.#accessToken });
+    const settings = await resolveDaytonaSandboxSettings({
+      accessToken: this.#accessToken,
+      settingsServerUrl: providerConfig.settingsServerUrl,
+    });
     const now = new Date().toISOString();
     return {
       tenant_id: tenantId,

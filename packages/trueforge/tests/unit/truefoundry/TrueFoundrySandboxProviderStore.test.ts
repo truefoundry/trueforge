@@ -6,9 +6,6 @@ jest.mock('../../../src/config', () => {
   const resolveTrueFoundrySandboxProviderConfig = jest.fn();
   return {
     __esModule: true,
-    default: {
-      SANDBOX_SETTINGS_SERVER_URL: 'https://settings.example/daytona/settings',
-    },
     resolveTrueFoundrySandboxProviderConfig,
   };
 });

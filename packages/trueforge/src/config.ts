@@ -417,22 +417,6 @@ export interface SharedServerConfiguration {
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
   /**
-   * When TrueFoundry mode is on, enable the shared Daytona sandbox for all tenants
-   * (settings-server snapshot; no per-tenant PUT). Env: `SANDBOX_ENABLED`. Default false.
-   */
-  SANDBOX_ENABLED: boolean;
-  /**
-   * Shared Daytona API key used when `SANDBOX_ENABLED` is true in TrueFoundry mode.
-   * Env: `SANDBOX_API_KEY`.
-   */
-  SANDBOX_API_KEY: string | undefined;
-  /**
-   * Trusted internal URL that returns Daytona snapshot name and lifecycle settings
-   * (`snapshotName`, intervals, `timeoutMs`). Used when `SANDBOX_ENABLED` is true in
-   * TrueFoundry mode. Env: `SANDBOX_SETTINGS_SERVER_URL`.
-   */
-  SANDBOX_SETTINGS_SERVER_URL: string | undefined;
-  /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
   MAX_REQUEST_BODY_BYTES: number;
@@ -591,6 +575,22 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
+  /**
+   * When TrueFoundry mode is on, enable the shared Daytona sandbox for all tenants
+   * (settings-server snapshot; no per-tenant PUT). Env: `TRUEFOUNDRY_SANDBOX_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_SANDBOX_ENABLED: boolean;
+  /**
+   * Shared Daytona API key used when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_SANDBOX_API_KEY`.
+   */
+  TRUEFOUNDRY_SANDBOX_API_KEY: string | undefined;
+  /**
+   * Trusted internal URL that returns Daytona snapshot name and lifecycle settings
+   * (`snapshotName`, intervals, `timeoutMs`). Used when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL`.
+   */
+  TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -647,13 +647,6 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
   }),
-  SANDBOX_ENABLED: parseBoolean({
-    envKey: 'SANDBOX_ENABLED',
-    raw: getEnv('SANDBOX_ENABLED'),
-    defaultValue: false,
-  }),
-  SANDBOX_API_KEY: getEnv('SANDBOX_API_KEY', { required: false }),
-  SANDBOX_SETTINGS_SERVER_URL: getEnv('SANDBOX_SETTINGS_SERVER_URL', { required: false }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
@@ -758,6 +751,13 @@ const configuration: ServerConfiguration = standalone
       }),
       TRUEFOUNDRY_MTLS_CERTS_DIR:
         getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
+      TRUEFOUNDRY_SANDBOX_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_SANDBOX_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_SANDBOX_ENABLED'),
+        defaultValue: false,
+      }),
+      TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
+      TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -808,20 +808,23 @@ export interface TrueFoundrySandboxProviderConfig {
 }
 
 /**
- * Returns the configured shared sandbox provider when `SANDBOX_ENABLED`, or undefined.
- * Prefer Daytona when `SANDBOX_API_KEY` + `SANDBOX_SETTINGS_SERVER_URL` are set.
+ * Returns the configured shared sandbox provider when `TRUEFOUNDRY_SANDBOX_ENABLED`, or undefined.
+ * Prefer Daytona when `TRUEFOUNDRY_SANDBOX_API_KEY` + `TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL` are set.
  */
 export function resolveTrueFoundrySandboxProviderConfig(
   config: ServerConfiguration = configuration,
 ): TrueFoundrySandboxProviderConfig | undefined {
-  if (!config.SANDBOX_ENABLED) {
+  if (config.STANDALONE || !config.TRUEFOUNDRY_SANDBOX_ENABLED) {
     return undefined;
   }
-  if (config.SANDBOX_API_KEY !== undefined && config.SANDBOX_SETTINGS_SERVER_URL !== undefined) {
+  if (
+    config.TRUEFOUNDRY_SANDBOX_API_KEY !== undefined &&
+    config.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL !== undefined
+  ) {
     return {
       type: 'daytona',
-      apiKey: config.SANDBOX_API_KEY,
-      settingsServerUrl: config.SANDBOX_SETTINGS_SERVER_URL,
+      apiKey: config.TRUEFOUNDRY_SANDBOX_API_KEY,
+      settingsServerUrl: config.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL,
     };
   }
   return undefined;
@@ -834,12 +837,12 @@ if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) 
   );
 }
 
-// Shared sandbox in TrueFoundry mode: SANDBOX_ENABLED requires a provider (Daytona today).
-if (isTrueFoundryModeEnabled(configuration) && configuration.SANDBOX_ENABLED) {
+// Shared sandbox in TrueFoundry mode: TRUEFOUNDRY_SANDBOX_ENABLED requires a provider (Daytona today).
+if (isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_SANDBOX_ENABLED) {
   if (resolveTrueFoundrySandboxProviderConfig(configuration) === undefined) {
     throw new Error(
-      'SANDBOX_ENABLED is true in TrueFoundry mode but no sandbox provider is configured. ' +
-        'Set SANDBOX_API_KEY + SANDBOX_SETTINGS_SERVER_URL, or set SANDBOX_ENABLED=false.',
+      'TRUEFOUNDRY_SANDBOX_ENABLED is true but no sandbox provider is configured. ' +
+        'Set TRUEFOUNDRY_SANDBOX_API_KEY + TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
     );
   }
 }
