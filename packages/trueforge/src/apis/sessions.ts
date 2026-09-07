@@ -42,7 +42,8 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
-import { isSessionAgentNameRef, type Session } from '../schemas/session';
+import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
+import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
 
@@ -482,7 +483,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
-    const query = c.req.valid('query');
+    const query = parseListSessionsQuery(honoQueriesToRecord(c.req.queries()));
     const requestContext = deps.resolveRequestContext(c);
     try {
       const managedAgentIds = query.created_by_me
@@ -499,6 +500,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
           agent_ids: managedAgentIds,
         },
         tenant_id: requestContext.tenant_id,
+        metadata: query.metadata,
         limit: query.limit,
         order: query.order,
         page_token: query.page_token,

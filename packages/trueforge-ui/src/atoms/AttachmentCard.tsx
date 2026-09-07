@@ -5,6 +5,7 @@ import { Icon } from '../icons/Icon.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { Avatar, AvatarFallback, AvatarImage } from './primitives/Avatar.js';
+import { Tooltip } from './primitives/Tooltip.js';
 
 export { USER_MESSAGE_ATTACHMENT_PREVIEW_REM };
 
@@ -39,7 +40,7 @@ export function AttachmentCard({
         data-slot="aui_attachment-preview"
         style={previewSize}
         className={cn(
-          'aui-attachment-preview relative shrink-0 cursor-pointer overflow-hidden rounded-lg border',
+          'aui-attachment-preview relative shrink-0 cursor-pointer overflow-hidden rounded-lg border border-primary-button-bg/20',
           previewRem == null && 'size-24',
           className,
         )}
@@ -53,24 +54,19 @@ export function AttachmentCard({
     <div
       data-slot="aui_attachment-chip"
       style={previewRem != null ? { maxWidth: `${previewRem}rem` } : undefined}
-      className={cn(
-        'aui-attachment-chip bg-secondary-bg flex max-w-full shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5',
-        className,
-      )}
+      className={cn('aui-attachment-chip relative size-14 shrink-0', className)}
     >
-      <div className="bg-primary-bg flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md border">
-        {isImage && previewSrc ? (
-          <Avatar className="size-7 rounded-none">
-            <AvatarImage src={previewSrc} alt={name} className="object-cover" />
-            <AvatarFallback>
-              <Icon name="file" size="1rem" className="text-text-secondary" />
+      <Tooltip content={name} side="top" triggerClassName="size-full">
+        <div className="bg-secondary-bg relative size-full overflow-hidden rounded-[calc(var(--composer-radius,1.5rem)-var(--composer-padding,8px))] border border-primary-button-bg/20">
+          <Avatar className="size-full rounded-none">
+            <AvatarImage src={isImage ? previewSrc : undefined} alt={name} className="object-cover" />
+            <AvatarFallback className="rounded-none">
+              <Icon name="file" size="1.5rem" className="text-text-secondary" />
             </AvatarFallback>
           </Avatar>
-        ) : (
-          <Icon name="file" size="1rem" className="text-text-secondary" />
-        )}
-      </div>
-      <span className="text-text-primary min-w-0 truncate text-sm">{name}</span>
+        </div>
+      </Tooltip>
+      <span className="sr-only">{name}</span>
       {onRemove && (
         <button
           type="button"
@@ -79,11 +75,15 @@ export function AttachmentCard({
           className={auiButtonClass({
             variant: 'ghost',
             size: 'icon',
-            className: 'size-6 shrink-0 rounded-full',
+            className:
+              'aui-attachment-tile-remove absolute inset-e-1 top-1 z-10 size-5 rounded-full bg-black/50 text-white hover:bg-black/70 hover:text-white',
           })}
-          onClick={onRemove}
+          onClick={e => {
+            e.stopPropagation();
+            onRemove();
+          }}
         >
-          <Icon name="xmark" />
+          <Icon name="xmark" size="0.75rem" />
         </button>
       )}
     </div>

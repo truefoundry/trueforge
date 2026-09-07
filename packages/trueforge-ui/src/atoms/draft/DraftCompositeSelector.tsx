@@ -16,6 +16,7 @@ import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
+import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
@@ -69,6 +70,8 @@ function Checkbox({ checked }: { checked: boolean }) {
 export function CatalogRow({
   title,
   description,
+  logo,
+  fallbackIcon,
   checked,
   disabled = false,
   onToggle,
@@ -77,6 +80,9 @@ export function CatalogRow({
 }: {
   title: string;
   description?: string;
+  /** Catalog logo URL; when absent, `fallbackIcon` (or the title initial) is shown. */
+  logo?: string | undefined;
+  fallbackIcon?: string;
   checked: boolean;
   disabled?: boolean;
   onToggle: () => void;
@@ -85,8 +91,17 @@ export function CatalogRow({
 }) {
   const content = (
     <>
-      <span className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
-        {title.charAt(0).toUpperCase()}
+      <span
+        className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border text-xs font-semibold"
+        aria-hidden
+      >
+        {logo ? (
+          <CatalogLogo src={logo} alt={title} className="size-4" />
+        ) : fallbackIcon ? (
+          <Icon name={fallbackIcon} className="text-text-primary size-4" />
+        ) : (
+          title.charAt(0).toUpperCase()
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="text-text-primary block truncate text-sm font-medium">{title}</span>
@@ -228,6 +243,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const {
     skills,
     connectors,
+    connectorLogos,
     connectorsHasMore,
     connectorsLoadMoreFailed,
     connectorsLoadingMore,
@@ -512,7 +528,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     <CatalogRow
                       key={c.id}
                       title={c.name}
-                      description={c.description}
+                      logo={connectorLogos[c.name]}
+                      fallbackIcon="mcp-server"
                       checked={selectedMcpIds.has(c.id)}
                       action={
                         isUnauthenticatedDcrConnector(c) ? (
@@ -531,7 +548,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     <CatalogRow
                       key={c.id}
                       title={c.name}
-                      description={c.description}
+                      logo={connectorLogos[c.name]}
+                      fallbackIcon="mcp-server"
                       checked={selectedMcpIds.has(c.id)}
                       action={
                         isUnauthenticatedDcrConnector(c) ? (

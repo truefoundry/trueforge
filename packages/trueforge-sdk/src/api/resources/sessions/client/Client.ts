@@ -52,6 +52,7 @@ export class SessionsClient {
                     endTimestamp,
                     agentId,
                     createdByMe,
+                    metadata,
                     sourceType,
                     sourceId,
                 } = request;
@@ -71,6 +72,7 @@ export class SessionsClient {
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                     agent_id: agentId,
                     created_by_me: createdByMe,
+                    metadata,
                     source_type:
                         sourceType != null
                             ? serializers.SessionSourceType.jsonOrThrow(sourceType, {

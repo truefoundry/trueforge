@@ -128,13 +128,15 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       return paginateOffsetRows([], input.limit, offset);
     }
 
-    const rows = await this.#client.listMcpServers({
-      accessToken: this.#accessToken,
-      limit: input.limit + 1,
-      offset,
-      ...(input.names !== undefined ? { names: input.names } : {}),
-    });
-    const gatewayUrl = await this.#resolveGatewayUrl();
+    const [rows, gatewayUrl] = await Promise.all([
+      this.#client.listMcpServers({
+        accessToken: this.#accessToken,
+        limit: input.limit + 1,
+        offset,
+        ...(input.names !== undefined ? { names: input.names } : {}),
+      }),
+      this.#resolveGatewayUrl(),
+    ]);
     const records = mapSfyMcpServers({ rows }).map(server =>
       toRecord({ tenant_id: input.tenant_id, server, gatewayUrl }),
     );
@@ -143,12 +145,14 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
     void transaction;
-    const row = await this.#client.getMcpServerByName({ accessToken: this.#accessToken, name: input.name });
+    const [row, gatewayUrl] = await Promise.all([
+      this.#client.getMcpServerByName({ accessToken: this.#accessToken, name: input.name }),
+      this.#resolveGatewayUrl(),
+    ]);
     if (row === undefined) {
       return undefined;
     }
     const server = parseSfyMcpServerSummary(row);
-    const gatewayUrl = await this.#resolveGatewayUrl();
     return toRecord({ tenant_id: input.tenant_id, server, gatewayUrl });
   }
 

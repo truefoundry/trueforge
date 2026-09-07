@@ -24,7 +24,7 @@ api:
         prefer-undiscriminated-unions-with-literals: true
         only-include-referenced-schemas: true
         type-dates-as-strings: true
-        object-query-parameters: false
+        object-query-parameters: true
         idiomatic-request-names: true
         respect-nullable-schemas: true
         wrap-references-to-nullable-in-optional: false
@@ -37,7 +37,7 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.88.3
+        version: 3.91.0
         output:
           location: local-file-system
           path: ../../packages/trueforge-sdk
@@ -79,6 +79,8 @@ groups:
                 default: './dist/cjs/index.js'
           allowExtraFields: true
           allowCustomFetcher: true
+          # Map query params (OpenAPI additionalProperties) as deepObject brackets, not JSON strings.
+          deepObjectMapQueryParameters: true
           enableInlineTypes: false
           fetchSupport: native
           fileResponseType: binary-response
