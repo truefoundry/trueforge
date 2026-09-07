@@ -294,7 +294,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           status: input.status,
           created_by_subject: json(input.created_by_subject),
           triggered_at: input.triggered_at ?? null,
-          reason: null,
+          reason: input.reason ?? null,
           created_at: now(),
           updated_at: now(),
         })
@@ -314,10 +314,12 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord | undefined> {
     const db = transaction ?? this.#db;
+    const timestamp = now();
+    const reason = input.status === 'failed' ? (input.reason ?? null) : null;
     const patch =
       input.status === 'triggered'
-        ? { status: input.status, triggered_at: now(), updated_at: now() }
-        : { status: input.status, updated_at: now() };
+        ? { status: input.status, triggered_at: timestamp, reason, updated_at: timestamp }
+        : { status: input.status, reason, updated_at: timestamp };
     const row = await db
       .updateTable('schedule_run')
       .set(patch)
