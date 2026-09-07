@@ -20,5 +20,5 @@ export interface ListSessionsRequest {
     /** When set, only sessions bound to this agent id are returned. */
     agentId?: string;
     /** When true, only sessions created by the authenticated subject. */
-    createdByMe?: string;
+    createdByMe?: boolean;
 }
