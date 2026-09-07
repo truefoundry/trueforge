@@ -68,6 +68,7 @@ function toWireScheduleRun(record: ScheduleRunRecord): ScheduleRun {
     status: record.status,
     created_by_subject: record.created_by_subject,
     triggered_at: record.triggered_at,
+    reason: record.reason,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };

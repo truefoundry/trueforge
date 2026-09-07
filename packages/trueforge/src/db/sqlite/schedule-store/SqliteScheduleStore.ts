@@ -63,6 +63,7 @@ function runColumns(eb: ExpressionBuilder<Database, 'schedule_run'>) {
     'status' as const,
     jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'triggered_at' as const,
+    'reason' as const,
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -90,6 +91,7 @@ interface RunRow {
   status: ScheduleRunStatus;
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
+  reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -346,6 +348,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           status: input.status,
           created_by_subject: jsonbBind(input.created_by_subject),
           triggered_at: input.triggered_at?.toISOString() ?? null,
+          reason: null,
           created_at: timestamp,
           updated_at: timestamp,
         })

@@ -63,6 +63,7 @@ export interface ScheduleRunRecord {
   status: ScheduleRunStatus;
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
+  reason: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -17,6 +17,7 @@ function item(): ScheduleDispatchItem {
       status: 'scheduled',
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       triggered_at: null,
+      reason: null,
       created_at: '2026-08-31T00:00:00.000Z',
       updated_at: '2026-08-31T00:00:00.000Z',
     },

@@ -57,6 +57,7 @@ function toRunRecord(row: Selectable<ScheduleRunTable>): ScheduleRunRecord {
     status: row.status,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     triggered_at: row.triggered_at === null ? null : row.triggered_at.toISOString(),
+    reason: row.reason,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -293,6 +294,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           status: input.status,
           created_by_subject: json(input.created_by_subject),
           triggered_at: input.triggered_at ?? null,
+          reason: null,
           created_at: now(),
           updated_at: now(),
         })
