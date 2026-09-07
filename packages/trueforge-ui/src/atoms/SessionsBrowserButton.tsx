@@ -33,7 +33,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
           className: cn(
             'rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
             compact
-              ? 'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center'
+              ? 'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center'
               : 'h-8 w-full !justify-start px-2.5',
             sessionsOpen &&
               'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',

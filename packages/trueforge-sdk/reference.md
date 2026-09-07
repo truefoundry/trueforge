@@ -277,7 +277,7 @@ await client.agents.update("agent_id", {
 <dl>
 <dd>
 
-Delete a configured agent by immutable id. Idempotent if already gone.
+Delete a configured agent by immutable id.
 </dd>
 </dl>
 </dd>
@@ -770,7 +770,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List schedules for the tenant, newest first. Optionally filter by `agent_names`.
+List schedules for the tenant, newest first.
 </dd>
 </dl>
 </dd>
@@ -1171,7 +1171,7 @@ await client.schedules.delete("schedule_id");
 <dl>
 <dd>
 
-List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.
+List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.
 </dd>
 </dl>
 </dd>
@@ -1235,7 +1235,7 @@ await client.schedules.listRuns("schedule_id");
 <dl>
 <dd>
 
-List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by_subject.subject_id` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.
+List the caller's sessions (newest first by default).
 </dd>
 </dl>
 </dd>

@@ -3,11 +3,17 @@
  * Composer pickers + agent library backed by the Harness agents registry.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
+import type {
+  AgentBuilderServer,
+  AgentLibraryEntry,
+  ModelSelection,
+  PageParams,
+  SearchAgentsParams,
+} from '../../server/types.js';
 import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
 import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { listConfiguredMcpServers, listSkills } from './lists.js';
+import { listConfiguredMcpServers, listConfiguredMcpServersPage, listSkills } from './lists.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export type CreateHarnessBuilderServerOptions = CreateTrueForgeClientOptions & {
@@ -88,6 +94,13 @@ export function createHarnessBuilderServer(
       return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
+    listMcp: async (req?: PageParams) => {
+      const page = await listConfiguredMcpServersPage(client, req ?? {});
+      return {
+        data: page.data.map(toUiConnectorFromReadEntry),
+        ...(page.nextPageToken === undefined ? {} : { nextPageToken: page.nextPageToken }),
+      };
+    },
     getMcpTools: async ({ connectorId }: { connectorId: string }) => {
       const body = await client.mcpServers.listTools(connectorId);
       return body.data.flatMap(tool =>

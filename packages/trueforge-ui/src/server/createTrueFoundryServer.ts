@@ -9,7 +9,9 @@ import type {
   AgentSpec,
   CatalogServer,
   ConnectorState,
+  ListResult,
   ModelSelection,
+  PageParams,
   SaveAgentRequest,
   SaveAgentResult,
   ScheduleServer,
@@ -35,6 +37,7 @@ export type CreateTrueFoundryServerOptions<
   getModels: () => Promise<TModel[]>;
   getSkills: () => Promise<TSkill[]>;
   getMcp: () => Promise<TMcp[]>;
+  listMcp?: (req?: PageParams) => Promise<ListResult<TMcp>>;
   getMcpTools?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpTools'];
   searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
   saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
@@ -118,6 +121,7 @@ export function createTrueFoundryServer<
     getModels: opts.getModels,
     getSkills: opts.getSkills,
     getMcp: opts.getMcp,
+    ...(opts.listMcp === undefined ? {} : { listMcp: opts.listMcp }),
     ...(opts.getMcpTools === undefined ? {} : { getMcpTools: opts.getMcpTools }),
     searchAgents: opts.searchAgents,
     saveAgent: opts.saveAgent,
