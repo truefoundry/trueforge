@@ -481,10 +481,11 @@ export interface SharedServerConfiguration {
    * the server over HTTP(S); when `TRUEFORGE_MTLS_ENABLED` is true the controller upgrades an
    * `http://` URL to `https://` and presents the client cert. Env: `SERVER_URL`.
    * Default: `http://localhost:$PORT`, so in-cluster deployments MUST point this at
-   * the server Service. Unused in standalone mode, where the server process owns the
-   * controller and targets itself on localhost.
+   * the server Service. Unused in standalone mode, where execution stays in-process.
    */
   SERVER_URL: string;
+  /** Internal controller credential; undefined when schedule execution stays in-process. */
+  TRUEFORGE_API_KEY: string | undefined;
   /**
    * Mutual TLS for this process's HTTPS listener and controller→server. When true, serves HTTPS
    * with client-cert enforcement (except `/healthz`) and the controller presents a client cert.
@@ -547,6 +548,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
+  /** Service credential for controller calls to internal TrueForge routes. Env: `TRUEFORGE_API_KEY`. */
+  TRUEFORGE_API_KEY: string;
   /**
    * OIDC configuration for server authentication.
    * Undefined means browser login is disabled.
@@ -684,6 +687,7 @@ const shared: SharedServerConfiguration = {
   PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
   SERVER_URL:
     getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
+  TRUEFORGE_API_KEY: undefined,
   TRUEFORGE_MTLS_ENABLED: parseBoolean({
     envKey: 'TRUEFORGE_MTLS_ENABLED',
     raw: getEnv('TRUEFORGE_MTLS_ENABLED'),
@@ -720,6 +724,7 @@ const configuration: ServerConfiguration = standalone
         defaultValue: 60_000,
       }),
       REDIS_URL: resolveRedisUrl(),
+      TRUEFORGE_API_KEY: getEnv('TRUEFORGE_API_KEY', { required: true }) ?? '',
       OIDC: resolveOIDCConfig(),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
@@ -788,6 +793,9 @@ if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) 
 
 if (isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_API_KEY === undefined) {
   throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
+}
+if (!configuration.STANDALONE && configuration.TRUEFORGE_API_KEY.trim() === '') {
+  throw new Error('TRUEFORGE_API_KEY must not be empty when STANDALONE=false.');
 }
 
 /**

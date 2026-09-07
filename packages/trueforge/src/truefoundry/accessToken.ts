@@ -19,22 +19,21 @@ const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
  */
 export function agentAccessToken(input: {
   client: AgentTokenVendor;
-  context: RequestContext;
+  tenantName: string;
+  subject: RequestContext['subject'];
   agent: AgentRecord;
 }): ResolveAccessToken {
-  const { client, context } = input;
+  const { client, tenantName, subject } = input;
   const agentId = input.agent.external_id;
   if (agentId === null) {
     throw new HTTPException(422, { message: AGENT_EXTERNAL_ID_REQUIRED });
   }
   let pending: Promise<string> | undefined;
   return () => {
-    pending ??= client
-      .vendToken({ subject: context.subject, agentId, tenantName: context.tenant_id })
-      .catch((error: unknown) => {
-        pending = undefined;
-        throw error;
-      });
+    pending ??= client.vendToken({ subject, agentId, tenantName }).catch((error: unknown) => {
+      pending = undefined;
+      throw error;
+    });
     return pending;
   };
 }

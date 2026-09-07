@@ -6,39 +6,63 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { WithTransaction } from './db/transaction';
 import { createTlsFetch, normalizeTlsUrl, type TlsOptions } from './http/tls';
 
-function createScheduleApiClient(params: { baseUrl: string; tls: TlsOptions }): TrueForge {
+/** HTTP transport used by the dedicated controller process. */
+export function createHttpScheduleRunExecutor(params: {
+  baseUrl: string;
+  apiKey: string;
+  tls: TlsOptions;
+}): (scheduleRunId: string) => Promise<void> {
   const baseUrl = normalizeTlsUrl({ url: params.baseUrl, enabled: params.tls.enabled });
-  const fetchImpl = createTlsFetch(params.tls);
-  return new TrueForge({
-    baseUrl,
-    auth: false,
-    ...(fetchImpl !== undefined ? { fetch: fetchImpl } : {}),
-  });
+  const fetchImpl = createTlsFetch(params.tls) ?? fetch;
+  const client = new TrueForge({ baseUrl, token: params.apiKey, fetch: fetchImpl });
+  return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
 }
 
-/**
- * The loops the controller runs.
- */
-export function createController<TTransaction>(params: {
+function createControllerWithExecutor<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
-  baseUrl: string;
-  tls?: TlsOptions;
+  executeRun: (scheduleRunId: string) => Promise<void>;
 }): Controller {
-  const { scheduleStore, withTransaction, logger, baseUrl } = params;
-  const tls = params.tls ?? { enabled: false, dir: '' };
+  const { scheduleStore, withTransaction, logger, executeRun } = params;
   return new Controller({
     loops: [
       scheduleDispatchLoop({
         scheduleStore,
-        client: createScheduleApiClient({ baseUrl, tls }),
+        executeRun,
         withTransaction,
         logger,
       }),
     ],
     logger,
   });
+}
+
+/** Controller for the dedicated process; schedule execution is handed to the server over HTTP. */
+export function createController<TTransaction>(params: {
+  scheduleStore: IScheduleStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
+  logger: Logger;
+  baseUrl: string;
+  apiKey: string;
+  tls: TlsOptions;
+}): Controller {
+  return createControllerWithExecutor({
+    scheduleStore: params.scheduleStore,
+    withTransaction: params.withTransaction,
+    logger: params.logger,
+    executeRun: createHttpScheduleRunExecutor(params),
+  });
+}
+
+/** Controller colocated with the standalone server; schedule execution stays in-process. */
+export function createInProcessController<TTransaction>(params: {
+  scheduleStore: IScheduleStore<TTransaction>;
+  withTransaction: WithTransaction<TTransaction>;
+  logger: Logger;
+  executeRun: (scheduleRunId: string) => Promise<void>;
+}): Controller {
+  return createControllerWithExecutor(params);
 }
 
 /**
@@ -49,7 +73,8 @@ export function runController<TTransaction>(params: {
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   baseUrl: string;
-  tls?: TlsOptions;
+  apiKey: string;
+  tls: TlsOptions;
   gracefulTimeoutSeconds: number;
   /** Releases what the caller opened for the loops, e.g. its database pool. */
   onStopped?: () => Promise<void>;

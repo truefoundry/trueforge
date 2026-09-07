@@ -54,18 +54,19 @@ import type { Kysely, Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
-import type { ResolveTurnStores } from './apis/turns';
+import { startTurnInProcess, type ResolveTurnStores, type TurnStores } from './apis/turns';
 import { createServerApp } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import { resolveRequestContext } from './auth/identity';
+import { resolveRequestContext, type RequestSubject } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
-import { createController } from './controller';
+import { createInProcessController } from './controller';
+import { executeScheduleRun } from './controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -101,6 +102,12 @@ interface ServerPersistence<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
   resolveTurnStores: ResolveTurnStores<TTransaction>;
+  resolveScheduleTurnStores: (input: {
+    tenantName: string;
+    subject: RequestSubject;
+    agent: AgentRecord;
+  }) => TurnStores<TTransaction>;
+  agentStore: IAgentStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -196,13 +203,47 @@ function buildResolveTurnStores<TTransaction>(options: {
 }): ResolveTurnStores<TTransaction> {
   const { resolveModelProviderStore, resolveMcpServerStore, client } = options;
   return (c: Context, runAsAgent: AgentRecord | undefined) => {
+    const requestContext = resolveRequestContext(c);
     const turnToken =
       client && runAsAgent
-        ? agentAccessToken({ client, context: resolveRequestContext(c), agent: runAsAgent })
+        ? agentAccessToken({
+            client,
+            tenantName: requestContext.tenant_id,
+            subject: requestContext.subject,
+            agent: runAsAgent,
+          })
         : undefined;
     return {
       modelProviderStore: resolveModelProviderStore(c, turnToken),
       mcpServerStore: resolveMcpServerStore(c, turnToken),
+    };
+  };
+}
+
+function buildResolveScheduleTurnStores<TTransaction>(options: {
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
+  client: TrueFoundryServiceFoundryServerClient | undefined;
+}): ServerPersistence<TTransaction>['resolveScheduleTurnStores'] {
+  const { modelProviderStore, mcpServerStore, client } = options;
+  return input => {
+    if (client === undefined) {
+      return { modelProviderStore, mcpServerStore };
+    }
+    const resolveAccessToken = agentAccessToken({
+      client,
+      tenantName: input.tenantName,
+      subject: input.subject,
+      agent: input.agent,
+    });
+    return {
+      modelProviderStore: new TrueFoundryModelProviderStore({ client, resolveAccessToken }),
+      mcpServerStore: new TrueFoundryMcpServerStore({
+        client,
+        resolveAccessToken,
+        subject: input.subject,
+        perServerHeaders: {},
+      }),
     };
   };
 }
@@ -280,6 +321,8 @@ async function createStandalonePersistence(options: {
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveTurnStores: () => ({ modelProviderStore, mcpServerStore }),
+    resolveScheduleTurnStores: () => ({ modelProviderStore, mcpServerStore }),
+    agentStore,
     resolveAgentStore: () => agentStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -349,6 +392,11 @@ async function createDistributedPersistence(options: {
   const agentStore = new PostgresAgentStore(db);
   const modelProviderStore = new PostgresModelProviderStore(db);
   const mcpServerStore = new PostgresMcpServerStore(db);
+  const mcpServerWithAuthStore = new McpServerWithAuthStore({
+    store: mcpServerStore,
+    tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  });
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
   const resolveModelProviderStore = buildResolveModelProviderStore({
     persistenceStore: modelProviderStore,
@@ -369,6 +417,12 @@ async function createDistributedPersistence(options: {
       resolveMcpServerStore,
       client: serviceFoundryClient,
     }),
+    resolveScheduleTurnStores: buildResolveScheduleTurnStores({
+      modelProviderStore,
+      mcpServerStore: mcpServerWithAuthStore,
+      client: serviceFoundryClient,
+    }),
+    agentStore,
     resolveAgentStore: buildResolveAgentStore({
       persistenceStore: agentStore,
       db,
@@ -393,6 +447,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveTurnStores,
+    resolveScheduleTurnStores,
+    agentStore,
     resolveAgentStore,
     withTransaction,
     tokenStore,
@@ -407,6 +463,40 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
+  const sessions = new Sessions({ sessionStore });
+  const executeRun = (scheduleRunId: string) =>
+    executeScheduleRun({
+      scheduleRunId,
+      scheduleStore,
+      sessions,
+      agentStore,
+      startTurn: async turn => {
+        const subject = {
+          id: turn.created_by_subject.subject_id,
+          type: turn.created_by_subject.subject_type,
+          display_name: turn.created_by_subject.subject_display_name,
+        };
+        await startTurnInProcess({
+          session: turn.session,
+          input: turn.input,
+          previous_turn_id: turn.previous_turn_id,
+          userRef: turn.userRef,
+          deps: {
+            activeTurns,
+            eventSubscriptions,
+            ...resolveScheduleTurnStores({
+              tenantName: turn.tenant_id,
+              subject,
+              agent: turn.agent,
+            }),
+            skillStore,
+            agentStore,
+            sandboxProviderStore,
+            logger,
+          },
+        });
+      },
+    });
 
   const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
   if (oidc) {
@@ -438,11 +528,11 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
-    ? createController({
+    ? createInProcessController({
         scheduleStore,
         withTransaction,
         logger,
-        baseUrl: `http://localhost:${String(configuration.PORT)}`,
+        executeRun,
       })
     : undefined;
 
@@ -462,7 +552,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     scheduleStore,
     sessionStore,
     sessionMetricsStore,
-    sessions: new Sessions({ sessionStore }),
+    sessions,
     activeTurns,
     redis,
     requestReplyRouter,
@@ -471,6 +561,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
+    executeScheduleRun: executeRun,
+    scheduleExecutionApiKey: configuration.TRUEFORGE_API_KEY,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

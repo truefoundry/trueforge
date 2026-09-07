@@ -468,7 +468,19 @@ Paginated MCP servers as a slim name/url list for the composer.
 <dd>
 
 ```typescript
-await client.mcpServers.list();
+const pageableResponse = await client.mcpServers.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.mcpServers.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>
@@ -785,7 +797,19 @@ List schedules for the tenant, newest first. Optionally filter by `agent_names`.
 <dd>
 
 ```typescript
-await client.schedules.list();
+const pageableResponse = await client.schedules.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.schedules.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>
@@ -1250,7 +1274,19 @@ List the caller's sessions (newest first by default), token-paginated. Results a
 <dd>
 
 ```typescript
-await client.sessions.list();
+const pageableResponse = await client.sessions.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>
@@ -1648,7 +1684,19 @@ List session events as `{ turn_id, event }` across the active turn branch (newes
 <dd>
 
 ```typescript
-await client.sessions.listEvents("session_id");
+const pageableResponse = await client.sessions.listEvents("session_id");
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.listEvents("session_id");
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>
@@ -1719,7 +1767,19 @@ List turns for a session (newest first by default), token-paginated. Only the se
 <dd>
 
 ```typescript
-await client.sessions.listTurns("session_id");
+const pageableResponse = await client.sessions.listTurns("session_id");
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.listTurns("session_id");
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>
@@ -2095,7 +2155,19 @@ Paginated persisted events for a turn (insertion order by default). Only the ses
 <dd>
 
 ```typescript
-await client.sessions.listTurnEvents("session_id", "turn_id");
+const pageableResponse = await client.sessions.listTurnEvents("session_id", "turn_id");
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sessions.listTurnEvents("session_id", "turn_id");
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>
@@ -2700,6 +2772,72 @@ await client.internal.metrics.getMeters({
 </dl>
 </details>
 
+## Internal Schedules
+<details><summary><code>client.internal.schedules.<a href="/src/api/resources/internal/resources/schedules/client/Client.ts">executeRun</a>({ ...params }) -> void</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Execute a persisted schedule run using its saved schedule and agent.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.schedules.executeRun({
+    scheduleRunId: "schedule_run_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.ExecuteScheduleRunRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SchedulesClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Sessions
 <details><summary><code>client.internal.sessions.<a href="/src/api/resources/internal/resources/sessions/client/Client.ts">getOrCreateByExternalId</a>({ ...params }) -> TrueForge.GetSessionResponse</code></summary>
 <dl>
@@ -2861,7 +2999,19 @@ Paginated MCP servers with auth_status. Header secrets are redacted.
 <dd>
 
 ```typescript
-await client.settings.mcpServers.list();
+const pageableResponse = await client.settings.mcpServers.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.settings.mcpServers.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
 
 ```
 </dd>

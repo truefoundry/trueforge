@@ -38,7 +38,9 @@ describe('agentAccessToken', () => {
   it('vends a token scoped to the agent, naming the caller as the subject', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
 
-    await expect(agentAccessToken({ client, context: CONTEXT, agent: AGENT })()).resolves.toBe('agent-token');
+    await expect(
+      agentAccessToken({ client, tenantName: CONTEXT.tenant_id, subject: CONTEXT.subject, agent: AGENT })(),
+    ).resolves.toBe('agent-token');
     expect(client.vendToken).toHaveBeenCalledWith({
       subject: CONTEXT.subject,
       agentId: 'ext-agent',
@@ -48,7 +50,12 @@ describe('agentAccessToken', () => {
 
   it('vends once and reuses the token for later calls', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
-    const resolve = agentAccessToken({ client, context: CONTEXT, agent: AGENT });
+    const resolve = agentAccessToken({
+      client,
+      tenantName: CONTEXT.tenant_id,
+      subject: CONTEXT.subject,
+      agent: AGENT,
+    });
 
     await expect(Promise.all([resolve(), resolve()])).resolves.toEqual(['agent-token', 'agent-token']);
     await expect(resolve()).resolves.toBe('agent-token');
@@ -59,7 +66,12 @@ describe('agentAccessToken', () => {
     const client = {
       vendToken: jest.fn().mockRejectedValueOnce(new Error('vend failed')).mockResolvedValue('agent-token'),
     };
-    const resolve = agentAccessToken({ client, context: CONTEXT, agent: AGENT });
+    const resolve = agentAccessToken({
+      client,
+      tenantName: CONTEXT.tenant_id,
+      subject: CONTEXT.subject,
+      agent: AGENT,
+    });
 
     await expect(resolve()).rejects.toThrow('vend failed');
     await expect(resolve()).resolves.toBe('agent-token');
@@ -69,9 +81,14 @@ describe('agentAccessToken', () => {
   it('rejects with 422 when the agent was never registered with TrueFoundry', () => {
     const client = { vendToken: jest.fn() };
 
-    expect(() => agentAccessToken({ client, context: CONTEXT, agent: { ...AGENT, external_id: null } })).toThrow(
-      HTTPException,
-    );
+    expect(() =>
+      agentAccessToken({
+        client,
+        tenantName: CONTEXT.tenant_id,
+        subject: CONTEXT.subject,
+        agent: { ...AGENT, external_id: null },
+      }),
+    ).toThrow(HTTPException);
     expect(client.vendToken).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,6 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
-import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
-import type { IAgentStore } from '../db/agentStore';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
   type IScheduleStore,
@@ -34,8 +33,6 @@ const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 /** The loop's name. */
 const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
-type ScheduleRunApiClient = Pick<TrueForge, 'sessions' | 'internal'>;
-
 /** Schedule's bound agent name is missing from the agent store. */
 export class ScheduleAgentNotFoundError extends Error {
   readonly agent_name: string;
@@ -47,30 +44,20 @@ export class ScheduleAgentNotFoundError extends Error {
   }
 }
 
-/**
- * Hands a due schedule run to the API:
- * 1. Get or create a session keyed by `run.id`.
- * 2. Create a non-streaming turn only when that session has no turns.
- *
- * This call is hence idempotent.
- */
-function executeScheduledRun(client: ScheduleRunApiClient): (item: ScheduleDispatchItem) => Promise<void> {
-  return async ({ run, schedule }) => {
-    const { data: session } = await client.internal.sessions.getOrCreateByExternalId({
-      externalId: run.id,
-      agent: { name: schedule.agent_name },
-    });
+/** Requested schedule run does not exist. */
+export class ScheduleRunNotFoundError extends Error {
+  constructor(scheduleRunId: string, options?: ErrorOptions) {
+    super(`Schedule run not found: ${scheduleRunId}`, options);
+    this.name = 'ScheduleRunNotFoundError';
+  }
+}
 
-    const turns = await client.sessions.listTurns(session.id, { limit: 1 });
-    if (turns.data.length > 0) {
-      return;
-    }
-
-    await client.sessions.createTurn(session.id, {
-      input: [{ type: 'user.message', content: schedule.manifest.task }],
-      previousTurnId: 'none',
-    });
-  };
+/** Schedule referenced by a run no longer exists. */
+export class ScheduleNotFoundError extends Error {
+  constructor(scheduleId: string, options?: ErrorOptions) {
+    super(`Schedule not found: ${scheduleId}`, options);
+    this.name = 'ScheduleNotFoundError';
+  }
 }
 
 /**
@@ -88,6 +75,7 @@ export async function startScheduleRun(params: {
     input: TurnInputItem[];
     previous_turn_id: string;
     userRef: string;
+    agent: AgentRecord;
   }) => Promise<void>;
 }): Promise<void> {
   const {
@@ -120,6 +108,45 @@ export async function startScheduleRun(params: {
     input: [{ type: 'user.message', content: schedule.manifest.task }],
     previous_turn_id: 'none',
     userRef: schedule.created_by_subject.subject_id,
+    agent: named,
+  });
+}
+
+/** Loads trusted schedule context from a run id, then executes it idempotently. */
+export async function executeScheduleRun<TTransaction>(params: {
+  scheduleRunId: string;
+  scheduleStore: IScheduleStore<TTransaction>;
+  sessions: Sessions;
+  agentStore: IAgentStore<TTransaction>;
+  startTurn: (params: {
+    session: SessionHandle;
+    input: TurnInputItem[];
+    previous_turn_id: string;
+    userRef: string;
+    agent: AgentRecord;
+    tenant_id: string;
+    created_by_subject: ScheduleRunRecord['created_by_subject'];
+  }) => Promise<void>;
+}): Promise<void> {
+  const { scheduleRunId, scheduleStore, sessions, agentStore, startTurn } = params;
+  const run = await scheduleStore.getRunById({ id: scheduleRunId });
+  if (run === undefined) {
+    throw new ScheduleRunNotFoundError(scheduleRunId);
+  }
+  const schedule = await scheduleStore.getSchedule({ tenant_id: run.tenant_id, id: run.schedule_id });
+  if (schedule === undefined) {
+    throw new ScheduleNotFoundError(run.schedule_id);
+  }
+  await startScheduleRun({
+    item: { run, schedule },
+    sessions,
+    agentStore,
+    startTurn: turn =>
+      startTurn({
+        ...turn,
+        tenant_id: schedule.tenant_id,
+        created_by_subject: schedule.created_by_subject,
+      }),
   });
 }
 
@@ -296,18 +323,18 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
 
 export function scheduleDispatchLoop<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
-  client: ScheduleRunApiClient;
+  executeRun: (scheduleRunId: string) => Promise<void>;
   logger: Logger;
   withTransaction: WithTransaction<TTransaction>;
 }): ControlLoop {
-  const { scheduleStore, client, withTransaction, logger } = params;
+  const { scheduleStore, executeRun, withTransaction, logger } = params;
   return {
     name: SCHEDULE_DISPATCH_LOOP_NAME,
     intervalMs: SCHEDULE_DISPATCH_INTERVAL_MS,
     async tick(signal: AbortSignal): Promise<void> {
       const result = await dispatchScheduledRuns({
         store: scheduleStore,
-        onTriggered: executeScheduledRun(client),
+        onTriggered: item => executeRun(item.run.id),
         logger,
         withTransaction,
         signal,
