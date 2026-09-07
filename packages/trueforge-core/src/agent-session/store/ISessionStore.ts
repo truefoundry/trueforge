@@ -73,9 +73,9 @@ export interface ListSessionsInput {
       }
     | undefined;
   /**
-   * When non-empty, only sessions whose metadata contains all key/value pairs
-   * (exact string equality; extra session keys are allowed). `undefined` or `{}`
-   * means no metadata filter.
+   * When set, only sessions whose metadata contains all key/value pairs
+   * (exact string equality; extra session keys are allowed).
+   * `undefined` means no metadata filter; `{}` matches only sessions with empty metadata.
    */
   metadata: SessionMetadata | undefined;
   /** When set, only sessions whose `source.type` matches. */

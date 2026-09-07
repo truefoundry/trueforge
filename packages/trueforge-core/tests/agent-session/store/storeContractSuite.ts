@@ -1058,6 +1058,16 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         external_id: null,
         source: null,
       });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'empty-meta',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
 
       const listArgs = {
         agent_id: undefined,
@@ -1080,6 +1090,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         metadata: { env: 'prod', team: 'platform' },
       });
       expect(byBoth.data.map(s => s.session_id)).toEqual(['prod-platform']);
+
+      const emptyOnly = await store.listSessions({ ...listArgs, metadata: {} });
+      expect(emptyOnly.data.map(s => s.session_id)).toEqual(['empty-meta']);
     });
 
     it('filters by creator or named-agent ids', async () => {

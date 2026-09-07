@@ -284,12 +284,15 @@ export class InMemorySessionStore<
         }
       }
       const metadataFilter = input.metadata;
-      if (
-        metadataFilter !== undefined &&
-        Object.keys(metadataFilter).length > 0 &&
-        !Object.entries(metadataFilter).every(([key, value]) => stored.record.metadata[key] === value)
-      ) {
-        continue;
+      if (metadataFilter !== undefined) {
+        const entries = Object.entries(metadataFilter);
+        if (entries.length === 0) {
+          if (Object.keys(stored.record.metadata).length > 0) {
+            continue;
+          }
+        } else if (!entries.every(([key, value]) => stored.record.metadata[key] === value)) {
+          continue;
+        }
       }
       if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
         continue;
