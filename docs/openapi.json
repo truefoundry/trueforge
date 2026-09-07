@@ -6805,7 +6805,7 @@
     },
     "/api/v1/schedules/{schedule_id}/runs": {
       "get": {
-        "description": "List runs of a schedule, newest `scheduled_for` first. Only the schedule creator (or an admin) may list its runs.",
+        "description": "List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.",
         "parameters": [
           {
             "description": "Immutable schedule identifier.",
@@ -6839,7 +6839,7 @@
                 }
               }
             },
-            "description": "The caller is not the schedule creator."
+            "description": "The caller cannot read the schedule."
           },
           "404": {
             "content": {

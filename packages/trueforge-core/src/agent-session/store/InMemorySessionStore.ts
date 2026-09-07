@@ -282,6 +282,7 @@ export class InMemorySessionStore<
     input: ListSessionsInput,
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }> {
     const records: SessionRecord<TSessionCustom>[] = [];
+    const createdByOrAgentIds = input.created_by_or_agent_ids;
     for (const stored of this.sessions.values()) {
       if (stored.record.tenant_id !== input.tenant_id) {
         continue;
@@ -292,11 +293,14 @@ export class InMemorySessionStore<
       ) {
         continue;
       }
-      if (
-        input.created_by_subject_id !== undefined &&
-        stored.record.created_by_subject.subject_id !== input.created_by_subject_id
-      ) {
-        continue;
+      if (createdByOrAgentIds !== undefined) {
+        const creatorMatches =
+          stored.record.created_by_subject.subject_id === createdByOrAgentIds.created_by_subject_id;
+        const agentMatches =
+          stored.record.agent.type === 'reference' && createdByOrAgentIds.agent_ids.includes(stored.record.agent.id);
+        if (!creatorMatches && !agentMatches) {
+          continue;
+        }
       }
       const createdAt = stored.record.created_at.getTime();
       if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) {

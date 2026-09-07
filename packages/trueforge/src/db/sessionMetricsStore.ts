@@ -10,7 +10,7 @@ import type {
 export interface GetSessionMetricsInput {
   tenant_id: string;
   agent_id: string;
-  created_by_subject_id: string;
+  created_by_subject_id: string | undefined;
   start_timestamp: Date;
   end_timestamp: Date;
 }

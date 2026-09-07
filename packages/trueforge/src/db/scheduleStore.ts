@@ -94,7 +94,13 @@ export interface ListSchedulesInput {
   page_token: string | undefined;
   /** When set, only schedules for these agent names */
   agent_names: readonly string[] | undefined;
-  created_by_subject_id?: string | undefined;
+  /** When set, match creator or agent binding. Empty `agent_ids` means creator-only. */
+  created_by_or_agent_ids:
+    | {
+        created_by_subject_id: string;
+        agent_ids: readonly string[];
+      }
+    | undefined;
 }
 
 /** User-facing run listing, scoped to one schedule. */

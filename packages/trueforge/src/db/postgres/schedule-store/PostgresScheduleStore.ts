@@ -3,7 +3,7 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import type { Kysely, Selectable, Transaction } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
 import { parseStoredCreatedBySubject } from '../../createdBySubject';
@@ -31,7 +31,7 @@ import {
   type UpdateScheduleRunStatusInput,
 } from '../../scheduleStore';
 import { isUniqueViolation } from '../client';
-import { json, now } from '../sqlExpressions';
+import { json, now, whereCreatedByOrAgentIds } from '../sqlExpressions';
 import type { Database, ScheduleRunTable, ScheduleTable } from '../types';
 
 function toScheduleRecord(row: Selectable<ScheduleTable>): ScheduleRecord {
@@ -231,9 +231,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     if (input.agent_names !== undefined) {
       query = query.where('agent_name', 'in', [...input.agent_names]);
     }
-    if (input.created_by_subject_id !== undefined) {
-      query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
-    }
+    query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
     const rows = await query
       .orderBy('created_at', 'desc')
       .orderBy('id')

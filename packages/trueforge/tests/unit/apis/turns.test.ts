@@ -110,6 +110,76 @@ describe('turns', () => {
       expect(downloadResponse.status).toBe(403);
       expect(await downloadResponse.json()).toEqual(forbiddenAccess);
     });
+
+    it('lets an agent manager use read routes but keeps create-turn and sandbox download creator-only', async () => {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const agentStore = new SqliteAgentStore(db);
+      const agent = await agentStore.createAgent({
+        tenant_id: 'default',
+        name: 'managed-agent',
+        manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+        external_id: 'managed-agent-external',
+        created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+      });
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: 'managed-session',
+        created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+        agent: { type: 'reference', id: agent.id, name: agent.name },
+        custom: null,
+        metadata: {},
+        external_id: null,
+      });
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions: new Sessions({ sessionStore }),
+          sessionStore,
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          skillStore: new SqliteSkillStore(db),
+          resolveAgentStore: () => agentStore,
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          logger: createLogger({ silent: true }),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: {
+            listAgentAccess: input =>
+              Promise.resolve(
+                input.action === 'manage'
+                  ? { kind: 'agent_external_ids', agent_external_ids: ['managed-agent-external'] }
+                  : { kind: 'agent_external_ids', agent_external_ids: [] },
+              ),
+            canAccessAgent: () => Promise.resolve(false),
+          },
+        }),
+      );
+
+      expect((await app.request('/managed-session/turns')).status).toBe(200);
+      expect((await app.request('/managed-session/turns/missing')).status).toBe(404);
+      expect((await app.request('/managed-session/turns/missing/events')).status).toBe(404);
+      expect((await app.request('/managed-session/turns/missing/subscribe')).status).toBe(404);
+      expect(
+        (
+          await app.request(
+            `/managed-session/turns/missing/download-sandbox-file?path=${encodeURIComponent('/workspace/file.txt')}`,
+          )
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await app.request('/managed-session/turns', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ stream: false }),
+          })
+        ).status,
+      ).toBe(403);
+    });
   });
 
   describe('create turn non-streaming', () => {

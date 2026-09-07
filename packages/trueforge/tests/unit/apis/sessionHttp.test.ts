@@ -21,6 +21,7 @@ import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metric
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
@@ -49,13 +50,14 @@ describe('sessions HTTP agent binding', () => {
   let app: OpenAPIHono;
   let agentStore: SqliteAgentStore;
   let sessionStore: SqliteSessionStore;
+  let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps;
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     sessionStore = new SqliteSessionStore(db);
-    const sessionMetricsStore = new SqliteSessionMetricsStore(db);
+    sessionMetricsStore = new SqliteSessionMetricsStore(db);
     const sessions = new Sessions({ sessionStore });
     const modelProviderStore = new SqliteModelProviderStore(db);
     const mcpServerStore = new SqliteMcpServerStore(db);
@@ -104,6 +106,8 @@ describe('sessions HTTP agent binding', () => {
       createInternalMetricsRouter({
         sessionMetricsStore,
         resolveRequestContext: deps.resolveRequestContext,
+        resolveAgentStore: deps.resolveAgentStore,
+        authorizer: deps.authorizer,
       }),
     );
   });
@@ -229,6 +233,71 @@ describe('sessions HTTP agent binding', () => {
     expect(sessionsChartResponse.status).toBe(200);
     const sessionsChart = GetSessionMetricsChartDataResponseSchema.parse(await sessionsChartResponse.json());
     expect(sessionsChart.data.graphs[0]?.graph_lines[0]?.values.reduce((sum, point) => sum + point.value, 0)).toBe(1);
+  });
+
+  it('lets an agent manager read named sessions, events, and metrics but not mutate them', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+      name: 'managed-agent',
+      manifest: inlineSpec,
+      external_id: 'managed-agent-external',
+    });
+    await sessionStore.createSession({
+      tenant_id: 'default',
+      session_id: 'managed-session',
+      created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+      agent: { type: 'reference', id: agent.id, name: agent.name },
+      custom: null,
+      metadata: {},
+      external_id: null,
+    });
+    const managerAuthorizer: Authorizer = {
+      listAgentAccess: input =>
+        Promise.resolve(
+          input.action === 'manage'
+            ? { kind: 'agent_external_ids', agent_external_ids: ['managed-agent-external'] }
+            : { kind: 'agent_external_ids', agent_external_ids: [] },
+        ),
+      canAccessAgent: () => Promise.resolve(false),
+    };
+    const managerDeps = {
+      ...sessionDeps,
+      requestReplyRouter: new RequestReplyRouter(),
+      authorizer: managerAuthorizer,
+    };
+    const managerApp = new OpenAPIHono();
+    managerApp.route('/', createSessionsRouter(managerDeps));
+    managerApp.route(
+      '/api/internal/metrics',
+      createInternalMetricsRouter({
+        sessionMetricsStore,
+        resolveRequestContext: managerDeps.resolveRequestContext,
+        resolveAgentStore: managerDeps.resolveAgentStore,
+        authorizer: managerAuthorizer,
+      }),
+    );
+
+    expect((await managerApp.request('/managed-session')).status).toBe(200);
+    expect((await managerApp.request('/managed-session/events')).status).toBe(200);
+    const listed = await managerApp.request('/');
+    expect(ListSessionsResponseSchema.parse(await listed.json()).data.map(session => session.id)).toContain(
+      'managed-session',
+    );
+
+    const query = new URLSearchParams({
+      agent_id: agent.id,
+      start_timestamp: new Date(Date.now() - 60_000).toISOString(),
+      end_timestamp: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const metrics = GetSessionMetricsMeterResponseSchema.parse(
+      await (await managerApp.request(`/api/internal/metrics/meters?${query.toString()}`)).json(),
+    );
+    expect(metrics.data.meters.find(meter => meter.name === 'total_sessions')?.aggregate_value).toBe(1);
+
+    expect((await managerApp.request('/managed-session', jsonInit('PATCH', {}))).status).toBe(403);
+    expect((await managerApp.request('/managed-session', { method: 'DELETE' })).status).toBe(403);
+    expect((await managerApp.request('/managed-session/cancel', { method: 'POST' })).status).toBe(403);
   });
 
   it('returns the static session metrics charts', async () => {
