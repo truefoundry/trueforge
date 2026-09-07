@@ -122,7 +122,7 @@ export function AgentRuntimeConfigFields({
   };
   const runtimeFields = [sandboxField, fileDownloadsField, compactionField, largeToolResponseField];
   const compactionThreshold = value.contextManagement?.compaction?.trigger?.value ?? 50_000;
-  
+
   const switchField = ({
     field,
     className,
