@@ -1,3 +1,4 @@
+import { HTTPException } from 'hono/http-exception';
 import configuration, { type ServerConfiguration } from '../config';
 
 /**
@@ -11,16 +12,19 @@ export interface TrueFoundrySandboxProviderConfig {
 }
 
 /**
- * Returns the configured shared sandbox provider when `TRUEFOUNDRY_SANDBOX_ENABLED`, or undefined.
- * Prefer Daytona when `TRUEFOUNDRY_SANDBOX_API_KEY` + `TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL` are set.
+ * Returns the configured shared sandbox provider when Daytona env is complete, or undefined.
+ * Must only be called outside standalone (TrueFoundry wiring).
  */
 export function resolveTrueFoundrySandboxProviderConfig(
   config: ServerConfiguration = configuration,
 ): TrueFoundrySandboxProviderConfig | undefined {
-  if (config.STANDALONE || !config.TRUEFOUNDRY_SANDBOX_ENABLED) {
-    return undefined;
+  if (config.STANDALONE) {
+    throw new HTTPException(500, {
+      message: 'TrueFoundry sandbox provider config is not available in standalone mode',
+    });
   }
   if (
+    config.TRUEFOUNDRY_SANDBOX_ENABLED &&
     config.TRUEFOUNDRY_SANDBOX_API_KEY !== undefined &&
     config.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL !== undefined
   ) {
