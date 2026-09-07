@@ -10,9 +10,9 @@ import {
   compressInterTurnGaps,
   formatTimelineAxisDuration,
   getActiveTimelineMs,
-  groupCoincidentTimelineMarkers,
   getSubAgentHoverGroups,
   getSubAgentLanes,
+  groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
 } from '@/utils/sessionEventTimelineChart.js';
@@ -343,10 +343,7 @@ describe('sessionEventTimelineChart helpers', () => {
   });
 
   it('changes axis units at one second, one minute, and one hour', () => {
-    assert.deepEqual(
-      [999, 1_000, 60_000, 3_600_000].map(formatTimelineAxisDuration),
-      ['999ms', '1s', '1m', '1h'],
-    );
+    assert.deepEqual([999, 1_000, 60_000, 3_600_000].map(formatTimelineAxisDuration), ['999ms', '1s', '1m', '1h']);
   });
 
   it('drops a regular tick that would overlap the exact endpoint', () => {

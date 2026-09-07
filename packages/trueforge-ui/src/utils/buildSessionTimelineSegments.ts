@@ -46,10 +46,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   const approvalRequiredIdsByTurnId = new Map<string, Set<string>>();
   const threadDoneEvents = new Map<string, TimelineEvent>();
   const subAgentToolCallIds = new Set<string>();
-  const toolCallRequestsByTurnId = new Map<
-    string,
-    Map<string, { startedAtMs: number; threadId: string }>
-  >();
+  const toolCallRequestsByTurnId = new Map<string, Map<string, { startedAtMs: number; threadId: string }>>();
   let latestMs = originMs;
 
   for (const turn of turns) {

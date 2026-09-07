@@ -89,9 +89,7 @@ export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, numb
 }
 
 /** Collapse point events at an identical chart timestamp into one marker and tooltip. */
-export function groupCoincidentTimelineMarkers(
-  segments: SessionEventTimelineSegment[],
-): TimelineMarkerGroup[] {
+export function groupCoincidentTimelineMarkers(segments: SessionEventTimelineSegment[]): TimelineMarkerGroup[] {
   const groupsByTimestamp = new Map<number, SessionEventTimelineSegment[]>();
   for (const segment of segments) {
     if (!segment.isMarker) continue;
@@ -150,9 +148,7 @@ export function buildTimelineAxisTicks({
   }
   if (activeTicks.at(-1) !== activeTotalMs) activeTicks.push(activeTotalMs);
   return activeTicks.map(activeMs => ({
-    value:
-      activeMs +
-      turnStartsMs.slice(1).filter(turnStartMs => turnStartMs <= activeMs).length * turnGapMs,
+    value: activeMs + turnStartsMs.slice(1).filter(turnStartMs => turnStartMs <= activeMs).length * turnGapMs,
   }));
 }
 

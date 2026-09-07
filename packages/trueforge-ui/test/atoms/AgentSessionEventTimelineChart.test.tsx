@@ -71,7 +71,10 @@ describe('AgentSessionEventTimelineChart', () => {
 
   it('uses one unclipped diamond close to the event row and no fractional tick step', () => {
     const coincidentSegments: SessionEventTimelineSegment[] = [
-      segments[0] ?? (() => { throw new Error('Expected user segment'); })(),
+      segments[0] ??
+        (() => {
+          throw new Error('Expected user segment');
+        })(),
       {
         id: 'turn-1-system',
         type: 'system',
@@ -83,7 +86,10 @@ describe('AgentSessionEventTimelineChart', () => {
         threadId: 'main',
         isMarker: true,
       },
-      segments[1] ?? (() => { throw new Error('Expected model segment'); })(),
+      segments[1] ??
+        (() => {
+          throw new Error('Expected model segment');
+        })(),
     ];
 
     render(<AgentSessionEventTimelineChart turns={turns} segments={coincidentSegments} hiddenTypes={new Set()} />);

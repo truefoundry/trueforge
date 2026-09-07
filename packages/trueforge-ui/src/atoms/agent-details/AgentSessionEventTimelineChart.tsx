@@ -29,12 +29,12 @@ import {
   buildTimelineAxisTicks,
   formatTimelineAxisDuration,
   getActiveTimelineMs,
-  groupCoincidentTimelineMarkers,
   getSubAgentHoverGroups,
   getSubAgentLanes,
   getTimelineHoverTargetId,
   getTimelineLayout,
   getTimelineRange,
+  groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
   TIMELINE_TYPE,
@@ -230,17 +230,14 @@ export function AgentSessionEventTimelineChart({
   const hasTurnRow = turnBars.length > 0;
   const markerRow = hasTurnRow ? 1 : 0;
   const eventRow = markerRow + 1;
-  const { centers, band } = useMemo(
-    () => {
-      const heights = [...(hasTurnRow ? [16] : []), 10, 28, ...Array.from({ length: laneCount }, () => 12)];
-      const gaps = heights.map((_, index) => {
-        if (index === heights.length - 1) return 0;
-        return index === markerRow ? MARKER_EVENT_GAP_PX : ROW_GAP_PX;
-      });
-      return rowCenters({ heights, gaps });
-    },
-    [hasTurnRow, laneCount, markerRow],
-  );
+  const { centers, band } = useMemo(() => {
+    const heights = [...(hasTurnRow ? [16] : []), 10, 28, ...Array.from({ length: laneCount }, () => 12)];
+    const gaps = heights.map((_, index) => {
+      if (index === heights.length - 1) return 0;
+      return index === markerRow ? MARKER_EVENT_GAP_PX : ROW_GAP_PX;
+    });
+    return rowCenters({ heights, gaps });
+  }, [hasTurnRow, laneCount, markerRow]);
 
   const chartTargets = useMemo<Array<TimelineHoverTarget | null>>(
     () => [
