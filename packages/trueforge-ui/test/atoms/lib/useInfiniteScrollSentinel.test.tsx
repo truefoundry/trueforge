@@ -8,14 +8,22 @@ import { useInfiniteScrollSentinel } from '@/atoms/lib/useInfiniteScrollSentinel
 type ObserverCallback = IntersectionObserverCallback;
 
 let observerCallback: ObserverCallback | null = null;
-let observer: IntersectionObserver | null = null;
 const observe = vi.fn();
 const disconnect = vi.fn();
+
+const observerStub: IntersectionObserver = {
+  observe,
+  unobserve: vi.fn(),
+  disconnect,
+  takeRecords: () => [],
+  root: null,
+  rootMargin: '',
+  thresholds: [],
+};
 
 class FakeIntersectionObserver implements IntersectionObserver {
   constructor(callback: ObserverCallback) {
     observerCallback = callback;
-    observer = this;
   }
   observe = observe;
   unobserve = vi.fn();
@@ -88,7 +96,6 @@ function ControlledProbe({ onLoadMore }: { onLoadMore: () => void }): ReactEleme
 describe('useInfiniteScrollSentinel', () => {
   beforeEach(() => {
     observerCallback = null;
-    observer = null;
     observe.mockClear();
     disconnect.mockClear();
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
@@ -104,14 +111,14 @@ describe('useInfiniteScrollSentinel', () => {
 
     await waitFor(() => expect(observe).toHaveBeenCalled());
     act(() => {
-      if (observer !== null) observerCallback?.([intersectionEntry()], observer);
+      observerCallback?.([intersectionEntry()], observerStub);
     });
 
     await waitFor(() => expect(onLoadMore).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(observe.mock.calls.length).toBeGreaterThan(1));
 
     act(() => {
-      if (observer !== null) observerCallback?.([intersectionEntry()], observer);
+      observerCallback?.([intersectionEntry()], observerStub);
     });
 
     await waitFor(() => expect(onLoadMore).toHaveBeenCalledTimes(2));
