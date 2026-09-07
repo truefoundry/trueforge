@@ -42,7 +42,8 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
-import { honoQueriesToRecord, isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
+import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
+import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
 

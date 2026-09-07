@@ -11,8 +11,6 @@ import {
 import { NameSchema, PAGE_LIMIT } from './common';
 import { foldDeepObjectQueryParam } from './deepObjectQuery';
 
-export { honoQueriesToRecord } from './deepObjectQuery';
-
 /** Create arm: bind by unique registry agent name. */
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
 
