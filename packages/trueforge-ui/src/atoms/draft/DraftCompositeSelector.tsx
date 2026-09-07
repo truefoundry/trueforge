@@ -14,6 +14,7 @@ import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
@@ -66,6 +67,8 @@ function Checkbox({ checked }: { checked: boolean }) {
 export function CatalogRow({
   title,
   description,
+  logo,
+  fallbackIcon,
   checked,
   disabled = false,
   onToggle,
@@ -74,6 +77,9 @@ export function CatalogRow({
 }: {
   title: string;
   description?: string;
+  /** Catalog logo URL; when absent, `fallbackIcon` (or the title initial) is shown. */
+  logo?: string | undefined;
+  fallbackIcon?: string;
   checked: boolean;
   disabled?: boolean;
   onToggle: () => void;
@@ -82,8 +88,17 @@ export function CatalogRow({
 }) {
   const content = (
     <>
-      <span className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center rounded text-xs font-semibold">
-        {title.charAt(0).toUpperCase()}
+      <span
+        className="bg-secondary-bg text-text-secondary mt-0.5 flex size-7 shrink-0 items-center justify-center overflow-hidden rounded border border-border text-xs font-semibold"
+        aria-hidden
+      >
+        {logo ? (
+          <CatalogLogo src={logo} alt={title} className="size-4" />
+        ) : fallbackIcon ? (
+          <Icon name={fallbackIcon} className="text-text-primary size-4" />
+        ) : (
+          title.charAt(0).toUpperCase()
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="text-text-primary block truncate text-sm font-medium">{title}</span>
@@ -222,7 +237,7 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 }
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
-  const { skills, connectors, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
+  const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
@@ -484,7 +499,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     <CatalogRow
                       key={c.id}
                       title={c.name}
-                      description={c.description}
+                      logo={connectorLogos[c.name]}
+                      fallbackIcon="mcp-server"
                       checked={selectedMcpIds.has(c.id)}
                       action={
                         isUnauthenticatedDcrConnector(c) ? (
@@ -503,7 +519,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     <CatalogRow
                       key={c.id}
                       title={c.name}
-                      description={c.description}
+                      logo={connectorLogos[c.name]}
+                      fallbackIcon="mcp-server"
                       checked={selectedMcpIds.has(c.id)}
                       action={
                         isUnauthenticatedDcrConnector(c) ? (
@@ -608,6 +625,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             {/* Icon-only trigger; the count and name reach assistive tech via aria-label
                 and sighted users via the tooltip, which lists the selected tools. */}
             <Icon name="wrench" className="size-3.5" />
+            Tools
+            {/* Show the count of selected connectors and skills as a badge */}
+            {selectedMcp.length + selectedSkills.length > 0 && (
+              <span className="bg-primary-button-bg/10 text-primary-button-bg rounded-md px-1.5 py-0.5 text-xs ml-1">
+                {selectedMcp.length + selectedSkills.length}
+              </span>
+            )}
           </button>
         </Tooltip>
       ) : null}
