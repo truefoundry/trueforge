@@ -60,7 +60,7 @@ function McpServerChip({
             <span className="flex flex-col gap-1.5">
               <span className="flex items-center justify-between gap-3">
                 <span className="font-semibold">Preload tools</span>
-                <span className="text-primary-button-bg text-[10px] font-semibold tracking-wide uppercase">
+                <span className="text-primary-button-bg text-[0.625rem] font-semibold tracking-wide uppercase">
                   {preload ? 'ON' : 'OFF'}
                 </span>
               </span>
@@ -175,7 +175,7 @@ export function AgentConfigPanel({
 
   return (
     <div className="bg-card-bg text-text-primary flex h-full min-h-0 flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
+      <header className="flex min-h-14 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
@@ -196,11 +196,11 @@ export function AgentConfigPanel({
             <ProviderMark
               logo={model?.provider.logo}
               label={model?.provider.name ?? spec.model.name}
-              className="size-4 text-[8px]"
+              className="size-4 text-[0.5rem]"
             />
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(spec.model.name)}</span>
             {modelInfo.length ? (
-              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[11px]">
+              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]">
                 {modelInfo.join(' · ')}
               </span>
             ) : null}
