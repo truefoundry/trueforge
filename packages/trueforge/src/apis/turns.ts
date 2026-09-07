@@ -736,12 +736,12 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (agent === undefined) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 422);
       }
-      const canReadAgent = await deps.authorizer.canAccessAgent({
+      const canUseAgent = await deps.authorizer.canAccessAgent({
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent,
       });
-      if (!canReadAgent) {
+      if (!canUseAgent) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
       }
     }

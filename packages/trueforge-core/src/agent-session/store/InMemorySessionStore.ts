@@ -192,11 +192,11 @@ export class InMemorySessionStore<
       title: null,
       last_turn_id: null,
       external_id: externalId,
+      source: input.source !== null ? deepCopy(input.source) : null,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
       metrics: {
-        total_cost_in_usd: 0,
         total_duration_ms: 0,
         total_turns: 0,
       },
@@ -282,6 +282,12 @@ export class InMemorySessionStore<
         if (!creatorMatches && !agentMatches) {
           continue;
         }
+      }
+      if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
+        continue;
+      }
+      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
+        continue;
       }
       const createdAt = stored.record.created_at.getTime();
       if (input.start_timestamp !== undefined && createdAt < input.start_timestamp.getTime()) {
@@ -449,14 +455,17 @@ export class InMemorySessionStore<
     return;
   }
 
-  /** Cost from turn metrics; duration is completed_at − created_at, floored at 0. */
+  /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
   private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
     const stored = this.sessions.get(sessionKey(sessionId));
     if (!stored) {
       throw new SessionNotFoundError(sessionId);
     }
     const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
-    stored.record.metrics.total_cost_in_usd += state.metrics?.total_cost_in_usd ?? 0;
+    const turnCost = state.metrics?.total_cost_in_usd;
+    if (turnCost !== undefined) {
+      stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
+    }
     stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 

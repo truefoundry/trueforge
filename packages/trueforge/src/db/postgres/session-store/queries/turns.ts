@@ -125,21 +125,25 @@ async function addSessionCostAndDuration(
   input: { session_id: string; turn_created_at: Date; turn_state: TerminalTurnState },
 ): Promise<void> {
   const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
-  const total_cost_in_usd = input.turn_state.metrics?.total_cost_in_usd ?? 0;
   const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
+  const turnCost = input.turn_state.metrics?.total_cost_in_usd;
+  // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
+  const withDuration = jsonbSet<SessionMetrics>(
+    sql`metrics`,
+    sql`'{total_duration_ms}'`,
+    sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
+  );
   await trx
     .updateTable('session')
     .set({
-      metrics: jsonbSet<SessionMetrics>(
-        jsonbSet(
-          sql`metrics`,
-          sql`'{total_cost_in_usd}'`,
-          sql`to_jsonb((metrics->>'total_cost_in_usd')::double precision + ${total_cost_in_usd}::double precision)`,
-        ),
-        // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
-        sql`'{total_duration_ms}'`,
-        sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
-      ),
+      metrics:
+        turnCost === undefined
+          ? withDuration
+          : jsonbSet<SessionMetrics>(
+              withDuration,
+              sql`'{total_cost_in_usd}'`,
+              sql`to_jsonb(COALESCE((metrics->>'total_cost_in_usd')::double precision, 0) + ${turnCost}::double precision)`,
+            ),
     })
     .where('session_id', '=', input.session_id)
     .execute();

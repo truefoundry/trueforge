@@ -161,7 +161,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const existing = await agentIfAccessible({
       authorizer: deps.authorizer,
       context: requestContext,
-      action: 'manage',
+      action: 'delete',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, id: agentId }),
     });
     if (existing === undefined) {
