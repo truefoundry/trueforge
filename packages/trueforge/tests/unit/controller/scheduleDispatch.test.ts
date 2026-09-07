@@ -91,6 +91,7 @@ describe('scheduleDispatchLoop', () => {
     expect(getOrCreateByExternalId).toHaveBeenCalledWith({
       externalId: 'run-1',
       agent: { name: 'reporter' },
+      source: { type: 'schedule', id: 'sched-1', runId: 'run-1' },
     });
     expect(listTurns).toHaveBeenCalledWith('sess-1', { limit: 1 });
     expect(createTurn).toHaveBeenCalledWith('sess-1', {
@@ -154,6 +155,7 @@ describe('startScheduleRun', () => {
       external_id: 'run-1',
       created_by_subject: { subject_id: 'tester', subject_type: 'user', subject_display_name: 'tester' },
       agent: { type: 'reference', id: 'agent-1', name: 'reporter' },
+      source: { type: 'schedule', id: 'sched-1', run_id: 'run-1' },
     });
     expect(startTurn).toHaveBeenCalledWith({
       session,

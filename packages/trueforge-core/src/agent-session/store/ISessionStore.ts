@@ -19,7 +19,7 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by_subject' | 'external_id' | 'metadata'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by_subject' | 'external_id' | 'metadata' | 'source'
 > & {
   custom: TSessionCustom | null;
 };
@@ -71,6 +71,13 @@ export interface ListSessionsInput {
         agent_ids: readonly string[];
       }
     | undefined;
+  /** When set, only sessions whose `source.type` matches. */
+  source_type: string | undefined;
+  /**
+   * When set, only sessions whose `source.id` matches.
+   * Requires `source_type`.
+   */
+  source_id: string | undefined;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -262,8 +269,9 @@ export interface ISessionStore<
    * keyset cursor on `(updated_at, session_id)`. `start_timestamp` /
    * `end_timestamp` are inclusive instant bounds on `created_at`. Optional
    * `agent_id` filters ref-bound sessions. `created_by_or_agent_ids` matches
-   * rows created by its subject OR bound to one of its agent ids. Does **not**
-   * bump `last_activity_timestamp_ms` (read path).
+   * rows created by its subject OR bound to one of its agent ids; optional
+   * `source_type` / `source_id` filter by JSON `source` (expression-indexed,
+   * no scalar columns). Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(
     input: ListSessionsInput,

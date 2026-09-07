@@ -88,6 +88,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       custom: null,
       metadata: {},
       external_id: null,
+      source: null,
     });
   }
 
@@ -172,6 +173,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(session).toBeDefined();
       expect(mustGet(session).tenant_id).toBe(tenant);
       expect(mustGet(session).created_by_subject.subject_id).toBe('user-1');
+      expect(mustGet(session).source).toBeNull();
       expect(mustGet(session).agent).toMatchObject({
         type: 'inline',
         spec: { model: { name: 'test-provider/test-model' } },
@@ -198,6 +200,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'created-by-session' }));
       expect(session.created_by_subject).toEqual({
@@ -215,6 +218,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: undefined,
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(listed.data.map(s => s.session_id)).toContain('created-by-session');
       expect(listed.data.find(s => s.session_id === 'created-by-session')?.created_by_subject.subject_id).toBe(
@@ -232,6 +237,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await seedSession(store);
 
@@ -247,6 +253,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(filtered.data.map(row => row.session_id)).toEqual(['named-1']);
     });
@@ -261,6 +269,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
 
       await expect(
@@ -316,6 +325,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata,
         external_id: null,
+        source: null,
       });
 
       expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual(metadata);
@@ -331,6 +341,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: { a: '1' },
         external_id: null,
+        source: null,
       });
 
       await store.updateSession({
@@ -383,6 +394,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           custom: null,
           metadata: {},
           external_id: null,
+          source: null,
         }),
       ).rejects.toBeInstanceOf(SessionStoreConflictError);
     });
@@ -404,6 +416,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: 'run-1',
+        source: null,
       });
       const byId = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(mustGet(byId).external_id).toBe('run-1');
@@ -423,6 +436,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: 'shared-key',
+        source: null,
       });
       // Specifically the external-id arm, not just any conflict: get-or-create
       // treats this rejection as its normal repeat-call path.
@@ -435,6 +449,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           custom: null,
           metadata: {},
           external_id: 'shared-key',
+          source: null,
         }),
       ).rejects.toBeInstanceOf(SessionExternalIdConflictError);
 
@@ -446,6 +461,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: 'shared-key',
+        source: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -455,6 +471,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -464,6 +481,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
     });
 
@@ -477,6 +495,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: 'run-1',
+        source: null,
       });
       const first = await store.getSessionByExternalId({ tenant_id: tenant, external_id: 'run-1' });
       await new Promise(r => setTimeout(r, 5));
@@ -497,6 +516,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
 
       await store.createTurn(
@@ -584,6 +604,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(listed.data).toHaveLength(0);
 
@@ -682,6 +704,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await store.createTurn(makeCreateTurnInput({ sessionId: nested, turnId: 'turn-1' }));
       const nestedKeys = { session_id: nested, turn_id: 'turn-1' };
@@ -813,6 +836,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           custom: null,
           metadata: {},
           external_id: null,
+          source: null,
         });
         await new Promise(r => setTimeout(r, 2));
       }
@@ -829,6 +853,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
 
       const desc = await store.listSessions({
@@ -840,6 +865,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(desc.data.map(s => s.session_id)).toEqual(['sc', 'sb', 'sa']);
 
@@ -852,6 +879,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: 'asc',
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(asc.data.map(s => s.session_id)).toEqual(['sa', 'sb', 'sc']);
     });
@@ -869,6 +898,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(first.data).toHaveLength(2);
       expect(first.pagination.next_page_token).toBeDefined();
@@ -881,6 +912,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(second.data.map(s => s.session_id)).toEqual(['sa']);
       expect(second.pagination.next_page_token).toBeUndefined();
@@ -894,6 +927,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: 'asc',
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       const middleSession = all.data[1];
       if (!middleSession) {
@@ -909,6 +944,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         page_token: undefined,
         start_timestamp: middleCreatedAt,
         end_timestamp: middleCreatedAt,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(bounded.data.map(s => s.session_id)).toEqual(['sb']);
     });
@@ -932,6 +969,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       };
       const desc = await store.listSessions({ ...listArgs, limit: 10, page_token: undefined });
       expect(desc.data.map(s => s.session_id)).toEqual(['sa', 'sc', 'sb']);
@@ -958,6 +997,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: 'desc' as const,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       };
       const full = await store.listSessions({ ...listArgs, limit: 10, page_token: undefined });
       const page1 = await store.listSessions({ ...listArgs, limit: 2, page_token: undefined });
@@ -984,6 +1025,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -993,6 +1035,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -1002,6 +1045,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
       await store.createSession({
         tenant_id: tenant,
@@ -1011,6 +1055,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         custom: null,
         metadata: {},
         external_id: null,
+        source: null,
       });
 
       const aliceOnly = await store.listSessions({
@@ -1025,6 +1070,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(aliceOnly.data.map(s => s.session_id)).toEqual(['alice-session']);
       expect(aliceOnly.data[0]?.created_by_subject.subject_id).toBe('alice');
@@ -1041,6 +1088,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: 'asc',
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(aliceOrManaged.data.map(s => s.session_id)).toEqual(['alice-session', 'managed-session']);
 
@@ -1056,6 +1105,8 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
       });
       expect(managedAgentOnly.data.map(s => s.session_id)).toEqual(['managed-session']);
 
@@ -1071,6 +1122,93 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         order: undefined,
         start_timestamp: undefined,
         end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
+      });
+      expect(unmatched.data).toEqual([]);
+    });
+
+    it('persists schedule source and listSessions filters by source_type / source_id', async () => {
+      const store = createStore();
+      const scheduleSource = {
+        type: 'schedule' as const,
+        id: 'sched-1',
+        run_id: 'run-1',
+      };
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'from-schedule',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: {},
+        external_id: 'run-1',
+        source: scheduleSource,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'from-other-schedule',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: {},
+        external_id: 'run-2',
+        source: { type: 'schedule', id: 'sched-2', run_id: 'run-2' },
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'interactive',
+        created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+
+      const byId = mustGet(await store.getSession({ tenant_id: tenant, session_id: 'from-schedule' }));
+      expect(byId.source).toEqual(scheduleSource);
+
+      const byType = await store.listSessions({
+        agent_id: undefined,
+        created_by_or_agent_ids: undefined,
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+        source_type: 'schedule',
+        source_id: undefined,
+      });
+      expect(byType.data.map(s => s.session_id).sort()).toEqual(['from-other-schedule', 'from-schedule']);
+
+      const bySourceId = await store.listSessions({
+        agent_id: undefined,
+        created_by_or_agent_ids: undefined,
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+        source_type: 'schedule',
+        source_id: 'sched-1',
+      });
+      expect(bySourceId.data.map(s => s.session_id)).toEqual(['from-schedule']);
+      expect(bySourceId.data[0]?.source).toEqual(scheduleSource);
+
+      const unmatched = await store.listSessions({
+        agent_id: undefined,
+        created_by_or_agent_ids: undefined,
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+        source_type: 'schedule',
+        source_id: 'missing-sched',
       });
       expect(unmatched.data).toEqual([]);
     });
