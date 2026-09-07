@@ -24,7 +24,7 @@ export class SchedulesClient {
     }
 
     /**
-     * List schedules for the tenant, newest first. Optionally filter by `agent_names`.
+     * List schedules for the tenant, newest first.
      *
      * @param {TrueForge.ListSchedulesRequest} request
      * @param {SchedulesClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -45,11 +45,12 @@ export class SchedulesClient {
             async (
                 request: TrueForge.ListSchedulesRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSchedulesResponse>> => {
-                const { limit = 25, pageToken, agentNames } = request;
+                const { limit = 25, pageToken, agentNames, createdByMe } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
                     agent_names: agentNames,
+                    created_by_me: createdByMe,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(

@@ -112,14 +112,16 @@ function isScheduleOwner(requestContext: Pick<RequestContext, 'subject'>, create
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
-    const { agent_names: agentNames, limit, page_token: pageToken } = c.req.valid('query');
+    const { agent_names: agentNames, limit, page_token: pageToken, created_by_me: createdByMe } = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     try {
-      const managedAgentIds = await resolveManagedAgentIds({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-      });
+      const managedAgentIds = createdByMe
+        ? []
+        : await resolveManagedAgentIds({
+            store: deps.resolveAgentStore(c),
+            context: requestContext,
+            authorizer: deps.authorizer,
+          });
       const { data, pagination } = await deps.scheduleStore.listSchedules({
         tenant_id: requestContext.tenant_id,
         limit,
