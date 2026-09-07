@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const DEFAULT_ROOT_MARGIN = '3rem';
+// IntersectionObserver only accepts px/% — not rem (3rem @ 16px).
+const DEFAULT_ROOT_MARGIN = '48px';
 
 export type UseInfiniteScrollSentinelOptions = {
   enabled: boolean;
