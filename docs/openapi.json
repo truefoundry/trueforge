@@ -6932,14 +6932,7 @@
             "name": "metadata",
             "required": false,
             "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/SessionMetadata"
-                },
-                {
-                  "description": "Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs."
-                }
-              ]
+              "$ref": "#/components/schemas/SessionMetadata"
             },
             "style": "deepObject"
           },
