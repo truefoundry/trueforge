@@ -15,10 +15,10 @@ import type { AgentSpec, McpToolSelection } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
+import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
 import { editableMountsFromSpec, withPreload } from './draft/agentConfigMounts.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
-import { cn } from './lib/cn.js';
 import { CenteredModal } from './primitives/CenteredModal.js';
 
 type SaveIntent = 'create' | 'update';
@@ -77,6 +77,7 @@ function SaveAgentButtonContent({
   const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
+  const configInstructions = useOptionalAgentConfigInstructions();
   const catalog = useDraftCatalog();
   const serverCapabilities = useServerCapabilities();
   const AgentConfigEditors = useSlot('AgentConfigEditors');
@@ -109,13 +110,13 @@ function SaveAgentButtonContent({
     if (agentSpecRef.current === null || builder === null) return;
     setError(null);
     catalog.ensureLoaded();
+    configInstructions?.flush();
     await flushAgentSpec();
     const flushedAgentSpec = agentSpecRef.current;
     if (flushedAgentSpec === null) return;
+    const instructionsDraft = instructionsOverride ?? configInstructions?.draft;
     const latestAgentSpec =
-      instructionsOverride === undefined
-        ? flushedAgentSpec
-        : { ...flushedAgentSpec, instructions: instructionsOverride };
+      instructionsDraft === undefined ? flushedAgentSpec : { ...flushedAgentSpec, instructions: instructionsDraft };
     const currentName = shell?.mode.status === 'active' ? (shell.mode.agentName ?? shell.mode.agentId ?? '') : '';
     setIntent(currentName ? 'update' : 'create');
     setName(currentName);
@@ -191,12 +192,9 @@ function SaveAgentButtonContent({
         type="button"
         disabled={disabled || builder === null || agentSpec === null}
         className={auiButtonClass({
-          variant: 'outline',
+          variant: 'default',
           size: 'sm',
-          // Chrome-action triggers use the squared-off header treatment: tight corners,
-          // roomier horizontal padding, and a card-surface fill rather than the grey
-          // secondary fill, so they read as controls layered on the topbar.
-          className: cn('gap-2 rounded-[0.125rem] bg-card-bg px-[0.625rem]', className),
+          className,
         })}
         onClick={() => void show()}
       >

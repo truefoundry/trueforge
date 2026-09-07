@@ -3,6 +3,7 @@
 import { Icon } from '../icons/Icon.js';
 import { useOptionalScheduleServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { isSchedulesChromeEnabled } from '../server/serverChrome.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
@@ -15,7 +16,7 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
   const shell = useOptionalShellMode();
   const scheduleServer = useOptionalScheduleServer();
 
-  const enabled = scheduleServer != null && shell != null;
+  const enabled = isSchedulesChromeEnabled({ schedules: scheduleServer }) && shell != null;
   const open = shell?.schedulesOpen === true;
 
   if (!enabled) return null;
@@ -30,9 +31,9 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
         className={auiButtonClass({
           variant: 'ghost',
           className: cn(
-            'rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+            'rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
             compact
-              ? 'h-auto w-full flex-col gap-0.5 whitespace-normal px-1 py-1.5 text-[10px] leading-tight !justify-center'
+              ? 'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center'
               : 'h-8 w-full !justify-start px-2.5',
             open &&
               'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',

@@ -1,14 +1,22 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import type { AgentSpec, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
-import { auiInputClass } from '../lib/inputClasses.js';
+import { cn } from '../lib/cn.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
-import { editableMountsFromSpec, enabledToolsFromMount } from './agentConfigMounts.js';
+import { initialUserMessagesFromSpec } from './agentConfigMessages.js';
+import {
+  editableMountsFromSpec,
+  enabledToolsFromMount,
+  preloadFromMount,
+  withPreload,
+  type EditableMount,
+} from './agentConfigMounts.js';
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
 import { runtimeConfigSummary } from './runtimeConfigSummary.js';
@@ -16,11 +24,8 @@ import { runtimeConfigSummary } from './runtimeConfigSummary.js';
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
   model?: ModelSelection;
-  saveAction?: ReactNode;
   skillsAvailable: boolean;
   instructions: string;
-  onInstructionsChange: (value: string) => void;
-  onInstructionsBlur: () => void;
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
   onClose?: () => void;
@@ -28,6 +33,80 @@ export type AgentConfigPanelProps = {
 
 function formatTokens(value: number): string {
   return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
+function McpServerChip({
+  item,
+  onRemove,
+  onTogglePreload,
+}: {
+  item: EditableMount;
+  onRemove?: () => void;
+  onTogglePreload?: () => void;
+}) {
+  const enabled = enabledToolsFromMount(item.value);
+  const preload = preloadFromMount(item.value);
+  const toolsLabel = enabled === 'all' ? 'All tools' : `${enabled.length} tools`;
+
+  return (
+    <span className="flex items-center overflow-hidden rounded-md border border-border text-xs">
+      {onTogglePreload ? (
+        <Tooltip
+          side="bottom"
+          dismissOnClick={false}
+          triggerClassName="self-stretch"
+          className="w-64 whitespace-normal p-3 text-left shadow-lg"
+          content={
+            <span className="flex flex-col gap-1.5">
+              <span className="flex items-center justify-between gap-3">
+                <span className="font-semibold">Preload tools</span>
+                <span className="text-primary-button-bg text-[0.625rem] font-semibold tracking-wide uppercase">
+                  {preload ? 'ON' : 'OFF'}
+                </span>
+              </span>
+              <span className="text-text-secondary text-xs leading-snug">
+                Load MCP tool definitions in the agent context upfront. When off, the agent discovers tools dynamically
+                (uses less context upfront).
+              </span>
+            </span>
+          }
+        >
+          <button
+            type="button"
+            aria-pressed={preload}
+            aria-label={`Preload tools for ${item.name}`}
+            className={cn(
+              'flex h-full items-center justify-center border-r border-border px-1.5 transition-colors',
+              preload
+                ? 'bg-primary-button-bg text-primary-button-text'
+                : 'text-text-secondary hover:bg-ghost-button-hover',
+            )}
+            onClick={onTogglePreload}
+          >
+            <Icon name="book-open" className="size-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
+      <span className="py-1 pl-2">{item.name}</span>
+      <span className="text-text-secondary ml-1 py-1">{toolsLabel}</span>
+      {onRemove ? (
+        <button
+          type="button"
+          aria-label={`Remove ${item.name}`}
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'icon',
+            className: 'mx-1 size-5',
+          })}
+          onClick={onRemove}
+        >
+          <Icon name="xmark" className="size-3" />
+        </button>
+      ) : (
+        <span className="pr-2" />
+      )}
+    </span>
+  );
 }
 
 export function AgentConfigSection({
@@ -67,21 +146,19 @@ export function AgentConfigSection({
 export function AgentConfigPanel({
   spec,
   model,
-  saveAction,
   skillsAvailable,
   instructions,
-  onInstructionsChange,
-  onInstructionsBlur,
   onOpenEditor,
   onChange,
   onClose,
 }: AgentConfigPanelProps) {
-  const instructionsId = useId();
   const Section = useSlot('AgentConfigSection');
   const mcp = editableMountsFromSpec(spec.mcpServers);
   const skills = editableMountsFromSpec(spec.skills);
   const modelParams = modelParamSummary(spec.model.params);
   const runtimeConfig = runtimeConfigSummary(spec.config);
+  const instructionPreview = instructions.trim();
+  const userMessageCount = initialUserMessagesFromSpec(spec).length;
   const modelInfo = [
     model?.properties.contextLength === undefined ? null : formatTokens(model.properties.contextLength),
   ].filter((value): value is string => value !== null);
@@ -98,11 +175,10 @@ export function AgentConfigPanel({
 
   return (
     <div className="bg-card-bg text-text-primary flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+      <header className="flex min-h-14 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
-        {saveAction}
         {onClose ? (
           <button
             type="button"
@@ -120,11 +196,11 @@ export function AgentConfigPanel({
             <ProviderMark
               logo={model?.provider.logo}
               label={model?.provider.name ?? spec.model.name}
-              className="size-4 text-[8px]"
+              className="size-4 text-[0.5rem]"
             />
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(spec.model.name)}</span>
             {modelInfo.length ? (
-              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[11px]">
+              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]">
                 {modelInfo.join(' · ')}
               </span>
             ) : null}
@@ -168,18 +244,27 @@ export function AgentConfigPanel({
         </Section>
 
         <Section title="Instructions" description="Define the agent's role, goals, and behavior.">
-          <label htmlFor={instructionsId} className="sr-only">
-            Agent instructions
-          </label>
-          <textarea
-            id={instructionsId}
-            value={instructions}
-            rows={5}
-            placeholder="Enter detailed instructions for your agent…"
-            className={auiInputClass('resize-y py-2')}
-            onChange={event => onInstructionsChange(event.target.value)}
-            onBlur={onInstructionsBlur}
-          />
+          <button
+            type="button"
+            aria-label="Edit Instructions"
+            className="border-border hover:bg-ghost-button-hover flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
+            onClick={() => onOpenEditor('instructions')}
+          >
+            <div className="min-w-0 flex-1">
+              <p
+                className={cn(
+                  'line-clamp-3 whitespace-pre-wrap text-sm',
+                  instructionPreview ? 'text-text-primary' : 'text-text-secondary',
+                )}
+              >
+                {instructionPreview || 'No instructions added.'}
+              </p>
+              <p className="text-text-secondary mt-2 text-xs">
+                {userMessageCount} user {userMessageCount === 1 ? 'message' : 'messages'}
+              </p>
+            </div>
+            <Icon name="chevron-right" className="text-text-secondary size-4 shrink-0" />
+          </button>
         </Section>
 
         <Section
@@ -197,47 +282,58 @@ export function AgentConfigPanel({
           </dl>
         </Section>
 
-        <Section title="MCP Servers" onEdit={() => onOpenEditor('mcp')}>
+        <section className="group border-b border-border px-4 py-4">
+          <div className={cn('flex items-center justify-between gap-3', mcp.length ? 'mb-3' : null)}>
+            <div className="flex min-w-0 items-center gap-2">
+              <Icon name="mcp-server" className="text-text-secondary size-4 shrink-0" />
+              <h3 className="text-text-primary text-sm font-semibold">MCP Servers</h3>
+            </div>
+            <button
+              type="button"
+              aria-label="Add MCP server"
+              className={auiButtonClass({
+                variant: 'ghost',
+                size: 'icon',
+                className: 'size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+              })}
+              onClick={() => onOpenEditor('mcp')}
+            >
+              <Icon name="plus" className="size-3.5" />
+            </button>
+          </div>
           {mcp.length ? (
             <div className="flex flex-wrap gap-1.5">
-              {mcp.map(item => {
-                const enabled = enabledToolsFromMount(item.value);
-                return (
-                  <span
-                    key={item.id}
-                    className="flex items-center rounded-md border border-border py-1 pr-1 pl-2 text-xs"
-                  >
-                    <span>{item.name}</span>
-                    <span className="text-text-secondary ml-1">
-                      {enabled === 'all' ? 'All tools' : `${enabled.length} tools`}
-                    </span>
-                    {onChange ? (
-                      <button
-                        type="button"
-                        aria-label={`Remove ${item.name}`}
-                        className={auiButtonClass({
-                          variant: 'ghost',
-                          size: 'icon',
-                          className: 'ml-1 size-5',
-                        })}
-                        onClick={() =>
+              {mcp.map(item => (
+                <McpServerChip
+                  key={item.id}
+                  item={item}
+                  onRemove={
+                    onChange
+                      ? () =>
                           onChange({
                             ...spec,
                             mcpServers: mcp.filter(mount => mount.id !== item.id).map(mount => mount.value),
                           })
-                        }
-                      >
-                        <Icon name="xmark" className="size-3" />
-                      </button>
-                    ) : null}
-                  </span>
-                );
-              })}
+                      : undefined
+                  }
+                  onTogglePreload={
+                    onChange
+                      ? () =>
+                          onChange({
+                            ...spec,
+                            mcpServers: mcp.map(mount =>
+                              mount.id === item.id
+                                ? withPreload(mount.value, !preloadFromMount(mount.value))
+                                : mount.value,
+                            ),
+                          })
+                      : undefined
+                  }
+                />
+              ))}
             </div>
-          ) : (
-            <p className="text-text-secondary text-xs">No MCP servers selected.</p>
-          )}
-        </Section>
+          ) : null}
+        </section>
 
         <Section title="Skills" onEdit={() => onOpenEditor('skills')}>
           {!skillsAvailable ? (

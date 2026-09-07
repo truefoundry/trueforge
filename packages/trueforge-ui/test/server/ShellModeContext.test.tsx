@@ -12,10 +12,13 @@ import {
 import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from './mockServer.js';
+import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
-  const server = createMockAgentUIServer({ catalog: createMockCatalog() });
+  const server = createMockAgentUIServer({
+    catalog: createMockCatalog(),
+    sessions: createMockAgentSessionsServer(),
+  });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ServerProvider server={server}>
@@ -35,6 +38,17 @@ function wrapWithoutCatalog(agentConfig?: AgentConfig, initialSettingsOpen?: boo
         <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
           {children}
         </ShellModeProvider>
+      </ServerProvider>
+    );
+  };
+}
+
+function wrapWithoutSessions(agentConfig?: AgentConfig) {
+  const server = createMockAgentUIServer({ catalog: createMockCatalog() });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={agentConfig}>{children}</ShellModeProvider>
       </ServerProvider>
     );
   };
@@ -171,6 +185,17 @@ describe('ShellModeProvider', () => {
     act(() => result.current.setLibraryOpen(false));
     expect(result.current.libraryOpen).toBe(false);
     expect(result.current.libraryAgentId).toBeNull();
+  });
+
+  it('ignores openLibraryAgent and sessions open when sessions port is missing', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrapWithoutSessions() });
+
+    act(() => result.current.openLibraryAgent('agent-1'));
+    expect(result.current.libraryOpen).toBe(false);
+    expect(result.current.libraryAgentId).toBeNull();
+
+    act(() => result.current.setSessionsOpen(true));
+    expect(result.current.sessionsOpen).toBe(false);
   });
 
   it('defaults to AgentLibraryWithComposer (mutable + library)', () => {

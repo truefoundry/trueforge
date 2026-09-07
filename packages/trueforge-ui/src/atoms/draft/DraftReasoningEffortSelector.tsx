@@ -71,7 +71,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
   const content = (
     <>
       <div className="border-b border-border px-3 py-2">
-        <p className="text-text-primary text-sm font-semibold">Reasoning effort</p>
+        <p className="text-text-primary text-sm font-normal">Reasoning effort</p>
       </div>
       <div
         id={menuId}
@@ -105,7 +105,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
                 setOpen(false);
               }}
             >
-              <span className="truncate font-medium">{effort}</span>
+              <span className="truncate font-normal">{effort}</span>
             </button>
           );
         })}

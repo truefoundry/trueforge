@@ -19,6 +19,7 @@
 - Zod unions MUST use `z.discriminatedUnion` whenever every member carries a shared literal discriminator field; `z.union` is only permitted when no such common discriminator exists.
 - HTTP/OpenAPI wire shapes (path params, query params, request/response JSON fields) and database identifiers (table/column names, persisted jsonb document keys) MUST use `snake_case`.
 - Server code MUST NOT read environment variables via `process.env` directly; all env reads MUST go through `packages/trueforge/src/config.ts`, unless there is a documented special requirement (for example bootstrap before config is loaded).
+- UI styles MUST use `rem` for lengths (not `px`); assume **1rem = 16px**. Prefer Tailwind spacing/type scale utilities when they fit. Exceptions: `0px` in `calc()`/`env()` fallbacks, existing media-query breakpoints, and canvas/measurement APIs that require CSS pixels.
 
 ## Code comments
 

@@ -4,14 +4,31 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
+import type { ListResult, PageParams } from '../../server/types.js';
+import { drainListPages } from '../../utils/drainListPages.js';
+import { toListResult } from './chatServer.js';
+
 export async function listModels(client: TrueForge): Promise<TrueForgeApi.AvailableModel[]> {
   const body = await client.models.list();
   return body.data;
 }
 
+export async function listConfiguredMcpServersPage(
+  client: TrueForge,
+  req: PageParams = {},
+): Promise<ListResult<TrueForgeApi.AvailableMcpServer>> {
+  const page = await client.mcpServers.list({
+    ...(req.limit === undefined ? {} : { limit: req.limit }),
+    ...(req.pageToken === undefined ? {} : { pageToken: req.pageToken }),
+  });
+  return toListResult(page, server => server);
+}
+
+/** Drain every MCP page (full catalog for non-picker callers). */
 export async function listConfiguredMcpServers(client: TrueForge): Promise<TrueForgeApi.AvailableMcpServer[]> {
-  const body = await client.mcpServers.list();
-  return body.data;
+  return drainListPages({
+    fetchPage: pageToken => listConfiguredMcpServersPage(client, { pageToken }),
+  });
 }
 
 export async function listSkills(client: TrueForge): Promise<TrueForgeApi.AvailableSkill[]> {

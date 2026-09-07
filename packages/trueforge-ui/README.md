@@ -550,6 +550,7 @@ type AgentUIServer = AgentChatServer &
     catalog?: CatalogServer;
     sessions?: AgentSessionsServer;
     metrics?: AgentMetricsServer;
+    schedules?: ScheduleServer;
   };
 ```
 
@@ -557,7 +558,13 @@ type AgentUIServer = AgentChatServer &
 | -------------------- | ------------------------------------------------------------------- |
 | `AgentChatServer`    | Sessions, turns, streaming, draft `AgentSpec` sync                  |
 | `AgentBuilderServer` | `getModels` / `getSkills` / `getMcp` / `searchAgents` / `saveAgent` |
+| `catalog`            | Settings CRUD (models / connectors / optional skills & sandbox)     |
+| `sessions`           | Agent details + sessions browser (`/sessions`, `/library/:agentId`) |
+| `schedules`          | Schedules page (`/schedules`)                                       |
 | `AgentMetricsServer` | Agent meter aggregates, chart definitions, and chart data           |
+
+Omit an optional port to hide its chrome and unregister its routes (same gate as the
+Settings button for `catalog`).
 
 **Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
 
