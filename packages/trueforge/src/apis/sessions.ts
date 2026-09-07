@@ -270,7 +270,7 @@ function createGetOrCreateSessionByExternalIdHandler(
       const named = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -332,7 +332,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       const agent = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
-        action: 'read',
+        action: 'use',
         agent: await deps.resolveAgentStore(c).getAgent({
           tenant_id: requestContext.tenant_id,
           name: body.agent.name,
@@ -483,11 +483,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const query = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     try {
-      const managedAgentIds = await resolveManagedAgentIds({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-      });
+      const managedAgentIds = query.created_by_me
+        ? []
+        : await resolveManagedAgentIds({
+            store: deps.resolveAgentStore(c),
+            context: requestContext,
+            authorizer: deps.authorizer,
+          });
       const { data, pagination } = await deps.sessionStore.listSessions({
         agent_id: query.agent_id,
         created_by_or_agent_ids: {

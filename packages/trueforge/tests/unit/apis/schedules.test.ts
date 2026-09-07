@@ -192,10 +192,20 @@ describe('schedule RBAC', () => {
     asUser(BOB);
     expect((await app.request(`/${id}`)).status).toBe(200);
     expect(ListSchedulesResponseSchema.parse(await (await app.request('/')).json()).data).toHaveLength(1);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data,
+    ).toHaveLength(0);
     expect(ListScheduleRunsResponseSchema.parse(await (await app.request(`/${id}/runs`)).json()).data).toHaveLength(1);
     expect((await postJson(`/${id}`, 'PUT', { name: 'renamed', manifest: scheduleBody.manifest })).status).toBe(403);
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403);
     expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
+
+    asUser(ALICE);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data.map(
+        row => row.id,
+      ),
+    ).toEqual([id]);
   });
 });
 
@@ -335,15 +345,17 @@ describe('create schedule run', () => {
     expect(runNow?.status).toBe('failed');
   });
 
-  it('returns 404 when creating a schedule for an agent the caller cannot read', async () => {
+  it('returns 404 when creating a schedule for an agent the caller cannot use', async () => {
+    const canAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
     const denyAll: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-      canAccessAgent: () => Promise.resolve(false),
+      canAccessAgent,
     };
     const { postJson } = await setup(denyAll);
     const res = await postJson('/', 'POST', scheduleBody);
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
+    expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
   });
 
   it('returns 404 on run-now when the caller can access the schedule but not the agent', async () => {
@@ -353,9 +365,10 @@ describe('create schedule run', () => {
     const created = await postJson('/', 'POST', scheduleBody);
     const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
 
+    const canAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
     setAuthorizer({
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-      canAccessAgent: () => Promise.resolve(false),
+      canAccessAgent,
     });
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
@@ -365,5 +378,6 @@ describe('create schedule run', () => {
 
     const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
+    expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
   });
 });

@@ -112,14 +112,16 @@ function isScheduleOwner(requestContext: Pick<RequestContext, 'subject'>, create
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listSchedulesRoute> = async c => {
-    const { agent_names: agentNames, limit, page_token: pageToken } = c.req.valid('query');
+    const { agent_names: agentNames, limit, page_token: pageToken, created_by_me: createdByMe } = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     try {
-      const managedAgentIds = await resolveManagedAgentIds({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-      });
+      const managedAgentIds = createdByMe
+        ? []
+        : await resolveManagedAgentIds({
+            store: deps.resolveAgentStore(c),
+            context: requestContext,
+            authorizer: deps.authorizer,
+          });
       const { data, pagination } = await deps.scheduleStore.listSchedules({
         tenant_id: requestContext.tenant_id,
         limit,
@@ -182,11 +184,11 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
 
-    // Schedule ownership alone must not invoke an agent the caller cannot read.
+    // Schedule ownership alone must not invoke an agent the caller cannot use.
     const agent = await agentIfAccessible({
       authorizer: deps.authorizer,
       context: requestContext,
-      action: 'read',
+      action: 'use',
       agent: await deps.resolveAgentStore(c).getAgent({
         tenant_id: requestContext.tenant_id,
         name: schedule.agent_name,
@@ -257,7 +259,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     const agent = await agentIfAccessible({
       authorizer: deps.authorizer,
       context: requestContext,
-      action: 'read',
+      action: 'use',
       agent: await deps.resolveAgentStore(c).getAgent({ tenant_id: requestContext.tenant_id, name: body.agent_name }),
     });
     if (agent === undefined) {

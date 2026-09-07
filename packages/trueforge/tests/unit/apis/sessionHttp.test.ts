@@ -41,9 +41,10 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) => Promise.resolve(false));
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
-  canAccessAgent: () => Promise.resolve(false),
+  canAccessAgent: deniedCanAccessAgent,
 };
 
 describe('sessions HTTP agent binding', () => {
@@ -284,6 +285,21 @@ describe('sessions HTTP agent binding', () => {
     expect(ListSessionsResponseSchema.parse(await listed.json()).data.map(session => session.id)).toContain(
       'managed-session',
     );
+    const listedMine = await managerApp.request('/?created_by_me=true');
+    expect(listedMine.status).toBe(200);
+    expect(ListSessionsResponseSchema.parse(await listedMine.json()).data.map(session => session.id)).not.toContain(
+      'managed-session',
+    );
+    expect((await managerApp.request('/?created_by_me=maybe')).status).toBe(400);
+
+    const own = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(own.status).toBe(201);
+    const ownId = ((await own.json()) as { data: { id: string } }).data.id;
+    expect(
+      ListSessionsResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data.map(
+        session => session.id,
+      ),
+    ).toContain(ownId);
 
     const query = new URLSearchParams({
       agent_id: agent.id,
@@ -538,7 +554,8 @@ describe('sessions HTTP agent binding', () => {
     });
   });
 
-  it('returns 404 when creating a session for a named agent the caller cannot read', async () => {
+  it('returns 404 when creating a session for a named agent the caller cannot use', async () => {
+    deniedCanAccessAgent.mockClear();
     const agent = await agentStore.createAgent({
       tenant_id: 'default',
       created_by_subject: {
@@ -570,6 +587,7 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(getOrCreate.status).toBe(404);
     expect(await getOrCreate.json()).toEqual({ error: { message: `Agent not found: ${agent.name}` } });
+    expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use', 'use']);
   });
 
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
