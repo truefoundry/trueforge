@@ -3216,6 +3216,13 @@
           "name": {
             "type": "string"
           },
+          "reason": {
+            "description": "Failure detail when status is failed; otherwise null.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "schedule_id": {
             "type": "string"
           },
@@ -3246,6 +3253,7 @@
           "status",
           "created_by_subject",
           "triggered_at",
+          "reason",
           "created_at",
           "updated_at"
         ],
