@@ -9,6 +9,9 @@ import {
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema, PAGE_LIMIT } from './common';
+import { foldDeepObjectQueryParam } from './deepObjectQuery';
+
+export { honoQueriesToRecord } from './deepObjectQuery';
 
 /** Create arm: bind by unique registry agent name. */
 export const SessionAgentNameRefSchema = z.object({ name: NameSchema }).strict().openapi('SessionAgentNameRef');
@@ -70,84 +73,6 @@ const IsoTimestampQueryParam = z.iso
 
 /** Max metadata equality filters on list sessions (clause-budget style). */
 export const LIST_SESSIONS_METADATA_FILTER_MAX_KEYS = 10;
-
-const METADATA_EQUAL_KEY = /^metadata\[([^\]]+)\]$/;
-/** `metadata[key][…]` — nested brackets beyond a single key. */
-const METADATA_NESTED_BRACKETS = /^metadata\[[^\]]*\]\[[^\]]+\]/;
-
-function metadataQueryIssue(message: string): z.ZodError {
-  return new z.ZodError([
-    {
-      code: 'custom',
-      path: ['metadata'],
-      message,
-    },
-  ]);
-}
-
-function requireSingleString({ key, value }: { key: string; value: unknown }): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    throw metadataQueryIssue(`Query parameter "${key}" must appear at most once`);
-  }
-  throw metadataQueryIssue(`Query parameter "${key}" must be a string`);
-}
-
-/**
- * Fold Hono's flat deepObject query keys into `{ metadata: { key: value } }`.
- * Passes non-metadata keys through unchanged.
- *
- * - `metadata[key]=value` → equality filter
- * - `metadata[key][…]=…` → rejected (only one bracket level is allowed)
- * - bare `metadata=…` → rejected (no JSON-string dual support)
- */
-export function foldListSessionsMetadataQuery(query: object): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  const metadata: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(query)) {
-    if (key === 'metadata') {
-      throw metadataQueryIssue('Use metadata[key]=value query parameters; bare metadata is not supported');
-    }
-
-    if (METADATA_NESTED_BRACKETS.test(key)) {
-      throw metadataQueryIssue(
-        'Nested metadata query parameters like metadata[key][…] are not supported; use metadata[key]=value',
-      );
-    }
-
-    const equalMatch = METADATA_EQUAL_KEY.exec(key);
-    if (equalMatch) {
-      const metaKey = equalMatch[1];
-      if (metaKey === undefined || metaKey.length === 0) {
-        throw metadataQueryIssue('Metadata filter key must be non-empty');
-      }
-      if (Object.hasOwn(metadata, metaKey)) {
-        throw metadataQueryIssue(`Duplicate metadata filter key "${metaKey}"`);
-      }
-      metadata[metaKey] = requireSingleString({ key, value });
-      continue;
-    }
-
-    if (key.startsWith('metadata[')) {
-      throw metadataQueryIssue(`Invalid metadata query parameter "${key}"`);
-    }
-
-    out[key] = value;
-  }
-
-  const filterKeyCount = Object.keys(metadata).length;
-  if (filterKeyCount > LIST_SESSIONS_METADATA_FILTER_MAX_KEYS) {
-    throw metadataQueryIssue(`at most ${String(LIST_SESSIONS_METADATA_FILTER_MAX_KEYS)} metadata filter keys`);
-  }
-  if (filterKeyCount > 0) {
-    out['metadata'] = metadata;
-  }
-
-  return out;
-}
 
 export const ListSessionsRequestQuerySchema = z
   .object({
@@ -213,16 +138,13 @@ export type ListSessionsRequestQuery = z.infer<typeof ListSessionsRequestQuerySc
  * OpenAPIHono's query validator cannot nest deepObject keys; callers pass `c.req.queries()`.
  */
 export function parseListSessionsQuery(raw: object): ListSessionsRequestQuery {
-  return ListSessionsRequestQuerySchema.parse(foldListSessionsMetadataQuery(raw));
-}
-
-/** Normalize Hono `queries()` (string | string[]) into a flat record for parseListSessionsQuery. */
-export function honoQueriesToRecord(queries: Record<string, string[]>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, values] of Object.entries(queries)) {
-    out[key] = values.length === 1 ? values[0] : values;
-  }
-  return out;
+  return ListSessionsRequestQuerySchema.parse(
+    foldDeepObjectQueryParam({
+      query: raw,
+      name: 'metadata',
+      maxKeys: LIST_SESSIONS_METADATA_FILTER_MAX_KEYS,
+    }),
+  );
 }
 
 export const GetSessionResponseSchema = z
