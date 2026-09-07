@@ -23,7 +23,7 @@ export interface SettingsRouterDeps<TTransaction> {
   resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -60,7 +60,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/sandbox-providers',
     createSandboxProvidersRouter({
-      sandboxProviderStore: deps.sandboxProviderStore,
+      resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
       resolveRequestContext: deps.resolveRequestContext,

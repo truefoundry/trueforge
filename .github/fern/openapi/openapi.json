@@ -6926,6 +6926,17 @@
             }
           },
           {
+            "description": "Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs.",
+            "explode": true,
+            "in": "query",
+            "name": "metadata",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SessionMetadata"
+            },
+            "style": "deepObject"
+          },
+          {
             "description": "When set, returns only sessions created by this source type.",
             "in": "query",
             "name": "source_type",
