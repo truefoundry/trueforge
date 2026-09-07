@@ -105,7 +105,8 @@ export function AgentMcpEditorContent({
   onRefreshConnectors,
   onChange,
 }: AgentMcpEditorContentProps) {
-  const { connectorsHasMore, connectorsLoadingMore, loading, loadMoreConnectors } = useDraftCatalog();
+  const { connectorsHasMore, connectorsLoadMoreFailed, connectorsLoadingMore, loading, loadMoreConnectors } =
+    useDraftCatalog();
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
@@ -127,7 +128,7 @@ export function AgentMcpEditorContent({
 
   const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
     enabled: true,
-    hasMore: connectorsHasMore,
+    hasMore: connectorsHasMore && !connectorsLoadMoreFailed,
     loading: connectorsLoadingMore || loading,
     onLoadMore: loadMoreConnectors,
   });
@@ -226,8 +227,21 @@ export function AgentMcpEditorContent({
             );
           })}
           {connectorsHasMore ? (
-            <div ref={connectorsSentinelRef} className="flex h-8 items-center justify-center" aria-hidden>
-              {connectorsLoadingMore ? <span className="text-text-secondary text-[10px]">Loading…</span> : null}
+            <div
+              ref={connectorsLoadMoreFailed ? undefined : connectorsSentinelRef}
+              className="flex h-8 items-center justify-center"
+            >
+              {connectorsLoadMoreFailed ? (
+                <button
+                  type="button"
+                  className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+                  onClick={loadMoreConnectors}
+                >
+                  Retry loading connectors
+                </button>
+              ) : connectorsLoadingMore ? (
+                <span className="text-text-secondary text-[0.625rem]">Loading…</span>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -424,7 +438,7 @@ export function AgentMcpEditorContent({
                     {selected === 'all' ? (
                       <button
                         type="button"
-                        className="text-text-secondary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 pl-7 text-left text-[11px] font-medium tracking-wide uppercase"
+                        className="text-text-secondary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 pl-7 text-left text-[0.6875rem] font-medium tracking-wide uppercase"
                         onClick={() => openMountConnector(mount)}
                       >
                         <Icon name="wrench" className="size-3 shrink-0" />
@@ -436,7 +450,7 @@ export function AgentMcpEditorContent({
                           key={`${mount.id}:${toolName}`}
                           type="button"
                           aria-label={`Open ${mount.name} for ${toolName}`}
-                          className="text-text-primary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 pl-7 text-left text-[11px]"
+                          className="text-text-primary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 pl-7 text-left text-[0.6875rem]"
                           onClick={() => openMountConnector(mount)}
                         >
                           <Icon name="wrench" className="text-text-secondary size-3 shrink-0" />
@@ -444,7 +458,7 @@ export function AgentMcpEditorContent({
                         </button>
                       ))
                     ) : (
-                      <p className="text-text-secondary px-2 py-1.5 pl-7 text-[11px]">No tools selected.</p>
+                      <p className="text-text-secondary px-2 py-1.5 pl-7 text-[0.6875rem]">No tools selected.</p>
                     )}
                   </details>
                 );

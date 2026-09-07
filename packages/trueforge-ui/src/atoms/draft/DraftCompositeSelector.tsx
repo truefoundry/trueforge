@@ -217,7 +217,7 @@ export type DraftCompositeSelectorProps = {
 
 function SectionHeading({ label, count }: { label: string; count: number }) {
   return (
-    <div className="text-text-secondary px-3 pt-2 pb-1 text-[11px] font-medium tracking-wide uppercase">
+    <div className="text-text-secondary px-3 pt-2 pb-1 text-[0.6875rem] font-medium tracking-wide uppercase">
       {label} ({count})
     </div>
   );
@@ -228,6 +228,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     skills,
     connectors,
     connectorsHasMore,
+    connectorsLoadMoreFailed,
     connectorsLoadingMore,
     loading,
     ensureLoaded,
@@ -356,7 +357,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
 
   const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
     enabled: open && tab === 'connectors',
-    hasMore: connectorsHasMore,
+    hasMore: connectorsHasMore && !connectorsLoadMoreFailed,
     loading: connectorsLoadingMore || loading,
     onLoadMore: loadMoreConnectors,
   });
@@ -475,7 +476,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               <Icon name={t.icon} className="size-3.5" />
               {t.label}
               {count != null && count > 0 ? (
-                <span className="bg-secondary-bg rounded px-1 text-[10px]">{count}</span>
+                <span className="bg-secondary-bg rounded px-1 text-[0.625rem]">{count}</span>
               ) : null}
             </button>
           );
@@ -553,8 +554,21 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 />
               ) : null}
               {connectorsHasMore ? (
-                <div ref={connectorsSentinelRef} className="flex h-8 items-center justify-center" aria-hidden>
-                  {connectorsLoadingMore ? <span className="text-text-secondary text-[10px]">Loading…</span> : null}
+                <div
+                  ref={connectorsLoadMoreFailed ? undefined : connectorsSentinelRef}
+                  className="flex h-8 items-center justify-center"
+                >
+                  {connectorsLoadMoreFailed ? (
+                    <button
+                      type="button"
+                      className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+                      onClick={loadMoreConnectors}
+                    >
+                      Retry loading connectors
+                    </button>
+                  ) : connectorsLoadingMore ? (
+                    <span className="text-text-secondary text-[0.625rem]">Loading…</span>
+                  ) : null}
                 </div>
               ) : null}
             </>

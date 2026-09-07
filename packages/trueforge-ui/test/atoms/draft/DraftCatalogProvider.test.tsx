@@ -29,6 +29,7 @@ function CatalogProbe() {
       <output data-testid="skills">{catalog.skills.map(skill => skill.name).join(',')}</output>
       <output data-testid="connectors">{catalog.connectors.map(connector => connector.name).join(',')}</output>
       <output data-testid="connectors-has-more">{String(catalog.connectorsHasMore)}</output>
+      <output data-testid="connectors-load-more-failed">{String(catalog.connectorsLoadMoreFailed)}</output>
       <output data-testid="connectors-loading-more">{String(catalog.connectorsLoadingMore)}</output>
       <output data-testid="loading">{String(catalog.loading)}</output>
       <output data-testid="error">{catalog.error ?? ''}</output>
@@ -434,5 +435,40 @@ describe('DraftCatalogProvider', () => {
     await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha,Beta'));
     expect(screen.getByTestId('connectors-has-more')).toHaveTextContent('false');
     expect(listMcp).toHaveBeenCalledWith({ limit: 50, pageToken: 'page-2' });
+  });
+
+  it('stops automatic pagination after failure and allows an explicit retry', async () => {
+    const listMcp = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [{ id: 'a', name: 'Alpha' }],
+        nextPageToken: 'page-2',
+      })
+      .mockRejectedValueOnce(new Error('Page unavailable'))
+      .mockResolvedValueOnce({
+        data: [{ id: 'b', name: 'Beta' }],
+      });
+    const server = createMockAgentUIServer({ listMcp });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+    await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more connectors' }));
+    await waitFor(() => expect(screen.getByTestId('connectors-load-more-failed')).toHaveTextContent('true'));
+    expect(screen.getByTestId('connectors-has-more')).toHaveTextContent('true');
+    expect(listMcp).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more connectors' }));
+    await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha,Beta'));
+    expect(screen.getByTestId('connectors-load-more-failed')).toHaveTextContent('false');
+    expect(listMcp).toHaveBeenCalledTimes(3);
   });
 });

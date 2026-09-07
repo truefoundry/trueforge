@@ -14,6 +14,7 @@ type DraftCatalogValue = {
   skills: AgentSkill[];
   connectors: ConnectorState[];
   connectorsHasMore: boolean;
+  connectorsLoadMoreFailed: boolean;
   connectorsLoadingMore: boolean;
   loaded: boolean;
   loading: boolean;
@@ -82,6 +83,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
   const [connectorsNextPageToken, setConnectorsNextPageToken] = useState<string | undefined>(undefined);
+  const [connectorsLoadMoreFailed, setConnectorsLoadMoreFailed] = useState(false);
   const [connectorsLoadingMore, setConnectorsLoadingMore] = useState(false);
   const [completedEpoch, setCompletedEpoch] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,6 +100,8 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   }, []);
 
   const refresh = useCallback(() => {
+    loadMoreFailedRef.current = false;
+    setConnectorsLoadMoreFailed(false);
     setRequestEpoch(current => (current ?? -1) + 1);
   }, []);
 
@@ -105,6 +109,8 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
     if (!server) return;
     setLoading(true);
     setError(null);
+    loadMoreFailedRef.current = false;
+    setConnectorsLoadMoreFailed(false);
     try {
       const page = await fetchMcpPage({ server });
       setConnectors(page.data);
@@ -121,6 +127,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
     const pageToken = connectorsNextPageTokenRef.current;
     if (pageToken == null || pageToken.length === 0 || connectorsLoadingMoreRef.current) return;
 
+    setConnectorsLoadMoreFailed(false);
     setConnectorsLoadingMore(true);
     void fetchMcpPage({ server, pageToken })
       .then(page => {
@@ -134,6 +141,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
       })
       .catch((reason: unknown) => {
         loadMoreFailedRef.current = true;
+        setConnectorsLoadMoreFailed(true);
         setError(getErrorMessage(reason, 'Failed to load more connectors.'));
       })
       .finally(() => {
@@ -146,6 +154,8 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    loadMoreFailedRef.current = false;
+    setConnectorsLoadMoreFailed(false);
     // Settle each list alone so one failing picker does not blank the others.
     void Promise.allSettled([server.getModels(), server.getSkills(), fetchMcpPage({ server })]).then(
       ([modelsResult, skillsResult, mcpResult]) => {
@@ -186,6 +196,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
       skills,
       connectors,
       connectorsHasMore,
+      connectorsLoadMoreFailed,
       connectorsLoadingMore,
       loaded,
       loading,
@@ -201,6 +212,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
       skills,
       connectors,
       connectorsHasMore,
+      connectorsLoadMoreFailed,
       connectorsLoadingMore,
       loaded,
       loading,
@@ -223,6 +235,7 @@ export function useDraftCatalog(): DraftCatalogValue {
       skills: [],
       connectors: [],
       connectorsHasMore: false,
+      connectorsLoadMoreFailed: false,
       connectorsLoadingMore: false,
       loaded: false,
       loading: false,

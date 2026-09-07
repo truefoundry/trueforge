@@ -8,21 +8,33 @@ import { useInfiniteScrollSentinel } from '@/atoms/lib/useInfiniteScrollSentinel
 type ObserverCallback = IntersectionObserverCallback;
 
 let observerCallback: ObserverCallback | null = null;
+let observer: IntersectionObserver | null = null;
 const observe = vi.fn();
 const disconnect = vi.fn();
 
-class FakeIntersectionObserver {
+class FakeIntersectionObserver implements IntersectionObserver {
   constructor(callback: ObserverCallback) {
     observerCallback = callback;
+    observer = this;
   }
   observe = observe;
   unobserve = vi.fn();
   disconnect = disconnect;
   takeRecords = () => [];
-  root = null;
+  root: Element | Document | null = null;
   rootMargin = '';
-  thresholds = [];
+  thresholds: ReadonlyArray<number> = [];
 }
+
+const intersectionEntry = (): IntersectionObserverEntry => ({
+  boundingClientRect: new DOMRect(),
+  intersectionRatio: 1,
+  intersectionRect: new DOMRect(),
+  isIntersecting: true,
+  rootBounds: null,
+  target: document.createElement('div'),
+  time: 0,
+});
 
 function Probe({
   hasMore,
@@ -76,6 +88,7 @@ function ControlledProbe({ onLoadMore }: { onLoadMore: () => void }): ReactEleme
 describe('useInfiniteScrollSentinel', () => {
   beforeEach(() => {
     observerCallback = null;
+    observer = null;
     observe.mockClear();
     disconnect.mockClear();
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
@@ -91,20 +104,14 @@ describe('useInfiniteScrollSentinel', () => {
 
     await waitFor(() => expect(observe).toHaveBeenCalled());
     act(() => {
-      observerCallback?.(
-        [{ isIntersecting: true, target: document.createElement('div') } as IntersectionObserverEntry],
-        {} as IntersectionObserver,
-      );
+      if (observer !== null) observerCallback?.([intersectionEntry()], observer);
     });
 
     await waitFor(() => expect(onLoadMore).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(observe.mock.calls.length).toBeGreaterThan(1));
 
     act(() => {
-      observerCallback?.(
-        [{ isIntersecting: true, target: document.createElement('div') } as IntersectionObserverEntry],
-        {} as IntersectionObserver,
-      );
+      if (observer !== null) observerCallback?.([intersectionEntry()], observer);
     });
 
     await waitFor(() => expect(onLoadMore).toHaveBeenCalledTimes(2));

@@ -1,0 +1,41 @@
+---
+description: Prefer rem over px for UI lengths (1rem = 16px)
+globs: packages/trueforge-ui/**/*.{tsx,ts,css}, packages/frontend/**/*.{tsx,ts,css}
+alwaysApply: false
+---
+
+# Styles use rem, not px
+
+Do not introduce CSS/Tailwind lengths in `px`. Use `rem` with **1rem = 16px**.
+
+## Convert
+
+| px | rem |
+|----|-----|
+| 8px | 0.5rem |
+| 10px | 0.625rem |
+| 11px | 0.6875rem |
+| 12px | 0.75rem |
+| 14px | 0.875rem |
+| 16px | 1rem |
+| 24px | 1.5rem |
+| 32px | 2rem |
+| 48px | 3rem |
+
+```tsx
+// ❌ BAD
+className="text-[10px]"
+const margin = '48px';
+
+// ✅ GOOD
+className="text-[0.625rem]"
+const margin = '3rem';
+```
+
+Prefer Tailwind spacing scale utilities (`p-2`, `gap-1.5`, `text-sm`) when they match; they already resolve to rem.
+
+## Allowed exceptions
+
+- `0px` in `calc()` / `env()` fallbacks (e.g. `env(safe-area-inset-bottom, 0px)`)
+- Media-query device breakpoints that already exist as px (e.g. `(max-width: 767px)`) — do not invent new px style lengths elsewhere to match them
+- Canvas / measurement APIs that require CSS pixels for drawing math

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const DEFAULT_ROOT_MARGIN = '48px';
+const DEFAULT_ROOT_MARGIN = '3rem';
 
 export type UseInfiniteScrollSentinelOptions = {
   enabled: boolean;

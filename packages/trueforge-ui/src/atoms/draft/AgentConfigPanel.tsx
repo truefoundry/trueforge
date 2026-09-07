@@ -62,7 +62,7 @@ function McpServerChip({
             <span className="flex flex-col gap-1.5">
               <span className="flex items-center justify-between gap-3">
                 <span className="font-semibold">Preload tools</span>
-                <span className="text-primary-button-bg text-[10px] font-semibold tracking-wide uppercase">
+                <span className="text-primary-button-bg text-[0.625rem] font-semibold tracking-wide uppercase">
                   {preload ? 'ON' : 'OFF'}
                 </span>
               </span>
@@ -199,11 +199,11 @@ export function AgentConfigPanel({
             <ProviderMark
               logo={model?.provider.logo}
               label={model?.provider.name ?? spec.model.name}
-              className="size-4 text-[8px]"
+              className="size-4 text-[0.5rem]"
             />
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(spec.model.name)}</span>
             {modelInfo.length ? (
-              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[11px]">
+              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]">
                 {modelInfo.join(' · ')}
               </span>
             ) : null}
