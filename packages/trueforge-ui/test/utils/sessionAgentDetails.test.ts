@@ -75,12 +75,12 @@ describe('sessionDisplayFormat', () => {
   it('formats list metrics like the sessions mock', () => {
     assert.equal(
       formatSessionListMetrics({ totalTurns: 5, totalCostInUsd: 0.1615, totalDurationMs: 41_380 }),
-      '5 turns | $0.1615 | 41.38s',
+      '5 turns | $0.1615 | 41s',
     );
     assert.equal(formatTokenCount(122_000), '122K');
     assert.equal(formatCostUsd(1.4872), '$1.4872');
     assert.equal(formatDurationMs(76_800), '1.28m');
-    assert.equal(formatSessionListMetrics({ totalTurns: 5, totalDurationMs: 41_380 }), '5 turns | 41.38s');
+    assert.equal(formatSessionListMetrics({ totalTurns: 5, totalDurationMs: 42_691 }), '5 turns | 43s');
   });
 });
 

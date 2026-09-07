@@ -1,20 +1,24 @@
 'use client';
 
 import {
+  BarController,
   BarElement,
   Chart as ChartJS,
   LinearScale,
+  PointElement,
+  ScatterController,
   Tooltip,
   type ChartData,
+  type ChartDataset,
   type ChartOptions,
   type Plugin,
 } from 'chart.js';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react';
-import { Bar } from 'react-chartjs-2';
+import { Chart } from 'react-chartjs-2';
 
 import { useThemeMode } from '../../theme/SlotsProvider.js';
+import { roundDurationMsToSecond } from '../../utils/sessionDisplayFormat.js';
 import {
-  formatTimelineDuration,
   getSessionEventColor,
   getSessionEventHoverColor,
   getSessionEventLabel,
@@ -23,7 +27,9 @@ import {
 } from '../../utils/sessionEventTimeline.js';
 import {
   buildTimelineAxisTicks,
+  formatTimelineAxisDuration,
   getActiveTimelineMs,
+  groupCoincidentTimelineMarkers,
   getSubAgentHoverGroups,
   getSubAgentLanes,
   getTimelineHoverTargetId,
@@ -40,31 +46,35 @@ import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   hasSessionEventTooltip,
   SessionEventTooltip,
+  SessionMarkerGroupTooltip,
   SessionSubAgentGroupTooltip,
   SessionToolCallGroupTooltip,
   SessionTurnTooltip,
 } from './AgentSessionTimelineTooltip.js';
 import type { AgentSessionEventTimelineChartProps } from './types.js';
 
-ChartJS.register(LinearScale, BarElement, Tooltip);
+ChartJS.register(BarController, BarElement, LinearScale, PointElement, ScatterController, Tooltip);
 
 const MARKER_PX = 4;
 const TURN_GAP_PX = 12;
 const END_PAD_PX = 12;
 const BAR_RADIUS_PX = 2;
 const ROW_GAP_PX = 8;
+const MARKER_EVENT_GAP_PX = 2;
 const OVERHEAD_PX = 30;
 
 type BarPoint = { x: [number, number]; y: number };
+type MarkerPoint = { x: number; y: number };
+type TimelineChartType = 'bar' | 'scatter';
 
-function rowCenters(heights: number[], gap: number): { centers: number[]; band: number } {
+function rowCenters({ heights, gaps }: { heights: number[]; gaps: number[] }): { centers: number[]; band: number } {
   const centers: number[] = [];
   let offset = 0;
-  for (const height of heights) {
+  heights.forEach((height, index) => {
     centers.push(offset + height / 2);
-    offset += height + gap;
-  }
-  return { centers, band: Math.max(0, offset - gap) };
+    offset += height + (gaps[index] ?? 0);
+  });
+  return { centers, band: offset };
 }
 
 function eventOrder(type: SessionEventTimelineSegment['type']): number {
@@ -90,7 +100,7 @@ export function AgentSessionEventTimelineChart({
   const isDark = mode === 'dark';
   const axis = isDark ? '#8c8c92' : '#71717a';
   const grid = isDark ? '#27272a' : '#e4e4e7';
-  const turnFill = isDark ? '#3f3f46' : '#e4e4e7';
+  const turnFill = isDark ? '#3f3f46' : '#E0ECFD';
   const turnHover = isDark ? '#52525b' : '#d4d4d8';
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [widthPx, setWidthPx] = useState(0);
@@ -137,9 +147,14 @@ export function AgentSessionEventTimelineChart({
     };
   }, [refreshTooltipAnchor, tooltipTarget]);
 
-  const activeTotalMs = Math.max(1, ...segments.map(segment => segment.endMs));
+  const segmentTotalMs = Math.max(0, ...segments.map(segment => segment.endMs));
+  const activeTotalMs = Math.max(1, roundDurationMsToSecond(segmentTotalMs));
   const { turnStartsMs, turnOrdinals, turnRanges } = useMemo(() => getTimelineLayout(segments), [segments]);
-  const gapCount = Math.max(0, turnStartsMs.length - 1);
+  const activeTurnStartsMs = useMemo(
+    () => turnStartsMs.filter((startMs, index) => index === 0 || startMs <= activeTotalMs),
+    [activeTotalMs, turnStartsMs],
+  );
+  const gapCount = Math.max(0, activeTurnStartsMs.length - 1);
   const scaleWidthPx = Math.max(widthPx / 2, widthPx - TURN_GAP_PX * gapCount - END_PAD_PX);
   const msPerPx = activeTotalMs / Math.max(1, scaleWidthPx);
   const turnGapMs = TURN_GAP_PX * msPerPx;
@@ -147,10 +162,10 @@ export function AgentSessionEventTimelineChart({
   const timelineMaxMs = totalMs + END_PAD_PX * msPerPx;
   const timelineGaps = useMemo<TimelineGap[]>(
     () =>
-      turnStartsMs
+      activeTurnStartsMs
         .slice(1)
         .map((startMs, index) => ({ startMs: startMs + index * turnGapMs, endMs: startMs + (index + 1) * turnGapMs })),
-    [turnGapMs, turnStartsMs],
+    [activeTurnStartsMs, turnGapMs],
   );
 
   const visibleSegments = useMemo(
@@ -162,6 +177,8 @@ export function AgentSessionEventTimelineChart({
       }),
     [hiddenTypes, segments, turnGapMs, turnOrdinals],
   );
+  const markerGroups = useMemo(() => groupCoincidentTimelineMarkers(visibleSegments), [visibleSegments]);
+  const durationSegments = useMemo(() => visibleSegments.filter(segment => !segment.isMarker), [visibleSegments]);
   const turnBars = useMemo<TimelineTurnBar[]>(
     () =>
       turnRanges.length < 2
@@ -176,8 +193,8 @@ export function AgentSessionEventTimelineChart({
     [msPerPx, turnGapMs, turnRanges],
   );
   const subAgentSegments = useMemo(
-    () => visibleSegments.filter(segment => segment.type === 'sub_agent'),
-    [visibleSegments],
+    () => durationSegments.filter(segment => segment.type === 'sub_agent'),
+    [durationSegments],
   );
   const mainSubAgents = useMemo(() => pickLongestNonOverlappingSegments(subAgentSegments), [subAgentSegments]);
   const subAgentGroups = useMemo(
@@ -185,15 +202,15 @@ export function AgentSessionEventTimelineChart({
     [mainSubAgents, subAgentSegments],
   );
   const subAgentLanes = useMemo(
-    () => getSubAgentLanes({ subAgentSegments, threadSegments: visibleSegments, minWidthMs: MARKER_PX * msPerPx }),
-    [msPerPx, subAgentSegments, visibleSegments],
+    () => getSubAgentLanes({ subAgentSegments, threadSegments: durationSegments, minWidthMs: MARKER_PX * msPerPx }),
+    [durationSegments, msPerPx, subAgentSegments],
   );
   const mainCandidates = useMemo(() => {
     const kept = new Set(mainSubAgents.map(segment => segment.id));
-    return visibleSegments.filter(
+    return durationSegments.filter(
       segment => segment.threadId === MAIN_THREAD_ID || (segment.type === 'sub_agent' && kept.has(segment.id)),
     );
-  }, [mainSubAgents, visibleSegments]);
+  }, [durationSegments, mainSubAgents]);
   const toolCallGroups = useMemo(
     () =>
       groupOverlappingToolCalls(mainCandidates.filter(segment => segment.type === 'tool_call')).filter(
@@ -211,15 +228,24 @@ export function AgentSessionEventTimelineChart({
   );
   const laneCount = subAgentLanes.reduce((count, lane) => Math.max(count, lane.lane + 1), 0);
   const hasTurnRow = turnBars.length > 0;
-  const eventRow = hasTurnRow ? 1 : 0;
+  const markerRow = hasTurnRow ? 1 : 0;
+  const eventRow = markerRow + 1;
   const { centers, band } = useMemo(
-    () => rowCenters([...(hasTurnRow ? [16] : []), 28, ...Array.from({ length: laneCount }, () => 12)], ROW_GAP_PX),
-    [hasTurnRow, laneCount],
+    () => {
+      const heights = [...(hasTurnRow ? [16] : []), 10, 28, ...Array.from({ length: laneCount }, () => 12)];
+      const gaps = heights.map((_, index) => {
+        if (index === heights.length - 1) return 0;
+        return index === markerRow ? MARKER_EVENT_GAP_PX : ROW_GAP_PX;
+      });
+      return rowCenters({ heights, gaps });
+    },
+    [hasTurnRow, laneCount, markerRow],
   );
 
   const chartTargets = useMemo<Array<TimelineHoverTarget | null>>(
     () => [
       ...turnBars.map((bar): TimelineHoverTarget => ({ type: TIMELINE_TYPE.turn, bar })),
+      ...markerGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.markerGroup, group })),
       ...subAgentLanes.flatMap(lane =>
         lane.segments.map((segment): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
       ),
@@ -230,7 +256,7 @@ export function AgentSessionEventTimelineChart({
       }),
       ...toolCallGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.toolCallGroup, group })),
     ],
-    [mainEventSegments, subAgentGroups, subAgentLanes, toolCallGroups, turnBars],
+    [mainEventSegments, markerGroups, subAgentGroups, subAgentLanes, toolCallGroups, turnBars],
   );
 
   const barDataset = ({
@@ -267,7 +293,7 @@ export function AgentSessionEventTimelineChart({
     ...(inflateAmount == null ? {} : { inflateAmount }),
   });
 
-  const chartData = useMemo<ChartData<'bar', BarPoint[], string>>(
+  const chartData = useMemo<ChartData<TimelineChartType, Array<BarPoint | MarkerPoint>, string>>(
     () => ({
       datasets: [
         ...turnBars.map(bar =>
@@ -280,6 +306,23 @@ export function AgentSessionEventTimelineChart({
             thickness: 16,
           }),
         ),
+        ...markerGroups.map(group => {
+          const type = group.segments.length === 1 ? group.segments[0]?.type : 'system';
+          const color = getSessionEventColor(type ?? 'system');
+          return {
+            type: 'scatter' as const,
+            label: group.segments.map(segment => getSessionEventLabel(segment.type)).join(', '),
+            data: [{ x: group.startMs, y: centers[markerRow] ?? 0 }] satisfies MarkerPoint[],
+            pointStyle: 'rectRot' as const,
+            pointRadius: 5,
+            pointHoverRadius: 6,
+            clip: false,
+            backgroundColor: color,
+            hoverBackgroundColor: getSessionEventHoverColor(type ?? 'system'),
+            borderWidth: 0,
+            order: 0,
+          } satisfies ChartDataset<'scatter', MarkerPoint[]>;
+        }),
         ...subAgentLanes.flatMap(lane =>
           lane.segments.map(segment =>
             barDataset({
@@ -320,10 +363,21 @@ export function AgentSessionEventTimelineChart({
         ),
       ],
     }),
-    [centers, eventRow, mainEventSegments, subAgentLanes, toolCallGroups, turnBars, turnFill, turnHover],
+    [
+      centers,
+      eventRow,
+      mainEventSegments,
+      markerGroups,
+      markerRow,
+      subAgentLanes,
+      toolCallGroups,
+      turnBars,
+      turnFill,
+      turnHover,
+    ],
   );
 
-  const turnLabelPlugin = useMemo<Plugin<'bar'>>(
+  const turnLabelPlugin = useMemo<Plugin<TimelineChartType>>(
     () => ({
       id: 'turnLabels',
       afterDatasetsDraw(chart) {
@@ -344,7 +398,7 @@ export function AgentSessionEventTimelineChart({
     }),
     [axis, turnBars],
   );
-  const overheadPlugin = useMemo<Plugin<'bar'>>(
+  const overheadPlugin = useMemo<Plugin<TimelineChartType>>(
     () => ({
       id: 'timelineOverhead',
       afterLayout(chart) {
@@ -355,7 +409,7 @@ export function AgentSessionEventTimelineChart({
     [],
   );
 
-  const chartOptions = useMemo<ChartOptions<'bar'>>(
+  const chartOptions = useMemo<ChartOptions<TimelineChartType>>(
     () => ({
       indexAxis: 'y',
       animation: false,
@@ -398,21 +452,18 @@ export function AgentSessionEventTimelineChart({
           grid: { color: grid },
           border: { color: grid },
           afterBuildTicks: scale => {
-            scale.ticks = buildTimelineAxisTicks({
-              ticks: scale.ticks,
-              totalMs,
-              timelineMaxMs,
-            });
+            scale.ticks = buildTimelineAxisTicks({ activeTotalMs, turnStartsMs: activeTurnStartsMs, turnGapMs });
           },
           ticks: {
             color: axis,
             autoSkip: false,
-            includeBounds: true,
+            includeBounds: false,
             maxTicksLimit: 9,
-            stepSize: timelineMaxMs / 8,
             callback: value => {
               const timelineMs = Number(value);
-              return timelineMs <= totalMs ? formatTimelineDuration(getActiveTimelineMs(timelineMs, timelineGaps)) : '';
+              return timelineMs <= totalMs
+                ? formatTimelineAxisDuration(getActiveTimelineMs(timelineMs, timelineGaps))
+                : '';
             },
           },
         },
@@ -427,7 +478,20 @@ export function AgentSessionEventTimelineChart({
         },
       },
     }),
-    [axis, band, chartTargets, grid, onSelectTurn, refreshTooltipAnchor, timelineGaps, timelineMaxMs, totalMs],
+    [
+      activeTotalMs,
+      activeTurnStartsMs,
+      axis,
+      band,
+      chartTargets,
+      grid,
+      onSelectTurn,
+      refreshTooltipAnchor,
+      timelineGaps,
+      timelineMaxMs,
+      totalMs,
+      turnGapMs,
+    ],
   );
 
   const tooltipTurn = tooltipTarget?.type === TIMELINE_TYPE.turn ? turns[tooltipTarget.bar.turnIndex] : undefined;
@@ -451,6 +515,8 @@ export function AgentSessionEventTimelineChart({
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.toolCallGroup ? (
       <SessionToolCallGroupTooltip group={tooltipTarget.group} />
+    ) : tooltipTarget?.type === TIMELINE_TYPE.markerGroup ? (
+      <SessionMarkerGroupTooltip group={tooltipTarget.group} />
     ) : tooltipTarget?.type === TIMELINE_TYPE.subAgentGroup ? (
       <SessionSubAgentGroupTooltip group={tooltipTarget.group} />
     ) : null;
@@ -467,7 +533,12 @@ export function AgentSessionEventTimelineChart({
         anchor={tooltipAnchor}
       >
         <div className="w-full" style={containerStyle} onMouseLeave={clearTooltip}>
-          <Bar data={chartData} options={chartOptions} plugins={[turnLabelPlugin, overheadPlugin]} />
+          <Chart<TimelineChartType, Array<BarPoint | MarkerPoint>, string>
+            type="bar"
+            data={chartData}
+            options={chartOptions}
+            plugins={[turnLabelPlugin, overheadPlugin]}
+          />
         </div>
       </LightTooltip>
     </div>

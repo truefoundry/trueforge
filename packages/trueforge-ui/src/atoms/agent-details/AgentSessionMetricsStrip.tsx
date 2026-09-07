@@ -3,7 +3,7 @@
 import type { ComponentType, ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
-import { formatCostUsd, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
+import { formatCostUsd, formatReadableDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import { formatTimelineDuration } from '../../utils/sessionEventTimeline.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import {
@@ -53,7 +53,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
         <SessionMetricTile
           id="wall-time"
           label="Duration"
-          value={formatTimelineDuration(metrics.wallTimeMs)}
+          value={formatReadableDurationMs(metrics.wallTimeMs)}
           tooltip={
             <SessionMetricTooltipContent title="Where the time went">
               <StackedProportionBar data={metrics.timeBreakdown} formatValue={formatTimelineDuration} />

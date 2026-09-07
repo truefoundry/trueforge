@@ -45,7 +45,7 @@ export const SESSION_EVENT_TYPES: SessionEventTypeDefinition[] = [
   { id: 'model', label: 'Model', color: '#3b82f6' },
   { id: 'tool_call', label: 'Tool call', color: '#f59e0b' },
   { id: 'approval', label: 'Approval / HITL', color: '#f472b6' },
-  { id: 'sub_agent', label: 'Sub-agent', color: '#c084fc' },
+  { id: 'sub_agent', label: 'Sub-agent', color: '#E2E8F0' },
   { id: 'waiting_on_human', label: 'Waiting on human', color: '#22d3ee' },
   { id: 'error', label: 'Error', color: '#f87171' },
 ];
