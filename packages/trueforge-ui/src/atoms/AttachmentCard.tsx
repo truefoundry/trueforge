@@ -40,7 +40,7 @@ export function AttachmentCard({
         data-slot="aui_attachment-preview"
         style={previewSize}
         className={cn(
-          'aui-attachment-preview relative shrink-0 cursor-pointer overflow-hidden rounded-lg border border-border-secondary',
+          'aui-attachment-preview relative shrink-0 cursor-pointer overflow-hidden rounded-lg border border-primary-button-bg/20',
           previewRem == null && 'size-24',
           className,
         )}
@@ -57,7 +57,7 @@ export function AttachmentCard({
       className={cn('aui-attachment-chip relative size-14 shrink-0', className)}
     >
       <Tooltip content={name} side="top" triggerClassName="size-full">
-        <div className="bg-secondary-bg relative size-full overflow-hidden rounded-[calc(var(--composer-radius,1.5rem)-var(--composer-padding,8px))] border border-border-secondary">
+        <div className="bg-secondary-bg relative size-full overflow-hidden rounded-[calc(var(--composer-radius,1.5rem)-var(--composer-padding,8px))] border border-primary-button-bg/20">
           <Avatar className="size-full rounded-none">
             <AvatarImage src={isImage ? previewSrc : undefined} alt={name} className="object-cover" />
             <AvatarFallback className="rounded-none">
