@@ -192,10 +192,20 @@ describe('schedule RBAC', () => {
     asUser(BOB);
     expect((await app.request(`/${id}`)).status).toBe(200);
     expect(ListSchedulesResponseSchema.parse(await (await app.request('/')).json()).data).toHaveLength(1);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data,
+    ).toHaveLength(0);
     expect(ListScheduleRunsResponseSchema.parse(await (await app.request(`/${id}/runs`)).json()).data).toHaveLength(1);
     expect((await postJson(`/${id}`, 'PUT', { name: 'renamed', manifest: scheduleBody.manifest })).status).toBe(403);
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403);
     expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
+
+    asUser(ALICE);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data.map(
+        row => row.id,
+      ),
+    ).toEqual([id]);
   });
 });
 

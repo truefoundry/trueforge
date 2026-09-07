@@ -284,6 +284,21 @@ describe('sessions HTTP agent binding', () => {
     expect(ListSessionsResponseSchema.parse(await listed.json()).data.map(session => session.id)).toContain(
       'managed-session',
     );
+    const listedMine = await managerApp.request('/?created_by_me=true');
+    expect(listedMine.status).toBe(200);
+    expect(ListSessionsResponseSchema.parse(await listedMine.json()).data.map(session => session.id)).not.toContain(
+      'managed-session',
+    );
+    expect((await managerApp.request('/?created_by_me=maybe')).status).toBe(400);
+
+    const own = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(own.status).toBe(201);
+    const ownId = ((await own.json()) as { data: { id: string } }).data.id;
+    expect(
+      ListSessionsResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data.map(
+        session => session.id,
+      ),
+    ).toContain(ownId);
 
     const query = new URLSearchParams({
       agent_id: agent.id,

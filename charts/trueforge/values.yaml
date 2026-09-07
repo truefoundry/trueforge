@@ -4,7 +4,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.0-8e9f92d"
+  tag: "0.2.0-rc.1-a5f8116"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -33,7 +33,6 @@ securityContext:
       - ALL
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
-
 service:
   type: ClusterIP
   port: 8790
