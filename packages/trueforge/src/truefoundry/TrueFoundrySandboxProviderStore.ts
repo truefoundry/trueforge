@@ -1,12 +1,12 @@
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import { resolveTrueFoundrySandboxProviderConfig } from '../config';
 import type {
   ISandboxProviderStore,
   SandboxProviderRecord,
   UpdateSandboxStatusInput,
   UpsertSandboxProviderInput,
 } from '../db/sandboxProviderStore';
+import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 
 const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;

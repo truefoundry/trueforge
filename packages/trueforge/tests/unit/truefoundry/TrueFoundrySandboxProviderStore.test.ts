@@ -1,8 +1,8 @@
-import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/config';
-import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
+import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/trueFoundryManaged';
+import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
 
-jest.mock('../../../src/config', () => {
+jest.mock('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig', () => {
   const resolveTrueFoundrySandboxProviderConfig = jest.fn();
   return {
     __esModule: true,
