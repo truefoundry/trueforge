@@ -64,5 +64,8 @@ describe('AgentSessionMetricsStrip', () => {
 
     render(<AgentSessionMetricsStrip metrics={metricsWithoutCost} />);
     expect(screen.queryByText('Cost')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="agent-session-metrics-strip"] > div')).toHaveClass(
+      '@min-[48rem]:grid-cols-7',
+    );
   });
 });
