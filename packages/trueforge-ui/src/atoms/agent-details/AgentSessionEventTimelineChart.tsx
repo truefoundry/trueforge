@@ -101,7 +101,7 @@ export function AgentSessionEventTimelineChart({
   const axis = isDark ? '#8c8c92' : '#71717a';
   const grid = isDark ? '#27272a' : '#e4e4e7';
   const turnFill = isDark ? '#3f3f46' : '#E0ECFD';
-  const turnHover = isDark ? '#52525b' : '#d4d4d8';
+  const turnHover = isDark ? '#52525b' : '#E0ECFD';
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [widthPx, setWidthPx] = useState(0);
   const [overheadPx, setOverheadPx] = useState(OVERHEAD_PX);
