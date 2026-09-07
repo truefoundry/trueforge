@@ -3484,7 +3484,7 @@
         "description": "Rolled-up cost, duration, and turn counters for a session.",
         "properties": {
           "total_cost_in_usd": {
-            "description": "Estimated total cost in USD for this session; omitted when unavailable.",
+            "description": "Estimated total cost in USD for this session",
             "minimum": 0,
             "type": "number"
           },
