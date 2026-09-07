@@ -267,15 +267,14 @@ async function createStandalonePersistence(options: {
     tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
+  const sandboxProviderStore = new SqliteSandboxProviderStore(db);
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveAgentStore: () => agentStore,
-    resolveSandboxProviderStore: buildResolveSandboxProviderStore({
-      persistenceStore: new SqliteSandboxProviderStore(db),
-    }),
+    resolveSandboxProviderStore: () => sandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
     skillStore: new SqliteSkillStore(db),
