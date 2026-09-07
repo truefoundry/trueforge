@@ -82,4 +82,17 @@ describe('useChatHeaderContentVisible', () => {
     expect(result.current.clear).toBe(true);
     expect(result.current.header).toBe(true);
   });
+
+  it('hides Clear on a fresh draft; header still shows the title', () => {
+    const { result } = renderHook(
+      () => ({
+        clear: useChatChromeActionsVisible(),
+        header: useChatHeaderContentVisible(),
+      }),
+      { wrapper: wrap({ messages: [], agentConfig: { mode: 'AgentComposer' } }) },
+    );
+
+    expect(result.current.clear).toBe(false);
+    expect(result.current.header).toBe(true);
+  });
 });

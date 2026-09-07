@@ -23,6 +23,7 @@ import {
   Cpu,
   Download,
   Ellipsis,
+  EllipsisVertical,
   ExternalLink,
   File,
   Github,
@@ -58,6 +59,7 @@ import {
   Settings,
   SlidersHorizontal,
   Sparkle,
+  SquareArrowOutUpRight,
   SquarePen,
   Sun,
   Terminal,
@@ -133,6 +135,7 @@ const defaults: Record<string, IconEntry> = {
   'rotate-right': RotateCw,
   broom: Broom,
   ellipsis: Ellipsis,
+  'ellipsis-vertical': EllipsisVertical,
   trash: Trash2,
   'box-archive': Archive,
   'clock-rotate-left': History,
@@ -188,6 +191,7 @@ const defaults: Record<string, IconEntry> = {
   'expand-alt': Maximize2,
   compress: Minimize2,
   'external-link': ExternalLink,
+  'square-arrow-out-up-right': SquareArrowOutUpRight,
   github: Github,
 };
 

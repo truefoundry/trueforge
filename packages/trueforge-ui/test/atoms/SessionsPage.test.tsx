@@ -109,6 +109,34 @@ describe('SessionsPage', () => {
     expect(screen.getByRole('separator', { name: 'Resize session list' })).toHaveClass('w-0');
   });
 
+  it('shows a single empty screen when there are no sessions', async () => {
+    renderPage({ listSessions: vi.fn(async () => ({ data: [] })) });
+    expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();
+    expect(await screen.findByText('No Sessions Found')).toBeInTheDocument();
+    expect(screen.getByText('There are no sessions available at the moment.')).toBeInTheDocument();
+    expect(screen.queryByText('Select a session to view details')).not.toBeInTheDocument();
+    expect(screen.queryByRole('separator', { name: 'Resize session list' })).not.toBeInTheDocument();
+  });
+
+  it('keeps session detail visible when the list is empty but a sessionId is selected', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const getSession = vi.fn(async (): Promise<Session> => ({
+      id: 'sess-1',
+      title: 'Pinned session',
+      isMutable: false,
+      createdAt: namedRow.createdAt,
+      updatedAt: namedRow.updatedAt,
+    }));
+    renderPage({
+      listSessions: vi.fn(async () => ({ data: [] })),
+      getSession,
+    });
+
+    expect(await screen.findByText('Pinned session')).toBeInTheDocument();
+    expect(screen.queryByText('No Sessions Found')).not.toBeInTheDocument();
+    expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+  });
+
   it('shows the custom range picker only after Custom Time Range is clicked', async () => {
     renderPage();
     const timeButton = await screen.findByRole('button', { name: 'Last 30 days' });

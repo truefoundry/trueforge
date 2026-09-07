@@ -58,7 +58,23 @@ describe('AgentSessionDetailHeader', () => {
     });
   });
 
-  it('shows Resume Chat when onResume is provided', () => {
+  it('shows Resume Chat as a new-tab link with an external icon', () => {
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        resumeHref="https://app.example/sessions/sess-1"
+        resumeLabel="Resume Chat"
+      />,
+    );
+    const resume = screen.getByRole('link', { name: /Resume Chat/i });
+    expect(resume).toHaveAttribute('href', 'https://app.example/sessions/sess-1');
+    expect(resume).toHaveAttribute('target', '_blank');
+    expect(resume).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('falls back to an in-shell Resume button when only onResume is provided', () => {
     const onResume = vi.fn();
     render(
       <AgentSessionDetailHeader
@@ -71,5 +87,21 @@ describe('AgentSessionDetailHeader', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Resume Chat' }));
     expect(onResume).toHaveBeenCalledOnce();
+  });
+
+  it('prefers the new-tab link when both resumeHref and onResume are set', () => {
+    const onResume = vi.fn();
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        resumeHref="https://app.example/sessions/sess-1"
+        onResume={onResume}
+        resumeLabel="Resume Chat"
+      />,
+    );
+    expect(screen.getByRole('link', { name: /Resume Chat/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resume Chat' })).not.toBeInTheDocument();
   });
 });

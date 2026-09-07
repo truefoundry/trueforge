@@ -3,18 +3,39 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DRAFT_SPEC_PREFERENCES_STORAGE_KEY, readDraftSpecPreferences } from '@/server/draftSpecPreferences.js';
+import {
+  AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+  CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+  DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+  readDraftSpecPreferences,
+} from '@/server/draftSpecPreferences.js';
 import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js';
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
-import { createMockAgentUIServer } from './mockServer.js';
+import { createMockAgentUIServer, createMockCatalog } from './mockServer.js';
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
+  const server = createMockAgentUIServer({ catalog: createMockCatalog() });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-        {children}
-      </ShellModeProvider>
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+          {children}
+        </ShellModeProvider>
+      </ServerProvider>
+    );
+  };
+}
+
+function wrapWithoutCatalog(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
+  const server = createMockAgentUIServer({ catalog: undefined });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+          {children}
+        </ShellModeProvider>
+      </ServerProvider>
     );
   };
 }
@@ -32,6 +53,8 @@ function wrapWithServer(server: AgentUIServer, agentConfig?: AgentConfig) {
 describe('ShellModeProvider', () => {
   beforeEach(() => {
     window.localStorage.removeItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+    window.localStorage.removeItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+    window.localStorage.removeItem(AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
   });
 
   it('requires a provider for useShellMode', () => {
@@ -52,6 +75,13 @@ describe('ShellModeProvider', () => {
     act(() => result.current.setSettingsOpen(false));
     expect(result.current.settingsOpen).toBe(false);
     act(() => result.current.openDraft());
+    expect(result.current.settingsOpen).toBe(false);
+  });
+
+  it('ignores initialSettingsOpen when Settings chrome has no catalog', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrapWithoutCatalog(undefined, true) });
+    expect(result.current.settingsOpen).toBe(false);
+    act(() => result.current.setSettingsOpen(true));
     expect(result.current.settingsOpen).toBe(false);
   });
 
@@ -508,7 +538,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode.status).toBe('idle');
   });
 
-  it('uses remembered plain-draft preferences for the next chat', () => {
+  it('uses remembered chat preferences for the next New Chat only', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({
         mode: 'AgentLibraryWithComposer',
@@ -521,8 +551,20 @@ describe('ShellModeProvider', () => {
         model: { name: 'chosen/model' },
         skills: [{ name: 'Research' }],
         mcpServers: [{ name: 'GitHub' }],
+        config: { sandbox: { enabled: true } },
         instructions: 'Do not retain this.',
       }),
+    );
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'agent/model' },
+          skills: [{ name: 'Code' }],
+          mcpServers: [{ name: 'Linear' }],
+          config: { sandbox: { enabled: true } },
+        },
+        'agent',
+      ),
     );
     act(() => result.current.selectAgent('saved-agent'));
     act(() => result.current.openDraft());
@@ -530,6 +572,7 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toMatchObject({
       status: 'active',
       isMutable: true,
+      isCreateAgent: false,
       agentSpec: {
         model: { name: 'chosen/model' },
         skills: [{ name: 'Research' }],
@@ -538,6 +581,20 @@ describe('ShellModeProvider', () => {
     });
     if (result.current.mode.status !== 'active') throw new Error('expected active mode');
     expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('config');
+
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'agent/model' },
+        skills: [{ name: 'Code' }],
+        mcpServers: [{ name: 'Linear' }],
+        config: { sandbox: { enabled: true } },
+      },
+    });
   });
 
   it('preserves a host-seeded sandbox while capabilities are unavailable', () => {
@@ -546,9 +603,9 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({ mode: 'AgentComposer', defaultAgentSpec: hostSeed }),
     });
 
-    act(() => result.current.rememberDraftSpec(hostSeed));
+    act(() => result.current.rememberDraftSpec(hostSeed, 'agent'));
 
-    expect(readDraftSpecPreferences()).toEqual({
+    expect(readDraftSpecPreferences('agent')).toEqual({
       model: { name: 'chosen/model' },
       config: { sandbox: { enabled: true } },
     });
@@ -571,9 +628,9 @@ describe('ShellModeProvider', () => {
     );
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(true));
 
-    act(() => result.current.shell.rememberDraftSpec({ model: { name: 'chosen/model' } }));
+    act(() => result.current.shell.rememberDraftSpec({ model: { name: 'chosen/model' } }, 'agent'));
 
-    expect(readDraftSpecPreferences()).toEqual({
+    expect(readDraftSpecPreferences('agent')).toEqual({
       model: { name: 'chosen/model' },
     });
   });
@@ -596,15 +653,15 @@ describe('ShellModeProvider', () => {
     await waitFor(() => expect(result.current.capabilities?.sandbox.enabled).toBe(false));
     const hostSeed = { model: { name: 'chosen/model' }, config: { sandbox: { enabled: true } } };
 
-    act(() => result.current.shell.rememberDraftSpec(hostSeed));
+    act(() => result.current.shell.rememberDraftSpec(hostSeed, 'agent'));
 
-    expect(readDraftSpecPreferences()).toEqual({
+    expect(readDraftSpecPreferences('agent')).toEqual({
       model: { name: 'chosen/model' },
       config: { sandbox: { enabled: false } },
     });
   });
 
-  it('hydrates remembered preferences on first paint', () => {
+  it('hydrates remembered chat preferences on first paint and migrates the legacy key', () => {
     window.localStorage.setItem(
       DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
       JSON.stringify({
@@ -626,7 +683,15 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode).toMatchObject({
       status: 'active',
       isMutable: true,
+      isCreateAgent: false,
       agentSpec: { model: { name: 'remembered/model' } },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('config');
+    expect(readDraftSpecPreferences('chat')).toEqual({ model: { name: 'remembered/model' } });
+    expect(readDraftSpecPreferences('agent')).toEqual({
+      model: { name: 'remembered/model' },
+      config: { sandbox: { enabled: true } },
     });
   });
 });

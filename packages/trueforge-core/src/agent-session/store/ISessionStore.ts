@@ -65,8 +65,13 @@ export interface ListSessionsInput {
   end_timestamp: Date | undefined;
   /** When set, only sessions bound to this named agent id. */
   agent_id: string | undefined;
-  /** When set, only sessions whose `created_by_subject.subject_id` matches. */
-  created_by_subject_id: string | undefined;
+  /** When set, match creator or named-agent binding. Empty `agent_ids` means creator-only. */
+  created_by_or_agent_ids:
+    | {
+        created_by_subject_id: string;
+        agent_ids: readonly string[];
+      }
+    | undefined;
   /**
    * When non-empty, only sessions whose metadata contains all key/value pairs
    * (exact string equality; extra session keys are allowed). `undefined` or `{}`
@@ -263,9 +268,9 @@ export interface ISessionStore<
    * (`order` defaults to `desc`, `session_id` tie-break). `page_token` is a
    * keyset cursor on `(updated_at, session_id)`. `start_timestamp` /
    * `end_timestamp` are inclusive instant bounds on `created_at`. Optional
-   * `agent_id` filters ref-bound sessions; optional `created_by_subject_id`
-   * filters by `created_by_subject.subject_id`. Does **not** bump
-   * `last_activity_timestamp_ms` (read path).
+   * `agent_id` filters ref-bound sessions. `created_by_or_agent_ids` matches
+   * rows created by its subject OR bound to one of its agent ids. Does **not**
+   * bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(
     input: ListSessionsInput,

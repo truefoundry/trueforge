@@ -163,8 +163,9 @@ export function DropdownMenuItem({ className, ...props }: DropdownMenuItemProps)
       type="button"
       className={cn(
         'flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none',
+        // focus-visible only: open-menu auto-focus must not look like a stuck hover/selected row.
         'transition-colors hover:bg-ghost-button-hover',
-        'focus:bg-dropdown-selected-item-bg focus:text-dropdown-selected-item-text',
+        'focus-visible:bg-dropdown-selected-item-bg focus-visible:text-dropdown-selected-item-text',
         'aria-selected:bg-dropdown-selected-item-bg aria-selected:text-dropdown-selected-item-text',
         'disabled:pointer-events-none disabled:opacity-50',
         className,

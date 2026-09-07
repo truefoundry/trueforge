@@ -106,7 +106,8 @@ describe('SchedulesPage', () => {
 
   it('shows empty state when there are no schedules', async () => {
     renderPage([]);
-    expect(await screen.findByText('No schedules yet. Create one to get started.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No Schedules Found' })).toBeInTheDocument();
+    expect(screen.getByText('Create one to get started.')).toBeInTheDocument();
   });
 
   it('requests the next page token when Next is clicked', async () => {
@@ -348,7 +349,8 @@ describe('SchedulesPage', () => {
       target: { value: 'nope' },
     });
 
-    expect(await screen.findByText('No schedules match your filters.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No Schedules Found' })).toBeInTheDocument();
+    expect(screen.getByText('No schedules match your filters.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
   });
 

@@ -29,6 +29,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
@@ -56,6 +57,7 @@ import {
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { canReadAgentBoundResource } from './agentAccess';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
@@ -112,12 +114,13 @@ export interface TurnsRouterDeps {
   sandboxProviderStore: ISandboxProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
+  authorizer: Authorizer;
 }
 
 /**
- * Deps needed to create a turn and drain events in-process (no HTTP). Unlike the HTTP path, this
- * carries already-resolved `modelProviderStore` / `mcpServerStore` / `agentStore` (the scheduler has no request
- * context to resolve them).
+ * Deps needed to create a turn and drain events in-process (no HTTP). Carries already-resolved
+ * `modelProviderStore` / `mcpServerStore` / `agentStore`, so callers must resolve them from the
+ * caller's request context to keep TrueFoundry mode token-bound.
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
@@ -510,7 +513,7 @@ export function resolveAfterSequenceNumber(c: Context, bodyAfterSequenceNumber?:
 }
 
 /** True when the subject is the session creator (`created_by_subject.subject_id`). */
-function checkTurnAccess({
+function isSessionOwner({
   subject_id,
   created_by_subject,
 }: {
@@ -537,10 +540,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     if (
-      !checkTurnAccess({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
+      !(await canReadAgentBoundResource({
+        store: deps.resolveAgentStore(c),
+        context: requestContext,
+        authorizer: deps.authorizer,
+        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+        created_by_subject_id: session.record.created_by_subject.subject_id,
+      }))
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
@@ -569,10 +575,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     if (
-      !checkTurnAccess({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
+      !(await canReadAgentBoundResource({
+        store: deps.resolveAgentStore(c),
+        context: requestContext,
+        authorizer: deps.authorizer,
+        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+        created_by_subject_id: session.record.created_by_subject.subject_id,
+      }))
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
@@ -601,7 +610,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
       if (
-        !checkTurnAccess({
+        !isSessionOwner({
           subject_id: requestContext.subject.id,
           created_by_subject: session.record.created_by_subject,
         })
@@ -666,10 +675,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     if (
-      !checkTurnAccess({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
+      !(await canReadAgentBoundResource({
+        store: deps.resolveAgentStore(c),
+        context: requestContext,
+        authorizer: deps.authorizer,
+        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+        created_by_subject_id: session.record.created_by_subject.subject_id,
+      }))
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
@@ -705,12 +717,31 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     if (
-      !checkTurnAccess({
+      !isSessionOwner({
         subject_id: requestContext.subject.id,
         created_by_subject: session.record.created_by_subject,
       })
     ) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
+    }
+
+    if (session.record.agent.type === 'reference') {
+      const agentId = session.record.agent.id;
+      const agent = await deps.resolveAgentStore(c).getAgent({
+        tenant_id: requestContext.tenant_id,
+        id: agentId,
+      });
+      if (agent === undefined) {
+        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 422);
+      }
+      const canReadAgent = await deps.authorizer.canAccessAgent({
+        context: requestContext,
+        action: 'read',
+        agent,
+      });
+      if (!canReadAgent) {
+        return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
+      }
     }
 
     const turnParams = {
@@ -778,10 +809,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     if (
-      !checkTurnAccess({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
+      !(await canReadAgentBoundResource({
+        store: deps.resolveAgentStore(c),
+        context: requestContext,
+        authorizer: deps.authorizer,
+        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+        created_by_subject_id: session.record.created_by_subject.subject_id,
+      }))
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }

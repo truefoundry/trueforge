@@ -1,4 +1,5 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -68,16 +69,21 @@ function jsonInit(method: string, body: unknown): RequestInit {
   };
 }
 
+const denyAllAuthorizer: Authorizer = {
+  listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+  canAccessAgent: () => Promise.resolve(false),
+};
+
 describe('agents router', () => {
   let router: ReturnType<typeof createAgentsRouter>;
-  let agentStore: SqliteAgentStore;
+  let deniedRouter: ReturnType<typeof createAgentsRouter>;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({ tenant_id: 'default', name: 'anthropic', manifest: modelProvider });
-    agentStore = new SqliteAgentStore(db);
+    const agentStore = new SqliteAgentStore(db);
     router = createAgentsRouter({
       resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
@@ -86,6 +92,17 @@ describe('agents router', () => {
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      authorizer: new TrueForgeAuthorizer(),
+    });
+    deniedRouter = createAgentsRouter({
+      resolveAgentStore: () => agentStore,
+      resolveModelProviderStore: () => modelProviderStore,
+      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
+      skillStore: new SqliteSkillStore(db),
+      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      authorizer: denyAllAuthorizer,
     });
   });
 
@@ -151,7 +168,7 @@ describe('agents router', () => {
     expect(body.data.snippets.length).toBeGreaterThan(0);
   });
 
-  it('DELETE removes an agent by id and is idempotent', async () => {
+  it('DELETE removes an agent by id and returns 404 when already gone', async () => {
     const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'deletable' }));
     expect(created.status).toBe(201);
     const { data } = (await created.json()) as { data: { id: string } };
@@ -162,8 +179,7 @@ describe('agents router', () => {
 
     expect((await router.request(`/${data.id}`)).status).toBe(404);
     const deletedAgain = await router.request(`/${data.id}`, { method: 'DELETE' });
-    expect(deletedAgain.status).toBe(200);
-    expect(await deletedAgain.json()).toEqual({});
+    expect(deletedAgain.status).toBe(404);
   });
 
   it('POST rejects invalid bodies, unknown models, and duplicate names', async () => {
@@ -190,5 +206,21 @@ describe('agents router', () => {
 
     const clash = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(clash.status).toBe(409);
+  });
+
+  it('lists, gets, updates, and deletes as not found when the authorizer denies the agent', async () => {
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'denied-agent' }));
+    expect(created.status).toBe(201);
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    const listed = await deniedRouter.request('/');
+    expect(listed.status).toBe(200);
+    expect(((await listed.json()) as { data: WireAgent[] }).data).toEqual([]);
+
+    expect((await deniedRouter.request(`/${data.id}`)).status).toBe(404);
+    expect((await deniedRouter.request(`/${data.id}/code-snippets`)).status).toBe(404);
+    expect((await deniedRouter.request(`/${data.id}`, jsonInit('PUT', updateBody))).status).toBe(404);
+    expect((await deniedRouter.request(`/${data.id}`, { method: 'DELETE' })).status).toBe(404);
+    expect((await router.request(`/${data.id}`)).status).toBe(200);
   });
 });

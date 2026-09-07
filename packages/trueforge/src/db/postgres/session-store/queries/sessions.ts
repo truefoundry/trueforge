@@ -29,7 +29,7 @@ import { parseStoredCreatedBySubject } from '../../../createdBySubject';
 import { SESSION_EXTERNAL_ID_UQ } from '../../../indexes';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isPgConstraint, isUniqueViolation } from '../../client';
-import { json } from '../../sqlExpressions';
+import { json, whereCreatedByOrAgentIds } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
 type SessionCustom = Record<string, never>;
@@ -246,9 +246,7 @@ export async function listSessions(
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
   }
-  if (input.created_by_subject_id !== undefined) {
-    query = query.where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
-  }
+  query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
   if (input.metadata !== undefined && Object.keys(input.metadata).length > 0) {
     query = query.where(sql<boolean>`metadata @> ${json(input.metadata)}`);
   }

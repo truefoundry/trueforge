@@ -227,6 +227,13 @@ resources:
     cpu: 200m
     memory: 512Mi
     ephemeral-storage: 512Mi
+# Mutual TLS for the server HTTPS listener and controller→server hop.
+# When enabled, chart probes use scheme HTTPS (same pattern as deltafusion-ingestor).
+# Secret must contain tls.crt / tls.key / ca.crt (e.g. truefoundry-internal-tls).
+mtls:
+  enabled: false
+  secretName: ""
+  certsDir: /etc/tls
 # startupProbe runs until success before liveness/readiness; sized for migrate + Redis connect.
 startupProbe:
   httpGet:

@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
+import { useLayoutEffect, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '@/atoms/draft/DraftComposerSections.js';
+import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentSpec } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
 
@@ -46,6 +49,14 @@ function DraftSections({
   );
 }
 
+function BuilderMode({ children }: { children: ReactNode }) {
+  const { openAgentBuilder } = useShellMode();
+  useLayoutEffect(() => {
+    openAgentBuilder();
+  }, [openAgentBuilder]);
+  return children;
+}
+
 describe('draft composer sections', () => {
   beforeEach(() => {
     agentSpec = {
@@ -76,6 +87,30 @@ describe('draft composer sections', () => {
     expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
     // Without shell builder mode, left chrome is Tools — not Agent config.
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
+  });
+
+  it('shows the Agent config trigger only in compact builder layouts', () => {
+    const { rerender } = render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <BuilderMode>
+          <DraftSections />
+        </BuilderMode>
+      </ShellModeProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
+
+    rerender(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <BuilderMode>
+          <CompactLayoutProvider>
+            <DraftSections />
+          </CompactLayoutProvider>
+        </BuilderMode>
+      </ShellModeProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Agent config' })).toBeInTheDocument();
   });
 
   it('propagates disabled and running state to composed controls', async () => {

@@ -130,6 +130,8 @@ const EMBEDDED_DEFAULTS: Record<string, unknown> = {
   automaticLayout: true,
   minimap: { enabled: false },
   scrollBeyondLastLine: false,
+  // Don't paint a blank last line when the buffer ends with `\n`.
+  renderFinalNewline: 'off',
   wordWrap: 'on',
   fontSize: 12,
   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',

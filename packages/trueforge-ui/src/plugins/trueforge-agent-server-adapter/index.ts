@@ -56,7 +56,13 @@ export {
 } from './chatServer.js';
 export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
-export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
+export {
+  getCapabilities,
+  listConfiguredMcpServers,
+  listConfiguredMcpServersPage,
+  listModels,
+  listSkills,
+} from './lists.js';
 export { createScheduleServer } from './schedules/scheduleServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 

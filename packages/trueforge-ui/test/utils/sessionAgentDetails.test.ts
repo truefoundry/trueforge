@@ -94,10 +94,10 @@ describe('buildSessionTurnViews', () => {
       metrics: {
         totalTokens: 122_000,
         totalCostInUsd: 1.4872,
-        totalInputTokens: 0,
-        totalOutputTokens: 0,
-        totalCacheReadTokens: 0,
-        totalCacheWriteTokens: 0,
+        totalInputTokens: 100_000,
+        totalOutputTokens: 20_000,
+        totalCacheReadTokens: 1_500,
+        totalCacheWriteTokens: 500,
         totalReasoningTokens: 0,
       },
     } satisfies TurnDoneEvent['state'] & {
@@ -122,14 +122,29 @@ describe('buildSessionTurnViews', () => {
 
     const views = buildSessionTurnViews(itemsAsc);
     assert.deepEqual(
-      views.map(({ turnId, turnNumber, showHeader, durationMs, totalTokens, totalCostInUsd }) => ({
-        turnId,
-        turnNumber,
-        showHeader,
-        durationMs,
-        totalTokens,
-        totalCostInUsd,
-      })),
+      views.map(
+        ({
+          turnId,
+          turnNumber,
+          showHeader,
+          durationMs,
+          totalTokens,
+          inputTokens,
+          outputTokens,
+          cachedTokens,
+          totalCostInUsd,
+        }) => ({
+          turnId,
+          turnNumber,
+          showHeader,
+          durationMs,
+          totalTokens,
+          inputTokens,
+          outputTokens,
+          cachedTokens,
+          totalCostInUsd,
+        }),
+      ),
       [
         {
           turnId: 'turn-1',
@@ -137,6 +152,10 @@ describe('buildSessionTurnViews', () => {
           showHeader: true,
           durationMs: 60_000,
           totalTokens: 122_000,
+          // Input is uncached: 100_000 total input - 2_000 cached.
+          inputTokens: 98_000,
+          outputTokens: 20_000,
+          cachedTokens: 2_000,
           totalCostInUsd: 1.4872,
         },
         {
@@ -145,6 +164,9 @@ describe('buildSessionTurnViews', () => {
           showHeader: true,
           durationMs: 60_000,
           totalTokens: 122_000,
+          inputTokens: 98_000,
+          outputTokens: 20_000,
+          cachedTokens: 2_000,
           totalCostInUsd: 1.4872,
         },
       ],
