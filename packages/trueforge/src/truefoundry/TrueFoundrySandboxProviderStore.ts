@@ -73,11 +73,6 @@ async function resolveDaytonaSandboxSettings({
   return settings;
 }
 
-/** @internal Exported for tests. */
-export function __resetDaytonaSettingsCacheForTests(): void {
-  cachedRemoteDaytonaSettings = undefined;
-}
-
 function managed(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
 }

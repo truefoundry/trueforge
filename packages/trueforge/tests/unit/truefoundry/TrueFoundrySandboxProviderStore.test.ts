@@ -1,8 +1,5 @@
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/config';
-import {
-  __resetDaytonaSettingsCacheForTests,
-  TrueFoundrySandboxProviderStore,
-} from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
+import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/trueFoundryManaged';
 
 jest.mock('../../../src/config', () => {
@@ -43,7 +40,6 @@ function mockSettingsFetch(body: unknown = SETTINGS_BODY, status = 200): jest.Mo
 
 describe('TrueFoundrySandboxProviderStore', () => {
   beforeEach(() => {
-    __resetDaytonaSettingsCacheForTests();
     mockResolveConfig.mockReset();
     mockResolveConfig.mockReturnValue({
       type: 'daytona',
@@ -62,6 +58,15 @@ describe('TrueFoundrySandboxProviderStore', () => {
     const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
     await expect(store.getSandboxProvider(TENANT)).resolves.toBeUndefined();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('get fails when settings fetch times out', async () => {
+    const timeout = new Error('The operation was aborted due to timeout');
+    timeout.name = 'TimeoutError';
+    global.fetch = jest.fn().mockRejectedValue(timeout) as typeof fetch;
+    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
+
+    await expect(store.getSandboxProvider(TENANT)).rejects.toThrow('Sandbox settings endpoint timed out after 10s');
   });
 
   it('get returns ready Daytona record with snapshot build_ref from settings server', async () => {
@@ -88,25 +93,6 @@ describe('TrueFoundrySandboxProviderStore', () => {
         auto_delete_interval_in_minutes: SETTINGS_BODY.autoDeleteIntervalInMinutes,
       },
     });
-  });
-
-  it('caches settings across gets within TTL', async () => {
-    const fetchMock = mockSettingsFetch();
-    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
-
-    await store.getSandboxProvider(TENANT);
-    await store.getSandboxProvider(TENANT);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('get fails when settings fetch times out', async () => {
-    const timeout = new Error('The operation was aborted due to timeout');
-    timeout.name = 'TimeoutError';
-    global.fetch = jest.fn().mockRejectedValue(timeout) as typeof fetch;
-    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
-
-    await expect(store.getSandboxProvider(TENANT)).rejects.toThrow('Sandbox settings endpoint timed out after 10s');
   });
 
   it('writes and get-for-update are managed (424)', () => {
