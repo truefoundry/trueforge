@@ -181,7 +181,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(session).last_activity_timestamp_ms).toBeGreaterThanOrEqual(before);
       expect(mustGet(session).title).toBeNull();
       expect(mustGet(session).metrics).toEqual({
-        total_cost_in_usd: 0,
         total_duration_ms: 0,
         total_turns: 0,
       });
@@ -1233,7 +1232,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const afterFirst = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(mustGet(afterFirst).metrics).toEqual({
-        total_cost_in_usd: 0,
         total_duration_ms: 0,
         total_turns: 1,
       });
@@ -1744,7 +1742,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const afterCancel = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       const elapsed_ms = Date.parse(record.state.completed_at) - record.created_at.getTime();
       expect(mustGet(afterCancel).metrics).toEqual({
-        total_cost_in_usd: 0,
         total_duration_ms: elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0,
         total_turns: 1,
       });
@@ -1921,6 +1918,32 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         total_duration_ms: 1500,
         total_turns: 1,
       });
+    });
+
+    it('leaves session.metrics.total_cost_in_usd unset when the terminal turn has no cost', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      const createdAt = mustGet(turn).created_at;
+      const completedAt = new Date(createdAt.getTime() + 1500).toISOString();
+      const state = {
+        ...makeDoneTurnState(),
+        completed_at: completedAt,
+        metrics: { total_tokens: 10 },
+      };
+      await store.updateTurnState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state,
+        turn_done_event: makeTurnDoneEvent(state),
+      });
+      const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
+      expect(mustGet(session).metrics).toEqual({
+        total_duration_ms: 1500,
+        total_turns: 1,
+      });
+      expect(mustGet(session).metrics.total_cost_in_usd).toBeUndefined();
     });
 
     it('does not add session.metrics again on a losing terminal write', async () => {

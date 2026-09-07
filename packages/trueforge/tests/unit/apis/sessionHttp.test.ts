@@ -135,7 +135,7 @@ describe('sessions HTTP agent binding', () => {
       subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
       subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
     });
-    expect(json.data.metrics).toEqual({ total_cost_in_usd: 0, total_duration_ms: 0, total_turns: 0 });
+    expect(json.data.metrics).toEqual({ total_duration_ms: 0, total_turns: 0 });
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {

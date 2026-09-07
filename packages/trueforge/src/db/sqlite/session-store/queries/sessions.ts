@@ -136,7 +136,6 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         metadata: jsonbBind(input.metadata),
         external_id: input.external_id,
         metrics: jsonbBind({
-          total_cost_in_usd: 0,
           total_duration_ms: 0,
           total_turns: 0,
         }),
