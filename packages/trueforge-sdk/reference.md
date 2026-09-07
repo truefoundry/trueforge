@@ -1235,7 +1235,7 @@ await client.schedules.listRuns("schedule_id");
 <dl>
 <dd>
 
-List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id`, `created_by_me`, and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.
+List the caller's sessions (newest first by default)
 </dd>
 </dl>
 </dd>

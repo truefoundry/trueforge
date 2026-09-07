@@ -6773,7 +6773,7 @@
     },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id`, `created_by_me`, and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.",
+        "description": "List the caller's sessions (newest first by default)",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",

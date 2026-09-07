@@ -4,7 +4,6 @@ import type { BaseClientOptions, BaseRequestOptions } from "../../../../BaseClie
 import { type NormalizedClientOptionsWithAuth, normalizeClientOptionsWithAuth } from "../../../../BaseClient.js";
 import { mergeHeaders } from "../../../../core/headers.js";
 import * as core from "../../../../core/index.js";
-import { toJson } from "../../../../core/json.js";
 import { mergeAdditionalBodyParameters } from "../../../../core/requestBody.js";
 import { handleNonStatusCodeError } from "../../../../errors/handleNonStatusCodeError.js";
 import * as errors from "../../../../errors/index.js";
@@ -25,7 +24,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the caller's sessions (newest first by default), token-paginated and scoped to the authenticated identity. Optional `agent_id`, `created_by_me`, and `metadata[key]=value` (exact containment) filter results. Keep other query params constant when paging with `page_token`.
+     * List the caller's sessions (newest first by default)
      *
      * @param {TrueForge.ListSessionsRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -71,7 +70,7 @@ export class SessionsClient {
                     end_timestamp: endTimestamp != null ? endTimestamp?.toISOString() : undefined,
                     agent_id: agentId,
                     created_by_me: createdByMe,
-                    metadata: metadata != null ? toJson(metadata) : undefined,
+                    metadata,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
