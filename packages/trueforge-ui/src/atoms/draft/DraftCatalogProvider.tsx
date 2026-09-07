@@ -3,7 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useOptionalServer } from '../../server/ServerContext.js';
-import type { AgentSkill, AgentUIServer, ConnectorState, ListResult, ModelSelection } from '../../server/types.js';
+import type {
+  AgentSkill,
+  AgentUIServer,
+  ConnectorCatalogEntry,
+  ConnectorState,
+  ListResult,
+  ModelSelection,
+} from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
 /** Picker page size for MCP infinite scroll. */
@@ -13,6 +20,8 @@ type DraftCatalogValue = {
   models: ModelSelection[];
   skills: AgentSkill[];
   connectors: ConnectorState[];
+  /** Connector logo URL keyed by connector name, sourced from the discovery catalog. */
+  connectorLogos: Record<string, string>;
   connectorsHasMore: boolean;
   connectorsLoadMoreFailed: boolean;
   connectorsLoadingMore: boolean;
@@ -37,6 +46,15 @@ const DraftCatalogContext = createContext<DraftCatalogContextValue | null>(null)
 
 const IDLE_ENSURE = () => undefined;
 const IDLE_REFRESH = async () => undefined;
+const EMPTY_LOGOS: Record<string, string> = {};
+
+function toConnectorLogos(entries: ConnectorCatalogEntry[]): Record<string, string> {
+  const logos: Record<string, string> = {};
+  for (const entry of entries) {
+    if (entry.logo) logos[entry.name] = entry.logo;
+  }
+  return logos;
+}
 
 function appendConnectors({
   previous,
@@ -82,6 +100,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
   const [models, setModels] = useState<ModelSelection[]>([]);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [connectors, setConnectors] = useState<ConnectorState[]>([]);
+  const [connectorLogos, setConnectorLogos] = useState<Record<string, string>>(EMPTY_LOGOS);
   const [connectorsNextPageToken, setConnectorsNextPageToken] = useState<string | undefined>(undefined);
   const [connectorsLoadMoreFailed, setConnectorsLoadMoreFailed] = useState(false);
   const [connectorsLoadingMore, setConnectorsLoadingMore] = useState(false);
@@ -157,31 +176,37 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
     loadMoreFailedRef.current = false;
     setConnectorsLoadMoreFailed(false);
     // Settle each list alone so one failing picker does not blank the others.
-    void Promise.allSettled([server.getModels(), server.getSkills(), fetchMcpPage({ server })]).then(
-      ([modelsResult, skillsResult, mcpResult]) => {
-        if (cancelled) return;
-        const errors: string[] = [];
-        if (modelsResult.status === 'fulfilled') {
-          setModels(modelsResult.value);
-        } else {
-          errors.push(getErrorMessage(modelsResult.reason, 'Failed to load models.'));
-        }
-        if (skillsResult.status === 'fulfilled') {
-          setSkills(skillsResult.value);
-        } else {
-          errors.push(getErrorMessage(skillsResult.reason, 'Failed to load skills.'));
-        }
-        if (mcpResult.status === 'fulfilled') {
-          setConnectors(mcpResult.value.data);
-          setConnectorsNextPageToken(mcpResult.value.nextPageToken);
-        } else {
-          errors.push(getErrorMessage(mcpResult.reason, 'Failed to load connectors.'));
-        }
-        setError(errors[0] ?? null);
-        setCompletedEpoch(requestEpoch);
-        setLoading(false);
-      },
-    );
+    // Logos are cosmetic: a missing catalog port or a failed fetch just falls back to icons.
+    const connectorCatalog = server.catalog?.connectorCatalog;
+    void Promise.allSettled([
+      server.getModels(),
+      server.getSkills(),
+      fetchMcpPage({ server }),
+      connectorCatalog ? connectorCatalog.getConnectorCatalog() : Promise.resolve([]),
+    ]).then(([modelsResult, skillsResult, mcpResult, catalogResult]) => {
+      if (cancelled) return;
+      setConnectorLogos(catalogResult.status === 'fulfilled' ? toConnectorLogos(catalogResult.value) : EMPTY_LOGOS);
+      const errors: string[] = [];
+      if (modelsResult.status === 'fulfilled') {
+        setModels(modelsResult.value);
+      } else {
+        errors.push(getErrorMessage(modelsResult.reason, 'Failed to load models.'));
+      }
+      if (skillsResult.status === 'fulfilled') {
+        setSkills(skillsResult.value);
+      } else {
+        errors.push(getErrorMessage(skillsResult.reason, 'Failed to load skills.'));
+      }
+      if (mcpResult.status === 'fulfilled') {
+        setConnectors(mcpResult.value.data);
+        setConnectorsNextPageToken(mcpResult.value.nextPageToken);
+      } else {
+        errors.push(getErrorMessage(mcpResult.reason, 'Failed to load connectors.'));
+      }
+      setError(errors[0] ?? null);
+      setCompletedEpoch(requestEpoch);
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -195,6 +220,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
       models,
       skills,
       connectors,
+      connectorLogos,
       connectorsHasMore,
       connectorsLoadMoreFailed,
       connectorsLoadingMore,
@@ -211,6 +237,7 @@ function DraftCatalogStore({ server, children }: { server: AgentUIServer | null;
       models,
       skills,
       connectors,
+      connectorLogos,
       connectorsHasMore,
       connectorsLoadMoreFailed,
       connectorsLoadingMore,
@@ -234,6 +261,7 @@ export function useDraftCatalog(): DraftCatalogValue {
       models: [],
       skills: [],
       connectors: [],
+      connectorLogos: EMPTY_LOGOS,
       connectorsHasMore: false,
       connectorsLoadMoreFailed: false,
       connectorsLoadingMore: false,
