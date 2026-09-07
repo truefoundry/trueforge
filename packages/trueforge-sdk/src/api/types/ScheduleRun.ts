@@ -7,7 +7,6 @@ export interface ScheduleRun {
     createdBySubject: TrueForge.CreatedBySubject;
     id: string;
     name: string;
-    /** Failure detail when status is failed; otherwise null. */
     reason: string | null;
     scheduleId: string;
     scheduledFor: Date;

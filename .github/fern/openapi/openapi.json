@@ -3217,7 +3217,6 @@
             "type": "string"
           },
           "reason": {
-            "description": "Failure detail when status is failed; otherwise null.",
             "type": [
               "string",
               "null"
