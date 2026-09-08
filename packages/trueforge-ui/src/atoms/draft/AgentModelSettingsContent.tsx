@@ -62,7 +62,7 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
   const [jsonValue, setJsonValue] = useState(() => formatParams(params));
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [customEnabled, setCustomEnabled] = useState(() => Object.keys(customParamsFrom(params)).length > 0);
-  
+
   const savedCustomParams = useRef<Record<string, unknown> | null>(null);
   const replaceParams = (next: ModelParams) => onChange({ ...spec, model: { ...spec.model, params: next } });
   const setParam = <Key extends keyof ModelParams>(key: Key, value: ModelParams[Key]) =>
