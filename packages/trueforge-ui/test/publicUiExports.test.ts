@@ -104,7 +104,6 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'SandboxToolCallCard',
   'SaveAgentButton',
   'SaveAgentForm',
-  'SaveAgentFormFields',
   'ScrollToBottomButton',
   'SelectAgentEmptyState',
   'ServerProvider',

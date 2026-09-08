@@ -500,7 +500,5 @@ export { SaveAgentButton } from './atoms/SaveAgentButton.js';
 export type { SaveAgentButtonProps } from './atoms/SaveAgentButton.js';
 export { SaveAgentForm } from './atoms/SaveAgentForm.js';
 export type { SaveAgentFormProps } from './atoms/SaveAgentForm.js';
-export { SaveAgentFormFields } from './atoms/SaveAgentFormFields.js';
-export type { SaveAgentFormFieldsProps } from './atoms/SaveAgentFormFields.js';
 export { SessionsBrowserButton } from './atoms/SessionsBrowserButton.js';
 export type { SessionsBrowserButtonProps } from './atoms/SessionsBrowserButton.js';
