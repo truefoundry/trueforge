@@ -23,7 +23,7 @@ import {
 } from '../db/mcpServerStore';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
-import { accessTokenForRequest, type ResolveAccessToken } from './accessToken';
+import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
@@ -83,7 +83,11 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#client = input.client;
-    this.#resolveAccessToken = accessTokenForRequest(input);
+    this.#resolveAccessToken = accessTokenForRequest({
+      client: input.client,
+      context: asTrueFoundryRequestContext(input.context),
+      agent: input.agent,
+    });
     this.#subject = input.context.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }

@@ -11,7 +11,7 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
-import { accessTokenForRequest, type ResolveAccessToken } from './accessToken';
+import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
@@ -30,7 +30,11 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     agent: AgentRecord | undefined;
   }) {
     this.#client = input.client;
-    this.#resolveAccessToken = accessTokenForRequest(input);
+    this.#resolveAccessToken = accessTokenForRequest({
+      client: input.client,
+      context: asTrueFoundryRequestContext(input.context),
+      agent: input.agent,
+    });
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {

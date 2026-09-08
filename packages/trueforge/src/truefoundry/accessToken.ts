@@ -20,29 +20,19 @@ const accessTokenCache: unique symbol = Symbol('truefoundryAccessTokenCache');
  * Request context produced only in TrueFoundry auth. The cache lives on this object for the
  * lifetime of one HTTP request; a later request gets a new context and vends again.
  */
-type TrueFoundryRequestContext = RequestContext & {
+export type TrueFoundryRequestContext = RequestContext & {
   readonly [accessTokenCache]: Map<string, ResolveAccessToken>;
 };
 
-export function createTrueFoundryRequestContext(base: RequestContext): RequestContext {
-  const context: RequestContext = {
-    tenant_id: base.tenant_id,
-    subject: base.subject,
-    roles: base.roles,
-    user_credential: base.user_credential,
-  };
-  Object.defineProperty(context, accessTokenCache, {
-    value: new Map<string, ResolveAccessToken>(),
-    enumerable: false,
-  });
-  return context;
+export function createTrueFoundryRequestContext(base: RequestContext): TrueFoundryRequestContext {
+  return { ...base, [accessTokenCache]: new Map() };
 }
 
 function isTrueFoundryRequestContext(context: RequestContext): context is TrueFoundryRequestContext {
   return accessTokenCache in context;
 }
 
-export function asTrueFoundryRequestContext(context: RequestContext): RequestContext {
+export function asTrueFoundryRequestContext(context: RequestContext): TrueFoundryRequestContext {
   if (!isTrueFoundryRequestContext(context)) {
     throw new Error('TrueFoundry request context required for access token resolution');
   }
@@ -92,12 +82,9 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
  */
 export function accessTokenForRequest(input: {
   client: AgentTokenVendor;
-  context: RequestContext;
+  context: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
 }): ResolveAccessToken {
-  if (!isTrueFoundryRequestContext(input.context)) {
-    throw new Error('TrueFoundry request context required for access token resolution');
-  }
   if (input.agent === undefined) {
     return callerAccessToken(input.context);
   }

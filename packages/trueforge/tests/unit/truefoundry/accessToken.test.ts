@@ -89,14 +89,6 @@ describe('asTrueFoundryRequestContext', () => {
 });
 
 describe('accessTokenForRequest', () => {
-  it('rejects a plain request context that was not created for TrueFoundry', () => {
-    const client = { vendToken: jest.fn() };
-
-    expect(() => accessTokenForRequest({ client, context: CONTEXT, agent: AGENT })).toThrow(
-      'TrueFoundry request context required',
-    );
-    expect(client.vendToken).not.toHaveBeenCalled();
-  });
   it('uses the caller token without an agent', async () => {
     const client = { vendToken: jest.fn() };
     const context = createTrueFoundryRequestContext(CONTEXT);
