@@ -121,6 +121,7 @@ export class SkillsClient {
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.ConflictError}
+     * @throws {@link TrueForge.FailedDependencyError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -129,9 +130,7 @@ export class SkillsClient {
      *         manifest: {
      *             description: "description",
      *             name: "name",
-     *             ref: "ref",
-     *             type: "git",
-     *             url: "url"
+     *             type: "git"
      *         }
      *     })
      */
@@ -215,6 +214,17 @@ export class SkillsClient {
                         }),
                         _response.rawResponse,
                     );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -234,6 +244,7 @@ export class SkillsClient {
      * @param {SkillsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.FailedDependencyError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -242,9 +253,7 @@ export class SkillsClient {
      *         manifest: {
      *             description: "description",
      *             name: "name",
-     *             ref: "ref",
-     *             type: "git",
-     *             url: "url"
+     *             type: "git"
      *         }
      *     })
      */
@@ -308,6 +317,17 @@ export class SkillsClient {
             switch (_response.error.statusCode) {
                 case 400:
                     throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

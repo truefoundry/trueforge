@@ -5,8 +5,8 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
 export const SkillType: core.serialization.Schema<serializers.SkillType.Raw, TrueForge.SkillType> =
-    core.serialization.stringLiteral("git");
+    core.serialization.enum_(["git", "registry"]);
 
 export declare namespace SkillType {
-    export type Raw = "git";
+    export type Raw = "git" | "registry";
 }

@@ -9,20 +9,26 @@ import { SkillType } from "./SkillType.js";
 export const SkillManifest: core.serialization.ObjectSchema<serializers.SkillManifest.Raw, TrueForge.SkillManifest> =
     core.serialization.object({
         description: core.serialization.string(),
+        fqn: core.serialization.string().optional(),
         name: ResourceName,
         path: core.serialization.string().optional(),
-        ref: core.serialization.string(),
+        ref: core.serialization.string().optional(),
+        skillRepoName: core.serialization.property("skill_repo_name", core.serialization.string().optional()),
         type: SkillType,
-        url: core.serialization.string(),
+        url: core.serialization.string().optional(),
+        version: core.serialization.number().optional(),
     });
 
 export declare namespace SkillManifest {
     export interface Raw {
         description: string;
+        fqn?: string | null;
         name: ResourceName.Raw;
         path?: string | null;
-        ref: string;
+        ref?: string | null;
+        skill_repo_name?: string | null;
         type: SkillType.Raw;
-        url: string;
+        url?: string | null;
+        version?: number | null;
     }
 }

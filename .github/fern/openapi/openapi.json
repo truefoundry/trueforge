@@ -411,13 +411,31 @@
             "minLength": 1,
             "type": "string"
           },
+          "display_name": {
+            "description": "Display name.",
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "description": "Skill name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "skill_repo_name": {
+            "description": "Repo where the skill is registered.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "description": "Version number.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
           }
         },
         "required": [
           "name",
-          "description"
+          "description",
+          "display_name"
         ],
         "type": "object"
       },
@@ -656,7 +674,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/SkillType"
+            "$ref": "#/components/schemas/CatalogSkillType"
           },
           "url": {
             "description": "Full HTTPS URL of a GitHub or GitLab repository.",
@@ -673,6 +691,12 @@
           "description"
         ],
         "type": "object"
+      },
+      "CatalogSkillType": {
+        "enum": [
+          "git"
+        ],
+        "type": "string"
       },
       "CatalogWellKnownModelProvider": {
         "additionalProperties": false,
@@ -934,7 +958,8 @@
             "$ref": "#/components/schemas/SkillManifest"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -1839,6 +1864,20 @@
         "required": [
           "data",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "ListSkillVersionsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillVersion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -3798,10 +3837,9 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "Name of a configured skill (also used as the skill directory name in the sandbox).",
-            "maxLength": 64,
+            "description": "Configured skill name (git name or registry FQN).",
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9._-]+$",
+            "pattern": "^[A-Za-z0-9._\\-/:]+$",
             "type": "string"
           }
         },
@@ -3834,6 +3872,10 @@
             "minLength": 1,
             "type": "string"
           },
+          "fqn": {
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
             "$ref": "#/components/schemas/ResourceName"
           },
@@ -3849,6 +3891,11 @@
             "pattern": "^[A-Za-z0-9._\\-/]+$",
             "type": "string"
           },
+          "skill_repo_name": {
+            "description": "Repo where the skill is registered.",
+            "minLength": 1,
+            "type": "string"
+          },
           "type": {
             "$ref": "#/components/schemas/SkillType"
           },
@@ -3857,22 +3904,53 @@
             "minLength": 1,
             "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
             "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
           }
         },
         "required": [
           "type",
           "name",
-          "url",
-          "ref",
           "description"
         ],
         "type": "object"
       },
       "SkillType": {
         "enum": [
-          "git"
+          "git",
+          "registry"
         ],
         "type": "string"
+      },
+      "SkillVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "fqn": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fqn",
+          "name",
+          "description",
+          "version"
+        ],
+        "type": "object"
       },
       "TextContent": {
         "properties": {
@@ -8707,6 +8785,16 @@
               }
             },
             "description": "A skill with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
           }
         },
         "summary": "Create a skill",
@@ -8751,6 +8839,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
           }
         },
         "summary": "Create or replace a skill",
@@ -8797,6 +8895,54 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/skills/versions": {
+      "get": {
+        "description": "Versions for one skill.",
+        "parameters": [
+          {
+            "description": "Skill name.",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Skill name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillVersionsResponse"
+                }
+              }
+            },
+            "description": "Skill versions."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required."
+          }
+        },
+        "summary": "List skill versions",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list_versions"
       }
     }
   },

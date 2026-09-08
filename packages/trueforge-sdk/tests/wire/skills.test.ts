@@ -9,7 +9,17 @@ describe("SkillsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ description: "description", name: "name" }] };
+        const rawResponseBody = {
+            data: [
+                {
+                    description: "description",
+                    display_name: "display_name",
+                    name: "name",
+                    skill_repo_name: "skill_repo_name",
+                    version: 1,
+                },
+            ],
+        };
 
         server.mockEndpoint().get("/api/v1/skills").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -18,7 +28,10 @@ describe("SkillsClient", () => {
             data: [
                 {
                     description: "description",
+                    displayName: "display_name",
                     name: "name",
+                    skillRepoName: "skill_repo_name",
+                    version: 1,
                 },
             ],
         });
@@ -34,6 +47,56 @@ describe("SkillsClient", () => {
 
         await expect(async () => {
             return await client.skills.list();
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("list_versions (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { data: [{ description: "description", fqn: "fqn", name: "name", version: 1 }] };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/skills/versions")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.skills.listVersions({
+            name: "name",
+        });
+        expect(response).toEqual({
+            data: [
+                {
+                    description: "description",
+                    fqn: "fqn",
+                    name: "name",
+                    version: 1,
+                },
+            ],
+        });
+    });
+
+    test("list_versions (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/skills/versions")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.skills.listVersions({
+                name: "x",
+            });
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 });

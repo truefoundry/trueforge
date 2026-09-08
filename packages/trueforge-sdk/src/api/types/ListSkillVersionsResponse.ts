@@ -2,7 +2,6 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface ConfiguredSkill {
-    manifest: TrueForge.SkillManifest;
-    name: string;
+export interface ListSkillVersionsResponse {
+    data: TrueForge.SkillVersion[];
 }

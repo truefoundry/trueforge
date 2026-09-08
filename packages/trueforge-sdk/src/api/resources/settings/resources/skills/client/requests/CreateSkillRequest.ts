@@ -8,9 +8,7 @@ import type * as TrueForge from "../../../../../../index.js";
  *         manifest: {
  *             description: "description",
  *             name: "name",
- *             ref: "ref",
- *             type: "git",
- *             url: "url"
+ *             type: "git"
  *         }
  *     }
  */
