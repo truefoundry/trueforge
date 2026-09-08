@@ -120,6 +120,9 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
       <AgentConfigPanel
         spec={agentSpec}
         model={model}
+        models={catalog.models}
+        modelsLoading={catalog.loading}
+        modelsError={catalog.error}
         skillsAvailable={capabilities?.skill.enabled === true}
         instructions={instructionDraft}
         onOpenEditor={setEditor}

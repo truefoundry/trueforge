@@ -134,4 +134,41 @@ describe('DropdownMenu', () => {
     expect(screen.getByTestId('clipped').contains(menu)).toBe(false);
     expect(menu.className).toContain('fixed');
   });
+
+  it('keeps the menu open for interactive content when closeOnClick is false', () => {
+    render(
+      <DropdownMenu closeOnClick={false} trigger={<button>Actions</button>}>
+        <button type="button">Interactive content</button>
+      </DropdownMenu>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Interactive content' }));
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+
+  it('supports controlled open state', () => {
+    const onOpenChange = vi.fn();
+    const { rerender } = render(
+      <DropdownMenu open={false} onOpenChange={onOpenChange} trigger={<button>Actions</button>}>
+        <DropdownMenuItem>Rename</DropdownMenuItem>
+      </DropdownMenu>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    rerender(
+      <DropdownMenu open onOpenChange={onOpenChange} trigger={<button>Actions</button>}>
+        <DropdownMenuItem>Rename</DropdownMenuItem>
+      </DropdownMenu>,
+    );
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
 });

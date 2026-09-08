@@ -1,11 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import type { ModelSelection } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
+import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
 
 function monogram(value: string): string {
   const trimmed = value.trim();
@@ -68,6 +70,7 @@ export function DraftModelCatalogPanel({
   onOpenSettings,
   listboxId,
   showHeading = true,
+  showSearch = true,
 }: {
   models: ModelSelection[];
   loading: boolean;
@@ -78,38 +81,37 @@ export function DraftModelCatalogPanel({
   onOpenSettings?: () => void;
   listboxId: string;
   showHeading?: boolean;
+  showSearch?: boolean;
 }) {
-  const needle = query.trim().toLowerCase();
-  const filtered = needle
-    ? models.filter(
-        model =>
-          model.name.toLowerCase().includes(needle) ||
-          model.id.toLowerCase().includes(needle) ||
-          model.provider.name.toLowerCase().includes(needle),
-      )
-    : models;
+  const needle = normalizeModelSearchText(query);
+  const filtered = useMemo(
+    () => (needle ? models.filter(model => modelMatchesQuery({ model, needle })) : models),
+    [models, needle],
+  );
   const sections = groupModelsByProvider(filtered);
   const detailedGridClass = 'grid-cols-[minmax(0,1fr)_5rem]';
 
   return (
     <>
-      <div className="border-b border-border px-3 py-2">
-        {showHeading ? <p className="text-text-primary mb-2 text-sm font-normal">Select model</p> : null}
-        <label className="relative block">
-          <Icon
-            name="search"
-            className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={event => onQueryChange(event.target.value)}
-            placeholder="Search"
-            className={auiInputClass('h-8 py-1 pr-2 pl-7')}
-            autoFocus
-          />
-        </label>
-      </div>
+      {showSearch && (
+        <div className="border-b border-border px-3 py-2">
+          {showHeading ? <p className="text-text-primary mb-2 text-sm font-normal">Select model</p> : null}
+          <label className="relative block">
+            <Icon
+              name="search"
+              className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={event => onQueryChange(event.target.value)}
+              placeholder="Search"
+              className={auiInputClass('h-8 py-1 pr-2 pl-7')}
+              autoFocus
+            />
+          </label>
+        </div>
+      )}
       {!showHeading ? (
         <div
           className={cn(
@@ -162,9 +164,7 @@ export function DraftModelCatalogPanel({
                       className={cn(
                         'w-full items-center rounded-md px-2 py-2 text-left text-sm',
                         showHeading ? 'flex' : cn('grid gap-2', detailedGridClass),
-                        active
-                          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-                          : 'hover:bg-ghost-button-hover',
+                        active ? 'bg-primary-button-bg/10 text-primary-button-bg' : 'hover:bg-ghost-button-hover',
                       )}
                       onClick={() => onSelect(model)}
                     >
@@ -189,7 +189,7 @@ export function DraftModelCatalogPanel({
                       </span>
                       {!showHeading ? (
                         <>
-                          <span className="text-text-secondary text-xs">
+                          <span className={cn('text-text-secondary text-xs', active && 'text-primary-button-bg')}>
                             {model.properties.contextLength === undefined
                               ? '—'
                               : formatTokens(model.properties.contextLength)}

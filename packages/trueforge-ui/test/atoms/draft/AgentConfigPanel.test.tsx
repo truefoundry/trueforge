@@ -17,6 +17,22 @@ const model: ModelSelection = {
   },
 };
 
+const secondModel: ModelSelection = {
+  id: 'claude-sonnet',
+  name: 'anthropic/claude-sonnet',
+  provider: { name: 'Anthropic' },
+  properties: {
+    contextLength: 200_000,
+    maxOutputTokens: 32_000,
+  },
+};
+
+const catalogProps = {
+  models: [model, secondModel],
+  modelsLoading: false,
+  modelsError: null,
+};
+
 const spec: AgentSpec = {
   model: {
     name: model.name,
@@ -42,6 +58,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -84,6 +101,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={onOpenEditor}
@@ -101,6 +119,41 @@ describe('AgentConfigPanel', () => {
     expect(onOpenEditor).toHaveBeenCalledWith('instructions');
   });
 
+  it('opens the model catalog as a dropdown and selects a model', () => {
+    const onChange = vi.fn();
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={onOpenEditor}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Model' }));
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByText('Context')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('option', { name: /claude-sonnet/ }));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      model: {
+        name: secondModel.name,
+        params: { ...spec.model.params, reasoningEffort: undefined },
+      },
+    });
+    expect(onOpenEditor).not.toHaveBeenCalledWith('model');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('previews instructions and summarizes initial user messages', () => {
     const specWithMessages = withInitialUserMessages({
       spec,
@@ -115,6 +168,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={specWithMessages}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions="Use the configured tools carefully."
           onOpenEditor={vi.fn()}
@@ -133,6 +187,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -152,6 +207,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -174,6 +230,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={onOpenEditor}
@@ -192,6 +249,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={{ ...spec, mcpServers: [] }}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -211,6 +269,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}

@@ -44,7 +44,7 @@ export function MessageTimestamp({ createdAt, className }: MessageTimestampProps
   }
 
   return (
-    <LightTooltip title={formatFullDate(date)} size="fit">
+    <LightTooltip title={formatFullDate(date)} size="fit" side="bottom">
       <span className={cn('text-xs font-medium cursor-pointer leading-normal shrink-0 text-text-secondary', className)}>
         {formatTime(date)}
       </span>
