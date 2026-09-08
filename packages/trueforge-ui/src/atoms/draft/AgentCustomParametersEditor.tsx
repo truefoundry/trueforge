@@ -22,12 +22,6 @@ export type AgentCustomParametersEditorProps = {
   onChange: (value: Record<string, unknown>) => void;
 };
 
-function finiteNumber(raw: string): number | null {
-  if (raw.trim() === '') return null;
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
-}
-
 function customParameterType(value: unknown): CustomParameterType {
   if (typeof value === 'string') return 'string';
   if (typeof value === 'number') return 'number';
@@ -66,8 +60,10 @@ function parseCustomValue(
 ): { valid: true; value: unknown } | { valid: false; error: string } {
   if (draft.type === 'string') return { valid: true, value: draft.value };
   if (draft.type === 'number') {
-    const value = finiteNumber(draft.value);
-    return value === null ? { valid: false, error: 'Enter a valid number.' } : { valid: true, value };
+    const value = Number(draft.value);
+    return draft.value.trim() === '' || !Number.isFinite(value)
+      ? { valid: false, error: 'Enter a valid number.' }
+      : { valid: true, value };
   }
   try {
     const value: unknown = JSON.parse(draft.value);
@@ -111,12 +107,12 @@ export function AgentCustomParametersEditor({ value, reservedKeys, onChange }: A
     if (nextDrafts.some(draft => customDraftError({ draft, drafts: nextDrafts, reservedKeys }) !== null)) {
       return;
     }
-    const next: Record<string, unknown> = {};
+    const entries: Array<[string, unknown]> = [];
     nextDrafts.forEach(draft => {
       const parsed = parseCustomValue(draft);
-      if (parsed.valid) next[draft.key.trim()] = parsed.value;
+      if (parsed.valid) entries.push([draft.key.trim(), parsed.value]);
     });
-    onChange(next);
+    onChange(Object.fromEntries(entries));
   };
 
   const updateDraft = ({
@@ -199,7 +195,6 @@ export function AgentCustomParametersEditor({ value, reservedKeys, onChange }: A
                           },
                         })
                       }
-                      onMouseDown={event => event.stopPropagation()}
                     >
                       <span aria-hidden className="w-5 text-center font-semibold">
                         {customParameterTypeMark(type)}
@@ -244,7 +239,7 @@ export function AgentCustomParametersEditor({ value, reservedKeys, onChange }: A
                 language="json"
                 height="8rem"
                 showToolbar={false}
-                className={cn('mr-[4rem] h-32 rounded-t-none border-t-0', visibleError && 'border-failure-bg')}
+                className={cn('mr-16 h-32 rounded-t-none border-t-0', visibleError && 'border-failure-bg')}
                 onChange={entryValue => {
                   if (entryValue !== undefined) {
                     updateDraft({ id: draft.id, patch: { value: entryValue } });

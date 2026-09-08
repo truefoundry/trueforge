@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
+import { AgentModelSettingsContent } from '@/atoms/draft/AgentModelSettingsContent.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
 import type { AgentSpec } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -353,6 +354,25 @@ describe('AgentConfigEditors', () => {
       'h-32',
     );
     expect(screen.getByRole('button', { name: 'Add parameter' })).toBeInTheDocument();
+  });
+
+  it('preserves prototype-named custom parameters as own properties', () => {
+    const onChange = vi.fn();
+    const params = Object.fromEntries([['__proto__', 'initial']]);
+    render(
+      <SlotsProvider>
+        <AgentModelSettingsContent spec={{ model: { name: 'openai/gpt', params } }} onChange={onChange} />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Custom parameter name' })).toHaveValue('__proto__');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value for __proto__' }), {
+      target: { value: 'updated' },
+    });
+
+    const changedParams = onChange.mock.lastCall?.[0].model.params;
+    expect(Object.hasOwn(changedParams ?? {}, '__proto__')).toBe(true);
+    expect(changedParams?.['__proto__']).toBe('updated');
   });
 
   it('opens runtime configuration in a dedicated modal', () => {

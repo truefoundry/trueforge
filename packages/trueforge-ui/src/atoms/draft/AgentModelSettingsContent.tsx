@@ -42,11 +42,9 @@ function isModelParams(value: unknown): value is ModelParams {
 }
 
 function customParamsFrom(params: ModelParams): Record<string, unknown> {
-  const custom: Record<string, unknown> = {};
-  Object.entries(params).forEach(([key, value]) => {
-    if (!CONTROLLED_PARAM_KEYS.has(key) && value !== undefined) custom[key] = value;
-  });
-  return custom;
+  return Object.fromEntries(
+    Object.entries(params).filter(([key, value]) => !CONTROLLED_PARAM_KEYS.has(key) && value !== undefined),
+  );
 }
 
 function formatParams(params: ModelParams): string {
