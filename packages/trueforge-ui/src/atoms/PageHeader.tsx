@@ -25,10 +25,7 @@ export type PageHeaderProps = {
 export function PageHeader({ title, start, end, children, className }: PageHeaderProps) {
   return (
     <header
-      className={cn(
-        'flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4',
-        className,
-      )}
+      className={cn('flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4', className)}
     >
       {start}
       {typeof title === 'string' ? <h1 className={pageHeaderTitleClassName}>{title}</h1> : title}
