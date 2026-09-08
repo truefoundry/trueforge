@@ -93,6 +93,7 @@ import { ToolApprovalBar } from '../atoms/ToolApprovalBar.js';
 import { ToolCallCard } from '../atoms/ToolCallCard.js';
 import { ToolCallContentBlock } from '../atoms/ToolCallContentBlock.js';
 import { ToolGroupCard } from '../atoms/ToolGroupCard.js';
+import { UserAvatar } from '../atoms/UserAvatar.js';
 import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
 import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
@@ -241,4 +242,5 @@ export const defaultSlots = {
   Toast,
   ToastStack,
   ShellActionsActionSlot,
+  UserAvatar,
 } satisfies AtomSlots;

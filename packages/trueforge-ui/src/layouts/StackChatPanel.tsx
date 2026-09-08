@@ -39,6 +39,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
+  const UserAvatar = useSlot('UserAvatar');
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
@@ -164,21 +165,22 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
       )}
       {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
-        {libraryOpen || schedulesOpen ? (
-          <button
-            type="button"
-            className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-            onClick={() => {
-              shell?.setLibraryOpen(false);
-              shell?.setSchedulesOpen(false);
-            }}
-          >
-            <Icon name="arrow-left" />
-            Back to chat
-          </button>
-        ) : (
-          <span />
-        )}
+        <div className="flex min-w-0 items-center gap-1">
+          {libraryOpen || schedulesOpen ? (
+            <button
+              type="button"
+              className={auiButtonClass({ variant: 'ghost', size: 'small' })}
+              onClick={() => {
+                shell?.setLibraryOpen(false);
+                shell?.setSchedulesOpen(false);
+              }}
+            >
+              <Icon name="arrow-left" />
+              Back to chat
+            </button>
+          ) : null}
+          <UserAvatar />
+        </div>
         <ShellActions key="shell-actions" />
       </footer>
       {shell?.agentConfigOpen ? (
