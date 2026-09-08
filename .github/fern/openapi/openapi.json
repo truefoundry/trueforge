@@ -1175,6 +1175,50 @@
         ],
         "type": "object"
       },
+      "DaytonaSandboxProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
+          },
+          "auto_archive_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_delete_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_stop_interval_in_minutes": {
+            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "exec_timeout_ms": {
+            "description": "Default sandbox command exec timeout in milliseconds.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "type": {
+            "description": "Daytona sandbox provider.",
+            "enum": [
+              "daytona"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "auth",
+          "exec_timeout_ms",
+          "auto_stop_interval_in_minutes",
+          "auto_archive_interval_in_minutes",
+          "auto_delete_interval_in_minutes"
+        ],
+        "type": "object"
+      },
       "DaytonaSandboxProviderAuth": {
         "additionalProperties": false,
         "description": "Daytona authentication credentials.",
@@ -3095,48 +3139,21 @@
         "type": "object"
       },
       "SandboxProviderManifest": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/DaytonaSandboxProviderAuth"
+        "discriminator": {
+          "mapping": {
+            "daytona": "#/components/schemas/DaytonaSandboxProvider",
+            "tfy": "#/components/schemas/TFYSandboxProvider"
           },
-          "auto_archive_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_delete_interval_in_minutes": {
-            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "auto_stop_interval_in_minutes": {
-            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "exec_timeout_ms": {
-            "description": "Default sandbox command exec timeout in milliseconds.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "type": {
-            "description": "Daytona sandbox provider.",
-            "enum": [
-              "daytona"
-            ],
-            "type": "string"
-          }
+          "propertyName": "type"
         },
-        "required": [
-          "type",
-          "auth",
-          "exec_timeout_ms",
-          "auto_stop_interval_in_minutes",
-          "auto_archive_interval_in_minutes",
-          "auto_delete_interval_in_minutes"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DaytonaSandboxProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TFYSandboxProvider"
+          }
+        ]
       },
       "Schedule": {
         "additionalProperties": false,
@@ -3873,6 +3890,40 @@
           "git"
         ],
         "type": "string"
+      },
+      "TFYSandboxProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "exec_timeout_ms": {
+            "description": "Default sandbox command exec timeout in milliseconds.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "nats_bridge_url": {
+            "description": "Cluster-internal NATS WebSocket bridge URL.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "server_url": {
+            "description": "TFY sandbox HTTP server URL.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "TrueFoundry sandbox provider.",
+            "enum": [
+              "tfy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "server_url",
+          "nats_bridge_url",
+          "exec_timeout_ms"
+        ],
+        "type": "object"
       },
       "TextContent": {
         "properties": {
