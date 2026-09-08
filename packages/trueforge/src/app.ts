@@ -28,7 +28,7 @@ import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
-import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
+import { createAdminAuthMiddleware, createAuthMiddleware, truefoundryAdminMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -364,7 +364,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         sessionStore: deps.sessionStore,
       }),
-      authMiddleware,
+      truefoundryAdminMiddleware,
     ),
   );
   app.route(

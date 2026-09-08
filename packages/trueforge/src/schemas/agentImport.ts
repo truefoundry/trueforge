@@ -122,6 +122,13 @@ export const ImportSessionResponseSchema = z
   .object({ data: ImportSessionResultSchema })
   .openapi('ImportSessionResponse');
 
+export const ImportCheckpointQuerySchema = z
+  .object({
+    tenant_id: z.string().min(1).describe('Tenant whose imported-session watermark to read.'),
+  })
+  .strict()
+  .openapi('ImportCheckpointQuery');
+
 export const ImportCheckpointResponseSchema = z
   .object({
     data: z.object({
@@ -133,3 +140,4 @@ export const ImportCheckpointResponseSchema = z
 
 export type ImportSessionRequest = z.infer<typeof ImportSessionRequestSchema>;
 export type ImportSessionResult = z.infer<typeof ImportSessionResultSchema>;
+export type ImportCheckpointQuery = z.infer<typeof ImportCheckpointQuerySchema>;

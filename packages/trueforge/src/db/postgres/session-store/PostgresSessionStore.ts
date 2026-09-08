@@ -72,6 +72,9 @@ import {
   updateTurnState as updateTurnStateQuery,
 } from './queries/turns';
 
+/** Placeholder agent_id when named import cannot resolve a local agent (satisfies XOR; stale ref). */
+const IMPORT_MISSING_AGENT_ID = 'tfy-import:missing-agent';
+
 type SessionCustom = Record<string, never>;
 type TurnCustom = Record<string, never>;
 
@@ -236,10 +239,11 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   // --- temporary SF→TrueForge migration (remove after backfill) ---
 
-  async getImportCheckpoint(): Promise<{ created_at: string | null }> {
+  async getImportCheckpoint(input: { tenant_id: string }): Promise<{ created_at: string | null }> {
     const row = await this.db
       .selectFrom('session')
       .select(sql<string | null>`min(created_at)`.as('created_at'))
+      .where('tenant_id', '=', input.tenant_id)
       .where(sql<boolean>`metadata @> ${json({ imported: 'true' })}`)
       .executeTakeFirst();
     if (row?.created_at == null) {
@@ -257,14 +261,13 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     const hasName = typeof agentName === 'string' && agentName.length > 0;
     const hasSpec = agentSpec != null;
 
-    if (!hasName && !hasSpec) {
+    // session_agent_xor_check: exactly one of agent_id or agent_spec.
+    if (hasName === hasSpec) {
       throw new Error('Provide exactly one of agent_name or agent_spec');
     }
 
-    // Prefer linking to a local agent when present; otherwise keep agent_name and leave agent_id null
-    // so history still imports (agent may be backfilled later).
     let agentId: string | null = null;
-    let resolvedAgentName: string | null = hasName ? agentName : null;
+    let resolvedAgentName: string | null = null;
     if (hasName) {
       const agent = await this.db
         .selectFrom('agent')
@@ -275,6 +278,12 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
       if (agent !== undefined) {
         agentId = agent.id;
         resolvedAgentName = agent.name;
+      } else {
+        // SF GET …/agent-sessions/:id/full does not return agentId (only agent_name), so we
+        // cannot preserve the SF agent id. Use a dummy id so XOR holds; the ref stays stale
+        // until/unless a matching agent is imported later.
+        agentId = IMPORT_MISSING_AGENT_ID;
+        resolvedAgentName = agentName;
       }
     }
 

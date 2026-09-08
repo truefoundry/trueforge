@@ -94,8 +94,9 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
         message: 'Session import requires Postgres (STANDALONE=false)',
       });
     }
+    const { tenant_id } = c.req.valid('query');
     try {
-      const data = await deps.sessionStore.getImportCheckpoint();
+      const data = await deps.sessionStore.getImportCheckpoint({ tenant_id });
       return c.json({ data }, 200);
     } catch (error) {
       throw new HTTPException(500, { message: errorDetail(error), cause: error });

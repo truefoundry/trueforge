@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
+import configuration from '../config';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
 import { hasAdminRole, type RequestContext } from './identity';
@@ -27,6 +28,29 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
     return next();
   };
 }
+
+/** Only `TRUEFOUNDRY_API_KEY` by string equality (service-to-service). Body may choose tenant_id. */
+export const truefoundryAdminMiddleware: MiddlewareHandler = async (c, next) => {
+  const token = extractRequestToken(c);
+  if (
+    configuration.TRUEFOUNDRY_API_KEY === undefined ||
+    token === undefined ||
+    token !== configuration.TRUEFOUNDRY_API_KEY
+  ) {
+    throw new HTTPException(403, { message: 'Service API key required' });
+  }
+  c.set('request_context', {
+    tenant_id: 'default',
+    subject: {
+      id: 'truefoundry-api-key',
+      type: 'user',
+      display_name: 'truefoundry-api-key',
+    },
+    roles: [],
+    user_credential: token,
+  });
+  return next();
+};
 
 /**
  * Soft OIDC probe for login/callback — not request-gate middleware.

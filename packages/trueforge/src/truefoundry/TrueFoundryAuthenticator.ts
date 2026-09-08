@@ -4,7 +4,6 @@ import { HTTPException } from 'hono/http-exception';
 import type { Authenticator } from '../auth/authenticator';
 import type { RequestContext } from '../auth/identity';
 import { extractRequestToken } from '../auth/token';
-import configuration from '../config';
 import { createTrueFoundryRequestContext } from './accessToken';
 import type { GetSessionResponse } from './TrueFoundryServiceFoundryServerClient';
 
@@ -24,24 +23,6 @@ export class TrueFoundryAuthenticator implements Authenticator {
     const token = extractRequestToken(c);
     if (!token) {
       throw new HTTPException(401, { message: 'Authentication required' });
-    }
-
-    // Service key: accept TRUEFOUNDRY_API_KEY by string equality (no /v1/session).
-    if (
-      !configuration.STANDALONE &&
-      configuration.TRUEFOUNDRY_API_KEY !== undefined &&
-      token === configuration.TRUEFOUNDRY_API_KEY
-    ) {
-      return createTrueFoundryRequestContext({
-        tenant_id: 'default',
-        subject: {
-          id: 'truefoundry-api-key',
-          type: 'user',
-          display_name: 'truefoundry-api-key',
-        },
-        roles: [],
-        user_credential: token,
-      });
     }
 
     const session = await this.#client.getSession(token);
