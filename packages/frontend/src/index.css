@@ -25,12 +25,7 @@ body {
 /* Primary CTA fill: gradient isn't a valid Tailwind color token, so paint it as background-image. */
 .harness-primary-gradient button.bg-primary-button-bg,
 .harness-primary-gradient .auth-screen-button {
-  background-image: radial-gradient(
-    289.46% 144.73% at 8.33% 7.41%,
-    #b27aff 0%,
-    #155dfc 58.99%,
-    #4f39f6 100%
-  );
+  background-image: radial-gradient(289.46% 144.73% at 8.33% 7.41%, #b27aff 0%, #155dfc 58.99%, #4f39f6 100%);
 }
 
 .harness-primary-gradient[data-theme='light'] aside.bg-sidebar-bg button.bg-primary-button-bg {

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0-rc.2
+
+### Minor Changes
+
+- 04d2ee6: Add a `sidebarText` semantic token for sidebar nav labels, refresh trueforge sidebar colors, set trueforge base `radius` to `0.375rem` (6px), and set sidebar / thread-list control corners to `0.75rem` (12px).
+
+  Expose design-system `Button` (`Button.Primary` / `.Secondary` / `.Ghost` / `.Destructive`). `ButtonVariant` is now `primary | secondary | ghost | destructive` (`default` renamed to `primary`; `outline` removed — use `secondary`). Button sizes are `large` (default) and `small` (`icon` for icon-only).
+
+### Patch Changes
+
+- 2a0ae4c: Show connector catalog logos in the composer Tools picker, matching the Connectors settings page.
+- 2a0ae4c: Align AttachmentCard with assistant-ui's default square thumbnail, filename tooltip, and overlay remove control.
+- fe6a14b: Improve session timelines with sub-agent wait states, grouped point-event markers, clean linear ticks, and readable summary durations.
+- d5b479d: Clamp optional sessions/schedules chrome and unregister `/sessions`, `/schedules`, and `/library/:agentId` when those server ports are omitted, matching the Settings Lego gate.
+- 5d72138: Keep `npx @truefoundry/trueforge` working on native Windows: import Kysely migrations with `pathToFileURL`, and keep sandbox guest paths POSIX. Source development stays Unix/WSL; CI also runs unit and SQLite store tests on Windows.
+- Updated dependencies [a000b47]
+- Updated dependencies [0ec8dc6]
+- Updated dependencies [11865b4]
+  - @truefoundry/trueforge-sdk@0.1.4-rc.2
+
 ## 0.3.0-rc.1
 
 ### Minor Changes

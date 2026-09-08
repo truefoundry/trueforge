@@ -55,6 +55,8 @@ Open a feature request in the issue tracker, or upvote an existing request that 
 
 ## Prerequisites
 
+Source development (`pnpm install`, `pnpm dev`, `pnpm standalone:dev`, `pnpm build`) is supported on **macOS, Linux, and Windows via WSL2**. Native Windows (PowerShell / cmd) is not a supported at this time.
+
 - **Node.js 22.14+** (see [`.nvmrc`](.nvmrc); pnpm 11.16 needs 22.13+, and `better-sqlite3` v13 needs Node-API 10)
 - **pnpm** (version pinned via `packageManager` in [`package.json`](package.json); `corepack enable` handles it)
 - **Docker** - only needed for Postgres/Redis dev infra, the smoke test, and local SDK generation (maintainers). Fork contributors do not generate the SDK.
@@ -181,6 +183,7 @@ Workspace tasks go through `package.json` scripts - if a repeatable workflow is 
 | `pnpm test` / `pnpm typecheck`                       | Workspace checks                                      |
 | `pnpm lint` / `pnpm format`                          | ESLint (with fixes) / Prettier                        |
 | `pnpm smoke` / `pnpm smoke:down`                     | Full Docker Compose stack + health check              |
+| `pnpm smoke:npx`                                     | Pack the published CLI and boot it like `npx`         |
 | `pnpm chart:lint` / `pnpm chart:template`            | Validate the Helm chart                               |
 | `pnpm clean` / `pnpm clean:all`                      | Remove build outputs (+ `node_modules` for `:all`)    |
 
