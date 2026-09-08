@@ -17,13 +17,13 @@ export const listAvailableSkillsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SKILLS],
   summary: 'List skills for chat',
-  description: 'Skills as a slim name/description list for the composer.',
+  description: 'List available skills.',
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableSkillsResponseSchema } },
-      description: 'Skills for the composer (chat projection).',
+      description: 'Available skills.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -32,21 +32,18 @@ export const listAvailableSkillsRoute = createRoute({
   },
 });
 
-/** Versions for one skill — mounted at /api/v1/skills/{skill_id}/versions. */
+/** Versions for one skill — mounted at /api/v1/skills/versions?name=. */
 export const listSkillVersionsRoute = createRoute({
   method: 'get',
-  path: '/{skill_id}/versions',
+  path: '/versions',
   tags: [OpenApiTag.SKILLS],
   summary: 'List skill versions',
   description: 'Versions for one skill.',
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list_versions',
   request: {
-    params: z.object({
-      skill_id: z
-        .string()
-        .min(1)
-        .openapi({ param: { name: 'skill_id', in: 'path' } }),
+    query: z.object({
+      name: z.string().min(1).describe('Skill name.'),
     }),
   },
   responses: {

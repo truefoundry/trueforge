@@ -62,14 +62,14 @@ describe('TrueFoundrySkillStore', () => {
       description: 'Echo skill',
       id: 'skill-1',
       fqn: 'agent-skill:acme/team-a/echo:3',
-      ml_repo_name: 'team-a',
+      skill_repo_name: 'team-a',
       version: 3,
     });
   });
 
   it('returns versions and rejects managed writes', async () => {
     const { store, client } = createStore();
-    await expect(store.listSkillVersions({ skill_id: 'skill-1' })).resolves.toEqual([
+    await expect(store.listSkillVersions({ name: 'agent-skill:acme/team-a/echo:3' })).resolves.toEqual([
       {
         id: 'ver-1',
         fqn: 'agent-skill:acme/team-a/echo:3',
@@ -80,7 +80,7 @@ describe('TrueFoundrySkillStore', () => {
     ]);
     expect(client.listAgentSkillVersions).toHaveBeenCalledWith({
       accessToken: ACCESS_TOKEN,
-      agentSkillId: 'skill-1',
+      fqn: 'agent-skill:acme/team-a/echo:3',
     });
     const input: CreateSkillInput = {
       tenant_id: TENANT,

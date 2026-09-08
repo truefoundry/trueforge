@@ -89,7 +89,7 @@ describe('AgentConfigPanel', () => {
       'min-h-14',
       'border-b',
       'bg-topbar-bg',
-      'px-2',
+      'px-3',
       'py-1.5',
     );
   });

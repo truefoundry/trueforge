@@ -11,6 +11,7 @@ import {
   putSkillRoute,
 } from '../routes/skillRoutes';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
+import { RegistrySkillManifestSchema } from '../schemas/skill';
 
 export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
 
@@ -30,13 +31,14 @@ function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
 function toAvailableSkill(record: SkillRecord): AvailableSkill {
   const { manifest } = record;
   if (manifest.type === 'registry') {
+    const registry = RegistrySkillManifestSchema.parse(manifest);
     return {
-      name: record.name,
-      description: manifest.description,
-      id: manifest.id,
-      fqn: manifest.fqn,
-      ml_repo_name: manifest.ml_repo_name,
-      version: manifest.version,
+      // Attach name is the version FQN; artifact name is display_name.
+      name: registry.fqn,
+      display_name: registry.name,
+      description: registry.description,
+      skill_repo_name: registry.skill_repo_name,
+      version: registry.version,
     };
   }
   return { name: record.name, description: manifest.description };
@@ -104,8 +106,8 @@ export function createAvailableSkillsRouter<TTransaction>(deps: SkillsRouterDeps
   });
 
   router.openapi(listSkillVersionsRoute, async c => {
-    const { skill_id } = c.req.valid('param');
-    return c.json({ data: await deps.resolveSkillStore(c).listSkillVersions({ skill_id }) }, 200);
+    const { name } = c.req.valid('query');
+    return c.json({ data: await deps.resolveSkillStore(c).listSkillVersions({ name }) }, 200);
   });
 
   return router;

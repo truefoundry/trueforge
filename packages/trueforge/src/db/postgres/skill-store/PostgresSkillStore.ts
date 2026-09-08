@@ -99,7 +99,7 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
     return toRecord(row);
   }
 
-  listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]> {
+  listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
     void input;
     return Promise.resolve([]);
   }

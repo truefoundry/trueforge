@@ -295,7 +295,7 @@ describe('validateAgentSpec', () => {
         description: 'Echo',
         id: 'skill-1',
         fqn: 'agent-skill:acme/team-a/echo:1',
-        ml_repo_name: 'team-a',
+        skill_repo_name: 'team-a',
         version: 1,
       },
     });

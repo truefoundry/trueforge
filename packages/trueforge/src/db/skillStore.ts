@@ -52,5 +52,5 @@ export interface ISkillStore<TTransaction = never> {
   createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
   /** Single-row write: creates the skill or replaces the whole manifest. */
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
-  listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]>;
+  listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
 }

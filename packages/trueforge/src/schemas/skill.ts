@@ -5,9 +5,15 @@
  * Git field rules mirror harness git skill mounts (GitHub/GitLab HTTPS url,
  * path/ref constraints) so settings documents stay mount-compatible. Identity
  * uses NameSchema like model providers / MCP servers.
+ *
+ * OpenAPI matches MCPServerManifest: one SkillManifest with `type: SkillType`
+ * inside (no GitSkillManifest / RegistrySkillManifest components).
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
+
+/** Kind of skill — same pattern as MCPServerType. */
+export const SkillTypeSchema = z.enum(['git', 'registry']).openapi('SkillType');
 
 // GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
 const GIT_URL_REGEX =
@@ -54,10 +60,50 @@ export const SkillDescriptionSchema = z
   .min(1)
   .describe('Concise guidance for when the agent should use the skill.');
 
-/** Configured git skill document persisted as `skill.manifest`. */
+/**
+ * Persisted skill document. Single object like MCPServerManifest (`type` inside).
+ * Git vs registry required fields are enforced in superRefine.
+ */
+export const SkillManifestObjectSchema = z
+  .object({
+    type: SkillTypeSchema,
+    name: NameSchema,
+    description: SkillDescriptionSchema,
+    url: SkillGitUrlSchema.optional(),
+    path: SkillGitPathSchema.optional(),
+    ref: SkillGitRefSchema.optional(),
+    id: z.string().min(1).optional(),
+    fqn: z.string().min(1).optional(),
+    skill_repo_name: z.string().min(1).optional().describe('Repo where the skill is registered.'),
+    version: z.number().int().positive().optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.type === 'git') {
+      if (value.url === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'url is required for git skills', path: ['url'] });
+      }
+      if (value.ref === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'ref is required for git skills', path: ['ref'] });
+      }
+      return;
+    }
+    for (const key of ['id', 'fqn', 'skill_repo_name', 'version'] as const) {
+      if (value[key] === undefined) {
+        ctx.addIssue({ code: 'custom', message: `${key} is required for registry skills`, path: [key] });
+      }
+    }
+  });
+
+export const SkillManifestSchema = SkillManifestObjectSchema.openapi('SkillManifest');
+
+/**
+ * Settings write shape (git only). Unnamed so OpenAPI does not emit GitSkillManifest;
+ * create/update bodies still require git fields via SkillType + refine.
+ */
 export const GitSkillManifestSchema = z
   .object({
-    type: z.literal('git'),
+    type: SkillTypeSchema,
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),
@@ -65,25 +111,21 @@ export const GitSkillManifestSchema = z
     description: SkillDescriptionSchema,
   })
   .strict()
-  .openapi('GitSkillManifest');
+  .refine(value => value.type === 'git', { path: ['type'], message: 'must be git' });
 
-/** Registry skill (not written via settings). */
+/** Registry row shape for TrueFoundry catalog mapping. Unnamed — not an OpenAPI component. */
 export const RegistrySkillManifestSchema = z
   .object({
-    type: z.literal('registry'),
+    type: SkillTypeSchema,
     name: NameSchema,
     description: SkillDescriptionSchema,
     id: z.string().min(1),
     fqn: z.string().min(1),
-    ml_repo_name: z.string().min(1),
+    skill_repo_name: z.string().min(1).describe('Repo where the skill is registered.'),
     version: z.number().int().positive(),
   })
   .strict()
-  .openapi('RegistrySkillManifest');
-
-export const SkillManifestSchema = z
-  .discriminatedUnion('type', [GitSkillManifestSchema, RegistrySkillManifestSchema])
-  .openapi('SkillManifest');
+  .refine(value => value.type === 'registry', { path: ['type'], message: 'must be registry' });
 
 /** Admin/settings wire view: identity column plus nested manifest. */
 export const ConfiguredSkillSchema = z
@@ -113,12 +155,21 @@ export const GetSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).
 /** Chat/composer read view — discovery fields only. */
 export const AvailableSkillSchema = z
   .object({
-    name: NameSchema,
+    name: z.string().min(1).describe('Skill name.'),
     description: SkillDescriptionSchema,
-    id: z.string().min(1).optional().describe('Skill id.'),
-    fqn: z.string().min(1).optional().describe('Latest version FQN.'),
-    ml_repo_name: z.string().min(1).optional().describe('ML repo name when skill names collide.'),
-    version: z.number().int().positive().optional().describe('Latest version number.'),
+    // Inline string (not NameSchema): named ResourceName + optional/describe emits OpenAPI allOf.
+    display_name: z
+      .string()
+      .min(2)
+      .max(64)
+      .regex(
+        /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/,
+        'must be 2–64 lowercase chars: start with a letter, end with alphanumeric, optionally separated by ".", "_" or "-"',
+      )
+      .optional()
+      .describe('Display name.'),
+    skill_repo_name: z.string().min(1).optional().describe('Repo where the skill is registered.'),
+    version: z.number().int().positive().optional().describe('Version number.'),
   })
   .strict()
   .openapi('AvailableSkill');
@@ -147,9 +198,10 @@ export const ListSkillVersionsResponseSchema = z
   .object({ data: z.array(SkillVersionSchema) })
   .openapi('ListSkillVersionsResponse');
 
+export type SkillType = z.infer<typeof SkillTypeSchema>;
+export type SkillManifest = z.infer<typeof SkillManifestSchema>;
 export type GitSkillManifest = z.infer<typeof GitSkillManifestSchema>;
 export type RegistrySkillManifest = z.infer<typeof RegistrySkillManifestSchema>;
-export type SkillManifest = z.infer<typeof SkillManifestSchema>;
 export type ConfiguredSkill = z.infer<typeof ConfiguredSkillSchema>;
 export type CreateSkillRequest = z.infer<typeof CreateSkillRequestSchema>;
 export type UpdateSkillRequest = z.infer<typeof UpdateSkillRequestSchema>;

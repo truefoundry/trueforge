@@ -22,6 +22,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
+import { GitSkillManifestSchema } from '../schemas/skill';
 
 export interface McpConnection {
   url: string;
@@ -150,17 +151,18 @@ export async function resolveGitSkills({
       });
     }
     // Registry catalog rows are not git mounts; skipping would require a sandbox and install nothing.
-    if (record.manifest.type !== 'git') {
+    const git = GitSkillManifestSchema.safeParse(record.manifest);
+    if (!git.success) {
       throw new HTTPException(422, {
         message: `Skill "${skill.name}" is not a git skill`,
       });
     }
     resolved.push({
-      name: record.manifest.name,
-      description: record.manifest.description,
-      url: record.manifest.url,
-      path: record.manifest.path ?? '',
-      ref: record.manifest.ref,
+      name: git.data.name,
+      description: git.data.description,
+      url: git.data.url,
+      path: git.data.path ?? '',
+      ref: git.data.ref,
     });
   }
   return resolved;

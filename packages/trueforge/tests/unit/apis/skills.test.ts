@@ -118,6 +118,43 @@ describe('skills routers', () => {
     });
   });
 
+  it('GET / maps registry rows to FQN name and display_name', async () => {
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const skillStore = new SqliteSkillStore(db);
+    await skillStore.upsertSkill({
+      tenant_id: 'default',
+      name: 'echo',
+      manifest: {
+        type: 'registry',
+        name: 'echo',
+        description: 'Echo skill',
+        id: 'skill-1',
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        skill_repo_name: 'team-a',
+        version: 3,
+      },
+    });
+    const router = createAvailableSkillsRouter({
+      resolveSkillStore: () => skillStore,
+      withTransaction: callback => db.transaction().execute(callback),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+    });
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      data: [
+        {
+          name: 'agent-skill:acme/team-a/echo:3',
+          display_name: 'echo',
+          description: 'Echo skill',
+          skill_repo_name: 'team-a',
+          version: 3,
+        },
+      ],
+    });
+  });
+
   it('PUT rejects invalid bodies at the Zod layer', async () => {
     const { url: _, ...withoutUrl } = putBody;
     const missingUrl = await settingsRouter.request('/', putInit(wrapManifest(withoutUrl)));

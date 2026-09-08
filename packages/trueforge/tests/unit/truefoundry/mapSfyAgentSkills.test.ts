@@ -28,7 +28,7 @@ describe('mapSfyAgentSkills', () => {
         name: 'echo',
         description: 'Echo skill',
         fqn: 'agent-skill:acme/team-a/echo:3',
-        ml_repo_name: 'team-a',
+        skill_repo_name: 'team-a',
         version: 3,
       },
     ]);

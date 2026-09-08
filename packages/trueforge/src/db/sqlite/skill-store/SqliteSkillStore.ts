@@ -98,7 +98,7 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
       .executeTakeFirstOrThrow();
   }
 
-  listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]> {
+  listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
     void input;
     return Promise.resolve([]);
   }

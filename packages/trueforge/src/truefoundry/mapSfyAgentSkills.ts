@@ -26,7 +26,7 @@ const SfyAgentSkillSchema = z
     name: latest_version.manifest.name,
     description: latest_version.manifest.source?.description ?? latest_version.manifest.name,
     fqn: latest_version.fqn,
-    ml_repo_name: latest_version.manifest.ml_repo,
+    skill_repo_name: latest_version.manifest.ml_repo,
     version: latest_version.manifest.version,
   }));
 

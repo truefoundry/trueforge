@@ -277,12 +277,12 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /** `GET /v1/agent-skill-versions?agent_skill_id=`. */
-  async listAgentSkillVersions(input: { accessToken: string; agentSkillId: string }): Promise<unknown[]> {
+  /** `GET /v1/agent-skill-versions?fqn=`. */
+  async listAgentSkillVersions(input: { accessToken: string; fqn: string }): Promise<unknown[]> {
     return this.#listAgentSkillPages({
       path: AGENT_SKILL_VERSIONS_PATH,
       accessToken: input.accessToken,
-      query: { agent_skill_id: input.agentSkillId },
+      query: { fqn: input.fqn },
     });
   }
 

@@ -26,7 +26,7 @@ function toRegistryRecord(tenant_id: string, skill: SfyAvailableSkill): SkillRec
     description: skill.description,
     id: skill.id,
     fqn: skill.fqn,
-    ml_repo_name: skill.ml_repo_name,
+    skill_repo_name: skill.skill_repo_name,
     version: skill.version,
   };
   return {
@@ -50,7 +50,7 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
 
   async listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]> {
     void transaction;
-    return (await this.#catalog(input)).map(skill => toRegistryRecord(input.tenant_id, skill));
+    return (await this.#listAgentSkills(input)).map(skill => toRegistryRecord(input.tenant_id, skill));
   }
 
   async getSkill(input: GetSkillInput, transaction?: TTransaction): Promise<SkillRecord | undefined> {
@@ -70,16 +70,16 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
     return trueFoundryManaged();
   }
 
-  async listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]> {
+  async listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
     const accessToken = await this.#resolveAccessToken();
     const rows = await this.#client.listAgentSkillVersions({
       accessToken,
-      agentSkillId: input.skill_id,
+      fqn: input.name,
     });
     return mapSfyAgentSkillVersions(rows);
   }
 
-  async #catalog(input: ListSkillsInput): Promise<SfyAvailableSkill[]> {
+  async #listAgentSkills(input: ListSkillsInput): Promise<SfyAvailableSkill[]> {
     if (input.names?.length === 0) {
       return [];
     }

@@ -120,6 +120,7 @@ describe('AgentSessionEventTimelineChart', () => {
     const xScale = typeof scales === 'object' && scales != null ? Reflect.get(scales, 'x') : undefined;
     const ticks = typeof xScale === 'object' && xScale != null ? Reflect.get(xScale, 'ticks') : undefined;
     expect(typeof ticks === 'object' && ticks != null ? Reflect.has(ticks, 'stepSize') : false).toBe(false);
+    expect(typeof ticks === 'object' && ticks != null ? Reflect.get(ticks, 'align') : undefined).toBe('inner');
   });
 
   it('keeps an open tooltip anchored to live chart bounds while scrolling', async () => {

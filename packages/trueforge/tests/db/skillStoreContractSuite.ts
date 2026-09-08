@@ -3,11 +3,11 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { SkillNameConflictError, type ISkillStore } from '../../src/db/skillStore';
-import type { SkillManifest } from '../../src/schemas/skill';
+import type { GitSkillManifest } from '../../src/schemas/skill';
 
 const TENANT = 'default';
 
-function manifest(overrides: Partial<SkillManifest> = {}): SkillManifest {
+function manifest(overrides: Partial<GitSkillManifest> = {}): GitSkillManifest {
   return {
     type: 'git',
     name: 'algorithmic-art',

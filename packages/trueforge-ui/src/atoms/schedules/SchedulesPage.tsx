@@ -389,7 +389,7 @@ export function SchedulesPage() {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
         {loading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
             {Array.from({ length: 5 }, (_, i) => (
