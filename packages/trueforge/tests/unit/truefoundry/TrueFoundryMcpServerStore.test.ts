@@ -59,6 +59,7 @@ function createStore(input?: {
       user_credential: input?.accessToken ?? ACCESS_TOKEN,
     }),
     agent: undefined,
+    logger: { info: jest.fn() },
   });
   return { store, client };
 }

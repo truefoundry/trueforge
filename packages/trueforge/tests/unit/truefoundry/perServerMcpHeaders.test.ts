@@ -44,6 +44,7 @@ const storeWith = (perServerHeaders: Record<string, Record<string, string>>): Tr
       user_credential: 'caller-token',
     }),
     agent: undefined,
+    logger: { info: jest.fn() },
     perServerHeaders,
   });
 

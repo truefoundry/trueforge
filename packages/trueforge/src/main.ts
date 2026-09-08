@@ -139,6 +139,7 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
 function buildResolveModelProviderStore<TTransaction>(options: {
   persistenceStore: IModelProviderStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  logger: Logger;
 }): (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction> {
   return (c: Context, runAsAgent?: AgentRecord) => {
     const { persistenceStore, client } = options;
@@ -148,6 +149,7 @@ function buildResolveModelProviderStore<TTransaction>(options: {
         client,
         context: requestContext,
         agent: runAsAgent,
+        logger: options.logger,
       });
     }
     return persistenceStore;
@@ -162,6 +164,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  logger: Logger;
 }): (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction> {
   return (c?: Context, runAsAgent?: AgentRecord) => {
     const { persistenceStore, tokenStore, client } = options;
@@ -172,6 +175,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
         client,
         context: requestContext,
         agent: runAsAgent,
+        logger: options.logger,
         perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
       });
     }
@@ -347,11 +351,13 @@ async function createDistributedPersistence(options: {
   const resolveModelProviderStore = buildResolveModelProviderStore({
     persistenceStore: modelProviderStore,
     client: serviceFoundryClient,
+    logger,
   });
   const resolveMcpServerStore = buildResolveMcpServerStore({
     persistenceStore: mcpServerStore,
     tokenStore,
     client: serviceFoundryClient,
+    logger,
   });
   const resolveAgentStore = buildResolveAgentStore({
     persistenceStore: agentStore,

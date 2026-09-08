@@ -5,6 +5,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import type { Logger } from 'winston';
 import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../config';
@@ -76,6 +77,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     client: TrueFoundryMcpApiClient;
     context: RequestContext;
     agent: AgentRecord | undefined;
+    logger: Pick<Logger, 'info'>;
     perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#client = input.client;
@@ -83,6 +85,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       client: input.client,
       context: asTrueFoundryRequestContext(input.context),
       agent: input.agent,
+      logger: input.logger,
     });
     this.#subject = input.context.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};

@@ -1,3 +1,4 @@
+import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import {
@@ -23,12 +24,14 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     client: TrueFoundryServiceFoundryServerClient;
     context: RequestContext;
     agent: AgentRecord | undefined;
+    logger: Logger;
   }) {
     this.#client = input.client;
     this.#resolveAccessToken = accessTokenForRequest({
       client: input.client,
       context: asTrueFoundryRequestContext(input.context),
       agent: input.agent,
+      logger: input.logger,
     });
   }
 
