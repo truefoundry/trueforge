@@ -15,6 +15,7 @@ const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
+const INTEGRATIONS_PAGE_SIZE = 1000;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -111,6 +112,10 @@ function listPage(response: ListResponse): unknown[] {
   return Array.isArray(response) ? response : response.data;
 }
 
+function listPaginationTotal(response: ListResponse): number | undefined {
+  return Array.isArray(response) ? undefined : response.pagination?.total;
+}
+
 export class TrueFoundryServiceFoundryServerClient {
   readonly #baseUrl: string;
   readonly #logger: Logger;
@@ -141,12 +146,28 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   async listProviderIntegrations(accessToken: string): Promise<unknown[]> {
-    const payload = await this.#requestJson({
-      url: this.#url(INTEGRATIONS_PATH, { type: 'model' }),
-      accessToken,
-      method: 'GET',
-    });
-    return listPage(this.#parseListResponse(payload));
+    const items: unknown[] = [];
+    let offset = 0;
+    for (;;) {
+      const payload = await this.#requestJson({
+        url: this.#url(INTEGRATIONS_PATH, {
+          type: 'model',
+          offset: String(offset),
+          limit: String(INTEGRATIONS_PAGE_SIZE),
+        }),
+        accessToken,
+        method: 'GET',
+      });
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      const total = listPaginationTotal(response);
+      items.push(...page);
+      if (total === undefined || items.length >= total || page.length === 0) {
+        break;
+      }
+      offset = items.length;
+    }
+    return items;
   }
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {
