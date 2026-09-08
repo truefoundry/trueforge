@@ -161,7 +161,7 @@ export function AgentRuntimeConfigFields({
       <div className="space-y-5">
         {showCapabilities ? (
           // Stack below `md` so narrow bottom sheets retain usable control widths.
-          <div className="flex flex-col gap-3 md:flex-row">
+          <div className="flex flex-col gap-3 border-b border-border pb-5 md:flex-row">
             {capabilityFields.map((field, index) =>
               switchField({
                 field,

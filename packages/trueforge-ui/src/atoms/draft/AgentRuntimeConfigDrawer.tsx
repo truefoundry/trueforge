@@ -28,7 +28,8 @@ export function AgentRuntimeConfigDrawer({
       title="Runtime Config"
       description="Control execution, sandbox, and context behavior."
       anchor="right"
-      size="lg"
+      size="xl"
+      className="md:w-3xl"
       aria-label="Edit Runtime Config"
     >
       <AgentRuntimeEditorContent spec={spec} sandboxAvailable={sandboxAvailable} onChange={onChange} />
