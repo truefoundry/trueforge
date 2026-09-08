@@ -20,33 +20,19 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(
-    input:
-      | {
-          client: TrueFoundryServiceFoundryServerClient;
-          context: RequestContext;
-          agent: AgentRecord | undefined;
-          resolveAccessToken?: never;
-          logger: Logger;
-        }
-      | {
-          client: TrueFoundryServiceFoundryServerClient;
-          resolveAccessToken: ResolveAccessToken;
-          context?: never;
-          agent?: never;
-          logger: Logger;
-        },
-  ) {
+  constructor(input: {
+    client: TrueFoundryServiceFoundryServerClient;
+    context: RequestContext;
+    agent: AgentRecord | undefined;
+    logger: Logger;
+  }) {
     this.#client = input.client;
-    this.#resolveAccessToken =
-      'resolveAccessToken' in input
-        ? input.resolveAccessToken
-        : accessTokenForRequest({
-            client: input.client,
-            context: asTrueFoundryRequestContext(input.context),
-            agent: input.agent,
-            logger: input.logger,
-          });
+    this.#resolveAccessToken = accessTokenForRequest({
+      client: input.client,
+      context: asTrueFoundryRequestContext(input.context),
+      agent: input.agent,
+      logger: input.logger,
+    });
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {

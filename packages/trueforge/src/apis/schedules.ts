@@ -9,8 +9,8 @@ import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRe
 import {
   ScheduleAgentNotFoundError,
   ScheduleNotFoundError,
+  scheduleRunFailureReason,
   ScheduleRunNotFoundError,
-  startScheduleRun,
 } from '../controller/scheduleDispatch';
 import type { IAgentStore } from '../db/agentStore';
 import {

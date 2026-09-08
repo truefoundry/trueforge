@@ -87,7 +87,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
-import { agentAccessToken } from './truefoundry/accessToken';
+import { createTrueFoundryRequestContext } from './truefoundry/accessToken';
 import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
@@ -446,21 +446,22 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         let executionModelProviderStore = modelProviderStore;
         let executionMcpServerStore = mcpServerWithAuthStore;
         if (serviceFoundryClient !== undefined) {
-          const resolveAccessToken = agentAccessToken({
-            client: serviceFoundryClient,
-            context: { tenant_id: turn.tenant_id, subject },
-            agent: turn.agent,
-            logger,
+          const requestContext = createTrueFoundryRequestContext({
+            tenant_id: turn.tenant_id,
+            subject,
+            roles: [],
+            user_credential: null,
           });
           executionModelProviderStore = new TrueFoundryModelProviderStore({
             client: serviceFoundryClient,
-            resolveAccessToken,
+            context: requestContext,
+            agent: turn.agent,
             logger,
           });
           executionMcpServerStore = new TrueFoundryMcpServerStore({
             client: serviceFoundryClient,
-            resolveAccessToken,
-            subject,
+            context: requestContext,
+            agent: turn.agent,
             logger,
           });
         }

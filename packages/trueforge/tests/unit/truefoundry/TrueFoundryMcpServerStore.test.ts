@@ -1,3 +1,4 @@
+import { createLogger } from 'winston';
 import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
@@ -59,7 +60,7 @@ function createStore(input?: {
       user_credential: input?.accessToken ?? ACCESS_TOKEN,
     }),
     agent: undefined,
-    logger: { info: jest.fn() },
+    logger: createLogger({ silent: true }),
   });
   return { store, client };
 }

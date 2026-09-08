@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import { createLogger } from 'winston';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
@@ -44,7 +45,7 @@ const storeWith = (perServerHeaders: Record<string, Record<string, string>>): Tr
       user_credential: 'caller-token',
     }),
     agent: undefined,
-    logger: { info: jest.fn() },
+    logger: createLogger({ silent: true }),
     perServerHeaders,
   });
 
