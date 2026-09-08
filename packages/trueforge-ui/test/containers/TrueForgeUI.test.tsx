@@ -542,9 +542,8 @@ describe('SidebarLayout', () => {
     const chatColumn = config.nextElementSibling;
     expect(config).toHaveClass(
       'md:max-w-150',
-      'md:flex-[0_2_37.5rem]',
+      'md:flex-1',
       '2xl:max-w-162.5',
-      '2xl:flex-[0_2_40.625rem]',
       'border-r',
     );
     expect(chatColumn).not.toBeNull();

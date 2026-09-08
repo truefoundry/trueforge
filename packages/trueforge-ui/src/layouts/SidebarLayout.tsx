@@ -216,7 +216,7 @@ export function SidebarLayout({ className }: { className?: string }) {
         <aside
           role="dialog"
           aria-label="Agent Config"
-          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:max-w-150 md:flex-[0_2_37.5rem] md:shadow-none 2xl:max-w-162.5 2xl:flex-[0_2_40.625rem]"
+          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:max-w-150 md:flex-1 md:shadow-none 2xl:max-w-162.5"
         >
           <AgentConfigDrawerContainer showClose={isMobile} />
         </aside>
