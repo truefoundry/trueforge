@@ -175,11 +175,5 @@ export type { SandboxRefParts } from './sandbox/sandboxRef';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';
-export {
-  DESIRED_SKILLS_FILE_NAME,
-  SKILLS_PREAMBLE,
-  SkillMounter,
-  getSkillPath,
-  renderSkillPromptBody,
-} from './sandbox/skills';
-export type { GitSkill, ISkillMounter, RegistrySkill } from './sandbox/skills';
+export { SKILLS_PREAMBLE, SkillMounter, getSkillPath, renderSkillPromptBody } from './sandbox/skills';
+export type { GitSkill, ISkillMounter, Skill } from './sandbox/skills';

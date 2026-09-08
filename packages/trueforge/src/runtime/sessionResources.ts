@@ -6,9 +6,9 @@ import {
   type AgentTracing,
   type GitSkill,
   type ModelParams,
-  type RegistrySkill,
   type RemoteMcpHeaders,
   type SandboxProvider,
+  type Skill,
   type VercelAIProviderConfig,
 } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
@@ -151,6 +151,7 @@ export async function resolveGitSkills({
       });
     }
     resolved.push({
+      type: 'git',
       name: record.manifest.name,
       description: record.manifest.description,
       url: record.manifest.url,
@@ -218,13 +219,12 @@ export async function resolveSandboxProvider({
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
   logger: Logger;
-  gitSkills?: readonly GitSkill[];
-  registrySkills?: readonly RegistrySkill[];
+  skills?: readonly Skill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
 }): Sandbox {
-  // Empty mounter still uploads desired-file so reused sandboxes can prune.
+  // Empty mounter still uploads requested-skills file so reused sandboxes can prune.
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
@@ -232,10 +232,7 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    skillMounter: new SkillMounter({
-      gitSkills: input.gitSkills ?? [],
-      registrySkills: input.registrySkills ?? [],
-    }),
+    skillMounter: new SkillMounter({ skills: input.skills ?? [] }),
     tracing: input.tracing,
     logger: input.logger,
   });

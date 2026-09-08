@@ -7,6 +7,7 @@ import type { ISkillMounter } from './ISkillMounter';
 
 /** Git skill: sparse-cloned in the sandbox by git_downloader.py (never preloaded). */
 export interface GitSkill {
+  readonly type: 'git';
   readonly name: string;
   readonly description: string;
   // Canonical https clone URL of the github.com/gitlab.com repo (host-validated by the caller).
@@ -18,7 +19,8 @@ export interface GitSkill {
 }
 
 /** Registry skill: sandbox dir uses artifact `name`; AgentSpec stores `fqn`. */
-export interface RegistrySkill {
+interface RegistrySkill {
+  readonly type: 'registry';
   readonly name: string;
   readonly description: string;
   // Version FQN from AgentSpec (`agent-skill:tenant/ml_repo/name:N`).
@@ -31,75 +33,74 @@ export interface RegistrySkill {
   readonly presignedUrl: string;
 }
 
-export const DESIRED_SKILLS_FILE_NAME = '.tfy-desired-skills.json';
+export type Skill = GitSkill | RegistrySkill;
 
-/** Wire entry in `.tfy-desired-skills.json` (git arm). */
-interface DesiredGitSkill {
-  type: 'git';
-  name: string;
-  url: string;
-  path: string;
-  ref: string;
+export const REQUESTED_SKILLS_FILE_NAME = '.tfy-requested-skills.json';
+
+type RequestedGitSkill = Pick<GitSkill, 'type' | 'name' | 'url' | 'path' | 'ref'>;
+
+type RequestedRegistrySkill = Pick<RegistrySkill, 'type' | 'name' | 'fqn'> & {
+  // Host↔sandbox wire: JSON/Python use snake_case; RegistrySkill stays camelCase.
+  presigned_url: RegistrySkill['presignedUrl'];
+};
+
+type RequestedSkill = RequestedGitSkill | RequestedRegistrySkill;
+
+function toRequestedSkill(skill: Skill): RequestedSkill {
+  switch (skill.type) {
+    case 'registry': {
+      const { name, fqn, presignedUrl: presigned_url } = skill;
+      // Rename at upload: downloader reads `presigned_url`, never `presignedUrl`.
+      return { type: 'registry', name, fqn, presigned_url };
+    }
+    case 'git': {
+      const { name, url, path, ref } = skill;
+      return { type: 'git', name, url, path, ref };
+    }
+    default: {
+      const _exhaustive: never = skill;
+      throw new Error(`unexpected skill: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
 }
 
-/** Wire entry in `.tfy-desired-skills.json` (registry arm). */
-interface DesiredRegistrySkill {
-  type: 'registry';
-  name: string;
-  fqn: string;
-  presigned_url: string;
+/** Inline SKILL.md for the prompt when the registry skill is preloaded; git never preloads. */
+function resolvePreloadContent(skill: Skill): string | null {
+  switch (skill.type) {
+    case 'registry':
+      return skill.preload ? skill.skillMdContent : null;
+    case 'git':
+      return null;
+    default: {
+      const _exhaustive: never = skill;
+      throw new Error(`unexpected skill: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
 }
-
-type DesiredSkill = DesiredGitSkill | DesiredRegistrySkill;
 
 export class SkillMounter implements ISkillMounter {
-  private readonly gitSkills: readonly GitSkill[];
-  private readonly registrySkills: readonly RegistrySkill[];
+  private readonly skills: readonly Skill[];
 
-  constructor(input: { gitSkills?: readonly GitSkill[]; registrySkills?: readonly RegistrySkill[] } = {}) {
-    this.gitSkills = input.gitSkills ?? [];
-    this.registrySkills = input.registrySkills ?? [];
+  constructor(input: { skills?: readonly Skill[] } = {}) {
+    this.skills = input.skills ?? [];
   }
 
   instruction(builder: InstructionBuilder, paths: { skillsDir: string }): void {
-    if (this.gitSkills.length === 0 && this.registrySkills.length === 0) {
+    if (this.skills.length === 0) {
       return;
     }
     builder.addContent(SKILLS_PREAMBLE);
-    for (const skill of this.registrySkills) {
+    for (const skill of this.skills) {
       this.#addPromptSkill(builder, paths.skillsDir, {
         name: skill.name,
         description: skill.description,
-        preloadContent: skill.preload ? skill.skillMdContent : null,
-      });
-    }
-    for (const skill of this.gitSkills) {
-      this.#addPromptSkill(builder, paths.skillsDir, {
-        name: skill.name,
-        description: skill.description,
-        preloadContent: null,
+        preloadContent: resolvePreloadContent(skill),
       });
     }
   }
 
   getSandboxInit(paths: { skillsDir: string; gitDownloaderPath: string }): SandboxInit {
     // Always upload (including empty) so a reused sandbox can prune.
-    const skills: DesiredSkill[] = [
-      ...this.gitSkills.map((skill): DesiredGitSkill => ({
-        type: 'git',
-        name: skill.name,
-        url: skill.url,
-        path: skill.path,
-        ref: skill.ref,
-      })),
-      ...this.registrySkills.map((skill): DesiredRegistrySkill => ({
-        type: 'registry',
-        name: skill.name,
-        fqn: skill.fqn,
-        presigned_url: skill.presignedUrl,
-      })),
-    ];
-
     return {
       command: buildWriteAndRunScriptCommand({
         scriptPath: paths.gitDownloaderPath,
@@ -109,8 +110,8 @@ export class SkillMounter implements ISkillMounter {
       timeoutSeconds: SKILL_DOWNLOAD_TIMEOUT_SECONDS,
       uploads: [
         {
-          remotePath: `${paths.skillsDir}/${DESIRED_SKILLS_FILE_NAME}`,
-          content: Buffer.from(JSON.stringify({ skills }), 'utf-8'),
+          remotePath: `${paths.skillsDir}/${REQUESTED_SKILLS_FILE_NAME}`,
+          content: Buffer.from(JSON.stringify({ skills: this.skills.map(toRequestedSkill) }), 'utf-8'),
         },
       ],
     };

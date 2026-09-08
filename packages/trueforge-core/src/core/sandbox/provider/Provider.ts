@@ -60,11 +60,10 @@ export interface SandboxInitUpload {
  */
 export interface SandboxInit {
   command: string;
-  cwd?: string | undefined;
   env?: Record<string, string> | undefined;
-  /** Overrides the provider's default exec timeout (e.g. for long skill downloads). */
-  timeoutSeconds?: number | undefined;
-  /** Files to upload before the init command runs (e.g. desired skills JSON). */
+  /** Exec timeout for this init command (seconds). Skill downloads use a long value. */
+  timeoutSeconds: number;
+  /** Files to upload before the init command runs (e.g. requested skills JSON). */
   uploads: readonly SandboxInitUpload[];
 }
 

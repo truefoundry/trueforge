@@ -4,13 +4,70 @@
 # dependencies = ["pydantic==2.12.5"]
 # ///
 
-"""Materialize skill dirs into TFY_SKILLS_DIR from `.tfy-desired-skills.json`.
+"""Materialize skill directories into TFY_SKILLS_DIR (default /opt/tfy/skills).
 
-Desired file (uploaded by the host):
-  { "skills": [ { "type": "git", ... } | { "type": "registry", ... } ] }
+Reads `.tfy-requested-skills.json` (uploaded by the host), installs each entry under
+TFY_SKILLS_DIR, then deletes the requested file. Empty `"skills": []` clears installs.
+On-disk state skips unchanged skills and prunes ones no longer requested.
 
-Git = sparse clone; registry = presigned tar. State tracks both arms for prune.
-Desired file is deleted after reconcile. Env: TFY_SKILLS_DIR.
+Git: each skill is a blob-filtered sparse `git` clone of only the requested subdir at
+a resolved object id (keyed by name). Mount `ref` (branch, tag, or full object id) is
+resolved here via `git ls-remote` — the host never spawns git. Sparse clone is used
+instead of a full-repo tarball so cost tracks subdir size, not monorepo size.
+
+Registry: download a presigned tar of the skill artifact and extract it under the
+skill name. State records installed FQNs for skip/prune.
+
+Requested file example:
+  {
+    "skills": [
+      {
+        "type": "git",
+        "name": "echo",
+        "url": "https://github.com/acme/skills.git",
+        "path": "echo",
+        "ref": "main"
+      },
+      {
+        "type": "registry",
+        "name": "echo",
+        "fqn": "agent-skill:acme/team-a/echo:3",
+        "presigned_url": "https://..."
+      }
+    ]
+  }
+
+State file example (git `ref` is the resolved object id used for skip/reinstall, not the
+requested pin like `"main"`):
+  {
+    "downloaded_git_skills": [
+      {
+        "name": "echo",
+        "ref": "f1d2d2f924e986ac86fdf7b36c94bcdf32beec15",
+        "path": "echo"
+      }
+    ],
+    "downloaded_registry_skills": [
+      {
+        "fqn": "agent-skill:acme/team-a/echo:3",
+        "name": "echo"
+      }
+    ]
+  }
+
+Git skill fields (requested file):
+  - name: install directory name under TFY_SKILLS_DIR
+  - url: https://github.com/... or https://gitlab.com/...
+  - path: subdir in the repo (empty = repo root)
+  - ref: branch, tag, or full object id (resolved to an oid before fetch; state stores that oid)
+
+Registry skill fields (requested file):
+  - name: install directory name under TFY_SKILLS_DIR
+  - fqn: version-pinned registry FQN
+  - presigned_url: temporary download URL for the skill tar
+
+Env:
+  - TFY_SKILLS_DIR: skills directory (default /opt/tfy/skills).
 """
 
 from __future__ import annotations
@@ -25,15 +82,17 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, ClassVar, Literal, assert_never
+from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 DEFAULT_SKILLS_DIR = "/opt/tfy/skills"
 STATE_FILE_NAME = ".tfy-skill-downloader-state.json"
-DESIRED_FILE_NAME = ".tfy-desired-skills.json"
+REQUESTED_FILE_NAME = ".tfy-requested-skills.json"
 # Per-git-invocation wall-clock cap so a hung/slow fetch can't stall sandbox init indefinitely.
 GIT_CLONE_TIMEOUT_SECONDS = 120
+# Per-registry-download wall-clock cap so a hung/slow download can't stall sandbox init indefinitely.
 REGISTRY_DOWNLOAD_TIMEOUT_SECONDS = 120
 # Cap registry download bytes and post-extract installed size (same bound as git installs).
 REGISTRY_SKILL_MAX_BYTES = 200 * 1024 * 1024  # 200MB
@@ -56,10 +115,10 @@ class GitSkillError(Exception):
 
 
 def skill_dir(name: str) -> Path | None:
-    """Map skill name → path under SKILLS_ROOT, or None if unsafe (incl. state/desired filenames)."""
+    """Map skill name → path under SKILLS_ROOT, or None if unsafe (incl. state/requested filenames)."""
     if not name or name in (".", "..") or "/" in name or "\\" in name or name in (
         STATE_FILE_NAME,
-        DESIRED_FILE_NAME,
+        REQUESTED_FILE_NAME,
     ):
         return None
     return SKILLS_ROOT / name
@@ -123,7 +182,7 @@ class DownloadedGitSkill(BaseModel):
     name: str
     # Installed object id; empty = unknown → reinstall. Name still tracked for prune.
     ref: str = ""
-    # Installed repo path ("" = root); mismatch vs desired forces reinstall.
+    # Installed repo path ("" = root); mismatch vs requested forces reinstall.
     path: str = ""
 
 
@@ -139,22 +198,15 @@ class DownloadedRegistrySkill(BaseModel):
 class SkillDownloaderState(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    # Persisted git installs: name, object id, repo path.
+    # Keep git and registry installs in separate lists (do not merge into one discriminated
+    # array). Each SkillArm already reads/writes only its own rows, and the persisted
+    # identities differ: git skip/reinstall keys on name + resolved object id + path;
+    # registry keys on fqn + name. A shared list would add type filters with no load-path win.
     downloaded_git_skills: list[DownloadedGitSkill] = Field(default_factory=list)
-    # Persisted registry installs: fqn + on-disk name.
-    downloaded_fqns: list[DownloadedRegistrySkill] = Field(default_factory=list)
+    downloaded_registry_skills: list[DownloadedRegistrySkill] = Field(default_factory=list)
 
 
-class RegistrySkillDesired(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    type: Literal["registry"] = "registry"
-    name: str
-    fqn: str = Field(min_length=1)
-    presigned_url: str = Field(min_length=1)
-
-
-class DesiredGitSkillEntry(BaseModel):
+class RequestedGitSkill(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     type: Literal["git"] = "git"
@@ -163,17 +215,36 @@ class DesiredGitSkillEntry(BaseModel):
     path: str = ""
     ref: str
 
+    def resolve(self) -> GitSkill:
+        try:
+            return GitSkill(name=self.name, url=self.url, path=self.path, ref=self.ref)
+        except ValidationError as e:
+            sys.exit(f"Invalid git entry in {REQUESTED_FILE_NAME}: {e}")
 
-DesiredSkillEntry = Annotated[
-    DesiredGitSkillEntry | RegistrySkillDesired,
-    Field(discriminator="type"),
-]
 
-
-class DesiredSkillsFile(BaseModel):
+class RequestedRegistrySkill(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    skills: list[DesiredSkillEntry] = Field(default_factory=list)
+    type: Literal["registry"] = "registry"
+    name: str
+    fqn: str = Field(min_length=1)
+    presigned_url: str = Field(min_length=1)
+
+    def resolve(self) -> RequestedRegistrySkill:
+        if skill_dir(self.name) is None:
+            sys.exit(f"Invalid registry skill name: {self.name!r}")
+        return self
+
+
+RequestedSkill = RequestedGitSkill | RequestedRegistrySkill
+
+
+class RequestedSkillsFileContent(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    skills: list[Annotated[RequestedSkill, Field(discriminator="type")]] = Field(
+        default_factory=list
+    )
 
 
 def load_state() -> SkillDownloaderState:
@@ -201,7 +272,7 @@ def _rmtree(path: Path, ignore_errors: bool = True) -> None:
 
 
 def _delete_skill_dir_by_name(name: str, label: str) -> None:
-    """Fail-closed prune of a no-longer-desired skill's directory: abort the whole run if removal
+    """Fail-closed prune of a no-longer-requested skill's directory: abort the whole run if removal
     fails so we never silently leave a stale skill on disk. skill_dir() returns None for a
     corrupt/tampered name, so rmtree never runs on an out-of-tree path."""
     dir_ = skill_dir(name)
@@ -213,162 +284,9 @@ def _delete_skill_dir_by_name(name: str, label: str) -> None:
         sys.exit(f"Could not remove skill directory {dir_} ({label}): {e}")
 
 
-def load_desired_skills() -> tuple[list[GitSkill], list[RegistrySkillDesired]]:
-    """Read desired file. Missing → empty (prune both arms)."""
-    path = SKILLS_ROOT / DESIRED_FILE_NAME
-    if not path.is_file():
-        return [], []
-    try:
-        desired = DesiredSkillsFile.model_validate_json(path.read_text(encoding="utf-8"))
-    except OSError as e:
-        sys.exit(f"Could not read {DESIRED_FILE_NAME}: {e}")
-    except ValidationError as e:
-        sys.exit(f"Invalid {DESIRED_FILE_NAME}: {e}")
-
-    git_skills: list[GitSkill] = []
-    registry_skills: list[RegistrySkillDesired] = []
-    for item in desired.skills:
-        if isinstance(item, DesiredGitSkillEntry):
-            try:
-                git_skills.append(
-                    GitSkill(name=item.name, url=item.url, path=item.path, ref=item.ref)
-                )
-            except ValidationError as e:
-                sys.exit(f"Invalid git entry in {DESIRED_FILE_NAME}: {e}")
-            continue
-        if skill_dir(item.name) is None:
-            sys.exit(f"Invalid registry skill name: {item.name!r}")
-        registry_skills.append(item)
-    return git_skills, registry_skills
-
-
-def reconcile_git_skills(git_skills: list[GitSkill], state: SkillDownloaderState) -> list[str]:
-    """Delete dirs for git skills no longer desired; prune them from state. Returns removed names."""
-    desired_names = {g.name for g in git_skills}
-    removed: list[str] = []
-    for entry in state.downloaded_git_skills:
-        if entry.name in desired_names:
-            continue
-        # Fail-closed prune: a failed delete aborts the run rather than leaving a stale skill on disk.
-        # The name is dropped from tracking either way.
-        _delete_skill_dir_by_name(entry.name, entry.name)
-        removed.append(entry.name)
-    state.downloaded_git_skills = [
-        e for e in state.downloaded_git_skills if e.name in desired_names
-    ]
-    return removed
-
-
-def _run_git(
-    args: list[str], cwd: Path, input_text: str | None = None
-) -> subprocess.CompletedProcess[str]:
-    """Run a git subcommand non-interactively and fail-closed on error.
-
-    Args are passed as a list (never a shell string) and git runs with a scrubbed environment:
-    ambient global/system config and credential helpers are ignored (so nothing can rewrite the URL
-    via insteadOf or inject creds) and prompting is disabled (so a private/typo repo fails fast
-    instead of hanging on a username prompt)."""
-    env = {
-        **os.environ,
-        "GIT_TERMINAL_PROMPT": "0",  # never prompt for credentials — fail fast on a non-public repo
-        "GIT_CONFIG_NOSYSTEM": "1",  # ignore /etc/gitconfig
-        "GIT_CONFIG_GLOBAL": "/dev/null",  # ignore ~/.gitconfig (insteadOf rewrites, cred helpers)
-        "GCM_INTERACTIVE": "never",
-    }
-    try:
-        proc = subprocess.run(
-            ["git", *args],
-            cwd=os.fspath(cwd),
-            env=env,
-            input=input_text,
-            capture_output=True,
-            text=True,
-            timeout=GIT_CLONE_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        raise GitSkillError(f"git {args[0]} timed out after {GIT_CLONE_TIMEOUT_SECONDS}s")
-    except OSError as e:
-        raise GitSkillError(f"could not run git (is it installed in the sandbox?): {e}")
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()[-500:]
-        raise GitSkillError(f"git {args[0]} failed (exit {proc.returncode}): {detail}")
-    return proc
-
-
-def _parse_ls_remote_object_id(stdout: str) -> str | None:
-    """Prefer a peeled `ref^{}` line (annotated tags), else the first object id."""
-    first: str | None = None
-    for line in stdout.splitlines():
-        trimmed = line.strip()
-        if not trimmed:
-            continue
-        parts = trimmed.split(None, 1)
-        sha = parts[0]
-        name = parts[1] if len(parts) > 1 else ""
-        if name.endswith("^{}"):
-            return sha
-        if first is None:
-            first = sha
-    return first
-
-
-def _resolve_object_id(url: str, ref: str, cwd: Path) -> str:
-    """Resolve a mount ref (branch/tag/SHA) to an object id inside the sandbox.
-
-    Full object ids are used as-is (`git ls-remote` does not advertise bare SHAs on
-    GitHub/GitLab). Branches and tags are resolved via `git ls-remote` so a branch tip
-    advances on later sandbox inits.
-    """
-    if OBJECT_ID_RE.match(ref):
-        return ref
-    proc = _run_git(["ls-remote", url, ref], cwd=cwd)
-    oid = _parse_ls_remote_object_id(proc.stdout or "")
-    if oid is None:
-        raise GitSkillError(f"git ls-remote returned no commit for {url} ref {ref}")
-    return oid
-
-
-def _git_fetch_repo(
-    url: str, object_id: str, paths: list[str], parent_dir: Path
-) -> Path:
-    """Object-id-pinned, shallow, blob-filtered sparse checkout of `paths` into a fresh repo under
-    `parent_dir`, returning the repo working directory.
-
-    When every requested path is the repo root ("") we can't sparse-restrict, so we do a full
-    shallow checkout (all blobs). Otherwise we cone-sparse to just the requested paths and use
-    --filter=blob:none so only those paths' blobs are fetched — the whole point of the approach.
-    Paths are fed to `git sparse-checkout set` via stdin so a path value can never be read as an
-    option/argument. Fetching by object id relies on the server allowing it, which github.com and
-    gitlab.com both do."""
-    repo = parent_dir / "repo"
-    _run_git(["init", "-q", os.fspath(repo)], cwd=parent_dir)
-    _run_git(["remote", "add", "origin", url], cwd=repo)
-
-    cone_dirs = [s for s in dict.fromkeys(paths) if s]  # de-duped, root ("") dropped
-    want_full_tree = any(s == "" for s in paths)
-    if not want_full_tree and cone_dirs:
-        _run_git(["sparse-checkout", "init", "--cone"], cwd=repo)
-        _run_git(
-            ["sparse-checkout", "set", "--stdin"],
-            cwd=repo,
-            input_text="".join(f"{d}\n" for d in cone_dirs),
-        )
-
-    fetch_args = ["-c", "protocol.file.allow=never", "fetch", "-q", "--depth", "1"]
-    if not want_full_tree:
-        fetch_args.append("--filter=blob:none")
-    fetch_args += ["origin", object_id]
-    _run_git(fetch_args, cwd=repo)
-
-    _run_git(
-        ["-c", "advice.detachedHead=false", "checkout", "-q", "--detach", "FETCH_HEAD"], cwd=repo
-    )
-    return repo
-
 
 def _installed_size_bytes(path: Path) -> int:
-    """Total size of regular files under `path`, excluding the repo's .git dir and without following
-    symlinks (they're copied as links, not their targets), used to enforce GIT_SKILL_MAX_BYTES."""
+    """Total size of regular files under `path`, excluding `.git`, without following symlinks."""
     total = 0
     for root, dirs, files in os.walk(path, followlinks=False):
         if ".git" in dirs:
@@ -381,296 +299,411 @@ def _installed_size_bytes(path: Path) -> int:
     return total
 
 
-def _install_git_skill(repo_root: Path, skill: GitSkill) -> None:
-    dest = skill_dir(skill.name)
-    if dest is None:
-        raise GitSkillError(f"Git skill: unsafe directory name {skill.name!r}")
-    repo_root_resolved = repo_root.resolve()
-    src = (repo_root / skill.path).resolve() if skill.path else repo_root_resolved
-    # Defense in depth: even though path is validated, ensure the resolved source stays within the
-    # cloned repo (guards against a symlinked directory component pointing outside the checkout).
-    if src != repo_root_resolved and not src.is_relative_to(repo_root_resolved):
-        raise GitSkillError(
-            f"Git skill {skill.name}: path '{skill.path}' escapes the repository"
-        )
-    if not src.is_dir():
-        raise GitSkillError(
-            f"Git skill {skill.name}: path '{skill.path}' not found in repository"
-        )
-    if _installed_size_bytes(src) > GIT_SKILL_MAX_BYTES:
-        raise GitSkillError(
-            f"Git skill {skill.name}: content exceeds {GIT_SKILL_MAX_BYTES} bytes"
-        )
-    # Stage the fresh copy into a temp sibling dir, then swap it in with an atomic rename. `dest` is
-    # only touched once the copy has fully succeeded, so a failed/partial copytree can never leave
-    # the skill missing (which would contradict the path the gateway advertises in the prompt) — the
-    # previously installed copy stays intact on failure. `.git` is excluded (only present for a repo-
-    # root skill) and symlinks are copied as links, never followed, so a link inside the repo can't
-    # pull external file contents into the skill dir at copy time.
-    staging = dest.with_name(f".{dest.name}.new-{os.getpid()}")
-    _rmtree(staging)  # clear any leftover staging dir from an earlier aborted run
-    try:
-        shutil.copytree(src, staging, symlinks=True, ignore=shutil.ignore_patterns(".git"))
-    except (OSError, shutil.Error) as e:
-        # shutil.Error (a multi-file copy error, NOT an OSError subclass) must be caught here too so a
-        # bad copy is reported as a per-skill GitSkillError (WARNING + counted failure) instead of an
-        # uncaught traceback that aborts the whole run and skips save_state for the group.
-        _rmtree(staging)
-        raise GitSkillError(f"Failed to stage git skill {skill.name}: {e}")
-    try:
-        if dest.exists():
-            shutil.rmtree(dest)
-        # Same filesystem (both under SKILLS_ROOT), so this is an atomic rename; the window where the
-        # skill dir is absent shrinks from a full copy to a single near-instant rename.
-        os.replace(staging, dest)
-    except OSError as e:
-        _rmtree(staging)
-        raise GitSkillError(f"Failed to install git skill {skill.name}: {e}")
-
-
-def _mark_git_downloaded(
-    state: SkillDownloaderState, skill: GitSkill, object_id: str
-) -> None:
-    """Upsert a git skill's installed object id + path so the next run can skip when both match."""
-    for entry in state.downloaded_git_skills:
-        if entry.name == skill.name:
-            entry.ref = object_id
-            entry.path = skill.path
-            return
-    state.downloaded_git_skills.append(
-        DownloadedGitSkill(name=skill.name, ref=object_id, path=skill.path)
-    )
-
-
-def _git_skill_already_installed(
-    state: SkillDownloaderState, skill: GitSkill, object_id: str
-) -> bool:
-    """True only when the skill is recorded at the resolved object id AND path AND its directory is
-    still present. Re-download otherwise (branch tip moved, path changed, first install, or the
-    dir was removed out-of-band) so the prompt never points at a missing/stale skill dir."""
-    dir_ = skill_dir(skill.name)
-    if dir_ is None or not dir_.is_dir():
-        return False
-    return any(
-        e.name == skill.name and e.ref == object_id and e.path == skill.path
-        for e in state.downloaded_git_skills
-    )
-
-
-def download_git_skills(
-    git_skills: list[GitSkill], state: SkillDownloaderState
-) -> int:
-    """Ensure desired git skills are installed at their resolved object id, skipping any already
-    present at that pin so an unchanged tip no longer re-clones every run.
-
-    Ref resolution (`git ls-remote`) runs here in the sandbox — the host never spawns git.
-    Failures are isolated per repo group and per skill so one bad repo/subdir doesn't prevent the
-    rest from being attempted; each failure is logged to stderr. Returns the number of skills that are
-    satisfied this run — freshly installed OR already present at the resolved pin (never raises).
-    The caller (run_git_download) compares this to the number requested and exits non-zero if any are
-    missing, so the overall behaviour is fail-closed."""
-    SKILLS_ROOT.mkdir(parents=True, exist_ok=True)
-
-    # Resolve mount refs → object ids, then skip skills already installed at that pin.
-    pending: list[tuple[GitSkill, str]] = []
-    satisfied = 0
-    for skill in git_skills:
-        try:
-            object_id = _resolve_object_id(skill.url, skill.ref, SKILLS_ROOT)
-        except GitSkillError as e:
-            print(f"WARNING: {e} (skill: {skill.name})", file=sys.stderr)
-            continue
-        if _git_skill_already_installed(state, skill, object_id):
-            satisfied += 1
-        else:
-            pending.append((skill, object_id))
-
-    # Group pending by (repo, object id) so a repo shared by several skills is cloned once and its
-    # needed paths fetched together in a single sparse checkout.
-    skills_by_repo: dict[tuple[str, str], list[tuple[GitSkill, str]]] = {}
-    for skill, object_id in pending:
-        skills_by_repo.setdefault((skill.url, object_id), []).append((skill, object_id))
-
-    for (url, object_id), group in skills_by_repo.items():
-        try:
-            with tempfile.TemporaryDirectory(
-                prefix=".git-skill-dl-",
-                dir=os.fspath(SKILLS_ROOT),
-                ignore_cleanup_errors=True,
-            ) as tmp_str:
-                repo_root = _git_fetch_repo(
-                    url,
-                    object_id,
-                    [s.path for s, _ in group],
-                    Path(tmp_str),
-                )
-                # Install each skill independently so a bad path only skips that one skill.
-                for skill, oid in group:
-                    try:
-                        _install_git_skill(repo_root, skill)
-                        _mark_git_downloaded(state, skill, oid)
-                        satisfied += 1
-                    except GitSkillError as e:
-                        print(f"WARNING: {e}", file=sys.stderr)
-        except GitSkillError as e:
-            # Collect (don't abort-on-first) so EVERY failing skill is reported before the run exits;
-            # run_git_download turns a non-zero failed count into a non-zero exit (fail-closed), which
-            # fails the whole agent request. We still don't purge a previously installed copy here, so
-            # a reused sandbox keeps the old files on disk even though this run is about to fail.
-            names = ", ".join(s.name for s, _ in group)
-            print(f"WARNING: {e} (skills: {names})", file=sys.stderr)
-    save_state(state)
-    return satisfied
-
-
-def reconcile_registry_skills(
-    registry_skills: list[RegistrySkillDesired], state: SkillDownloaderState
-) -> list[str]:
-    """Delete dirs for registry skills no longer desired; prune them from state."""
-    desired_fqns = {s.fqn for s in registry_skills}
-    removed: list[str] = []
-    for entry in list(state.downloaded_fqns):
-        if entry.fqn in desired_fqns:
-            continue
-        _delete_skill_dir_by_name(entry.name, label=f"stale registry fqn {entry.fqn}")
-        removed.append(entry.fqn)
-    state.downloaded_fqns = [e for e in state.downloaded_fqns if e.fqn in desired_fqns]
-    return removed
-
-
-def _registry_already_installed(state: SkillDownloaderState, skill: RegistrySkillDesired) -> bool:
-    dir_ = skill_dir(skill.name)
-    if dir_ is None or not dir_.is_dir():
-        return False
-    return any(e.fqn == skill.fqn and e.name == skill.name for e in state.downloaded_fqns)
-
-
-def _mark_registry_downloaded(state: SkillDownloaderState, skill: RegistrySkillDesired) -> None:
-    for entry in state.downloaded_fqns:
-        if entry.fqn == skill.fqn:
-            if entry.name != skill.name:
-                _delete_skill_dir_by_name(
-                    entry.name, label=f"renamed registry fqn {entry.fqn}"
-                )
-                entry.name = skill.name
-            return
-    state.downloaded_fqns.append(DownloadedRegistrySkill(fqn=skill.fqn, name=skill.name))
-
-
-def _install_registry_tar(skill: RegistrySkillDesired) -> None:
-    """Stage extract under SKILLS_ROOT, then swap over the prior dir."""
-    dir_ = skill_dir(skill.name)
-    if dir_ is None:
-        raise RuntimeError(f"invalid skill name {skill.name!r}")
-    try:
-        with urllib.request.urlopen(skill.presigned_url, timeout=REGISTRY_DOWNLOAD_TIMEOUT_SECONDS) as resp:
-            data = resp.read(REGISTRY_SKILL_MAX_BYTES + 1)
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        raise RuntimeError(f"download failed for {skill.fqn}: {e}") from e
-    if len(data) > REGISTRY_SKILL_MAX_BYTES:
-        raise RuntimeError(f"tar for {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes")
-
-    staging = dir_.with_name(f".{dir_.name}.new-{os.getpid()}")
-    _rmtree(staging)
-    staging.mkdir(parents=True, exist_ok=True)
-    try:
-        with tempfile.TemporaryDirectory(prefix="tfy-skill-tar-") as tmp:
-            tar_path = Path(tmp) / "skill.tar"
-            tar_path.write_bytes(data)
-            with tarfile.open(tar_path, mode="r:*") as tar:
-                tar.extractall(path=staging, filter="data")
-        if _installed_size_bytes(staging) > REGISTRY_SKILL_MAX_BYTES:
-            raise RuntimeError(
-                f"extracted skill {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes"
-            )
-        if dir_.exists():
-            shutil.rmtree(dir_)
-        os.replace(staging, dir_)
-    except RuntimeError:
-        _rmtree(staging)
-        raise
-    except (tarfile.TarError, OSError) as e:
-        _rmtree(staging)
-        raise RuntimeError(f"extract failed for {skill.fqn}: {e}") from e
-
-
-def download_registry_skills(
-    registry_skills: list[RegistrySkillDesired], state: SkillDownloaderState
-) -> int:
-    satisfied = 0
-    for skill in registry_skills:
-        if _registry_already_installed(state, skill):
-            satisfied += 1
-            continue
-        try:
-            _install_registry_tar(skill)
-            _mark_registry_downloaded(state, skill)
-            satisfied += 1
-        except RuntimeError as e:
-            print(f"WARNING: {e}", file=sys.stderr)
-    return satisfied
-
-
-def _delete_desired_file() -> None:
-    path = SKILLS_ROOT / DESIRED_FILE_NAME
+def _delete_requested_file() -> None:
+    path = SKILLS_ROOT / REQUESTED_FILE_NAME
     try:
         if path.is_file():
             path.unlink()
     except OSError as e:
-        print(f"WARNING: could not delete {DESIRED_FILE_NAME}: {e}", file=sys.stderr)
+        print(f"WARNING: could not delete {REQUESTED_FILE_NAME}: {e}", file=sys.stderr)
 
 
-def run_git_download() -> None:
-    git_skills, registry_skills = load_desired_skills()
+
+class SkillArm(ABC):
+    """One install source (git clone, registry tar, …). Helpers live on subclasses."""
+
+    label: ClassVar[str]
+
+    @abstractmethod
+    def reconcile(self, skills: list[Any], state: SkillDownloaderState) -> list[str]:
+        """Prune installs no longer requested. Returns removed ids/names."""
+
+    @abstractmethod
+    def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
+        """Install/skip requested skills. Returns how many are satisfied."""
+
+
+class RegistrySkillArm(SkillArm):
+    label = "registry"
+
+    def reconcile(self, skills: list[Any], state: SkillDownloaderState) -> list[str]:
+        requested_fqns = {s.fqn for s in skills}
+        removed: list[str] = []
+        for entry in list(state.downloaded_registry_skills):
+            if entry.fqn in requested_fqns:
+                continue
+            _delete_skill_dir_by_name(entry.name, label=f"stale registry fqn {entry.fqn}")
+            removed.append(entry.fqn)
+        state.downloaded_registry_skills = [e for e in state.downloaded_registry_skills if e.fqn in requested_fqns]
+        return removed
+
+    def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
+        satisfied = 0
+        for skill in skills:
+            if self._already_installed(state, skill):
+                satisfied += 1
+                continue
+            try:
+                self._install_tar(skill)
+                self._mark_downloaded(state, skill)
+                satisfied += 1
+            except RuntimeError as e:
+                print(f"WARNING: {e}", file=sys.stderr)
+        return satisfied
+
+    def _already_installed(self, state: SkillDownloaderState, skill: RequestedRegistrySkill) -> bool:
+        dir_ = skill_dir(skill.name)
+        if dir_ is None or not dir_.is_dir():
+            return False
+        return any(e.fqn == skill.fqn and e.name == skill.name for e in state.downloaded_registry_skills)
+
+    def _mark_downloaded(self, state: SkillDownloaderState, skill: RequestedRegistrySkill) -> None:
+        for entry in state.downloaded_registry_skills:
+            if entry.fqn == skill.fqn:
+                if entry.name != skill.name:
+                    _delete_skill_dir_by_name(
+                        entry.name, label=f"renamed registry fqn {entry.fqn}"
+                    )
+                    entry.name = skill.name
+                return
+        state.downloaded_registry_skills.append(DownloadedRegistrySkill(fqn=skill.fqn, name=skill.name))
+
+    def _install_tar(self, skill: RequestedRegistrySkill) -> None:
+        """Stage extract under SKILLS_ROOT, then swap over the prior dir."""
+        dir_ = skill_dir(skill.name)
+        if dir_ is None:
+            raise RuntimeError(f"invalid skill name {skill.name!r}")
+        try:
+            with urllib.request.urlopen(
+                skill.presigned_url, timeout=REGISTRY_DOWNLOAD_TIMEOUT_SECONDS
+            ) as resp:
+                data = resp.read(REGISTRY_SKILL_MAX_BYTES + 1)
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            raise RuntimeError(f"download failed for {skill.fqn}: {e}") from e
+        if len(data) > REGISTRY_SKILL_MAX_BYTES:
+            raise RuntimeError(f"tar for {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes")
+
+        staging = dir_.with_name(f".{dir_.name}.new-{os.getpid()}")
+        _rmtree(staging)
+        staging.mkdir(parents=True, exist_ok=True)
+        try:
+            with tempfile.TemporaryDirectory(prefix="tfy-skill-tar-") as tmp:
+                tar_path = Path(tmp) / "skill.tar"
+                tar_path.write_bytes(data)
+                with tarfile.open(tar_path, mode="r:*") as tar:
+                    tar.extractall(path=staging, filter="data")
+            if _installed_size_bytes(staging) > REGISTRY_SKILL_MAX_BYTES:
+                raise RuntimeError(
+                    f"extracted skill {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes"
+                )
+            if dir_.exists():
+                shutil.rmtree(dir_)
+            os.replace(staging, dir_)
+        except RuntimeError:
+            _rmtree(staging)
+            raise
+        except (tarfile.TarError, OSError) as e:
+            _rmtree(staging)
+            raise RuntimeError(f"extract failed for {skill.fqn}: {e}") from e
+
+
+class GitSkillArm(SkillArm):
+    label = "git"
+
+    def reconcile(self, skills: list[Any], state: SkillDownloaderState) -> list[str]:
+        requested_names = {g.name for g in skills}
+        removed: list[str] = []
+        for entry in state.downloaded_git_skills:
+            if entry.name in requested_names:
+                continue
+            # Fail-closed prune: a failed delete aborts the run rather than leaving a stale skill on disk.
+            _delete_skill_dir_by_name(entry.name, entry.name)
+            removed.append(entry.name)
+        state.downloaded_git_skills = [
+            e for e in state.downloaded_git_skills if e.name in requested_names
+        ]
+        return removed
+
+    def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
+        """Install requested git skills at resolved object ids; skip unchanged pins.
+
+        Failures are isolated per repo/skill (stderr warnings). Returns satisfied count;
+        caller exits non-zero if any requested skill is missing.
+        """
+        SKILLS_ROOT.mkdir(parents=True, exist_ok=True)
+
+        pending: list[tuple[GitSkill, str]] = []
+        satisfied = 0
+        for skill in skills:
+            try:
+                object_id = self._resolve_object_id(skill.url, skill.ref, SKILLS_ROOT)
+            except GitSkillError as e:
+                print(f"WARNING: {e} (skill: {skill.name})", file=sys.stderr)
+                continue
+            if self._already_installed(state, skill, object_id):
+                satisfied += 1
+            else:
+                pending.append((skill, object_id))
+
+        skills_by_repo: dict[tuple[str, str], list[tuple[GitSkill, str]]] = {}
+        for skill, object_id in pending:
+            skills_by_repo.setdefault((skill.url, object_id), []).append((skill, object_id))
+
+        for (url, object_id), group in skills_by_repo.items():
+            try:
+                with tempfile.TemporaryDirectory(
+                    prefix=".git-skill-dl-",
+                    dir=os.fspath(SKILLS_ROOT),
+                    ignore_cleanup_errors=True,
+                ) as tmp_str:
+                    repo_root = self._fetch_repo(
+                        url,
+                        object_id,
+                        [s.path for s, _ in group],
+                        Path(tmp_str),
+                    )
+                    for skill, oid in group:
+                        try:
+                            self._install_skill(repo_root, skill)
+                            self._mark_downloaded(state, skill, oid)
+                            satisfied += 1
+                        except GitSkillError as e:
+                            print(f"WARNING: {e}", file=sys.stderr)
+            except GitSkillError as e:
+                # Don't abort-on-first: report every failing group; keep prior installs on disk.
+                names = ", ".join(s.name for s, _ in group)
+                print(f"WARNING: {e} (skills: {names})", file=sys.stderr)
+        return satisfied
+
+    def _run_git(
+        self, args: list[str], cwd: Path, input_text: str | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a git subcommand non-interactively and fail-closed on error."""
+        env = {
+            **os.environ,
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GCM_INTERACTIVE": "never",
+        }
+        try:
+            proc = subprocess.run(
+                ["git", *args],
+                cwd=os.fspath(cwd),
+                env=env,
+                input=input_text,
+                capture_output=True,
+                text=True,
+                timeout=GIT_CLONE_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            raise GitSkillError(f"git {args[0]} timed out after {GIT_CLONE_TIMEOUT_SECONDS}s")
+        except OSError as e:
+            raise GitSkillError(f"could not run git (is it installed in the sandbox?): {e}")
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip()[-500:]
+            raise GitSkillError(f"git {args[0]} failed (exit {proc.returncode}): {detail}")
+        return proc
+
+    def _parse_ls_remote_object_id(self, stdout: str) -> str | None:
+        """Prefer a peeled `ref^{}` line (annotated tags), else the first object id."""
+        first: str | None = None
+        for line in stdout.splitlines():
+            trimmed = line.strip()
+            if not trimmed:
+                continue
+            parts = trimmed.split(None, 1)
+            sha = parts[0]
+            name = parts[1] if len(parts) > 1 else ""
+            if name.endswith("^{}"):
+                return sha
+            if first is None:
+                first = sha
+        return first
+
+    def _resolve_object_id(self, url: str, ref: str, cwd: Path) -> str:
+        """Resolve a mount ref (branch/tag/SHA) to an object id inside the sandbox."""
+        if OBJECT_ID_RE.match(ref):
+            return ref
+        proc = self._run_git(["ls-remote", url, ref], cwd=cwd)
+        oid = self._parse_ls_remote_object_id(proc.stdout or "")
+        if oid is None:
+            raise GitSkillError(f"git ls-remote returned no commit for {url} ref {ref}")
+        return oid
+
+    def _fetch_repo(
+        self, url: str, object_id: str, paths: list[str], parent_dir: Path
+    ) -> Path:
+        """Object-id-pinned, shallow, blob-filtered sparse checkout of `paths`."""
+        repo = parent_dir / "repo"
+        self._run_git(["init", "-q", os.fspath(repo)], cwd=parent_dir)
+        self._run_git(["remote", "add", "origin", url], cwd=repo)
+
+        cone_dirs = [s for s in dict.fromkeys(paths) if s]
+        want_full_tree = any(s == "" for s in paths)
+        if not want_full_tree and cone_dirs:
+            self._run_git(["sparse-checkout", "init", "--cone"], cwd=repo)
+            self._run_git(
+                ["sparse-checkout", "set", "--stdin"],
+                cwd=repo,
+                input_text="".join(f"{d}\n" for d in cone_dirs),
+            )
+
+        fetch_args = ["-c", "protocol.file.allow=never", "fetch", "-q", "--depth", "1"]
+        if not want_full_tree:
+            fetch_args.append("--filter=blob:none")
+        fetch_args += ["origin", object_id]
+        self._run_git(fetch_args, cwd=repo)
+
+        self._run_git(
+            ["-c", "advice.detachedHead=false", "checkout", "-q", "--detach", "FETCH_HEAD"],
+            cwd=repo,
+        )
+        return repo
+
+    def _install_skill(self, repo_root: Path, skill: GitSkill) -> None:
+        dest = skill_dir(skill.name)
+        if dest is None:
+            raise GitSkillError(f"Git skill: unsafe directory name {skill.name!r}")
+        repo_root_resolved = repo_root.resolve()
+        src = (repo_root / skill.path).resolve() if skill.path else repo_root_resolved
+        if src != repo_root_resolved and not src.is_relative_to(repo_root_resolved):
+            raise GitSkillError(
+                f"Git skill {skill.name}: path '{skill.path}' escapes the repository"
+            )
+        if not src.is_dir():
+            raise GitSkillError(
+                f"Git skill {skill.name}: path '{skill.path}' not found in repository"
+            )
+        if _installed_size_bytes(src) > GIT_SKILL_MAX_BYTES:
+            raise GitSkillError(
+                f"Git skill {skill.name}: content exceeds {GIT_SKILL_MAX_BYTES} bytes"
+            )
+        staging = dest.with_name(f".{dest.name}.new-{os.getpid()}")
+        _rmtree(staging)
+        try:
+            shutil.copytree(src, staging, symlinks=True, ignore=shutil.ignore_patterns(".git"))
+        except (OSError, shutil.Error) as e:
+            _rmtree(staging)
+            raise GitSkillError(f"Failed to stage git skill {skill.name}: {e}")
+        try:
+            if dest.exists():
+                shutil.rmtree(dest)
+            os.replace(staging, dest)
+        except OSError as e:
+            _rmtree(staging)
+            raise GitSkillError(f"Failed to install git skill {skill.name}: {e}")
+
+    def _mark_downloaded(
+        self, state: SkillDownloaderState, skill: GitSkill, object_id: str
+    ) -> None:
+        for entry in state.downloaded_git_skills:
+            if entry.name == skill.name:
+                entry.ref = object_id
+                entry.path = skill.path
+                return
+        state.downloaded_git_skills.append(
+            DownloadedGitSkill(name=skill.name, ref=object_id, path=skill.path)
+        )
+
+    def _already_installed(
+        self, state: SkillDownloaderState, skill: GitSkill, object_id: str
+    ) -> bool:
+        dir_ = skill_dir(skill.name)
+        if dir_ is None or not dir_.is_dir():
+            return False
+        return any(
+            e.name == skill.name and e.ref == object_id and e.path == skill.path
+            for e in state.downloaded_git_skills
+        )
+
+
+
+# Add a third skill type:
+# 1. RequestedFooSkill + resolve() + union member (RequestedSkill) + match case in load_requested_skills
+# 2. FooSkillArm with reconcile / download
+# 3. Append FooSkillArm() to SKILL_ARMS (order = install order)
+# 4. Wire type: 'foo' on the host (SkillMounter)
+# Registry first: presigned URLs expire; git sparse clones can take much longer.
+SKILL_ARMS: tuple[SkillArm, ...] = (RegistrySkillArm(), GitSkillArm())
+SKILL_ARM_ORDER: tuple[str, ...] = tuple(arm.label for arm in SKILL_ARMS)
+
+
+def load_requested_skills() -> dict[str, list[Any]]:
+    """Read requested file into per-arm buckets. Missing → empty (prune all arms)."""
+    buckets: dict[str, list[Any]] = {label: [] for label in SKILL_ARM_ORDER}
+    path = SKILLS_ROOT / REQUESTED_FILE_NAME
+    if not path.is_file():
+        return buckets
+    try:
+        requested = RequestedSkillsFileContent.model_validate_json(path.read_text(encoding="utf-8"))
+    except OSError as e:
+        sys.exit(f"Could not read {REQUESTED_FILE_NAME}: {e}")
+    except ValidationError as e:
+        sys.exit(f"Invalid {REQUESTED_FILE_NAME}: {e}")
+
+    # Sandboxes run Python 3.13 (see Sandbox.ts pre-installed tools). `match`/`case` are intentional.
+    # Exhaustive on RequestedSkill; add a case when introducing a new wire type.
+    for item in requested.skills:
+        match item:
+            case RequestedGitSkill():
+                buckets[item.type].append(item.resolve())
+            case RequestedRegistrySkill():
+                buckets[item.type].append(item.resolve())
+            case _:
+                assert_never(item)
+    return buckets
+
+
+def run_skill_download() -> None:
+    loaded = load_requested_skills()
     state = load_state()
-    removed_git = reconcile_git_skills(git_skills, state)
-    removed_registry = reconcile_registry_skills(registry_skills, state)
+    removed_by_arm = {arm.label: arm.reconcile(loaded[arm.label], state) for arm in SKILL_ARMS}
 
-    if not git_skills and not registry_skills:
-        bits: list[str] = []
-        if removed_git:
-            bits.append(f"Removed {len(removed_git)} git skill(s)")
-        if removed_registry:
-            bits.append(f"Removed {len(removed_registry)} registry skill(s)")
+    if not any(loaded.values()):
+        bits = [
+            f"Removed {len(removed_by_arm[label])} {label} skill(s)"
+            for label in SKILL_ARM_ORDER
+            if removed_by_arm[label]
+        ]
         if bits:
-            print(f"{'; '.join(bits)}. (desired empty.)")
+            print(f"{'; '.join(bits)}. (requested empty.)")
         save_state(state)
-        _delete_desired_file()
+        _delete_requested_file()
         return
 
-    # Registry first: presigned URLs expire; git sparse clones can take much longer.
-    registry_satisfied = download_registry_skills(registry_skills, state) if registry_skills else 0
-    git_satisfied = download_git_skills(git_skills, state) if git_skills else 0
-    registry_failed = len(registry_skills) - registry_satisfied
-    git_failed = len(git_skills) - git_satisfied
+    satisfied_by_arm = {
+        arm.label: arm.download(loaded[arm.label], state) if loaded[arm.label] else 0
+        for arm in SKILL_ARMS
+    }
     save_state(state)
-    _delete_desired_file()
+    _delete_requested_file()
 
-    suffix_parts: list[str] = []
-    if removed_registry:
-        suffix_parts.append(f"Removed {len(removed_registry)} stale registry skill(s)")
-    if removed_git:
-        suffix_parts.append(f"Removed {len(removed_git)} stale git skill(s)")
-    suffix = f" {'; '.join(suffix_parts)}." if suffix_parts else ""
+    suffix_parts = [
+        f"Removed {len(removed_by_arm[label])} stale {label} skill(s)"
+        for label in SKILL_ARM_ORDER
+        if removed_by_arm[label]
+    ]
+    suffix = f" {' '.join(suffix_parts)}." if suffix_parts else ""
 
-    if registry_failed or git_failed:
-        parts: list[str] = []
-        if registry_failed:
-            parts.append(f"{registry_failed}/{len(registry_skills)} registry")
-        if git_failed:
-            parts.append(f"{git_failed}/{len(git_skills)} git")
-        sys.exit(f"Failed to install {' and '.join(parts)} skill(s); see warnings above.{suffix}")
+    failed_parts = [
+        f"{len(loaded[label]) - satisfied_by_arm[label]}/{len(loaded[label])} {label}"
+        for label in SKILL_ARM_ORDER
+        if loaded[label] and satisfied_by_arm[label] < len(loaded[label])
+    ]
+    if failed_parts:
+        sys.exit(
+            f"Failed to install {' and '.join(failed_parts)} skill(s); see warnings above.{suffix}"
+        )
 
-    ensured: list[str] = []
-    if registry_skills:
-        ensured.append(f"{registry_satisfied} registry")
-    if git_skills:
-        ensured.append(f"{git_satisfied} git")
+    ensured = [
+        f"{satisfied_by_arm[label]} {label}" for label in SKILL_ARM_ORDER if loaded[label]
+    ]
     print(f"Ensured {' and '.join(ensured)} skill(s) (downloaded or already up to date).{suffix}")
 
 
 def main() -> None:
-    run_git_download()
+    run_skill_download()
 
 
 if __name__ == "__main__":
