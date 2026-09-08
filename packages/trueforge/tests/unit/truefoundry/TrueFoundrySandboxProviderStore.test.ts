@@ -1,6 +1,6 @@
 import type { RequestContext } from '../../../src/auth/identity';
+import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/errors';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/trueFoundryManaged';
 import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
 
 jest.mock('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig', () => {

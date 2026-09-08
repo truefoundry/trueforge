@@ -24,6 +24,7 @@ import {
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
+import { trueFoundryManaged } from './errors';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
@@ -32,7 +33,6 @@ import {
   type SfyMcpServerSummary,
 } from './mapSfyMcpServers';
 import type { PerServerMcpHeaders } from './perServerMcpHeaders';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 export type TrueFoundryMcpApiClient = Pick<
@@ -45,10 +45,6 @@ export type TrueFoundryMcpApiClient = Pick<
   | 'deleteMcpAuth'
   | 'vendToken'
 >;
-
-function managed(): never {
-  throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
-}
 
 function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
   if (headers === undefined) {
@@ -168,37 +164,37 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   getServerForUpdate(input: GetMcpServerInput, transaction: TTransaction): Promise<McpServerRecord | undefined> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   createServer(input: CreateMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   saveClient(params: { id: string; record: OAuthClientRecord }, transaction?: TTransaction): Promise<void> {
     void params;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   getClient(params: { id: string }, transaction?: TTransaction): Promise<OAuthClientRecord | undefined> {
     void params;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   deleteClient(params: { id: string }, transaction?: TTransaction): Promise<void> {
     void params;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {

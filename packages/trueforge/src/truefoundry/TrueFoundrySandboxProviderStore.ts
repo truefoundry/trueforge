@@ -1,4 +1,3 @@
-import { HTTPException } from 'hono/http-exception';
 import { LRUCache } from 'lru-cache';
 import { z } from 'zod';
 import type { RequestContext } from '../auth/identity';
@@ -9,8 +8,8 @@ import type {
   UpsertSandboxProviderInput,
 } from '../db/sandboxProviderStore';
 import { callerAccessToken, type ResolveAccessToken } from './accessToken';
+import { trueFoundryManaged } from './errors';
 import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 
 const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
 const SETTINGS_FETCH_TIMEOUT_MS = 10_000;
@@ -76,10 +75,6 @@ async function resolveDaytonaSandboxSettings({
   return settings;
 }
 
-function managed(): never {
-  throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
-}
-
 export class TrueFoundrySandboxProviderStore<TTransaction = never> implements ISandboxProviderStore<TTransaction> {
   readonly #resolveAccessToken: ResolveAccessToken;
 
@@ -121,13 +116,13 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
   getSandboxProviderForUpdate(tenantId: string, transaction: TTransaction): Promise<SandboxProviderRecord | undefined> {
     void tenantId;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   upsertSandboxProvider(input: UpsertSandboxProviderInput, transaction?: TTransaction): Promise<SandboxProviderRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   updateSandboxStatus(
@@ -136,6 +131,6 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
   ): Promise<SandboxProviderRecord | undefined> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 }

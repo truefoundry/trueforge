@@ -118,6 +118,8 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
   }
   const apiKey = configuration.TRUEFOUNDRY_API_KEY;
   if (apiKey === undefined) {
+    // this is unreachable because the config validation fails if TRUEFOUNDRY_API_KEY is not set
+    // we will refactor config itself later to have a truefoundry section where this will be required
     throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
   }
   return new TrueFoundryServiceFoundryServerClient({

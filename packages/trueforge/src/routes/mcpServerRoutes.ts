@@ -9,7 +9,7 @@ import {
   McpAuthStatusSchema,
   UpdateMcpServerRequestSchema,
 } from '../schemas/mcpServer';
-import { trueFoundryManagedResponse } from '../truefoundry/trueFoundryManaged';
+import { trueFoundryManagedResponse } from '../truefoundry/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 

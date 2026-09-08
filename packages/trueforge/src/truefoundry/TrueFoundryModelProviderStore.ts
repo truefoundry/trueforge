@@ -1,4 +1,3 @@
-import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import {
@@ -12,13 +11,9 @@ import {
 } from '../db/modelProviderStore';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
+import { trueFoundryManaged } from './errors';
 import { mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
-
-function managed(): never {
-  throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
-}
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
@@ -57,19 +52,19 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   ): Promise<ModelProviderRecord | undefined> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   createProvider(input: CreateModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {

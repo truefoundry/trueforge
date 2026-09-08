@@ -1,6 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
+import { requireTrueFoundryAgentExternalId } from './errors';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 /**
@@ -10,8 +11,6 @@ import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryService
 export type ResolveAccessToken = () => Promise<string>;
 
 type AgentTokenVendor = Pick<TrueFoundryServiceFoundryServerClient, 'vendToken'>;
-
-const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
 
 /** Per-request map of saved-agent vends; not exported so only this module can read it. */
 const accessTokenCache: unique symbol = Symbol('truefoundryAccessTokenCache');
@@ -49,10 +48,7 @@ export function agentAccessToken(input: {
   agent: AgentRecord;
 }): ResolveAccessToken {
   const { client, context } = input;
-  const agentId = input.agent.external_id;
-  if (agentId === null) {
-    throw new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
-  }
+  const agentId = requireTrueFoundryAgentExternalId(input.agent);
   let pending: Promise<string> | undefined;
   return () => {
     pending ??= client
@@ -88,10 +84,7 @@ export function accessTokenForRequest(input: {
   if (input.agent === undefined) {
     return callerAccessToken(input.context);
   }
-  const agentId = input.agent.external_id;
-  if (agentId === null) {
-    throw new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
-  }
+  const agentId = requireTrueFoundryAgentExternalId(input.agent);
   const cache = input.context[accessTokenCache];
   const existing = cache.get(agentId);
   if (existing !== undefined) {

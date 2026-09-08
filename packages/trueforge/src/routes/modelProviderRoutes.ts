@@ -11,7 +11,7 @@ import {
   ListModelProvidersResponseSchema,
   UpdateModelProviderRequestSchema,
 } from '../schemas/modelProvider';
-import { trueFoundryManagedResponse } from '../truefoundry/trueFoundryManaged';
+import { trueFoundryManagedResponse } from '../truefoundry/errors';
 import { OpenApiTag } from './openapiTags';
 
 export const listModelProvidersRoute = createRoute({
