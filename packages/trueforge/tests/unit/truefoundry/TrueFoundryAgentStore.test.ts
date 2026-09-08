@@ -158,6 +158,7 @@ describe('TrueFoundryAgentStore', () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input).toEqual({
         accessToken: TOKEN,
+        tenantName: TENANT,
         name: 'research',
         description: 'research',
         model: 'openai-gateway/gpt-5',
@@ -308,7 +309,11 @@ describe('TrueFoundryAgentStore', () => {
         TXN,
       ),
     ).rejects.toThrow('db update failed');
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
+    expect(deleteRemoteAgent).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      tenantName: TENANT,
+      externalId: 'sf-1',
+    });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: local.id }, TXN);
   });
 
@@ -523,6 +528,7 @@ describe('TrueFoundryAgentStore', () => {
     expect(putRemoteAgent).toHaveBeenLastCalledWith(
       expect.objectContaining({
         accessToken: TOKEN,
+        tenantName: TENANT,
         name: previous.name,
         description: previous.name,
         model: previous.manifest.model.name,
@@ -580,7 +586,11 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
+    expect(deleteRemoteAgent).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      tenantName: TENANT,
+      externalId: 'sf-1',
+    });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
     expect(firstInvocationOrder(deleteRemoteAgent)).toBeLessThan(firstInvocationOrder(deleteAgent));
   });

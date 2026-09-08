@@ -362,6 +362,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createAgentImportRouter({
         resolveAgentStore: deps.resolveAgentStore,
+        sessionStore: deps.sessionStore,
       }),
       authMiddleware,
     ),

@@ -9,6 +9,11 @@ export function json<T>(value: T): RawBuilder<T> {
   return sql`${JSON.stringify(value)}::jsonb`;
 }
 
+/** Same as {@link json} for loosely typed import payloads. */
+export function jsonUnknown<T>(value: unknown): RawBuilder<T> {
+  return sql`${JSON.stringify(value)}::jsonb`;
+}
+
 /**
  * `jsonb_set(target, path, new_value)`.
  * `path` may be a text[] expression (`sql\`ARRAY['threads', ${id}]\``) or a literal path
