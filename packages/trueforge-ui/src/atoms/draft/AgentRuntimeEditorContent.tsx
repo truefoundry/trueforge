@@ -13,7 +13,7 @@ export function AgentRuntimeEditorContent({ spec, sandboxAvailable, onChange }: 
   const AgentRuntimeConfigFields = useSlot('AgentRuntimeConfigFields');
 
   return (
-    <div className="h-[min(38rem,calc(100dvh-8rem))] w-full overflow-y-auto p-5">
+    <div className="w-full p-5">
       <AgentRuntimeConfigFields
         value={spec.config ?? {}}
         sandboxAvailable={sandboxAvailable}

@@ -2,9 +2,9 @@
 
 import type { AgentSpec } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { CenteredModal } from '../primitives/CenteredModal.js';
+import { SideDrawer } from '../primitives/SideDrawer.js';
 
-export type AgentRuntimeConfigModalProps = {
+export type AgentRuntimeConfigDrawerProps = {
   open: boolean;
   spec: AgentSpec;
   sandboxAvailable: boolean;
@@ -12,31 +12,32 @@ export type AgentRuntimeConfigModalProps = {
   onClose: () => void;
 };
 
-export function AgentRuntimeConfigModal({
+export function AgentRuntimeConfigDrawer({
   open,
   spec,
   sandboxAvailable,
   onChange,
   onClose,
-}: AgentRuntimeConfigModalProps) {
+}: AgentRuntimeConfigDrawerProps) {
   const AgentRuntimeEditorContent = useSlot('AgentRuntimeEditorContent');
 
   return (
-    <CenteredModal
+    <SideDrawer
       open={open}
       onOpenChange={nextOpen => !nextOpen && onClose()}
       title="Runtime Config"
-      className="md:w-[min(56rem,calc(100%-3rem))] md:max-w-4xl"
-      contentSized
+      description="Control execution, sandbox, and context behavior."
+      anchor="right"
+      size="lg"
       aria-label="Edit Runtime Config"
     >
       <AgentRuntimeEditorContent spec={spec} sandboxAvailable={sandboxAvailable} onChange={onChange} />
-    </CenteredModal>
+    </SideDrawer>
   );
 }
 
 declare module '../../theme/SlotsProvider.js' {
   interface AtomSlots {
-    AgentRuntimeConfigModal: typeof AgentRuntimeConfigModal;
+    AgentRuntimeConfigDrawer: typeof AgentRuntimeConfigDrawer;
   }
 }

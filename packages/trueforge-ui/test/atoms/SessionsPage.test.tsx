@@ -115,7 +115,7 @@ describe('SessionsPage', () => {
 
     const indicator = await screen.findByLabelText('Scheduled run');
     fireEvent.mouseEnter(indicator);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled run');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled Session');
   });
 
   it('shows a single empty screen when there are no sessions', async () => {

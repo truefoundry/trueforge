@@ -160,17 +160,13 @@ export function AgentRuntimeConfigFields({
     return (
       <div className="space-y-5">
         {showCapabilities ? (
-          // Stacked below `md` so the bottom-sheet modal does not cram three labeled switches into one row.
-          <div className="flex flex-col gap-3 md:flex-row">
+          // Stack drawer capabilities so labeled switches retain usable width.
+          <div className="flex flex-col gap-3">
             {capabilityFields.map((field, index) =>
               switchField({
                 field,
                 className: 'items-start justify-between gap-3',
-                wrapperClassName: cn(
-                  'flex-1',
-                  index < capabilityFields.length - 1 &&
-                    'border-b border-border pb-3 md:border-b-0 md:border-r md:pb-0 md:pr-3',
-                ),
+                wrapperClassName: cn('flex-1', index < capabilityFields.length - 1 && 'border-b border-border pb-3'),
               }),
             )}
           </div>
