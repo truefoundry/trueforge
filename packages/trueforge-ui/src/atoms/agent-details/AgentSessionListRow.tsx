@@ -24,7 +24,7 @@ export function AgentSessionListRow({
       onClick={onSelect}
       data-active={active || undefined}
       className={cn(
-        'flex w-full flex-col gap-2 border-b border-border px-3 py-3 text-left transition-colors',
+        'flex w-full flex-col gap-2 border-b border-border px-4 py-3 text-left transition-colors',
         active ? 'bg-dropdown-selected-item-bg' : 'hover:bg-ghost-button-hover',
       )}
     >

@@ -26,7 +26,7 @@ export function PageHeader({ title, start, end, children, className }: PageHeade
   return (
     <header
       className={cn(
-        'flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 md:px-6',
+        'flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4',
         className,
       )}
     >

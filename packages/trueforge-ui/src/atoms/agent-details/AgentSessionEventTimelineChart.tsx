@@ -454,6 +454,7 @@ export function AgentSessionEventTimelineChart({
           },
           ticks: {
             color: axis,
+            align: 'inner',
             autoSkip: false,
             includeBounds: false,
             maxTicksLimit: 9,

@@ -41,7 +41,7 @@ export function AgentSessionDetailHeader({
   };
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+    <div className="flex shrink-0 items-center gap-3 border-b border-border p-3">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <h2 className="min-w-0 truncate text-sm font-semibold text-text-primary">{title}</h2>
         <code className="min-w-0 truncate font-mono text-xs text-text-secondary">{sessionId}</code>
