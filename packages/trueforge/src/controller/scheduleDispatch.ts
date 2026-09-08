@@ -22,6 +22,11 @@ import type { ControlLoop } from './Controller';
  */
 export const DISPATCH_BATCH_LIMIT = 20;
 
+/** Human-readable failure detail for a `failed` schedule run. */
+export function scheduleRunFailureReason(error: unknown): string {
+  return error instanceof Error && error.message.trim() !== '' ? error.message : 'Schedule run failed';
+}
+
 /**
  * Gap between loop passes.
  *
@@ -140,13 +145,17 @@ async function finishScheduledRun<TTransaction>(params: {
   run: ScheduleRunRecord;
   now: Date;
   status: ScheduleRunStatus;
+  reason?: string | null;
   withTransaction: WithTransaction<TTransaction>;
 }): Promise<void> {
-  const { store, withTransaction, run, status, now } = params;
+  const { store, withTransaction, run, status, reason, now } = params;
   await withTransaction(async txn => {
     const latest = await store.getScheduleForUpdate({ tenant_id: run.tenant_id, id: run.schedule_id }, txn);
 
-    const updated = await store.updateRunStatus({ tenant_id: run.tenant_id, id: run.id, status }, txn);
+    const updated = await store.updateRunStatus(
+      { tenant_id: run.tenant_id, id: run.id, status, reason: reason ?? null },
+      txn,
+    );
     if (updated === undefined) {
       return;
     }
@@ -270,6 +279,7 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           run,
           now,
           status: 'failed',
+          reason: scheduleRunFailureReason(error),
           withTransaction,
         });
         failed += 1;

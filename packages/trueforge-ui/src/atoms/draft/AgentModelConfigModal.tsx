@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import type { AgentSpec, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { CenteredModal } from '../primitives/CenteredModal.js';
@@ -28,6 +29,8 @@ export function AgentModelConfigModal({
   onClose,
 }: AgentModelConfigModalProps) {
   const AgentModelEditorContent = useSlot('AgentModelEditorContent');
+  const AgentModelSettingsContent = useSlot('AgentModelSettingsContent');
+  const model = useMemo(() => models.find(item => item.name === spec.model.name), [models, spec.model.name]);
   const selectingModel = editor === 'model';
 
   return (
@@ -43,9 +46,8 @@ export function AgentModelConfigModal({
       contentSized
       aria-label={selectingModel ? 'Edit model' : 'Edit model settings'}
     >
-      {editor ? (
+      {selectingModel ? (
         <AgentModelEditorContent
-          editor={editor}
           spec={spec}
           models={models}
           loading={loading}
@@ -54,7 +56,9 @@ export function AgentModelConfigModal({
           onQueryChange={onQueryChange}
           onChange={onChange}
         />
-      ) : null}
+      ) : (
+        <AgentModelSettingsContent spec={spec} model={model} onChange={onChange} />
+      )}
     </CenteredModal>
   );
 }

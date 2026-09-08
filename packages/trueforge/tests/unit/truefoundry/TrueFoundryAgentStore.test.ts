@@ -98,7 +98,12 @@ function tfStore(input: {
   return new TrueFoundryAgentStore({
     inner: input.inner,
     client: input.client,
-    accessToken: input.accessToken ?? TOKEN,
+    context: {
+      tenant_id: TENANT,
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: input.accessToken ?? TOKEN,
+    },
     db: input.db ?? mockDb(),
   });
 }
@@ -115,6 +120,7 @@ function mockClient(
     tls: { enabled: false, dir: '' },
     httpTimeoutMs: 10_000,
     httpAgentTimeoutMs: 3_000,
+    apiKey: 'tfy-api-key',
   });
   client.putRemoteAgent =
     overrides.putRemoteAgent ?? (async (): Promise<PutRemoteAgentResult> => ({ externalId: 'sf-1' }));

@@ -43,7 +43,12 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   useEffect(() => {
     if (!showClose || !shell.agentConfigOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && editor === null && document.querySelector('dialog[open]') === null) {
+      if (
+        !event.defaultPrevented &&
+        event.key === 'Escape' &&
+        editor === null &&
+        document.querySelector('dialog[open]') === null
+      ) {
         closeDrawer();
       }
     };
@@ -120,6 +125,9 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
       <AgentConfigPanel
         spec={agentSpec}
         model={model}
+        models={catalog.models}
+        modelsLoading={catalog.loading}
+        modelsError={catalog.error}
         skillsAvailable={capabilities?.skill.enabled === true}
         instructions={instructionDraft}
         onOpenEditor={setEditor}

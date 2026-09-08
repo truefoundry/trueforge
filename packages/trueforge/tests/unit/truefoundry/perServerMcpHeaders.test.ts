@@ -1,7 +1,24 @@
 import { HTTPException } from 'hono/http-exception';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
+import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
-import { TrueFoundryMcpServerStore } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
+import {
+  TrueFoundryMcpServerStore,
+  type TrueFoundryMcpApiClient,
+} from '../../../src/truefoundry/TrueFoundryMcpServerStore';
+
+function unusedClient(): TrueFoundryMcpApiClient {
+  const unused = (): Promise<never> => Promise.reject(new Error('unused'));
+  return {
+    getMcpServerByName: unused,
+    listMcpServers: unused,
+    listGatewayInstallations: unused,
+    getMcpAuthorize: unused,
+    getMcpAuthStatus: unused,
+    deleteMcpAuth: unused,
+    vendToken: () => Promise.resolve('caller-token'),
+  };
+}
 
 const record = (name: string): McpServerRecord => ({
   id: name,
@@ -19,14 +36,28 @@ const record = (name: string): McpServerRecord => ({
 
 const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
-    client: {} as never,
-    accessToken: 'caller-token',
-    subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+    client: unusedClient(),
+    context: createTrueFoundryRequestContext({
+      tenant_id: 'default',
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: 'caller-token',
+    }),
+    agent: undefined,
+    logger: { info: jest.fn() },
     perServerHeaders,
   });
 
-function invokeHeaders(store: TrueFoundryMcpServerStore, name: string) {
-  return store.resolveInvokeHeaders({ record: record(name), userRef: 'user-1' });
+async function invokeHeaders(store: TrueFoundryMcpServerStore, name: string): Promise<Record<string, string>> {
+  const resolve = store.resolveInvokeHeaders({ record: record(name), userRef: 'user-1' });
+  if (typeof resolve !== 'function') {
+    throw new Error('expected a headers resolver so the token is read at connect time');
+  }
+  const resolved = await resolve();
+  if (!('headers' in resolved)) {
+    throw new Error('expected headers rather than an auth-required signal');
+  }
+  return resolved.headers;
 }
 
 describe('parsePerServerMcpHeaders', () => {
@@ -56,14 +87,14 @@ describe('parsePerServerMcpHeaders', () => {
 });
 
 describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
-  it('sends only the gateway Bearer when a server has no override', () => {
-    expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).toEqual({
+  it('sends only the gateway Bearer when a server has no override', async () => {
+    await expect(invokeHeaders(storeWith({}), 'tfy-docs-mcp')).resolves.toEqual({
       Authorization: 'Bearer caller-token',
     });
   });
 
-  it("merges that server's override on top of the Bearer", () => {
-    const headers = invokeHeaders(
+  it("merges that server's override on top of the Bearer", async () => {
+    const headers = await invokeHeaders(
       storeWith({
         'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
       }),
@@ -76,8 +107,8 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     });
   });
 
-  it('gives one server nothing of another, so an identity cannot reach the wrong upstream', () => {
-    const headers = invokeHeaders(
+  it('gives one server nothing of another, so an identity cannot reach the wrong upstream', async () => {
+    const headers = await invokeHeaders(
       storeWith({
         'tfy-platform-mcp': { 'x-tfy-mcp-headers': '{"Authorization":"Bearer user"}' },
       }),
@@ -89,8 +120,8 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
 
   it.each(['Authorization', 'authorization', 'AUTHORIZATION', 'AuThOrIzAtIoN'])(
     'drops an override under %s, which object keys would otherwise keep beside the Bearer',
-    name => {
-      const headers = invokeHeaders(
+    async name => {
+      const headers = await invokeHeaders(
         storeWith({
           'tfy-platform-mcp': { [name]: 'Bearer smuggled' },
         }),
@@ -101,8 +132,8 @@ describe('TrueFoundryMcpServerStore.resolveInvokeHeaders', () => {
     },
   );
 
-  it('keeps the rest of an override that also carried an authorization key', () => {
-    const headers = invokeHeaders(
+  it('keeps the rest of an override that also carried an authorization key', async () => {
+    const headers = await invokeHeaders(
       storeWith({
         'tfy-platform-mcp': { authorization: 'Bearer smuggled', 'x-tfy-mcp-headers': '{"a":"b"}' },
       }),

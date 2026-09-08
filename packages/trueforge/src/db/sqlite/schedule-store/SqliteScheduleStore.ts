@@ -63,6 +63,7 @@ function runColumns(eb: ExpressionBuilder<Database, 'schedule_run'>) {
     'status' as const,
     jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
     'triggered_at' as const,
+    'reason' as const,
     'created_at' as const,
     'updated_at' as const,
   ];
@@ -90,6 +91,7 @@ interface RunRow {
   status: ScheduleRunStatus;
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
+  reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -346,6 +348,7 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
           status: input.status,
           created_by_subject: jsonbBind(input.created_by_subject),
           triggered_at: input.triggered_at?.toISOString() ?? null,
+          reason: input.reason ?? null,
           created_at: timestamp,
           updated_at: timestamp,
         })
@@ -366,10 +369,11 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
   ): Promise<ScheduleRunRecord | undefined> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
+    const reason = input.status === 'failed' ? (input.reason ?? null) : null;
     const patch =
       input.status === 'triggered'
-        ? { status: input.status, triggered_at: timestamp, updated_at: timestamp }
-        : { status: input.status, updated_at: timestamp };
+        ? { status: input.status, triggered_at: timestamp, reason, updated_at: timestamp }
+        : { status: input.status, reason, updated_at: timestamp };
     const row = await db
       .updateTable('schedule_run')
       .set(patch)
