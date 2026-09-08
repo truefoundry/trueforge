@@ -443,10 +443,7 @@ export function SchedulesPage() {
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="text-text-primary font-medium">
-                        <button
-                          type="button"
-                          className="text-left !no-underline"
-                        >
+                        <button type="button" className="text-left !no-underline">
                           {schedule.name}
                         </button>
                       </TableCell>
