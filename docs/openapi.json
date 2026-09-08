@@ -1211,6 +1211,21 @@
         },
         "type": "object"
       },
+      "ExecuteScheduleRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schedule_run_id": {
+            "description": "Immutable schedule run identifier.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_run_id"
+        ],
+        "type": "object"
+      },
       "ExtendedChunkDeltaToolCall": {
         "allOf": [
           {
@@ -5175,6 +5190,65 @@
           "metrics"
         ],
         "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/schedules/runs/execute": {
+      "post": {
+        "description": "Execute a persisted schedule run using its saved schedule and agent.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteScheduleRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Run executed or already has a turn."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Run, schedule, or agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The run cannot be executed."
+          }
+        },
+        "summary": "Execute a schedule run",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "execute_run"
       }
     },
     "/api/internal/sessions/get-or-create-by-external-id": {
