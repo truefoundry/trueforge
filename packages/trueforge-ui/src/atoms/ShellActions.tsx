@@ -29,6 +29,21 @@ export function ShellActions({ className, labeled = false }: { className?: strin
         className,
       )}
     >
+      <a
+        href="https://trueforge.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Documentation"
+        title="Documentation"
+        className={auiButtonClass({
+          variant: 'ghost',
+          size: labeled ? undefined : 'icon',
+          className: cn(hoverClass, labeled && sidebarRailButtonClassName),
+        })}
+      >
+        <Icon name="book-open" size={labeled ? 14 : undefined} />
+        {labeled ? <span className="text-center">Docs</span> : null}
+      </a>
       <button
         type="button"
         aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}

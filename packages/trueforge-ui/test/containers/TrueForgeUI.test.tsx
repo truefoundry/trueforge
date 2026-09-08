@@ -508,6 +508,7 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
     expect(screen.getByText('New Chat')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
