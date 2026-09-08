@@ -460,16 +460,13 @@ describe('TurnResourceResolver caches', () => {
     expect(creates).toBe(1);
   });
 
-  it('getOrCreateResolvedModel single-flights by model name', async () => {
+  it('getModel single-flights by model name', async () => {
     const logger = makeSilentLogger();
     let llmCalls = 0;
     const modelClient = makeMockILLM();
     const resolver = new (class extends TurnResourceResolver {
       async resolveTwice() {
-        const [a, b] = await Promise.all([
-          this.getOrCreateResolvedModel('acct/model-a'),
-          this.getOrCreateResolvedModel('acct/model-a'),
-        ]);
+        const [a, b] = await Promise.all([this.getModel('acct/model-a'), this.getModel('acct/model-a')]);
         expect(a).toBe(b);
       }
     })({
