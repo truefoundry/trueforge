@@ -31,13 +31,15 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
 }
 
 function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
-  if (manifest.type !== 'daytona') {
-    return manifest;
+  switch (manifest.type) {
+    case 'daytona':
+      return {
+        ...manifest,
+        auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
+      };
+    case 'tfy':
+      return manifest;
   }
-  return {
-    ...manifest,
-    auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
-  };
 }
 
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
@@ -72,8 +74,12 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const incoming = body.manifest;
-    if (incoming.type !== 'daytona') {
-      return c.json({ error: { message: 'Only Daytona sandbox providers can be configured via settings' } }, 400);
+    switch (incoming.type) {
+      case 'daytona':
+        break;
+      case 'tfy':
+      default:
+        return c.json({ error: { message: 'Only Daytona sandbox providers can be configured via settings' } }, 400);
     }
     const resolveManifest = (existing: SandboxProviderRecord | undefined): DaytonaSandboxProviderManifest => ({
       ...incoming,

@@ -1,10 +1,12 @@
-/** Daytona provider construction + persisted build-status refresh (see checkSnapshotStatus). */
+/** Sandbox provider construction + Daytona snapshot status refresh. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
   DaytonaSandboxProvider,
   SANDBOX_IMAGE_URI,
+  TFYSandboxProvider,
   withTimeout,
   type SandboxBuild,
+  type SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
@@ -26,7 +28,7 @@ export function isDaytonaPermissionError(error: unknown): boolean {
 }
 
 /**
- * Builds the runtime provider for a stored manifest. No network I/O until a method is called.
+ * Builds the Daytona runtime provider for a stored Daytona manifest. No network I/O until a method is called.
  *
  * When `build_metadata` is present, pin both `sandboxImage` and `buildRef` to what was actually
  * built — image bumps in the running binary must not rewrite an existing tenant onto a new
@@ -55,6 +57,39 @@ export function toDaytonaSandboxProvider({
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });
+}
+
+/**
+ * Builds the runtime SandboxProvider for a store record. One switch on `manifest.type`.
+ * No network I/O until a provider method is called.
+ */
+export function toSandboxProviderFromRecord({
+  record,
+  tenant_id,
+  logger,
+}: {
+  record: SandboxProviderRecord;
+  tenant_id: string;
+  logger: Logger;
+}): SandboxProvider {
+  switch (record.manifest.type) {
+    case 'daytona':
+      return toDaytonaSandboxProvider({
+        manifest: record.manifest,
+        tenant_id,
+        logger,
+        build_metadata: record.build_metadata,
+      });
+    case 'tfy':
+      return new TFYSandboxProvider({
+        serverUrl: record.manifest.server_url,
+        natsBridgeUrl: record.manifest.nats_bridge_url,
+        tenantName: tenant_id,
+        fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+        defaultExecTimeoutMs: record.manifest.exec_timeout_ms,
+        logger,
+      });
+  }
 }
 
 /** Maps a core `SandboxBuild` onto the persisted/wire status shape (metadata passes through). */
@@ -96,26 +131,37 @@ export async function checkSnapshotStatus({
 
   const persisted = sandboxStatusFromRecord(record);
 
-  const readyIsFresh =
-    record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
-  if (record.status === 'failed' || readyIsFresh || record.manifest.type !== 'daytona') {
-    return persisted;
-  }
+  switch (record.manifest.type) {
+    case 'tfy':
+      // Prebuilt image — no snapshot registration or refresh.
+      return persisted;
+    case 'daytona': {
+      const readyIsFresh =
+        record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
+      if (record.status === 'failed' || readyIsFresh) {
+        return persisted;
+      }
 
-  const provider = toDaytonaSandboxProvider({
-    manifest: record.manifest,
-    tenant_id,
-    logger,
-    build_metadata: record.build_metadata,
-  });
-  let build: SandboxBuild;
-  if (record.status === 'ready') {
-    // this is because image may have deactivated
-    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
-  } else {
-    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
+      const provider = toDaytonaSandboxProvider({
+        manifest: record.manifest,
+        tenant_id,
+        logger,
+        build_metadata: record.build_metadata,
+      });
+      let build: SandboxBuild;
+      if (record.status === 'ready') {
+        // this is because image may have deactivated
+        build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
+      } else {
+        build = await withTimeout(
+          provider.getImageBuildStatus(),
+          STATUS_REFRESH_TIMEOUT_MS,
+          'sandbox getImageBuildStatus',
+        );
+      }
+      const next = toSandboxStatus(build);
+      const updated = await store.updateSandboxStatus({ tenant_id, ...next });
+      return updated ? sandboxStatusFromRecord(updated) : next;
+    }
   }
-  const next = toSandboxStatus(build);
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-  return updated ? sandboxStatusFromRecord(updated) : next;
 }

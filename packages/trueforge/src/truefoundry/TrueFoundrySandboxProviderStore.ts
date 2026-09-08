@@ -9,7 +9,10 @@ import type {
 } from '../db/sandboxProviderStore';
 import { callerAccessToken, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
-import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
+import {
+  resolveTrueFoundrySandboxProviderConfig,
+  type TrueFoundrySandboxProviderConfig,
+} from './resolveTrueFoundrySandboxProviderConfig';
 
 const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
 const SETTINGS_FETCH_TIMEOUT_MS = 10_000;
@@ -75,6 +78,64 @@ async function resolveDaytonaSandboxSettings({
   return settings;
 }
 
+async function synthesizeDaytonaRecord({
+  tenantId,
+  providerConfig,
+  accessToken,
+}: {
+  tenantId: string;
+  providerConfig: Extract<TrueFoundrySandboxProviderConfig, { type: 'daytona' }>;
+  accessToken: string;
+}): Promise<SandboxProviderRecord> {
+  const settings = await resolveDaytonaSandboxSettings({
+    accessToken,
+    settingsServerUrl: providerConfig.settingsServerUrl,
+  });
+  const now = new Date().toISOString();
+  return {
+    tenant_id: tenantId,
+    manifest: {
+      type: 'daytona',
+      auth: { api_key: providerConfig.apiKey },
+      exec_timeout_ms: settings.timeoutMs,
+      auto_stop_interval_in_minutes: settings.autoStopIntervalInMinutes,
+      auto_archive_interval_in_minutes: settings.autoArchiveIntervalInMinutes,
+      auto_delete_interval_in_minutes: settings.autoDeleteIntervalInMinutes,
+    },
+    status: 'ready',
+    status_reason: null,
+    // Snapshot name only — no image_uri; TrueFoundry mode never registers a snapshot.
+    build_metadata: { build_ref: settings.snapshotName },
+    created_at: now,
+    // Fresh on every get so checkSnapshotStatus short-circuits without Daytona.
+    updated_at: now,
+  };
+}
+
+function synthesizeTfyRecord({
+  tenantId,
+  providerConfig,
+}: {
+  tenantId: string;
+  providerConfig: Extract<TrueFoundrySandboxProviderConfig, { type: 'tfy' }>;
+}): SandboxProviderRecord {
+  const now = new Date().toISOString();
+  return {
+    tenant_id: tenantId,
+    manifest: {
+      type: 'tfy',
+      server_url: providerConfig.serverUrl,
+      nats_bridge_url: providerConfig.natsBridgeUrl,
+      exec_timeout_ms: SANDBOX_DEFAULT_SETTINGS.timeoutMs,
+    },
+    status: 'ready',
+    status_reason: null,
+    build_metadata: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 export class TrueFoundrySandboxProviderStore<TTransaction = never> implements ISandboxProviderStore<TTransaction> {
   readonly #resolveAccessToken: ResolveAccessToken;
 
@@ -88,33 +149,16 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
     if (!providerConfig) {
       return undefined;
     }
-    // TFY record synthesis is wired separately; only Daytona is materialized here.
-    if (providerConfig.type !== 'daytona') {
-      return undefined;
+    switch (providerConfig.type) {
+      case 'daytona':
+        return synthesizeDaytonaRecord({
+          tenantId,
+          providerConfig,
+          accessToken: await this.#resolveAccessToken(),
+        });
+      case 'tfy':
+        return synthesizeTfyRecord({ tenantId, providerConfig });
     }
-    const settings = await resolveDaytonaSandboxSettings({
-      accessToken: await this.#resolveAccessToken(),
-      settingsServerUrl: providerConfig.settingsServerUrl,
-    });
-    const now = new Date().toISOString();
-    return {
-      tenant_id: tenantId,
-      manifest: {
-        type: 'daytona',
-        auth: { api_key: providerConfig.apiKey },
-        exec_timeout_ms: settings.timeoutMs,
-        auto_stop_interval_in_minutes: settings.autoStopIntervalInMinutes,
-        auto_archive_interval_in_minutes: settings.autoArchiveIntervalInMinutes,
-        auto_delete_interval_in_minutes: settings.autoDeleteIntervalInMinutes,
-      },
-      status: 'ready',
-      status_reason: null,
-      // Snapshot name only — no image_uri; TFY mode never registers a snapshot.
-      build_metadata: { build_ref: settings.snapshotName },
-      created_at: now,
-      // Fresh on every get so checkSnapshotStatus short-circuits without Daytona.
-      updated_at: now,
-    };
   }
 
   getSandboxProviderForUpdate(tenantId: string, transaction: TTransaction): Promise<SandboxProviderRecord | undefined> {

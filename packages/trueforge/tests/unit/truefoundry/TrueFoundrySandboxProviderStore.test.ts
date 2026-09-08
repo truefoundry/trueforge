@@ -99,6 +99,32 @@ describe('TrueFoundrySandboxProviderStore', () => {
     });
   });
 
+  it('get returns ready TFY record without settings fetch', async () => {
+    mockResolveConfig.mockReturnValue({
+      type: 'tfy',
+      serverUrl: 'http://sandbox-server',
+      natsBridgeUrl: 'ws://nats-bridge',
+    });
+    const fetchMock = mockSettingsFetch();
+    const store = new TrueFoundrySandboxProviderStore({ context });
+
+    const record = await store.getSandboxProvider(TENANT);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(record).toMatchObject({
+      tenant_id: TENANT,
+      status: 'ready',
+      status_reason: null,
+      build_metadata: null,
+      manifest: {
+        type: 'tfy',
+        server_url: 'http://sandbox-server',
+        nats_bridge_url: 'ws://nats-bridge',
+        exec_timeout_ms: 60_000,
+      },
+    });
+  });
+
   it('writes and get-for-update are managed (424)', () => {
     const store = new TrueFoundrySandboxProviderStore({ context });
     const assertManaged = (run: () => unknown) => {
