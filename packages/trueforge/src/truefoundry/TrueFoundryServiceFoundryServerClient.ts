@@ -14,8 +14,7 @@ const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
-/** In-cluster ServiceFoundry path; public gateway is `/api/svc/v1/x/vend-token`. */
-const VEND_TOKEN_PATH = 'v1/x/vend-token';
+const VEND_TOKEN_PATH = 'internal/vend-token';
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
