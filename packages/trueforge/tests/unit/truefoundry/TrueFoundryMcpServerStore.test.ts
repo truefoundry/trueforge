@@ -1,5 +1,6 @@
 import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
+import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
 import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 import {
@@ -51,12 +52,12 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    context: {
+    context: createTrueFoundryRequestContext({
       tenant_id: TENANT,
       subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: input?.accessToken ?? ACCESS_TOKEN,
-    },
+    }),
     agent: undefined,
   });
   return { store, client };

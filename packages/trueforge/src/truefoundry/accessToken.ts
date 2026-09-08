@@ -5,7 +5,7 @@ import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryService
 
 /**
  * Token for one TrueFoundry call. Resolved on first use and reused for later calls on the same
- * callable, so one turn vends once.
+ * callable.
  */
 export type ResolveAccessToken = () => Promise<string>;
 
@@ -13,9 +13,45 @@ type AgentTokenVendor = Pick<TrueFoundryServiceFoundryServerClient, 'vendToken'>
 
 const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
 
+/** Per-request map of saved-agent vends; not exported so only this module can read it. */
+const accessTokenCache: unique symbol = Symbol('truefoundryAccessTokenCache');
+
+/**
+ * Request context produced only in TrueFoundry auth. The cache lives on this object for the
+ * lifetime of one HTTP request; a later request gets a new context and vends again.
+ */
+type TrueFoundryRequestContext = RequestContext & {
+  readonly [accessTokenCache]: Map<string, ResolveAccessToken>;
+};
+
+export function createTrueFoundryRequestContext(base: RequestContext): RequestContext {
+  const context: RequestContext = {
+    tenant_id: base.tenant_id,
+    subject: base.subject,
+    roles: base.roles,
+    user_credential: base.user_credential,
+  };
+  Object.defineProperty(context, accessTokenCache, {
+    value: new Map<string, ResolveAccessToken>(),
+    enumerable: false,
+  });
+  return context;
+}
+
+function isTrueFoundryRequestContext(context: RequestContext): context is TrueFoundryRequestContext {
+  return accessTokenCache in context;
+}
+
+export function asTrueFoundryRequestContext(context: RequestContext): RequestContext {
+  if (!isTrueFoundryRequestContext(context)) {
+    throw new Error('TrueFoundry request context required for access token resolution');
+  }
+  return context;
+}
+
 /**
  * Token scoped to a saved agent, for work the agent does on the caller's behalf.
- * Throws 422 up front when the agent was never registered with TrueFoundry.
+ * Throws 500 up front when the agent was never registered with TrueFoundry.
  */
 export function agentAccessToken(input: {
   client: AgentTokenVendor;
@@ -25,7 +61,7 @@ export function agentAccessToken(input: {
   const { client, context } = input;
   const agentId = input.agent.external_id;
   if (agentId === null) {
-    throw new HTTPException(422, { message: AGENT_EXTERNAL_ID_REQUIRED });
+    throw new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
   }
   let pending: Promise<string> | undefined;
   return () => {
@@ -50,13 +86,31 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
   return () => Promise.resolve(token);
 }
 
-/** Token for a request, optionally scoped to the saved agent executing a turn. */
+/**
+ * Token for a TrueFoundry request, optionally scoped to the saved agent executing a turn.
+ * Saved-agent callables are stored on this request's context so model and MCP stores share one vend.
+ */
 export function accessTokenForRequest(input: {
   client: AgentTokenVendor;
   context: RequestContext;
   agent: AgentRecord | undefined;
 }): ResolveAccessToken {
-  return input.agent
-    ? agentAccessToken({ client: input.client, context: input.context, agent: input.agent })
-    : callerAccessToken(input.context);
+  if (!isTrueFoundryRequestContext(input.context)) {
+    throw new Error('TrueFoundry request context required for access token resolution');
+  }
+  if (input.agent === undefined) {
+    return callerAccessToken(input.context);
+  }
+  const agentId = input.agent.external_id;
+  if (agentId === null) {
+    throw new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
+  }
+  const cache = input.context[accessTokenCache];
+  const existing = cache.get(agentId);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const resolve = agentAccessToken({ client: input.client, context: input.context, agent: input.agent });
+  cache.set(agentId, resolve);
+  return resolve;
 }

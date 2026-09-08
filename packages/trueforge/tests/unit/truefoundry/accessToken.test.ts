@@ -2,7 +2,13 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../../../src/auth/identity';
 import type { AgentRecord } from '../../../src/db/agentStore';
-import { accessTokenForRequest, agentAccessToken, callerAccessToken } from '../../../src/truefoundry/accessToken';
+import {
+  accessTokenForRequest,
+  agentAccessToken,
+  asTrueFoundryRequestContext,
+  callerAccessToken,
+  createTrueFoundryRequestContext,
+} from '../../../src/truefoundry/accessToken';
 
 const CONTEXT: RequestContext = {
   tenant_id: 'acme',
@@ -76,18 +82,58 @@ describe('agentAccessToken', () => {
   });
 });
 
+describe('asTrueFoundryRequestContext', () => {
+  it('rejects a plain request context that was not created for TrueFoundry', () => {
+    expect(() => asTrueFoundryRequestContext(CONTEXT)).toThrow('TrueFoundry request context required');
+  });
+});
+
 describe('accessTokenForRequest', () => {
-  it('uses the caller token without an agent', async () => {
+  it('rejects a plain request context that was not created for TrueFoundry', () => {
     const client = { vendToken: jest.fn() };
 
-    await expect(accessTokenForRequest({ client, context: CONTEXT, agent: undefined })()).resolves.toBe('caller-token');
+    expect(() => accessTokenForRequest({ client, context: CONTEXT, agent: AGENT })).toThrow(
+      'TrueFoundry request context required',
+    );
+    expect(client.vendToken).not.toHaveBeenCalled();
+  });
+  it('uses the caller token without an agent', async () => {
+    const client = { vendToken: jest.fn() };
+    const context = createTrueFoundryRequestContext(CONTEXT);
+
+    await expect(accessTokenForRequest({ client, context, agent: undefined })()).resolves.toBe('caller-token');
     expect(client.vendToken).not.toHaveBeenCalled();
   });
 
   it('uses a vended token with an agent', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
+    const context = createTrueFoundryRequestContext(CONTEXT);
 
-    await expect(accessTokenForRequest({ client, context: CONTEXT, agent: AGENT })()).resolves.toBe('agent-token');
+    await expect(accessTokenForRequest({ client, context, agent: AGENT })()).resolves.toBe('agent-token');
     expect(client.vendToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares one vend across stores on the same request', async () => {
+    const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
+    const context = createTrueFoundryRequestContext(CONTEXT);
+
+    const model = accessTokenForRequest({ client, context, agent: AGENT });
+    const mcp = accessTokenForRequest({ client, context, agent: AGENT });
+
+    expect(model).toBe(mcp);
+    await expect(Promise.all([model(), mcp()])).resolves.toEqual(['agent-token', 'agent-token']);
+    expect(client.vendToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('vends again on a later request for the same user and agent', async () => {
+    const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
+    const firstRequest = createTrueFoundryRequestContext(CONTEXT);
+    const secondRequest = createTrueFoundryRequestContext(CONTEXT);
+
+    await expect(accessTokenForRequest({ client, context: firstRequest, agent: AGENT })()).resolves.toBe('agent-token');
+    await expect(accessTokenForRequest({ client, context: secondRequest, agent: AGENT })()).resolves.toBe(
+      'agent-token',
+    );
+    expect(client.vendToken).toHaveBeenCalledTimes(2);
   });
 });

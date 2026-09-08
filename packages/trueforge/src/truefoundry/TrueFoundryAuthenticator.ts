@@ -4,6 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { Authenticator } from '../auth/authenticator';
 import type { RequestContext } from '../auth/identity';
 import { extractRequestToken } from '../auth/token';
+import { createTrueFoundryRequestContext } from './accessToken';
 import type { GetSessionResponse } from './TrueFoundryServiceFoundryServerClient';
 
 /** Narrow port used by the authenticator (avoids depending on the full SFY client). */
@@ -26,7 +27,7 @@ export class TrueFoundryAuthenticator implements Authenticator {
 
     const session = await this.#client.getSession(token);
     const { subject } = session.user;
-    return {
+    return createTrueFoundryRequestContext({
       tenant_id: session.user.tenantName,
       subject: {
         id: subject.subjectId,
@@ -35,6 +36,6 @@ export class TrueFoundryAuthenticator implements Authenticator {
       },
       roles: session.user.roles,
       user_credential: token,
-    };
+    });
   }
 }

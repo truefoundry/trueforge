@@ -1,7 +1,24 @@
 import { HTTPException } from 'hono/http-exception';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
+import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
-import { TrueFoundryMcpServerStore } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
+import {
+  TrueFoundryMcpServerStore,
+  type TrueFoundryMcpApiClient,
+} from '../../../src/truefoundry/TrueFoundryMcpServerStore';
+
+function unusedClient(): TrueFoundryMcpApiClient {
+  const unused = (): Promise<never> => Promise.reject(new Error('unused'));
+  return {
+    getMcpServerByName: unused,
+    listMcpServers: unused,
+    listGatewayInstallations: unused,
+    getMcpAuthorize: unused,
+    getMcpAuthStatus: unused,
+    deleteMcpAuth: unused,
+    vendToken: () => Promise.resolve('caller-token'),
+  };
+}
 
 const record = (name: string): McpServerRecord => ({
   id: name,
@@ -19,13 +36,13 @@ const record = (name: string): McpServerRecord => ({
 
 const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
-    client: {} as never,
-    context: {
+    client: unusedClient(),
+    context: createTrueFoundryRequestContext({
       tenant_id: 'default',
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: 'caller-token',
-    },
+    }),
     agent: undefined,
     perServerHeaders,
   });
