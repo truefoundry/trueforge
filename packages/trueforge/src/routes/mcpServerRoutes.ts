@@ -9,7 +9,6 @@ import {
   McpAuthStatusSchema,
   UpdateMcpServerRequestSchema,
 } from '../schemas/mcpServer';
-import { trueFoundryManagedResponse } from '../truefoundry/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
@@ -149,7 +148,10 @@ export const createMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
-    424: trueFoundryManagedResponse,
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the MCP servers are managed by external system',
+    },
   },
 });
 
@@ -181,7 +183,10 @@ export const putMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
-    424: trueFoundryManagedResponse,
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the MCP servers are managed by external system',
+    },
   },
 });
 

@@ -1,6 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
 import type { AgentRecord } from '../db/agentStore';
-import { RequestErrorResponseSchema } from '../schemas/errors';
 
 export const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
 export const TRUEFOUNDRY_MANAGED_STATUS = 424 as const;
@@ -18,8 +17,3 @@ export function requireTrueFoundryAgentExternalId(agent: Pick<AgentRecord, 'exte
 export function trueFoundryManaged(): never {
   throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
 }
-
-export const trueFoundryManagedResponse = {
-  content: { 'application/json': { schema: RequestErrorResponseSchema } },
-  description: 'Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set).',
-} as const;
