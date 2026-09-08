@@ -443,9 +443,9 @@ export function SchedulesPage() {
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="text-text-primary font-medium">
-                        <button type="button" className="text-left !no-underline">
+                        <span className="text-left !no-underline">
                           {schedule.name}
-                        </button>
+                        </span>
                       </TableCell>
                       <TableCell>{agentLabel}</TableCell>
                       <TableCell>{cadence}</TableCell>
