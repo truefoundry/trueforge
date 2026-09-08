@@ -58,7 +58,7 @@ import { startTurnInProcess } from './apis/turns';
 import { createServerApp } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import { resolveRequestContext } from './auth/identity';
+import { requestSubjectFromCreatedBySubject, resolveRequestContext, type RequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -66,7 +66,7 @@ import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createInProcessController } from './controller';
-import { executeScheduleRun } from './controller/scheduleDispatch';
+import { executeScheduleRun, type ScheduleRunExecutor } from './controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -88,7 +88,11 @@ import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { createTrueFoundryRequestContext } from './truefoundry/accessToken';
-import { parsePerServerMcpHeaders, X_TFG_MCP_HEADERS } from './truefoundry/perServerMcpHeaders';
+import {
+  parsePerServerMcpHeaders,
+  X_TFG_MCP_HEADERS,
+  type PerServerMcpHeaders,
+} from './truefoundry/perServerMcpHeaders';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
@@ -100,14 +104,17 @@ import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundry
 interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
-  modelProviderStore: IModelProviderStore<TTransaction>;
-  mcpServerWithAuthStore: IMcpServerWithAuthStore<TTransaction>;
   agentStore: IAgentStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
-  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  mcpOAuthStore: IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: (rc: RequestContext, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (
+    rc: RequestContext,
+    runAsAgent?: AgentRecord,
+    perServerHeaders?: PerServerMcpHeaders,
+  ) => IMcpServerWithAuthStore<TTransaction>;
+  resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
+  resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
@@ -147,14 +154,13 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   persistenceStore: IModelProviderStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction> {
-  return (c: Context, runAsAgent?: AgentRecord) => {
+}): (rc: RequestContext, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction> {
+  return (rc, runAsAgent) => {
     const { persistenceStore, client } = options;
     if (client) {
-      const requestContext = resolveRequestContext(c);
       return new TrueFoundryModelProviderStore<TTransaction>({
         client,
-        context: requestContext,
+        requestContext: rc,
         agent: runAsAgent,
         logger: options.logger,
       });
@@ -164,33 +170,34 @@ function buildResolveModelProviderStore<TTransaction>(options: {
 }
 
 /**
- * Per-request MCP store over ServiceFoundry. Without request context (scheduler / OAuth callback)
- * falls back to the local with-auth store. `runAsAgent` selects a saved agent's token for turns.
+ * Per-request MCP store over ServiceFoundry. `runAsAgent` selects a saved agent's token for turns.
  */
 function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction> {
-  return (c?: Context, runAsAgent?: AgentRecord) => {
-    const { persistenceStore, tokenStore, client } = options;
-    if (c && client) {
-      const requestContext = resolveRequestContext(c);
-      const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+}): (
+  rc: RequestContext,
+  runAsAgent?: AgentRecord,
+  perServerHeaders?: PerServerMcpHeaders,
+) => IMcpServerWithAuthStore<TTransaction> {
+  const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
+    store: options.persistenceStore,
+    tokenStore: options.tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  });
+  return (rc, runAsAgent, perServerHeaders) => {
+    const { client } = options;
+    if (client) {
       return new TrueFoundryMcpServerStore<TTransaction>({
         client,
-        context: requestContext,
+        context: rc,
         agent: runAsAgent,
         logger: options.logger,
-        perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
+        ...(perServerHeaders === undefined ? {} : { perServerHeaders }),
       });
     }
-    const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
-      store: persistenceStore,
-      tokenStore,
-      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-    });
     return withAuthMcpPersistenceStore;
   };
 }
@@ -200,14 +207,14 @@ function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   db: Kysely<PostgresDatabase>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (c: Context) => IAgentStore<Transaction<PostgresDatabase>> {
+}): (rc: RequestContext) => IAgentStore<Transaction<PostgresDatabase>> {
   const { persistenceStore, client, db } = options;
-  return (c: Context) => {
+  return rc => {
     if (client) {
       return new TrueFoundryAgentStore({
         inner: persistenceStore,
         client,
-        context: resolveRequestContext(c),
+        context: rc,
         db,
       });
     }
@@ -221,14 +228,66 @@ function buildResolveAgentStore(options: {
  */
 function buildResolveSandboxProviderStore<TTransaction>(options: {
   persistenceStore: ISandboxProviderStore<TTransaction>;
-}): (c: Context) => ISandboxProviderStore<TTransaction> {
+}): (rc: RequestContext) => ISandboxProviderStore<TTransaction> {
   const { persistenceStore } = options;
-  if (!isTrueFoundryModeEnabled(configuration)) {
-    return () => persistenceStore;
+  if (isTrueFoundryModeEnabled(configuration)) {
+    return rc =>
+      new TrueFoundrySandboxProviderStore<TTransaction>({
+        requestContext: rc,
+      });
   }
-  return c =>
-    new TrueFoundrySandboxProviderStore<TTransaction>({
-      context: resolveRequestContext(c),
+  return () => persistenceStore;
+}
+
+/** Executes a persisted schedule run in this process, as the schedule's creator and agent. */
+function buildExecuteScheduleRun<TTransaction>(options: {
+  persistence: ServerPersistence<TTransaction>;
+  sessions: Sessions;
+  activeTurns: ActiveTurnRegistry;
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
+  logger: Logger;
+}): ScheduleRunExecutor {
+  const { persistence, sessions, activeTurns, eventSubscriptions, logger } = options;
+  return scheduleRunId =>
+    executeScheduleRun({
+      scheduleRunId,
+      scheduleStore: persistence.scheduleStore,
+      sessions,
+      agentStore: persistence.agentStore,
+      startTurn: async turn => {
+        let rc: RequestContext;
+        if (isTrueFoundryModeEnabled(configuration)) {
+          rc = createTrueFoundryRequestContext({
+            tenant_id: turn.tenant_id,
+            subject: requestSubjectFromCreatedBySubject(turn.created_by_subject),
+            roles: [],
+            user_credential: null,
+          });
+        } else {
+          rc = {
+            tenant_id: turn.tenant_id,
+            subject: requestSubjectFromCreatedBySubject(turn.created_by_subject),
+            roles: [],
+            user_credential: null,
+          };
+        }
+        await startTurnInProcess({
+          session: turn.session,
+          input: turn.input,
+          previous_turn_id: turn.previous_turn_id,
+          userRef: turn.userRef,
+          deps: {
+            activeTurns,
+            eventSubscriptions,
+            modelProviderStore: persistence.resolveModelProviderStore(rc, turn.agent),
+            mcpServerStore: persistence.resolveMcpServerStore(rc, turn.agent),
+            skillStore: persistence.skillStore,
+            agentStore: persistence.agentStore,
+            sandboxProviderStore: persistence.sandboxProviderStore,
+            logger,
+          },
+        });
+      },
     });
 }
 
@@ -283,10 +342,9 @@ async function createStandalonePersistence(options: {
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
-    modelProviderStore,
-    mcpServerWithAuthStore: mcpServerStore,
     agentStore,
     sandboxProviderStore,
+    mcpOAuthStore: mcpServerStore,
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveAgentStore: () => agentStore,
@@ -387,10 +445,9 @@ async function createDistributedPersistence(options: {
   return {
     sessionStore: new PostgresSessionStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
-    modelProviderStore,
-    mcpServerWithAuthStore,
     agentStore,
     sandboxProviderStore,
+    mcpOAuthStore: mcpServerWithAuthStore,
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
@@ -410,14 +467,11 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const {
     sessionStore,
     sessionMetricsStore,
-    modelProviderStore,
-    mcpServerWithAuthStore,
-    agentStore,
-    sandboxProviderStore,
-    resolveModelProviderStore,
-    resolveMcpServerStore,
-    resolveAgentStore,
-    resolveSandboxProviderStore,
+    mcpOAuthStore,
+    resolveModelProviderStore: resolveModelProviderStoreByRequestContext,
+    resolveMcpServerStore: resolveMcpServerStoreByRequestContext,
+    resolveAgentStore: resolveAgentStoreByRequestContext,
+    resolveSandboxProviderStore: resolveSandboxProviderStoreByRequestContext,
     withTransaction,
     tokenStore,
     skillStore,
@@ -431,58 +485,13 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
   const sessions = new Sessions({ sessionStore });
-  const executeRun = (scheduleRunId: string) =>
-    executeScheduleRun({
-      scheduleRunId,
-      scheduleStore,
-      sessions,
-      agentStore,
-      startTurn: async turn => {
-        const subject = {
-          id: turn.created_by_subject.subject_id,
-          type: turn.created_by_subject.subject_type,
-          display_name: turn.created_by_subject.subject_display_name,
-        };
-        let executionModelProviderStore = modelProviderStore;
-        let executionMcpServerStore = mcpServerWithAuthStore;
-        if (serviceFoundryClient !== undefined) {
-          const requestContext = createTrueFoundryRequestContext({
-            tenant_id: turn.tenant_id,
-            subject,
-            roles: [],
-            user_credential: null,
-          });
-          executionModelProviderStore = new TrueFoundryModelProviderStore({
-            client: serviceFoundryClient,
-            context: requestContext,
-            agent: turn.agent,
-            logger,
-          });
-          executionMcpServerStore = new TrueFoundryMcpServerStore({
-            client: serviceFoundryClient,
-            context: requestContext,
-            agent: turn.agent,
-            logger,
-          });
-        }
-        await startTurnInProcess({
-          session: turn.session,
-          input: turn.input,
-          previous_turn_id: turn.previous_turn_id,
-          userRef: turn.userRef,
-          deps: {
-            activeTurns,
-            eventSubscriptions,
-            modelProviderStore: executionModelProviderStore,
-            mcpServerStore: executionMcpServerStore,
-            skillStore,
-            agentStore,
-            sandboxProviderStore,
-            logger,
-          },
-        });
-      },
-    });
+  const executeRun = buildExecuteScheduleRun({
+    persistence,
+    sessions,
+    activeTurns,
+    eventSubscriptions,
+    logger,
+  });
 
   const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
   if (oidc) {
@@ -521,6 +530,33 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         executeRun,
       })
     : undefined;
+
+  // wrappers that resolve the request context from the Hono context
+  // because handlers receive the Hono context
+  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord) => {
+    const requestContext = resolveRequestContext(c);
+    return resolveModelProviderStoreByRequestContext(requestContext, runAsAgent);
+  };
+  const resolveMcpServerStore = (c?: Context, runAsAgent?: AgentRecord) => {
+    if (c === undefined) {
+      return mcpOAuthStore;
+    }
+    const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+    const requestContext = resolveRequestContext(c);
+    return resolveMcpServerStoreByRequestContext(
+      requestContext,
+      runAsAgent,
+      rawPerServerHeaders === undefined ? undefined : parsePerServerMcpHeaders(rawPerServerHeaders),
+    );
+  };
+  const resolveAgentStore = (c: Context) => {
+    const requestContext = resolveRequestContext(c);
+    return resolveAgentStoreByRequestContext(requestContext);
+  };
+  const resolveSandboxProviderStore = (c: Context) => {
+    const requestContext = resolveRequestContext(c);
+    return resolveSandboxProviderStoreByRequestContext(requestContext);
+  };
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),

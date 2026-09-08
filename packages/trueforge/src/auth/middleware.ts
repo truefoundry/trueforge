@@ -1,7 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
-import { timingSafeEqual } from 'node:crypto';
 
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
@@ -33,12 +32,7 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
 export function createApiKeyAuthMiddleware(apiKey: string | undefined): MiddlewareHandler {
   return async (c, next) => {
     const token = readBearerToken(c);
-    if (apiKey === undefined || token === undefined) {
-      throw new HTTPException(401, { message: 'Invalid service credential' });
-    }
-    const expected = Buffer.from(apiKey);
-    const provided = Buffer.from(token);
-    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+    if (apiKey === undefined || token === undefined || token !== apiKey) {
       throw new HTTPException(401, { message: 'Invalid service credential' });
     }
     return next();

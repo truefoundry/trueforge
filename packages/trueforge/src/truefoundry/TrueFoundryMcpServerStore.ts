@@ -83,7 +83,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#client = input.client;
     this.#resolveAccessToken = accessTokenForRequest({
       client: input.client,
-      context: asTrueFoundryRequestContext(input.context),
+      requestContext: asTrueFoundryRequestContext(input.context),
       agent: input.agent,
       logger: input.logger,
     });

@@ -71,6 +71,15 @@ export function hasAdminRole(requestContext: Pick<RequestContext, 'roles'>): boo
   }
 }
 
+/** Subject rebuilt from a stored creator snapshot, for work that runs without a live request. */
+export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): RequestSubject {
+  return {
+    id: subject.subject_id,
+    type: subject.subject_type,
+    display_name: subject.subject_display_name,
+  };
+}
+
 /** Persistable creator snapshot derived from the authenticated request. */
 export function createdBySubjectFromRequestContext(ctx: RequestContext): CreatedBySubject {
   return {

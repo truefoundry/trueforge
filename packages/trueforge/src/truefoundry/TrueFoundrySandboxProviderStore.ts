@@ -78,8 +78,8 @@ async function resolveDaytonaSandboxSettings({
 export class TrueFoundrySandboxProviderStore<TTransaction = never> implements ISandboxProviderStore<TTransaction> {
   readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: { context: RequestContext }) {
-    this.#resolveAccessToken = callerAccessToken(input.context);
+  constructor(input: { requestContext: RequestContext }) {
+    this.#resolveAccessToken = callerAccessToken(input.requestContext);
   }
 
   async getSandboxProvider(tenantId: string, transaction?: TTransaction): Promise<SandboxProviderRecord | undefined> {
