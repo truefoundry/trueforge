@@ -65,7 +65,7 @@ const TURN_1_OUTPUT = {
   ],
 };
 
-const EXPECTED_TURN_1_INPUT = [
+const EXPECTED_TURN_1_LLM_INPUT = [
   {
     tools: WRITE_NOTE_TOOLS,
     messages: [
@@ -131,7 +131,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
       expect(paused.result).toMatchObject(TURN_1_OUTPUT);
       expect(paused.result.root_agent_error).toBeUndefined();
-      expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_TURN_1_INPUT);
+      expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
       expect(callTool).not.toHaveBeenCalled();
 
       const resumed = await runTurn({
@@ -150,7 +150,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(resumed.result.root_agent_error).toBeUndefined();
       expect(callTool).toHaveBeenCalledTimes(1);
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject([
-        ...EXPECTED_TURN_1_INPUT,
+        ...EXPECTED_TURN_1_LLM_INPUT,
         EXPECTED_TURN_2_INPUT,
       ]);
     });
@@ -229,7 +229,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(resumed.result.root_agent_error).toBeUndefined();
       expect(callTool).not.toHaveBeenCalled();
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject([
-        ...EXPECTED_TURN_1_INPUT,
+        ...EXPECTED_TURN_1_LLM_INPUT,
         EXPECTED_TURN_2_INPUT,
       ]);
     });
