@@ -4,12 +4,24 @@
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema, uniqueNames } from './common';
-import { SkillDescriptionSchema, SkillGitPathSchema, SkillGitRefSchema, SkillGitUrlSchema } from './skill';
+import {
+  SkillDescriptionSchema,
+  SkillGitPathSchema,
+  SkillGitRefSchema,
+  SkillGitUrlSchema,
+  SkillTypeSchema,
+} from './skill';
+
+/**
+ * Catalog presets are user-savable `git` entries only.
+ * `registry` is TrueFoundry-managed.
+ */
+export const CatalogSkillTypeSchema = SkillTypeSchema.exclude(['registry']).openapi('CatalogSkillType');
 
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogSkillSchema = z
   .object({
-    type: z.literal('git'),
+    type: CatalogSkillTypeSchema,
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),

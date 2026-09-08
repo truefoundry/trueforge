@@ -269,26 +269,30 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /** `GET /v1/agent-skills` with empty skills excluded. */
   async listAgentSkills(accessToken: string): Promise<unknown[]> {
-    return this.#listAgentSkillPages({
+    return this.#listAllPages({
       path: AGENT_SKILLS_PATH,
       accessToken,
       query: { include_empty_agent_skills: 'false' },
+      limit: AGENT_SKILLS_PAGE_SIZE,
     });
   }
 
   /** `GET /v1/agent-skill-versions?fqn=`. */
   async listAgentSkillVersions(input: { accessToken: string; fqn: string }): Promise<unknown[]> {
-    return this.#listAgentSkillPages({
+    return this.#listAllPages({
       path: AGENT_SKILL_VERSIONS_PATH,
       accessToken: input.accessToken,
       query: { fqn: input.fqn },
+      limit: AGENT_SKILLS_PAGE_SIZE,
     });
   }
 
-  async #listAgentSkillPages(input: {
+  /** Offset/limit list until empty page or `pagination.total`. */
+  async #listAllPages(input: {
     path: string;
     accessToken: string;
-    query: Record<string, string>;
+    query?: Record<string, string>;
+    limit: number;
   }): Promise<unknown[]> {
     const items: unknown[] = [];
     for (;;) {
@@ -296,7 +300,7 @@ export class TrueFoundryServiceFoundryServerClient {
         url: this.#url(input.path, {
           ...input.query,
           offset: String(items.length),
-          limit: String(AGENT_SKILLS_PAGE_SIZE),
+          limit: String(input.limit),
         }),
         accessToken: input.accessToken,
         method: 'GET',

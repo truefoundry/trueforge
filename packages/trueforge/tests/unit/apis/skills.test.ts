@@ -8,6 +8,7 @@ import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { TRUEFOUNDRY_MANAGED_MESSAGE, trueFoundryManaged } from '../../../src/truefoundry/errors';
 
 const putBody = {
   type: 'git' as const,
@@ -107,37 +108,45 @@ describe('skills routers', () => {
     });
   });
 
-  it('GET / on the chat router returns the slim name/description projection', async () => {
+  it('GET / on the chat router returns the slim name/display_name/description projection', async () => {
     const response = await availableRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: [
-        { name: putBody.name, description: putBody.description },
-        { name: 'create-only-skill', description: putBody.description },
+        { name: putBody.name, display_name: putBody.name, description: putBody.description },
+        { name: 'create-only-skill', display_name: 'create-only-skill', description: putBody.description },
       ],
     });
   });
 
   it('GET / maps registry rows to FQN name and display_name', async () => {
-    const db = createSqliteDb(':memory:');
-    await migrateSqliteToLatest(db);
-    const skillStore = new SqliteSkillStore(db);
-    await skillStore.upsertSkill({
-      tenant_id: 'default',
-      name: 'echo',
-      manifest: {
-        type: 'registry',
-        name: 'echo',
-        description: 'Echo skill',
-        id: 'skill-1',
-        fqn: 'agent-skill:acme/team-a/echo:3',
-        skill_repo_name: 'team-a',
-        version: 3,
-      },
-    });
+    const fqn = 'agent-skill:acme/team-a/echo:3';
+    const now = '2026-01-01T00:00:00.000Z';
+    const skillStore = {
+      listSkills: jest.fn().mockResolvedValue([
+        {
+          tenant_id: 'default',
+          name: fqn,
+          manifest: {
+            type: 'registry' as const,
+            name: 'echo',
+            description: 'Echo skill',
+            fqn,
+            skill_repo_name: 'team-a',
+            version: 3,
+          },
+          created_at: now,
+          updated_at: now,
+        },
+      ]),
+      getSkill: jest.fn(),
+      createSkill: jest.fn(),
+      upsertSkill: jest.fn(),
+      listSkillVersions: jest.fn(),
+    };
     const router = createAvailableSkillsRouter({
       resolveSkillStore: () => skillStore,
-      withTransaction: callback => db.transaction().execute(callback),
+      withTransaction: async callback => callback(undefined as never),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     const response = await router.request('/');
@@ -145,7 +154,7 @@ describe('skills routers', () => {
     expect(await response.json()).toEqual({
       data: [
         {
-          name: 'agent-skill:acme/team-a/echo:3',
+          name: fqn,
           display_name: 'echo',
           description: 'Echo skill',
           skill_repo_name: 'team-a',
@@ -153,6 +162,83 @@ describe('skills routers', () => {
         },
       ],
     });
+  });
+
+  it('settings create/put forward registry bodies to the store (no early git-only 400)', async () => {
+    const registryManifest = {
+      type: 'registry' as const,
+      name: 'echo',
+      description: 'Echo skill',
+      fqn: 'agent-skill:acme/team-a/echo:3',
+      skill_repo_name: 'team-a',
+      version: 3,
+    };
+    const now = '2026-01-01T00:00:00.000Z';
+    const record = {
+      tenant_id: 'default',
+      name: 'echo' as const,
+      manifest: registryManifest,
+      created_at: now,
+      updated_at: now,
+    };
+    const managedStore = {
+      listSkills: jest.fn(),
+      getSkill: jest.fn(),
+      createSkill: jest.fn().mockResolvedValue(record),
+      upsertSkill: jest.fn().mockResolvedValue(record),
+      listSkillVersions: jest.fn(),
+    };
+    const router = createSkillsRouter({
+      resolveSkillStore: () => managedStore,
+      withTransaction: async callback => callback(undefined as never),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+    });
+    const created = await router.request('/', postInit(wrapManifest(registryManifest)));
+    expect(created.status).toBe(201);
+    expect(managedStore.createSkill).toHaveBeenCalledWith({
+      tenant_id: 'default',
+      name: 'echo',
+      manifest: registryManifest,
+    });
+
+    const put = await router.request('/', putInit(wrapManifest(registryManifest)));
+    expect(put.status).toBe(200);
+    expect(managedStore.upsertSkill).toHaveBeenCalledWith({
+      tenant_id: 'default',
+      name: 'echo',
+      manifest: registryManifest,
+    });
+  });
+
+  it('settings create/put return 424 when the skill store is TrueFoundry-managed', async () => {
+    const registryManifest = {
+      type: 'registry' as const,
+      name: 'echo',
+      description: 'Echo skill',
+      fqn: 'agent-skill:acme/team-a/echo:3',
+      skill_repo_name: 'team-a',
+      version: 3,
+    };
+    const managedStore = {
+      listSkills: jest.fn(),
+      getSkill: jest.fn(),
+      createSkill: jest.fn(() => trueFoundryManaged()),
+      upsertSkill: jest.fn(() => trueFoundryManaged()),
+      listSkillVersions: jest.fn(),
+    };
+    const router = createSkillsRouter({
+      resolveSkillStore: () => managedStore,
+      withTransaction: async callback => callback(undefined as never),
+      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+    });
+
+    const created = await router.request('/', postInit(wrapManifest(registryManifest)));
+    expect(created.status).toBe(424);
+    expect(await created.text()).toBe(TRUEFOUNDRY_MANAGED_MESSAGE);
+
+    const put = await router.request('/', putInit(wrapManifest(registryManifest)));
+    expect(put.status).toBe(424);
+    expect(await put.text()).toBe(TRUEFOUNDRY_MANAGED_MESSAGE);
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {

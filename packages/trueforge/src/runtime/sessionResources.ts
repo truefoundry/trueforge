@@ -22,7 +22,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { GitSkillManifestSchema } from '../schemas/skill';
+import { parseGitSkillManifest } from '../schemas/skill';
 
 export interface McpConnection {
   url: string;
@@ -150,19 +150,18 @@ export async function resolveGitSkills({
         message: `Unknown skill "${skill.name}" — not configured`,
       });
     }
-    // Registry catalog rows are not git mounts; skipping would require a sandbox and install nothing.
-    const git = GitSkillManifestSchema.safeParse(record.manifest);
-    if (!git.success) {
+    const git = parseGitSkillManifest(record.manifest);
+    if (git === undefined) {
       throw new HTTPException(422, {
         message: `Skill "${skill.name}" is not a git skill`,
       });
     }
     resolved.push({
-      name: git.data.name,
-      description: git.data.description,
-      url: git.data.url,
-      path: git.data.path ?? '',
-      ref: git.data.ref,
+      name: git.name,
+      description: git.description,
+      url: git.url,
+      path: git.path ?? '',
+      ref: git.ref,
     });
   }
   return resolved;
@@ -247,7 +246,7 @@ export function buildTurnSandbox(input: {
 /**
  * Cross-checks an AgentSpec against configured models / MCP / skills and
  * sandbox capability. Throws HTTPException(422) for semantic failures.
- * Skills are admitted by git name only; registry catalog rows are not mountable yet.
+ * Skills are admitted by store identity (git name or registry FQN).
  */
 export async function validateAgentSpec({
   spec,
@@ -305,20 +304,12 @@ export async function validateAgentSpec({
   const requestedSkills = spec.skills ?? [];
   if (requestedSkills.length > 0) {
     const names = requestedSkills.map(skill => skill.name);
-    const byName = new Map((await skillStore.listSkills({ tenant_id, names })).map(record => [record.name, record]));
-    for (const skill of requestedSkills) {
-      const record = byName.get(skill.name);
-      if (record === undefined) {
-        throw new HTTPException(422, {
-          message: `Unknown skill "${skill.name}" — not configured`,
-        });
-      }
-      // Registry catalog rows are not git mounts; skipping would require a sandbox and install nothing.
-      if (record.manifest.type !== 'git') {
-        throw new HTTPException(422, {
-          message: `Skill "${skill.name}" is not a git skill`,
-        });
-      }
+    const configuredNames = new Set((await skillStore.listSkills({ tenant_id, names })).map(record => record.name));
+    const unknown = requestedSkills.find(skill => !configuredNames.has(skill.name));
+    if (unknown !== undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown skill "${unknown.name}" — not configured`,
+      });
     }
   }
 

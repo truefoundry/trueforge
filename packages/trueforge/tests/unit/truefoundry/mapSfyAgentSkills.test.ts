@@ -1,4 +1,4 @@
-import { mapSfyAgentSkills, mapSfyAgentSkillVersions } from '../../../src/truefoundry/mapSfyAgentSkills';
+import { mapSfyRegistrySkills, mapSfyRegistrySkillVersions } from '../../../src/truefoundry/mapSfyAgentSkills';
 
 const MANIFEST = {
   name: 'echo',
@@ -8,10 +8,10 @@ const MANIFEST = {
   source: { type: 'blob-storage', description: 'Echo skill' },
 };
 
-describe('mapSfyAgentSkills', () => {
+describe('mapSfyRegistrySkills', () => {
   it('maps list rows from latest_version.manifest', () => {
     expect(
-      mapSfyAgentSkills([
+      mapSfyRegistrySkills([
         {
           id: 'skill-1',
           name: 'echo',
@@ -24,7 +24,6 @@ describe('mapSfyAgentSkills', () => {
       ]),
     ).toEqual([
       {
-        id: 'skill-1',
         name: 'echo',
         description: 'Echo skill',
         fqn: 'agent-skill:acme/team-a/echo:3',
@@ -36,7 +35,7 @@ describe('mapSfyAgentSkills', () => {
 
   it('maps version rows from manifest.name and manifest.version', () => {
     expect(
-      mapSfyAgentSkillVersions([
+      mapSfyRegistrySkillVersions([
         {
           id: 'ver-1',
           fqn: 'agent-skill:acme/team-a/echo:3',
@@ -45,7 +44,6 @@ describe('mapSfyAgentSkills', () => {
       ]),
     ).toEqual([
       {
-        id: 'ver-1',
         fqn: 'agent-skill:acme/team-a/echo:3',
         name: 'echo',
         description: 'Echo skill',

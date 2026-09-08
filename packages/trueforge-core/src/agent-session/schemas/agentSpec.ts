@@ -221,9 +221,9 @@ export const RuntimeConfigSchema = z
   .openapi('RuntimeConfig');
 
 // --- Skills ---
-// Name-only refs; DB sessions expand mount fields from ISkillStore at turn time.
+// Name-only refs; the skill store expands mounts at turn time.
 
-const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
+const SKILL_NAME_REGEX = /^[A-Za-z0-9._\-/:]+$/;
 
 /** Name-only skill selection; mount fields come from the skill store. */
 const SkillSchema = z
@@ -232,11 +232,10 @@ const SkillSchema = z
       .string()
       .trim()
       .min(1)
-      .max(64)
-      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
+      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", "-", "/", and ":"')
       .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
       .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
-      .describe('Name of a configured skill (also used as the skill directory name in the sandbox).'),
+      .describe('Configured skill name (git name or registry FQN).'),
   })
   .strict()
   .openapi('Skill');

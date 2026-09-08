@@ -135,19 +135,24 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
   });
 }
 
-/** Caller-token SFY skill catalog for skills routers; otherwise the persistence store. */
+/** Per-request SFY skill catalog; otherwise {@link persistenceStore}.
+ * `runAsAgent` is set only when a turn should use a saved agent's token.
+ */
 function buildResolveSkillStore<TTransaction>(options: {
   persistenceStore: ISkillStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  logger: Logger;
 }): ResolveSkillStore<TTransaction> {
-  const { persistenceStore, client } = options;
+  const { persistenceStore, client, logger } = options;
   if (client === undefined) {
     return () => persistenceStore;
   }
-  return c =>
+  return (c, runAsAgent) =>
     new TrueFoundrySkillStore<TTransaction>({
       client,
       context: resolveRequestContext(c),
+      agent: runAsAgent,
+      logger,
     });
 }
 
@@ -404,6 +409,7 @@ async function createDistributedPersistence(options: {
     resolveSkillStore: buildResolveSkillStore({
       persistenceStore: skillStore,
       client: serviceFoundryClient,
+      logger,
     }),
   };
 }

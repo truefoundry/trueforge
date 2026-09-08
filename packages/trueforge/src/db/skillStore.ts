@@ -1,10 +1,20 @@
-/** Configured skill store: persisted git skills or the TrueFoundry registry catalog. */
+/**
+ * DB-backed configured skills: one row per skill per tenant,
+ * identity as columns plus a Zod-validated `SkillManifest` jsonb document.
+ * Implementations: PostgresSkillStore and SqliteSkillStore.
+ */
 import type { ResourceName } from '../schemas/common';
 import type { SkillManifest, SkillVersion } from '../schemas/skill';
 
 export interface SkillRecord {
   tenant_id: string;
-  name: ResourceName;
+  /**
+   * Not `ResourceName`: TrueFoundry uses version FQNs (e.g. `agent-skill:acme/team-a/echo:3`)
+   * that fail NameSchema (`:`, `/`, length). Standalone git names still fit ResourceName.
+   * Same string as AgentSpec `skills[].name`, list/get filters, and AvailableSkill `name`.
+   * Create/upsert inputs keep `ResourceName` (git writes only; TFY returns 424).
+   */
+  name: string;
   manifest: SkillManifest;
   /** ISO-8601 UTC instant. */
   created_at: string;

@@ -1,6 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
+import type { AgentRecord } from '../db/agentStore';
 import { SkillNameConflictError, type ISkillStore, type SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import {
@@ -11,9 +12,12 @@ import {
   putSkillRoute,
 } from '../routes/skillRoutes';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
-import { RegistrySkillManifestSchema } from '../schemas/skill';
+import { parseRegistrySkillManifest } from '../schemas/skill';
 
-export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
+export type ResolveSkillStore<TTransaction = never> = (
+  c: Context,
+  runAsAgent?: AgentRecord,
+) => ISkillStore<TTransaction>;
 
 export interface SkillsRouterDeps<TTransaction> {
   resolveSkillStore: ResolveSkillStore<TTransaction>;
@@ -30,18 +34,17 @@ function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
 
 function toAvailableSkill(record: SkillRecord): AvailableSkill {
   const { manifest } = record;
-  if (manifest.type === 'registry') {
-    const registry = RegistrySkillManifestSchema.parse(manifest);
+  const registry = parseRegistrySkillManifest(manifest);
+  if (registry !== undefined) {
     return {
-      // Attach name is the version FQN; artifact name is display_name.
-      name: registry.fqn,
+      name: record.name,
       display_name: registry.name,
       description: registry.description,
       skill_repo_name: registry.skill_repo_name,
       version: registry.version,
     };
   }
-  return { name: record.name, description: manifest.description };
+  return { name: record.name, display_name: manifest.name, description: manifest.description };
 }
 
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */
@@ -58,7 +61,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   const createHandler: RouteHandler<typeof createSkillRoute> = async c => {
     const body: CreateSkillRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
-    const manifest = body.manifest;
+    const { manifest } = body;
     try {
       const record = await deps.resolveSkillStore(c).createSkill({
         tenant_id: requestContext.tenant_id,
@@ -77,7 +80,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   const putHandler: RouteHandler<typeof putSkillRoute> = async c => {
     const body: UpdateSkillRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
-    const manifest = body.manifest;
+    const { manifest } = body;
     const record = await deps.resolveSkillStore(c).upsertSkill({
       tenant_id: requestContext.tenant_id,
       name: manifest.name,
@@ -93,7 +96,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
   return router;
 }
 
-/** Chat slim list (mounted at /api/v1/skills) — mirrors GET /api/v1/mcp-servers. */
+/** Chat slim list (mounted at /api/v1/skills). */
 export function createAvailableSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransaction>) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableSkillsRoute, async c => {

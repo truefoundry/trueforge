@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { NameSchema } from '../schemas/common';
 import type { SkillVersion } from '../schemas/skill';
 
-const SfyManifestSchema = z.object({
+/** TrueFoundry skill version manifest (SFY wire). */
+const SfyRegistryManifestSchema = z.object({
   name: NameSchema,
   version: z.number().int().positive(),
+  // SFY field is `ml_repo`; TrueForge wire is `skill_repo_name`.
   ml_repo: z.string().min(1),
   source: z
     .object({
@@ -13,16 +15,14 @@ const SfyManifestSchema = z.object({
     .optional(),
 });
 
-const SfyAgentSkillSchema = z
+const SfyRegistrySkillSchema = z
   .object({
-    id: z.string().min(1),
     latest_version: z.object({
       fqn: z.string().min(1),
-      manifest: SfyManifestSchema,
+      manifest: SfyRegistryManifestSchema,
     }),
   })
-  .transform(({ id, latest_version }) => ({
-    id,
+  .transform(({ latest_version }) => ({
     name: latest_version.manifest.name,
     description: latest_version.manifest.source?.description ?? latest_version.manifest.name,
     fqn: latest_version.fqn,
@@ -30,25 +30,23 @@ const SfyAgentSkillSchema = z
     version: latest_version.manifest.version,
   }));
 
-const SfyAgentSkillVersionSchema = z.object({
-  id: z.string().min(1),
+const SfyRegistrySkillVersionSchema = z.object({
   fqn: z.string().min(1),
-  manifest: SfyManifestSchema,
+  manifest: SfyRegistryManifestSchema,
 });
 
-export type SfyAvailableSkill = z.infer<typeof SfyAgentSkillSchema>;
+export type SfyRegistrySkill = z.infer<typeof SfyRegistrySkillSchema>;
 
-/** Parse SFY agent-skill rows into the catalog wire shape. */
-export function mapSfyAgentSkills(rows: readonly unknown[]): SfyAvailableSkill[] {
-  return rows.map(row => SfyAgentSkillSchema.parse(row));
+/** Parse SFY registry skill list rows into the catalog wire shape. */
+export function mapSfyRegistrySkills(rows: readonly unknown[]): SfyRegistrySkill[] {
+  return rows.map(row => SfyRegistrySkillSchema.parse(row));
 }
 
-/** Map SFY agent-skill-version rows for the versions dropdown. */
-export function mapSfyAgentSkillVersions(rows: readonly unknown[]): SkillVersion[] {
+/** Map SFY registry skill-version rows for the versions dropdown. */
+export function mapSfyRegistrySkillVersions(rows: readonly unknown[]): SkillVersion[] {
   return rows.map(row => {
-    const { id, fqn, manifest } = SfyAgentSkillVersionSchema.parse(row);
+    const { fqn, manifest } = SfyRegistrySkillVersionSchema.parse(row);
     return {
-      id,
       fqn,
       name: manifest.name,
       description: manifest.source?.description ?? manifest.name,

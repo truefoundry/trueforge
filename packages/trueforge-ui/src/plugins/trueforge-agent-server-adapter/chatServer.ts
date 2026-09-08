@@ -47,6 +47,11 @@ function toUiSkill(skill: TrueForgeApi.Skill): HarnessSkillMount {
   return { name: skill.name };
 }
 
+function toHarnessSkill(skill: HarnessSkillMount): TrueForgeApi.Skill {
+  // Picker `id` is AvailableSkill.name (attach key); `name` is display — see builder getSkills.
+  return { name: skill.id ?? skill.name };
+}
+
 /** Drop UI draft `id` before admission; Harness MCP mounts are name-keyed. */
 export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSpec {
   const { skills, mcpServers, ...rest } = spec;
@@ -65,7 +70,7 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
             return server;
           }),
         }),
-    ...(skills === undefined ? {} : { skills: skills.map(({ name }) => ({ name })) }),
+    ...(skills === undefined ? {} : { skills: skills.map(toHarnessSkill) }),
   };
 }
 

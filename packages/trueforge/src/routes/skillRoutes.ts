@@ -1,10 +1,16 @@
-/** Skill routes for settings and chat discovery. */
-import { createRoute, z } from '@hono/zod-openapi';
+/**
+ * DB-backed skill route definitions.
+ * Admin routes mount at /api/v1/settings/skills; the chat list mounts at
+ * /api/v1/skills.
+ * Discovery catalog lives at GET /api/v1/catalogs/skills.
+ */
+import { createRoute } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateSkillRequestSchema,
   GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
+  ListSkillVersionsRequestQuerySchema,
   ListSkillVersionsResponseSchema,
   ListSkillsResponseSchema,
   UpdateSkillRequestSchema,
@@ -17,13 +23,13 @@ export const listAvailableSkillsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SKILLS],
   summary: 'List skills for chat',
-  description: 'List available skills.',
+  description: 'Configured skills as a slim name/description list for the composer.',
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableSkillsResponseSchema } },
-      description: 'Available skills.',
+      description: 'All configured skills (chat projection).',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -32,7 +38,7 @@ export const listAvailableSkillsRoute = createRoute({
   },
 });
 
-/** Versions for one skill — mounted at /api/v1/skills/versions?name=. */
+/** Versions for one skill — mounted at /api/v1/skills/versions?name= (FQN or skill name). */
 export const listSkillVersionsRoute = createRoute({
   method: 'get',
   path: '/versions',
@@ -42,9 +48,7 @@ export const listSkillVersionsRoute = createRoute({
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list_versions',
   request: {
-    query: z.object({
-      name: z.string().min(1).describe('Skill name.'),
-    }),
+    query: ListSkillVersionsRequestQuerySchema,
   },
   responses: {
     200: {
@@ -63,7 +67,7 @@ export const listConfiguredSkillsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SKILLS],
   summary: 'List configured skills',
-  description: 'All configured skills.',
+  description: 'All configured skills with nested manifests (settings / admin projection).',
   'x-fern-sdk-group-name': ['settings', 'skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {

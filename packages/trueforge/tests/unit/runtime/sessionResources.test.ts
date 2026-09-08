@@ -284,34 +284,53 @@ describe('validateAgentSpec', () => {
     expect(await stores.sandboxProviderStore.getSandboxProvider('default')).toBeUndefined();
   });
 
-  it('rejects registry skills with 422', async () => {
+  it('admits registry skills referenced by version FQN', async () => {
     const stores = await setup();
-    await stores.skillStore.upsertSkill({
-      tenant_id: 'default',
-      name: 'echo',
-      manifest: {
-        type: 'registry',
-        name: 'echo',
-        description: 'Echo',
-        id: 'skill-1',
-        fqn: 'agent-skill:acme/team-a/echo:1',
-        skill_repo_name: 'team-a',
-        version: 1,
-      },
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
     });
+    const fqn = 'agent-skill:acme/team-a/echo:1';
+    const now = '2026-01-01T00:00:00.000Z';
+    const skillStore = {
+      listSkills: async () => [
+        {
+          tenant_id: 'default',
+          name: fqn,
+          manifest: {
+            type: 'registry' as const,
+            name: 'echo',
+            description: 'Echo',
+            fqn,
+            skill_repo_name: 'team-a',
+            version: 1,
+          },
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+      getSkill: async () => undefined,
+      createSkill: async () => {
+        throw new Error('unused');
+      },
+      upsertSkill: async () => {
+        throw new Error('unused');
+      },
+      listSkillVersions: async () => [],
+    };
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',
-          skills: [{ name: 'echo' }],
+          skills: [{ name: fqn }],
         }),
         tenant_id: 'default',
         ...stores,
+        skillStore,
       }),
-    ).rejects.toMatchObject({
-      status: 422,
-      message: 'Skill "echo" is not a git skill',
-    } satisfies Partial<HTTPException>);
+    ).resolves.toBeUndefined();
   });
 });
