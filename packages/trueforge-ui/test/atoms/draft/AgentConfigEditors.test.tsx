@@ -251,7 +251,11 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
+    expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass(
+      'md:ml-auto',
+      'md:mr-0',
+      'md:h-dvh',
+    );
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
   });
 
