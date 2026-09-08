@@ -1,5 +1,5 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { SkillManifest } from '../../../schemas/skill';
+import type { SkillManifest, SkillVersion } from '../../../schemas/skill';
 import {
   SkillNameConflictError,
   type CreateSkillInput,
@@ -96,5 +96,10 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
       )
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
+  }
+
+  listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]> {
+    void input;
+    return Promise.resolve([]);
   }
 }

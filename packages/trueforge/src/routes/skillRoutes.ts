@@ -1,15 +1,11 @@
-/**
- * DB-backed skill route definitions.
- * Admin routes mount at /api/v1/settings/skills; the chat list mounts at
- * /api/v1/skills.
- * Discovery catalog lives at GET /api/v1/catalogs/skills.
- */
-import { createRoute } from '@hono/zod-openapi';
+/** Skill routes for settings and chat discovery. */
+import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateSkillRequestSchema,
   GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
+  ListSkillVersionsResponseSchema,
   ListSkillsResponseSchema,
   UpdateSkillRequestSchema,
 } from '../schemas/skill';
@@ -21,17 +17,46 @@ export const listAvailableSkillsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SKILLS],
   summary: 'List skills for chat',
-  description: 'Configured skills as a slim name/description list for the composer.',
+  description: 'Skills as a slim name/description list for the composer.',
   'x-fern-sdk-group-name': ['skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableSkillsResponseSchema } },
-      description: 'All configured skills (chat projection).',
+      description: 'Skills for the composer (chat projection).',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+  },
+});
+
+/** Versions for one skill — mounted at /api/v1/skills/{skill_id}/versions. */
+export const listSkillVersionsRoute = createRoute({
+  method: 'get',
+  path: '/{skill_id}/versions',
+  tags: [OpenApiTag.SKILLS],
+  summary: 'List skill versions',
+  description: 'Versions for one skill.',
+  'x-fern-sdk-group-name': ['skills'],
+  'x-fern-sdk-method-name': 'list_versions',
+  request: {
+    params: z.object({
+      skill_id: z
+        .string()
+        .min(1)
+        .openapi({ param: { name: 'skill_id', in: 'path' } }),
+    }),
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSkillVersionsResponseSchema } },
+      description: 'Skill versions.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Authentication required.',
     },
   },
 });
@@ -41,7 +66,7 @@ export const listConfiguredSkillsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SKILLS],
   summary: 'List configured skills',
-  description: 'All configured skills with nested manifests (settings / admin projection).',
+  description: 'All configured skills.',
   'x-fern-sdk-group-name': ['settings', 'skills'],
   'x-fern-sdk-method-name': 'list',
   responses: {
@@ -87,6 +112,10 @@ export const createSkillRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'A skill with this name already exists.',
     },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported because skills are managed by an external system.',
+    },
   },
 });
 
@@ -112,6 +141,10 @@ export const putSkillRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported because skills are managed by an external system.',
     },
   },
 });

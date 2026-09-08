@@ -149,6 +149,9 @@ export async function resolveGitSkills({
         message: `Unknown skill "${skill.name}" — not configured`,
       });
     }
+    if (record.manifest.type !== 'git') {
+      continue;
+    }
     resolved.push({
       name: record.manifest.name,
       description: record.manifest.description,

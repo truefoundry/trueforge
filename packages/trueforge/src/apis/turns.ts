@@ -58,6 +58,7 @@ import {
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { canReadAgentBoundResource } from './agentAccess';
+import type { ResolveSkillStore } from './skills';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
@@ -107,7 +108,7 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  skillStore: ISkillStore;
+  resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -123,10 +124,8 @@ export interface TurnsRouterDeps {
  * resolve them from the request context (e.g. schedule `resolveTurnDeps(c)`) so TrueFoundry mode
  * stays token-bound.
  */
-export type BeginTurnExecutionDeps = Pick<
-  TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'logger'
-> & {
+export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'eventSubscriptions' | 'logger'> & {
+  skillStore: ISkillStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   agentStore: IAgentStore;
@@ -757,6 +756,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
         mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
+        skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },

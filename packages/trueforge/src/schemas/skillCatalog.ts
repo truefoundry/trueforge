@@ -4,18 +4,12 @@
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema, uniqueNames } from './common';
-import {
-  SkillDescriptionSchema,
-  SkillGitPathSchema,
-  SkillGitRefSchema,
-  SkillGitUrlSchema,
-  SkillTypeSchema,
-} from './skill';
+import { SkillDescriptionSchema, SkillGitPathSchema, SkillGitRefSchema, SkillGitUrlSchema } from './skill';
 
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogSkillSchema = z
   .object({
-    type: SkillTypeSchema,
+    type: z.literal('git'),
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),

@@ -28,7 +28,6 @@ import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
-import type { ISkillStore } from '../db/skillStore';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -46,6 +45,7 @@ import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
+import type { ResolveSkillStore } from './skills';
 
 /** Request-reply path a replica serves to cancel a turn it owns. */
 export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
@@ -78,7 +78,7 @@ export interface SessionsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveMcpServerStore: (c: Context) => IMcpServerStore;
-  skillStore: ISkillStore;
+  resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   redis?: RedisClientType | undefined;
@@ -234,7 +234,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'sessions'
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
-  | 'skillStore'
+  | 'resolveSkillStore'
   | 'resolveAgentStore'
   | 'resolveSandboxProviderStore'
   | 'resolveRequestContext'
@@ -288,7 +288,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         tenant_id: requestContext.tenant_id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
-        skillStore: deps.skillStore,
+        skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       });
       agent = { type: 'inline', spec: body.agent.spec };
@@ -360,7 +360,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
-      skillStore: deps.skillStore,
+      skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
     });
     const session = await deps.sessions.create({
@@ -451,7 +451,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         tenant_id: requestContext.tenant_id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
-        skillStore: deps.skillStore,
+        skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       });
     }

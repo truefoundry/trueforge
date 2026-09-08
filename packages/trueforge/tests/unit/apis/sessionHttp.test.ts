@@ -89,7 +89,7 @@ describe('sessions HTTP agent binding', () => {
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => mcpServerStore,
-      skillStore,
+      resolveSkillStore: () => skillStore,
       resolveAgentStore: () => agentStore,
       resolveSandboxProviderStore: () => sandboxProviderStore,
       redis: createClient(),

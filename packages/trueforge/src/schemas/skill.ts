@@ -9,8 +9,7 @@
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
 
-/** Kind of skill. Extend when non-git kinds ship. */
-export const SkillTypeSchema = z.enum(['git']).openapi('SkillType');
+export const SkillTypeSchema = z.enum(['git', 'registry']).openapi('SkillType');
 
 // GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
 const GIT_URL_REGEX =
@@ -57,19 +56,36 @@ export const SkillDescriptionSchema = z
   .min(1)
   .describe('Concise guidance for when the agent should use the skill.');
 
-/** Configured skill document persisted as `skill.manifest`. */
-export const SkillManifestObjectSchema = z
+/** Configured git skill document persisted as `skill.manifest`. */
+export const GitSkillManifestSchema = z
   .object({
-    type: SkillTypeSchema,
+    type: z.literal('git'),
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),
     ref: SkillGitRefSchema,
     description: SkillDescriptionSchema,
   })
-  .strict();
+  .strict()
+  .openapi('GitSkillManifest');
 
-export const SkillManifestSchema = SkillManifestObjectSchema.openapi('SkillManifest');
+/** Registry skill (not written via settings). */
+export const RegistrySkillManifestSchema = z
+  .object({
+    type: z.literal('registry'),
+    name: NameSchema,
+    description: SkillDescriptionSchema,
+    id: z.string().min(1),
+    fqn: z.string().min(1),
+    ml_repo_name: z.string().min(1),
+    version: z.number().int().positive(),
+  })
+  .strict()
+  .openapi('RegistrySkillManifest');
+
+export const SkillManifestSchema = z
+  .discriminatedUnion('type', [GitSkillManifestSchema, RegistrySkillManifestSchema])
+  .openapi('SkillManifest');
 
 /** Admin/settings wire view: identity column plus nested manifest. */
 export const ConfiguredSkillSchema = z
@@ -82,39 +98,63 @@ export const ConfiguredSkillSchema = z
 
 export const CreateSkillRequestSchema = z
   .object({
-    manifest: SkillManifestSchema,
+    manifest: GitSkillManifestSchema,
   })
   .strict()
   .openapi('CreateSkillRequest');
 
 export const UpdateSkillRequestSchema = z
   .object({
-    manifest: SkillManifestSchema,
+    manifest: GitSkillManifestSchema,
   })
   .strict()
   .openapi('UpdateSkillRequest');
 
 export const GetSkillResponseSchema = z.object({ data: ConfiguredSkillSchema }).openapi('GetSkillResponse');
-export const ListSkillsResponseSchema = z
-  .object({ data: z.array(ConfiguredSkillSchema) })
-  .openapi('ListSkillsResponse');
 
 /** Chat/composer read view — discovery fields only. */
 export const AvailableSkillSchema = z
   .object({
     name: NameSchema,
     description: SkillDescriptionSchema,
+    id: z.string().min(1).optional().describe('Skill id.'),
+    fqn: z.string().min(1).optional().describe('Latest version FQN.'),
+    ml_repo_name: z.string().min(1).optional().describe('ML repo name when skill names collide.'),
+    version: z.number().int().positive().optional().describe('Latest version number.'),
   })
   .strict()
   .openapi('AvailableSkill');
+
+export const ListSkillsResponseSchema = z
+  .object({ data: z.array(ConfiguredSkillSchema) })
+  .openapi('ListSkillsResponse');
 
 export const ListAvailableSkillsResponseSchema = z
   .object({ data: z.array(AvailableSkillSchema) })
   .openapi('ListAvailableSkillsResponse');
 
+/** One version row for the TrueFoundry skill picker dropdown. */
+export const SkillVersionSchema = z
+  .object({
+    id: z.string().min(1),
+    fqn: z.string().min(1),
+    name: z.string().min(1),
+    description: SkillDescriptionSchema,
+    version: z.number().int().positive(),
+  })
+  .strict()
+  .openapi('SkillVersion');
+
+export const ListSkillVersionsResponseSchema = z
+  .object({ data: z.array(SkillVersionSchema) })
+  .openapi('ListSkillVersionsResponse');
+
 export type SkillType = z.infer<typeof SkillTypeSchema>;
+export type GitSkillManifest = z.infer<typeof GitSkillManifestSchema>;
+export type RegistrySkillManifest = z.infer<typeof RegistrySkillManifestSchema>;
 export type SkillManifest = z.infer<typeof SkillManifestSchema>;
 export type ConfiguredSkill = z.infer<typeof ConfiguredSkillSchema>;
 export type CreateSkillRequest = z.infer<typeof CreateSkillRequestSchema>;
 export type UpdateSkillRequest = z.infer<typeof UpdateSkillRequestSchema>;
 export type AvailableSkill = z.infer<typeof AvailableSkillSchema>;
+export type SkillVersion = z.infer<typeof SkillVersionSchema>;

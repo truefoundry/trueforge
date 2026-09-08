@@ -1,10 +1,6 @@
-/**
- * DB-backed configured skills: one row per skill per tenant,
- * identity as columns plus a Zod-validated `SkillManifest` jsonb document.
- * Implementations: PostgresSkillStore and SqliteSkillStore.
- */
+/** Configured skill store: persisted git skills or the TrueFoundry registry catalog. */
 import type { ResourceName } from '../schemas/common';
-import type { SkillManifest } from '../schemas/skill';
+import type { SkillManifest, SkillVersion } from '../schemas/skill';
 
 export interface SkillRecord {
   tenant_id: string;
@@ -56,4 +52,5 @@ export interface ISkillStore<TTransaction = never> {
   createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
   /** Single-row write: creates the skill or replaces the whole manifest. */
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
+  listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]>;
 }

@@ -52,7 +52,7 @@ describe('skills routers', () => {
     await migrateSqliteToLatest(db);
     const skillStore = new SqliteSkillStore(db);
     settingsRouter = createSkillsRouter({
-      skillStore,
+      resolveSkillStore: () => skillStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
@@ -63,7 +63,7 @@ describe('skills routers', () => {
       sandboxCatalog: SandboxCatalog.load(),
     });
     availableRouter = createAvailableSkillsRouter({
-      skillStore,
+      resolveSkillStore: () => skillStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });

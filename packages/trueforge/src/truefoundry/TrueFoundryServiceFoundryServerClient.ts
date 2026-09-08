@@ -12,11 +12,14 @@ const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
+const AGENT_SKILLS_PATH = 'v1/agent-skills';
+const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 /** In-cluster ServiceFoundry path; public gateway is `/api/svc/v1/x/vend-token`. */
 const VEND_TOKEN_PATH = 'v1/x/vend-token';
 const INTEGRATIONS_PAGE_SIZE = 1000;
+const AGENT_SKILLS_PAGE_SIZE = 100;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -263,6 +266,50 @@ export class TrueFoundryServiceFoundryServerClient {
       timeoutMs: this.#httpAgentTimeoutMs,
       notFoundOk: true,
     });
+  }
+
+  /** `GET /v1/agent-skills` with empty skills excluded. */
+  async listAgentSkills(accessToken: string): Promise<unknown[]> {
+    return this.#listAgentSkillPages({
+      path: AGENT_SKILLS_PATH,
+      accessToken,
+      query: { include_empty_agent_skills: 'false' },
+    });
+  }
+
+  /** `GET /v1/agent-skill-versions?agent_skill_id=`. */
+  async listAgentSkillVersions(input: { accessToken: string; agentSkillId: string }): Promise<unknown[]> {
+    return this.#listAgentSkillPages({
+      path: AGENT_SKILL_VERSIONS_PATH,
+      accessToken: input.accessToken,
+      query: { agent_skill_id: input.agentSkillId },
+    });
+  }
+
+  async #listAgentSkillPages(input: {
+    path: string;
+    accessToken: string;
+    query: Record<string, string>;
+  }): Promise<unknown[]> {
+    const items: unknown[] = [];
+    for (;;) {
+      const payload = await this.#requestJson({
+        url: this.#url(input.path, {
+          ...input.query,
+          offset: String(items.length),
+          limit: String(AGENT_SKILLS_PAGE_SIZE),
+        }),
+        accessToken: input.accessToken,
+        method: 'GET',
+      });
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      items.push(...page);
+      const total = listPaginationTotal(response);
+      if (total === undefined || items.length >= total || page.length === 0) {
+        return items;
+      }
+    }
   }
 
   /** Per-subject authorize; includes a consent URL when auth is required. */

@@ -104,7 +104,7 @@ async function createRouters(): Promise<{
           clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
         }),
       tokenStore,
-      skillStore: new SqliteSkillStore(db),
+      resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),

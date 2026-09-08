@@ -1,4 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
+import type { SkillVersion } from '../../../schemas/skill';
 import {
   SkillNameConflictError,
   type CreateSkillInput,
@@ -96,5 +97,10 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
       .returningAll()
       .executeTakeFirstOrThrow();
     return toRecord(row);
+  }
+
+  listSkillVersions(input: { skill_id: string }): Promise<SkillVersion[]> {
+    void input;
+    return Promise.resolve([]);
   }
 }

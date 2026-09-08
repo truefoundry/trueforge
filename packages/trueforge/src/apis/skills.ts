@@ -1,4 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
 import { SkillNameConflictError, type ISkillStore, type SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
@@ -6,17 +7,19 @@ import {
   createSkillRoute,
   listAvailableSkillsRoute,
   listConfiguredSkillsRoute,
+  listSkillVersionsRoute,
   putSkillRoute,
 } from '../routes/skillRoutes';
-import type { ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
+import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
+
+export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
 
 export interface SkillsRouterDeps<TTransaction> {
-  skillStore: ISkillStore<TTransaction>;
+  resolveSkillStore: ResolveSkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
 }
 
-/** Wire view of a stored skill: identity `name` plus nested manifest. */
 function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
   return {
     name: record.name,
@@ -24,11 +27,26 @@ function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
   };
 }
 
+function toAvailableSkill(record: SkillRecord): AvailableSkill {
+  const { manifest } = record;
+  if (manifest.type === 'registry') {
+    return {
+      name: record.name,
+      description: manifest.description,
+      id: manifest.id,
+      fqn: manifest.fqn,
+      ml_repo_name: manifest.ml_repo_name,
+      version: manifest.version,
+    };
+  }
+  return { name: record.name, description: manifest.description };
+}
+
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */
 export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransaction>) {
   const listConfiguredHandler: RouteHandler<typeof listConfiguredSkillsRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const records = await deps.skillStore.listSkills({
+    const records = await deps.resolveSkillStore(c).listSkills({
       tenant_id: requestContext.tenant_id,
       names: undefined,
     });
@@ -40,7 +58,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
     const requestContext = deps.resolveRequestContext(c);
     const manifest = body.manifest;
     try {
-      const record = await deps.skillStore.createSkill({
+      const record = await deps.resolveSkillStore(c).createSkill({
         tenant_id: requestContext.tenant_id,
         name: manifest.name,
         manifest,
@@ -58,7 +76,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
     const body: UpdateSkillRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const manifest = body.manifest;
-    const record = await deps.skillStore.upsertSkill({
+    const record = await deps.resolveSkillStore(c).upsertSkill({
       tenant_id: requestContext.tenant_id,
       name: manifest.name,
       manifest,
@@ -74,27 +92,21 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
 }
 
 /** Chat slim list (mounted at /api/v1/skills) — mirrors GET /api/v1/mcp-servers. */
-export function createAvailableSkillsRouter<TTransaction>(deps: {
-  skillStore: ISkillStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
-  resolveRequestContext: ResolveRequestContext;
-}) {
+export function createAvailableSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransaction>) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableSkillsRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const records = await deps.skillStore.listSkills({
+    const records = await deps.resolveSkillStore(c).listSkills({
       tenant_id: requestContext.tenant_id,
       names: undefined,
     });
-    return c.json(
-      {
-        data: records.map(record => ({
-          name: record.name,
-          description: record.manifest.description,
-        })),
-      },
-      200,
-    );
+    return c.json({ data: records.map(toAvailableSkill) }, 200);
   });
+
+  router.openapi(listSkillVersionsRoute, async c => {
+    const { skill_id } = c.req.valid('param');
+    return c.json({ data: await deps.resolveSkillStore(c).listSkillVersions({ skill_id }) }, 200);
+  });
+
   return router;
 }
