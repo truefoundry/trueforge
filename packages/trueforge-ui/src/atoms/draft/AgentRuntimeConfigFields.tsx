@@ -160,8 +160,8 @@ export function AgentRuntimeConfigFields({
     return (
       <div className="space-y-5">
         {showCapabilities ? (
-          // Stacked below `md` so the bottom-sheet modal does not cram three labeled switches into one row.
-          <div className="flex flex-col gap-3 md:flex-row">
+          // Stack below `md` so narrow bottom sheets retain usable control widths.
+          <div className="flex flex-col gap-3 border-b border-border pb-5 md:flex-row">
             {capabilityFields.map((field, index) =>
               switchField({
                 field,

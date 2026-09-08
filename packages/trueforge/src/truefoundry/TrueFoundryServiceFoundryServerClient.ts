@@ -16,8 +16,7 @@ const AGENT_SKILLS_PATH = 'v1/agent-skills';
 const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
-/** In-cluster ServiceFoundry path; public gateway is `/api/svc/v1/x/vend-token`. */
-const VEND_TOKEN_PATH = 'v1/x/vend-token';
+const VEND_TOKEN_PATH = 'internal/vend-token';
 const INTEGRATIONS_PAGE_SIZE = 1000;
 const AGENT_SKILLS_PAGE_SIZE = 100;
 
