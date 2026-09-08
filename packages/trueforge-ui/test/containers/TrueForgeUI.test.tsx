@@ -40,6 +40,10 @@ vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adap
   ),
 }));
 
+vi.mock('thinking-orbs', () => ({
+  ThinkingOrb: () => <div data-testid="thinking-orb" />,
+}));
+
 vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   createTrueForgeAgentUIServer: vi.fn(async () =>
     createMockAgentUIServer({
@@ -313,6 +317,7 @@ describe('TrueForgeUI', () => {
     );
 
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
+    expect(screen.getByTestId('thinking-orb')).toBeInTheDocument();
   });
 });
 

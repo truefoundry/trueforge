@@ -2,13 +2,13 @@
 
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
 
 import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
-import { Spinner } from '../atoms/primitives/Spinner.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
@@ -91,6 +91,7 @@ export function ServerInitLoader({ className }: { className?: string }) {
   return (
     <div
       role="status"
+      aria-label="Loading"
       aria-live="polite"
       aria-busy="true"
       className={cn(
@@ -98,8 +99,7 @@ export function ServerInitLoader({ className }: { className?: string }) {
         className,
       )}
     >
-      <Spinner size={28} className="text-text-primary" />
-      <span className="sr-only">Loading</span>
+      <ThinkingOrb state="connecting" size={64} speed={1} theme="auto" paused={false} aria-hidden />
     </div>
   );
 }

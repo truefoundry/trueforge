@@ -12,6 +12,7 @@ import {
   type HarnessAgentSpec,
 } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
 import { useEffect, useMemo, useState } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
@@ -35,6 +36,21 @@ const appTheme: ThemeConfig = {
     primaryButtonHover: '#3d2dd4',
   },
 };
+
+function Loader() {
+  return (
+    <div className="boot-screen">
+      <ThinkingOrb
+        state="connecting"
+        size={64}
+        speed={1}
+        theme="light"
+        paused={false}
+        aria-label="Loading application"
+      />
+    </div>
+  );
+}
 
 type BootState =
   | { status: 'loading' }
@@ -149,7 +165,7 @@ export function App() {
   if (session === 'checking') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <Loader />
       </ThemeProvider>
     );
   }
@@ -175,7 +191,7 @@ export function App() {
   if (boot.status === 'loading') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <Loader />
       </ThemeProvider>
     );
   }

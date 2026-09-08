@@ -109,6 +109,7 @@
     "react-syntax-highlighter": "^16.1.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
+    "thinking-orbs": "^0.3.1",
     "truefoundry-gateway-sdk": "^0.4.2",
     "zod": "^4.4.3"
   },
