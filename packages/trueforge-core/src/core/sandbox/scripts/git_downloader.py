@@ -35,7 +35,8 @@ DESIRED_FILE_NAME = ".tfy-desired-skills.json"
 # Per-git-invocation wall-clock cap so a hung/slow fetch can't stall sandbox init indefinitely.
 GIT_CLONE_TIMEOUT_SECONDS = 120
 REGISTRY_DOWNLOAD_TIMEOUT_SECONDS = 120
-REGISTRY_SKILL_MAX_BYTES = 200 * 1024 * 1024  # 200MB installed
+# Cap registry download bytes and post-extract installed size (same bound as git installs).
+REGISTRY_SKILL_MAX_BYTES = 200 * 1024 * 1024  # 200MB
 # Cap the installed skill size so a huge repo-root skill can't fill the persistent skills dir. The
 # sparse clone already bounds a subdir skill to its subdir; this also guards the whole-repo (root
 # subdir) case where checkout hydrates every file.
@@ -180,7 +181,8 @@ def load_state() -> SkillDownloaderState:
         return SkillDownloaderState()
     try:
         return SkillDownloaderState.model_validate_json(STATE_PATH.read_text(encoding="utf-8"))
-    except (OSError, ValidationError):
+    except (OSError, ValueError, ValidationError):
+        # ValueError covers UnicodeDecodeError from corrupt/non-UTF-8 state in agent-writable skills dir.
         return SkillDownloaderState()
 
 
@@ -546,18 +548,20 @@ def _registry_already_installed(state: SkillDownloaderState, skill: RegistrySkil
 def _mark_registry_downloaded(state: SkillDownloaderState, skill: RegistrySkillDesired) -> None:
     for entry in state.downloaded_fqns:
         if entry.fqn == skill.fqn:
-            entry.name = skill.name
+            if entry.name != skill.name:
+                _delete_skill_dir_by_name(
+                    entry.name, label=f"renamed registry fqn {entry.fqn}"
+                )
+                entry.name = skill.name
             return
     state.downloaded_fqns.append(DownloadedRegistrySkill(fqn=skill.fqn, name=skill.name))
 
 
 def _install_registry_tar(skill: RegistrySkillDesired) -> None:
+    """Stage extract under SKILLS_ROOT, then swap over the prior dir."""
     dir_ = skill_dir(skill.name)
     if dir_ is None:
         raise RuntimeError(f"invalid skill name {skill.name!r}")
-    if dir_.exists():
-        shutil.rmtree(dir_)
-    dir_.mkdir(parents=True, exist_ok=True)
     try:
         with urllib.request.urlopen(skill.presigned_url, timeout=REGISTRY_DOWNLOAD_TIMEOUT_SECONDS) as resp:
             data = resp.read(REGISTRY_SKILL_MAX_BYTES + 1)
@@ -565,15 +569,29 @@ def _install_registry_tar(skill: RegistrySkillDesired) -> None:
         raise RuntimeError(f"download failed for {skill.fqn}: {e}") from e
     if len(data) > REGISTRY_SKILL_MAX_BYTES:
         raise RuntimeError(f"tar for {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes")
-    with tempfile.TemporaryDirectory(prefix="tfy-skill-tar-") as tmp:
-        tar_path = Path(tmp) / "skill.tar"
-        tar_path.write_bytes(data)
-        try:
+
+    staging = dir_.with_name(f".{dir_.name}.new-{os.getpid()}")
+    _rmtree(staging)
+    staging.mkdir(parents=True, exist_ok=True)
+    try:
+        with tempfile.TemporaryDirectory(prefix="tfy-skill-tar-") as tmp:
+            tar_path = Path(tmp) / "skill.tar"
+            tar_path.write_bytes(data)
             with tarfile.open(tar_path, mode="r:*") as tar:
-                tar.extractall(path=dir_, filter="data")
-        except (tarfile.TarError, OSError) as e:
-            shutil.rmtree(dir_, ignore_errors=True)
-            raise RuntimeError(f"extract failed for {skill.fqn}: {e}") from e
+                tar.extractall(path=staging, filter="data")
+        if _installed_size_bytes(staging) > REGISTRY_SKILL_MAX_BYTES:
+            raise RuntimeError(
+                f"extracted skill {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes"
+            )
+        if dir_.exists():
+            shutil.rmtree(dir_)
+        os.replace(staging, dir_)
+    except RuntimeError:
+        _rmtree(staging)
+        raise
+    except (tarfile.TarError, OSError) as e:
+        _rmtree(staging)
+        raise RuntimeError(f"extract failed for {skill.fqn}: {e}") from e
 
 
 def download_registry_skills(
