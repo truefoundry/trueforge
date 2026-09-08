@@ -75,7 +75,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   constructor(input: {
     client: TrueFoundryMcpApiClient;
-    context: RequestContext;
+    requestContext: RequestContext;
     agent: AgentRecord | undefined;
     perServerHeaders?: PerServerMcpHeaders;
     logger: Logger;
@@ -83,11 +83,11 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#client = input.client;
     this.#resolveAccessToken = accessTokenForRequest({
       client: input.client,
-      requestContext: asTrueFoundryRequestContext(input.context),
+      requestContext: asTrueFoundryRequestContext(input.requestContext),
       agent: input.agent,
       logger: input.logger,
     });
-    this.#subject = input.context.subject;
+    this.#subject = input.requestContext.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 

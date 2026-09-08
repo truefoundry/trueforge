@@ -53,7 +53,7 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    context: createTrueFoundryRequestContext({
+    requestContext: createTrueFoundryRequestContext({
       tenant_id: TENANT,
       subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],

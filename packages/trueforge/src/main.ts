@@ -192,7 +192,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
     if (client) {
       return new TrueFoundryMcpServerStore<TTransaction>({
         client,
-        context: rc,
+        requestContext: rc,
         agent: runAsAgent,
         logger: options.logger,
         ...(perServerHeaders === undefined ? {} : { perServerHeaders }),

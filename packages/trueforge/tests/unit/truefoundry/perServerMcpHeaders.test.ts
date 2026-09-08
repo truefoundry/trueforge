@@ -38,7 +38,7 @@ const record = (name: string): McpServerRecord => ({
 const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
     client: unusedClient(),
-    context: createTrueFoundryRequestContext({
+    requestContext: createTrueFoundryRequestContext({
       tenant_id: 'default',
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
