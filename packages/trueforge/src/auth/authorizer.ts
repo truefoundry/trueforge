@@ -2,6 +2,8 @@ import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IScheduleStore } from '../db/scheduleStore';
 import {
+  AGENT_OWNER_PERMISSIONS,
+  AGENT_USE_PERMISSIONS,
   emptyPermissionsByResourceId,
   OWNER_RESOURCE_PERMISSIONS,
   type ResourcePermission,
@@ -42,12 +44,26 @@ export class TrueForgeAuthorizer implements Authorizer {
   }
 
   async getPermissions(input: GetPermissionsInput): Promise<Record<string, ResourcePermission[]>> {
+    const data = emptyPermissionsByResourceId(input.resourceIds);
+
+    if (input.resourceType === 'agent') {
+      const ownedIds = await input.store.getOwnedIds({
+        tenant_id: input.requestContext.tenant_id,
+        ids: input.resourceIds,
+        subject_id: input.requestContext.subject.id,
+      });
+      const owned = new Set(ownedIds);
+      for (const id of input.resourceIds) {
+        data[id] = owned.has(id) ? [...AGENT_OWNER_PERMISSIONS] : [...AGENT_USE_PERMISSIONS];
+      }
+      return data;
+    }
+
     const ownedIds = await input.store.getOwnedIds({
       tenant_id: input.requestContext.tenant_id,
       ids: input.resourceIds,
       subject_id: input.requestContext.subject.id,
     });
-    const data = emptyPermissionsByResourceId(input.resourceIds);
     for (const id of ownedIds) {
       data[id] = [...OWNER_RESOURCE_PERMISSIONS];
     }

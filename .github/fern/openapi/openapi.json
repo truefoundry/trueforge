@@ -2913,8 +2913,9 @@
         "type": "string"
       },
       "ResourcePermission": {
-        "description": "Granted action on a resource. MANAGE covers update and other non-delete mutations.",
+        "description": "Granted action on a resource. USE is run/invoke; MANAGE covers update and other non-delete mutations.",
         "enum": [
+          "USE",
           "MANAGE",
           "DELETE"
         ],

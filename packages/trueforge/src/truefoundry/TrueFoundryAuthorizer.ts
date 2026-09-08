@@ -18,6 +18,20 @@ function allowsAction(permissions: readonly AgentPermission[], action: AgentActi
   return permissions.includes(permissionByAction[action]);
 }
 
+function toResourcePermissions(permissions: readonly AgentPermission[]): ResourcePermission[] {
+  const granted: ResourcePermission[] = [];
+  if (permissions.includes('USE_AGENT')) {
+    granted.push('USE');
+  }
+  if (permissions.includes('MANAGE_AGENT')) {
+    granted.push('MANAGE');
+  }
+  if (permissions.includes('DELETE_AGENT')) {
+    granted.push('DELETE');
+  }
+  return granted;
+}
+
 function requireUserCredential(context: RequestContext): string {
   if (context.user_credential === null) {
     throw new HTTPException(401, { message: 'Authentication token required for agent authorization' });
@@ -72,9 +86,7 @@ export class TrueFoundryAuthorizer implements Authorizer {
         externalIds: agents.map(agent => agent.external_id),
       });
       for (const agent of agents) {
-        if ((permissions[agent.external_id] ?? []).includes('MANAGE_AGENT')) {
-          data[agent.id] = [...OWNER_RESOURCE_PERMISSIONS];
-        }
+        data[agent.id] = toResourcePermissions(permissions[agent.external_id] ?? []);
       }
       return data;
     }

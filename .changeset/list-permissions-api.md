@@ -3,4 +3,4 @@
 '@truefoundry/trueforge-core': minor
 ---
 
-Add POST `/api/internal/list-permissions` via `Authorizer.getPermissions`, with store `list*ByIds` bulk loads (owner grants locally; TrueFoundry agents via SFY `MANAGE_AGENT`).
+Add POST `/api/internal/list-permissions` via `Authorizer.getPermissions` (owner grants for schedules/sessions; agents include `USE`, with TrueFoundry agents mapped from SFY `USE_AGENT`/`MANAGE_AGENT`/`DELETE_AGENT`).
