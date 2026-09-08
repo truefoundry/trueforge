@@ -1,13 +1,14 @@
 import { HTTPException } from 'hono/http-exception';
 import { LRUCache } from 'lru-cache';
 import { z } from 'zod';
+import type { RequestContext } from '../auth/identity';
 import type {
   ISandboxProviderStore,
   SandboxProviderRecord,
   UpdateSandboxStatusInput,
   UpsertSandboxProviderInput,
 } from '../db/sandboxProviderStore';
-import type { ResolveAccessToken } from './accessToken';
+import { callerAccessToken, type ResolveAccessToken } from './accessToken';
 import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 
@@ -82,8 +83,8 @@ function managed(): never {
 export class TrueFoundrySandboxProviderStore<TTransaction = never> implements ISandboxProviderStore<TTransaction> {
   readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: { resolveAccessToken: ResolveAccessToken }) {
-    this.#resolveAccessToken = input.resolveAccessToken;
+  constructor(input: { context: RequestContext }) {
+    this.#resolveAccessToken = callerAccessToken(input.context);
   }
 
   async getSandboxProvider(tenantId: string, transaction?: TTransaction): Promise<SandboxProviderRecord | undefined> {

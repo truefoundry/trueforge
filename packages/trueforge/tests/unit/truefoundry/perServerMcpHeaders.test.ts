@@ -20,8 +20,13 @@ const record = (name: string): McpServerRecord => ({
 const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
     client: {} as never,
-    resolveAccessToken: () => Promise.resolve('caller-token'),
-    subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+    context: {
+      tenant_id: 'default',
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: 'caller-token',
+    },
+    agent: undefined,
     perServerHeaders,
   });
 

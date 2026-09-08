@@ -1,10 +1,10 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
-import type { GetSessionResponse } from '../truefoundry/TrueFoundryServiceFoundryServerClient';
-import type { Authenticator } from './authenticator';
-import type { RequestContext } from './identity';
-import { extractRequestToken } from './token';
+import type { Authenticator } from '../auth/authenticator';
+import type { RequestContext } from '../auth/identity';
+import { extractRequestToken } from '../auth/token';
+import type { GetSessionResponse } from './TrueFoundryServiceFoundryServerClient';
 
 /** Narrow port used by the authenticator (avoids depending on the full SFY client). */
 export interface TrueFoundrySessionClient {

@@ -1,5 +1,6 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely, type Transaction } from 'kysely';
+import type { RequestContext } from '../auth/identity';
 import {
   type AgentRecord,
   type CreateAgentInput,
@@ -11,7 +12,7 @@ import {
 } from '../db/agentStore';
 import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStore';
 import type { Database } from '../db/postgres/types';
-import type { ResolveAccessToken } from './accessToken';
+import { callerAccessToken, type ResolveAccessToken } from './accessToken';
 import {
   TrueFoundryServiceFoundryServerClient,
   type PutRemoteAgentInput,
@@ -73,12 +74,12 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
   constructor(input: {
     inner: PostgresAgentStore;
     client: TrueFoundryServiceFoundryServerClient;
-    resolveAccessToken: ResolveAccessToken;
+    context: RequestContext;
     db: Kysely<Database>;
   }) {
     this.#inner = input.inner;
     this.#client = input.client;
-    this.#resolveAccessToken = input.resolveAccessToken;
+    this.#resolveAccessToken = callerAccessToken(input.context);
     this.#db = input.db;
   }
 

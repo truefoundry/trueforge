@@ -101,23 +101,12 @@ export function toContentDisposition(path: string): string {
   return `attachment; filename*=UTF-8''${encoded}`;
 }
 
-/** Stores a turn runs on. Resolved as a pair so both share one access token. */
-export interface TurnStores<TTransaction = never> {
-  modelProviderStore: IModelProviderStore<TTransaction>;
-  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
-}
-
-/** `runAsAgent` is set only for turns a saved agent executes. */
-export type ResolveTurnStores<TTransaction = never> = (
-  c: Context,
-  runAsAgent: AgentRecord | undefined,
-) => TurnStores<TTransaction>;
-
 export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveTurnStores: ResolveTurnStores;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
+  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
   skillStore: ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
@@ -766,7 +755,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       userRef: requestContext.subject.id,
       deps: {
         ...deps,
-        ...deps.resolveTurnStores(c, referencedAgent),
+        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
+        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },

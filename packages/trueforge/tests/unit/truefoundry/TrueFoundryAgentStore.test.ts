@@ -98,7 +98,12 @@ function tfStore(input: {
   return new TrueFoundryAgentStore({
     inner: input.inner,
     client: input.client,
-    resolveAccessToken: () => Promise.resolve(input.accessToken ?? TOKEN),
+    context: {
+      tenant_id: TENANT,
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: input.accessToken ?? TOKEN,
+    },
     db: input.db ?? mockDb(),
   });
 }

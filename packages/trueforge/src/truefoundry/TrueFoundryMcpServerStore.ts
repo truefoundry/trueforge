@@ -5,9 +5,10 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
-import type { RequestSubject } from '../auth/identity';
+import type { RequestContext, RequestSubject } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicBaseUrl } from '../config';
+import type { AgentRecord } from '../db/agentStore';
 import {
   McpServerNotFoundError,
   type AuthorizeMcpServerInput,
@@ -22,7 +23,7 @@ import {
 } from '../db/mcpServerStore';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
-import type { ResolveAccessToken } from './accessToken';
+import { accessTokenForRequest, type ResolveAccessToken } from './accessToken';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
@@ -42,6 +43,7 @@ export type TrueFoundryMcpApiClient = Pick<
   | 'getMcpAuthorize'
   | 'getMcpAuthStatus'
   | 'deleteMcpAuth'
+  | 'vendToken'
 >;
 
 function managed(): never {
@@ -76,13 +78,13 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   constructor(input: {
     client: TrueFoundryMcpApiClient;
-    resolveAccessToken: ResolveAccessToken;
-    subject: RequestSubject;
+    context: RequestContext;
+    agent: AgentRecord | undefined;
     perServerHeaders?: PerServerMcpHeaders;
   }) {
     this.#client = input.client;
-    this.#resolveAccessToken = input.resolveAccessToken;
-    this.#subject = input.subject;
+    this.#resolveAccessToken = accessTokenForRequest(input);
+    this.#subject = input.context.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 

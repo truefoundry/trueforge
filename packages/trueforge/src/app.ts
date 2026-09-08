@@ -22,7 +22,7 @@ import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter } from './apis/skills';
-import { createTurnsRouter, type ResolveTurnStores } from './apis/turns';
+import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
@@ -32,7 +32,7 @@ import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
 import configuration, { getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
-import type { IAgentStore } from './db/agentStore';
+import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -167,14 +167,12 @@ export interface ServerDeps<TTransaction> {
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
    * The unauthenticated OAuth callback has no context and gets the DB persistence store.
    */
-  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
-  /** Model + MCP stores for one turn, sharing a single access token. */
-  resolveTurnStores: ResolveTurnStores<TTransaction>;
+  resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -324,7 +322,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveTurnDeps: (c, runAsAgent) => ({
           activeTurns: deps.activeTurns,
           eventSubscriptions: deps.eventSubscriptions,
-          ...deps.resolveTurnStores(c, runAsAgent),
+          modelProviderStore: deps.resolveModelProviderStore(c, runAsAgent),
+          mcpServerStore: deps.resolveMcpServerStore(c, runAsAgent),
           skillStore: deps.skillStore,
           agentStore: deps.resolveAgentStore(c),
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
@@ -409,7 +408,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
-        resolveTurnStores: deps.resolveTurnStores,
+        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveMcpServerStore: deps.resolveMcpServerStore,
         skillStore: deps.skillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,

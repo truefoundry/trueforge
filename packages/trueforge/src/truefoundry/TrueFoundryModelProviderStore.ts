@@ -1,4 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
+import type { RequestContext } from '../auth/identity';
+import type { AgentRecord } from '../db/agentStore';
 import {
   flattenProviderModels,
   type CreateModelProviderInput,
@@ -9,7 +11,7 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
-import type { ResolveAccessToken } from './accessToken';
+import { accessTokenForRequest, type ResolveAccessToken } from './accessToken';
 import { mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
@@ -22,9 +24,13 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: { client: TrueFoundryServiceFoundryServerClient; resolveAccessToken: ResolveAccessToken }) {
+  constructor(input: {
+    client: TrueFoundryServiceFoundryServerClient;
+    context: RequestContext;
+    agent: AgentRecord | undefined;
+  }) {
     this.#client = input.client;
-    this.#resolveAccessToken = input.resolveAccessToken;
+    this.#resolveAccessToken = accessTokenForRequest(input);
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {

@@ -49,3 +49,14 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
   const token = context.user_credential;
   return () => Promise.resolve(token);
 }
+
+/** Token for a request, optionally scoped to the saved agent executing a turn. */
+export function accessTokenForRequest(input: {
+  client: AgentTokenVendor;
+  context: RequestContext;
+  agent: AgentRecord | undefined;
+}): ResolveAccessToken {
+  return input.agent
+    ? agentAccessToken({ client: input.client, context: input.context, agent: input.agent })
+    : callerAccessToken(input.context);
+}

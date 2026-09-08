@@ -73,14 +73,6 @@ const app = createServerApp({
       tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     }),
-  resolveTurnStores: () => ({
-    modelProviderStore: new SqliteModelProviderStore(db),
-    mcpServerStore: new McpServerWithAuthStore({
-      store: new SqliteMcpServerStore(db),
-      tokenStore,
-      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-    }),
-  }),
   tokenStore,
   skillCatalog: SkillCatalog.load(),
   skillStore: new SqliteSkillStore(db),

@@ -33,6 +33,7 @@ function createMockClient(): MockClient {
     getMcpAuthorize: jest.fn(),
     getMcpAuthStatus: jest.fn(),
     deleteMcpAuth: jest.fn(),
+    vendToken: jest.fn(),
   };
 }
 
@@ -50,8 +51,13 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    resolveAccessToken: () => Promise.resolve(input?.accessToken ?? ACCESS_TOKEN),
-    subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
+    context: {
+      tenant_id: TENANT,
+      subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: input?.accessToken ?? ACCESS_TOKEN,
+    },
+    agent: undefined,
   });
   return { store, client };
 }

@@ -2,7 +2,7 @@ import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../../../src/auth/identity';
 import type { AgentRecord } from '../../../src/db/agentStore';
-import { agentAccessToken, callerAccessToken } from '../../../src/truefoundry/accessToken';
+import { accessTokenForRequest, agentAccessToken, callerAccessToken } from '../../../src/truefoundry/accessToken';
 
 const CONTEXT: RequestContext = {
   tenant_id: 'acme',
@@ -73,5 +73,21 @@ describe('agentAccessToken', () => {
       HTTPException,
     );
     expect(client.vendToken).not.toHaveBeenCalled();
+  });
+});
+
+describe('accessTokenForRequest', () => {
+  it('uses the caller token without an agent', async () => {
+    const client = { vendToken: jest.fn() };
+
+    await expect(accessTokenForRequest({ client, context: CONTEXT, agent: undefined })()).resolves.toBe('caller-token');
+    expect(client.vendToken).not.toHaveBeenCalled();
+  });
+
+  it('uses a vended token with an agent', async () => {
+    const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
+
+    await expect(accessTokenForRequest({ client, context: CONTEXT, agent: AGENT })()).resolves.toBe('agent-token');
+    expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 });
