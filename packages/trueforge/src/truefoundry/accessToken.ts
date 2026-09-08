@@ -45,7 +45,7 @@ export function asTrueFoundryRequestContext(context: RequestContext): TrueFoundr
  */
 export function agentAccessToken(input: {
   client: AgentTokenVendor;
-  context: RequestContext;
+  context: Pick<RequestContext, 'tenant_id' | 'subject'>;
   agent: AgentRecord;
   logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {

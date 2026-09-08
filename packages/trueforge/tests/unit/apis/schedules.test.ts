@@ -1,9 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
-import { createSchedulesRouter } from '../../../src/apis/schedules';
+import { createScheduleExecutionRouter, createSchedulesRouter } from '../../../src/apis/schedules';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
-import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
+import { ScheduleAgentNotFoundError, ScheduleRunNotFoundError } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -13,15 +13,6 @@ import {
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
 } from '../../../src/schemas/schedule';
-
-jest.mock('../../../src/controller/scheduleDispatch', () => ({
-  ...jest.requireActual<typeof import('../../../src/controller/scheduleDispatch')>(
-    '../../../src/controller/scheduleDispatch',
-  ),
-  startScheduleRun: jest.fn().mockResolvedValue(undefined),
-}));
-
-const mockedStartScheduleRun = jest.mocked(startScheduleRun);
 
 const ALICE: RequestContext = {
   tenant_id: 'default',
@@ -67,25 +58,14 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
 
   let current: RequestContext = ALICE;
   let currentAuthorizer = authorizer;
+  const executeScheduleRun = jest.fn().mockResolvedValue(undefined);
   const app = new OpenAPIHono();
   app.route(
     '/',
     createSchedulesRouter({
       scheduleStore,
       resolveAgentStore: () => agentStore,
-      sessions: {
-        getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
-      } as never,
-      resolveTurnDeps: () => ({
-        activeTurns: {} as never,
-        eventSubscriptions: {} as never,
-        modelProviderStore: {} as never,
-        mcpServerStore: {} as never,
-        skillStore: {} as never,
-        agentStore,
-        sandboxProviderStore: {} as never,
-        logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
-      }),
+      executeScheduleRun,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
       authorizer: {
@@ -104,12 +84,12 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   const postJson = (path: string, method: string, body: unknown) =>
     app.request(path, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
-  return { app, asUser, setAuthorizer, postJson, agentStore, scheduleStore };
+  return { app, asUser, setAuthorizer, postJson, agentStore, scheduleStore, executeScheduleRun };
 }
 
 describe('schedule RBAC', () => {
   it("hides another user's schedule from get, update, delete, list, and run trigger", async () => {
-    const { app, asUser, postJson } = await setup();
+    const { app, asUser, postJson, executeScheduleRun } = await setup();
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
@@ -127,7 +107,7 @@ describe('schedule RBAC', () => {
 
     expect((await app.request(`/${id}/runs`)).status).toBe(403);
     expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
-    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+    expect(executeScheduleRun).not.toHaveBeenCalled();
   });
 
   it('lets the creator see and manage their own schedule', async () => {
@@ -266,13 +246,8 @@ describe('schedule list agent_names filter', () => {
 });
 
 describe('create schedule run', () => {
-  beforeEach(() => {
-    mockedStartScheduleRun.mockReset();
-    mockedStartScheduleRun.mockResolvedValue(undefined);
-  });
-
   it('creates a triggered run with a manual-* name and leaves the cron pending run alone', async () => {
-    const { asUser, postJson, scheduleStore } = await setup();
+    const { asUser, postJson, scheduleStore, executeScheduleRun } = await setup();
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
@@ -299,14 +274,7 @@ describe('create schedule run', () => {
     );
     expect(body.data.triggered_at).not.toBeNull();
 
-    expect(mockedStartScheduleRun).toHaveBeenCalledWith(
-      expect.objectContaining({
-        item: expect.objectContaining({
-          run: expect.objectContaining({ id: body.data.id }),
-          schedule: expect.objectContaining({ id: scheduleId }),
-        }),
-      }),
-    );
+    expect(executeScheduleRun).toHaveBeenCalledWith(body.data.id);
 
     const pendingAfter = await scheduleStore.getScheduledRunFor({ tenant_id: 'default', schedule_id: scheduleId });
     expect(pendingAfter?.id).toBe(pendingBefore?.id);
@@ -317,7 +285,7 @@ describe('create schedule run', () => {
   });
 
   it('does not let an OIDC settings admin trigger another creator schedule', async () => {
-    const { asUser, postJson } = await setup();
+    const { asUser, postJson, executeScheduleRun } = await setup();
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
@@ -326,12 +294,12 @@ describe('create schedule run', () => {
     asUser(ADMIN);
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(403);
-    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+    expect(executeScheduleRun).not.toHaveBeenCalled();
   });
 
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {
-    mockedStartScheduleRun.mockRejectedValue(new ScheduleAgentNotFoundError('reporter'));
-    const { asUser, postJson, scheduleStore } = await setup();
+    const { asUser, postJson, scheduleStore, executeScheduleRun } = await setup();
+    executeScheduleRun.mockRejectedValue(new ScheduleAgentNotFoundError('reporter'));
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
@@ -361,7 +329,7 @@ describe('create schedule run', () => {
   });
 
   it('returns 404 on run-now when the caller can access the schedule but not the agent', async () => {
-    const { asUser, setAuthorizer, postJson, scheduleStore } = await setup();
+    const { asUser, setAuthorizer, postJson, scheduleStore, executeScheduleRun } = await setup();
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
@@ -376,10 +344,40 @@ describe('create schedule run', () => {
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
-    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+    expect(executeScheduleRun).not.toHaveBeenCalled();
 
     const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
     expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
+  });
+});
+
+describe('internal schedule execution', () => {
+  it('executes the persisted run id', async () => {
+    const executeScheduleRun = jest.fn().mockResolvedValue(undefined);
+    const app = createScheduleExecutionRouter({ executeScheduleRun });
+
+    const response = await app.request('/runs/execute', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ schedule_run_id: 'run-1' }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(executeScheduleRun).toHaveBeenCalledWith('run-1');
+  });
+
+  it('maps an unknown run to 404', async () => {
+    const app = createScheduleExecutionRouter({
+      executeScheduleRun: jest.fn().mockRejectedValue(new ScheduleRunNotFoundError('missing')),
+    });
+
+    const response = await app.request('/runs/execute', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ schedule_run_id: 'missing' }),
+    });
+
+    expect(response.status).toBe(404);
   });
 });

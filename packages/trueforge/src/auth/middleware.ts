@@ -1,14 +1,15 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
+import { timingSafeEqual } from 'node:crypto';
 
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
 import { hasAdminRole, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
-import { extractRequestToken } from './token';
+import { extractRequestToken, readBearerToken } from './token';
 
-export { extractRequestToken, readBearerToken } from './token';
+export { extractRequestToken, readBearerToken };
 
 export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
@@ -24,6 +25,22 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
       throw new HTTPException(403, { message: 'Admin access required' });
     }
     c.set('request_context', requestContext);
+    return next();
+  };
+}
+
+/** Bearer API-key gate for service-only routes. */
+export function createApiKeyAuthMiddleware(apiKey: string | undefined): MiddlewareHandler {
+  return async (c, next) => {
+    const token = readBearerToken(c);
+    if (apiKey === undefined || token === undefined) {
+      throw new HTTPException(401, { message: 'Invalid service credential' });
+    }
+    const expected = Buffer.from(apiKey);
+    const provided = Buffer.from(token);
+    if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+      throw new HTTPException(401, { message: 'Invalid service credential' });
+    }
     return next();
   };
 }

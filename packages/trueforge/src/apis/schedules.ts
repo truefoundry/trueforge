@@ -2,12 +2,17 @@
  * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import { ScheduleAgentNotFoundError, scheduleRunFailureReason, startScheduleRun } from '../controller/scheduleDispatch';
-import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import {
+  ScheduleAgentNotFoundError,
+  ScheduleNotFoundError,
+  ScheduleRunNotFoundError,
+  startScheduleRun,
+} from '../controller/scheduleDispatch';
+import type { IAgentStore } from '../db/agentStore';
 import {
   manualRunName,
   ScheduleNameConflictError,
@@ -21,6 +26,7 @@ import {
   createScheduleRoute,
   createScheduleRunRoute,
   deleteScheduleRoute,
+  executeScheduleRunRoute,
   getScheduleRoute,
   listScheduleRunsRoute,
   listSchedulesRoute,
@@ -35,13 +41,12 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
-import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
+import { getTurnExecutionError } from './turns';
 
 export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  sessions: Sessions;
-  resolveTurnDeps: (c: Context, runAsAgent?: AgentRecord) => BeginTurnExecutionDeps;
+  executeScheduleRun: (scheduleRunId: string) => Promise<void>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -109,6 +114,29 @@ const FORBIDDEN_SCHEDULE_ACCESS = 'Only the schedule creator can access this sch
 /** Schedule mutations remain creator-only in every auth mode. */
 function isScheduleOwner(requestContext: Pick<RequestContext, 'subject'>, created_by_subject_id: string): boolean {
   return requestContext.subject.id === created_by_subject_id;
+}
+
+export function createScheduleExecutionRouter(deps: { executeScheduleRun: (scheduleRunId: string) => Promise<void> }) {
+  const handler: RouteHandler<typeof executeScheduleRunRoute> = async c => {
+    const { schedule_run_id: scheduleRunId } = c.req.valid('json');
+    try {
+      await deps.executeScheduleRun(scheduleRunId);
+    } catch (error) {
+      if (
+        error instanceof ScheduleRunNotFoundError ||
+        error instanceof ScheduleNotFoundError ||
+        error instanceof ScheduleAgentNotFoundError
+      ) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      throw error;
+    }
+    return c.body(null, 204);
+  };
+
+  const router = new OpenAPIHono();
+  router.openapi(executeScheduleRunRoute, handler);
+  return router;
 }
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
@@ -219,14 +247,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     }
 
     try {
-      await startScheduleRun({
-        item: { run, schedule },
-        sessions: deps.sessions,
-        agentStore: deps.resolveAgentStore(c),
-        startTurn: async turnParams => {
-          await startTurnInProcess({ ...turnParams, deps: deps.resolveTurnDeps(c, agent) });
-        },
-      });
+      await deps.executeScheduleRun(run.id);
     } catch (error) {
       await deps.scheduleStore.updateRunStatus({
         tenant_id: requestContext.tenant_id,
@@ -235,7 +256,11 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         reason: scheduleRunFailureReason(error),
       });
 
-      if (error instanceof ScheduleAgentNotFoundError) {
+      if (
+        error instanceof ScheduleRunNotFoundError ||
+        error instanceof ScheduleNotFoundError ||
+        error instanceof ScheduleAgentNotFoundError
+      ) {
         return c.json({ error: { message: error.message } }, 404);
       }
       const turnError = getTurnExecutionError(error);

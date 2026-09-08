@@ -73,21 +73,40 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
-  constructor(input: {
-    client: TrueFoundryMcpApiClient;
-    context: RequestContext;
-    agent: AgentRecord | undefined;
-    logger: Pick<Logger, 'info'>;
-    perServerHeaders?: PerServerMcpHeaders;
-  }) {
+  constructor(
+    input:
+      | {
+          client: TrueFoundryMcpApiClient;
+          context: RequestContext;
+          agent: AgentRecord | undefined;
+          perServerHeaders?: PerServerMcpHeaders;
+          resolveAccessToken?: never;
+          subject?: never;
+          logger: Logger;
+        }
+      | {
+          client: TrueFoundryMcpApiClient;
+          resolveAccessToken: ResolveAccessToken;
+          subject: RequestSubject;
+          perServerHeaders?: PerServerMcpHeaders;
+          context?: never;
+          agent?: never;
+          logger: Logger;
+        },
+  ) {
     this.#client = input.client;
-    this.#resolveAccessToken = accessTokenForRequest({
-      client: input.client,
-      context: asTrueFoundryRequestContext(input.context),
-      agent: input.agent,
-      logger: input.logger,
-    });
-    this.#subject = input.context.subject;
+    if (input.resolveAccessToken !== undefined) {
+      this.#resolveAccessToken = input.resolveAccessToken;
+      this.#subject = input.subject;
+    } else {
+      this.#resolveAccessToken = accessTokenForRequest({
+        client: input.client,
+        context: asTrueFoundryRequestContext(input.context),
+        agent: input.agent,
+        logger: input.logger,
+      });
+      this.#subject = input.context.subject;
+    }
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 

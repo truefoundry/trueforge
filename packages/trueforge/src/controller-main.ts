@@ -56,6 +56,7 @@ try {
     withTransaction: callback => db.transaction().execute(callback),
     logger,
     baseUrl: configuration.SERVER_URL,
+    apiKey: configuration.TRUEFORGE_API_KEY,
     tls: mtls,
     gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS,
     onStopped: () => db.destroy(),

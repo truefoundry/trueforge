@@ -17,7 +17,7 @@ import { createCatalogRouter } from './apis/catalog';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
-import { createSchedulesRouter } from './apis/schedules';
+import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
@@ -26,7 +26,7 @@ import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
-import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
+import { createAdminAuthMiddleware, createApiKeyAuthMiddleware, createAuthMiddleware } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -201,12 +201,17 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  /** Executes a persisted schedule run without caller-derived identity. */
+  executeScheduleRun: (scheduleRunId: string) => Promise<void>;
+  /** Service credential accepted only by the internal schedule execution route. */
+  scheduleExecutionApiKey: string | undefined;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
+  const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(deps.scheduleExecutionApiKey);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
 
   if (configuration.ACCESS_LOGS) {
@@ -313,22 +318,21 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
+    '/api/internal/schedules',
+    withAuth(
+      createScheduleExecutionRouter({
+        executeScheduleRun: deps.executeScheduleRun,
+      }),
+      scheduleExecutionAuthMiddleware,
+    ),
+  );
+  app.route(
     '/api/v1/schedules',
     withAuth(
       createSchedulesRouter({
         scheduleStore: deps.scheduleStore,
         resolveAgentStore: deps.resolveAgentStore,
-        sessions: deps.sessions,
-        resolveTurnDeps: (c, runAsAgent) => ({
-          activeTurns: deps.activeTurns,
-          eventSubscriptions: deps.eventSubscriptions,
-          modelProviderStore: deps.resolveModelProviderStore(c, runAsAgent),
-          mcpServerStore: deps.resolveMcpServerStore(c, runAsAgent),
-          skillStore: deps.skillStore,
-          agentStore: deps.resolveAgentStore(c),
-          sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-          logger: deps.logger,
-        }),
+        executeScheduleRun: deps.executeScheduleRun,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,

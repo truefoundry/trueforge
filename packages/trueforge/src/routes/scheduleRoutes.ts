@@ -10,6 +10,7 @@ import {
   CreateScheduleRunRequestSchema,
   CreateScheduleRunResponseSchema,
   DeleteScheduleResponseSchema,
+  ExecuteScheduleRunRequestSchema,
   GetScheduleResponseSchema,
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
@@ -146,6 +147,37 @@ export const createScheduleRunRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The run cannot be started (e.g. agent resources unavailable).',
+    },
+  },
+});
+
+export const executeScheduleRunRoute = createRoute({
+  method: 'post',
+  path: '/runs/execute',
+  tags: [OpenApiTag.INTERNAL],
+  summary: 'Execute a schedule run',
+  description: 'Execute a persisted schedule run using its saved schedule and agent.',
+  'x-fern-sdk-group-name': ['internal', 'schedules'],
+  'x-fern-sdk-method-name': 'execute_run',
+  request: {
+    body: {
+      content: { 'application/json': { schema: ExecuteScheduleRunRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    204: { description: 'Run executed or already has a turn.' },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid service credential.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Run, schedule, or agent not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The run cannot be executed.',
     },
   },
 });

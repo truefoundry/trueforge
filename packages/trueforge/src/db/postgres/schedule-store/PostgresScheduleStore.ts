@@ -15,6 +15,7 @@ import {
   type CreateScheduleInput,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
+  type GetRunByIdInput,
   type GetRunInput,
   type GetScheduledRunForInput,
   type GetScheduleInput,
@@ -262,6 +263,15 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .executeTakeFirst();
+    return row === undefined ? undefined : toRunRecord(row);
+  }
+
+  async getRunById(
+    input: GetRunByIdInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleRunRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db.selectFrom('schedule_run').selectAll().where('id', '=', input.id).executeTakeFirst();
     return row === undefined ? undefined : toRunRecord(row);
   }
 

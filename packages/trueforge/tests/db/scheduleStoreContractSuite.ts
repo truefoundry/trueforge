@@ -65,6 +65,10 @@ export function runScheduleStoreContractSuite(deps: {
       }),
     );
     expect(await store.getScheduledRunFor({ tenant_id: TENANT, schedule_id: schedule.id })).toEqual(pendingRun);
+    if (pendingRun === undefined) {
+      throw new Error('Expected active schedule to create a pending run');
+    }
+    expect(await store.getRunById({ id: pendingRun.id })).toEqual(pendingRun);
   });
 
   it('create paused leaves no pending run', async () => {
