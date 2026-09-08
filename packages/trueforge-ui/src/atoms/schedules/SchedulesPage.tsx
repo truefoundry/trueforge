@@ -445,8 +445,7 @@ export function SchedulesPage() {
                       <TableCell className="text-text-primary font-medium">
                         <button
                           type="button"
-                          className="cursor-pointer text-left"
-                          onClick={() => setDrawer({ kind: 'edit', schedule })}
+                          className="text-left !no-underline"
                         >
                           {schedule.name}
                         </button>
