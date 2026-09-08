@@ -13,7 +13,11 @@ import {
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
+import type {
+  DaytonaSandboxProvider as DaytonaSandboxProviderManifest,
+  SandboxProviderManifest,
+  UpdateSandboxProviderRequest,
+} from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 /** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
@@ -27,6 +31,9 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
 }
 
 function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
+  if (manifest.type !== 'daytona') {
+    return manifest;
+  }
   return {
     ...manifest,
     auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
@@ -65,12 +72,15 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const incoming = body.manifest;
-    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
+    if (incoming.type !== 'daytona') {
+      return c.json({ error: { message: 'Only Daytona sandbox providers can be configured via settings' } }, 400);
+    }
+    const resolveManifest = (existing: SandboxProviderRecord | undefined): DaytonaSandboxProviderManifest => ({
       ...incoming,
       auth: {
         api_key: resolveStoredSecretValue({
           incoming: incoming.auth.api_key,
-          existing: existing?.manifest.auth.api_key,
+          existing: existing?.manifest.type === 'daytona' ? existing.manifest.auth.api_key : undefined,
         }),
       },
     });

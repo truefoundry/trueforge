@@ -11,8 +11,8 @@ import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
+  type DaytonaSandboxProvider as DaytonaSandboxProviderManifest,
   type SandboxBuildMetadata,
-  type SandboxProviderManifest,
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
 
@@ -39,7 +39,7 @@ export function toDaytonaSandboxProvider({
   logger,
   build_metadata,
 }: {
-  manifest: SandboxProviderManifest;
+  manifest: DaytonaSandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
@@ -98,7 +98,7 @@ export async function checkSnapshotStatus({
 
   const readyIsFresh =
     record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
-  if (record.status === 'failed' || readyIsFresh) {
+  if (record.status === 'failed' || readyIsFresh || record.manifest.type !== 'daytona') {
     return persisted;
   }
 

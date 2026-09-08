@@ -186,6 +186,10 @@ export async function resolveSandboxProvider({
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
+    if (record.manifest.type !== 'daytona') {
+      // TFY (and other) providers are wired via toSandboxProviderFromRecord in a follow-up.
+      return undefined;
+    }
     // Clone from the snapshot that was actually built (persisted build_ref), not a name
     // derived from the current image — otherwise an image bump breaks creation until rebuild.
     return toDaytonaSandboxProvider({

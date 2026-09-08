@@ -22,9 +22,6 @@ const DaytonaSandboxProviderAuthSchema = z
 
 /**
  * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
- * Left unnamed for OpenAPI so `SandboxProviderManifest` (its single-variant alias)
- * is the one emitted component and the response `manifest` field is a plain `$ref`
- * instead of an `allOf` wrapper.
  */
 export const DaytonaSandboxProviderSchema = z
   .object({
@@ -47,14 +44,30 @@ export const DaytonaSandboxProviderSchema = z
       .nonnegative()
       .describe('Minutes before Daytona auto-deletes the sandbox (0 disables).'),
   })
-  .strict();
+  .strict()
+  .openapi('DaytonaSandboxProvider');
 
 /**
- * Persisted jsonb: the provider config only (no build status). Single variant today —
- * this alias carries the OpenAPI name so the spec emits one `SandboxProviderManifest` component.
- * Widen to `z.discriminatedUnion('type', [...])` when a second provider ships.
+ * TFY (on-prem) sandbox provider config. No auth secrets — server URLs come from deployment env
+ * in TrueFoundry mode; persisted only when synthesized into a store record.
  */
-export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
+export const TFYSandboxProviderSchema = z
+  .object({
+    type: z.literal('tfy').describe('TrueFoundry sandbox provider.'),
+    server_url: z.string().min(1).describe('TFY sandbox HTTP server URL.'),
+    nats_bridge_url: z.string().min(1).describe('Cluster-internal NATS WebSocket bridge URL.'),
+    exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
+  })
+  .strict()
+  .openapi('TFYSandboxProvider');
+
+/**
+ * Persisted jsonb: the provider config only (no build status).
+ * Discriminated on `type` so OpenAPI emits a `oneOf` under `SandboxProviderManifest`.
+ */
+export const SandboxProviderManifestSchema = z
+  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, TFYSandboxProviderSchema])
+  .openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -104,6 +117,7 @@ export const GetSandboxProviderResponseSchema = z
 /** Persisted jsonb — the provider config only (no build status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
+export type TFYSandboxProvider = z.infer<typeof TFYSandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;
@@ -111,7 +125,7 @@ export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProvider
 export type UpdateSandboxProviderRequest = z.infer<typeof UpdateSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
-export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
+export function toDaytonaSandboxProviderInput(manifest: DaytonaSandboxProvider): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
