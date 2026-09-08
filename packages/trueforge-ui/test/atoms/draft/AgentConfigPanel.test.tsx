@@ -230,6 +230,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={onOpenEditor}
