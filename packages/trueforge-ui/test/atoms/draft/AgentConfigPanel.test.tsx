@@ -110,7 +110,9 @@ describe('AgentConfigPanel', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Model settings' }));
-    expect(onOpenEditor).toHaveBeenCalledWith('model-settings');
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Parameters' })).toBeInTheDocument();
+    expect(onOpenEditor).not.toHaveBeenCalledWith('model-settings');
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Runtime Config' }));
     expect(onOpenEditor).toHaveBeenCalledWith('runtime');
@@ -152,6 +154,35 @@ describe('AgentConfigPanel', () => {
     });
     expect(onOpenEditor).not.toHaveBeenCalledWith('model');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('places model settings beside the model selector and opens it independently', () => {
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={onOpenEditor}
+          onChange={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    const modelTrigger = screen.getByRole('button', { name: 'Edit Model' });
+    const settingsTrigger = screen.getByRole('button', { name: 'Model settings' });
+    const modelDropdown = modelTrigger.parentElement?.parentElement;
+    const settingsDropdown = settingsTrigger.parentElement?.parentElement;
+
+    expect(modelDropdown?.parentElement).toBe(settingsDropdown?.parentElement);
+
+    fireEvent.click(settingsTrigger);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.queryByText('Select model')).not.toBeInTheDocument();
+    expect(onOpenEditor).not.toHaveBeenCalled();
   });
 
   it('previews instructions and summarizes initial user messages', () => {

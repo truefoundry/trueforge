@@ -7,6 +7,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'AgentConfigEditors',
   'AgentConfigPanel',
   'AgentConfigSection',
+  'AgentCustomParametersEditor',
   'AgentDetailsHeader',
   'AgentDetailsPage',
   'AgentDetailsTabs',

@@ -681,15 +681,19 @@ describe('layout slot overrides', () => {
     return <button type="button">custom save</button>;
   }
 
-  function CustomActionSlot() {
-    return <button type="button">custom action</button>;
+  function CustomActionSlot({ labeled = false }: { labeled?: boolean }) {
+    return (
+      <button type="button" data-labeled={String(labeled)}>
+        custom action
+      </button>
+    );
   }
 
   // dock and widget render their header through StackChatPanel.
   const hosts = [
-    ['sidebar', SidebarLayout],
-    ['drawer', DrawerLayout],
-    ['dock/widget', StackChatPanel],
+    ['sidebar', SidebarLayout, true],
+    ['drawer', DrawerLayout, false],
+    ['dock/widget', StackChatPanel, false],
   ] as const;
 
   it.each(hosts)('%s honors overrides.ClearChatButton', (_name, Layout) => {
@@ -727,21 +731,28 @@ describe('layout slot overrides', () => {
     expect(clearChat.nextElementSibling).toBe(saveAgent);
   });
 
-  it.each(hosts)('%s honors overrides.ShellActionsActionSlot to the right of shell actions', (_name, Layout) => {
-    render(
-      <SlotsProvider overrides={{ ShellActionsActionSlot: CustomActionSlot }}>
-        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
-          <RuntimeHarness messages={[]}>
-            <div className="h-96">
-              <Layout />
-            </div>
-          </RuntimeHarness>
-        </ShellModeProvider>
-      </SlotsProvider>,
-    );
+  it.each(hosts)(
+    '%s forwards its labeled chrome to overrides.ShellActionsActionSlot',
+    (_name, Layout, expectedLabeled) => {
+      render(
+        <SlotsProvider overrides={{ ShellActionsActionSlot: CustomActionSlot }}>
+          <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+            <RuntimeHarness messages={[]}>
+              <div className="h-96">
+                <Layout />
+              </div>
+            </RuntimeHarness>
+          </ShellModeProvider>
+        </SlotsProvider>,
+      );
 
-    expect(screen.getAllByRole('button', { name: 'custom action' }).length).toBeGreaterThan(0);
-  });
+      const customActions = screen.getAllByRole('button', { name: 'custom action' });
+      expect(customActions.length).toBeGreaterThan(0);
+      for (const action of customActions) {
+        expect(action).toHaveAttribute('data-labeled', String(expectedLabeled));
+      }
+    },
+  );
 
   const settingsCatalog: CatalogServer = {
     modelCatalog: {

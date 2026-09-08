@@ -43,6 +43,7 @@ import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '.
 import { ComposerShell } from '../atoms/ComposerShell.js';
 import { AgentConfigEditors } from '../atoms/draft/AgentConfigEditors.js';
 import { AgentConfigPanel, AgentConfigSection } from '../atoms/draft/AgentConfigPanel.js';
+import { AgentCustomParametersEditor } from '../atoms/draft/AgentCustomParametersEditor.js';
 import { AgentInstructionsDrawer } from '../atoms/draft/AgentInstructionsDrawer.js';
 import { AgentMcpEditorContent } from '../atoms/draft/AgentMcpEditorContent.js';
 import { AgentModelConfigModal } from '../atoms/draft/AgentModelConfigModal.js';
@@ -145,6 +146,7 @@ export const defaultSlots = {
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
   DraftCapabilitiesPanel,
+  AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
   AgentModelEditorContent,
