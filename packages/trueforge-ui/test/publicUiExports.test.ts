@@ -26,7 +26,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'AgentResourceEditorContent',
   'AgentResourceConfigModal',
   'AgentRuntimeConfigFields',
-  'AgentRuntimeConfigModal',
+  'AgentRuntimeConfigDrawer',
   'AgentRuntimeEditorContent',
   'AgentSkillsEditorContent',
   'AgentSessionsFilters',

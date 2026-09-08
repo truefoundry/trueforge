@@ -41,7 +41,7 @@ export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShel
     >
       <div
         className={cn(
-          'mx-auto flex w-full min-w-0 max-w-(--thread-max-width) flex-col px-3 pt-3 sm:px-4 sm:pt-4',
+          'mx-auto flex w-full min-w-0 max-w-(--thread-max-width) flex-col px-3 pt-3',
           isEmpty ? 'min-h-full justify-center pb-4' : 'pb-32',
         )}
       >

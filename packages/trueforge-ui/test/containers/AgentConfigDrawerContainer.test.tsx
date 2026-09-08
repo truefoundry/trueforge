@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SaveAgentButton } from '@/atoms/SaveAgentButton.js';
@@ -101,6 +101,33 @@ describe('AgentConfigDrawerContainer', () => {
 
     expect(screen.getByTestId('config-open')).toHaveTextContent('true');
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
+  });
+
+  it('opens Runtime Config in a second right-side drawer', async () => {
+    render(
+      <SlotsProvider>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+            <AgentConfigInstructionsProvider>
+              <TestView compact={false} />
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open config' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Runtime Config' }));
+
+    const runtimeDrawer = await screen.findByRole('dialog', { name: 'Runtime Config' });
+    expect(runtimeDrawer).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
+    fireEvent.click(within(runtimeDrawer).getByRole('switch', { name: 'Generative UI' }));
+
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      model: { name: 'openai/gpt-4.1' },
+      config: { generativeUi: { enabled: false } },
+      instructions: undefined,
+    });
   });
 
   it('commits drawer instructions and messages in one spec update', () => {

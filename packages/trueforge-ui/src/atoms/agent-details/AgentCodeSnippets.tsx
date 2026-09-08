@@ -54,26 +54,37 @@ export default function AgentCodeSnippets({ snippets }: AgentCodeSnippetsProps) 
       </nav>
 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card-bg">
-        <div className="flex h-10 shrink-0 items-end gap-1 border-b border-border px-3">
-          {(
-            [
-              ['stream', 'Stream'],
-              ['nonStream', 'Non-stream'],
-            ] satisfies Array<[SnippetMode, string]>
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              className={cn(
-                'relative h-10 cursor-pointer px-3 text-xs font-medium text-text-secondary',
-                mode === id &&
-                  'text-primary-button-bg after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary-button-bg',
-              )}
-              onClick={() => setMode(id)}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex h-10 shrink-0 items-center justify-between gap-1 border-b border-border px-3">
+          <div className="flex items-end gap-1">
+            {(
+              [
+                ['stream', 'Stream'],
+                ['nonStream', 'Non-stream'],
+              ] satisfies Array<[SnippetMode, string]>
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={cn(
+                  'relative h-10 cursor-pointer px-3 text-xs font-medium text-text-secondary',
+                  mode === id &&
+                    'text-primary-button-bg after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-primary-button-bg',
+                )}
+                onClick={() => setMode(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <a
+            href="https://trueforge.dev/api/use-agent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-xs text-text-secondary"
+          >
+            <span>View Docs</span>
+            <Icon name="external-link" className="size-3 shrink-0" />
+          </a>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
           <AgentCodeBlock code={selected.sampleCode[mode]} language={selected.language} />

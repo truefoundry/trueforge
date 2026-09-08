@@ -31,6 +31,10 @@ function entryIsMutable(entry: SessionListEntry): boolean {
   return entry.agentName == null;
 }
 
+function entrySourceType(entry: SessionListEntry): 'schedule' | undefined {
+  return 'sourceType' in entry && Reflect.get(entry, 'sourceType') === 'schedule' ? 'schedule' : undefined;
+}
+
 export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
@@ -243,6 +247,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                   key={entry.id}
                   title={sessionTitle(entry)}
                   agentName={entry.agentName ?? undefined}
+                  sourceType={entrySourceType(entry)}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
                   active={entry.id === selectedSessionId}
