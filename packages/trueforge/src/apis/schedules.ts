@@ -6,8 +6,8 @@ import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-cor
 import type { Context } from 'hono';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import { ScheduleAgentNotFoundError, startScheduleRun } from '../controller/scheduleDispatch';
-import type { IAgentStore } from '../db/agentStore';
+import { ScheduleAgentNotFoundError, scheduleRunFailureReason, startScheduleRun } from '../controller/scheduleDispatch';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
   manualRunName,
   ScheduleNameConflictError,
@@ -41,7 +41,7 @@ export interface SchedulesRouterDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   sessions: Sessions;
-  resolveTurnDeps: (c: Context) => BeginTurnExecutionDeps;
+  resolveTurnDeps: (c: Context, runAsAgent?: AgentRecord) => BeginTurnExecutionDeps;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -68,6 +68,7 @@ function toWireScheduleRun(record: ScheduleRunRecord): ScheduleRun {
     status: record.status,
     created_by_subject: record.created_by_subject,
     triggered_at: record.triggered_at,
+    reason: record.reason,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -223,7 +224,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         sessions: deps.sessions,
         agentStore: deps.resolveAgentStore(c),
         startTurn: async turnParams => {
-          await startTurnInProcess({ ...turnParams, deps: deps.resolveTurnDeps(c) });
+          await startTurnInProcess({ ...turnParams, deps: deps.resolveTurnDeps(c, agent) });
         },
       });
     } catch (error) {
@@ -231,6 +232,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         tenant_id: requestContext.tenant_id,
         id: run.id,
         status: 'failed',
+        reason: scheduleRunFailureReason(error),
       });
 
       if (error instanceof ScheduleAgentNotFoundError) {

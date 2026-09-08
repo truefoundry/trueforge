@@ -32,7 +32,7 @@ import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
 import configuration, { getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
-import type { IAgentStore } from './db/agentStore';
+import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -167,12 +167,12 @@ export interface ServerDeps<TTransaction> {
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
    * The unauthenticated OAuth callback has no context and gets the DB persistence store.
    */
-  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -319,11 +319,11 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         scheduleStore: deps.scheduleStore,
         resolveAgentStore: deps.resolveAgentStore,
         sessions: deps.sessions,
-        resolveTurnDeps: c => ({
+        resolveTurnDeps: (c, runAsAgent) => ({
           activeTurns: deps.activeTurns,
           eventSubscriptions: deps.eventSubscriptions,
-          modelProviderStore: deps.resolveModelProviderStore(c),
-          mcpServerStore: deps.resolveMcpServerStore(c),
+          modelProviderStore: deps.resolveModelProviderStore(c, runAsAgent),
+          mcpServerStore: deps.resolveMcpServerStore(c, runAsAgent),
           skillStore: deps.skillStore,
           agentStore: deps.resolveAgentStore(c),
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),

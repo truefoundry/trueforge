@@ -1,9 +1,9 @@
 import { TrueForgeAuthMode } from '../config';
+import { TrueFoundryAuthenticator } from '../truefoundry/TrueFoundryAuthenticator';
 import type { TrueFoundryServiceFoundryServerClient } from '../truefoundry/TrueFoundryServiceFoundryServerClient';
 import type { Authenticator } from './authenticator';
 import { OidcAuthenticator } from './oidcAuthenticator';
 import { StandaloneAuthenticator } from './standaloneAuthenticator';
-import { TrueFoundryAuthenticator } from './trueFoundryAuthenticator';
 
 export type CreateAuthenticatorParams =
   | { mode: TrueForgeAuthMode.Standalone }

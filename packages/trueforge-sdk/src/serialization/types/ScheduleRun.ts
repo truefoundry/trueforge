@@ -12,6 +12,7 @@ export const ScheduleRun: core.serialization.ObjectSchema<serializers.ScheduleRu
         createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
         id: core.serialization.string(),
         name: core.serialization.string(),
+        reason: core.serialization.string().nullable(),
         scheduleId: core.serialization.property("schedule_id", core.serialization.string()),
         scheduledFor: core.serialization.property("scheduled_for", core.serialization.date()),
         status: ScheduleRunStatus,
@@ -25,6 +26,7 @@ export declare namespace ScheduleRun {
         created_by_subject: CreatedBySubject.Raw;
         id: string;
         name: string;
+        reason?: string | null;
         schedule_id: string;
         scheduled_for: string;
         status: ScheduleRunStatus.Raw;
