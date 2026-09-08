@@ -8,6 +8,7 @@ export type ThemePreset = 'trueforge' | 'claude' | 'chatgpt' | 'gemini';
 export type SemanticTokens = {
   // Across product
   sidebarBg: string;
+  sidebarText: string;
   topbarBg: string;
   primaryBg: string;
   secondaryBg: string;
@@ -156,6 +157,7 @@ export type LayoutProp = BuiltInLayout | ComponentType<{ className?: string }>;
 /** camelCase SemanticTokens key → CSS custom property name */
 export const TOKEN_CSS_VARS: Record<keyof SemanticTokens, string> = {
   sidebarBg: '--sidebar-bg',
+  sidebarText: '--sidebar-text',
   topbarBg: '--topbar-bg',
   primaryBg: '--primary-bg',
   secondaryBg: '--secondary-bg',

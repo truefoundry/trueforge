@@ -110,10 +110,12 @@ theme and settings buttons.
 ## Primitives
 
 `BottomSheet`, `CenteredModal`, `Avatar` / `AvatarImage` / `AvatarFallback`, `Icon`, `Toast`,
-`ToastStack`, `CodeEditor`, `MonacoEditorCore`.
+`ToastStack`, `CodeEditor`, `MonacoEditorCore`, `Button` (`Button.Primary`, `Button.Secondary`,
+`Button.Ghost`, `Button.Destructive`).
 
 <Note>
-  `ButtonProps`, `ButtonVariant`, `ButtonSize`, and `IconButtonProps` are available as types
-  for typing your own components. The buttons themselves are styled through semantic tokens
-  rather than replaced — see [Theming](/ui-sdk/setup-custom-ui/custom-theme).
+  `Button` is a public design-system atom (`Button.Primary` / `.Secondary` / `.Ghost` /
+  `.Destructive`, or `variant` for dynamic cases). `ButtonProps`, `ButtonVariant`, `ButtonSize`,
+  and `IconButtonProps` are also available as types. Buttons are styled through semantic tokens
+  rather than slot overrides — see [Theming](/ui-sdk/setup-custom-ui/custom-theme).
 </Note>

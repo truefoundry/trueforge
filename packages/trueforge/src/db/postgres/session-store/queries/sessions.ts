@@ -251,6 +251,13 @@ export async function listSessions(
     query = query.where('agent_id', '=', input.agent_id);
   }
   query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
+  if (input.metadata !== undefined) {
+    if (Object.keys(input.metadata).length === 0) {
+      query = query.where(sql<boolean>`metadata = '{}'::jsonb`);
+    } else {
+      query = query.where(sql<boolean>`metadata @> ${json(input.metadata)}`);
+    }
+  }
   if (input.source_type !== undefined) {
     query = query.where(sql`source->>'type'`, '=', input.source_type);
   }

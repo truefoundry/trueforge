@@ -194,9 +194,8 @@ const ConnectorDetails = ({
           </div>
 
           {connector.auth.type === 'dcr' && !connector.authenticated ? (
-            <Button
-              variant="outline"
-              size="sm"
+            <Button.Secondary
+              size="small"
               type="button"
               disabled={busy || connecting}
               onClick={() => {
@@ -206,11 +205,11 @@ const ConnectorDetails = ({
               }}
             >
               {connecting ? 'Connecting…' : 'Connect'}
-            </Button>
+            </Button.Secondary>
           ) : connector.auth.type === 'dcr' && !connector.requiresAuth ? (
-            <Button variant="outline" size="sm" type="button" disabled={busy} onClick={onDisconnect}>
+            <Button.Secondary size="small" type="button" disabled={busy} onClick={onDisconnect}>
               Disconnect
-            </Button>
+            </Button.Secondary>
           ) : null}
         </header>
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useThemeMode } from '../../theme/SlotsProvider.js';
 import { formatCostUsd, formatDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import {
   formatTimelineDuration,
@@ -8,7 +9,11 @@ import {
   SESSION_EVENT_TOOLTIP_HIDE_DURATION,
   type SessionEventTimelineSegment,
 } from '../../utils/sessionEventTimeline.js';
-import type { TimelineSubAgentGroup, TimelineToolCallGroup } from '../../utils/sessionEventTimelineChart.js';
+import type {
+  TimelineMarkerGroup,
+  TimelineSubAgentGroup,
+  TimelineToolCallGroup,
+} from '../../utils/sessionEventTimelineChart.js';
 import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
 
 export function hasSessionEventTooltip(segment: SessionEventTimelineSegment): boolean {
@@ -62,6 +67,7 @@ export function SessionTurnTooltip({
   durationMs: number;
   segments: SessionEventTimelineSegment[];
 }) {
+  const isDark = useThemeMode() === 'dark';
   return (
     <div className="max-h-72 w-72 max-w-full overflow-auto text-xs text-text-primary">
       <div className="flex items-center justify-between gap-3">
@@ -80,7 +86,7 @@ export function SessionTurnTooltip({
             <div key={segment.id} className="flex min-w-0 items-center gap-1.5">
               <span
                 className="size-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: getSessionEventColor(segment.type) }}
+                style={{ backgroundColor: getSessionEventColor(segment.type, isDark) }}
               />
               <span className="min-w-0 flex-1 truncate">{label}</span>
               {segment.isMarker ? null : (
@@ -119,6 +125,34 @@ export function SessionToolCallGroupTooltip({ group }: { group: TimelineToolCall
   );
 }
 
+export function SessionMarkerGroupTooltip({ group }: { group: TimelineMarkerGroup }) {
+  const isDark = useThemeMode() === 'dark';
+  const singleSegment = group.segments.length === 1 ? group.segments[0] : undefined;
+  if (singleSegment != null) return <SessionEventTooltip segment={singleSegment} />;
+
+  return (
+    <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
+      <span className="font-medium text-text-secondary">Events</span>
+      <div className="mt-1.5 border-t border-border pt-1.5">
+        {group.segments.map(segment => (
+          <div key={segment.id} className="flex min-w-0 items-start gap-1.5 py-0.5">
+            <span
+              className="mt-1 size-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: getSessionEventColor(segment.type, isDark) }}
+            />
+            <div className="min-w-0">
+              <div className="font-medium text-text-secondary">{getSessionEventTooltipHeading(segment.type)}</div>
+              <div className="wrap-break-word font-medium text-text-primary">
+                {segment.description.trim() || segment.title}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SessionSubAgentGroupTooltip({ group }: { group: TimelineSubAgentGroup }) {
   return (
     <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
@@ -130,11 +164,15 @@ export function SessionSubAgentGroupTooltip({ group }: { group: TimelineSubAgent
         {group.segments.map((segment, index) => (
           <div key={segment.id} className="flex items-center justify-between gap-2 py-0.5">
             <span className="min-w-0 truncate font-medium text-text-primary">
-              {`Sub-agent ${index + 1}: ${segment.description || segment.title}`}
+              {group.segments.length === 1
+                ? segment.description || segment.title
+                : `Sub-agent ${index + 1}: ${segment.description || segment.title}`}
             </span>
-            <span className="shrink-0 tabular-nums text-text-secondary">
-              {formatTimelineDuration(segment.endMs - segment.startMs)}
-            </span>
+            {group.segments.length === 1 ? null : (
+              <span className="shrink-0 tabular-nums text-text-secondary">
+                {formatTimelineDuration(segment.endMs - segment.startMs)}
+              </span>
+            )}
           </div>
         ))}
       </div>

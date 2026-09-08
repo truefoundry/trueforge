@@ -29,6 +29,7 @@ describe('IconButton', () => {
     expect(button).toHaveAttribute('type', 'button');
     expect(button).toHaveAttribute('data-track', 'settings');
     expect(button).toHaveClass('h-8', 'w-8', 'host-icon-button');
+    expect(button.className).toMatch(/\[&_svg\]:size-3\.5/);
 
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledOnce();

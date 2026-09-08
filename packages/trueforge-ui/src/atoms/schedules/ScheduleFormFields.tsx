@@ -78,7 +78,7 @@ export function ScheduleFormFields({
           value={values.name}
           onChange={e => set('name', e.target.value)}
           placeholder="harness-daily-digest"
-          className={auiInputClass('h-9')}
+          className={auiInputClass('h-8')}
           required
         />
       </label>

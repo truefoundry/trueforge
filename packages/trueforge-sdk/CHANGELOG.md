@@ -1,4 +1,14 @@
+## [0.1.4-rc.2] - 2026-09-08
+
 ## [0.1.4-rc.1] - 2026-09-07
+
+## 0.1.4-rc.2
+
+### Patch Changes
+
+- a000b47: List sessions accepts `metadata[key]=value` query params (OpenAPI deepObject) for exact metadata containment filtering. Bare JSON-string `metadata` query params are rejected. Metadata keys are limited to 32 characters and cannot include `[]` or whitespace so they do not collide with the bracket query form.
+- 0ec8dc6: Omit session `total_cost_in_usd` when cost is unavailable (instead of defaulting to 0), matching turn metrics.
+- 11865b4: Add optional session `source`. Persist as nullable JSONB with a list filter index; expose on session responses and list via `source_type` / `source_id`. Schedule dispatch sets source on create; public create/update do not accept it.
 
 ## [0.1.4-rc.0] - 2026-08-27
 

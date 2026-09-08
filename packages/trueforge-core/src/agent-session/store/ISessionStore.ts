@@ -11,6 +11,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
+import type { SessionMetadata } from '../schemas/session';
 import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
 
 /**
@@ -71,6 +72,12 @@ export interface ListSessionsInput {
         agent_ids: readonly string[];
       }
     | undefined;
+  /**
+   * When set, only sessions whose metadata contains all key/value pairs
+   * (exact string equality; extra session keys are allowed).
+   * `undefined` means no metadata filter; `{}` matches only sessions with empty metadata.
+   */
+  metadata: SessionMetadata | undefined;
   /** When set, only sessions whose `source.type` matches. */
   source_type: string | undefined;
   /**

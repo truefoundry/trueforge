@@ -2,13 +2,14 @@
 
 import { useCallback, useMemo, useState, type ComponentType } from 'react';
 
-import { useSlot } from '../../theme/SlotsProvider.js';
-import { SESSION_EVENT_TYPES, type SessionEventType } from '../../utils/sessionEventTimeline.js';
+import { useSlot, useThemeMode } from '../../theme/SlotsProvider.js';
+import { getSessionEventColor, SESSION_EVENT_TYPES, type SessionEventType } from '../../utils/sessionEventTimeline.js';
 import { cn } from '../lib/cn.js';
 import type { AgentSessionEventTimelineProps } from './types.js';
 
 export function AgentSessionEventTimeline({ turns, segments, onSelectTurn }: AgentSessionEventTimelineProps) {
   const AgentSessionEventTimelineChart = useSlot('AgentSessionEventTimelineChart');
+  const isDark = useThemeMode() === 'dark';
   const [hiddenTypes, setHiddenTypes] = useState<Set<SessionEventType>>(() => new Set());
 
   const availableEventTypes = useMemo(() => {
@@ -48,7 +49,10 @@ export function AgentSessionEventTimeline({ turns, segments, onSelectTurn }: Age
                 )}
                 onClick={() => handleToggleType(eventType.id)}
               >
-                <span className="size-2 rounded-sm" style={{ backgroundColor: eventType.color }} />
+                <span
+                  className="size-2 rounded-sm"
+                  style={{ backgroundColor: getSessionEventColor(eventType.id, isDark) }}
+                />
                 {eventType.label}
               </button>
             );

@@ -6,7 +6,7 @@
 # On every push to main, changesets/action/select-mode chooses:
 #   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
 #     (install only; that PR is gated by CI.yml)
-#   - none pending + unpublished versions → pack (build/test) then publish
+#   - none pending + unpublished versions → pack (build/test) + Windows npx smoke, then publish
 # Merge the Version Packages PR to publish. There is no separate publish Action
 # and no `v*` tag trigger.
 #
@@ -136,9 +136,36 @@ jobs:
         with:
           publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id }}
 
+  windows-npx-smoke:
+    name: Windows npx smoke
+    if: needs.select-mode.outputs.mode == 'publish'
+    needs: select-mode
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Pack and boot published CLI
+        run: pnpm smoke:npx
+
   publish:
     name: Publish packages
-    needs: pack
+    needs: [pack, windows-npx-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -204,6 +231,7 @@ jobs:
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
             echo "Published @truefoundry/trueforge@$VERSION"
+            sleep 30
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
             echo "version=" >> "$GITHUB_OUTPUT"
