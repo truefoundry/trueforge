@@ -32,7 +32,7 @@ import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
-import type { IAgentStore } from '../db/agentStore';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -105,8 +105,8 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
+  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
   skillStore: ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
@@ -727,6 +727,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
+    let referencedAgent: AgentRecord | undefined;
     if (session.record.agent.type === 'reference') {
       const agentId = session.record.agent.id;
       const agent = await deps.resolveAgentStore(c).getAgent({
@@ -744,6 +745,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (!canUseAgent) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
       }
+      referencedAgent = agent;
     }
 
     const turnParams = {
@@ -753,8 +755,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       userRef: requestContext.subject.id,
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
+        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
+        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },

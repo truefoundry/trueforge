@@ -1,5 +1,6 @@
+import type { RequestContext } from '../../../src/auth/identity';
+import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/errors';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/trueFoundryManaged';
 import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
 
 jest.mock('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig', () => {
@@ -16,6 +17,12 @@ const mockResolveConfig = resolveTrueFoundrySandboxProviderConfig as jest.Mocked
 
 const ACCESS_TOKEN = 'caller-token';
 const TENANT = 'acme';
+const context: RequestContext = {
+  tenant_id: TENANT,
+  subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+  roles: [],
+  user_credential: ACCESS_TOKEN,
+};
 const SETTINGS_BODY = {
   snapshotName: 'tfy-sandbox-snap',
   autoStopIntervalInMinutes: 10,
@@ -52,7 +59,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
   it('get returns undefined when shared sandbox is not configured', async () => {
     mockResolveConfig.mockReturnValue(undefined);
     const fetchMock = mockSettingsFetch();
-    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
+    const store = new TrueFoundrySandboxProviderStore({ context });
     await expect(store.getSandboxProvider(TENANT)).resolves.toBeUndefined();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -61,14 +68,14 @@ describe('TrueFoundrySandboxProviderStore', () => {
     const timeout = new Error('The operation was aborted due to timeout');
     timeout.name = 'TimeoutError';
     global.fetch = jest.fn().mockRejectedValue(timeout) as typeof fetch;
-    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
+    const store = new TrueFoundrySandboxProviderStore({ context });
 
     await expect(store.getSandboxProvider(TENANT)).rejects.toThrow('Sandbox settings endpoint timed out after 10s');
   });
 
   it('get returns ready Daytona record with snapshot build_ref from settings server', async () => {
     const fetchMock = mockSettingsFetch();
-    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
+    const store = new TrueFoundrySandboxProviderStore({ context });
 
     const record = await store.getSandboxProvider(TENANT);
 
@@ -93,7 +100,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
   });
 
   it('writes and get-for-update are managed (424)', () => {
-    const store = new TrueFoundrySandboxProviderStore({ accessToken: ACCESS_TOKEN });
+    const store = new TrueFoundrySandboxProviderStore({ context });
     const assertManaged = (run: () => unknown) => {
       try {
         run();

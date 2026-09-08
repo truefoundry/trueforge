@@ -8232,7 +8232,7 @@
                 }
               }
             },
-            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
+            "description": "Unsupported operation because the MCP servers are managed by external system"
           }
         },
         "summary": "Create an MCP server",
@@ -8296,7 +8296,7 @@
                 }
               }
             },
-            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
+            "description": "Unsupported operation because the MCP servers are managed by external system"
           }
         },
         "summary": "Create or replace an MCP server",
@@ -8455,7 +8455,7 @@
                 }
               }
             },
-            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
+            "description": "Unsupported operation because the model providers are managed by external system"
           }
         },
         "summary": "Create a model provider",
@@ -8509,7 +8509,7 @@
                 }
               }
             },
-            "description": "Resource is managed by TrueFoundry (`TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set)."
+            "description": "Unsupported operation because the model providers are managed by external system"
           }
         },
         "summary": "Create or replace a model provider",
