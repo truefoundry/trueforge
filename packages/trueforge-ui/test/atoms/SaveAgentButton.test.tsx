@@ -198,7 +198,7 @@ describe('SaveAgentButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
-    expect(dialog).toHaveClass('bg-card-bg', 'text-text-primary');
+    expect(dialog).toHaveClass('bg-card-bg', 'text-text-primary', 'md:ml-auto', 'md:mr-0', 'md:h-dvh');
     expect(within(dialog).getByLabelText('Agent name')).toHaveClass(
       'border-input-border',
       'bg-input-box-bg',
@@ -349,7 +349,7 @@ describe('SaveAgentButton', () => {
     );
   });
 
-  it('discards modal-only changes when closed', async () => {
+  it('discards drawer-only changes when closed', async () => {
     renderButton();
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
     const dialog = await screen.findByRole('dialog', { name: 'Save agent' });

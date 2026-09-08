@@ -16,7 +16,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
 import { Button } from './primitives/Button.js';
-import { CenteredModal } from './primitives/CenteredModal.js';
+import { SideDrawer } from './primitives/SideDrawer.js';
 
 type SaveIntent = 'create' | 'update';
 
@@ -156,11 +156,12 @@ function SaveAgentButtonContent({
         {triggerLabel}
       </Button.Primary>
 
-      <CenteredModal
+      <SideDrawer
         open={open}
         onOpenChange={next => !next && close()}
         title={intent === 'create' ? 'Save agent' : 'Update agent'}
-        className="md:h-auto md:max-h-[85dvh] md:max-w-2xl"
+        anchor="right"
+        size="md"
         aria-label={intent === 'create' ? 'Save agent' : 'Update agent'}
       >
         {draftSpec ? (
@@ -176,7 +177,7 @@ function SaveAgentButtonContent({
             onSave={() => void save()}
           />
         ) : null}
-      </CenteredModal>
+      </SideDrawer>
     </>
   );
 }

@@ -2,4 +2,4 @@
 "@truefoundry/trueforge-ui": minor
 ---
 
-Limit Save Agent to name and description while preserving configuration from Agent Config.
+Open Save Agent in a right-side drawer with only name and description while preserving configuration from Agent Config.
