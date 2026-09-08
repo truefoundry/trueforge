@@ -47,7 +47,7 @@ export function agentAccessToken(input: {
   client: AgentTokenVendor;
   context: RequestContext;
   agent: AgentRecord;
-  logger: Logger;
+  logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
   const { client, context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
@@ -88,7 +88,7 @@ export function accessTokenForRequest(input: {
   client: AgentTokenVendor;
   context: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
-  logger: Logger;
+  logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
   if (input.agent === undefined) {
     return callerAccessToken(input.context);
