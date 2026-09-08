@@ -88,6 +88,10 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
     if (!providerConfig) {
       return undefined;
     }
+    // TFY record synthesis is wired separately; only Daytona is materialized here.
+    if (providerConfig.type !== 'daytona') {
+      return undefined;
+    }
     const settings = await resolveDaytonaSandboxSettings({
       accessToken: await this.#resolveAccessToken(),
       settingsServerUrl: providerConfig.settingsServerUrl,
