@@ -75,7 +75,7 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
   const replaceAllParams = (next: ModelParams) => {
     const cleared = Object.fromEntries(
       Object.keys(params)
-        .filter(key => !(key in next))
+        .filter(key => !Object.hasOwn(next, key))
         .map(key => [key, undefined]),
     );
     replaceParams({ ...cleared, ...next });
