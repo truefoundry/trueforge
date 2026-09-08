@@ -558,6 +558,10 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
+  /**
+   * Required when `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set. Env: `TRUEFOUNDRY_API_KEY`.
+   */
+  TRUEFOUNDRY_API_KEY: string | undefined;
   /** Max ms for non-agent ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS`. Default 10000. */
   TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: number;
   /** Max ms for agent CRUD ServiceFoundry HTTP calls. Env: `TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS`. Default 3000. */
@@ -575,6 +579,22 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_MTLS_CERTS_DIR`. Default `/etc/tls/truefoundry`.
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
+  /**
+   * When TrueFoundry mode is on, enable the shared Daytona sandbox for all tenants
+   * (settings-server snapshot; no per-tenant PUT). Env: `TRUEFOUNDRY_SANDBOX_ENABLED`. Default false.
+   */
+  TRUEFOUNDRY_SANDBOX_ENABLED: boolean;
+  /**
+   * Shared Daytona API key used when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_SANDBOX_API_KEY`.
+   */
+  TRUEFOUNDRY_SANDBOX_API_KEY: string | undefined;
+  /**
+   * Trusted internal URL that returns Daytona snapshot name and lifecycle settings
+   * (`snapshotName`, intervals, `timeoutMs`). Used when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL`.
+   */
+  TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -718,6 +738,7 @@ const configuration: ServerConfiguration = standalone
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
         envKey: 'TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS',
         raw: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS'),
@@ -735,6 +756,13 @@ const configuration: ServerConfiguration = standalone
       }),
       TRUEFOUNDRY_MTLS_CERTS_DIR:
         getEnv('TRUEFOUNDRY_MTLS_CERTS_DIR', { defaultValue: '/etc/tls/truefoundry' }) ?? '/etc/tls/truefoundry',
+      TRUEFOUNDRY_SANDBOX_ENABLED: parseBoolean({
+        envKey: 'TRUEFOUNDRY_SANDBOX_ENABLED',
+        raw: getEnv('TRUEFOUNDRY_SANDBOX_ENABLED'),
+        defaultValue: false,
+      }),
+      TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
+      TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -774,11 +802,29 @@ export function getTrueForgeAuthMode(config: ServerConfiguration = configuration
   return TrueForgeAuthMode.Standalone;
 }
 
-// TrueFoundry authenticates each caller with their own gateway token, so browser SSO must be off.
-if (isTrueFoundryModeEnabled(configuration) && isOidcConfigured(configuration)) {
-  throw new Error(
-    'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL (TrueFoundry mode) and OIDC (SSO) cannot both be enabled at once.',
-  );
+if (isTrueFoundryModeEnabled(configuration)) {
+  // TrueFoundry authenticates each caller with their own gateway token, so browser SSO must be off.
+  if (isOidcConfigured(configuration)) {
+    throw new Error(
+      'TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL (TrueFoundry mode) and OIDC (SSO) cannot both be enabled at once.',
+    );
+  }
+  // TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.
+  if (configuration.TRUEFOUNDRY_API_KEY === undefined) {
+    throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
+  }
+  // Shared sandbox: TRUEFOUNDRY_SANDBOX_ENABLED requires a provider (Daytona today).
+  if (configuration.TRUEFOUNDRY_SANDBOX_ENABLED) {
+    if (
+      configuration.TRUEFOUNDRY_SANDBOX_API_KEY === undefined ||
+      configuration.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL === undefined
+    ) {
+      throw new Error(
+        'TRUEFOUNDRY_SANDBOX_ENABLED is true but no sandbox provider is configured. ' +
+          'Set TRUEFOUNDRY_SANDBOX_API_KEY + TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+      );
+    }
+  }
 }
 
 /**

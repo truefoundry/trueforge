@@ -11,7 +11,6 @@ import {
   ListModelProvidersResponseSchema,
   UpdateModelProviderRequestSchema,
 } from '../schemas/modelProvider';
-import { trueFoundryManagedResponse } from '../truefoundry/trueFoundryManaged';
 import { OpenApiTag } from './openapiTags';
 
 export const listModelProvidersRoute = createRoute({
@@ -67,7 +66,10 @@ export const createModelProviderRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'A model provider with this name already exists.',
     },
-    424: trueFoundryManagedResponse,
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the model providers are managed by external system',
+    },
   },
 });
 
@@ -96,6 +98,9 @@ export const putModelProviderRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
     },
-    424: trueFoundryManagedResponse,
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the model providers are managed by external system',
+    },
   },
 });

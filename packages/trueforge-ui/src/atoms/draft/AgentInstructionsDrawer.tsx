@@ -6,6 +6,7 @@ import { useId, useRef, useState } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { Button } from '../primitives/Button.js';
 import { SideDrawer } from '../primitives/SideDrawer.js';
 
 type UserMessageDraft = {
@@ -78,9 +79,9 @@ export function AgentInstructionsDrawer({
       aria-label="Edit Instructions"
       footer={
         <div className="flex justify-end">
-          <button type="button" className={auiButtonClass({ variant: 'default' })} onClick={save}>
+          <Button.Primary type="button" onClick={save}>
             Save
-          </button>
+          </Button.Primary>
         </div>
       }
     >
@@ -106,14 +107,10 @@ export function AgentInstructionsDrawer({
               <h3 className="text-text-primary text-sm font-semibold">User Messages</h3>
               <p className="text-text-secondary mt-1 text-xs">Add initial messages to every new agent session.</p>
             </div>
-            <button
-              type="button"
-              className={auiButtonClass({ variant: 'outline', size: 'sm' })}
-              onClick={addUserMessage}
-            >
+            <Button.Secondary type="button" size="small" onClick={addUserMessage}>
               <Icon name="plus" className="size-3.5" />
               Add User Message
-            </button>
+            </Button.Secondary>
           </div>
 
           {messageDrafts.length > 0 ? (

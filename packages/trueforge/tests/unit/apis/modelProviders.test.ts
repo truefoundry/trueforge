@@ -105,7 +105,7 @@ async function createRouters(): Promise<{
         }),
       tokenStore,
       skillStore: new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

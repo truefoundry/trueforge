@@ -1,5 +1,6 @@
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely, type Transaction } from 'kysely';
+import type { RequestContext } from '../auth/identity';
 import {
   type AgentRecord,
   type CreateAgentInput,
@@ -11,6 +12,7 @@ import {
 } from '../db/agentStore';
 import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStore';
 import type { Database } from '../db/postgres/types';
+import { callerAccessToken, type ResolveAccessToken } from './accessToken';
 import {
   TrueFoundryServiceFoundryServerClient,
   type PutRemoteAgentInput,
@@ -66,18 +68,18 @@ function toPutRemoteAgentPayload({
 export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>> {
   readonly #inner: PostgresAgentStore;
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #accessToken: string;
+  readonly #resolveAccessToken: ResolveAccessToken;
   readonly #db: Kysely<Database>;
 
   constructor(input: {
     inner: PostgresAgentStore;
     client: TrueFoundryServiceFoundryServerClient;
-    accessToken: string;
+    context: RequestContext;
     db: Kysely<Database>;
   }) {
     this.#inner = input.inner;
     this.#client = input.client;
-    this.#accessToken = input.accessToken;
+    this.#resolveAccessToken = callerAccessToken(input.context);
     this.#db = input.db;
   }
 
@@ -114,7 +116,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
     let externalId: string | undefined;
     try {
       ({ externalId } = await this.#client.putRemoteAgent({
-        accessToken: this.#accessToken,
+        accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({ name: input.name, manifest: input.manifest }),
       }));
       const updated = await this.#inner.updateAgent(
@@ -129,7 +131,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       const failures = [asError(error)];
       if (externalId !== undefined) {
         try {
-          await this.#client.deleteRemoteAgent({ accessToken: this.#accessToken, externalId });
+          await this.#client.deleteRemoteAgent({ accessToken: await this.#resolveAccessToken(), externalId });
         } catch (cleanupError) {
           failures.push(asError(cleanupError));
         }
@@ -160,7 +162,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       }
 
       const { externalId } = await this.#client.putRemoteAgent({
-        accessToken: this.#accessToken,
+        accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({ name: previous.name, manifest: nextManifest }),
       });
 
@@ -177,7 +179,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       } catch (error) {
         try {
           await this.#client.putRemoteAgent({
-            accessToken: this.#accessToken,
+            accessToken: await this.#resolveAccessToken(),
             ...toPutRemoteAgentPayload({ name: previous.name, manifest: previous.manifest }),
           });
         } catch (restoreError) {
@@ -197,7 +199,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       const previous = await this.#inner.getAgent({ tenant_id: input.tenant_id, id: input.id }, txn);
       if (previous?.external_id) {
         await this.#client.deleteRemoteAgent({
-          accessToken: this.#accessToken,
+          accessToken: await this.#resolveAccessToken(),
           externalId: previous.external_id,
         });
       }

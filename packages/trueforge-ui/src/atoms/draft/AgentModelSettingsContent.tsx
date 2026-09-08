@@ -84,7 +84,7 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
           value={params.reasoningEffort ?? ''}
           disabled={params.reasoningEffort === undefined}
           aria-label="Reasoning effort value"
-          className={auiInputClass('mt-2 h-9 cursor-pointer py-1.5')}
+          className={auiInputClass('mt-2 h-8 cursor-pointer py-1.5')}
           onChange={event => setParam('reasoningEffort', event.target.value)}
         >
           {reasoningEfforts.map(effort => (

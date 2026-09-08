@@ -84,7 +84,7 @@ export function DrawerLayout({ className }: { className?: string }) {
             ) : libraryOpen || schedulesOpen ? (
               <button
                 type="button"
-                className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+                className={auiButtonClass({ variant: 'ghost', size: 'small' })}
                 onClick={() => {
                   shell?.setLibraryOpen(false);
                   shell?.setSchedulesOpen(false);

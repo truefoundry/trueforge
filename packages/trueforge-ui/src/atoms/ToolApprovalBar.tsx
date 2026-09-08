@@ -46,10 +46,10 @@ const DEFAULT_DENY_OPTIONS: ApprovalOption[] = [
   { id: 'deny', label: 'Deny', variant: 'secondary', requiresReason: true },
 ];
 
-function optionVariant(option: ApprovalOption): 'default' | 'secondary' | 'destructive' {
+function optionVariant(option: ApprovalOption): 'primary' | 'secondary' | 'destructive' {
   if (option.variant === 'destructive') return 'destructive';
   if (option.variant === 'secondary') return 'secondary';
-  return 'default';
+  return 'primary';
 }
 
 export function ToolApprovalBar({
@@ -105,14 +105,9 @@ export function ToolApprovalBar({
               )}
             </div>
             {!isDecided && !readOnly && selectedDenyOption && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={interactionsLocked}
-                onClick={() => onDenyOptionChange?.(null)}
-              >
+              <Button.Secondary size="small" disabled={interactionsLocked} onClick={() => onDenyOptionChange?.(null)}>
                 Back
-              </Button>
+              </Button.Secondary>
             )}
           </div>
           {!isDecided && !readOnly && !selectedDenyOption && (
@@ -120,7 +115,7 @@ export function ToolApprovalBar({
               {approveOptions.map(option => (
                 <Button
                   key={option.id}
-                  size="sm"
+                  size="small"
                   variant={optionVariant(option)}
                   disabled={interactionsLocked}
                   onClick={() => onSelect(option.id)}
@@ -132,7 +127,7 @@ export function ToolApprovalBar({
               {denyOptions.map(option => (
                 <Button
                   key={option.id}
-                  size="sm"
+                  size="small"
                   variant={optionVariant(option)}
                   disabled={interactionsLocked}
                   onClick={() => {
@@ -187,9 +182,9 @@ export function ToolApprovalBar({
                 'focus:outline-none focus:ring-1 focus:ring-focus-ring',
               )}
             />
-            <Button size="sm" disabled={interactionsLocked} onClick={onReasonSubmit}>
+            <Button.Primary size="small" disabled={interactionsLocked} onClick={onReasonSubmit}>
               Submit
-            </Button>
+            </Button.Primary>
           </div>
           {showReasonError && (
             <span id="aui-denial-reason-error" className="text-xs text-failure-bg" role="alert">

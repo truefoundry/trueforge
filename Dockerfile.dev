@@ -34,6 +34,8 @@ RUN pnpm fetch
 # ---------------------------------------------------------------------------
 FROM store AS workspace
 COPY package.json .npmrc tsconfig.base.json ./
+# Root scripts used by package build steps (rm-path.mjs, chmod-path.mjs).
+COPY scripts scripts
 COPY packages/trueforge-core/package.json packages/trueforge-core/package.json
 COPY packages/trueforge/package.json packages/trueforge/package.json
 COPY packages/trueforge-sdk/package.json packages/trueforge-sdk/package.json

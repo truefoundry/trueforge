@@ -16,6 +16,7 @@ export type SessionEventTypeDefinition = {
   id: SessionEventType;
   label: string;
   color: string;
+  darkColor?: string;
 };
 
 /**
@@ -42,10 +43,10 @@ export type SessionEventTimelineSegment = {
 export const SESSION_EVENT_TYPES: SessionEventTypeDefinition[] = [
   { id: 'system', label: 'System', color: '#94a3b8' },
   { id: 'user', label: 'User', color: '#34d399' },
-  { id: 'model', label: 'Model', color: '#3b82f6' },
+  { id: 'model', label: 'Model', color: '#3b82f6', darkColor: '#6366f1' },
   { id: 'tool_call', label: 'Tool call', color: '#f59e0b' },
   { id: 'approval', label: 'Approval / HITL', color: '#f472b6' },
-  { id: 'sub_agent', label: 'Sub-agent', color: '#c084fc' },
+  { id: 'sub_agent', label: 'Sub-agent', color: '#e2e8f0', darkColor: '#3f3f46' },
   { id: 'waiting_on_human', label: 'Waiting on human', color: '#22d3ee' },
   { id: 'error', label: 'Error', color: '#f87171' },
 ];
@@ -68,13 +69,15 @@ export function formatTimelineDuration(durationMs: number): string {
 }
 
 /** Resolve a segment's color from the same registry used to build the legend. */
-export function getSessionEventColor(type: SessionEventType): string {
-  return SESSION_EVENT_TYPES.find(eventType => eventType.id === type)?.color ?? '#94a3b8';
+export function getSessionEventColor(type: SessionEventType, isDarkMode = false): string {
+  const eventType = SESSION_EVENT_TYPES.find(eventType => eventType.id === type);
+  return (isDarkMode ? eventType?.darkColor : undefined) ?? eventType?.color ?? '#94a3b8';
 }
 
 /** Darken the base color by 10% so hover remains recognizable in either theme. */
-export function getSessionEventHoverColor(type: SessionEventType): string {
-  const hex = getSessionEventColor(type).replace('#', '');
+export function getSessionEventHoverColor(type: SessionEventType, isDarkMode = false): string {
+  const color = getSessionEventColor(type, isDarkMode);
+  const hex = color.replace('#', '');
   const normalized =
     hex.length === 3
       ? hex
@@ -82,7 +85,7 @@ export function getSessionEventHoverColor(type: SessionEventType): string {
           .map(char => `${char}${char}`)
           .join('')
       : hex;
-  if (normalized.length !== 6) return getSessionEventColor(type);
+  if (normalized.length !== 6) return color;
   const value = Number.parseInt(normalized, 16);
   const channel = (shift: number) =>
     Math.max(0, Math.round(((value >> shift) & 255) * 0.9))

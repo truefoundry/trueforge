@@ -122,7 +122,7 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
         title="Select model"
         className={auiButtonClass({
           variant: 'ghost',
-          size: 'sm',
+          size: 'small',
           className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
         })}
         onClick={() => setOpen(v => !v)}

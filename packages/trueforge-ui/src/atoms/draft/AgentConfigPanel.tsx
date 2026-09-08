@@ -1,12 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import type { AgentSpec, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { DropdownMenu } from '../primitives/DropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
 import { initialUserMessagesFromSpec } from './agentConfigMessages.js';
@@ -19,11 +20,14 @@ import {
 } from './agentConfigMounts.js';
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
-import { runtimeConfigSummary } from './runtimeConfigSummary.js';
+import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
 
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
   model?: ModelSelection;
+  models: ModelSelection[];
+  modelsLoading: boolean;
+  modelsError: string | null;
   skillsAvailable: boolean;
   instructions: string;
   onOpenEditor: (editor: AgentConfigEditor) => void;
@@ -81,7 +85,10 @@ function McpServerChip({
                 ? 'bg-primary-button-bg text-primary-button-text'
                 : 'text-text-secondary hover:bg-ghost-button-hover',
             )}
-            onClick={onTogglePreload}
+            onClick={event => {
+              event.stopPropagation();
+              onTogglePreload();
+            }}
           >
             <Icon name="book-open" className="size-3.5" />
           </button>
@@ -98,7 +105,10 @@ function McpServerChip({
             size: 'icon',
             className: 'mx-1 size-5',
           })}
-          onClick={onRemove}
+          onClick={event => {
+            event.stopPropagation();
+            onRemove();
+          }}
         >
           <Icon name="xmark" className="size-3" />
         </button>
@@ -112,32 +122,70 @@ function McpServerChip({
 export function AgentConfigSection({
   title,
   description,
+  icon,
+  actionIcon = 'pencil',
+  actionLabel,
   onEdit,
   children,
 }: {
-  title: string;
+  title?: string;
   description?: string;
+  icon?: string;
+  actionIcon?: string;
+  actionLabel?: string;
   onEdit?: () => void;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
+  const action = actionLabel ?? `Edit ${title}`;
+
   return (
-    <section className="border-b border-border px-4 py-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-text-primary text-sm font-semibold">{title}</h3>
-          {description ? <p className="text-text-secondary mt-0.5 text-xs">{description}</p> : null}
+    <section
+      className={cn('group border-b border-border px-4 py-4', onEdit ? 'cursor-pointer' : null)}
+      role={onEdit ? 'button' : undefined}
+      tabIndex={onEdit ? 0 : undefined}
+      onClick={onEdit}
+      // Enter/Space activate the block like a native button. Keys aimed at nested
+      // controls must pass through, or preventDefault here cancels their activation.
+      onKeyDown={
+        onEdit
+          ? event => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              onEdit();
+            }
+          : undefined
+      }
+    >
+      {title && (
+        <div className={cn('flex items-start justify-between gap-3', children ? 'mb-3' : null)}>
+          <div className="flex min-w-0 items-start gap-2">
+            {icon ? <Icon name={icon} className="text-text-secondary mt-0.5 size-4 shrink-0" /> : null}
+            <div className="min-w-0">
+              <h3 className="text-text-primary text-sm font-semibold">{title}</h3>
+              {description ? <p className="text-text-secondary mt-0.5 text-xs">{description}</p> : null}
+            </div>
+          </div>
+          {onEdit ? (
+            <button
+              type="button"
+              aria-label={action}
+              title={action}
+              className={auiButtonClass({
+                variant: 'ghost',
+                size: 'icon',
+                className: 'size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+              })}
+              onClick={event => {
+                event.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Icon name={actionIcon} className="size-3.5" />
+            </button>
+          ) : null}
         </div>
-        {onEdit ? (
-          <button
-            type="button"
-            aria-label={`Edit ${title}`}
-            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
-            onClick={onEdit}
-          >
-            <Icon name="pencil" className="size-3.5" />
-          </button>
-        ) : null}
-      </div>
+      )}
       {children}
     </section>
   );
@@ -146,6 +194,9 @@ export function AgentConfigSection({
 export function AgentConfigPanel({
   spec,
   model,
+  models,
+  modelsLoading,
+  modelsError,
   skillsAvailable,
   instructions,
   onOpenEditor,
@@ -153,6 +204,9 @@ export function AgentConfigPanel({
   onClose,
 }: AgentConfigPanelProps) {
   const Section = useSlot('AgentConfigSection');
+  const AgentModelEditorContent = useSlot('AgentModelEditorContent');
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelQuery, setModelQuery] = useState('');
   const mcp = editableMountsFromSpec(spec.mcpServers);
   const skills = editableMountsFromSpec(spec.skills);
   const modelParams = modelParamSummary(spec.model.params);
@@ -191,29 +245,58 @@ export function AgentConfigPanel({
         ) : null}
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <Section title="Model">
-          <div className="flex items-center gap-2">
-            <ProviderMark
-              logo={model?.provider.logo}
-              label={model?.provider.name ?? spec.model.name}
-              className="size-4 text-[0.5rem]"
+        <Section>
+          <DropdownMenu
+            open={modelMenuOpen}
+            onOpenChange={open => {
+              setModelMenuOpen(open);
+              if (!open) setModelQuery('');
+            }}
+            closeOnClick={false}
+            align="start"
+            containerClassName="flex w-full"
+            className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden p-0"
+            trigger={
+              <button
+                type="button"
+                aria-label="Edit Model"
+                title="Edit Model"
+                className="py-1 cursor-pointer flex w-full items-center gap-2 rounded-md text-left transition-colors"
+              >
+                <ProviderMark
+                  logo={model?.provider.logo}
+                  label={model?.provider.name ?? spec.model.name}
+                  className="size-4 text-[0.5rem]"
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {displayModelLabel(spec.model.name)}
+                </span>
+                {modelInfo.length ? (
+                  <span
+                    title={modelInfoTitle}
+                    className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]"
+                  >
+                    {modelInfo.join(' · ')}
+                  </span>
+                ) : null}
+                <Icon name="chevrons-up-down" className="text-text-secondary size-3.5 shrink-0" />
+              </button>
+            }
+          >
+            <AgentModelEditorContent
+              spec={spec}
+              models={models}
+              loading={modelsLoading}
+              error={modelsError}
+              query={modelQuery}
+              onQueryChange={setModelQuery}
+              onChange={next => {
+                onChange?.(next);
+                setModelMenuOpen(false);
+                setModelQuery('');
+              }}
             />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(spec.model.name)}</span>
-            {modelInfo.length ? (
-              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]">
-                {modelInfo.join(' · ')}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Edit Model"
-              title="Edit Model"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
-              onClick={() => onOpenEditor('model')}
-            >
-              <Icon name="pencil" className="size-3.5" />
-            </button>
-          </div>
+          </DropdownMenu>
           <div className="mt-2 flex items-center gap-2">
             <dl className="text-text-secondary flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-1 text-xs">
               {modelParams.length ? (
@@ -270,37 +353,26 @@ export function AgentConfigPanel({
         <Section
           title="Runtime Config"
           description="Control execution and context behavior."
+          actionIcon="sliders"
           onEdit={() => onOpenEditor('runtime')}
         >
           <dl className="text-text-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed">
             {runtimeConfig.map(entry => (
               <div key={entry.label} className="flex gap-1">
                 <dt>{entry.label}:</dt>
-                <dd className="text-text-primary font-medium">{entry.value}</dd>
+                <dd className={runtimeConfigValueClassName(entry.value)}>{entry.value}</dd>
               </div>
             ))}
           </dl>
         </Section>
 
-        <section className="group border-b border-border px-4 py-4">
-          <div className={cn('flex items-center justify-between gap-3', mcp.length ? 'mb-3' : null)}>
-            <div className="flex min-w-0 items-center gap-2">
-              <Icon name="mcp-server" className="text-text-secondary size-4 shrink-0" />
-              <h3 className="text-text-primary text-sm font-semibold">MCP Servers</h3>
-            </div>
-            <button
-              type="button"
-              aria-label="Add MCP server"
-              className={auiButtonClass({
-                variant: 'ghost',
-                size: 'icon',
-                className: 'size-7 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
-              })}
-              onClick={() => onOpenEditor('mcp')}
-            >
-              <Icon name="plus" className="size-3.5" />
-            </button>
-          </div>
+        <Section
+          title="MCP Servers"
+          icon="mcp-server"
+          actionIcon="plus"
+          actionLabel="Add MCP server"
+          onEdit={() => onOpenEditor('mcp')}
+        >
           {mcp.length ? (
             <div className="flex flex-wrap gap-1.5">
               {mcp.map(item => (
@@ -333,9 +405,9 @@ export function AgentConfigPanel({
               ))}
             </div>
           ) : null}
-        </section>
+        </Section>
 
-        <Section title="Skills" onEdit={() => onOpenEditor('skills')}>
+        <Section title="Skills" actionIcon="plus" actionLabel="Add skill" onEdit={() => onOpenEditor('skills')}>
           {!skillsAvailable ? (
             <p className="text-text-secondary text-xs">Skills require an available sandbox.</p>
           ) : skills.length ? (

@@ -32,7 +32,7 @@ import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
-import type { IAgentStore } from '../db/agentStore';
+import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -105,13 +105,13 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
+  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
   skillStore: ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  sandboxProviderStore: ISandboxProviderStore;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -119,16 +119,18 @@ export interface TurnsRouterDeps {
 
 /**
  * Deps needed to create a turn and drain events in-process (no HTTP). Carries already-resolved
- * `modelProviderStore` / `mcpServerStore` / `agentStore`, so callers must resolve them from the
- * caller's request context to keep TrueFoundry mode token-bound.
+ * `modelProviderStore` / `mcpServerStore` / `agentStore` / `sandboxProviderStore`; callers must
+ * resolve them from the request context (e.g. schedule `resolveTurnDeps(c)`) so TrueFoundry mode
+ * stays token-bound.
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'sandboxProviderStore' | 'logger'
+  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'logger'
 > & {
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   agentStore: IAgentStore;
+  sandboxProviderStore: ISandboxProviderStore;
 };
 
 /**
@@ -631,7 +633,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
       const provider = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.sandboxProviderStore,
+        store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
       });
@@ -725,6 +727,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: FORBIDDEN_CREATE_TURN } }, 403);
     }
 
+    let referencedAgent: AgentRecord | undefined;
     if (session.record.agent.type === 'reference') {
       const agentId = session.record.agent.id;
       const agent = await deps.resolveAgentStore(c).getAgent({
@@ -742,6 +745,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (!canUseAgent) {
         return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
       }
+      referencedAgent = agent;
     }
 
     const turnParams = {
@@ -751,9 +755,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       userRef: requestContext.subject.id,
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
+        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
+        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
         agentStore: deps.resolveAgentStore(c),
+        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },
     };
 

@@ -53,8 +53,9 @@ No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does both ve
    `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
 2. Merge to `main`. Pending changesets → **Version Packages** PR
    (`pnpm run version`). Review and merge.
-3. With no pending changesets, **pack** (build/test) then **publish** via npm
-   trusted publishing (OIDC; no `NPM_TOKEN`).
+3. With no pending changesets, **pack** (build/test) and **Windows npx smoke**
+   run in parallel, then **publish** via npm trusted publishing (OIDC; no
+   `NPM_TOKEN`).
 4. If `@truefoundry/trueforge` was published, **Release** calls **Build and
    prepare chart release** as a reusable workflow on the same commit (so a
    newer `main` push cannot change the Dockerfile / shortSha). GitHub's

@@ -253,13 +253,13 @@ export function AskUserPrompt({
               <span />
             )}
             {isNextStep ? (
-              <Button type="button" size="sm" onClick={goToNextQuestion} disabled={isSubmitDisabled}>
+              <Button.Primary type="button" size="small" onClick={goToNextQuestion} disabled={isSubmitDisabled}>
                 Next
-              </Button>
+              </Button.Primary>
             ) : (
-              <Button type="button" size="sm" onClick={onSubmit} disabled={isSubmitAllDisabled}>
+              <Button.Primary type="button" size="small" onClick={onSubmit} disabled={isSubmitAllDisabled}>
                 Submit
-              </Button>
+              </Button.Primary>
             )}
           </div>
         )}

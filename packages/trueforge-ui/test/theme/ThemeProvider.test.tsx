@@ -273,6 +273,8 @@ describe('ThemeProvider', () => {
     expect(getThemeRoot(container).style.getPropertyValue('--font-agent-ui')).toBe(
       '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
     );
+    expect(getThemeRoot(container).style.getPropertyValue('--sidebar-text')).toBe('#263755');
+    expect(getThemeRoot(container).style.getPropertyValue('--radius')).toBe('0.375rem');
     expect(screen.getByRole('heading', { name: 'How can I help you today?' })).toHaveClass('font-semibold');
   });
 

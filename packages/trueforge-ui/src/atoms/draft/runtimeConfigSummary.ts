@@ -9,6 +9,11 @@ function enabledLabel(value: boolean | undefined, defaultValue: boolean): string
   return (value ?? defaultValue) ? 'on' : 'off';
 }
 
+/** Primary for on / numeric values; destructive for off. */
+export function runtimeConfigValueClassName(value: string): string {
+  return value === 'off' ? 'text-failure-bg font-medium' : 'text-primary-button-bg font-medium';
+}
+
 export function runtimeConfigSummary(config?: AgentRuntimeConfig): RuntimeConfigSummaryEntry[] {
   return [
     { label: 'iteration limit', value: String(config?.iterationLimit ?? 100) },
