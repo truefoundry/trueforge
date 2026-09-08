@@ -49,20 +49,23 @@ function toSelectors(entry: {
  * behavior; subclass and override to customize (tool sources, sandbox,
  * tracing).
  */
+interface ResolvedLlm {
+  modelClient: ILLM;
+  defaultModelParams: ModelParams;
+  modelProperties?: AgentDefinition['modelProperties'];
+}
+
 export class TurnResourceResolver<
   TTurnCustom extends object = Record<string, never>,
 > implements ITurnResourceResolver<TTurnCustom> {
   readonly #sources = new Map<string, Promise<ToolSource>>();
+  readonly #models = new Map<string, Promise<ResolvedLlm>>();
   #sandbox?: Sandbox | undefined;
 
   constructor(
     protected readonly deps: {
       /** Model name → client and defaults. Called once per resolved definition; may load provider config. */
-      llm: (model: string) => Promise<{
-        modelClient: ILLM;
-        defaultModelParams: ModelParams;
-        modelProperties?: AgentDefinition['modelProperties'];
-      }>;
+      llm: (model: string) => Promise<ResolvedLlm>;
       /**
        * MCP server name → connection details. Required to use spec.mcp_servers:
        * the AgentSpec carries names only (no url/headers on the wire) — the
@@ -197,7 +200,7 @@ export class TurnResourceResolver<
     // Sub-agents may request a different catalog model via agent_info.model;
     // resolve that name so modelClient matches the override (not just a label).
     const modelName = agentInfo?.model ?? spec.model.name;
-    const resolvedModel = await this.deps.llm(modelName);
+    const resolvedModel = await this.getOrCreateResolvedModel(modelName);
     return {
       definition: {
         modelClient: resolvedModel.modelClient,
@@ -235,6 +238,20 @@ export class TurnResourceResolver<
     }
     const made = input.create();
     this.#sources.set(input.id, made);
+    return made;
+  }
+
+  /**
+   * Resolves `deps.llm` once per distinct model name for this turn — parent and
+   * sub-agents with the same catalog model share one promise.
+   */
+  protected getOrCreateResolvedModel(modelName: string): Promise<ResolvedLlm> {
+    const cached = this.#models.get(modelName);
+    if (cached) {
+      return cached;
+    }
+    const made = this.deps.llm(modelName);
+    this.#models.set(modelName, made);
     return made;
   }
 }
