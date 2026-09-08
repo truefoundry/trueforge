@@ -48,7 +48,7 @@ export function AgentConfigEditors({
 }: AgentConfigEditorsProps) {
   const AgentModelConfigModal = useSlot('AgentModelConfigModal');
   const AgentResourceConfigModal = useSlot('AgentResourceConfigModal');
-  const AgentRuntimeConfigModal = useSlot('AgentRuntimeConfigModal');
+  const AgentRuntimeConfigDrawer = useSlot('AgentRuntimeConfigDrawer');
   const AgentInstructionsDrawer = useSlot('AgentInstructionsDrawer');
   const [query, setQuery] = useState('');
   const [activeConnectorId, setActiveConnectorId] = useState<string | null>(null);
@@ -141,7 +141,7 @@ export function AgentConfigEditors({
         />
       ) : null}
       {editor === 'runtime' ? (
-        <AgentRuntimeConfigModal
+        <AgentRuntimeConfigDrawer
           open
           spec={spec}
           sandboxAvailable={sandboxAvailable}

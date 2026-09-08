@@ -232,7 +232,7 @@ describe('AgentConfigEditors', () => {
     });
   });
 
-  it('opens runtime configuration in a dedicated modal', () => {
+  it('opens runtime configuration in a right-side drawer', () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     render(
       <SlotsProvider>
@@ -251,7 +251,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
   });
 
