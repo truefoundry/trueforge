@@ -580,8 +580,9 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
   /**
-   * When TrueFoundry mode is on, enable the shared Daytona sandbox for all tenants
-   * (settings-server snapshot; no per-tenant PUT). Env: `TRUEFOUNDRY_SANDBOX_ENABLED`. Default false.
+   * When TrueFoundry mode is on, enable the shared sandbox for all tenants
+   * (Daytona via settings-server, or TFY via `TFY_SANDBOX_*`; no per-tenant PUT).
+   * Env: `TRUEFOUNDRY_SANDBOX_ENABLED`. Default false.
    */
   TRUEFOUNDRY_SANDBOX_ENABLED: boolean;
   /**
@@ -595,6 +596,15 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL`.
    */
   TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: string | undefined;
+  /**
+   * TFY sandbox HTTP server URL (on-prem).
+   */
+  TFY_SANDBOX_SERVER_URL: string | undefined;
+  /**
+   * Cluster-internal ws(s) URL of the TFY sandbox NATS bridge. Required with `TFY_SANDBOX_SERVER_URL`.
+   * Env: `TFY_SANDBOX_NATS_BRIDGE_URL`.
+   */
+  TFY_SANDBOX_NATS_BRIDGE_URL: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -763,6 +773,8 @@ const configuration: ServerConfiguration = standalone
       }),
       TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
       TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL', { required: false }),
+      TFY_SANDBOX_SERVER_URL: getEnv('TFY_SANDBOX_SERVER_URL', { required: false }),
+      TFY_SANDBOX_NATS_BRIDGE_URL: getEnv('TFY_SANDBOX_NATS_BRIDGE_URL', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -813,15 +825,18 @@ if (isTrueFoundryModeEnabled(configuration)) {
   if (configuration.TRUEFOUNDRY_API_KEY === undefined) {
     throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
   }
-  // Shared sandbox: TRUEFOUNDRY_SANDBOX_ENABLED requires a provider (Daytona today).
+  // Shared sandbox: TRUEFOUNDRY_SANDBOX_ENABLED requires Daytona or TFY.
   if (configuration.TRUEFOUNDRY_SANDBOX_ENABLED) {
-    if (
-      configuration.TRUEFOUNDRY_SANDBOX_API_KEY === undefined ||
-      configuration.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL === undefined
-    ) {
+    const daytonaConfigured =
+      configuration.TRUEFOUNDRY_SANDBOX_API_KEY !== undefined &&
+      configuration.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL !== undefined;
+    const tfyConfigured =
+      configuration.TFY_SANDBOX_SERVER_URL !== undefined && configuration.TFY_SANDBOX_NATS_BRIDGE_URL !== undefined;
+    if (!daytonaConfigured && !tfyConfigured) {
       throw new Error(
         'TRUEFOUNDRY_SANDBOX_ENABLED is true but no sandbox provider is configured. ' +
-          'Set TRUEFOUNDRY_SANDBOX_API_KEY + TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+          'Set TRUEFOUNDRY_SANDBOX_API_KEY + TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL, ' +
+          'or TFY_SANDBOX_SERVER_URL + TFY_SANDBOX_NATS_BRIDGE_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
       );
     }
   }
