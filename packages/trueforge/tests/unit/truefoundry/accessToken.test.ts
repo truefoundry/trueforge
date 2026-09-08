@@ -16,6 +16,7 @@ const CONTEXT: RequestContext = {
   roles: [],
   user_credential: 'caller-token',
 };
+const LOGGER = { info: jest.fn() };
 
 const AGENT: AgentRecord = {
   id: 'agent-1',
@@ -43,8 +44,13 @@ describe('callerAccessToken', () => {
 describe('agentAccessToken', () => {
   it('vends a token scoped to the agent, naming the caller as the subject', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
+    const logger = { info: jest.fn() };
 
-    await expect(agentAccessToken({ client, context: CONTEXT, agent: AGENT })()).resolves.toBe('agent-token');
+    await expect(agentAccessToken({ client, context: CONTEXT, agent: AGENT, logger })()).resolves.toBe('agent-token');
+    expect(logger.info).toHaveBeenCalledWith('Exchanging user context for agent access token', {
+      subject: 'user-1',
+      agentId: 'ext-agent',
+    });
     expect(client.vendToken).toHaveBeenCalledWith({
       subject: CONTEXT.subject,
       agentId: 'ext-agent',
@@ -54,7 +60,7 @@ describe('agentAccessToken', () => {
 
   it('vends once and reuses the token for later calls', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
-    const resolve = agentAccessToken({ client, context: CONTEXT, agent: AGENT });
+    const resolve = agentAccessToken({ client, context: CONTEXT, agent: AGENT, logger: LOGGER });
 
     await expect(Promise.all([resolve(), resolve()])).resolves.toEqual(['agent-token', 'agent-token']);
     await expect(resolve()).resolves.toBe('agent-token');
@@ -65,7 +71,7 @@ describe('agentAccessToken', () => {
     const client = {
       vendToken: jest.fn().mockRejectedValueOnce(new Error('vend failed')).mockResolvedValue('agent-token'),
     };
-    const resolve = agentAccessToken({ client, context: CONTEXT, agent: AGENT });
+    const resolve = agentAccessToken({ client, context: CONTEXT, agent: AGENT, logger: LOGGER });
 
     await expect(resolve()).rejects.toThrow('vend failed');
     await expect(resolve()).resolves.toBe('agent-token');
@@ -75,9 +81,14 @@ describe('agentAccessToken', () => {
   it('rejects with 422 when the agent was never registered with TrueFoundry', () => {
     const client = { vendToken: jest.fn() };
 
-    expect(() => agentAccessToken({ client, context: CONTEXT, agent: { ...AGENT, external_id: null } })).toThrow(
-      HTTPException,
-    );
+    expect(() =>
+      agentAccessToken({
+        client,
+        context: CONTEXT,
+        agent: { ...AGENT, external_id: null },
+        logger: LOGGER,
+      }),
+    ).toThrow(HTTPException);
     expect(client.vendToken).not.toHaveBeenCalled();
   });
 });
@@ -93,7 +104,9 @@ describe('accessTokenForRequest', () => {
     const client = { vendToken: jest.fn() };
     const context = createTrueFoundryRequestContext(CONTEXT);
 
-    await expect(accessTokenForRequest({ client, context, agent: undefined })()).resolves.toBe('caller-token');
+    await expect(accessTokenForRequest({ client, context, agent: undefined, logger: LOGGER })()).resolves.toBe(
+      'caller-token',
+    );
     expect(client.vendToken).not.toHaveBeenCalled();
   });
 
@@ -101,7 +114,9 @@ describe('accessTokenForRequest', () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
     const context = createTrueFoundryRequestContext(CONTEXT);
 
-    await expect(accessTokenForRequest({ client, context, agent: AGENT })()).resolves.toBe('agent-token');
+    await expect(accessTokenForRequest({ client, context, agent: AGENT, logger: LOGGER })()).resolves.toBe(
+      'agent-token',
+    );
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 
@@ -109,8 +124,8 @@ describe('accessTokenForRequest', () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
     const context = createTrueFoundryRequestContext(CONTEXT);
 
-    const model = accessTokenForRequest({ client, context, agent: AGENT });
-    const mcp = accessTokenForRequest({ client, context, agent: AGENT });
+    const model = accessTokenForRequest({ client, context, agent: AGENT, logger: LOGGER });
+    const mcp = accessTokenForRequest({ client, context, agent: AGENT, logger: LOGGER });
 
     expect(model).toBe(mcp);
     await expect(Promise.all([model(), mcp()])).resolves.toEqual(['agent-token', 'agent-token']);
@@ -122,10 +137,12 @@ describe('accessTokenForRequest', () => {
     const firstRequest = createTrueFoundryRequestContext(CONTEXT);
     const secondRequest = createTrueFoundryRequestContext(CONTEXT);
 
-    await expect(accessTokenForRequest({ client, context: firstRequest, agent: AGENT })()).resolves.toBe('agent-token');
-    await expect(accessTokenForRequest({ client, context: secondRequest, agent: AGENT })()).resolves.toBe(
-      'agent-token',
-    );
+    await expect(
+      accessTokenForRequest({ client, context: firstRequest, agent: AGENT, logger: LOGGER })(),
+    ).resolves.toBe('agent-token');
+    await expect(
+      accessTokenForRequest({ client, context: secondRequest, agent: AGENT, logger: LOGGER })(),
+    ).resolves.toBe('agent-token');
     expect(client.vendToken).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import { requireTrueFoundryAgentExternalId } from './errors';
@@ -46,17 +47,24 @@ export function agentAccessToken(input: {
   client: AgentTokenVendor;
   context: RequestContext;
   agent: AgentRecord;
+  logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
   const { client, context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   let pending: Promise<string> | undefined;
   return () => {
-    pending ??= client
-      .vendToken({ subject: context.subject, agentId, tenantName: context.tenant_id })
-      .catch((error: unknown) => {
-        pending = undefined;
-        throw error;
+    if (pending === undefined) {
+      input.logger.info('Exchanging user context for agent access token', {
+        subject: context.subject.id,
+        agentId,
       });
+      pending = client
+        .vendToken({ subject: context.subject, agentId, tenantName: context.tenant_id })
+        .catch((error: unknown) => {
+          pending = undefined;
+          throw error;
+        });
+    }
     return pending;
   };
 }
@@ -80,6 +88,7 @@ export function accessTokenForRequest(input: {
   client: AgentTokenVendor;
   context: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
+  logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
   if (input.agent === undefined) {
     return callerAccessToken(input.context);
@@ -90,7 +99,12 @@ export function accessTokenForRequest(input: {
   if (existing !== undefined) {
     return existing;
   }
-  const resolve = agentAccessToken({ client: input.client, context: input.context, agent: input.agent });
-  cache.set(agentId, resolve);
-  return resolve;
+  const resolveAgentAccessToken = agentAccessToken({
+    client: input.client,
+    context: input.context,
+    agent: input.agent,
+    logger: input.logger,
+  });
+  cache.set(agentId, resolveAgentAccessToken);
+  return resolveAgentAccessToken;
 }
