@@ -32,11 +32,11 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
 /** Only `TRUEFOUNDRY_API_KEY` by string equality (service-to-service). Body may choose tenant_id. */
 export const truefoundryAdminMiddleware: MiddlewareHandler = async (c, next) => {
   const token = extractRequestToken(c);
-  if (
-    configuration.TRUEFOUNDRY_API_KEY === undefined ||
-    token === undefined ||
-    token !== configuration.TRUEFOUNDRY_API_KEY
-  ) {
+  if (configuration.STANDALONE) {
+    throw new HTTPException(403, { message: 'Service API key required' });
+  }
+  const apiKey = configuration.TRUEFOUNDRY_API_KEY;
+  if (apiKey === undefined || token === undefined || token !== apiKey) {
     throw new HTTPException(403, { message: 'Service API key required' });
   }
   c.set('request_context', {
