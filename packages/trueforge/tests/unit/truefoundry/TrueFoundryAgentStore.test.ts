@@ -98,7 +98,12 @@ function tfStore(input: {
   return new TrueFoundryAgentStore({
     inner: input.inner,
     client: input.client,
-    accessToken: input.accessToken ?? TOKEN,
+    context: {
+      tenant_id: TENANT,
+      subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: input.accessToken ?? TOKEN,
+    },
     db: input.db ?? mockDb(),
   });
 }
@@ -115,6 +120,7 @@ function mockClient(
     tls: { enabled: false, dir: '' },
     httpTimeoutMs: 10_000,
     httpAgentTimeoutMs: 3_000,
+    apiKey: 'tfy-api-key',
   });
   client.putRemoteAgent =
     overrides.putRemoteAgent ?? (async (): Promise<PutRemoteAgentResult> => ({ externalId: 'sf-1' }));
@@ -153,7 +159,7 @@ describe('TrueFoundryAgentStore', () => {
       expect(input).toEqual({
         accessToken: TOKEN,
         name: 'research',
-        description: 'Be helpful.',
+        description: 'research',
         model: 'openai-gateway/gpt-5',
         mcp_servers: ['slack'],
       });
@@ -220,7 +226,7 @@ describe('TrueFoundryAgentStore', () => {
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
   });
 
-  it('createAgent uses agent name as description when instructions are omitted', async () => {
+  it('createAgent uses agent name as description even when instructions are empty', async () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input.description).toBe('research');
       expect(input.mcp_servers).toEqual([]);
@@ -238,7 +244,7 @@ describe('TrueFoundryAgentStore', () => {
         tenant_id: TENANT,
         created_by_subject: CREATED_BY_SUBJECT,
         name: 'research',
-        manifest: AgentSpecSchema.parse({ model: { name: 'openai-gateway/gpt-5' } }),
+        manifest: AgentSpecSchema.parse({ model: { name: 'openai-gateway/gpt-5' }, instructions: '' }),
         external_id: null,
       },
       TXN,
@@ -518,7 +524,7 @@ describe('TrueFoundryAgentStore', () => {
       expect.objectContaining({
         accessToken: TOKEN,
         name: previous.name,
-        description: previous.manifest.instructions ?? previous.name,
+        description: previous.name,
         model: previous.manifest.model.name,
       }),
     );

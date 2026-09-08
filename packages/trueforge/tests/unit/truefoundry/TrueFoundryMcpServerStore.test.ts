@@ -1,5 +1,6 @@
 import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
+import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
 import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 import {
@@ -33,6 +34,7 @@ function createMockClient(): MockClient {
     getMcpAuthorize: jest.fn(),
     getMcpAuthStatus: jest.fn(),
     deleteMcpAuth: jest.fn(),
+    vendToken: jest.fn(),
   };
 }
 
@@ -50,8 +52,13 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    accessToken: input?.accessToken ?? ACCESS_TOKEN,
-    subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
+    context: createTrueFoundryRequestContext({
+      tenant_id: TENANT,
+      subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
+      roles: [],
+      user_credential: input?.accessToken ?? ACCESS_TOKEN,
+    }),
+    agent: undefined,
   });
   return { store, client };
 }
@@ -140,13 +147,8 @@ describe('TrueFoundryMcpServerStore', () => {
     });
 
     it('throws McpServerNotFoundError when the server is missing', async () => {
-      const client = createMockClient();
+      const { store, client } = createStore();
       client.getMcpServerByName.mockResolvedValue(undefined);
-      const store = new TrueFoundryMcpServerStore({
-        client,
-        accessToken: ACCESS_TOKEN,
-        subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
-      });
       await expect(store.authorize({ tenant_id: TENANT, name: 'missing', userRef: 'user-1' })).rejects.toBeInstanceOf(
         McpServerNotFoundError,
       );

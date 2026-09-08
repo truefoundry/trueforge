@@ -110,7 +110,7 @@ export function AgentOverflowMenu({
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             aria-label={`Actions for ${agentName}`}
           >
-            <Icon name="ellipsis-vertical" className="size-4" />
+            <Icon name="ellipsis-vertical" />
           </button>
         }
       >
@@ -157,12 +157,12 @@ export function AgentOverflowMenu({
             </DialogHeader>
           </DialogContent>
           <DialogFooter>
-            <Button type="button" variant="secondary" disabled={busy} onClick={closePending}>
+            <Button.Secondary type="button" disabled={busy} onClick={closePending}>
               Cancel
-            </Button>
-            <Button type="button" disabled={busy || builder == null} onClick={() => void handleClone()}>
+            </Button.Secondary>
+            <Button.Primary type="button" disabled={busy || builder == null} onClick={() => void handleClone()}>
               Clone
-            </Button>
+            </Button.Primary>
           </DialogFooter>
         </Dialog>
       ) : null}
@@ -178,17 +178,16 @@ export function AgentOverflowMenu({
             </DialogHeader>
           </DialogContent>
           <DialogFooter>
-            <Button type="button" variant="secondary" disabled={busy} onClick={closePending}>
+            <Button.Secondary type="button" disabled={busy} onClick={closePending}>
               Cancel
-            </Button>
-            <Button
+            </Button.Secondary>
+            <Button.Destructive
               type="button"
-              variant="destructive"
               disabled={busy || builder == null || typeof builder.deleteAgent !== 'function'}
               onClick={() => void handleDelete()}
             >
               Delete
-            </Button>
+            </Button.Destructive>
           </DialogFooter>
         </Dialog>
       ) : null}

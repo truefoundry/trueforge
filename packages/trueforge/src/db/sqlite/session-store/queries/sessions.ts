@@ -268,6 +268,18 @@ export async function listSessions(
     query = query.where('agent_id', '=', input.agent_id);
   }
   query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
+  if (input.metadata !== undefined) {
+    if (Object.keys(input.metadata).length === 0) {
+      query = query.where(sql<boolean>`NOT EXISTS (SELECT 1 FROM json_each(metadata))`);
+    } else {
+      for (const [key, value] of Object.entries(input.metadata)) {
+        // Match metadata keys exactly; some key names are parsed as JSON paths.
+        query = query.where(
+          sql<boolean>`EXISTS (SELECT 1 FROM json_each(metadata) WHERE key = ${key} AND atom = ${value})`,
+        );
+      }
+    }
+  }
   if (input.source_type !== undefined) {
     query = query.where(sql`json_extract(source, '$.type')`, '=', input.source_type);
   }

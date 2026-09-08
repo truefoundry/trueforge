@@ -124,7 +124,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
         title="Select reasoning effort"
         className={auiButtonClass({
           variant: 'ghost',
-          size: 'sm',
+          size: 'small',
           className: cn(
             'h-8 max-w-[10rem] gap-1.5 rounded-full px-2 text-xs font-medium',
             'hover:bg-ghost-button-hover',

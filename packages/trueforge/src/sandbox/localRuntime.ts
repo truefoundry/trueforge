@@ -15,7 +15,7 @@ export function getCachedLocalSandboxSupport(): LocalSandboxSupportResult | unde
   return cachedSupport;
 }
 
-/** Standalone + cached probe succeeded. No DB row required. */
+/** Standalone + cached probe succeeded. No DB row required. Never in TrueFoundry mode. */
 export function isLocalSandboxFallbackEnabled(): boolean {
   return configuration.STANDALONE && cachedSupport?.supported === true;
 }

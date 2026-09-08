@@ -4,17 +4,28 @@ import { describe, it } from 'vitest';
 import type { SessionEventItem } from '@/server/types.js';
 import { buildSessionMetrics } from '@/utils/buildSessionMetrics.js';
 import { buildSessionTimelineSegments } from '@/utils/buildSessionTimelineSegments.js';
-import type { SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
+import { getSessionEventColor, type SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import {
   buildTimelineAxisTicks,
   compressInterTurnGaps,
+  formatTimelineAxisDuration,
   getActiveTimelineMs,
   getSubAgentHoverGroups,
   getSubAgentLanes,
+  groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
   pickLongestNonOverlappingSegments,
 } from '@/utils/sessionEventTimelineChart.js';
 import { buildSessionTurnViews } from '@/utils/sessionTurnViews.js';
+
+describe('session event colors', () => {
+  it('uses dark overrides when present and otherwise falls back to the base color', () => {
+    assert.equal(getSessionEventColor('model'), '#3b82f6');
+    assert.equal(getSessionEventColor('model', true), '#6366f1');
+    assert.equal(getSessionEventColor('sub_agent', true), '#3f3f46');
+    assert.equal(getSessionEventColor('tool_call', true), '#f59e0b');
+  });
+});
 
 function created({
   turnId,
@@ -156,6 +167,19 @@ describe('buildSessionTimelineSegments', () => {
       segments.some(segment => segment.id.endsWith('call-sub')),
       false,
     );
+    assert.deepEqual(
+      segments
+        .filter(segment => segment.type === 'system' && segment.title === 'system.waiting_for_sub_agent')
+        .map(({ description, startMs, endMs, threadId }) => ({ description, startMs, endMs, threadId })),
+      [
+        {
+          description: 'System waiting for sub-agent to start executing',
+          startMs: 1_000,
+          endMs: 1_100,
+          threadId: 'main',
+        },
+      ],
+    );
     const toolCalls = segments.filter(segment => segment.type === 'tool_call');
     assert.equal(toolCalls.length, 2);
     const groups = groupOverlappingToolCalls(toolCalls).filter(group => group.segments.length > 1);
@@ -176,6 +200,21 @@ describe('sessionEventTimelineChart helpers', () => {
       turnIndex,
       threadId: 'main',
     }));
+  const marker = (
+    id: string,
+    type: SessionEventTimelineSegment['type'],
+    startMs: number,
+  ): SessionEventTimelineSegment => ({
+    id,
+    type,
+    title: id,
+    description: id,
+    startMs,
+    endMs: startMs,
+    turnIndex: 0,
+    threadId: 'main',
+    isMarker: true,
+  });
 
   it('picks the longest non-overlapping sub-agent bars', () => {
     const selected = pickLongestNonOverlappingSegments(
@@ -267,18 +306,54 @@ describe('sessionEventTimelineChart helpers', () => {
     assert.equal(lanes.find(lane => lane.threadId === 'c')?.lane, 0);
   });
 
-  it('subtracts visual turn-gap bands from axis labels', () => {
-    assert.equal(getActiveTimelineMs(150, [{ startMs: 100, endMs: 120 }]), 130);
+  it('groups coincident point events into one marker', () => {
+    assert.deepEqual(
+      groupCoincidentTimelineMarkers([
+        marker('user', 'user', 10),
+        marker('system', 'system', 10),
+        marker('error', 'error', 20),
+        ...bars([[10, 30, 0]]),
+      ]).map(group => ({
+        startMs: group.startMs,
+        ids: group.segments.map(segment => segment.id),
+      })),
+      [
+        { startMs: 10, ids: ['user', 'system'] },
+        { startMs: 20, ids: ['error'] },
+      ],
+    );
   });
 
-  it('keeps the session end time as the last labeled tick', () => {
+  it('maps clean active-time ticks around fixed turn separators', () => {
+    const gaps = [{ startMs: 42_000, endMs: 43_000 }];
+    const ticks = buildTimelineAxisTicks({
+      activeTotalMs: 96_000,
+      turnStartsMs: [0, 42_000],
+      turnGapMs: 1_000,
+    });
+    assert.deepEqual(
+      ticks.map(tick => getActiveTimelineMs(tick.value, gaps)),
+      [0, 15_000, 30_000, 45_000, 60_000, 75_000, 90_000, 96_000],
+    );
+    assert.deepEqual(
+      ticks.map(tick => formatTimelineAxisDuration(getActiveTimelineMs(tick.value, gaps))),
+      ['0ms', '15s', '30s', '45s', '1m', '1.25m', '1.5m', '1.6m'],
+    );
+    assert.equal(formatTimelineAxisDuration(813_292), '13.55m');
+  });
+
+  it('changes axis units at one second, one minute, and one hour', () => {
+    assert.deepEqual([999, 1_000, 60_000, 3_600_000].map(formatTimelineAxisDuration), ['999ms', '1s', '1m', '1h']);
+  });
+
+  it('drops a regular tick that would overlap the exact endpoint', () => {
     assert.deepEqual(
       buildTimelineAxisTicks({
-        ticks: [{ value: 0 }, { value: 4000 }, { value: 8000 }, { value: 9000 }],
-        totalMs: 7900,
-        timelineMaxMs: 9000,
-      }),
-      [{ value: 0 }, { value: 4000 }, { value: 7900 }, { value: 9000 }],
+        activeTotalMs: 121_000,
+        turnStartsMs: [0],
+        turnGapMs: 0,
+      }).map(tick => tick.value),
+      [0, 30_000, 60_000, 90_000, 121_000],
     );
   });
 

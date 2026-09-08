@@ -9,6 +9,7 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
+import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Spinner } from '../primitives/Spinner.js';
 import { Switch } from '../primitives/Switch.js';
@@ -76,9 +77,9 @@ function selectedToolsHeaderLabel(mcpMounts: ReturnType<typeof editableMountsFro
 function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; onConnected: () => Promise<void> }) {
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
   return (
-    <button
+    <Button.Primary
       type="button"
-      className={auiButtonClass({ className: 'min-w-44' })}
+      className="min-w-44"
       disabled={isOAuthLoading}
       onClick={() => {
         void handleAuthorize(connectorId, isSuccess => {
@@ -87,7 +88,7 @@ function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; o
       }}
     >
       {isOAuthLoading ? 'Connecting...' : 'Connect Now'}
-    </button>
+    </Button.Primary>
   );
 }
 
@@ -194,7 +195,7 @@ export function AgentMcpEditorContent({
             value={query}
             onChange={event => onQueryChange(event.target.value)}
             placeholder="Search MCP"
-            className={auiInputClass('h-9 w-full pl-7')}
+            className={auiInputClass('h-8 w-full pl-7')}
           />
         </label>
         <div ref={connectorsListRef} className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -234,7 +235,7 @@ export function AgentMcpEditorContent({
               {connectorsLoadMoreFailed ? (
                 <button
                   type="button"
-                  className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+                  className={auiButtonClass({ variant: 'ghost', size: 'small' })}
                   onClick={loadMoreConnectors}
                 >
                   Retry loading connectors
@@ -261,14 +262,14 @@ export function AgentMcpEditorContent({
                 OR
                 <span className="bg-border h-px flex-1" />
               </div>
-              <button
+              <Button.Secondary
                 type="button"
-                className={auiButtonClass({ variant: 'outline', className: 'min-w-44' })}
+                className="min-w-44"
                 disabled={activeMount !== undefined}
                 onClick={connectDuringChat}
               >
                 Connect During Chat
-              </button>
+              </Button.Secondary>
             </div>
           ) : (
             <>
@@ -308,7 +309,7 @@ export function AgentMcpEditorContent({
                   value={toolQuery}
                   onChange={event => setToolQuery(event.target.value)}
                   placeholder="Search Tools"
-                  className={auiInputClass('h-9 w-full pl-7')}
+                  className={auiInputClass('h-8 w-full pl-7')}
                 />
               </label>
               <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -320,13 +321,9 @@ export function AgentMcpEditorContent({
                 {toolsError ? (
                   <div className="p-3">
                     <p className="text-failure-bg text-sm">{toolsError}</p>
-                    <button
-                      type="button"
-                      className={auiButtonClass({ variant: 'secondary', size: 'sm', className: 'mt-2' })}
-                      onClick={onRetryTools}
-                    >
+                    <Button.Secondary type="button" size="small" className="mt-2" onClick={onRetryTools}>
                       Retry
-                    </button>
+                    </Button.Secondary>
                   </div>
                 ) : null}
                 {!toolsLoading

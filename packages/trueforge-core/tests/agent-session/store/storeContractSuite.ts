@@ -218,6 +218,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         end_timestamp: undefined,
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         source_type: undefined,
         source_id: undefined,
       });
@@ -247,6 +248,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const filtered = await store.listSessions({
         agent_id: 'agent-abc',
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -598,6 +600,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const listed = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -859,6 +862,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const desc = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -873,6 +877,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const asc = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -892,6 +897,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const first = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 2,
         page_token: undefined,
@@ -906,6 +912,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const second = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 2,
         page_token: first.pagination.next_page_token,
@@ -921,6 +928,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const all = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -938,6 +946,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const bounded = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         order: 'asc',
@@ -965,6 +974,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const listArgs = {
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         order: undefined,
         start_timestamp: undefined,
@@ -993,6 +1003,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const listArgs = {
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         order: 'desc' as const,
         start_timestamp: undefined,
@@ -1013,6 +1024,75 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(pageIds).toEqual(full.data.map(s => s.session_id));
       expect(new Set(pageIds).size).toBe(pageIds.length);
       expect(page2.pagination.next_page_token).toBeUndefined();
+    });
+
+    it('filters listSessions by metadata containment', async () => {
+      const store = createStore();
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'prod-platform',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { env: 'prod', team: 'platform' },
+        external_id: null,
+        source: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'prod-only',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { env: 'prod' },
+        external_id: null,
+        source: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'staging',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: { env: 'staging' },
+        external_id: null,
+        source: null,
+      });
+      await store.createSession({
+        tenant_id: tenant,
+        session_id: 'empty-meta',
+        created_by_subject: { subject_id: 'alice', subject_type: 'user', subject_display_name: 'alice' },
+        agent: { type: 'inline', spec: makeAgentSpec() },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+
+      const listArgs = {
+        agent_id: undefined,
+        created_by_or_agent_ids: undefined,
+        tenant_id: tenant,
+        limit: 10,
+        page_token: undefined,
+        order: 'asc' as const,
+        start_timestamp: undefined,
+        end_timestamp: undefined,
+        source_type: undefined,
+        source_id: undefined,
+      };
+
+      const byEnv = await store.listSessions({ ...listArgs, metadata: { env: 'prod' } });
+      expect(byEnv.data.map(s => s.session_id).sort()).toEqual(['prod-only', 'prod-platform']);
+
+      const byBoth = await store.listSessions({
+        ...listArgs,
+        metadata: { env: 'prod', team: 'platform' },
+      });
+      expect(byBoth.data.map(s => s.session_id)).toEqual(['prod-platform']);
+
+      const emptyOnly = await store.listSessions({ ...listArgs, metadata: {} });
+      expect(emptyOnly.data.map(s => s.session_id)).toEqual(['empty-meta']);
     });
 
     it('filters by creator or named-agent ids', async () => {
@@ -1064,6 +1144,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           created_by_subject_id: 'alice',
           agent_ids: [],
         },
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -1082,6 +1163,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           created_by_subject_id: 'alice',
           agent_ids: ['managed-agent'],
         },
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -1099,6 +1181,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           created_by_subject_id: 'alice',
           agent_ids: ['managed-agent'],
         },
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -1116,6 +1199,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           created_by_subject_id: 'nobody',
           agent_ids: [],
         },
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -1172,6 +1256,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const byType = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -1186,6 +1271,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const bySourceId = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,
@@ -1201,6 +1287,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const unmatched = await store.listSessions({
         agent_id: undefined,
         created_by_or_agent_ids: undefined,
+        metadata: undefined,
         tenant_id: tenant,
         limit: 10,
         page_token: undefined,

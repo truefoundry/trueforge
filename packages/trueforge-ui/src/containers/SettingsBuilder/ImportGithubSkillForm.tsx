@@ -159,9 +159,9 @@ const ImportGithubSkillForm = ({ open, onOpenChange, onImport, busy = false, err
 
           <div className="space-y-3">
             {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
-            <Button type="submit" disabled={!canImport} className="w-full">
+            <Button.Primary type="submit" disabled={!canImport} className="w-full">
               Import
-            </Button>
+            </Button.Primary>
           </div>
         </div>
       </form>

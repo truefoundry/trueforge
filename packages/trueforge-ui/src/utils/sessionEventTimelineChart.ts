@@ -55,9 +55,15 @@ export type TimelineSubAgentGroup = TimelineGap & {
   segments: SessionEventTimelineSegment[];
 };
 
+export type TimelineMarkerGroup = TimelineGap & {
+  id: string;
+  segments: SessionEventTimelineSegment[];
+};
+
 export const TIMELINE_TYPE = {
   turn: 'turn',
   event: 'event',
+  markerGroup: 'markerGroup',
   toolCallGroup: 'toolCallGroup',
   subAgentGroup: 'subAgentGroup',
 } as const;
@@ -65,6 +71,7 @@ export const TIMELINE_TYPE = {
 export type TimelineHoverTarget =
   | { type: typeof TIMELINE_TYPE.turn; bar: TimelineTurnBar }
   | { type: typeof TIMELINE_TYPE.event; segment: SessionEventTimelineSegment }
+  | { type: typeof TIMELINE_TYPE.markerGroup; group: TimelineMarkerGroup }
   | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup }
   | { type: typeof TIMELINE_TYPE.subAgentGroup; group: TimelineSubAgentGroup };
 
@@ -79,6 +86,70 @@ export function getTimelineHoverTargetId(target: TimelineHoverTarget | null): st
 /** Convert an interval to Chart.js's floating horizontal-bar data shape. */
 export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, number] {
   return [startMs, endMs];
+}
+
+/** Collapse point events at an identical chart timestamp into one marker and tooltip. */
+export function groupCoincidentTimelineMarkers(segments: SessionEventTimelineSegment[]): TimelineMarkerGroup[] {
+  const groupsByTimestamp = new Map<number, SessionEventTimelineSegment[]>();
+  for (const segment of segments) {
+    if (!segment.isMarker) continue;
+    const group = groupsByTimestamp.get(segment.startMs);
+    if (group) group.push(segment);
+    else groupsByTimestamp.set(segment.startMs, [segment]);
+  }
+  return Array.from(groupsByTimestamp, ([startMs, group]) => ({
+    id: `marker-group-${group.map(segment => segment.id).join('-')}`,
+    startMs,
+    endMs: startMs,
+    segments: group,
+  })).sort((left, right) => left.startMs - right.startMs);
+}
+
+function timelineAxisUnit(totalMs: number): { divisorMs: number; suffix: string } {
+  if (totalMs < 1_000) return { divisorMs: 1, suffix: 'ms' };
+  if (totalMs < 60_000) return { divisorMs: 1_000, suffix: 's' };
+  if (totalMs < 3_600_000) return { divisorMs: 60_000, suffix: 'm' };
+  return { divisorMs: 3_600_000, suffix: 'h' };
+}
+
+/** Format an axis label as milliseconds, seconds, minutes, or hours by elapsed time. */
+export function formatTimelineAxisDuration(durationMs: number): string {
+  const unit = timelineAxisUnit(durationMs);
+  return `${Number((durationMs / unit.divisorMs).toFixed(2))}${unit.suffix}`;
+}
+
+function getCleanAxisStepMs(totalMs: number): number {
+  const { divisorMs } = timelineAxisUnit(totalMs);
+  const target = totalMs / divisorMs / 8;
+  if (divisorMs >= 60_000 && target < 1) return Math.max(0.25, Math.ceil(target * 4) / 4) * divisorMs;
+  const integerTarget = Math.max(1, target);
+  const magnitude = 10 ** Math.floor(Math.log10(integerTarget));
+  const normalized = integerTarget / magnitude;
+  const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return multiplier * magnitude * divisorMs;
+}
+
+/** Generate clean active-time ticks, translated around fixed visual turn separators. */
+export function buildTimelineAxisTicks({
+  activeTotalMs,
+  turnStartsMs,
+  turnGapMs,
+}: {
+  activeTotalMs: number;
+  turnStartsMs: number[];
+  turnGapMs: number;
+}): Array<{ value: number }> {
+  const stepMs = getCleanAxisStepMs(activeTotalMs);
+  const activeTicks: number[] = [];
+  for (let activeMs = 0; activeMs < activeTotalMs; activeMs += stepMs) activeTicks.push(activeMs);
+  const lastRegularTick = activeTicks.at(-1);
+  if (lastRegularTick != null && lastRegularTick > 0 && activeTotalMs - lastRegularTick < stepMs / 4) {
+    activeTicks.pop();
+  }
+  if (activeTicks.at(-1) !== activeTotalMs) activeTicks.push(activeTotalMs);
+  return activeTicks.map(activeMs => ({
+    value: activeMs + turnStartsMs.slice(1).filter(turnStartMs => turnStartMs <= activeMs).length * turnGapMs,
+  }));
 }
 
 /**
@@ -274,30 +345,11 @@ export function compressInterTurnGaps(segments: SessionEventTimelineSegment[]): 
   });
 }
 
-/**
- * Translate a chart-axis coordinate back to active elapsed time by subtracting
- * the fixed visual gaps inserted between turn bars.
- */
+/** Translate a chart coordinate back to active elapsed time across visual turn separators. */
 export function getActiveTimelineMs(valueMs: number, gaps: TimelineGap[]): number {
   let activeMs = valueMs;
   for (const gap of gaps) {
     activeMs -= Math.max(0, Math.min(valueMs, gap.endMs) - gap.startMs);
   }
   return Math.max(0, activeMs);
-}
-
-/**
- * Keep generated ticks before the active endpoint, then force endpoint and
- * padding ticks so the final duration label and trailing whitespace are stable.
- */
-export function buildTimelineAxisTicks<T extends { value: number }>({
-  ticks,
-  totalMs,
-  timelineMaxMs,
-}: {
-  ticks: readonly T[];
-  totalMs: number;
-  timelineMaxMs: number;
-}): Array<T | { value: number }> {
-  return [...ticks.filter(tick => tick.value < totalMs), { value: totalMs }, { value: timelineMaxMs }];
 }
