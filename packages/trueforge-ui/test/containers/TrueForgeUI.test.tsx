@@ -540,7 +540,13 @@ describe('SidebarLayout', () => {
     expect(deselectedNewChat).not.toHaveAttribute('aria-current');
     const config = await screen.findByRole('dialog', { name: 'Agent Config' });
     const chatColumn = config.nextElementSibling;
-    expect(config).toHaveClass('border-r');
+    expect(config).toHaveClass(
+      'md:max-w-150',
+      'md:flex-[0_2_37.5rem]',
+      '2xl:max-w-162.5',
+      '2xl:flex-[0_2_40.625rem]',
+      'border-r',
+    );
     expect(chatColumn).not.toBeNull();
     expect(config.querySelector('header')).toHaveClass('min-h-14');
     expect(chatColumn?.querySelector('header')).toHaveClass('min-h-14');

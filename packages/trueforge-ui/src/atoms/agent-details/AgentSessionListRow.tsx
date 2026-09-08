@@ -4,11 +4,13 @@ import { Icon } from '../../icons/Icon.js';
 import { formatSessionListMetrics } from '../../utils/sessionDisplayFormat.js';
 import { cn } from '../lib/cn.js';
 import { formatRelativeShort } from '../lib/threadListMeta.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionListRowProps } from './types.js';
 
 export function AgentSessionListRow({
   title,
   agentName,
+  sourceType,
   lastActivityAt,
   metrics,
   active,
@@ -26,7 +28,16 @@ export function AgentSessionListRow({
         active ? 'bg-dropdown-selected-item-bg' : 'hover:bg-ghost-button-hover',
       )}
     >
-      <span className="line-clamp-2 text-sm font-medium text-text-primary">{title}</span>
+      <span className="flex items-start justify-between gap-2">
+        <span className="line-clamp-2 text-sm font-medium text-text-primary">{title}</span>
+        {sourceType === 'schedule' ? (
+          <Tooltip content="Schedule run">
+            <span aria-label="Schedule run" className="mt-0.5 inline-flex shrink-0">
+              <Icon name="calendar" className="size-3.5" />
+            </span>
+          </Tooltip>
+        ) : null}
+      </span>
       <span className="flex items-end justify-between gap-2 text-xs text-text-secondary">
         <span className="flex min-w-0 items-center gap-1">
           {agentName != null ? (

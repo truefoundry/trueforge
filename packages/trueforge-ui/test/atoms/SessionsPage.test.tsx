@@ -109,6 +109,15 @@ describe('SessionsPage', () => {
     expect(screen.getByRole('separator', { name: 'Resize session list' })).toHaveClass('w-0');
   });
 
+  it('labels sessions created by a schedule run', async () => {
+    const scheduledRow = { ...namedRow, id: 'sess-scheduled', sourceType: 'schedule' as const };
+    renderPage({ listSessions: vi.fn(async () => ({ data: [scheduledRow] })) });
+
+    const indicator = await screen.findByLabelText('Schedule run');
+    fireEvent.mouseEnter(indicator);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Schedule run');
+  });
+
   it('shows a single empty screen when there are no sessions', async () => {
     renderPage({ listSessions: vi.fn(async () => ({ data: [] })) });
     expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();

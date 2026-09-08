@@ -108,7 +108,7 @@ function SidebarNav(): ReactNode {
           onClick={handleNewAgent}
         >
           <Icon name="agent-2" size={14} />
-          <span className="text-center">New Agent</span>
+          <span className="text-center whitespace-nowrap">Build Agent</span>
         </button>
       ) : null}
       <AgentsLibraryButton compact />
@@ -216,7 +216,7 @@ export function SidebarLayout({ className }: { className?: string }) {
         <aside
           role="dialog"
           aria-label="Agent Config"
-          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:w-88 md:max-w-none md:shrink-0 md:shadow-none"
+          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:max-w-150 md:flex-[0_2_37.5rem] md:shadow-none 2xl:max-w-162.5 2xl:flex-[0_2_40.625rem]"
         >
           <AgentConfigDrawerContainer showClose={isMobile} />
         </aside>
