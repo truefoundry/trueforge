@@ -283,4 +283,35 @@ describe('validateAgentSpec', () => {
     ).resolves.toBeUndefined();
     expect(await stores.sandboxProviderStore.getSandboxProvider('default')).toBeUndefined();
   });
+
+  it('rejects registry skills with 422', async () => {
+    const stores = await setup();
+    await stores.skillStore.upsertSkill({
+      tenant_id: 'default',
+      name: 'echo',
+      manifest: {
+        type: 'registry',
+        name: 'echo',
+        description: 'Echo',
+        id: 'skill-1',
+        fqn: 'agent-skill:acme/team-a/echo:1',
+        ml_repo_name: 'team-a',
+        version: 1,
+      },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          skills: [{ name: 'echo' }],
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Skill "echo" is not a git skill',
+    } satisfies Partial<HTTPException>);
+  });
 });

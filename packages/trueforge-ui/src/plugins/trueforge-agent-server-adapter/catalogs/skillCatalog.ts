@@ -23,7 +23,7 @@ export function toUiCatalogEntry(skill: TrueForgeApi.CatalogSkill): UiSkillCatal
   };
 }
 
-export function toHarnessManifest(req: SkillConfigBase): TrueForgeApi.SkillManifest {
+export function toHarnessManifest(req: SkillConfigBase): TrueForgeApi.settings.CreateSkillRequest['manifest'] {
   const path = req.path.trim();
   return {
     type: 'git',

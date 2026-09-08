@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { NameSchema } from '../schemas/common';
 import type { SkillVersion } from '../schemas/skill';
 
 const SfyManifestSchema = z.object({
-  name: z.string().min(1),
+  name: NameSchema,
   version: z.number().int().positive(),
   ml_repo: z.string().min(1),
   source: z

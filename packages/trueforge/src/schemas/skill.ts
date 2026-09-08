@@ -9,8 +9,6 @@
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
 
-export const SkillTypeSchema = z.enum(['git', 'registry']).openapi('SkillType');
-
 // GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
 const GIT_URL_REGEX =
   /^https:\/\/(github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+|gitlab\.com\/[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+)(\/|\.git)?$/;
@@ -138,7 +136,7 @@ export const SkillVersionSchema = z
   .object({
     id: z.string().min(1),
     fqn: z.string().min(1),
-    name: z.string().min(1),
+    name: NameSchema,
     description: SkillDescriptionSchema,
     version: z.number().int().positive(),
   })
@@ -149,7 +147,6 @@ export const ListSkillVersionsResponseSchema = z
   .object({ data: z.array(SkillVersionSchema) })
   .openapi('ListSkillVersionsResponse');
 
-export type SkillType = z.infer<typeof SkillTypeSchema>;
 export type GitSkillManifest = z.infer<typeof GitSkillManifestSchema>;
 export type RegistrySkillManifest = z.infer<typeof RegistrySkillManifestSchema>;
 export type SkillManifest = z.infer<typeof SkillManifestSchema>;
