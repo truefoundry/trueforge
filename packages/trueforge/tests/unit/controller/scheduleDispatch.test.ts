@@ -100,17 +100,12 @@ describe('schedule execution HTTP transport', () => {
 
     await executeRun('run-1');
 
-    expect(request).toHaveBeenCalledWith(
-      new URL('http://trueforge.internal:8790/api/internal/schedules/runs/execute'),
-      {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer service-key',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ schedule_run_id: 'run-1' }),
-      },
-    );
+    expect(request).toHaveBeenCalledTimes(1);
+    const [url, init] = request.mock.calls[0] ?? [];
+    expect(String(url)).toBe('http://trueforge.internal:8790/api/internal/schedules/runs/execute');
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer service-key');
+    expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
   });
 });
 

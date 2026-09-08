@@ -1,3 +1,4 @@
+import { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
 import { Controller } from './controller/Controller';
 import { scheduleDispatchLoop, type ScheduleRunExecutor } from './controller/scheduleDispatch';
@@ -11,22 +12,13 @@ export function createHttpScheduleRunExecutor(params: {
   apiKey: string;
   tls: TlsOptions;
 }): ScheduleRunExecutor {
-  const baseUrl = normalizeTlsUrl({ url: params.baseUrl, enabled: params.tls.enabled });
-  const fetchImpl = createTlsFetch(params.tls) ?? fetch;
-  const url = new URL('/api/internal/schedules/runs/execute', baseUrl);
-  return async scheduleRunId => {
-    const response = await fetchImpl(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${params.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ schedule_run_id: scheduleRunId }),
-    });
-    if (!response.ok) {
-      throw new Error(`Schedule execution request failed with status ${String(response.status)}`);
-    }
-  };
+  const tlsFetch = createTlsFetch(params.tls);
+  const client = new TrueForge({
+    baseUrl: normalizeTlsUrl({ url: params.baseUrl, enabled: params.tls.enabled }),
+    token: params.apiKey,
+    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
+  });
+  return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
 }
 
 function createControllerWithExecutor<TTransaction>(params: {
