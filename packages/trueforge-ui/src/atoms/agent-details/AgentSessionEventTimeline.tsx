@@ -59,7 +59,7 @@ export function AgentSessionEventTimeline({ turns, segments, onSelectTurn }: Age
           })}
         </div>
       </div>
-      <div className="w-full py-2">
+      <div className="w-full p-2">
         <AgentSessionEventTimelineChart
           turns={turns}
           segments={segments}

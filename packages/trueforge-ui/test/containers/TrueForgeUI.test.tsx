@@ -508,6 +508,7 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
     expect(screen.getByText('New Chat')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
@@ -540,7 +541,7 @@ describe('SidebarLayout', () => {
     expect(deselectedNewChat).not.toHaveAttribute('aria-current');
     const config = await screen.findByRole('dialog', { name: 'Agent Config' });
     const chatColumn = config.nextElementSibling;
-    expect(config).toHaveClass('border-r');
+    expect(config).toHaveClass('md:max-w-140', 'md:flex-1', '2xl:max-w-150', 'border-r');
     expect(chatColumn).not.toBeNull();
     expect(config.querySelector('header')).toHaveClass('min-h-14');
     expect(chatColumn?.querySelector('header')).toHaveClass('min-h-14');
