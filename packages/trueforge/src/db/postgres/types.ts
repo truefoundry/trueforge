@@ -430,6 +430,7 @@ export interface ScheduleRunTable {
   status: ScheduleRunStatus;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   triggered_at: Date | null;
+  reason: string | null;
   created_at: Date;
   updated_at: Date;
 }

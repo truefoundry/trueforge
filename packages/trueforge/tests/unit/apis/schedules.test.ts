@@ -288,6 +288,7 @@ describe('create schedule run', () => {
       expect.objectContaining({
         schedule_id: scheduleId,
         status: 'triggered',
+        reason: null,
         created_by_subject: {
           subject_id: 'alice',
           subject_type: 'user',
@@ -343,6 +344,7 @@ describe('create schedule run', () => {
     const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
     const runNow = runs.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
+    expect(runNow?.reason).toBe('Agent not found: reporter');
   });
 
   it('returns 404 when creating a schedule for an agent the caller cannot use', async () => {

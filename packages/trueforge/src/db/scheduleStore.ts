@@ -63,6 +63,7 @@ export interface ScheduleRunRecord {
   status: ScheduleRunStatus;
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
+  reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -150,6 +151,7 @@ export interface CreateScheduleRunInput {
   created_by_subject: CreatedBySubject;
   status: ScheduleRunStatus;
   triggered_at?: Date | null;
+  reason?: string | null;
 }
 
 export interface ListScheduledRunsInput {
@@ -172,6 +174,7 @@ export interface UpdateScheduleRunStatusInput {
   tenant_id: string;
   id: string;
   status: ScheduleRunStatus;
+  reason?: string | null;
 }
 
 export class ScheduleRunConflictError extends Error {
