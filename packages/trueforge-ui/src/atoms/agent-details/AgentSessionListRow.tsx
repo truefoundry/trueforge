@@ -31,8 +31,8 @@ export function AgentSessionListRow({
       <span className="flex items-start justify-between gap-2">
         <span className="line-clamp-2 text-sm font-medium text-text-primary">{title}</span>
         {sourceType === 'schedule' ? (
-          <Tooltip content="Schedule run">
-            <span aria-label="Schedule run" className="mt-0.5 inline-flex shrink-0">
+          <Tooltip content="Scheduled run">
+            <span aria-label="Scheduled run" className="mt-0.5 inline-flex shrink-0">
               <Icon name="calendar" className="size-3.5" />
             </span>
           </Tooltip>

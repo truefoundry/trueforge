@@ -113,9 +113,9 @@ describe('SessionsPage', () => {
     const scheduledRow = { ...namedRow, id: 'sess-scheduled', sourceType: 'schedule' as const };
     renderPage({ listSessions: vi.fn(async () => ({ data: [scheduledRow] })) });
 
-    const indicator = await screen.findByLabelText('Schedule run');
+    const indicator = await screen.findByLabelText('Scheduled run');
     fireEvent.mouseEnter(indicator);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Schedule run');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled run');
   });
 
   it('shows a single empty screen when there are no sessions', async () => {
