@@ -398,6 +398,32 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
   });
 
+  it('changes runtime switches only when the switch is clicked', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="runtime"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          sandboxAvailable
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Context compaction'));
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Context compaction' }));
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
   it('retains nested runtime values while their parent is disabled', () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },

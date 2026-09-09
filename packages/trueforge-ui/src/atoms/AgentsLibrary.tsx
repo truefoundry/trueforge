@@ -129,25 +129,18 @@ export function AgentLibraryRow({
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
       <TableCell className="text-text-primary font-medium">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="bg-primary-bg text-text-secondary inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-            <Icon name="agent-2" className="size-4" />
-          </span>
-          <div className="min-w-0">
-            {onOpen == null ? (
-              <span className="block truncate">{agent.name}</span>
-            ) : (
-              <button
-                type="button"
-                className="block max-w-full cursor-pointer text-left"
-                aria-label={`Open ${agent.name}`}
-                onClick={onOpen}
-              >
-                <span className="block truncate">{agent.name}</span>
-              </button>
-            )}
-          </div>
-        </div>
+        {onOpen == null ? (
+          <span className="block truncate">{agent.name}</span>
+        ) : (
+          <button
+            type="button"
+            className="block max-w-full cursor-pointer text-left"
+            aria-label={`Open ${agent.name}`}
+            onClick={onOpen}
+          >
+            <span className="block truncate">{agent.name}</span>
+          </button>
+        )}
       </TableCell>
       <TableCell>
         {hasConfiguration ? (

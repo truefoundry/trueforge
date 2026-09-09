@@ -428,7 +428,7 @@ export function SchedulesPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Name</TableHead>
                   <TableHead>Agent</TableHead>
-                  <TableHead>Cadence</TableHead>
+                  <TableHead>Frequency</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last 5 runs</TableHead>
                   <TableHead>
