@@ -141,6 +141,31 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
+/**
+ * Empty stays empty. Otherwise parse as a URL, drop a trailing slash, and reject
+ * query/hash or `.` / `..` path segments (those would make a bad UI prefix).
+ */
+function parsePublicBaseUrl(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === '') {
+    return '';
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch (error) {
+    throw new Error('PUBLIC_BASE_URL must be a valid URL', { cause: error });
+  }
+  if (parsed.search !== '' || parsed.hash !== '') {
+    throw new Error('PUBLIC_BASE_URL must not include a query or hash');
+  }
+  const segments = parsed.pathname.split('/').filter(part => part.length > 0);
+  if (segments.some(part => part === '.' || part === '..')) {
+    throw new Error('PUBLIC_BASE_URL path must not contain "." or ".." segments');
+  }
+  const path = segments.length === 0 ? '' : `/${segments.join('/')}`;
+  return `${parsed.origin}${path}`;
+}
+
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
 function parsePostgresSslMode(raw: string | undefined): string {
   if (!raw) {
@@ -470,9 +495,10 @@ export interface SharedServerConfiguration {
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
   /**
-   * Public base URL used as the origin of MCP OAuth and OIDC callbacks.
-   * Optional at boot; MCP OAuth and OIDC callback construction fail if empty
-   * outside standalone development. Env: `PUBLIC_BASE_URL`.
+   * Public application URL (origin plus optional pathname). Used as the origin of
+   * MCP OAuth and OIDC callbacks; the pathname is the UI/API public prefix when
+   * a reverse proxy strips it. Optional at boot; MCP OAuth and OIDC callback
+   * construction fail if empty outside standalone development. Env: `PUBLIC_BASE_URL`.
    */
   PUBLIC_BASE_URL: string;
   /**
@@ -697,7 +723,7 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('REDIS_REQUEST_REPLY_POLL_INTERVAL_MS'),
     defaultValue: 500,
   }),
-  PUBLIC_BASE_URL: getEnv('PUBLIC_BASE_URL', { defaultValue: '' }) ?? '',
+  PUBLIC_BASE_URL: parsePublicBaseUrl(getEnv('PUBLIC_BASE_URL', { defaultValue: '' })),
   SERVER_URL:
     getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
   TRUEFORGE_MTLS_ENABLED: parseBoolean({
@@ -840,6 +866,15 @@ export function getPublicBaseUrl(config: ServerConfiguration = configuration): s
     throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
   }
   return config.PUBLIC_BASE_URL;
+}
+
+/** `/` or `/a/b/c/` — trailing slash for asset URLs and the boot script. Empty PUBLIC_BASE_URL → `/`. */
+export function getPublicUiBasePath(config: ServerConfiguration = configuration): string {
+  if (config.PUBLIC_BASE_URL === '') {
+    return '/';
+  }
+  const path = new URL(config.PUBLIC_BASE_URL).pathname.replace(/\/+$/, '');
+  return path === '' ? '/' : `${path}/`;
 }
 
 export default configuration;

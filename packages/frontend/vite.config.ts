@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ProxyOptions } from 'vite';
+import type { Plugin, ProxyOptions } from 'vite';
 import { defaultClientConditions, defineConfig } from 'vite';
 import { compression } from 'vite-plugin-compression2';
 // Maintained ESM fork of vite-plugin-monaco-editor (works with Vite 6 ESM config).
@@ -16,17 +16,8 @@ if (!Number.isInteger(PORT)) {
   throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
 }
 
-/** Optional public path (e.g. `/trueforge`). Empty/unset → `/`. Vite requires a trailing slash. */
-function resolveViteBase(raw: string | undefined): string {
-  const trimmed = raw?.trim();
-  if (trimmed === undefined || trimmed === '' || trimmed === '/') {
-    return '/';
-  }
-  const withLead = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLead.endsWith('/') ? withLead : `${withLead}/`;
-}
-
-const BASE = resolveViteBase(process.env.VITE_BASE_PATH);
+/** Vite writes this into the production shell; the server substitutes at process start. */
+const SHELL_BASE_TOKEN = '__TRUEFORGE_BASE_PATH__';
 
 const apiProxy: ProxyOptions = {
   target: SERVER,
@@ -42,28 +33,22 @@ const apiProxy: ProxyOptions = {
   },
 };
 
-/** When UI+API share a public path, strip it so Harness still sees `/api`. */
-const prefixedApiProxy: ProxyOptions =
-  BASE === '/'
-    ? apiProxy
-    : {
-        ...apiProxy,
-        rewrite: requestPath => requestPath.slice(BASE.length - 1),
-      };
+function shellBaseTokenPlugin(): Plugin {
+  return {
+    name: 'trueforge-shell-base-token',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        return html
+          .replaceAll('src="./assets/', `src="${SHELL_BASE_TOKEN}assets/`)
+          .replaceAll('href="./assets/', `href="${SHELL_BASE_TOKEN}assets/`);
+      },
+    },
+  };
+}
 
-const proxy: Record<string, ProxyOptions> =
-  BASE === '/'
-    ? {
-        '/api': apiProxy,
-      }
-    : {
-        // Prefer the prefixed keys so `/trueforge/api` is not matched as a bare `/api` miss.
-        [`${BASE}api`]: prefixedApiProxy,
-        '/api': apiProxy,
-      };
-
-export default defineConfig({
-  base: BASE,
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? './' : '/',
   plugins: [
     react(),
     monacoEditorPlugin({
@@ -75,6 +60,7 @@ export default defineConfig({
       threshold: 1024,
       skipIfLargerOrEqual: true,
     }),
+    ...(command === 'build' ? [shellBaseTokenPlugin()] : []),
   ],
   // Single React / assistant-ui Context instance (avoids "requires an AuiProvider").
   resolve: {
@@ -93,6 +79,6 @@ export default defineConfig({
     // Fail if FRONTEND_PORT is taken — never silently hop to 3001/3010/etc.
     strictPort: true,
     // Proxy API routes (including /api/internal) to the Harness.
-    proxy,
+    proxy: { '/api': apiProxy },
   },
-});
+}));

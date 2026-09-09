@@ -1,15 +1,29 @@
 /**
- * Public path from Vite `base` (`VITE_BASE_PATH`). Always `/` or a path with a
- * trailing slash (e.g. `/trueforge/`). UI assets, React Router, and API/auth
- * share this prefix; Caddy strips it before Harness so the server still sees
- * `/` and `/api/...`.
+ * Public path from `window.__TRUEFORGE_BASE_PATH__` (the server substitutes
+ * `PUBLIC_BASE_URL`'s pathname into the app shell). Always `/` or a path with a
+ * trailing slash (e.g. `/a/b/c/`). UI assets, React Router, and API/auth share
+ * this prefix; a reverse proxy strips it so the server still sees `/` and `/api/...`.
  */
-export const UI_BASE_PATH =
-  typeof import.meta.env === 'object' &&
-  typeof import.meta.env.BASE_URL === 'string' &&
-  import.meta.env.BASE_URL.length > 0
-    ? import.meta.env.BASE_URL
-    : '/';
+declare global {
+  interface Window {
+    __TRUEFORGE_BASE_PATH__?: string;
+  }
+}
+
+const SHELL_BASE_TOKEN = '__TRUEFORGE_BASE_PATH__';
+
+function documentUiBasePath(): string {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+  const href = window.__TRUEFORGE_BASE_PATH__?.trim();
+  if (href === undefined || href === '' || href.includes(SHELL_BASE_TOKEN)) {
+    return '/';
+  }
+  return href.endsWith('/') ? href : `${href}/`;
+}
+
+export const UI_BASE_PATH = documentUiBasePath();
 
 /** SDK `baseUrl` — same public prefix as the UI. */
 export const API_BASE_URL = UI_BASE_PATH;

@@ -16,7 +16,7 @@ function buildDir(): string {
 function appWithFrontend(dir: string): OpenAPIHono {
   const app = new OpenAPIHono();
   app.get('/api/v1/health', c => c.json({ ok: true }));
-  mountFrontend(app, dir);
+  mountFrontend(app, { dir, uiBasePath: '/' });
   return app;
 }
 
@@ -24,8 +24,10 @@ const HTML_ACCEPT = { accept: 'text/html,application/xhtml+xml' };
 
 describe('mountFrontend', () => {
   it('reports whether the directory holds a build', () => {
-    expect(mountFrontend(new OpenAPIHono(), path.join(tmpdir(), 'trueforge-missing-build'))).toBe(false);
-    expect(mountFrontend(new OpenAPIHono(), buildDir())).toBe(true);
+    expect(
+      mountFrontend(new OpenAPIHono(), { dir: path.join(tmpdir(), 'trueforge-missing-build'), uiBasePath: '/' }),
+    ).toBe(false);
+    expect(mountFrontend(new OpenAPIHono(), { dir: buildDir(), uiBasePath: '/' })).toBe(true);
   });
 
   it('serves the app shell for client-only deep links', async () => {

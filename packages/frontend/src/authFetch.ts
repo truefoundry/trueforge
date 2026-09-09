@@ -2,9 +2,9 @@
  * Browser auth entry points. Login and logout are not SDK methods (cookie session).
  * On any HTTP 401, redirect to OIDC login (session required).
  *
- * Auth URLs share `VITE_BASE_PATH` with the UI (e.g. `/trueforge/api/v1/auth/...`).
- * Caddy strips that prefix before Harness. Pass `return_to` so post-login lands
- * back under the UI path.
+ * Auth URLs share the public prefix with the UI (e.g. `/a/b/c/api/v1/auth/...`).
+ * A reverse proxy strips that prefix before Harness. Pass `return_to` so post-login
+ * lands back under the UI path.
  */
 import { apiPath, UI_BASE_PATH } from './publicPath';
 
