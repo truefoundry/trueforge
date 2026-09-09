@@ -96,6 +96,7 @@ describe('mapSfyRegistrySkills', () => {
             fqn: 'agent-skill:acme/team-a/echo:3',
             name: 'echo',
             description: 'Echo skill',
+            skill_md_content: null,
           },
         ],
       }),
@@ -104,6 +105,7 @@ describe('mapSfyRegistrySkills', () => {
         fqn: 'agent-skill:acme/team-a/echo:3',
         name: 'echo',
         description: 'Echo skill',
+        skill_md_content: null,
       },
     ]);
   });

@@ -48,6 +48,8 @@ export const ResolvedAgentSkillVersionSchema = z.object({
   fqn: z.string().min(1),
   name: z.string().min(1),
   description: z.string().min(1),
+  skill_md_content: z.string().nullable().optional(),
+  presigned_url: z.string().min(1).optional(),
 });
 
 export type ResolvedAgentSkillVersion = z.infer<typeof ResolvedAgentSkillVersionSchema>;

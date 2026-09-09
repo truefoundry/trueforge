@@ -4,6 +4,7 @@
  * Implementations: PostgresSkillStore and SqliteSkillStore.
  */
 import type { Skill as AgentSkillRef } from '@truefoundry/trueforge-core/agent-session';
+import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
 import type { SkillManifest, SkillVersion } from '../schemas/skill';
 
 export interface SkillRecord {
@@ -35,7 +36,7 @@ export interface CreateSkillInput {
 /** Same shape as create for now; kept as a distinct name for the upsert path. */
 export type UpsertSkillInput = CreateSkillInput;
 
-/** AgentSpec `skills` refs for save validate. */
+/** AgentSpec `skills` refs for validate and resolve. */
 export interface AgentSkillsInput {
   tenant_id: string;
   skills: readonly AgentSkillRef[];
@@ -63,4 +64,6 @@ export interface ISkillStore<TTransaction = never> {
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
   /** Admit AgentSpec skill refs (git store or TrueFoundry SFY resolve with caller token). */
   validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void>;
+  /** Expand AgentSpec skill refs to sandbox mounts (git store or TrueFoundry SFY resolve with API key). */
+  resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]>;
 }

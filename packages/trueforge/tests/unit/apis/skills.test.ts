@@ -143,6 +143,7 @@ describe('skills routers', () => {
       upsertSkill: jest.fn(),
       listSkillVersions: jest.fn(),
       validateAgentSkills: jest.fn(),
+      resolveTurnSkills: jest.fn(),
     };
     const router = createAvailableSkillsRouter({
       resolveSkillStore: () => skillStore,
@@ -189,6 +190,7 @@ describe('skills routers', () => {
       upsertSkill: jest.fn().mockResolvedValue(record),
       listSkillVersions: jest.fn(),
       validateAgentSkills: jest.fn(),
+      resolveTurnSkills: jest.fn(),
     };
     const router = createSkillsRouter({
       resolveSkillStore: () => managedStore,
@@ -227,6 +229,7 @@ describe('skills routers', () => {
       upsertSkill: jest.fn(() => trueFoundryManaged()),
       listSkillVersions: jest.fn(),
       validateAgentSkills: jest.fn(),
+      resolveTurnSkills: jest.fn(),
     };
     const router = createSkillsRouter({
       resolveSkillStore: () => managedStore,

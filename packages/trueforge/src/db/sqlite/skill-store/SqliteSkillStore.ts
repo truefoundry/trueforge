@@ -1,6 +1,7 @@
+import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SkillManifest, SkillVersion } from '../../../schemas/skill';
-import { validateGitAgentSkills } from '../../gitSkillMounts';
+import { resolveGitTurnSkills, validateGitAgentSkills } from '../../gitSkillMounts';
 import {
   SkillNameConflictError,
   type AgentSkillsInput,
@@ -97,5 +98,9 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
   validateAgentSkills(input: AgentSkillsInput, transaction?: Transaction<Database>): Promise<void> {
     void transaction;
     return validateGitAgentSkills(this, input);
+  }
+
+  resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
+    return resolveGitTurnSkills(this, input);
   }
 }
