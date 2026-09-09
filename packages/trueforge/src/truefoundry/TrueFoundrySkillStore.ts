@@ -1,3 +1,4 @@
+import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
@@ -23,7 +24,7 @@ import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryService
 
 export type TrueFoundrySkillApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
-  'listAgentSkills' | 'listAgentSkillVersions' | 'vendToken' | 'resolveAgentSkillVersions'
+  'listAgentSkills' | 'listAgentSkillVersions' | 'vendToken' | 'resolveAgentSkillVersions' | 'apiKey'
 >;
 
 function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillRecord {
@@ -47,6 +48,7 @@ function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillReco
 
 /** Read-only TrueFoundry registry skill catalog; writes are managed by TrueFoundry.
  * Pass `agent` on turn/cron paths so catalog reads use the same vend token as models and MCP.
+ * Save validate uses the caller JWT; turn mounts pass the service API key.
  */
 export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<TTransaction> {
   readonly #client: TrueFoundrySkillApiClient;
@@ -151,5 +153,52 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
       }
       seenNames.add(row.name);
     }
+  }
+
+  async resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
+    const { skills } = input;
+    if (skills.length === 0) {
+      return [];
+    }
+
+    // Runtime resolve uses the service API key, not the caller token.
+    const resolved = await this.#client.resolveAgentSkillVersions({
+      accessToken: this.#client.apiKey,
+      skills: skills.map(skill => ({
+        fqn: skill.name,
+        include_skill_md_content: skill.preload,
+        include_presigned_url: true,
+      })),
+    });
+
+    const byFqn = new Map(resolved.map(row => [row.fqn, row]));
+    return skills.map(skill => {
+      const row = byFqn.get(skill.name);
+      if (row === undefined) {
+        throw new HTTPException(422, {
+          message: `Unknown skill "${skill.name}" — not configured`,
+        });
+      }
+      if (row.presigned_url === undefined) {
+        throw new HTTPException(422, {
+          message: `Skill "${skill.name}" did not return a presigned URL`,
+        });
+      }
+      const skillMdContent = skill.preload ? (row.skill_md_content ?? null) : null;
+      if (skill.preload && (skillMdContent === null || skillMdContent.length === 0)) {
+        throw new HTTPException(422, {
+          message: `Skill "${skill.name}" did not return SKILL.md for preload`,
+        });
+      }
+      return {
+        type: 'registry' as const,
+        name: row.name,
+        description: row.description,
+        fqn: row.fqn,
+        preload: skill.preload,
+        skillMdContent,
+        presignedUrl: row.presigned_url,
+      };
+    });
   }
 }

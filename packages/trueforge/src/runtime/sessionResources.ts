@@ -4,7 +4,6 @@ import {
   SkillMounter,
   type AgentDefinition,
   type AgentTracing,
-  type GitSkill,
   type ModelParams,
   type RemoteMcpHeaders,
   type SandboxProvider,
@@ -23,7 +22,6 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { parseGitSkill } from '../schemas/skill';
 
 export interface McpConnection {
   url: string;
@@ -125,52 +123,6 @@ export async function getMcpConnection({
     url: record.manifest.url,
     headers: store.resolveInvokeHeaders({ record, userRef }),
   };
-}
-
-/**
- * Expand agent_spec skill names into git mounts from the skill store.
- * Wire url/path/ref/description on the request are ignored — the store row wins.
- * Throws HTTPException(422) if any name is missing or not a git skill.
- */
-export async function resolveGitSkills({
-  tenant_id,
-  skills,
-  store,
-}: {
-  tenant_id: string;
-  skills: readonly { name: string }[];
-  store: ISkillStore;
-}): Promise<GitSkill[]> {
-  if (skills.length === 0) {
-    return [];
-  }
-  const names = skills.map(skill => skill.name);
-  const records = await store.listSkills({ tenant_id, names });
-  const byName = new Map(records.map(record => [record.name, record]));
-  const resolved: GitSkill[] = [];
-  for (const skill of skills) {
-    const record = byName.get(skill.name);
-    if (record === undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown skill "${skill.name}" — not configured`,
-      });
-    }
-    const git = parseGitSkill(record.manifest);
-    if (git === undefined) {
-      throw new HTTPException(422, {
-        message: `Skill "${skill.name}" is not a git skill`,
-      });
-    }
-    resolved.push({
-      type: 'git',
-      name: git.name,
-      description: git.description,
-      url: git.url,
-      path: git.path ?? '',
-      ref: git.ref,
-    });
-  }
-  return resolved;
 }
 
 /**

@@ -151,6 +151,11 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#apiKey = input.apiKey;
   }
 
+  /** Service API key (`TRUEFOUNDRY_API_KEY`); callers pass it explicitly when needed. */
+  get apiKey(): string {
+    return this.#apiKey;
+  }
+
   /**
    * Model integrations. No limit/offset → full match set in one response.
    * Pass `filter` (account + model name together) for a point lookup.
@@ -270,42 +275,6 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /**
-   * `POST /internal/tfg/agent-skill-versions/resolve`. Chunks to 50 FQNs.
-   * Caller supplies the token (caller JWT on save validate).
-   * Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
-   */
-  async resolveAgentSkillVersions(input: {
-    accessToken: string;
-    skills: readonly { fqn: string }[];
-  }): Promise<ResolvedAgentSkillVersion[]> {
-    if (input.skills.length === 0) {
-      return [];
-    }
-    const resolved: ResolvedAgentSkillVersion[] = [];
-    for (let i = 0; i < input.skills.length; i += AGENT_SKILL_RESOLVE_CHUNK_SIZE) {
-      const chunk = input.skills.slice(i, i + AGENT_SKILL_RESOLVE_CHUNK_SIZE);
-      const payload = await this.#requestJson({
-        url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
-        accessToken: input.accessToken,
-        method: 'POST',
-        body: { skills: chunk.map(({ fqn }) => ({ fqn })) },
-      });
-      try {
-        resolved.push(...mapResolvedAgentSkillVersions(payload));
-      } catch (error) {
-        this.#logger.error('TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response', {
-          ...extractErrorLogFields(error),
-        });
-        throw new HTTPException(500, {
-          message: 'TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response',
-          cause: error,
-        });
-      }
-    }
-    return resolved;
-  }
-
   /** `GET /v1/agent-skill-versions?fqn=` (one row) or `?agent_skill_id=` (all versions). */
   async listAgentSkillVersions(input: {
     accessToken: string;
@@ -325,6 +294,52 @@ export class TrueFoundryServiceFoundryServerClient {
       query,
       limit: AGENT_SKILLS_PAGE_SIZE,
     });
+  }
+
+  /**
+   * `POST /internal/tfg/agent-skill-versions/resolve`. Chunks to 50 FQNs.
+   * Caller supplies the token (caller JWT on save validate; service API key on turns).
+   * Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
+   */
+  async resolveAgentSkillVersions(input: {
+    accessToken: string;
+    skills: readonly {
+      fqn: string;
+      include_skill_md_content?: boolean;
+      include_presigned_url?: boolean;
+    }[];
+  }): Promise<ResolvedAgentSkillVersion[]> {
+    if (input.skills.length === 0) {
+      return [];
+    }
+    const resolved: ResolvedAgentSkillVersion[] = [];
+    for (let i = 0; i < input.skills.length; i += AGENT_SKILL_RESOLVE_CHUNK_SIZE) {
+      const chunk = input.skills.slice(i, i + AGENT_SKILL_RESOLVE_CHUNK_SIZE);
+      const payload = await this.#requestJson({
+        url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
+        accessToken: input.accessToken,
+        method: 'POST',
+        body: {
+          skills: chunk.map(({ fqn, include_skill_md_content = false, include_presigned_url = false }) => ({
+            fqn,
+            include_skill_md_content,
+            include_presigned_url,
+          })),
+        },
+      });
+      try {
+        resolved.push(...mapResolvedAgentSkillVersions(payload));
+      } catch (error) {
+        this.#logger.error('TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response', {
+          ...extractErrorLogFields(error),
+        });
+        throw new HTTPException(500, {
+          message: 'TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response',
+          cause: error,
+        });
+      }
+    }
+    return resolved;
   }
 
   /** Offset/limit list until empty page or `pagination.total`. */

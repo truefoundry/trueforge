@@ -68,6 +68,7 @@ function createStore(
       },
     ]),
     vendToken: jest.fn().mockResolvedValue(AGENT_TOKEN),
+    apiKey: 'tfy-api-key',
   };
   const store = new TrueFoundrySkillStore({
     client,
@@ -315,6 +316,45 @@ describe('TrueFoundrySkillStore', () => {
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
       accessToken: ACCESS_TOKEN,
       skills: [{ fqn: 'agent-skill:acme/team-a/echo:3' }],
+    });
+  });
+
+  it('resolveTurnSkills passes the service API key', async () => {
+    const { store, client } = createStore();
+    client.resolveAgentSkillVersions.mockResolvedValue([
+      {
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
+        skill_md_content: '# Echo',
+        presigned_url: 'https://example.com/echo.tgz',
+      },
+    ]);
+    await expect(
+      store.resolveTurnSkills({
+        tenant_id: TENANT,
+        skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: true }],
+      }),
+    ).resolves.toEqual([
+      {
+        type: 'registry',
+        name: 'echo',
+        description: 'Echo skill',
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        preload: true,
+        skillMdContent: '# Echo',
+        presignedUrl: 'https://example.com/echo.tgz',
+      },
+    ]);
+    expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
+      accessToken: 'tfy-api-key',
+      skills: [
+        {
+          fqn: 'agent-skill:acme/team-a/echo:3',
+          include_skill_md_content: true,
+          include_presigned_url: true,
+        },
+      ],
     });
   });
 });
