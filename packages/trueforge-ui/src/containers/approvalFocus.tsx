@@ -1,7 +1,17 @@
 'use client';
 
 import { useAuiState } from '@assistant-ui/react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 
 import { findSubAgentAncestorsForApproval } from '../utils/findApprovalAncestors.js';
 
@@ -123,26 +133,23 @@ export function useOptionalApprovalFocus(): ApprovalFocusApi | null {
   return useContext(ApprovalFocusContext);
 }
 
-/** Registers a DOM target for scroll/flash. No-ops outside the provider (tests). */
-export function useRegisterApprovalTarget(approvalId: string | undefined, getElement: () => HTMLElement | null): void {
+export function useRegisterApprovalTarget<T extends HTMLElement>(
+  approvalId: string | undefined,
+  elementRef: RefObject<T | null>,
+): void {
   const api = useOptionalApprovalFocus();
-  const getElementRef = useRef(getElement);
-  getElementRef.current = getElement;
 
   useEffect(() => {
     if (api == null || approvalId == null || approvalId === '') return;
-    return api.registerTarget(approvalId, () => getElementRef.current());
-  }, [api, approvalId]);
+    return api.registerTarget(approvalId, () => elementRef.current);
+  }, [api, approvalId, elementRef]);
 }
 
-/** Registers a sub-agent expand callback. No-ops outside the provider (tests). */
 export function useRegisterApprovalExpand(toolCallId: string, expand: () => void): void {
   const api = useOptionalApprovalFocus();
-  const expandRef = useRef(expand);
-  expandRef.current = expand;
 
   useEffect(() => {
     if (api == null || toolCallId === '') return;
-    return api.registerExpand(toolCallId, () => expandRef.current());
-  }, [api, toolCallId]);
+    return api.registerExpand(toolCallId, expand);
+  }, [api, expand, toolCallId]);
 }

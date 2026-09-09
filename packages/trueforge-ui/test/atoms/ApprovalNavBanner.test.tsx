@@ -12,7 +12,7 @@ describe('ApprovalNavBanner', () => {
 
     const { rerender } = render(
       <ApprovalNavBanner
-        count={4}
+        total={4}
         current={1}
         canPrev={false}
         canNext
@@ -32,7 +32,7 @@ describe('ApprovalNavBanner', () => {
 
     rerender(
       <ApprovalNavBanner
-        count={4}
+        total={4}
         current={4}
         canPrev
         canNext={false}
@@ -48,7 +48,7 @@ describe('ApprovalNavBanner', () => {
   it('uses singular copy for one pending approval', () => {
     render(
       <ApprovalNavBanner
-        count={1}
+        total={1}
         current={1}
         canPrev={false}
         canNext={false}
@@ -64,7 +64,7 @@ describe('ApprovalNavBanner', () => {
     const onFocusCurrent = vi.fn();
     render(
       <ApprovalNavBanner
-        count={3}
+        total={3}
         current={2}
         canPrev
         canNext
@@ -83,7 +83,7 @@ describe('ApprovalNavBanner', () => {
     const onNext = vi.fn();
     render(
       <ApprovalNavBanner
-        count={3}
+        total={3}
         current={1}
         canPrev={false}
         canNext

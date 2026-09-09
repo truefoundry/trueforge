@@ -4,7 +4,7 @@ import { Icon } from '../icons/Icon.js';
 import { cn } from './lib/cn.js';
 
 export type ApprovalNavBannerProps = {
-  count: number;
+  total: number;
   /** 1-based index for display, e.g. 1 in "(1/4)". */
   current: number;
   canPrev: boolean;
@@ -17,7 +17,7 @@ export type ApprovalNavBannerProps = {
 };
 
 export function ApprovalNavBanner({
-  count,
+  total,
   current,
   canPrev,
   canNext,
@@ -26,18 +26,16 @@ export function ApprovalNavBanner({
   onFocusCurrent,
   className,
 }: ApprovalNavBannerProps) {
-  // Figma Agents node 6747:4232 — "N tools need your input"
-  const label = count === 1 ? '1 tool needs your input' : `${String(count)} tools need your input`;
+  const label = total === 1 ? '1 tool needs your input' : `${String(total)} tools need your input`;
 
   return (
     <div
       data-slot="aui_approval-nav-banner"
       role="status"
       aria-live="polite"
-      aria-label={`${label}. Click to go to approval ${String(current)} of ${String(count)}.`}
+      aria-label={`${label}. Click to go to approval ${String(current)} of ${String(total)}.`}
       onClick={onFocusCurrent}
       className={cn(
-        // Figma light 6747:4232 / dark 6748:1977 — top border only; sides & bottom open into the composer.
         'aui-approval-nav-banner border-approval-banner-border bg-approval-banner-bg text-approval-banner-fg flex w-full cursor-pointer items-center justify-between gap-2 border-t px-4 py-1.5 text-sm',
         'rounded-t-[var(--composer-radius,1.5rem)]',
         className,
@@ -49,7 +47,7 @@ export function ApprovalNavBanner({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="font-medium tabular-nums leading-[1.4]">
-          ({current}/{count})
+          ({current}/{total})
         </span>
         <button
           type="button"

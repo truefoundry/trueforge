@@ -59,7 +59,7 @@ export function ToolCallCard({
 }: ToolCallCardProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const focusApi = useOptionalApprovalFocus();
-  useRegisterApprovalTarget(approvalId, () => rootRef.current);
+  useRegisterApprovalTarget(approvalId, rootRef);
 
   const hasApproval = !!approvalSlot;
   const hasRequest = !!requestSlot;
@@ -86,8 +86,6 @@ export function ToolCallCard({
       data-approval-id={approvalId}
       className={cn(
         'aui-tool-call-card flex min-w-0 flex-col',
-        // Pending-approval cards keep top/right padding always so flash doesn't jump the layout.
-        // Left stays unpadded so the step rail stays aligned with siblings.
         approvalId != null || highlightCard ? 'mx-0 mt-2 rounded-md pt-1.5 pr-2 pb-1' : 'mx-0 mt-2 p-0',
         isFlashing && 'aui-approval-flash',
         className,

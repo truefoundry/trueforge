@@ -102,7 +102,6 @@ function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
     <ToolApprovalContainer
       toolName={part.toolName}
       argsText={part.argsText}
-      approvalId={part.approval?.id}
       options={
         buildApprovalOptions(part.approval?.options) as import('./ToolApprovalContainer.js').ToolApprovalOption[]
       }

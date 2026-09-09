@@ -12,7 +12,7 @@ export function ApprovalNavContainer() {
 
   return (
     <ApprovalNavBanner
-      count={count}
+      total={count}
       current={index + 1}
       canPrev={canPrev}
       canNext={canNext}

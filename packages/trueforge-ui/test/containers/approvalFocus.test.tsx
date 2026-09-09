@@ -58,7 +58,7 @@ function InnerTarget() {
   const [expanded, setExpanded] = useState(false);
   const targetRef = useRef<HTMLDivElement>(null);
   useRegisterApprovalExpand('sub-inner', () => setExpanded(true));
-  useRegisterApprovalTarget('approval', () => targetRef.current);
+  useRegisterApprovalTarget('approval', targetRef);
 
   return expanded ? <div ref={targetRef}>approval target</div> : null;
 }
