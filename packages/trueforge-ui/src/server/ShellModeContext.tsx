@@ -332,10 +332,10 @@ export function ShellModeProvider({
   );
 
   useEffect(() => {
-    if (!settingsEnabled) {
+    if (catalog == null || capabilities?.settings?.enabled === false) {
       setSettingsOpenState(false);
     }
-  }, [settingsEnabled]);
+  }, [capabilities?.settings?.enabled, catalog]);
 
   useEffect(() => {
     if (!sessionsEnabled) {

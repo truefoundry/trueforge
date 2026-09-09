@@ -4,7 +4,7 @@ import type { ComponentType } from 'react';
 
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { Skeleton } from '../primitives/Skeleton.js';
-import type { AgentMetricsViewProps } from './types.js';
+import type { AgentMetricChartProps, AgentMetricsViewProps } from './types.js';
 
 export function AgentMetricsView({
   meters,
@@ -20,7 +20,7 @@ export function AgentMetricsView({
   const AgentMetricsTimeRangeFilter = useSlot('AgentMetricsTimeRangeFilter');
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4" data-slot="agent-metrics-view">
+    <div className="min-h-0 flex-1 overflow-auto bg-secondary-bg/40 p-4" data-slot="agent-metrics-view">
       <div className="mb-4 flex justify-end">
         <AgentMetricsTimeRangeFilter timeRange={timeRange} onTimeRangeChange={onTimeRangeChange} />
       </div>
@@ -63,18 +63,21 @@ export function AgentMetricsView({
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {charts.flatMap(chart =>
-            chart.graphs != null && chart.graphs.length > 0
-              ? chart.graphs.map(graph => (
-                  <AgentMetricChart
-                    key={`${chart.definition.name}:${graph.name}`}
-                    definition={chart.definition}
-                    graph={graph}
-                    error={chart.error}
-                  />
-                ))
-              : [<AgentMetricChart key={chart.definition.name} definition={chart.definition} error={chart.error} />],
-          )}
+          {charts
+            .flatMap<AgentMetricChartProps>(chart =>
+              chart.graphs != null && chart.graphs.length > 0
+                ? chart.graphs.map(graph => ({ definition: chart.definition, graph, error: chart.error }))
+                : [{ definition: chart.definition, error: chart.error }],
+            )
+            .map(({ definition, graph, error }, colorIndex) => (
+              <AgentMetricChart
+                key={graph == null ? definition.name : `${definition.name}:${graph.name}`}
+                definition={definition}
+                error={error}
+                colorIndex={colorIndex}
+                {...(graph == null ? {} : { graph })}
+              />
+            ))}
         </div>
       )}
     </div>

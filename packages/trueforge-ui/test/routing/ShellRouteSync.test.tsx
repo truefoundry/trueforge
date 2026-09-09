@@ -43,12 +43,14 @@ function CaptureLocation() {
 function SettingsCatalogProvider({
   children,
   settingsEnabled = true,
+  capabilitiesFail = false,
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
 }: {
   children: ReactNode;
   settingsEnabled?: boolean;
+  capabilitiesFail?: boolean;
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
@@ -57,13 +59,16 @@ function SettingsCatalogProvider({
     ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
     ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
     ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
-    getCapabilities: async () => ({
-      data: {
-        sandbox: { enabled: true },
-        skill: { enabled: true },
-        settings: { enabled: settingsEnabled },
-      },
-    }),
+    getCapabilities: async () => {
+      if (capabilitiesFail) throw new Error('Unavailable');
+      return {
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { enabled: settingsEnabled },
+        },
+      };
+    },
     getSession: async ({ sessionId }) => ({
       id: sessionId,
       title: 'Session',
@@ -80,6 +85,7 @@ function Harness({
   initialRemoteId,
   initialSettingsOpen = false,
   settingsEnabled = true,
+  capabilitiesFail = false,
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
@@ -88,6 +94,7 @@ function Harness({
   initialRemoteId?: string;
   initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
+  capabilitiesFail?: boolean;
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
@@ -97,6 +104,7 @@ function Harness({
   return (
     <SettingsCatalogProvider
       settingsEnabled={settingsEnabled}
+      capabilitiesFail={capabilitiesFail}
       includeCatalog={includeCatalog}
       includeSessions={includeSessions}
       includeSchedules={includeSchedules}
@@ -115,6 +123,7 @@ function renderSync(opts: {
   agentConfig?: AgentConfig;
   initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
+  capabilitiesFail?: boolean;
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
@@ -125,6 +134,7 @@ function renderSync(opts: {
         agentConfig={opts.agentConfig}
         initialSettingsOpen={opts.initialSettingsOpen}
         settingsEnabled={opts.settingsEnabled}
+        capabilitiesFail={opts.capabilitiesFail}
         includeCatalog={opts.includeCatalog}
         includeSessions={opts.includeSessions}
         includeSchedules={opts.includeSchedules}
@@ -231,6 +241,14 @@ describe('ShellRouteSync', () => {
     act(() => shell.setSettingsOpen(true));
     expect(shell.settingsOpen).toBe(false);
     expect(pathname).toBe('/');
+  });
+
+  it('unregisters /settings when capabilities fail to load', async () => {
+    renderSync({ initialEntries: ['/settings'], capabilitiesFail: true });
+    await waitFor(() => {
+      expect(shell.settingsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
   });
 
   it('ignores initialSettingsOpen when Settings chrome has no catalog', async () => {
