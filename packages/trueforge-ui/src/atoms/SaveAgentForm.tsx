@@ -25,7 +25,6 @@ export function SaveAgentForm({
   saving,
   error,
   onNameChange,
-  onChange,
   onCancel,
   onSave,
 }: SaveAgentFormProps) {
@@ -51,17 +50,18 @@ export function SaveAgentForm({
           />
         </label>
 
-        <label className="mb-3 block">
-          <span className="mb-1.5 block text-sm font-medium">Description</span>
-          <textarea
-            value={spec.description ?? ''}
-            disabled={saving}
-            onChange={event => onChange({ ...spec, description: event.target.value })}
-            rows={4}
-            placeholder="Describe what this agent does."
-            className={auiInputClass('resize-y py-2 disabled:opacity-60')}
-          />
-        </label>
+        {/* TODO: Uncomment the description field when the backend supports description */}
+        {/* <label className="mb-3 block">
+            <span className="mb-1.5 block text-sm font-medium">Description</span>
+            <textarea
+              value={spec.description ?? ''}
+              disabled={saving}
+              onChange={event => onChange({ ...spec, description: event.target.value })}
+              rows={4}
+              placeholder="Describe what this agent does."
+              className={auiInputClass('resize-y py-2 disabled:opacity-60')}
+            />
+          </label> */}
 
         {error ? (
           <p

@@ -407,7 +407,7 @@ show the title text (see [Custom layouts](#custom-layouts)).
 
 In library modes, picking an agent from Agents switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
 
-Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. Runtime Config opens in a second right-side drawer. The compact Tools picker contains only Connectors and Skills. The Save Agent drawer only edits the agent name and description while preserving the active draft configuration; cancelling it discards those local edits. Model context and output limits render when the server supplies that optional catalog metadata.
+Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. Runtime Config opens in a second right-side drawer. The compact Tools picker contains only Connectors and Skills. The Save Agent drawer only edits the agent name while preserving the active draft configuration; cancelling it discards that local edit. Model context and output limits render when the server supplies that optional catalog metadata.
 
 ```tsx
 {

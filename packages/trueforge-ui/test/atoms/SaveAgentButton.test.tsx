@@ -205,35 +205,26 @@ describe('SaveAgentButton', () => {
       'text-text-primary',
       'focus-visible:ring-focus-ring/40',
     );
-    expect(within(dialog).getByLabelText('Description')).toHaveClass(
-      'border-input-border',
-      'bg-input-box-bg',
-      'text-text-primary',
-      'focus-visible:ring-focus-ring/40',
-    );
+    expect(within(dialog).queryByLabelText('Description')).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Edit Model' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Edit Runtime Config' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Edit Connectors' })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: 'Edit Skills' })).not.toBeInTheDocument();
   });
 
-  it('submits description while preserving configuration from the agent drawer', async () => {
+  it('preserves configuration without exposing unsupported fields', async () => {
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'agent-1' }));
     renderButton({ saveAgent });
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.change(within(dialog).getByLabelText('Agent name'), { target: { value: 'writer' } });
-    fireEvent.change(within(dialog).getByLabelText('Description'), {
-      target: { value: 'Writes release notes.' },
-    });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() =>
       expect(saveAgent).toHaveBeenCalledWith(
         expect.objectContaining({
           agentSpec: expect.objectContaining({
-            description: 'Writes release notes.',
             instructions: 'Be helpful.',
             mcpServers: [{ id: 'github', name: 'GitHub' }],
             skills: [{ id: 'research', name: 'Research' }],
@@ -354,13 +345,11 @@ describe('SaveAgentButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
     const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.change(within(dialog).getByLabelText('Agent name'), { target: { value: 'discard-me' } });
-    fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: 'Discarded description' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
     const reopened = await screen.findByRole('dialog', { name: 'Save agent' });
     expect(within(reopened).getByLabelText('Agent name')).toHaveValue('');
-    expect(within(reopened).getByLabelText('Description')).toHaveValue('');
   });
 
   it('submits one explicit create request and adopts the persisted session spec', async () => {
@@ -372,9 +361,6 @@ describe('SaveAgentButton', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
     const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
     fireEvent.change(within(dialog).getByLabelText('Agent name'), { target: { value: 'my-agent' } });
-    fireEvent.change(within(dialog).getByLabelText('Description'), {
-      target: { value: 'Writes release notes.' },
-    });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(saveAgent).toHaveBeenCalledOnce());
@@ -386,7 +372,6 @@ describe('SaveAgentButton', () => {
         mcpServers: [{ id: 'github', name: 'GitHub' }],
         skills: [{ id: 'research', name: 'Research' }],
         config: undefined,
-        description: 'Writes release notes.',
       },
       intent: 'create',
       sessionId: 'draft-1',
@@ -432,7 +417,6 @@ describe('SaveAgentButton', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     expect(within(dialog).getByLabelText('Agent name')).toBeDisabled();
-    expect(within(dialog).getByLabelText('Description')).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
 
     pending.resolve({ agentId: 'agent-1' });
