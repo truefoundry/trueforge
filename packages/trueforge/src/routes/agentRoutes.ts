@@ -6,6 +6,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import {
   CreateAgentRequestSchema,
   DeleteAgentResponseSchema,
+  GetAgentCodeSnippetsRequestQuerySchema,
   GetAgentCodeSnippetsResponseSchema,
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
@@ -86,6 +87,7 @@ export const getAgentCodeSnippetsRoute = createRoute({
   'x-excluded': true,
   request: {
     params: AgentIdParamsSchema,
+    query: GetAgentCodeSnippetsRequestQuerySchema,
   },
   responses: {
     200: {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it, vi } from 'vitest';
 
 import { createHarnessAgentSessionsServer } from '@/plugins/trueforge-agent-server-adapter/agentSessionsServer.js';
+import { resolveTrueForgeBaseUrl } from '@/plugins/trueforge-agent-server-adapter/client.js';
 
 describe('createHarnessAgentSessionsServer', () => {
   it('maps agent details and code snippets to the UI contract', async () => {
@@ -47,7 +48,10 @@ describe('createHarnessAgentSessionsServer', () => {
       },
     ]);
     assert.deepEqual(get.mock.calls[0], ['agent-1']);
-    assert.deepEqual(getCodeSnippets.mock.calls[0], ['agent-1']);
+    assert.deepEqual(getCodeSnippets.mock.calls[0], [
+      'agent-1',
+      { queryParams: { base_url: resolveTrueForgeBaseUrl('/') } },
+    ]);
   });
 
   it('maps listSessions and listSessionEvents onto the UI contract', async () => {

@@ -72,7 +72,20 @@ export const GetAgentCodeSnippetsResponseSchema = z
   .object({ data: AgentCodeSnippetsSchema })
   .openapi('GetAgentCodeSnippetsResponse');
 
+export const GetAgentCodeSnippetsRequestQuerySchema = z
+  .object({
+    base_url: z
+      .url()
+      .optional()
+      .describe(
+        'Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.',
+      ),
+  })
+  .strict()
+  .openapi('GetAgentCodeSnippetsRequestQuery');
+
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof UpdateAgentRequestSchema>;
 export type Agent = z.infer<typeof AgentSchema>;
 export type AgentCodeSnippets = z.infer<typeof AgentCodeSnippetsSchema>;
+export type GetAgentCodeSnippetsRequestQuery = z.infer<typeof GetAgentCodeSnippetsRequestQuerySchema>;

@@ -1,5 +1,6 @@
 ---
 "@truefoundry/trueforge": patch
+"@truefoundry/trueforge-ui": patch
 ---
 
-Prefer `PUBLIC_BASE_URL` for Use In Code SDK snippets; fall back to the request origin when unset.
+Accept optional `base_url` on agent code-snippets (FE public host); fall back to request origin + `PUBLIC_BASE_URL` path.

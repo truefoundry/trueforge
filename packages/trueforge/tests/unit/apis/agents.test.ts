@@ -171,8 +171,19 @@ describe('agents router', () => {
     const response = await router.request(`/${createdJson.data.id}/code-snippets`);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { data: { base_url: string; snippets: unknown[] } };
-    expect(body.data.base_url).toBe(configuration.PUBLIC_BASE_URL || 'http://localhost');
+    expect(body.data.base_url).toBe(
+      configuration.PUBLIC_BASE_URL
+        ? new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, 'http://localhost').href
+        : 'http://localhost',
+    );
     expect(body.data.snippets.length).toBeGreaterThan(0);
+
+    const overridden = await router.request(
+      `/${createdJson.data.id}/code-snippets?base_url=${encodeURIComponent('https://sample.com/trueforge')}`,
+    );
+    expect(overridden.status).toBe(200);
+    const overriddenBody = (await overridden.json()) as { data: { base_url: string } };
+    expect(overriddenBody.data.base_url).toBe('https://sample.com/trueforge');
   });
 
   it('DELETE removes an agent by id and returns 404 when already gone', async () => {

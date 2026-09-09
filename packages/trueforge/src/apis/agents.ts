@@ -145,11 +145,22 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
+    // Prefer FE-supplied public URL (avoids in-cluster Host). Else request origin + PUBLIC_BASE_URL path.
+    // e.g. origin https://sample.com + PUBLIC_BASE_URL https://example.com/trueforge
+    //   → https://sample.com/trueforge
+    const requestedBaseUrl = c.req.valid('query').base_url;
+    const origin = new URL(c.req.url).origin;
+    let baseUrl = origin;
+    if (requestedBaseUrl) {
+      baseUrl = requestedBaseUrl;
+    } else if (configuration.PUBLIC_BASE_URL) {
+      baseUrl = new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, origin).href;
+    }
     return c.json(
       {
         data: buildAgentCodeSnippets({
           agentName: record.name,
-          baseUrl: configuration.PUBLIC_BASE_URL || new URL(c.req.url).origin,
+          baseUrl,
         }),
       },
       200,
