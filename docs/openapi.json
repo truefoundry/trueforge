@@ -907,7 +907,7 @@
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/SandboxProviderManifest"
+            "$ref": "#/components/schemas/DaytonaSandboxProvider"
           },
           "status": {
             "$ref": "#/components/schemas/SandboxBuildStatus"
@@ -3138,23 +3138,6 @@
         ],
         "type": "object"
       },
-      "SandboxProviderManifest": {
-        "discriminator": {
-          "mapping": {
-            "daytona": "#/components/schemas/DaytonaSandboxProvider",
-            "truefoundry": "#/components/schemas/TrueFoundrySandboxProvider"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/DaytonaSandboxProvider"
-          },
-          {
-            "$ref": "#/components/schemas/TrueFoundrySandboxProvider"
-          }
-        ]
-      },
       "Schedule": {
         "additionalProperties": false,
         "properties": {
@@ -4307,40 +4290,6 @@
           "models",
           "type",
           "base_url"
-        ],
-        "type": "object"
-      },
-      "TrueFoundrySandboxProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "exec_timeout_ms": {
-            "description": "Default sandbox command exec timeout in milliseconds.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "nats_bridge_url": {
-            "description": "Cluster-internal NATS WebSocket bridge URL.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "server_url": {
-            "description": "TFY sandbox HTTP server URL.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "TrueFoundry sandbox provider.",
-            "enum": [
-              "truefoundry"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "server_url",
-          "nats_bridge_url",
-          "exec_timeout_ms"
         ],
         "type": "object"
       },
@@ -8583,7 +8532,7 @@
     },
     "/api/v1/settings/sandbox-providers": {
       "get": {
-        "description": "The single configured sandbox provider for this tenant. `auth.api_key` is redacted.",
+        "description": "The configured Daytona sandbox provider for this tenant. `auth.api_key` is redacted. Returns 404 when none is configured, including when only an env-managed TrueFoundry sandbox is active.",
         "responses": {
           "200": {
             "content": {
@@ -8617,7 +8566,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "put": {
-        "description": "Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
+        "description": "Upserts the single Daytona sandbox provider for this tenant: creates it or replaces its entire configuration. TrueFoundry on-prem sandboxes are env-managed and are not exposed on this settings API. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {

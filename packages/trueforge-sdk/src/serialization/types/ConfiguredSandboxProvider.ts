@@ -3,21 +3,21 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { DaytonaSandboxProvider } from "./DaytonaSandboxProvider.js";
 import { SandboxBuildStatus } from "./SandboxBuildStatus.js";
-import { SandboxProviderManifest } from "./SandboxProviderManifest.js";
 
 export const ConfiguredSandboxProvider: core.serialization.ObjectSchema<
     serializers.ConfiguredSandboxProvider.Raw,
     TrueForge.ConfiguredSandboxProvider
 > = core.serialization.object({
-    manifest: SandboxProviderManifest,
+    manifest: DaytonaSandboxProvider,
     status: SandboxBuildStatus,
     statusReason: core.serialization.property("status_reason", core.serialization.string().nullable()),
 });
 
 export declare namespace ConfiguredSandboxProvider {
     export interface Raw {
-        manifest: SandboxProviderManifest.Raw;
+        manifest: DaytonaSandboxProvider.Raw;
         status: SandboxBuildStatus.Raw;
         status_reason?: string | null;
     }

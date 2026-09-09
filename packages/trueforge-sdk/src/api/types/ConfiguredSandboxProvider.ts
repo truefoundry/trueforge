@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface ConfiguredSandboxProvider {
-    manifest: TrueForge.SandboxProviderManifest;
+    manifest: TrueForge.DaytonaSandboxProvider;
     status: TrueForge.SandboxBuildStatus;
     /** Human-readable detail for the current status; null when ready. */
     statusReason: string | null;
