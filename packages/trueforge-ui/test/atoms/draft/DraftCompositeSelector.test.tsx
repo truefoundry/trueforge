@@ -136,6 +136,20 @@ describe('DraftCompositeSelector', () => {
       'dark:bg-primary-bg',
     );
   });
+
+  it('filters the complete connector catalog client-side', async () => {
+    renderSelector();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: /Slack/ })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search connectors...'), { target: { value: 'git' } });
+
+    expect(screen.getByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: /Slack/ })).not.toBeInTheDocument();
+  });
+
   it('shows selected connectors and skills in the Tools tooltip', () => {
     renderSelector();
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (2)' }));
