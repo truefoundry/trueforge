@@ -448,7 +448,7 @@ Built-in `layout` values:
 
 | Value     | Description                                              |
 | --------- | -------------------------------------------------------- |
-| `sidebar` | Left session list + main thread (ChatGPT / Claude style) |
+| `sidebar` | Icon rail + recent session history + active thread       |
 | `drawer`  | Full-bleed thread; sessions open in a slide-over         |
 | `dock`    | Fixed-width right panel; list XOR thread stack           |
 | `widget`  | Same stack as `dock`, opened from a bottom-right FAB     |

@@ -259,6 +259,16 @@
   background: transparent;
 }
 
+.aui-theme-root .aui-scrollbar-hidden,
+.aui-root .aui-scrollbar-hidden {
+  scrollbar-width: none;
+}
+
+.aui-theme-root .aui-scrollbar-hidden::-webkit-scrollbar,
+.aui-root .aui-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 /* ──────────────────────────────────────────────────────────────────────
  * Tailwind v4 `@theme inline` registrations.
  * ──────────────────────────────────────────────────────────────────── */
