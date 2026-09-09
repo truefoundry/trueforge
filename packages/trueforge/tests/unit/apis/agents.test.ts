@@ -1,6 +1,7 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
 import { TrueForgeAuthorizer, type AgentListAccess, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import configuration from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -169,7 +170,8 @@ describe('agents router', () => {
 
     const response = await router.request(`/${createdJson.data.id}/code-snippets`);
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { snippets: unknown[] } };
+    const body = (await response.json()) as { data: { base_url: string; snippets: unknown[] } };
+    expect(body.data.base_url).toBe(configuration.PUBLIC_BASE_URL || 'http://localhost');
     expect(body.data.snippets.length).toBeGreaterThan(0);
   });
 

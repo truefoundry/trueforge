@@ -62,7 +62,7 @@ export const AgentCodeSnippetSchema = z
 
 export const AgentCodeSnippetsSchema = z
   .object({
-    base_url: z.url().describe('Origin to pass as the TrueForge SDK `baseUrl`.'),
+    base_url: z.url().describe('Public base URL for the TrueForge SDK `baseUrl`.'),
     snippets: z.array(AgentCodeSnippetSchema),
   })
   .strict()

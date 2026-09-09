@@ -470,7 +470,7 @@ export interface SharedServerConfiguration {
    */
   REDIS_REQUEST_REPLY_POLL_INTERVAL_MS: number;
   /**
-   * Public base URL used as the origin of MCP OAuth and OIDC callbacks.
+   * Public base URL for OAuth callbacks and Use In Code SDK snippets.
    * Optional at boot; MCP OAuth and OIDC callback construction fail if empty
    * outside standalone development. Env: `PUBLIC_BASE_URL`.
    */

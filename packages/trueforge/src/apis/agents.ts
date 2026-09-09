@@ -6,6 +6,7 @@ import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import configuration from '../config';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
@@ -148,7 +149,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       {
         data: buildAgentCodeSnippets({
           agentName: record.name,
-          baseUrl: new URL(c.req.url).origin,
+          baseUrl: configuration.PUBLIC_BASE_URL || new URL(c.req.url).origin,
         }),
       },
       200,

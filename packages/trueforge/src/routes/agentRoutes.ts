@@ -90,7 +90,7 @@ export const getAgentCodeSnippetsRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetAgentCodeSnippetsResponseSchema } },
-      description: 'TypeScript SDK samples and the origin to use as `baseUrl`.',
+      description: 'TypeScript SDK samples.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
