@@ -9,17 +9,7 @@ describe("SkillsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = {
-            data: [
-                {
-                    description: "description",
-                    display_name: "display_name",
-                    name: "name",
-                    skill_repo_name: "skill_repo_name",
-                    version: 1,
-                },
-            ],
-        };
+        const rawResponseBody = { data: [{ description: "description", metadata: { key: "value" }, name: "name" }] };
 
         server.mockEndpoint().get("/api/v1/skills").respondWith().statusCode(200).jsonBody(rawResponseBody).build();
 
@@ -28,10 +18,10 @@ describe("SkillsClient", () => {
             data: [
                 {
                     description: "description",
-                    displayName: "display_name",
+                    metadata: {
+                        key: "value",
+                    },
                     name: "name",
-                    skillRepoName: "skill_repo_name",
-                    version: 1,
                 },
             ],
         });
@@ -54,7 +44,9 @@ describe("SkillsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ description: "description", fqn: "fqn", name: "name", version: 1 }] };
+        const rawResponseBody = {
+            data: [{ description: "description", display_name: "display_name", name: "name", version: 1 }],
+        };
 
         server
             .mockEndpoint()
@@ -71,7 +63,7 @@ describe("SkillsClient", () => {
             data: [
                 {
                     description: "description",
-                    fqn: "fqn",
+                    displayName: "display_name",
                     name: "name",
                     version: 1,
                 },

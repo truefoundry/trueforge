@@ -15,6 +15,6 @@ export interface AgentSpec {
     messages?: TrueForge.InitialUserMessage[];
     model: TrueForge.Model;
     responseFormat?: TrueForge.ResponseFormat;
-    /** Optional name-only skill references. Requires `config.sandbox.enabled: true`. */
+    /** Skills used in this agent. */
     skills?: TrueForge.Skill[];
 }

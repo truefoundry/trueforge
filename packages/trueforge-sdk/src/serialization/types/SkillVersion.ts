@@ -3,21 +3,20 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ResourceName } from "./ResourceName.js";
 
 export const SkillVersion: core.serialization.ObjectSchema<serializers.SkillVersion.Raw, TrueForge.SkillVersion> =
     core.serialization.object({
         description: core.serialization.string(),
-        fqn: core.serialization.string(),
-        name: ResourceName,
+        displayName: core.serialization.property("display_name", core.serialization.string()),
+        name: core.serialization.string(),
         version: core.serialization.number(),
     });
 
 export declare namespace SkillVersion {
     export interface Raw {
         description: string;
-        fqn: string;
-        name: ResourceName.Raw;
+        display_name: string;
+        name: string;
         version: number;
     }
 }
