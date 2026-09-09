@@ -193,25 +193,16 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /** One page of MCP servers; optional `names` filters with `name IN (…)`. */
-  async listMcpServers(input: {
-    accessToken: string;
-    limit: number;
-    offset: number;
-    names?: readonly string[];
-  }): Promise<unknown[]> {
-    const query: Record<string, string> = {
-      offset: String(input.offset),
-      limit: String(input.limit),
-      ...(input.names !== undefined
-        ? {
+  async listMcpServers(input: { accessToken: string; names?: readonly string[] }): Promise<unknown[]> {
+    const query: Record<string, string> =
+      input.names === undefined
+        ? {}
+        : {
             filter: JSON.stringify({
               op: 'and',
               values: [{ field: 'name', op: 'IN', values: [...input.names] }],
             }),
-          }
-        : {}),
-    };
+          };
     const payload = await this.#requestJson({
       url: this.#url(MCP_SERVERS_PATH, query),
       accessToken: input.accessToken,

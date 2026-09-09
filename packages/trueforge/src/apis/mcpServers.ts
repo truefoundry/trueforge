@@ -1,5 +1,4 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -148,30 +147,20 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const { limit, page_token: pageToken } = c.req.valid('query');
-    try {
-      const { data: records, pagination } = await deps.resolveMcpServerStore(c).listServers({
-        tenant_id: requestContext.tenant_id,
-        names: undefined,
-        limit,
-        page_token: pageToken,
-      });
-      const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
-        records,
-        userRef,
-      });
-      const data: ConfiguredMcpServer[] = records.map(record => ({
-        name: record.name,
-        manifest: redactMcpServerManifest(record.manifest),
-        auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
-      }));
-      return c.json({ data, pagination }, 200);
-    } catch (error) {
-      if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
-      }
-      throw error;
-    }
+    const records = await deps.resolveMcpServerStore(c).listServers({
+      tenant_id: requestContext.tenant_id,
+      names: undefined,
+    });
+    const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
+      records,
+      userRef,
+    });
+    const data: ConfiguredMcpServer[] = records.map(record => ({
+      name: record.name,
+      manifest: redactMcpServerManifest(record.manifest),
+      auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
+    }));
+    return c.json({ data }, 200);
   };
 
   const getHandler: RouteHandler<typeof getMcpServerRoute> = async c => {
@@ -512,31 +501,21 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   router.openapi(listAvailableMcpServersRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const { limit, page_token: pageToken } = c.req.valid('query');
-    try {
-      const { data: records, pagination } = await deps.resolveMcpServerStore(c).listServers({
-        tenant_id: requestContext.tenant_id,
-        names: undefined,
-        limit,
-        page_token: pageToken,
-      });
-      const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
-        records,
-        userRef,
-      });
-      const data: AvailableMcpServer[] = records.map(record =>
-        toAvailableMcpServer({
-          record,
-          authStatus: statuses.get(record.name) ?? { status: 'auth_required' },
-        }),
-      );
-      return c.json({ data, pagination }, 200);
-    } catch (error) {
-      if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
-      }
-      throw error;
-    }
+    const records = await deps.resolveMcpServerStore(c).listServers({
+      tenant_id: requestContext.tenant_id,
+      names: undefined,
+    });
+    const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
+      records,
+      userRef,
+    });
+    const data: AvailableMcpServer[] = records.map(record =>
+      toAvailableMcpServer({
+        record,
+        authStatus: statuses.get(record.name) ?? { status: 'auth_required' },
+      }),
+    );
+    return c.json({ data }, 200);
   });
   router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(authorizeMcpServerRoute, authorizeHandler);
