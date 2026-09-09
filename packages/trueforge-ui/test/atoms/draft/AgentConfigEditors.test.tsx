@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
 import { AgentModelSettingsContent } from '@/atoms/draft/AgentModelSettingsContent.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSpec } from '@/server/types.js';
+import type { AgentSpec, ConnectorState } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
@@ -14,6 +15,15 @@ vi.mock('@/atoms/MonacoEditorCore.js', () => ({
   MonacoEditorCore: ({ value, onChange }: { value: string; onChange?: (value: string) => void }) => (
     <textarea aria-label="JSON parameters editor" value={value} onChange={event => onChange?.(event.target.value)} />
   ),
+}));
+
+const oauthMock = vi.hoisted(() => ({
+  handleAuthorize: vi.fn(),
+  isOAuthLoading: false,
+}));
+
+vi.mock('@/hooks/useMcpAuth.js', () => ({
+  useMCPAuth: () => oauthMock,
 }));
 
 function deferred<T>() {
@@ -726,6 +736,81 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('button', { name: 'Connect During Chat' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitemcheckbox', { name: /secret.read/ })).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('loads tools after the connector list marks the selection authenticated', async () => {
+    const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
+    const props = {
+      editor: 'mcp' as const,
+      spec: { model: { name: 'openai/gpt' } } satisfies AgentSpec,
+      models: [] as const,
+      skills: [] as const,
+      loading: false,
+      error: null,
+      loadMcpTools,
+      onChange: vi.fn(),
+      onClose: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <SlotsProvider>
+        <AgentConfigEditors {...props} connectors={[{ id: 'private', name: 'Private', authenticated: false }]} />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpTools).not.toHaveBeenCalled();
+
+    rerender(
+      <SlotsProvider>
+        <AgentConfigEditors {...props} connectors={[{ id: 'private', name: 'Private', authenticated: true }]} />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'secret.read' })).toBeInTheDocument();
+    expect(loadMcpTools).toHaveBeenCalledWith('private');
+  });
+
+  it('loads tools after Connect Now when only connector list refresh is available', async () => {
+    oauthMock.handleAuthorize.mockImplementation(async (_id: string, callback: (isSuccess: boolean) => void) => {
+      callback(true);
+    });
+    const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
+
+    function Harness() {
+      const [connectors, setConnectors] = useState<ConnectorState[]>([
+        { id: 'private', name: 'Private', authenticated: false },
+      ]);
+      return (
+        <SlotsProvider>
+          <AgentConfigEditors
+            editor="mcp"
+            spec={{ model: { name: 'openai/gpt' } }}
+            models={[]}
+            connectors={connectors}
+            skills={[]}
+            loading={false}
+            error={null}
+            loadMcpTools={loadMcpTools}
+            onRefreshConnectors={async () => {
+              setConnectors([{ id: 'private', name: 'Private', authenticated: true }]);
+            }}
+            onChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </SlotsProvider>
+      );
+    }
+
+    render(<Harness />);
+
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpTools).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Now' }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'secret.read' })).toBeInTheDocument();
+    expect(loadMcpTools).toHaveBeenCalledWith('private');
   });
 
   it('checks live auth before loading tools and overrides stale listing auth', async () => {

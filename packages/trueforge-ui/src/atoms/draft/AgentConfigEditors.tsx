@@ -68,9 +68,7 @@ export function AgentConfigEditors({
     [connectors, mounts],
   );
   const catalogConnectorsRef = useRef(catalogConnectors);
-  useEffect(() => {
-    catalogConnectorsRef.current = catalogConnectors;
-  }, [catalogConnectors]);
+  catalogConnectorsRef.current = catalogConnectors;
   const activeConnectorAvailable =
     activeConnectorId !== null && catalogConnectors.some(connector => connector.id === activeConnectorId);
   const firstMountedConnectorId = mounts
@@ -81,6 +79,10 @@ export function AgentConfigEditors({
     firstMountedConnectorId ??
     catalogConnectors[0]?.id ??
     null;
+  const selectedListedAuthenticated =
+    selectedConnectorId === null
+      ? undefined
+      : catalogConnectors.find(connector => connector.id === selectedConnectorId)?.authenticated;
   const resolvedConnectors = useMemo(
     () =>
       activeConnector === undefined
@@ -129,7 +131,7 @@ export function AgentConfigEditors({
     return () => {
       cancelled = true;
     };
-  }, [editor, loadMcpConnector, loadMcpTools, selectedConnectorId, toolsRequestEpoch]);
+  }, [editor, loadMcpConnector, loadMcpTools, selectedConnectorId, selectedListedAuthenticated, toolsRequestEpoch]);
 
   const close = () => {
     setQuery('');
@@ -212,7 +214,13 @@ export function AgentConfigEditors({
           {...(loadMcpConnector !== undefined
             ? { onRefreshConnector: () => setToolsRequestEpoch(epoch => epoch + 1) }
             : onRefreshConnectors !== undefined
-              ? { onRefreshConnector: () => void onRefreshConnectors() }
+              ? {
+                  onRefreshConnector: () => {
+                    void onRefreshConnectors().then(() => {
+                      setToolsRequestEpoch(epoch => epoch + 1);
+                    });
+                  },
+                }
               : {})}
           onChange={onChange}
           onClose={close}
