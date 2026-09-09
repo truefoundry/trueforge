@@ -2833,7 +2833,7 @@ await client.internal.sessions.getOrCreateByExternalId({
 </details>
 
 ## Internal Agents
-<details><summary><code>client.internal.agents.<a href="/src/api/resources/internal/resources/agents/client/Client.ts">getCodeSnippets</a>(agent_id) -> TrueForge.GetAgentCodeSnippetsResponse</code></summary>
+<details><summary><code>client.internal.agents.<a href="/src/api/resources/internal/resources/agents/client/Client.ts">getCodeSnippets</a>(agent_id, { ...params }) -> TrueForge.GetAgentCodeSnippetsResponse</code></summary>
 <dl>
 <dd>
 
@@ -2877,6 +2877,14 @@ await client.internal.agents.getCodeSnippets("agent_id");
 <dd>
 
 **agent_id:** `string` — Immutable agent identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.GetCodeSnippetsAgentsRequest` 
     
 </dd>
 </dl>
