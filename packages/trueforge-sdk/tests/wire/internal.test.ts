@@ -9,7 +9,7 @@ describe("InternalClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { resource_ids: ["resource_ids"], resource_type: "agent" };
-        const rawResponseBody = { data: { key: ["MANAGE"] } };
+        const rawResponseBody = { data: { key: ["USE"] } };
 
         server
             .mockEndpoint()
@@ -26,7 +26,7 @@ describe("InternalClient", () => {
         });
         expect(response).toEqual({
             data: {
-                key: ["MANAGE"],
+                key: ["USE"],
             },
         });
     });
@@ -52,5 +52,28 @@ describe("InternalClient", () => {
                 resourceType: "agent",
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("list_permissions (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { resource_ids: ["resource_ids", "resource_ids"], resource_type: "agent" };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/internal/list-permissions")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.internal.listPermissions({
+                resourceIds: ["resource_ids", "resource_ids"],
+                resourceType: "agent",
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 });

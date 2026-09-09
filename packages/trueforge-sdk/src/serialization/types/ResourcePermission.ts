@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const ResourcePermission: core.serialization.Schema<
     serializers.ResourcePermission.Raw,
     TrueForge.ResourcePermission
-> = core.serialization.enum_(["MANAGE", "DELETE"]);
+> = core.serialization.enum_(["USE", "MANAGE", "DELETE"]);
 
 export declare namespace ResourcePermission {
-    export type Raw = "MANAGE" | "DELETE";
+    export type Raw = "USE" | "MANAGE" | "DELETE";
 }

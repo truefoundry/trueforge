@@ -12,7 +12,7 @@
 <dl>
 <dd>
 
-Return granted actions (MANAGE, DELETE) for each requested agent, schedule, or session id.
+Return granted actions for each requested agent, schedule, or session id.
 </dd>
 </dl>
 </dd>

@@ -2810,7 +2810,7 @@
         "type": "object"
       },
       "PermissionResourceType": {
-        "description": "Resource kind to evaluate permissions for.",
+        "description": "Resource type to evaluate permissions for.",
         "enum": [
           "agent",
           "schedule",
@@ -2913,13 +2913,57 @@
         "type": "string"
       },
       "ResourcePermission": {
-        "description": "Granted action on a resource. USE is run/invoke; MANAGE covers update and other non-delete mutations.",
-        "enum": [
-          "USE",
-          "MANAGE",
-          "DELETE"
-        ],
-        "type": "string"
+        "anyOf": [
+          {
+            "description": "Run or invoke the agent.",
+            "enum": [
+              "USE"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "Update and other non-delete mutations.",
+            "enum": [
+              "MANAGE"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "Delete the agent.",
+            "enum": [
+              "DELETE"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "Update and other non-delete mutations.",
+            "enum": [
+              "MANAGE"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "Delete the schedule.",
+            "enum": [
+              "DELETE"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "Update and other non-delete mutations.",
+            "enum": [
+              "MANAGE"
+            ],
+            "type": "string"
+          },
+          {
+            "description": "Delete the session.",
+            "enum": [
+              "DELETE"
+            ],
+            "type": "string"
+          }
+        ]
       },
       "ResponseFormat": {
         "discriminator": {
@@ -5061,7 +5105,7 @@
   "paths": {
     "/api/internal/list-permissions": {
       "post": {
-        "description": "Return granted actions (MANAGE, DELETE) for each requested agent, schedule, or session id.",
+        "description": "Return granted actions for each requested agent, schedule, or session id.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5092,6 +5136,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC or TrueFoundry auth is configured and the request has no valid credential."
           }
         },
         "summary": "List permissions for resources",
