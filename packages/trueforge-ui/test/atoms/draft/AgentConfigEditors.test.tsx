@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
 import { AgentModelSettingsContent } from '@/atoms/draft/AgentModelSettingsContent.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
-import type { AgentSpec } from '@/server/types.js';
+import type { AgentSkill, AgentSpec } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 vi.mock('@/atoms/MonacoEditorCore.js', () => ({
@@ -1003,5 +1003,137 @@ describe('AgentConfigEditors', () => {
       skills: [{ id: 'research', name: 'Research' }],
       config: { sandbox: { enabled: true } },
     });
+  });
+
+  it('reorders selected skills only when the skills editor reopens', () => {
+    const availableSkills = [
+      { id: 'alpha', name: 'Alpha' },
+      { id: 'beta', name: 'Beta' },
+    ];
+    const initialSpec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const selectedSpec: AgentSpec = {
+      ...initialSpec,
+      skills: [{ id: 'beta', name: 'Beta' }],
+    };
+    const renderEditors = (spec: AgentSpec) => (
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={availableSkills}
+          loading={false}
+          error={null}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>
+    );
+    const rendered = render(renderEditors(initialSpec));
+
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveTextContent('Alpha');
+    rendered.rerender(renderEditors(selectedSpec));
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveTextContent('Alpha');
+
+    rendered.unmount();
+    render(renderEditors(selectedSpec));
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveTextContent('Beta');
+  });
+
+  it('loads registry versions lazily and attaches the chosen FQN', async () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+    const loadVersions = vi.fn(async () => [
+      {
+        name: 'agent-skill:acme/team-a/echo:1',
+        displayName: 'echo',
+        description: 'v1',
+        version: 1,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:3',
+        displayName: 'echo',
+        description: 'v3',
+        version: 3,
+      },
+    ]);
+    const skill: AgentSkill = Object.assign(
+      {
+        id: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+      { skillRepoName: 'team-a', version: 3, loadVersions },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByText('team-a')).toBeInTheDocument();
+    expect(loadVersions).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select version for echo' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'v1' }));
+    expect(loadVersions).toHaveBeenCalledOnce();
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select echo' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      skills: [{ id: 'agent-skill:acme/team-a/echo:1', name: 'echo' }],
+      config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('shows a concise version error and copies its details', async () => {
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const errorMessage =
+      'HTTP Error: Not Found <Error><Message>BucketName contains sensitive details</Message></Error>';
+    const skill: AgentSkill = Object.assign(
+      { id: 'agent-skill:acme/team-a/echo:3', name: 'echo' },
+      { version: 3, loadVersions: vi.fn().mockRejectedValue(new Error(errorMessage)) },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select version for echo' }));
+    expect(await screen.findByText('Failed to load versions.')).toBeInTheDocument();
+    expect(screen.queryByText(errorMessage, { exact: false })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy error' }));
+    expect(writeText).toHaveBeenCalledWith(errorMessage);
+
+    if (clipboardDescriptor === undefined) Reflect.deleteProperty(navigator, 'clipboard');
+    else Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
   });
 });

@@ -92,6 +92,16 @@ export function createHarnessBuilderServer(
         id: skill.name,
         name: skill.metadata?.display_name ?? skill.name,
         description: skill.description,
+        ...(skill.skillRepoName === undefined ? {} : { skillRepoName: skill.skillRepoName }),
+        ...(skill.version === undefined ? {} : { version: skill.version }),
+        ...(skill.version === undefined
+          ? {}
+          : {
+              loadVersions: async () => {
+                const body = await client.skills.listVersions({ name: skill.name });
+                return body.data;
+              },
+            }),
       }));
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
