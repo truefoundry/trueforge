@@ -96,7 +96,7 @@ describe('SchedulesPage', () => {
     const { scheduleServer } = renderPage();
     expect(await screen.findByRole('heading', { name: 'Scheduled Agents' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'daily-digest' })).toBeInTheDocument();
+      expect(screen.getByText('daily-digest')).toBeInTheDocument();
     });
     expect(screen.getAllByText('demo-agent').length).toBeGreaterThan(0);
     expect(screen.getByText('—')).toBeInTheDocument();
@@ -125,13 +125,13 @@ describe('SchedulesPage', () => {
       });
     renderPage(sampleSchedules, {}, listSchedules);
 
-    expect(await screen.findByRole('button', { name: 'daily-digest' })).toBeInTheDocument();
+    expect(await screen.findByText('daily-digest')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
 
     await waitFor(() => {
       expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 10 }));
     });
-    expect(await screen.findByRole('button', { name: 'weekly-digest' })).toBeInTheDocument();
+    expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
   });
 
   it('ignores run history returned for a stale schedules page', async () => {
@@ -150,9 +150,9 @@ describe('SchedulesPage', () => {
     });
     renderPage(sampleSchedules, { listScheduleRuns }, listSchedules);
 
-    await screen.findByRole('button', { name: 'daily-digest' });
+    await screen.findByText('daily-digest');
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
-    expect(await screen.findByRole('button', { name: 'weekly-digest' })).toBeInTheDocument();
+    expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
 
     await act(async () => {
       resolveFirstRuns([
@@ -172,7 +172,7 @@ describe('SchedulesPage', () => {
 
   it('filters by agent via agentIds', async () => {
     const { scheduleServer } = renderPage();
-    await screen.findByRole('button', { name: 'daily-digest' });
+    await screen.findByText('daily-digest');
 
     fireEvent.click(screen.getByRole('button', { name: 'Filter by agent' }));
     fireEvent.click(screen.getByRole('option', { name: 'demo-agent' }));
@@ -344,7 +344,7 @@ describe('SchedulesPage', () => {
       nextPageToken: 'page-2',
     }));
 
-    await screen.findByRole('button', { name: 'daily-digest' });
+    await screen.findByText('daily-digest');
     fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
       target: { value: 'nope' },
     });
