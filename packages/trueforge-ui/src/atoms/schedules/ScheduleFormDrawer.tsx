@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
-import { libraryAgentId } from '../../server/ShellModeContext.js';
+import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
 import { mountName } from '../lib/mountName.js';
@@ -43,10 +43,12 @@ function ScheduleFormDrawerBody({
 }: ScheduleFormDrawerProps) {
   const scheduleServer = useScheduleServer();
   const server = useServer();
+  const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
   const [form, setForm] = useState<ScheduleFormValues>(defaultScheduleFormValues);
   const [agentId, setAgentId] = useState(initialAgentId);
   const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
   const [view, setView] = useState<DrawerView>({ kind: 'form' });
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -59,10 +61,12 @@ function ScheduleFormDrawerBody({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setAgentsLoaded(false);
     void searchAllAgents(server)
       .then(rows => {
         if (cancelled) return;
         setAgents(rows);
+        setAgentsLoaded(true);
       })
       .catch(() => undefined);
     return () => {
@@ -297,7 +301,16 @@ function ScheduleFormDrawerBody({
             agentId={agentId}
             onAgentIdChange={isExternalEdit || isCreatedEdit ? undefined : setAgentId}
             agentOptions={agentOptions}
+            agentOptionsLoaded={agentsLoaded}
             agentPickerDisabled={isExternalEdit || isCreatedEdit}
+            onBuildAgent={
+              mode === 'create' && shell?.isComposerEnabled === true
+                ? () => {
+                    onOpenChange(false);
+                    shell.openAgentBuilder();
+                  }
+                : undefined
+            }
           />
         </form>
       )}
