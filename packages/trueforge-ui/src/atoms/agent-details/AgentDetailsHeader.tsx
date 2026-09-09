@@ -1,10 +1,8 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
-import { isSchedulesChromeEnabled } from '../../server/serverChrome.js';
-import { useOptionalScheduleServer, useOptionalServer } from '../../server/ServerContext.js';
+import { useOptionalServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
-import { writeOpenSchedulesForAgentSearch } from '../../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from '../AgentOverflowMenu.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -14,10 +12,8 @@ import type { AgentDetailsHeaderProps } from './types.js';
 
 export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHeaderProps) {
   const shell = useShellMode();
-  const scheduleServer = useOptionalScheduleServer();
   const builder = useOptionalServer();
   const canMutate = shell.isComposerEnabled && detail != null && builder != null;
-  const canManageSchedules = isSchedulesChromeEnabled({ schedules: scheduleServer }) && detail != null;
 
   const handleTry = () => {
     if (detail == null) return;
@@ -37,11 +33,6 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
       agentName: detail.name,
       agentSpec: detail.agentSpec,
     });
-  };
-
-  const handleManageSchedules = () => {
-    writeOpenSchedulesForAgentSearch({ agentId });
-    shell.setSchedulesOpen(true);
   };
 
   return (
@@ -84,9 +75,8 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
               agentName={detail.name}
               agentSpec={detail.agentSpec}
               canMutate={canMutate}
-              canManageSchedules={canManageSchedules}
+              canManageSchedules={false}
               onEdit={handleEdit}
-              {...(canManageSchedules ? { onManageSchedules: handleManageSchedules } : {})}
               onDeleted={onBack}
             />
           ) : null}

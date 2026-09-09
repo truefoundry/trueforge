@@ -61,6 +61,7 @@ function renderPage(
   overrides: Partial<ScheduleServer> = {},
   listImpl?: ScheduleServer['listSchedules'],
   searchAgents?: AgentUIServer['searchAgents'],
+  options: { agentId?: string } = {},
 ) {
   const scheduleServer: ScheduleServer = {
     listSchedules: vi.fn(
@@ -84,7 +85,7 @@ function renderPage(
   render(
     <ServerProvider server={server}>
       <ToasterProvider>
-        <SchedulesPage />
+        <SchedulesPage {...options} />
       </ToasterProvider>
     </ServerProvider>,
   );
@@ -102,6 +103,18 @@ describe('SchedulesPage', () => {
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Showing 1')).toBeInTheDocument();
     expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }));
+  });
+
+  it('locks embedded schedules to the supplied agent', async () => {
+    const { scheduleServer } = renderPage(sampleSchedules, {}, undefined, undefined, { agentId: 'demo-agent' });
+
+    await waitFor(() => {
+      expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
+        expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
+      );
+    });
+    expect(screen.queryByRole('heading', { name: 'Scheduled Agents' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Filter by agent' })).not.toBeInTheDocument();
   });
 
   it('shows empty state when there are no schedules', async () => {

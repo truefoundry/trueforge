@@ -9,7 +9,7 @@ import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../se
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { writeOpenSchedulesForAgentSearch } from '../utils/scheduleShareUrl.js';
+import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { cn } from './lib/cn.js';
@@ -264,8 +264,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const canMutate = shell.isComposerEnabled === true;
   const agentsListEpoch = shell.agentsListEpoch;
   const showSchedulesColumn = isSchedulesChromeEnabled({ schedules: scheduleServer });
-  const canManageSchedules = showSchedulesColumn;
   const canOpenAgentDetails = isSessionsChromeEnabled({ sessions: sessionsServer });
+  const canOpenAgentSchedules = showSchedulesColumn && canOpenAgentDetails;
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -315,8 +315,20 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   }, [agents, open, scheduleServer, agentsListEpoch]);
 
   const openSchedulesForAgent = ({ agentId, isNew }: { agentId: string; isNew?: boolean }) => {
-    writeOpenSchedulesForAgentSearch({ agentId, ...(isNew === true ? { isNew: true } : {}) });
-    shell.setSchedulesOpen(true);
+    replaceScheduleShareSearch({
+      agent: null,
+      status: null,
+      q: null,
+      isNew: isNew === true ? true : null,
+    });
+    updateShareSearch({
+      agentId,
+      tab: 'schedules',
+      sessionId: null,
+      view: null,
+      timeRange: null,
+    });
+    shell.openLibraryAgent(agentId);
   };
 
   const handleTry = (agent: AgentLibraryEntry) => {
@@ -411,13 +423,13 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                           key={id}
                           agent={agent}
                           canMutate={canMutate}
-                          canManageSchedules={canManageSchedules}
+                          canManageSchedules={canOpenAgentSchedules}
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
-                          {...(showSchedulesColumn
+                          {...(canOpenAgentSchedules && agentId != null
                             ? {
-                                onOpenSchedules: () => openSchedulesForAgent({ agentId: id }),
-                                onCreateSchedule: () => openSchedulesForAgent({ agentId: id, isNew: true }),
-                                onManageSchedules: () => openSchedulesForAgent({ agentId: id }),
+                                onOpenSchedules: () => openSchedulesForAgent({ agentId }),
+                                onCreateSchedule: () => openSchedulesForAgent({ agentId, isNew: true }),
+                                onManageSchedules: () => openSchedulesForAgent({ agentId }),
                               }
                             : {})}
                           {...(canOpenAgentDetails && agentId != null
