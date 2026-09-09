@@ -301,9 +301,9 @@ describe('validateAgentSpec', () => {
           name: fqn,
           manifest: {
             type: 'registry' as const,
-            name: 'echo',
+            name: fqn,
+            display_name: 'echo',
             description: 'Echo',
-            fqn,
             skill_repo_name: 'team-a',
             version: 1,
           },
@@ -311,7 +311,6 @@ describe('validateAgentSpec', () => {
           updated_at: now,
         },
       ],
-      getSkill: async () => undefined,
       createSkill: async () => {
         throw new Error('unused');
       },

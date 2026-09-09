@@ -108,13 +108,13 @@ describe('skills routers', () => {
     });
   });
 
-  it('GET / on the chat router returns the slim name/display_name/description projection', async () => {
+  it('GET / on the chat router returns the slim name/description projection', async () => {
     const response = await availableRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: [
-        { name: putBody.name, display_name: putBody.name, description: putBody.description },
-        { name: 'create-only-skill', display_name: 'create-only-skill', description: putBody.description },
+        { name: putBody.name, description: putBody.description },
+        { name: 'create-only-skill', description: putBody.description },
       ],
     });
   });
@@ -129,9 +129,9 @@ describe('skills routers', () => {
           name: fqn,
           manifest: {
             type: 'registry' as const,
-            name: 'echo',
+            name: fqn,
+            display_name: 'echo',
             description: 'Echo skill',
-            fqn,
             skill_repo_name: 'team-a',
             version: 3,
           },
@@ -139,7 +139,6 @@ describe('skills routers', () => {
           updated_at: now,
         },
       ]),
-      getSkill: jest.fn(),
       createSkill: jest.fn(),
       upsertSkill: jest.fn(),
       listSkillVersions: jest.fn(),
@@ -167,23 +166,22 @@ describe('skills routers', () => {
   it('settings create/put forward registry bodies to the store (no early git-only 400)', async () => {
     const registryManifest = {
       type: 'registry' as const,
-      name: 'echo',
+      name: 'agent-skill:acme/team-a/echo:3',
+      display_name: 'echo',
       description: 'Echo skill',
-      fqn: 'agent-skill:acme/team-a/echo:3',
       skill_repo_name: 'team-a',
       version: 3,
     };
     const now = '2026-01-01T00:00:00.000Z';
     const record = {
       tenant_id: 'default',
-      name: 'echo' as const,
+      name: 'agent-skill:acme/team-a/echo:3' as const,
       manifest: registryManifest,
       created_at: now,
       updated_at: now,
     };
     const managedStore = {
       listSkills: jest.fn(),
-      getSkill: jest.fn(),
       createSkill: jest.fn().mockResolvedValue(record),
       upsertSkill: jest.fn().mockResolvedValue(record),
       listSkillVersions: jest.fn(),
@@ -197,7 +195,7 @@ describe('skills routers', () => {
     expect(created.status).toBe(201);
     expect(managedStore.createSkill).toHaveBeenCalledWith({
       tenant_id: 'default',
-      name: 'echo',
+      name: 'agent-skill:acme/team-a/echo:3',
       manifest: registryManifest,
     });
 
@@ -205,7 +203,7 @@ describe('skills routers', () => {
     expect(put.status).toBe(200);
     expect(managedStore.upsertSkill).toHaveBeenCalledWith({
       tenant_id: 'default',
-      name: 'echo',
+      name: 'agent-skill:acme/team-a/echo:3',
       manifest: registryManifest,
     });
   });
@@ -213,15 +211,14 @@ describe('skills routers', () => {
   it('settings create/put return 424 when the skill store is TrueFoundry-managed', async () => {
     const registryManifest = {
       type: 'registry' as const,
-      name: 'echo',
+      name: 'agent-skill:acme/team-a/echo:3',
+      display_name: 'echo',
       description: 'Echo skill',
-      fqn: 'agent-skill:acme/team-a/echo:3',
       skill_repo_name: 'team-a',
       version: 3,
     };
     const managedStore = {
       listSkills: jest.fn(),
-      getSkill: jest.fn(),
       createSkill: jest.fn(() => trueFoundryManaged()),
       upsertSkill: jest.fn(() => trueFoundryManaged()),
       listSkillVersions: jest.fn(),

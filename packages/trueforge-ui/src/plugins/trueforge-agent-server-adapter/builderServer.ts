@@ -96,7 +96,7 @@ export function createHarnessBuilderServer(
       const skills = await listSkills(client);
       return skills.map(skill => ({
         id: skill.name,
-        name: skill.displayName,
+        name: skill.displayName ?? skill.name,
         description: skill.description,
       }));
     },

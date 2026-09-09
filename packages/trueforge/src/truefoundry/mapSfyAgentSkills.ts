@@ -23,9 +23,10 @@ const SfyRegistrySkillSchema = z
     }),
   })
   .transform(({ latest_version }) => ({
-    name: latest_version.manifest.name,
+    // Wire identity is the version FQN; short SFY name is display-only.
+    name: latest_version.fqn,
+    display_name: latest_version.manifest.name,
     description: latest_version.manifest.source?.description ?? latest_version.manifest.name,
-    fqn: latest_version.fqn,
     skill_repo_name: latest_version.manifest.ml_repo,
     version: latest_version.manifest.version,
   }));
@@ -47,8 +48,8 @@ export function mapSfyRegistrySkillVersions(rows: readonly unknown[]): SkillVers
   return rows.map(row => {
     const { fqn, manifest } = SfyRegistrySkillVersionSchema.parse(row);
     return {
-      fqn,
-      name: manifest.name,
+      name: fqn,
+      display_name: manifest.name,
       description: manifest.source?.description ?? manifest.name,
       version: manifest.version,
     };

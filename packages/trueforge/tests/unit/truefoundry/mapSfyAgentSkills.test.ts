@@ -9,7 +9,7 @@ const MANIFEST = {
 };
 
 describe('mapSfyRegistrySkills', () => {
-  it('maps list rows from latest_version.manifest', () => {
+  it('maps list rows with name=FQN and display_name=short SFY name', () => {
     expect(
       mapSfyRegistrySkills([
         {
@@ -24,16 +24,16 @@ describe('mapSfyRegistrySkills', () => {
       ]),
     ).toEqual([
       {
-        name: 'echo',
+        name: 'agent-skill:acme/team-a/echo:3',
+        display_name: 'echo',
         description: 'Echo skill',
-        fqn: 'agent-skill:acme/team-a/echo:3',
         skill_repo_name: 'team-a',
         version: 3,
       },
     ]);
   });
 
-  it('maps version rows from manifest.name and manifest.version', () => {
+  it('maps version rows with name=FQN and display_name=short SFY name', () => {
     expect(
       mapSfyRegistrySkillVersions([
         {
@@ -44,8 +44,8 @@ describe('mapSfyRegistrySkills', () => {
       ]),
     ).toEqual([
       {
-        fqn: 'agent-skill:acme/team-a/echo:3',
-        name: 'echo',
+        name: 'agent-skill:acme/team-a/echo:3',
+        display_name: 'echo',
         description: 'Echo skill',
         version: 3,
       },

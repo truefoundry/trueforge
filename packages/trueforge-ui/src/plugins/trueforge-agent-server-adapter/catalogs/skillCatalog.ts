@@ -36,10 +36,13 @@ export function toHarnessManifest(req: SkillConfigBase): TrueForgeApi.settings.C
 }
 
 export function toUiSkill(skill: TrueForgeApi.ConfiguredSkill, catalogNames: ReadonlySet<string>): UiSkill {
+  const manifest = skill.manifest;
+  const displayName =
+    'displayName' in manifest && typeof manifest.displayName === 'string' ? manifest.displayName : manifest.name;
   const base = {
     id: skill.name,
-    name: skill.name,
-    description: skill.manifest.description,
+    name: displayName,
+    description: manifest.description,
   };
   if (catalogNames.has(skill.name)) {
     return { ...base, catalogId: skill.name };

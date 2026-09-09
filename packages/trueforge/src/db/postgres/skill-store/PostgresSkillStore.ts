@@ -3,7 +3,6 @@ import type { SkillVersion } from '../../../schemas/skill';
 import {
   SkillNameConflictError,
   type CreateSkillInput,
-  type GetSkillInput,
   type ISkillStore,
   type ListSkillsInput,
   type SkillRecord,
@@ -41,17 +40,6 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
     }
     const rows = await query.orderBy('name').execute();
     return rows.map(toRecord);
-  }
-
-  async getSkill(input: GetSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord | undefined> {
-    const db = transaction ?? this.#db;
-    const row = await db
-      .selectFrom('skill')
-      .selectAll()
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .executeTakeFirst();
-    return row === undefined ? undefined : toRecord(row);
   }
 
   async createSkill(input: CreateSkillInput, transaction?: Transaction<Database>): Promise<SkillRecord> {

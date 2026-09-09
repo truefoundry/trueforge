@@ -3,11 +3,11 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { SkillNameConflictError, type ISkillStore } from '../../src/db/skillStore';
-import type { GitSkillManifest } from '../../src/schemas/skill';
+import type { GitSkill } from '../../src/schemas/skill';
 
 const TENANT = 'default';
 
-function manifest(overrides: Partial<GitSkillManifest> = {}): GitSkillManifest {
+function manifest(overrides: Partial<GitSkill> = {}): GitSkill {
   return {
     type: 'git',
     name: 'algorithmic-art',
@@ -36,7 +36,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const fetched = await store.getSkill({ tenant_id: TENANT, name: 'algorithmic-art' });
+    const [fetched] = await store.listSkills({ tenant_id: TENANT, names: ['algorithmic-art'] });
     expect(fetched).toEqual(created);
   });
 
@@ -52,11 +52,6 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     await expect(
       store.createSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() }),
     ).rejects.toBeInstanceOf(SkillNameConflictError);
-  });
-
-  it('getSkill returns undefined for unknown skills', async () => {
-    const store = getStore();
-    expect(await store.getSkill({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
   it('upsert replaces the whole manifest and preserves created_at', async () => {
@@ -133,5 +128,11 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(filtered.map(skill => skill.name)).toEqual(['demo', 'web-artifacts']);
 
     await expect(store.listSkills({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
+  });
+
+  it('listSkillVersions returns [] in standalone (no registry versions)', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await expect(store.listSkillVersions({ name: 'algorithmic-art' })).resolves.toEqual([]);
   });
 }

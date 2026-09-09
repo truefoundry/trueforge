@@ -37,22 +37,25 @@ const AGENT: AgentRecord = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
-function createStore(agent: AgentRecord | undefined = undefined) {
+function createStore(
+  agent: AgentRecord | undefined = undefined,
+  versions: unknown[] = [
+    {
+      id: 'ver-3',
+      fqn: 'agent-skill:acme/team-a/echo:3',
+      manifest: {
+        name: 'echo',
+        type: 'agent-skill',
+        version: 3,
+        ml_repo: 'team-a',
+        source: { type: 'blob-storage', description: 'v3' },
+      },
+    },
+  ],
+) {
   const client = {
     listAgentSkills: jest.fn().mockResolvedValue([SFY_SKILL]),
-    listAgentSkillVersions: jest.fn().mockResolvedValue([
-      {
-        id: 'ver-1',
-        fqn: 'agent-skill:acme/team-a/echo:3',
-        manifest: {
-          name: 'echo',
-          type: 'agent-skill',
-          version: 3,
-          ml_repo: 'team-a',
-          source: { type: 'blob-storage', description: 'v3' },
-        },
-      },
-    ]),
+    listAgentSkillVersions: jest.fn().mockResolvedValue(versions),
     vendToken: jest.fn().mockResolvedValue(AGENT_TOKEN),
   };
   const store = new TrueFoundrySkillStore({
@@ -79,12 +82,19 @@ describe('TrueFoundrySkillStore', () => {
     expect(records[0]?.name).toBe('agent-skill:acme/team-a/echo:3');
     expect(records[0]?.manifest).toEqual({
       type: 'registry',
-      name: 'echo',
+      name: 'agent-skill:acme/team-a/echo:3',
+      display_name: 'echo',
       description: 'Echo skill',
-      fqn: 'agent-skill:acme/team-a/echo:3',
       skill_repo_name: 'team-a',
       version: 3,
     });
+  });
+
+  it('listSkills uses latest_version only (not every historic version)', async () => {
+    const { store } = createStore();
+    const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
+    expect(records.map(r => r.manifest.version)).toEqual([3]);
+    expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
 
   it('uses a vend token when listing as a saved agent', async () => {
@@ -107,12 +117,70 @@ describe('TrueFoundrySkillStore', () => {
     });
   });
 
+  it('listSkillVersions returns every SFY version row', async () => {
+    const { store } = createStore(undefined, [
+      {
+        id: 'ver-1',
+        fqn: 'agent-skill:acme/team-a/echo:1',
+        manifest: {
+          name: 'echo',
+          type: 'agent-skill',
+          version: 1,
+          ml_repo: 'team-a',
+          source: { type: 'blob-storage', description: 'v1' },
+        },
+      },
+      {
+        id: 'ver-2',
+        fqn: 'agent-skill:acme/team-a/echo:2',
+        manifest: {
+          name: 'echo',
+          type: 'agent-skill',
+          version: 2,
+          ml_repo: 'team-a',
+          source: { type: 'blob-storage', description: 'v2' },
+        },
+      },
+      {
+        id: 'ver-3',
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        manifest: {
+          name: 'echo',
+          type: 'agent-skill',
+          version: 3,
+          ml_repo: 'team-a',
+          source: { type: 'blob-storage', description: 'v3' },
+        },
+      },
+    ]);
+    await expect(store.listSkillVersions({ name: 'agent-skill:acme/team-a/echo:3' })).resolves.toEqual([
+      {
+        name: 'agent-skill:acme/team-a/echo:1',
+        display_name: 'echo',
+        description: 'v1',
+        version: 1,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:2',
+        display_name: 'echo',
+        description: 'v2',
+        version: 2,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:3',
+        display_name: 'echo',
+        description: 'v3',
+        version: 3,
+      },
+    ]);
+  });
+
   it('returns versions by FQN and rejects managed writes', async () => {
     const { store, client } = createStore();
     await expect(store.listSkillVersions({ name: 'agent-skill:acme/team-a/echo:3' })).resolves.toEqual([
       {
-        fqn: 'agent-skill:acme/team-a/echo:3',
-        name: 'echo',
+        name: 'agent-skill:acme/team-a/echo:3',
+        display_name: 'echo',
         description: 'v3',
         version: 3,
       },

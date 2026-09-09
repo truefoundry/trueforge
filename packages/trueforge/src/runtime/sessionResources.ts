@@ -22,7 +22,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { parseGitSkillManifest } from '../schemas/skill';
+import { parseGitSkill } from '../schemas/skill';
 
 export interface McpConnection {
   url: string;
@@ -150,7 +150,7 @@ export async function resolveGitSkills({
         message: `Unknown skill "${skill.name}" — not configured`,
       });
     }
-    const git = parseGitSkillManifest(record.manifest);
+    const git = parseGitSkill(record.manifest);
     if (git === undefined) {
       throw new HTTPException(422, {
         message: `Skill "${skill.name}" is not a git skill`,
