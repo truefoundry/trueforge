@@ -176,7 +176,7 @@ describe('TrueForgeUI', () => {
     });
   });
 
-  it('refetches composer data when starting a new chat', async () => {
+  it('keeps composer catalogs cached when starting a new chat', async () => {
     const getCapabilities = vi
       .fn()
       .mockResolvedValueOnce({ data: { sandbox: { enabled: true }, skill: { enabled: true } } })
@@ -209,9 +209,9 @@ describe('TrueForgeUI', () => {
 
     await waitFor(() => {
       expect(getCapabilities).toHaveBeenCalledTimes(2);
-      expect(getModels).toHaveBeenCalledTimes(2);
-      expect(getSkills).toHaveBeenCalledTimes(2);
-      expect(getMcp).toHaveBeenCalledTimes(2);
+      expect(getModels).toHaveBeenCalledTimes(1);
+      expect(getSkills).toHaveBeenCalledTimes(1);
+      expect(getMcp).toHaveBeenCalledTimes(1);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Tools (0)' }));
