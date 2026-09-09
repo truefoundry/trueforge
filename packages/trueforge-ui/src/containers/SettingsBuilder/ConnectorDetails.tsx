@@ -15,6 +15,7 @@ type ConnectorDetailsProps = {
   connector: ConnectorBase;
   onBack: () => void;
   onConnectorRefreshed: (connector: ConnectorBase) => void;
+  onEdit: () => void;
   onDisconnect: () => void;
   busy?: boolean;
 };
@@ -98,6 +99,7 @@ const ConnectorDetails = ({
   connector,
   onBack,
   onConnectorRefreshed,
+  onEdit,
   onDisconnect,
   busy = false,
 }: ConnectorDetailsProps) => {
@@ -193,24 +195,30 @@ const ConnectorDetails = ({
             </span>
           </div>
 
-          {connector.auth.type === 'dcr' && !connector.authenticated ? (
-            <Button.Secondary
-              size="small"
-              type="button"
-              disabled={busy || connecting}
-              onClick={() => {
-                void handleAuthorize(connector.id, isSuccess => {
-                  if (isSuccess) void refreshAfterAuthentication();
-                });
-              }}
-            >
-              {connecting ? 'Connecting…' : 'Connect'}
+          <div className="flex items-center gap-2">
+            <Button.Secondary size="small" type="button" disabled={busy} onClick={onEdit}>
+              <Icon name="pencil" className="size-3" />
+              Edit
             </Button.Secondary>
-          ) : connector.auth.type === 'dcr' && !connector.requiresAuth ? (
-            <Button.Secondary size="small" type="button" disabled={busy} onClick={onDisconnect}>
-              Disconnect
-            </Button.Secondary>
-          ) : null}
+            {connector.auth.type === 'dcr' && !connector.authenticated ? (
+              <Button.Secondary
+                size="small"
+                type="button"
+                disabled={busy || connecting}
+                onClick={() => {
+                  void handleAuthorize(connector.id, isSuccess => {
+                    if (isSuccess) void refreshAfterAuthentication();
+                  });
+                }}
+              >
+                {connecting ? 'Connecting…' : 'Connect'}
+              </Button.Secondary>
+            ) : connector.auth.type === 'dcr' && !connector.requiresAuth ? (
+              <Button.Secondary size="small" type="button" disabled={busy} onClick={onDisconnect}>
+                Disconnect
+              </Button.Secondary>
+            ) : null}
+          </div>
         </header>
 
         <section className="mt-6" aria-labelledby="connector-tools-heading">

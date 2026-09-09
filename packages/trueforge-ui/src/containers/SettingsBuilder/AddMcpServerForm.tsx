@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
-import type { ConnectorAuth, ConnectorAuthType } from '../../server/types.js';
+import type { ConnectorAuth, ConnectorAuthType, ConnectorBase } from '../../server/types.js';
 
 export type McpAuthType = ConnectorAuthType;
 
@@ -20,7 +20,8 @@ export type AddMcpServerDraft = {
 type AddMcpServerFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (draft: AddMcpServerDraft) => void | Promise<void>;
+  onSubmit: (draft: AddMcpServerDraft) => void | Promise<void>;
+  connector?: ConnectorBase;
   busy?: boolean;
   error?: string | null;
 };
@@ -39,13 +40,17 @@ const RequiredMark = () => (
   </span>
 );
 
-const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: AddMcpServerFormProps) => {
+const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = false, error }: AddMcpServerFormProps) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [description, setDescription] = useState('');
   const [authType, setAuthType] = useState<McpAuthType>('dcr');
   const [apiKey, setApiKey] = useState('');
   const [headerName, setHeaderName] = useState('');
+  const isEditing = connector !== undefined;
+  const identityInputClassName = auiInputClass(
+    `h-11 shadow-sm ${isEditing ? 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary opacity-70' : ''}`,
+  );
 
   const resetForm = () => {
     setName('');
@@ -56,12 +61,23 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
     setHeaderName('');
   };
 
+  useEffect(() => {
+    if (!open) return;
+    setName(connector?.name ?? '');
+    setUrl(connector?.url ?? '');
+    setDescription(connector?.description ?? '');
+    setAuthType(connector?.auth.type ?? 'dcr');
+    setApiKey('');
+    setHeaderName(connector?.auth.type === 'header' ? (connector.auth.headerName ?? '') : '');
+  }, [connector, open]);
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) resetForm();
     onOpenChange(nextOpen);
   };
 
-  const isValid = !!name.trim() && !!description.trim() && !!url.trim() && (authType !== 'header' || !!apiKey.trim());
+  const hasApiKey = !!apiKey.trim() || connector?.auth.type === 'header';
+  const isValid = !!name.trim() && !!description.trim() && !!url.trim() && (authType !== 'header' || hasApiKey);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,7 +93,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
         : { type: authType };
 
     try {
-      await onAdd({
+      await onSubmit({
         name: name.trim(),
         url: url.trim(),
         description: description.trim(),
@@ -94,8 +110,12 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
     <CenteredModal
       open={open}
       onOpenChange={handleOpenChange}
-      title="Add MCP server"
-      description="Point at a remote MCP endpoint. It then behaves like any other connector."
+      title={isEditing ? 'Edit MCP server' : 'Add MCP server'}
+      description={
+        isEditing
+          ? 'Update how this connector authenticates.'
+          : 'Point at a remote MCP endpoint. It then behaves like any other connector.'
+      }
       contentSized
       headerIcon={
         <span
@@ -118,12 +138,14 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               type="text"
               required
               value={name}
+              readOnly={isEditing}
+              aria-disabled={isEditing}
               onChange={event => {
                 setName(event.target.value);
               }}
               placeholder="analytics-postgres-mcp"
-              autoFocus
-              className={inputClassName}
+              autoFocus={!isEditing}
+              className={identityInputClassName}
             />
           </div>
 
@@ -135,13 +157,19 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
             <textarea
               id="mcp-server-description"
               value={description}
+              readOnly={isEditing}
+              aria-disabled={isEditing}
               onChange={event => {
                 setDescription(event.target.value);
               }}
               placeholder="Query analytics from Postgres"
               required
               rows={3}
-              className={auiInputClass('resize-y py-2.5 shadow-sm')}
+              className={auiInputClass(
+                `resize-y py-2.5 shadow-sm ${
+                  isEditing ? 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary opacity-70' : ''
+                }`,
+              )}
             />
           </div>
 
@@ -155,11 +183,13 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               type="url"
               required
               value={url}
+              readOnly={isEditing}
+              aria-disabled={isEditing}
               onChange={event => {
                 setUrl(event.target.value);
               }}
               placeholder="https://mcp.example.com/mcp"
-              className={inputClassName}
+              className={identityInputClassName}
             />
           </div>
 
@@ -209,12 +239,16 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
               <div>
                 <label htmlFor="mcp-server-api-key" className="mb-1.5 block text-sm font-medium text-text-primary">
                   API key
-                  <RequiredMark />
+                  {connector?.auth.type === 'header' ? (
+                    <span className="font-normal text-text-secondary"> (leave blank to keep current)</span>
+                  ) : (
+                    <RequiredMark />
+                  )}
                 </label>
                 <input
                   id="mcp-server-api-key"
                   type="password"
-                  required
+                  required={connector?.auth.type !== 'header'}
                   value={apiKey}
                   onChange={event => {
                     setApiKey(event.target.value);
@@ -246,7 +280,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onAdd, busy = false, error }: Ad
         <div className="mt-6 space-y-3">
           {error ? <p className="text-failure-bg text-sm">{error}</p> : null}
           <Button.Primary type="submit" size="large" disabled={!isValid || busy} className="w-full shrink-0">
-            Add
+            {isEditing ? 'Save' : 'Add'}
           </Button.Primary>
         </div>
       </form>
