@@ -53,6 +53,8 @@ export default defineConfig(({ command }) => ({
     react(),
     monacoEditorPlugin({
       languageWorkers: ['editorWorkerService', 'css', 'html', 'json', 'typescript'],
+      // Production `base` is `./`; without this the plugin writes workers under `./monacoeditorwork`.
+      customDistPath: (root, buildOutDir) => path.join(root, buildOutDir, 'monacoeditorwork'),
     }),
     // The server serves these siblings instead of compressing per request.
     compression({

@@ -7,6 +7,10 @@
 declare global {
   interface Window {
     __TRUEFORGE_BASE_PATH__?: string;
+    MonacoEnvironment?: {
+      globalAPI?: boolean;
+      getWorkerUrl?: (moduleId: string, label: string) => string;
+    };
   }
 }
 
@@ -40,4 +44,37 @@ export function apiPath(suffix: string): string {
     return path;
   }
   return `${UI_BASE_PATH.replace(/\/$/, '')}${path}`;
+}
+
+const MONACO_WORKER_DIR = 'monacoeditorwork';
+
+/** Origin-absolute Monaco worker URL, including the public UI prefix. */
+export function monacoWorkerUrl(filename: string): string {
+  const name = filename.split('/').pop();
+  if (name === undefined || name === '') {
+    return `${UI_BASE_PATH}${MONACO_WORKER_DIR}/`;
+  }
+  return `${UI_BASE_PATH}${MONACO_WORKER_DIR}/${name}`;
+}
+
+/**
+ * vite-plugin-monaco-editor-esm emits worker URLs from Vite `base` (`./` in
+ * production), so they stay page-relative. Rewrite them through the public
+ * prefix before Monaco loads a worker on a nested client route.
+ */
+export function installMonacoWorkerPublicPath(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const previous = window.MonacoEnvironment?.getWorkerUrl;
+  window.MonacoEnvironment = {
+    ...window.MonacoEnvironment,
+    getWorkerUrl(moduleId: string, label: string) {
+      const raw = previous?.call(window.MonacoEnvironment, moduleId, label);
+      if (typeof raw === 'string' && raw.length > 0) {
+        return monacoWorkerUrl(raw);
+      }
+      return monacoWorkerUrl(`${label}.worker.bundle.js`);
+    },
+  };
 }
