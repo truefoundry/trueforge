@@ -12,7 +12,7 @@ export function isSettingsChromeEnabled({
   catalog: CatalogServer | null | undefined;
   capabilities: { settings?: { enabled?: boolean } } | null | undefined;
 }): boolean {
-  return catalog != null && capabilities?.settings?.enabled !== false;
+  return catalog != null && capabilities?.settings?.enabled === true;
 }
 
 /** Sessions browser + agent-detail surfaces (Overview / sessions / code). */
