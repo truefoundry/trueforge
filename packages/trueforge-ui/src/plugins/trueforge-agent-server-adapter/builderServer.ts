@@ -126,6 +126,7 @@ export function createHarnessBuilderServer(
     },
 
     async saveAgent({ agentName, agentSpec, intent }) {
+      // TODO: TrueForge currently drops AgentSpec.description until its schema supports it.
       const manifest = toHarnessAgentSpec(agentSpec);
       if (intent === 'update') {
         const { data } = await client.agents.list();

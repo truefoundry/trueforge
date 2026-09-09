@@ -16,6 +16,7 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
     }),
   useTrueFoundryCancel: () => vi.fn(),
   useTrueFoundryToolResponses: () => ({ pending: [] }),
+  useTrueFoundryApprovals: () => ({ pending: [] }),
   useTrueFoundryRespondToToolApproval: () => vi.fn(),
   useTrueFoundryMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
   useTrueFoundryHistoryPagination: () => ({
@@ -218,7 +219,7 @@ describe('TrueForgeUI', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
   });
 
-  it('shares catalog data with the Save Agent stacked editors', async () => {
+  it('keeps configuration editors out of Save Agent', async () => {
     const getModels = vi.fn(async () => [
       {
         id: 'openai-main/gpt-4.1',
@@ -241,17 +242,10 @@ describe('TrueForgeUI', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Start new agent' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save Agent' }));
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Model' }));
-
-    const modelDialog = document.querySelector('dialog[aria-label="Edit model"]');
-    if (!(modelDialog instanceof HTMLDialogElement)) throw new Error('expected stacked model dialog');
-    expect(await within(modelDialog).findByRole('option', { name: /gpt-4.1/ })).toBeInTheDocument();
-    fireEvent.click(within(modelDialog).getByRole('button', { name: 'Close' }));
-
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
-    const mcpDialog = document.querySelector('dialog[aria-label="Select MCP Tools"]');
-    if (!(mcpDialog instanceof HTMLDialogElement)) throw new Error('expected stacked MCP dialog');
-    expect(await within(mcpDialog).findByText('GitHub')).toBeInTheDocument();
+    expect(within(saveDialog).getByLabelText('Agent name')).toBeInTheDocument();
+    expect(within(saveDialog).queryByLabelText('Description')).not.toBeInTheDocument();
+    expect(within(saveDialog).queryByRole('button', { name: 'Edit Model' })).not.toBeInTheDocument();
+    expect(within(saveDialog).queryByRole('button', { name: 'Edit Connectors' })).not.toBeInTheDocument();
     expect(getModels).toHaveBeenCalled();
     expect(getMcp).toHaveBeenCalled();
     expect(getSkills).toHaveBeenCalled();
@@ -435,7 +429,7 @@ describe('SidebarLayout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Navigation' }));
 
     const drawer = screen.getByRole('dialog', { name: 'Navigation' });
-    expect(drawer).toHaveClass('w-18');
+    expect(drawer).toHaveClass('w-20');
     expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
     expect(within(drawer).queryByText('Acme')).not.toBeInTheDocument();
     expect(within(drawer).getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();

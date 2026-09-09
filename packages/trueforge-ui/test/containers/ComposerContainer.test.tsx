@@ -22,9 +22,20 @@ const toolResponsesState = vi.hoisted(() => ({
   respond: vi.fn(),
 }));
 
+const approvalsState = vi.hoisted(() => ({
+  pending: [] as Array<{
+    approvalId: string;
+    threadId: string;
+    toolName: string;
+    args: Record<string, unknown>;
+    argsText: string;
+  }>,
+}));
+
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryCancel: () => vi.fn(),
   useTrueFoundryToolResponses: () => toolResponsesState,
+  useTrueFoundryApprovals: () => approvalsState,
   useTrueFoundryAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
 }));
 
@@ -59,6 +70,7 @@ describe('ComposerContainer', () => {
     agentSpecState.agentSpec = { model: { name: 'test/model' } };
     toolResponsesState.pending = [];
     toolResponsesState.respond = vi.fn();
+    approvalsState.pending = [];
   });
   it('wraps the composer in an attachment dropzone by default', () => {
     renderComposer();
@@ -190,5 +202,31 @@ describe('ComposerContainer', () => {
       toolCallId: 'tc-1',
       content: 'chosen-secret',
     });
+  });
+
+  it('shows the approval banner above a disabled composer while approvals are pending', () => {
+    approvalsState.pending = [
+      {
+        approvalId: 'appr-1',
+        threadId: 'root',
+        toolName: 'call_tool',
+        args: {},
+        argsText: '{}',
+      },
+      {
+        approvalId: 'appr-2',
+        threadId: 'root',
+        toolName: 'call_tool',
+        args: {},
+        argsText: '{}',
+      },
+    ];
+
+    renderComposer();
+
+    expect(screen.getByText('2 tools need your input')).toBeInTheDocument();
+    expect(screen.getByText('(1/2)')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeDisabled();
+    expect(document.querySelector('[data-slot="aui_composer-approval-pause"]')).toBeInTheDocument();
   });
 });

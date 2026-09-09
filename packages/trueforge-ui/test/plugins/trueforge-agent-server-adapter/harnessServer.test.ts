@@ -80,12 +80,12 @@ describe('createHarnessChatServer', () => {
 
   it('sends skill name refs and strips UI-only mount ids before admission', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
-    const fqn = 'agent-skill:acme/team-a/echo:3';
+    const skillName = 'agent-skill:acme/team-a/echo:3';
 
     await server.createSession({
       agentSpec: {
         model: { name: 'test/model' },
-        skills: [{ id: fqn, name: 'echo' }],
+        skills: [{ id: skillName, name: 'echo' }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
     });
@@ -96,7 +96,7 @@ describe('createHarnessChatServer', () => {
       spec: {
         model: { name: 'test/model' },
         mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-        skills: [{ name: fqn }],
+        skills: [{ name: skillName }],
       },
     });
   });

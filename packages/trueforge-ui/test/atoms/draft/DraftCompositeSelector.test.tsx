@@ -105,8 +105,10 @@ describe('DraftCompositeSelector', () => {
 
   it('shows one combined Tools count only for a valid model', () => {
     const view = renderSelector();
-    expect(screen.getByRole('button', { name: 'Tools (2)' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    const toolsTrigger = screen.getByRole('button', { name: 'Tools (2)' });
+    expect(toolsTrigger).toHaveTextContent('Tools');
+    expect(toolsTrigger).toHaveTextContent('2');
+    fireEvent.click(toolsTrigger);
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();

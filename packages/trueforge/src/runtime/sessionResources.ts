@@ -66,7 +66,11 @@ export async function getModelDetails({
       message: `Model name must be a fully qualified "provider/model": ${name}`,
     });
   }
-  const provider = await store.getProvider({ tenant_id, name: parsed.providerName });
+  const provider = await store.getProvider({
+    tenant_id,
+    name: parsed.providerName,
+    model_name: parsed.modelName,
+  });
   if (provider === undefined) {
     throw new HTTPException(422, {
       message: `Unknown model "${name}" — provider not configured`,
