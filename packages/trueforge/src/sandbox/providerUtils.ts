@@ -131,37 +131,31 @@ export async function checkSnapshotStatus({
 
   const persisted = sandboxStatusFromRecord(record);
 
-  switch (record.manifest.type) {
-    case 'truefoundry':
-      // Prebuilt image — no snapshot registration or refresh.
-      return persisted;
-    case 'daytona': {
-      const readyIsFresh =
-        record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
-      if (record.status === 'failed' || readyIsFresh) {
-        return persisted;
-      }
-
-      const provider = toDaytonaSandboxProvider({
-        manifest: record.manifest,
-        tenant_id,
-        logger,
-        build_metadata: record.build_metadata,
-      });
-      let build: SandboxBuild;
-      if (record.status === 'ready') {
-        // this is because image may have deactivated
-        build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
-      } else {
-        build = await withTimeout(
-          provider.getImageBuildStatus(),
-          STATUS_REFRESH_TIMEOUT_MS,
-          'sandbox getImageBuildStatus',
-        );
-      }
-      const next = toSandboxStatus(build);
-      const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-      return updated ? sandboxStatusFromRecord(updated) : next;
-    }
+  // Prebuilt image — no snapshot registration or refresh.
+  if (record.manifest.type !== 'daytona') {
+    return persisted;
   }
+
+  const readyIsFresh =
+    record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
+  if (record.status === 'failed' || readyIsFresh) {
+    return persisted;
+  }
+
+  const provider = toDaytonaSandboxProvider({
+    manifest: record.manifest,
+    tenant_id,
+    logger,
+    build_metadata: record.build_metadata,
+  });
+  let build: SandboxBuild;
+  if (record.status === 'ready') {
+    // this is because image may have deactivated
+    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
+  } else {
+    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
+  }
+  const next = toSandboxStatus(build);
+  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
+  return updated ? sandboxStatusFromRecord(updated) : next;
 }
