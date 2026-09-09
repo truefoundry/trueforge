@@ -81,23 +81,24 @@ describe('AddMcpServerForm', () => {
     expect(screen.getByLabelText(/Name/)).toHaveValue(connector.name);
     expect(screen.getByLabelText(/Name/)).toHaveAttribute('readonly');
     expect(screen.getByLabelText(/Name/)).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByLabelText(/Name/)).toHaveClass('cursor-not-allowed', 'opacity-70');
+    expect(screen.getByLabelText(/Name/)).toHaveClass('cursor-not-allowed', 'opacity-40');
     expect(screen.getByLabelText(/Name/)).not.toHaveClass('cursor-text');
-    expect(screen.getByLabelText(/Description/)).toHaveAttribute('readonly');
-    expect(screen.getByLabelText(/URL/)).toHaveAttribute('readonly');
-    expect(screen.getByLabelText(/URL/)).toHaveClass('cursor-not-allowed');
-    expect(screen.getByLabelText(/URL/)).not.toHaveClass('cursor-text');
+    expect(screen.getByLabelText(/Description/)).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText(/URL/)).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText(/URL/)).toHaveClass('cursor-text');
     expect(screen.getByRole('radio', { name: 'API Key' })).toBeChecked();
     expect(screen.getByLabelText(/Header name/)).toHaveValue('X-API-Key');
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
 
+    fireEvent.change(screen.getByLabelText(/Description/), { target: { value: 'Updated tools' } });
+    fireEvent.change(screen.getByLabelText(/URL/), { target: { value: 'https://new.example.com/mcp' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: connector.name,
-        url: connector.url,
-        description: connector.description,
+        url: 'https://new.example.com/mcp',
+        description: 'Updated tools',
         auth: { type: 'header', apiKey: '', headerName: 'X-API-Key' },
       });
     });

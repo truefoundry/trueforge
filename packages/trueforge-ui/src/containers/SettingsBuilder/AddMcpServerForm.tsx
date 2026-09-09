@@ -27,9 +27,9 @@ type AddMcpServerFormProps = {
 };
 
 const AUTH_OPTIONS: Array<{ value: McpAuthType; label: string }> = [
-  { value: 'dcr', label: 'OAuth' },
   { value: 'none', label: 'None' },
   { value: 'header', label: 'API Key' },
+  { value: 'dcr', label: 'OAuth' },
 ];
 
 const inputClassName = auiInputClass('h-11 shadow-sm');
@@ -48,8 +48,8 @@ const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = fals
   const [apiKey, setApiKey] = useState('');
   const [headerName, setHeaderName] = useState('');
   const isEditing = connector !== undefined;
-  const identityInputClassName = auiInputClass(
-    `h-11 shadow-sm ${isEditing ? 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary opacity-70' : ''}`,
+  const nameInputClassName = auiInputClass(
+    `h-11 shadow-sm ${isEditing ? 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary opacity-40' : ''}`,
   );
 
   const resetForm = () => {
@@ -145,7 +145,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = fals
               }}
               placeholder="analytics-postgres-mcp"
               autoFocus={!isEditing}
-              className={identityInputClassName}
+              className={nameInputClassName}
             />
           </div>
 
@@ -157,19 +157,13 @@ const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = fals
             <textarea
               id="mcp-server-description"
               value={description}
-              readOnly={isEditing}
-              aria-disabled={isEditing}
               onChange={event => {
                 setDescription(event.target.value);
               }}
               placeholder="Query analytics from Postgres"
               required
               rows={3}
-              className={auiInputClass(
-                `resize-y py-2.5 shadow-sm ${
-                  isEditing ? 'cursor-not-allowed bg-secondary-bg/60 text-text-secondary opacity-70' : ''
-                }`,
-              )}
+              className={auiInputClass('resize-y py-2.5 shadow-sm')}
             />
           </div>
 
@@ -183,13 +177,11 @@ const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = fals
               type="url"
               required
               value={url}
-              readOnly={isEditing}
-              aria-disabled={isEditing}
               onChange={event => {
                 setUrl(event.target.value);
               }}
               placeholder="https://mcp.example.com/mcp"
-              className={identityInputClassName}
+              className={inputClassName}
             />
           </div>
 
