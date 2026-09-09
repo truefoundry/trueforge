@@ -52,7 +52,7 @@ server:
   # Container port the server listens on (PORT).
   port: 8790
   # Public application URL for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
-  # May include a pathname (e.g. https://host/a/b/c); that path is the UI/API
+  # May include a pathname (e.g. https://host/custom/proxy/path); that path is the UI/API
   # public prefix when a reverse proxy strips it. Required for OIDC and MCP OAuth.
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).

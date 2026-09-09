@@ -1,7 +1,7 @@
 /**
  * Public path from `window.__TRUEFORGE_BASE_PATH__` (the server substitutes
  * `PUBLIC_BASE_URL`'s pathname into the app shell). Always `/` or a path with a
- * trailing slash (e.g. `/a/b/c/`). UI assets, React Router, and API/auth share
+ * trailing slash (e.g. `/custom/proxy/path/`). UI assets, React Router, and API/auth share
  * this prefix; a reverse proxy strips it so the server still sees `/` and `/api/...`.
  */
 declare global {

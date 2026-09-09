@@ -868,7 +868,7 @@ export function getPublicBaseUrl(config: ServerConfiguration = configuration): s
   return config.PUBLIC_BASE_URL;
 }
 
-/** `/` or `/a/b/c/` — trailing slash for asset URLs and the boot script. Empty PUBLIC_BASE_URL → `/`. */
+/** `/` or `/custom/proxy/path/` — trailing slash for asset URLs and the boot script. Empty PUBLIC_BASE_URL → `/`. */
 export function getPublicUiBasePath(config: ServerConfiguration = configuration): string {
   if (config.PUBLIC_BASE_URL === '') {
     return '/';

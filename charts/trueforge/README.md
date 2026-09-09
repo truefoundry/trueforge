@@ -122,7 +122,7 @@ shared or public deployment. When enabled, set string `issuerUrl` and
 
 Also set `server.publicBaseUrl` to the public application URL (origin plus
 optional pathname) and register `{publicBaseUrl}/api/v1/auth/callback` at your IdP.
-A pathname such as `https://host/a/b/c` is the UI/API public prefix when a reverse
+A pathname such as `https://host/custom/proxy/path` is the UI/API public prefix when a reverse
 proxy strips it.
 
 ```yaml

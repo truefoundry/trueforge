@@ -2,7 +2,7 @@
  * Browser auth entry points. Login and logout are not SDK methods (cookie session).
  * On any HTTP 401, redirect to OIDC login (session required).
  *
- * Auth URLs share the public prefix with the UI (e.g. `/a/b/c/api/v1/auth/...`).
+ * Auth URLs share the public prefix with the UI (e.g. `/custom/proxy/path/api/v1/auth/...`).
  * A reverse proxy strips that prefix before Harness. Pass `return_to` so post-login
  * lands back under the UI path.
  */
