@@ -148,11 +148,14 @@ export class TrueFoundryServiceFoundryServerClient {
     accessToken: string;
     filter?: { provider_account_name: string; name: string };
   }): Promise<unknown[]> {
-    const query: Record<string, string> = { type: 'model' };
-    if (input.filter !== undefined) {
-      query.provider_account_name = input.filter.provider_account_name;
-      query.name = input.filter.name;
-    }
+    const filterQuery =
+      input.filter === undefined
+        ? {}
+        : {
+            provider_account_name: input.filter.provider_account_name,
+            name: input.filter.name,
+          };
+    const query: Record<string, string> = { type: 'model', ...filterQuery };
     const payload = await this.#requestJson({
       url: this.#url(INTEGRATIONS_PATH, query),
       accessToken: input.accessToken,
