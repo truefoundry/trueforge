@@ -27,6 +27,7 @@ import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
 import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
+import type { SessionPolicyProvider } from './auth/sessionPolicy';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -201,6 +202,8 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  /** Startup-selected session-creation policy; defaults to unrestricted. */
+  sessionPolicyProvider: SessionPolicyProvider;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -364,6 +367,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
+        sessionPolicyProvider: deps.sessionPolicyProvider,
       }),
       authMiddleware,
     ),
@@ -397,6 +401,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveRequestContext,
         logger: deps.logger,
         authorizer: deps.authorizer,
+        sessionPolicyProvider: deps.sessionPolicyProvider,
       }),
       authMiddleware,
     ),

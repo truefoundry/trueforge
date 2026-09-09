@@ -23,6 +23,7 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { checkSessionPolicyForAgent, type SessionPolicyProvider } from '../auth/sessionPolicy';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -86,6 +87,7 @@ export interface SessionsRouterDeps {
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
   authorizer: Authorizer;
+  sessionPolicyProvider: SessionPolicyProvider;
 }
 
 function cancelTurnOnThisExecutor(
@@ -239,6 +241,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSandboxProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
+  | 'sessionPolicyProvider'
 >;
 
 function createGetOrCreateSessionByExternalIdHandler(
@@ -267,8 +270,17 @@ function createGetOrCreateSessionByExternalIdHandler(
       return c.json({ data: toWireSession(existing.record) }, 200);
     }
 
+    const sessionPolicy = await deps.sessionPolicyProvider.resolveSessionPolicy({ context: requestContext });
+    const policyDecision = checkSessionPolicyForAgent(sessionPolicy, body.agent);
+
     let agent: SessionRecord['agent'];
     if (isSessionAgentNameRef(body.agent)) {
+      if (!policyDecision.allowed) {
+        // Same response as "not found" — a policy-denied agent must not be
+        // distinguishable from one that doesn't exist (issue #541 requires
+        // callers never be able to enumerate shared agents).
+        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
+      }
       const named = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
@@ -283,6 +295,9 @@ function createGetOrCreateSessionByExternalIdHandler(
       }
       agent = { type: 'reference', id: named.id, name: named.name };
     } else {
+      if (!policyDecision.allowed) {
+        return c.json({ error: { message: policyDecision.reason } }, 403);
+      }
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
@@ -331,7 +346,16 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const sessionId = newId();
     const requestContext = deps.resolveRequestContext(c);
 
+    const sessionPolicy = await deps.sessionPolicyProvider.resolveSessionPolicy({ context: requestContext });
+    const policyDecision = checkSessionPolicyForAgent(sessionPolicy, body.agent);
+
     if (isSessionAgentNameRef(body.agent)) {
+      if (!policyDecision.allowed) {
+        // Same response as "not found" — a policy-denied agent must not be
+        // distinguishable from one that doesn't exist (issue #541 requires
+        // callers never be able to enumerate shared agents).
+        return c.json({ error: { message: `Agent not found: ${body.agent.name}` } }, 404);
+      }
       const agent = await agentIfAccessible({
         authorizer: deps.authorizer,
         context: requestContext,
@@ -355,6 +379,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
+    if (!policyDecision.allowed) {
+      return c.json({ error: { message: policyDecision.reason } }, 403);
+    }
     await validateAgentSpec({
       spec: body.agent.spec,
       tenant_id: requestContext.tenant_id,

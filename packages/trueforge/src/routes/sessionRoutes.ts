@@ -47,6 +47,10 @@ export const createSessionRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The request is not permitted by session policy.',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Named agent not found.',
@@ -92,7 +96,7 @@ export const getOrCreateSessionByExternalIdRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'Caller is not the session creator, or the request is not permitted by session policy.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

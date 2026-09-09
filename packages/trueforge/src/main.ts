@@ -59,6 +59,7 @@ import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
 import { resolveRequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
+import { UnrestrictedSessionPolicyProvider } from './auth/sessionPolicy';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
@@ -434,6 +435,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     authorizer = new TrueForgeAuthorizer();
   }
 
+  // No operator-configurable policy source yet — every caller gets the
+  // unrestricted policy, preserving current behavior. See issue #541.
+  const sessionPolicyProvider = new UnrestrictedSessionPolicyProvider();
+
   // Standalone is one process, so it owns the control loops too.
   const controller = configuration.STANDALONE
     ? createController({
@@ -468,6 +473,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
+    sessionPolicyProvider,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
