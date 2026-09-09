@@ -10,7 +10,12 @@ describe("SkillsClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ manifest: { description: "description", name: "name", type: "git" }, name: "name" }],
+            data: [
+                {
+                    manifest: { description: "description", name: "name", ref: "ref", type: "git", url: "url" },
+                    name: "name",
+                },
+            ],
         };
 
         server
@@ -28,7 +33,9 @@ describe("SkillsClient", () => {
                     manifest: {
                         description: "description",
                         name: "name",
+                        ref: "ref",
                         type: "git",
+                        url: "url",
                     },
                     name: "name",
                 },
@@ -77,19 +84,18 @@ describe("SkillsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "description", name: "name", type: "git" } };
+        const rawRequestBody = {
+            manifest: { description: "description", name: "name", ref: "ref", type: "git", url: "url" },
+        };
         const rawResponseBody = {
             data: {
                 manifest: {
                     description: "description",
-                    fqn: "fqn",
                     name: "name",
                     path: "path",
                     ref: "ref",
-                    skill_repo_name: "skill_repo_name",
                     type: "git",
                     url: "url",
-                    version: 1,
                 },
                 name: "name",
             },
@@ -108,21 +114,20 @@ describe("SkillsClient", () => {
             manifest: {
                 description: "description",
                 name: "name",
+                ref: "ref",
                 type: "git",
+                url: "url",
             },
         });
         expect(response).toEqual({
             data: {
                 manifest: {
                     description: "description",
-                    fqn: "fqn",
                     name: "name",
                     path: "path",
                     ref: "ref",
-                    skillRepoName: "skill_repo_name",
                     type: "git",
                     url: "url",
-                    version: 1,
                 },
                 name: "name",
             },
@@ -132,7 +137,7 @@ describe("SkillsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "git" } };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -149,7 +154,9 @@ describe("SkillsClient", () => {
                 manifest: {
                     description: "x",
                     name: "xy",
+                    ref: "x",
                     type: "git",
+                    url: "x",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
@@ -158,7 +165,7 @@ describe("SkillsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "git" } };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -175,7 +182,9 @@ describe("SkillsClient", () => {
                 manifest: {
                     description: "x",
                     name: "xy",
+                    ref: "x",
                     type: "git",
+                    url: "x",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
@@ -184,7 +193,7 @@ describe("SkillsClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "git" } };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -201,7 +210,9 @@ describe("SkillsClient", () => {
                 manifest: {
                     description: "x",
                     name: "xy",
+                    ref: "x",
                     type: "git",
+                    url: "x",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
@@ -210,19 +221,18 @@ describe("SkillsClient", () => {
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "description", name: "name", type: "git" } };
+        const rawRequestBody = {
+            manifest: { description: "description", name: "name", ref: "ref", type: "git", url: "url" },
+        };
         const rawResponseBody = {
             data: {
                 manifest: {
                     description: "description",
-                    fqn: "fqn",
                     name: "name",
                     path: "path",
                     ref: "ref",
-                    skill_repo_name: "skill_repo_name",
                     type: "git",
                     url: "url",
-                    version: 1,
                 },
                 name: "name",
             },
@@ -241,21 +251,20 @@ describe("SkillsClient", () => {
             manifest: {
                 description: "description",
                 name: "name",
+                ref: "ref",
                 type: "git",
+                url: "url",
             },
         });
         expect(response).toEqual({
             data: {
                 manifest: {
                     description: "description",
-                    fqn: "fqn",
                     name: "name",
                     path: "path",
                     ref: "ref",
-                    skillRepoName: "skill_repo_name",
                     type: "git",
                     url: "url",
-                    version: 1,
                 },
                 name: "name",
             },
@@ -265,7 +274,7 @@ describe("SkillsClient", () => {
     test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "git" } };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -282,7 +291,9 @@ describe("SkillsClient", () => {
                 manifest: {
                     description: "x",
                     name: "xy",
+                    ref: "x",
                     type: "git",
+                    url: "x",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
@@ -291,7 +302,7 @@ describe("SkillsClient", () => {
     test("create_or_update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "git" } };
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -308,7 +319,9 @@ describe("SkillsClient", () => {
                 manifest: {
                     description: "x",
                     name: "xy",
+                    ref: "x",
                     type: "git",
+                    url: "x",
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);

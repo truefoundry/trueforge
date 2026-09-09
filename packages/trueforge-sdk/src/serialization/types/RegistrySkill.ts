@@ -4,19 +4,23 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SkillVersion: core.serialization.ObjectSchema<serializers.SkillVersion.Raw, TrueForge.SkillVersion> =
+export const RegistrySkill: core.serialization.ObjectSchema<serializers.RegistrySkill.Raw, TrueForge.RegistrySkill> =
     core.serialization.object({
         description: core.serialization.string(),
         displayName: core.serialization.property("display_name", core.serialization.string()),
         name: core.serialization.string(),
+        skillRepoName: core.serialization.property("skill_repo_name", core.serialization.string()),
+        type: core.serialization.stringLiteral("registry"),
         version: core.serialization.number(),
     });
 
-export declare namespace SkillVersion {
+export declare namespace RegistrySkill {
     export interface Raw {
         description: string;
         display_name: string;
         name: string;
+        skill_repo_name: string;
+        type: "registry";
         version: number;
     }
 }

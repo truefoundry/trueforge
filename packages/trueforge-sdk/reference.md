@@ -3588,7 +3588,9 @@ await client.settings.skills.create({
     manifest: {
         description: "description",
         name: "name",
-        type: "git"
+        ref: "ref",
+        type: "git",
+        url: "url"
     }
 });
 
@@ -3657,7 +3659,9 @@ await client.settings.skills.createOrUpdate({
     manifest: {
         description: "description",
         name: "name",
-        type: "git"
+        ref: "ref",
+        type: "git",
+        url: "url"
     }
 });
 

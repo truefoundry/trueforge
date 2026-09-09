@@ -3,32 +3,12 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ResourceName } from "./ResourceName.js";
-import { SkillType } from "./SkillType.js";
+import { GitSkill } from "./GitSkill.js";
+import { RegistrySkill } from "./RegistrySkill.js";
 
-export const SkillManifest: core.serialization.ObjectSchema<serializers.SkillManifest.Raw, TrueForge.SkillManifest> =
-    core.serialization.object({
-        description: core.serialization.string(),
-        fqn: core.serialization.string().optional(),
-        name: ResourceName,
-        path: core.serialization.string().optional(),
-        ref: core.serialization.string().optional(),
-        skillRepoName: core.serialization.property("skill_repo_name", core.serialization.string().optional()),
-        type: SkillType,
-        url: core.serialization.string().optional(),
-        version: core.serialization.number().optional(),
-    });
+export const SkillManifest: core.serialization.Schema<serializers.SkillManifest.Raw, TrueForge.SkillManifest> =
+    core.serialization.undiscriminatedUnion([GitSkill, RegistrySkill]);
 
 export declare namespace SkillManifest {
-    export interface Raw {
-        description: string;
-        fqn?: string | null;
-        name: ResourceName.Raw;
-        path?: string | null;
-        ref?: string | null;
-        skill_repo_name?: string | null;
-        type: SkillType.Raw;
-        url?: string | null;
-        version?: number | null;
-    }
+    export type Raw = GitSkill.Raw | RegistrySkill.Raw;
 }

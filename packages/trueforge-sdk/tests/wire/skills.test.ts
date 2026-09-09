@@ -54,7 +54,9 @@ describe("SkillsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ description: "description", fqn: "fqn", name: "name", version: 1 }] };
+        const rawResponseBody = {
+            data: [{ description: "description", display_name: "display_name", name: "name", version: 1 }],
+        };
 
         server
             .mockEndpoint()
@@ -71,7 +73,7 @@ describe("SkillsClient", () => {
             data: [
                 {
                     description: "description",
-                    fqn: "fqn",
+                    displayName: "display_name",
                     name: "name",
                     version: 1,
                 },

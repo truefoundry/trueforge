@@ -7,7 +7,7 @@ import type * as serializers from "../index.js";
 export const AvailableSkill: core.serialization.ObjectSchema<serializers.AvailableSkill.Raw, TrueForge.AvailableSkill> =
     core.serialization.object({
         description: core.serialization.string(),
-        displayName: core.serialization.property("display_name", core.serialization.string()),
+        displayName: core.serialization.property("display_name", core.serialization.string().optional()),
         name: core.serialization.string(),
         skillRepoName: core.serialization.property("skill_repo_name", core.serialization.string().optional()),
         version: core.serialization.number().optional(),
@@ -16,7 +16,7 @@ export const AvailableSkill: core.serialization.ObjectSchema<serializers.Availab
 export declare namespace AvailableSkill {
     export interface Raw {
         description: string;
-        display_name: string;
+        display_name?: string | null;
         name: string;
         skill_repo_name?: string | null;
         version?: number | null;

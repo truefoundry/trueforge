@@ -3,8 +3,8 @@
 export interface AvailableSkill {
     /** Concise guidance for when the agent should use the skill. */
     description: string;
-    /** Display name. */
-    displayName: string;
+    /** Display label when it differs from name (registry). */
+    displayName?: string;
     /** Skill name. */
     name: string;
     /** Repo where the skill is registered. */
