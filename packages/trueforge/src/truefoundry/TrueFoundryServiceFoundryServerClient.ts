@@ -15,7 +15,6 @@ const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
-const INTEGRATIONS_PAGE_SIZE = 1000;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -112,10 +111,6 @@ function listPage(response: ListResponse): unknown[] {
   return Array.isArray(response) ? response : response.data;
 }
 
-function listPaginationTotal(response: ListResponse): number | undefined {
-  return Array.isArray(response) ? undefined : response.pagination?.total;
-}
-
 export class TrueFoundryServiceFoundryServerClient {
   readonly #baseUrl: string;
   readonly #logger: Logger;
@@ -145,29 +140,25 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#apiKey = input.apiKey;
   }
 
-  async listProviderIntegrations(accessToken: string): Promise<unknown[]> {
-    const items: unknown[] = [];
-    let offset = 0;
-    for (;;) {
-      const payload = await this.#requestJson({
-        url: this.#url(INTEGRATIONS_PATH, {
-          type: 'model',
-          offset: String(offset),
-          limit: String(INTEGRATIONS_PAGE_SIZE),
-        }),
-        accessToken,
-        method: 'GET',
-      });
-      const response = this.#parseListResponse(payload);
-      const page = listPage(response);
-      const total = listPaginationTotal(response);
-      items.push(...page);
-      if (total === undefined || items.length >= total || page.length === 0) {
-        break;
-      }
-      offset = items.length;
+  /**
+   * Model integrations. No limit/offset → full match set in one response.
+   * Pass `filter` (account + model name together) for a point lookup.
+   */
+  async listProviderIntegrations(input: {
+    accessToken: string;
+    filter?: { provider_account_name: string; name: string };
+  }): Promise<unknown[]> {
+    const query: Record<string, string> = { type: 'model' };
+    if (input.filter !== undefined) {
+      query.provider_account_name = input.filter.provider_account_name;
+      query.name = input.filter.name;
     }
-    return items;
+    const payload = await this.#requestJson({
+      url: this.#url(INTEGRATIONS_PATH, query),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    return listPage(this.#parseListResponse(payload));
   }
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {

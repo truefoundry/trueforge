@@ -4,6 +4,7 @@ import {
   flattenProviderModels,
   ModelProviderNameConflictError,
   type CreateModelProviderInput,
+  type GetModelProviderForUpdateInput,
   type GetModelProviderInput,
   type IModelProviderStore,
   type ListModelProvidersInput,
@@ -49,6 +50,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     input: GetModelProviderInput,
     transaction?: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
+    void input.model_name;
     const db = transaction ?? this.#db;
     return await db
       .selectFrom('model_provider')
@@ -63,7 +65,7 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
    * serializes concurrent writers so RMW of secrets stays consistent.
    */
   async getProviderForUpdate(
-    input: GetModelProviderInput,
+    input: GetModelProviderForUpdateInput,
     transaction: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     return await transaction
