@@ -300,15 +300,7 @@ export async function validateAgentSpec({
 
   const requestedSkills = spec.skills ?? [];
   if (requestedSkills.length > 0) {
-    const unknown = await skillStore.validateAccess({
-      tenant_id,
-      names: requestedSkills.map(skill => skill.name),
-    });
-    if (unknown !== undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown skill "${unknown}" — not configured`,
-      });
-    }
+    await skillStore.validateAgentSkills({ tenant_id, skills: requestedSkills });
   }
 
   const wantsSandbox = spec.config.sandbox.enabled;

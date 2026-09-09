@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
+import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
 import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
@@ -19,6 +20,8 @@ const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
 const AGENT_SKILLS_PAGE_SIZE = 100;
+/** SFY resolve `@ArrayMaxSize(50)` — chunk larger AgentSpec skill lists. */
+const AGENT_SKILL_RESOLVE_CHUNK_SIZE = 50;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -65,19 +68,6 @@ const ServiceFoundryErrorSchema = z.object({
 const PutRemoteAgentResponseSchema = z.object({
   agentId: z.string().min(1),
 });
-
-const ResolveAgentSkillVersionsResponseSchema = z.object({
-  skills: z.array(
-    z.object({
-      fqn: z.string().min(1),
-      name: z.string().min(1),
-      description: z.string(),
-      skill_md_content: z.string().nullable().optional(),
-      presigned_url: z.string().optional(),
-    }),
-  ),
-});
-export type ResolvedAgentSkillVersion = z.infer<typeof ResolveAgentSkillVersionsResponseSchema>['skills'][number];
 
 const AgentPermissionSchema = z.enum(['READ_AGENT', 'USE_AGENT', 'MANAGE_AGENT', 'DELETE_AGENT']);
 export type AgentPermission = z.infer<typeof AgentPermissionSchema>;
@@ -146,7 +136,7 @@ export class TrueFoundryServiceFoundryServerClient {
     tls: InternalTlsOptions;
     httpTimeoutMs: number;
     httpAgentTimeoutMs: number;
-    /** Service API key for `vend-token` only; user calls still pass a bearer `accessToken`. */
+    /** Service API key for vend-token and other privileged SFY calls. */
     apiKey: string;
   }) {
     const tls = input.tls;
@@ -280,32 +270,40 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /** `POST /internal/tfg/agent-skill-versions/resolve` — batch version-FQN resolve (max 50). */
+  /**
+   * `POST /internal/tfg/agent-skill-versions/resolve`. Chunks to 50 FQNs.
+   * Caller supplies the token (caller JWT on save validate).
+   * Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
+   */
   async resolveAgentSkillVersions(input: {
     accessToken: string;
-    skills: readonly {
-      fqn: string;
-      include_skill_md_content?: boolean;
-      include_presigned_url?: boolean;
-    }[];
+    skills: readonly { fqn: string }[];
   }): Promise<ResolvedAgentSkillVersion[]> {
-    const payload = await this.#requestJson({
-      url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
-      accessToken: input.accessToken,
-      method: 'POST',
-      body: { skills: input.skills },
-    });
-    const parsed = ResolveAgentSkillVersionsResponseSchema.safeParse(payload);
-    if (!parsed.success) {
-      this.#logger.error('TrueFoundry ServiceFoundry agent skill resolve returned an unexpected response', {
-        ...extractErrorLogFields(parsed.error),
-      });
-      throw new HTTPException(500, {
-        message: 'Upstream skill resolve returned an unexpected response',
-        cause: parsed.error,
-      });
+    if (input.skills.length === 0) {
+      return [];
     }
-    return parsed.data.skills;
+    const resolved: ResolvedAgentSkillVersion[] = [];
+    for (let i = 0; i < input.skills.length; i += AGENT_SKILL_RESOLVE_CHUNK_SIZE) {
+      const chunk = input.skills.slice(i, i + AGENT_SKILL_RESOLVE_CHUNK_SIZE);
+      const payload = await this.#requestJson({
+        url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
+        accessToken: input.accessToken,
+        method: 'POST',
+        body: { skills: chunk.map(({ fqn }) => ({ fqn })) },
+      });
+      try {
+        resolved.push(...mapResolvedAgentSkillVersions(payload));
+      } catch (error) {
+        this.#logger.error('TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response', {
+          ...extractErrorLogFields(error),
+        });
+        throw new HTTPException(500, {
+          message: 'TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response',
+          cause: error,
+        });
+      }
+    }
+    return resolved;
   }
 
   /** `GET /v1/agent-skill-versions?fqn=` (one row) or `?agent_skill_id=` (all versions). */

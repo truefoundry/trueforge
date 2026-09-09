@@ -1,4 +1,5 @@
 import {
+  mapResolvedAgentSkillVersions,
   mapSfyRegistrySkills,
   mapSfyRegistrySkillVersions,
   parseSfyRegistrySkillVersion,
@@ -83,6 +84,48 @@ describe('mapSfyRegistrySkills', () => {
         description: 'Mixed-case display name',
         repository_name: 'team-a',
         version: 1,
+      },
+    ]);
+  });
+
+  it('parses resolve response skills', () => {
+    expect(
+      mapResolvedAgentSkillVersions({
+        skills: [
+          {
+            fqn: 'agent-skill:acme/team-a/echo:3',
+            name: 'echo',
+            description: 'Echo skill',
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+    ]);
+  });
+
+  it('strips unknown fields on resolve responses', () => {
+    expect(
+      mapResolvedAgentSkillVersions({
+        skills: [
+          {
+            fqn: 'agent-skill:acme/team-a/echo:3',
+            name: 'echo',
+            description: 'Echo skill',
+            extra_sfy_field: true,
+          },
+        ],
+        pagination: { total: 1 },
+      }),
+    ).toEqual([
+      {
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
       },
     ]);
   });

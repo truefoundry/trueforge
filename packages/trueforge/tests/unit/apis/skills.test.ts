@@ -142,7 +142,7 @@ describe('skills routers', () => {
       createSkill: jest.fn(),
       upsertSkill: jest.fn(),
       listSkillVersions: jest.fn(),
-      validateAccess: jest.fn(),
+      validateAgentSkills: jest.fn(),
     };
     const router = createAvailableSkillsRouter({
       resolveSkillStore: () => skillStore,
@@ -188,7 +188,7 @@ describe('skills routers', () => {
       createSkill: jest.fn().mockResolvedValue(record),
       upsertSkill: jest.fn().mockResolvedValue(record),
       listSkillVersions: jest.fn(),
-      validateAccess: jest.fn(),
+      validateAgentSkills: jest.fn(),
     };
     const router = createSkillsRouter({
       resolveSkillStore: () => managedStore,
@@ -226,7 +226,7 @@ describe('skills routers', () => {
       createSkill: jest.fn(() => trueFoundryManaged()),
       upsertSkill: jest.fn(() => trueFoundryManaged()),
       listSkillVersions: jest.fn(),
-      validateAccess: jest.fn(),
+      validateAgentSkills: jest.fn(),
     };
     const router = createSkillsRouter({
       resolveSkillStore: () => managedStore,
