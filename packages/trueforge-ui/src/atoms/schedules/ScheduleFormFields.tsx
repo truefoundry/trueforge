@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
@@ -97,119 +98,114 @@ export function ScheduleFormFields({
 
       <fieldset>
         <legend className="mb-1.5 text-sm font-medium">Recurrence</legend>
-        <div className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1">
-          {RECURRENCE_OPTIONS.map(opt => {
-            const selected = values.recurrence === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                className={cn(
-                  'rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
-                  selected
-                    ? 'border border-primary-button-bg/40 bg-primary-button-bg/10 text-primary-button-bg'
-                    : 'text-text-secondary hover:bg-ghost-button-hover border border-transparent',
-                )}
-                aria-pressed={selected}
-                onClick={() => set('recurrence', opt.value)}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+        <div className="rounded-t-lg border border-border p-4">
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-primary-bg p-1">
+              {RECURRENCE_OPTIONS.map(opt => {
+                const selected = values.recurrence === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={cn(
+                      'rounded-md border px-2 py-2 text-sm font-medium transition-colors',
+                      selected
+                        ? 'border-primary-button-bg/40 bg-primary-button-bg/10 font-semibold text-primary-button-bg'
+                        : 'border-transparent text-text-secondary hover:bg-ghost-button-hover',
+                    )}
+                    aria-pressed={selected}
+                    onClick={() => set('recurrence', opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {values.recurrence === 'custom' ? (
+              <div className="rounded-md border border-border bg-secondary-bg/40 px-3 py-2">
+                <span className="block text-xs text-text-secondary">Existing custom schedule</span>
+                <code className="mt-1 block font-mono text-sm text-text-primary">{values.customCron}</code>
+                <span className="mt-1 block text-xs text-text-secondary">
+                  Select Hourly, Daily, or Weekly to replace this schedule.
+                </span>
+              </div>
+            ) : null}
+
+            <div className="flex gap-4">
+              {values.recurrence === 'daily' || values.recurrence === 'weekly' ? (
+                <div className="min-w-0 flex-1">
+                  <span className="mb-1.5 block text-sm font-medium">Hour</span>
+                  <PopoverSelect
+                    aria-label="Hour"
+                    value={String(values.hour)}
+                    options={HOUR_OPTIONS}
+                    onValueChange={value => set('hour', Number(value))}
+                  />
+                </div>
+              ) : null}
+              {values.recurrence !== 'custom' ? (
+                <div className="min-w-0 flex-1">
+                  <span className="mb-1.5 block text-sm font-medium">Minute</span>
+                  <PopoverSelect
+                    aria-label="Minute"
+                    value={String(values.minute)}
+                    options={MINUTE_OPTIONS}
+                    onValueChange={value => set('minute', Number(value))}
+                  />
+                </div>
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <span className="mb-1.5 block text-sm font-medium">Timezone</span>
+                <PopoverSelect
+                  aria-label="Timezone"
+                  value={values.timezone}
+                  options={timezoneOptions}
+                  onValueChange={value => set('timezone', value)}
+                  menuClassName="w-full min-w-0"
+                />
+              </div>
+            </div>
+
+            {values.recurrence === 'weekly' ? (
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium">Days</legend>
+                <div className="flex gap-2">
+                  {WEEKDAY_OPTIONS.map(day => {
+                    const selected = values.weekdays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        className={cn(
+                          'min-w-0 flex-1 rounded-md border px-3 py-2 text-[0.8125rem] font-medium',
+                          selected
+                            ? 'border-primary-button-bg/40 bg-primary-button-bg/10 font-semibold text-primary-button-bg'
+                            : 'border-border text-text-secondary hover:bg-ghost-button-hover',
+                        )}
+                        aria-pressed={selected}
+                        onClick={() => toggleWeekday(day.value)}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ) : null}
+          </div>
+        </div>
+        <div className="rounded-b-lg border border-t-0 border-border bg-primary-button-bg/10 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Icon name="clock" className="size-4 shrink-0 text-primary-button-bg" />
+            <span className="shrink-0 text-xs font-medium text-text-secondary">Schedule</span>
+            <p className="min-w-0 flex-1 truncate text-sm text-text-primary">{cadence || '—'}</p>
+            <code className="shrink-0 whitespace-nowrap font-mono text-[0.8125rem] font-bold text-text-secondary">
+              {cron || '—'}
+            </code>
+          </div>
         </div>
       </fieldset>
-
-      {values.recurrence === 'hourly' ? (
-        <div className="block max-w-[8rem]">
-          <span className="mb-1.5 block text-sm font-medium">Minute</span>
-          <PopoverSelect
-            aria-label="Minute"
-            value={String(values.minute)}
-            options={MINUTE_OPTIONS}
-            onValueChange={value => set('minute', Number(value))}
-          />
-        </div>
-      ) : null}
-
-      {values.recurrence === 'daily' || values.recurrence === 'weekly' ? (
-        <div className="flex flex-wrap gap-3">
-          <div className="block min-w-[7rem] flex-1">
-            <span className="mb-1.5 block text-sm font-medium">Hour</span>
-            <PopoverSelect
-              aria-label="Hour"
-              value={String(values.hour)}
-              options={HOUR_OPTIONS}
-              onValueChange={value => set('hour', Number(value))}
-            />
-          </div>
-          <div className="block min-w-[7rem] flex-1">
-            <span className="mb-1.5 block text-sm font-medium">Minute</span>
-            <PopoverSelect
-              aria-label="Minute"
-              value={String(values.minute)}
-              options={MINUTE_OPTIONS}
-              onValueChange={value => set('minute', Number(value))}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {values.recurrence === 'weekly' ? (
-        <fieldset>
-          <legend className="mb-1.5 text-sm font-medium">Days</legend>
-          <div className="flex flex-wrap gap-1.5">
-            {WEEKDAY_OPTIONS.map(day => {
-              const selected = values.weekdays.includes(day.value);
-              return (
-                <button
-                  key={day.value}
-                  type="button"
-                  className={cn(
-                    'rounded-md border px-2.5 py-1 text-xs font-medium',
-                    selected
-                      ? 'border-primary-button-bg/40 bg-primary-button-bg/10 text-primary-button-bg'
-                      : 'border-border text-text-secondary hover:bg-ghost-button-hover',
-                  )}
-                  aria-pressed={selected}
-                  onClick={() => toggleWeekday(day.value)}
-                >
-                  {day.label}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-      ) : null}
-
-      {values.recurrence === 'custom' ? (
-        <div className="rounded-md border border-border bg-secondary-bg/40 px-3 py-2">
-          <span className="text-text-secondary block text-xs">Existing custom schedule</span>
-          <code className="text-text-primary mt-1 block font-mono text-sm">{values.customCron}</code>
-          <span className="text-text-secondary mt-1 block text-xs">
-            Select Hourly, Daily, or Weekly to replace this schedule.
-          </span>
-        </div>
-      ) : null}
-
-      <div className="block">
-        <span className="mb-1.5 block text-sm font-medium">Timezone</span>
-        <PopoverSelect
-          aria-label="Timezone"
-          value={values.timezone}
-          options={timezoneOptions}
-          onValueChange={value => set('timezone', value)}
-          menuPlacement="top"
-        />
-      </div>
-
-      <div className="rounded-lg border border-border bg-secondary-bg/40 px-3 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <span className="text-text-secondary text-[10px] font-semibold tracking-wide uppercase">Frequency</span>
-          <code className="text-text-secondary font-mono text-xs">{cron || '—'}</code>
-        </div>
-        <p className="text-text-primary mt-1 text-sm font-semibold">{cadence || '—'}</p>
-      </div>
     </div>
   );
 }

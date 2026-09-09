@@ -655,7 +655,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             aria-haspopup="dialog"
             aria-expanded={open}
             aria-controls={open ? menuId : undefined}
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            className={auiButtonClass({ variant: 'ghost', size: 'large', className: 'gap-1.5 px-2 text-xs' })}
             onClick={() => {
               if (open) {
                 setOpenAndFlush(false);
@@ -664,9 +664,11 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               openPicker();
             }}
           >
-            {/* Icon-only trigger; the count and name reach assistive tech via aria-label
-                and sighted users via the tooltip, which lists the selected tools. */}
             <Icon name="wrench" />
+            <span>Tools</span>
+            <span className="rounded bg-primary-button-bg/10 px-1.5 py-0.5 text-[0.625rem] font-semibold text-primary-button-bg">
+              {toolsCount}
+            </span>
           </button>
         </Tooltip>
       ) : null}

@@ -22,6 +22,9 @@ import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
 import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
 
+const DEFAULT_INSTRUCTIONS =
+  'Enter detailed instructions for your agent. E.g. You are a helpful assistant that helps users plan trips. Always ask clarifying questions before making suggestions...';
+
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
   model?: ModelSelection;
@@ -352,11 +355,13 @@ export function AgentConfigPanel({
                   instructionPreview ? 'text-text-primary' : 'text-text-secondary',
                 )}
               >
-                {instructionPreview || 'No instructions added.'}
+                {instructionPreview || DEFAULT_INSTRUCTIONS}
               </p>
-              <p className="text-text-secondary mt-2 text-xs">
-                {userMessageCount} user {userMessageCount === 1 ? 'message' : 'messages'}
-              </p>
+              {userMessageCount > 0 ? (
+                <p className="text-text-secondary mt-2 text-xs">
+                  {userMessageCount} user {userMessageCount === 1 ? 'message' : 'messages'}
+                </p>
+              ) : null}
             </div>
             <Icon name="chevron-right" className="text-text-secondary size-4 shrink-0" />
           </button>
