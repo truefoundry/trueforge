@@ -56,6 +56,13 @@ function createStore(
   const client = {
     listAgentSkills: jest.fn().mockResolvedValue([SFY_SKILL]),
     listAgentSkillVersions: jest.fn().mockResolvedValue(versions),
+    resolveAgentSkillVersions: jest.fn().mockResolvedValue([
+      {
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+    ]),
     vendToken: jest.fn().mockResolvedValue(AGENT_TOKEN),
   };
   const store = new TrueFoundrySkillStore({
@@ -75,7 +82,7 @@ function createStore(
 describe('TrueFoundrySkillStore', () => {
   it('lists registry catalog rows as skill records with the caller token', async () => {
     const { store, client } = createStore();
-    const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
+    const records = await store.listSkills({ tenant_id: TENANT });
     expect(client.listAgentSkills).toHaveBeenCalledWith({ accessToken: ACCESS_TOKEN });
     expect(client.vendToken).not.toHaveBeenCalled();
     expect(records).toHaveLength(1);
@@ -92,7 +99,7 @@ describe('TrueFoundrySkillStore', () => {
 
   it('listSkills uses latest_version only (not every historic version)', async () => {
     const { store } = createStore();
-    const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
+    const records = await store.listSkills({ tenant_id: TENANT });
     expect(records.map(r => (r.manifest.type === 'truefoundry' ? r.manifest.version : undefined))).toEqual([3]);
     expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
@@ -107,9 +114,27 @@ describe('TrueFoundrySkillStore', () => {
     expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
 
+  it('validateAccess resolves version FQNs via SFY', async () => {
+    const { store, client } = createStore();
+    await store.validateAccess({
+      tenant_id: TENANT,
+      names: ['agent-skill:acme/team-a/echo:3'],
+    });
+    expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
+      accessToken: ACCESS_TOKEN,
+      skills: [{ fqn: 'agent-skill:acme/team-a/echo:3' }],
+    });
+  });
+
+  it('validateAccess is a no-op for an empty name list', async () => {
+    const { store, client } = createStore();
+    await store.validateAccess({ tenant_id: TENANT, names: [] });
+    expect(client.resolveAgentSkillVersions).not.toHaveBeenCalled();
+  });
+
   it('uses a vend token when listing as a saved agent', async () => {
     const { store, client } = createStore(AGENT);
-    await store.listSkills({ tenant_id: TENANT, names: undefined });
+    await store.listSkills({ tenant_id: TENANT });
     expect(client.vendToken).toHaveBeenCalledWith({
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       agentId: 'ext-agent',
@@ -225,10 +250,7 @@ describe('TrueFoundrySkillStore', () => {
 
   it('listSkills matches AgentSpec refs by registry FQN', async () => {
     const { store } = createStore();
-    const records = await store.listSkills({
-      tenant_id: TENANT,
-      names: ['agent-skill:acme/team-a/echo:3'],
-    });
+    const records = await store.listSkills({ tenant_id: TENANT });
     expect(records).toHaveLength(1);
     expect(records[0]?.name).toBe('agent-skill:acme/team-a/echo:3');
   });

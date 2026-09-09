@@ -284,7 +284,7 @@ describe('validateAgentSpec', () => {
     expect(await stores.sandboxProviderStore.getSandboxProvider('default')).toBeUndefined();
   });
 
-  it('admits registry skills referenced by version FQN', async () => {
+  it('allows registry skills referenced by version FQN', async () => {
     const stores = await setup();
     setCachedLocalSandboxSupport({
       supported: true,
@@ -311,6 +311,7 @@ describe('validateAgentSpec', () => {
           updated_at: now,
         },
       ],
+      validateAccess: async () => undefined,
       createSkill: async () => {
         throw new Error('unused');
       },

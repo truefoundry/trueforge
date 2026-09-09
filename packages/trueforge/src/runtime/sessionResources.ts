@@ -252,7 +252,7 @@ export function buildTurnSandbox(input: {
 /**
  * Cross-checks an AgentSpec against configured models / MCP / skills and
  * sandbox capability. Throws HTTPException(422) for semantic failures.
- * Skills are admitted by store identity (git name or registry FQN).
+ * Skills must exist in the skill store (git name) or pass SFY resolve (registry FQN).
  */
 export async function validateAgentSpec({
   spec,
@@ -309,12 +309,13 @@ export async function validateAgentSpec({
 
   const requestedSkills = spec.skills ?? [];
   if (requestedSkills.length > 0) {
-    const names = requestedSkills.map(skill => skill.name);
-    const configuredNames = new Set((await skillStore.listSkills({ tenant_id, names })).map(record => record.name));
-    const unknown = requestedSkills.find(skill => !configuredNames.has(skill.name));
+    const unknown = await skillStore.validateAccess({
+      tenant_id,
+      names: requestedSkills.map(skill => skill.name),
+    });
     if (unknown !== undefined) {
       throw new HTTPException(422, {
-        message: `Unknown skill "${unknown.name}" — not configured`,
+        message: `Unknown skill "${unknown}" — not configured`,
       });
     }
   }

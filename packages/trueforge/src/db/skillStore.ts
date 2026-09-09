@@ -22,7 +22,13 @@ export interface SkillRecord {
 export interface ListSkillsInput {
   tenant_id: string;
   /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
-  names: readonly string[] | undefined;
+  names?: readonly string[];
+}
+
+export interface ValidateSkillsAccessInput {
+  tenant_id: string;
+  /** Empty is a no-op. */
+  names: readonly string[];
 }
 
 export interface CreateSkillInput {
@@ -54,4 +60,6 @@ export interface ISkillStore<TTransaction = never> {
   /** Single-row write: creates the skill or replaces the whole manifest. */
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
+  /** First missing name, or `undefined` if every name is known (TFY may throw on SFY errors). */
+  validateAccess(input: ValidateSkillsAccessInput, transaction?: TTransaction): Promise<string | undefined>;
 }

@@ -12,6 +12,7 @@ const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
+const TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH = 'internal/tfg/agent-skill-versions/resolve';
 const AGENT_SKILLS_PATH = 'v1/agent-skills';
 const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
@@ -64,6 +65,19 @@ const ServiceFoundryErrorSchema = z.object({
 const PutRemoteAgentResponseSchema = z.object({
   agentId: z.string().min(1),
 });
+
+const ResolveAgentSkillVersionsResponseSchema = z.object({
+  skills: z.array(
+    z.object({
+      fqn: z.string().min(1),
+      name: z.string().min(1),
+      description: z.string(),
+      skill_md_content: z.string().nullable().optional(),
+      presigned_url: z.string().optional(),
+    }),
+  ),
+});
+export type ResolvedAgentSkillVersion = z.infer<typeof ResolveAgentSkillVersionsResponseSchema>['skills'][number];
 
 const AgentPermissionSchema = z.enum(['READ_AGENT', 'USE_AGENT', 'MANAGE_AGENT', 'DELETE_AGENT']);
 export type AgentPermission = z.infer<typeof AgentPermissionSchema>;
@@ -273,6 +287,34 @@ export class TrueFoundryServiceFoundryServerClient {
       query: { include_empty_agent_skills: 'false' },
       limit: AGENT_SKILLS_PAGE_SIZE,
     });
+  }
+
+  /** `POST /internal/tfg/agent-skill-versions/resolve` — batch version-FQN resolve (max 50). */
+  async resolveAgentSkillVersions(input: {
+    accessToken: string;
+    skills: readonly {
+      fqn: string;
+      include_skill_md_content?: boolean;
+      include_presigned_url?: boolean;
+    }[];
+  }): Promise<ResolvedAgentSkillVersion[]> {
+    const payload = await this.#requestJson({
+      url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
+      accessToken: input.accessToken,
+      method: 'POST',
+      body: { skills: input.skills },
+    });
+    const parsed = ResolveAgentSkillVersionsResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.#logger.error('TrueFoundry ServiceFoundry agent skill resolve returned an unexpected response', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry agent skill resolve returned an unexpected response',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data.skills;
   }
 
   /** `GET /v1/agent-skill-versions?fqn=`. */

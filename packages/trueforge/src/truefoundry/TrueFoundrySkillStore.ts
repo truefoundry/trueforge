@@ -1,7 +1,14 @@
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
-import type { CreateSkillInput, ISkillStore, ListSkillsInput, SkillRecord, UpsertSkillInput } from '../db/skillStore';
+import type {
+  CreateSkillInput,
+  ISkillStore,
+  ListSkillsInput,
+  SkillRecord,
+  UpsertSkillInput,
+  ValidateSkillsAccessInput,
+} from '../db/skillStore';
 import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
@@ -10,7 +17,7 @@ import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryService
 
 export type TrueFoundrySkillApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
-  'listAgentSkills' | 'listAgentSkillVersions' | 'vendToken'
+  'listAgentSkills' | 'listAgentSkillVersions' | 'resolveAgentSkillVersions' | 'vendToken'
 >;
 
 function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillRecord {
@@ -60,12 +67,15 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
       return [];
     }
     const accessToken = await this.#resolveAccessToken();
-    const skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
+    let skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
     const names = input.names;
-    // SFY list accepts at most one skill-level `fqn` (no multi-name IN, no version FQN), so filter locally.
-    // TODO: Add a support for multi-name/fqn IN filter in SFY ServiceFoundryServerClient.
-    const filtered = names === undefined ? skills : skills.filter(skill => names.includes(skill.name));
-    return filtered.map(skill => toRegistryRecord(input.tenant_id, skill));
+    if (names !== undefined) {
+      // TrueFoundry callers do not pass names: catalog list is unfiltered; save checks use validateAccess.
+      // SFY list has no multi-name IN (only optional skill-level fqn).
+      // so filter locally if names is set.
+      skills = skills.filter(skill => names.includes(skill.name));
+    }
+    return skills.map(skill => toRegistryRecord(input.tenant_id, skill));
   }
 
   createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord> {
@@ -87,5 +97,20 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
       fqn: input.name,
     });
     return mapSfyRegistrySkillVersions(rows);
+  }
+
+  /** Check that each version FQN exists and is readable (SFY resolve; failures → 424). */
+  async validateAccess(input: ValidateSkillsAccessInput, transaction?: TTransaction): Promise<string | undefined> {
+    void input.tenant_id;
+    void transaction;
+    if (input.names.length === 0) {
+      return undefined;
+    }
+    const accessToken = await this.#resolveAccessToken();
+    await this.#client.resolveAgentSkillVersions({
+      accessToken,
+      skills: input.names.map(fqn => ({ fqn })),
+    });
+    return undefined;
   }
 }

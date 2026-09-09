@@ -7,6 +7,7 @@ import {
   type ListSkillsInput,
   type SkillRecord,
   type UpsertSkillInput,
+  type ValidateSkillsAccessInput,
 } from '../../skillStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -90,5 +91,23 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
     void input;
     return Promise.resolve([]);
+  }
+
+  async validateAccess(
+    input: ValidateSkillsAccessInput,
+    transaction?: Transaction<Database>,
+  ): Promise<string | undefined> {
+    if (input.names.length === 0) {
+      return undefined;
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('skill')
+      .select('name')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', 'in', [...input.names])
+      .execute();
+    const configured = new Set(rows.map(row => row.name));
+    return input.names.find(name => !configured.has(name));
   }
 }

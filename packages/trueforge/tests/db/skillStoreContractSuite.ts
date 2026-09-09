@@ -36,8 +36,8 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const [fetched] = await store.listSkills({ tenant_id: TENANT, names: ['algorithmic-art'] });
-    expect(fetched).toEqual(created);
+    const skills = await store.listSkills({ tenant_id: TENANT });
+    expect(skills).toEqual([created]);
   });
 
   it('createSkill inserts and throws SkillNameConflictError on name clash', async () => {
@@ -76,7 +76,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
+    const skills = await store.listSkills({ tenant_id: TENANT });
     expect(skills).toEqual([updated]);
   });
 
@@ -98,9 +98,31 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
       manifest: manifest(),
     });
 
-    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
+    const skills = await store.listSkills({ tenant_id: TENANT });
     expect(skills.map(skill => skill.name)).toEqual(['algorithmic-art', 'web-artifacts']);
     expect(skills.every(skill => skill.tenant_id === TENANT)).toBe(true);
+  });
+
+  it('validateAccess accepts known names and returns the first missing name', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await store.upsertSkill({
+      tenant_id: TENANT,
+      name: 'web-artifacts',
+      manifest: manifest({
+        name: 'web-artifacts',
+        path: 'skills/web-artifacts-builder',
+        description: 'Build web artifacts.',
+      }),
+    });
+
+    await expect(
+      store.validateAccess({ tenant_id: TENANT, names: ['web-artifacts', 'algorithmic-art'] }),
+    ).resolves.toBeUndefined();
+    await expect(store.validateAccess({ tenant_id: TENANT, names: [] })).resolves.toBeUndefined();
+    await expect(store.validateAccess({ tenant_id: TENANT, names: ['algorithmic-art', 'missing'] })).resolves.toBe(
+      'missing',
+    );
   });
 
   it('listSkills filters by names and returns empty for an empty name list', async () => {
