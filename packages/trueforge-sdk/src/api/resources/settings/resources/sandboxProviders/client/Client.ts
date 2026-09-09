@@ -24,7 +24,7 @@ export class SandboxProvidersClient {
     }
 
     /**
-     * The configured Daytona sandbox provider for this tenant. `auth.api_key` is redacted. Returns 404 when none is configured, including when only an env-managed TrueFoundry sandbox is active.
+     * The single configured sandbox provider for this tenant. `auth.api_key` is redacted.
      *
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -109,7 +109,7 @@ export class SandboxProvidersClient {
     }
 
     /**
-     * Upserts the single Daytona sandbox provider for this tenant: creates it or replaces its entire configuration. TrueFoundry on-prem sandboxes are env-managed and are not exposed on this settings API. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+     * Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
      * @param {TrueForge.settings.UpdateSandboxProviderRequest} request
      * @param {SandboxProvidersClient.RequestOptions} requestOptions - Request-specific configuration.

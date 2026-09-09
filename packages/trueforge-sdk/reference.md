@@ -3319,7 +3319,7 @@ await client.settings.modelProviders.createOrUpdate({
 <dl>
 <dd>
 
-The configured Daytona sandbox provider for this tenant. `auth.api_key` is redacted. Returns 404 when none is configured, including when only an env-managed TrueFoundry sandbox is active.
+The single configured sandbox provider for this tenant. `auth.api_key` is redacted.
 </dd>
 </dl>
 </dd>
@@ -3374,7 +3374,7 @@ await client.settings.sandboxProviders.get();
 <dl>
 <dd>
 
-Upserts the single Daytona sandbox provider for this tenant: creates it or replaces its entire configuration. TrueFoundry on-prem sandboxes are env-managed and are not exposed on this settings API. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+Upserts the single sandbox provider for this tenant: creates it or replaces its entire configuration. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
