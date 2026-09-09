@@ -6,6 +6,41 @@ import { AgentMcpEditorContent } from '@/atoms/draft/AgentMcpEditorContent.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 describe('AgentMcpEditorContent tool search', () => {
+  it('filters the complete MCP connector list by name and description', () => {
+    const props = {
+      spec: { model: { name: 'openai/gpt' } },
+      connectors: [
+        { id: 'github', name: 'GitHub', description: 'Source control', authenticated: true },
+        { id: 'linear', name: 'Linear', description: 'Issue tracking', authenticated: true },
+      ],
+      activeConnectorId: 'github',
+      tools: [],
+      toolsLoading: false,
+      toolsError: null,
+      onQueryChange: vi.fn(),
+      onSelectConnector: vi.fn(),
+      onRetryTools: vi.fn(),
+      onChange: vi.fn(),
+    };
+    const view = render(
+      <SlotsProvider>
+        <AgentMcpEditorContent {...props} query="" />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'GitHub' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Linear' })).toBeInTheDocument();
+
+    view.rerender(
+      <SlotsProvider>
+        <AgentMcpEditorContent {...props} query="issue" />
+      </SlotsProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'GitHub' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Linear' })).toBeInTheDocument();
+  });
+
   it('filters the tool list as the user types in Search Tools', () => {
     render(
       <SlotsProvider>

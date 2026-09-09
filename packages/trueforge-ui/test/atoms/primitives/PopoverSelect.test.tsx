@@ -83,7 +83,6 @@ describe('PopoverSelect', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Timezone' }));
 
-    expect(screen.getByRole('listbox').className).toContain('bottom-full');
-    expect(screen.getByRole('listbox').className).toContain('mb-1');
+    expect(screen.getByRole('listbox').parentElement).toHaveClass('bottom-full', 'mb-1');
   });
 });

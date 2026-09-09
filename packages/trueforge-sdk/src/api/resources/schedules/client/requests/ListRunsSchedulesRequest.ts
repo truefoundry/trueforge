@@ -4,8 +4,8 @@
  * @example
  *     {}
  */
-export interface ListMcpServersRequest {
-    /** Page size. Defaults to 100, max 200. */
+export interface ListRunsSchedulesRequest {
+    /** Page size. Defaults to 25 */
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;

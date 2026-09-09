@@ -5,8 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
 
-const { loadMore, setSchedulesOpen, setSessionsOpen } = vi.hoisted(() => ({
+const { loadMore, runtimeState, setSchedulesOpen, setSessionsOpen } = vi.hoisted(() => ({
   loadMore: vi.fn().mockResolvedValue(undefined),
+  runtimeState: {
+    threadIds: ['t1'],
+    threadItems: [{ id: 't1', remoteId: 's1', lastMessageAt: undefined, custom: { isMutable: false } }],
+  },
   setSchedulesOpen: vi.fn(),
   setSessionsOpen: vi.fn(),
 }));
@@ -42,8 +46,8 @@ vi.mock('@assistant-ui/react', () => ({
         isLoading: false,
         isLoadingMore: false,
         hasMore: true,
-        threadIds: ['t1'],
-        threadItems: [{ id: 't1', remoteId: 's1', lastMessageAt: undefined }],
+        threadIds: runtimeState.threadIds,
+        threadItems: runtimeState.threadItems,
         mainThreadId: 't1',
       },
       threadListItem: {
@@ -121,6 +125,8 @@ function notifyViewportResize(): void {
 
 beforeEach(() => {
   resizeCallback = undefined;
+  runtimeState.threadIds = ['t1'];
+  runtimeState.threadItems = [{ id: 't1', remoteId: 's1', lastMessageAt: undefined, custom: { isMutable: false } }];
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 });
 
@@ -181,6 +187,26 @@ describe('ThreadListContainer pagination', () => {
     notifyViewportResize();
 
     await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(1));
+  });
+
+  it('continues loading recent history after a page adds sessions', async () => {
+    loadMore.mockClear();
+    const { container, rerender } = render(<ThreadListContainer variant="recent-history" />);
+    const viewport = getViewport(container);
+
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 200 });
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 400 });
+    notifyViewportResize();
+    await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(1));
+
+    runtimeState.threadIds = ['t1', 't2'];
+    runtimeState.threadItems = [
+      { id: 't1', remoteId: 's1', lastMessageAt: undefined, custom: { isMutable: false } },
+      { id: 't2', remoteId: 's2', lastMessageAt: undefined, custom: { isMutable: false } },
+    ];
+    rerender(<ThreadListContainer variant="recent-history" />);
+
+    await waitFor(() => expect(loadMore).toHaveBeenCalledTimes(2));
   });
 
   it('loads more when scrolled near the bottom', async () => {

@@ -6,6 +6,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { ScheduleFormDrawer } from '@/atoms/schedules/ScheduleFormDrawer.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { AgentUIServer, ConnectorBase, Schedule, ScheduleServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
@@ -74,13 +75,20 @@ function mockScheduleServer(overrides: Partial<ScheduleServer> = {}): ScheduleSe
   };
 }
 
+function AgentBuilderProbe() {
+  const { mode } = useShellMode();
+  return mode.status === 'active' && mode.isCreateAgent ? <span>Agent builder open</span> : null;
+}
+
 function renderDrawer({
   server,
   scheduleServer,
+  withShell = false,
   ...props
 }: Partial<ComponentProps<typeof ScheduleFormDrawer>> & {
   server?: AgentUIServer;
   scheduleServer?: ScheduleServer;
+  withShell?: boolean;
 }) {
   const agentServer =
     server ??
@@ -110,13 +118,21 @@ function renderDrawer({
       }),
     });
   const schedules = scheduleServer ?? mockScheduleServer();
+  const drawer = <ScheduleFormDrawer open mode="create" onOpenChange={() => undefined} {...props} />;
   return {
     schedules,
     ...render(
       <SlotsProvider>
         <ToasterProvider>
           <ServerProvider server={{ ...agentServer, schedules }}>
-            <ScheduleFormDrawer open mode="create" onOpenChange={() => undefined} {...props} />
+            {withShell ? (
+              <ShellModeProvider>
+                {drawer}
+                <AgentBuilderProbe />
+              </ShellModeProvider>
+            ) : (
+              drawer
+            )}
           </ServerProvider>
         </ToasterProvider>
       </SlotsProvider>,
@@ -142,6 +158,23 @@ describe('ScheduleFormDrawer', () => {
     });
   });
 
+  it('offers to build an agent when none have been created', async () => {
+    const onOpenChange = vi.fn();
+    renderDrawer({
+      server: createMockAgentUIServer({ searchAgents: vi.fn(async () => []) }),
+      onOpenChange,
+      withShell: true,
+    });
+
+    fireEvent.click(await screen.findByLabelText('Agent'));
+
+    expect(await screen.findByText('No Agents created yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Build Agent' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.getByText('Agent builder open')).toBeInTheDocument();
+  });
+
   it('disables agent picker on edit', async () => {
     renderDrawer({ mode: 'edit', schedule: pausedSchedule({ status: 'active' }) });
     expect(await screen.findByLabelText('Agent')).toBeDisabled();
@@ -150,7 +183,7 @@ describe('ScheduleFormDrawer', () => {
   it('groups standard recurrence controls with a schedule summary', async () => {
     renderDrawer({});
 
-    const recurrence = within(await screen.findByRole('group', { name: 'Recurrence' }));
+    const recurrence = within(await screen.findByRole('group', { name: 'Frequency' }));
     expect(recurrence.getByRole('button', { name: 'Hourly' })).toBeInTheDocument();
     expect(recurrence.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
     expect(recurrence.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
@@ -159,6 +192,12 @@ describe('ScheduleFormDrawer', () => {
     expect(recurrence.queryByLabelText('Cron expression')).not.toBeInTheDocument();
     expect(recurrence.getByText('Schedule')).toBeInTheDocument();
     expect(recurrence.getByText(/^Daily 9:00 AM/)).toBeInTheDocument();
+
+    fireEvent.click(recurrence.getByRole('button', { name: 'Weekly' }));
+    expect(
+      recurrence.getByText('Days').compareDocumentPosition(recurrence.getByText('Hour')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('keeps a legacy custom cron read-only until its recurrence is replaced', async () => {

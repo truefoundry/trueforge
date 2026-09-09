@@ -31,4 +31,11 @@ describe('UserMessageBubble', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
+
+  it('renders attachments without an empty text bubble', () => {
+    const { container } = render(<UserMessageBubble text="" attachments={<a href="/image.png">image.png</a>} />);
+
+    expect(container.querySelector('[data-slot="aui_user-message-content"]')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'image.png' })).toBeInTheDocument();
+  });
 });

@@ -8,6 +8,7 @@ import {
   type ModelParams,
   type RemoteMcpHeaders,
   type SandboxProvider,
+  type Skill,
   type VercelAIProviderConfig,
 } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
@@ -20,7 +21,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
+import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
@@ -154,6 +155,7 @@ export async function resolveGitSkills({
       });
     }
     resolved.push({
+      type: 'git',
       name: record.manifest.name,
       description: record.manifest.description,
       url: record.manifest.url,
@@ -167,7 +169,7 @@ export async function resolveGitSkills({
 /**
  * Build a runtime SandboxProvider from the configured store row, or the
  * in-memory local fallback when standalone + the cached probe is supported.
- * Builds a fresh Daytona client per call (no network I/O).
+ * Builds a fresh provider client per call (no network I/O).
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
 export function localSandboxSessionSegment(sessionId: string | undefined): string {
@@ -190,14 +192,7 @@ export async function resolveSandboxProvider({
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
-    // Clone from the snapshot that was actually built (persisted build_ref), not a name
-    // derived from the current image — otherwise an image bump breaks creation until rebuild.
-    return toDaytonaSandboxProvider({
-      manifest: record.manifest,
-      tenant_id,
-      logger,
-      build_metadata: record.build_metadata,
-    });
+    return toSandboxProviderFromRecord({ record, tenant_id, logger });
   }
   if (!configuration.STANDALONE) {
     return undefined;
@@ -216,17 +211,17 @@ export async function resolveSandboxProvider({
 }
 
 /**
- * Builds a Sandbox for one turn from a resolved provider and git mounts.
+ * Builds a Sandbox for one turn from a resolved provider and skill mounts.
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
   logger: Logger;
-  gitSkills: readonly GitSkill[];
+  skills?: readonly Skill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
 }): Sandbox {
-  const skillMounter = input.gitSkills.length > 0 ? new SkillMounter([...input.gitSkills]) : undefined;
+  // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
@@ -234,7 +229,7 @@ export function buildTurnSandbox(input: {
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
-    ...(skillMounter ? { skillMounter } : {}),
+    skillMounter: new SkillMounter({ skills: input.skills ?? [] }),
     tracing: input.tracing,
     logger: input.logger,
   });
@@ -285,10 +280,8 @@ export async function validateAgentSpec({
         await mcpServerStore.listServers({
           tenant_id,
           names,
-          limit: Math.max(names.length, 1),
-          page_token: undefined,
         })
-      ).data.map(record => record.name),
+      ).map(record => record.name),
     );
     const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
     if (unknown !== undefined) {

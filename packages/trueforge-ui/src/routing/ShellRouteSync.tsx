@@ -10,6 +10,7 @@ import {
   useOptionalScheduleServer,
   useOptionalServer,
   useServerCapabilities,
+  useServerCapabilitiesSettled,
 } from '../server/ServerContext.js';
 import { useShellMode } from '../server/ShellModeContext.js';
 import { toEffectiveRoutes } from '../server/serverChrome.js';
@@ -36,6 +37,7 @@ export function ShellRouteSync({
   const sessions = useOptionalAgentSessionsServer();
   const schedules = useOptionalScheduleServer();
   const capabilities = useServerCapabilities();
+  const capabilitiesSettled = useServerCapabilitiesSettled();
   const navigate = useNavigate();
   const location = useLocation();
   // Same gates as sidebar chrome: missing optional ports unregister their paths.
@@ -164,6 +166,12 @@ export function ShellRouteSync({
   // sole authority for the first commit and sets the final URL + `prevPlaceRef`.
   useEffect(() => {
     if (bootedRef.current) return;
+    const configuredUrlPlace = matchLocation({
+      pathname: location.pathname,
+      search: location.search,
+      routes,
+    });
+    if (!capabilitiesSettled && configuredUrlPlace?.type === 'settings') return;
     bootedRef.current = true;
 
     const urlPlace = matchLocation({
@@ -197,9 +205,9 @@ export function ShellRouteSync({
       selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
       navigate({ pathname: desiredPath, search: desiredSearch, hash: location.hash }, { replace: true });
     }
-    // Boot runs once; snapshot is read imperatively here.
+    // Boot runs once after any capability-dependent Settings destination resolves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [capabilitiesSettled]);
 
   // Shell -> URL: mirror the derived place. Skip the first commit (boot owns it).
   useEffect(() => {

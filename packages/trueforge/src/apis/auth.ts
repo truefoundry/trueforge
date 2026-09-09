@@ -8,12 +8,13 @@ import { resolveRequestContext } from '../auth/identity';
 import { resolveOidcRequestContext } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode } from '../auth/oidc';
 import { safeReturnTo } from '../auth/safeReturnTo';
+import { getPublicUiBasePath } from '../config';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { GetMeResponse } from '../schemas/auth';
 
-/** Login / OIDC failures land on `/?error=<reason>`. */
+/** Login / OIDC failures land on the public UI home with `?error=<reason>`. */
 function oauthErrorRedirect(reason: string): string {
-  return `/?error=${encodeURIComponent(reason)}`;
+  return `${getPublicUiBasePath()}?error=${encodeURIComponent(reason)}`;
 }
 
 /**
@@ -50,7 +51,7 @@ export function createAuthRouter(params: {
   router.openapi(authLoginRoute, async c => {
     // TODO: remove this checks once the middleware is implemented
     if (!params.oidcClient) {
-      return c.redirect('/', 302);
+      return c.redirect(getPublicUiBasePath(), 302);
     }
 
     try {
@@ -68,7 +69,7 @@ export function createAuthRouter(params: {
 
   router.openapi(oAuthCallbackRoute, async c => {
     if (!params.oidcClient) {
-      return c.redirect('/', 302);
+      return c.redirect(getPublicUiBasePath(), 302);
     }
 
     const query = c.req.valid('query');
@@ -77,7 +78,10 @@ export function createAuthRouter(params: {
 
     if (pending?.state !== query.state || query.error || !query.code) {
       // If already authenticated, redirect home instead of showing an error.
-      const soft = await redirectIfAlreadyAuthenticated({ context: c, whenAuthenticated: '/' });
+      const soft = await redirectIfAlreadyAuthenticated({
+        context: c,
+        whenAuthenticated: getPublicUiBasePath(),
+      });
       if (soft) {
         return soft;
       }

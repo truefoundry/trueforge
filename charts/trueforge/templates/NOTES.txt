@@ -41,7 +41,7 @@ OIDC callbacks require PUBLIC_BASE_URL. Register
 https://<your-public-origin>/api/v1/auth/callback at your IdP.
 {{- else if not .Values.server.publicBaseUrl }}
 
-WARNING: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public origin (e.g. https://trueforge.example.com).
+WARNING: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public application URL (e.g. https://trueforge.example.com or https://host/custom/proxy/path).
 {{- end }}
 
 {{- if and (not .Values.postgresql.enabled) (not .Values.externalPostgres.host) }}
