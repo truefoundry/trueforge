@@ -148,6 +148,28 @@ describe('DropdownMenu', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument();
   });
 
+  it('keeps a parent menu open while selecting from a nested portaled menu', () => {
+    const onSelect = vi.fn();
+    render(
+      <DropdownMenu closeOnClick={false} trigger={<button>Settings</button>}>
+        <DropdownMenu trigger={<button>Type</button>}>
+          <DropdownMenuItem onClick={onSelect}>JSON</DropdownMenuItem>
+        </DropdownMenu>
+      </DropdownMenu>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+
+    const nestedItem = screen.getByRole('menuitem', { name: 'JSON' });
+    fireEvent.mouseDown(nestedItem);
+    fireEvent.click(nestedItem);
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('supports controlled open state', () => {
     const onOpenChange = vi.fn();
     const { rerender } = render(

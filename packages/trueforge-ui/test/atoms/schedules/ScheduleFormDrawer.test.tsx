@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -147,15 +147,18 @@ describe('ScheduleFormDrawer', () => {
     expect(await screen.findByLabelText('Agent')).toBeDisabled();
   });
 
-  it('offers only standard recurrence modes and labels the preview as Frequency', async () => {
+  it('groups standard recurrence controls with a schedule summary', async () => {
     renderDrawer({});
 
-    expect(await screen.findByRole('button', { name: 'Hourly' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
-    expect(screen.getByText('Frequency')).toBeInTheDocument();
+    const recurrence = within(await screen.findByRole('group', { name: 'Recurrence' }));
+    expect(recurrence.getByRole('button', { name: 'Hourly' })).toBeInTheDocument();
+    expect(recurrence.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
+    expect(recurrence.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
+    expect(recurrence.getByLabelText('Timezone')).toBeInTheDocument();
+    expect(recurrence.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
+    expect(recurrence.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+    expect(recurrence.getByText('Schedule')).toBeInTheDocument();
+    expect(recurrence.getByText(/^Daily 9:00 AM/)).toBeInTheDocument();
   });
 
   it('keeps a legacy custom cron read-only until its recurrence is replaced', async () => {

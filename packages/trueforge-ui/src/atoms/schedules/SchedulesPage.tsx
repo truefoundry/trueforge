@@ -443,13 +443,7 @@ export function SchedulesPage() {
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="text-text-primary font-medium">
-                        <button
-                          type="button"
-                          className="cursor-pointer text-left"
-                          onClick={() => setDrawer({ kind: 'edit', schedule })}
-                        >
-                          {schedule.name}
-                        </button>
+                        <span className="text-left !no-underline">{schedule.name}</span>
                       </TableCell>
                       <TableCell>{agentLabel}</TableCell>
                       <TableCell>{cadence}</TableCell>
