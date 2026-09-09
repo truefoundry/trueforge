@@ -3,6 +3,9 @@
  * request/response shapes. Catalog file schemas live in sandboxCatalog.ts.
  *
  * Singleton per tenant — no identity `name` (unlike model providers / skills).
+ *
+ * Settings OpenAPI stays Daytona-only (`SandboxProviderManifest`), matching main.
+ * Env-synthesized truefoundry records use `StoredSandboxProviderManifest` (store/runtime only).
  */
 import { z } from '@hono/zod-openapi';
 import type { DaytonaSandboxProviderOptions } from '@truefoundry/trueforge-core/core';
@@ -44,12 +47,12 @@ export const DaytonaSandboxProviderSchema = z
       .nonnegative()
       .describe('Minutes before Daytona auto-deletes the sandbox (0 disables).'),
   })
-  .strict()
-  .openapi('DaytonaSandboxProvider');
+  .strict();
+export const SandboxProviderManifestSchema = DaytonaSandboxProviderSchema.openapi('SandboxProviderManifest');
 
 /**
  * TrueFoundry (on-prem) sandbox config — env-synthesized store records only.
- * Not part of the settings OpenAPI surface (Settings never returns or accepts this).
+ * Not registered in OpenAPI.
  */
 export const TrueFoundrySandboxProviderSchema = z
   .object({
@@ -61,9 +64,10 @@ export const TrueFoundrySandboxProviderSchema = z
   .strict();
 
 /**
- * Store / runtime jsonb (Daytona settings rows + env-synthesized truefoundry).
+ * Store / runtime jsonb: Daytona settings rows plus env-synthesized truefoundry.
+ * Not an OpenAPI component.
  */
-export const SandboxProviderManifestSchema = z.discriminatedUnion('type', [
+export const StoredSandboxProviderManifestSchema = z.discriminatedUnion('type', [
   DaytonaSandboxProviderSchema,
   TrueFoundrySandboxProviderSchema,
 ]);
@@ -90,22 +94,19 @@ export const SandboxStatusSchema = z
   })
   .strict();
 
-/**
- * Settings wire item: Daytona only. TrueFoundry sandboxes are env-managed and omitted from settings GET.
- */
+/** Settings wire item: nested Daytona manifest plus build status (no build_metadata). */
 export const ConfiguredSandboxProviderSchema = z
   .object({
-    manifest: DaytonaSandboxProviderSchema,
+    manifest: SandboxProviderManifestSchema,
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
   })
   .strict()
   .openapi('ConfiguredSandboxProvider');
 
-/** Settings PUT body — Daytona only. */
 export const UpdateSandboxProviderRequestSchema = z
   .object({
-    manifest: DaytonaSandboxProviderSchema,
+    manifest: SandboxProviderManifestSchema,
   })
   .strict()
   .openapi('UpdateSandboxProviderRequest');
@@ -116,9 +117,11 @@ export const GetSandboxProviderResponseSchema = z
   })
   .openapi('GetSandboxProviderResponse');
 
-/** Persisted jsonb — the provider config only (no build status). */
+/** Settings / OpenAPI — Daytona only. */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
+/** Store/runtime jsonb — may be Daytona or env-synthesized truefoundry. */
+export type StoredSandboxProviderManifest = z.infer<typeof StoredSandboxProviderManifestSchema>;
 export type TrueFoundrySandboxProvider = z.infer<typeof TrueFoundrySandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
@@ -127,7 +130,7 @@ export type ConfiguredSandboxProvider = z.infer<typeof ConfiguredSandboxProvider
 export type UpdateSandboxProviderRequest = z.infer<typeof UpdateSandboxProviderRequestSchema>;
 
 /** Wire/persisted snake_case → Daytona client credentials + provider settings. */
-export function toDaytonaSandboxProviderInput(manifest: DaytonaSandboxProvider): {
+export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest): {
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,

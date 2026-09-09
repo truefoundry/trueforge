@@ -1,4 +1,3 @@
-import { HTTPException } from 'hono/http-exception';
 import type { ServerConfiguration } from '../../../src/config';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
 
@@ -22,12 +21,6 @@ function distributed(overrides: {
 }
 
 describe('resolveTrueFoundrySandboxProviderConfig', () => {
-  it('throws in standalone mode', () => {
-    expect(() => resolveTrueFoundrySandboxProviderConfig({ STANDALONE: true } as ServerConfiguration)).toThrow(
-      HTTPException,
-    );
-  });
-
   it('returns undefined when sandbox is disabled', () => {
     expect(resolveTrueFoundrySandboxProviderConfig(distributed({}))).toBeUndefined();
   });

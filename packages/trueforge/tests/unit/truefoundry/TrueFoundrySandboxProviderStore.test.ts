@@ -3,10 +3,10 @@ import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundr
 import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
 
 jest.mock('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig', () => {
-  const resolveTrueFoundrySandboxProviderConfig = jest.fn();
+  const actual = jest.requireActual('../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig');
   return {
-    __esModule: true,
-    resolveTrueFoundrySandboxProviderConfig,
+    ...actual,
+    resolveTrueFoundrySandboxProviderConfig: jest.fn(),
   };
 });
 
