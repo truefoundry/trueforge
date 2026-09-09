@@ -48,6 +48,7 @@ function wrapperFor(tools: ToolBase[]) {
 
 describe('ConnectorDetails tool descriptions', () => {
   it('clamps long tool descriptions to one line and expands on Read more', async () => {
+    const onEdit = vi.fn();
     const longDescription =
       'First line of the tool description that should wrap. Second line continues with more detail. Third line must stay hidden until the reader expands the description fully.';
 
@@ -63,6 +64,7 @@ describe('ConnectorDetails tool descriptions', () => {
           connector={connector}
           onBack={() => {}}
           onConnectorRefreshed={() => {}}
+          onEdit={onEdit}
           onDisconnect={() => {}}
         />
       </Wrapper>,
@@ -74,6 +76,9 @@ describe('ConnectorDetails tool descriptions', () => {
 
     const description = screen.getByText(longDescription);
     expect(description).toHaveClass('whitespace-nowrap');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(onEdit).toHaveBeenCalledOnce();
 
     const readMore = await screen.findByRole('button', { name: 'Read more' });
     expect(readMore).toHaveAttribute('aria-expanded', 'false');
@@ -99,6 +104,7 @@ describe('ConnectorDetails tool descriptions', () => {
           connector={connector}
           onBack={() => {}}
           onConnectorRefreshed={() => {}}
+          onEdit={() => {}}
           onDisconnect={() => {}}
         />
       </Wrapper>,
@@ -132,6 +138,7 @@ describe('ConnectorDetails OAuth connection', () => {
           connector={unauthenticatedConnector}
           onBack={() => {}}
           onConnectorRefreshed={() => {}}
+          onEdit={() => {}}
           onDisconnect={() => {}}
         />
       </Wrapper>,
@@ -146,6 +153,7 @@ describe('ConnectorDetails OAuth connection', () => {
           connector={headerConnector}
           onBack={() => {}}
           onConnectorRefreshed={() => {}}
+          onEdit={() => {}}
           onDisconnect={() => {}}
         />
       </Wrapper>,
@@ -181,6 +189,7 @@ describe('ConnectorDetails OAuth connection', () => {
           connector={unauthenticatedConnector}
           onBack={() => {}}
           onConnectorRefreshed={() => {}}
+          onEdit={() => {}}
           onDisconnect={() => {}}
         />
       </ServerProvider>,
@@ -237,6 +246,7 @@ describe('ConnectorDetails OAuth connection', () => {
           connector={currentConnector}
           onBack={() => {}}
           onConnectorRefreshed={setCurrentConnector}
+          onEdit={() => {}}
           onDisconnect={() => {}}
         />
       );
