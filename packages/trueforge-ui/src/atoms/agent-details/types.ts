@@ -130,6 +130,7 @@ export type AgentMetricChartProps = {
   graph?: AgentMetricGraph;
   definition: AgentMetricChartDefinition;
   error?: string;
+  colorIndex?: number;
 };
 
 export type AgentOverviewProps = {
