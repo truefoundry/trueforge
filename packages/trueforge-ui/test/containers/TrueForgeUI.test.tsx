@@ -541,7 +541,7 @@ describe('SidebarLayout', () => {
     expect(chatColumn?.querySelector('header')).toHaveClass('min-h-14');
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
 
-    const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
+    const [settingsButton] = await screen.findAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
     }
@@ -568,7 +568,7 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+    expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
@@ -591,7 +591,7 @@ describe('SidebarLayout', () => {
         </ServerProvider>
       </SlotsProvider>,
     );
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+    expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
@@ -778,7 +778,7 @@ describe('layout slot overrides', () => {
       expect(before.length).toBeGreaterThan(0);
       const beforeNode = before[0];
 
-      fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0]!);
       // SettingsBuilder is lazy-loaded behind Suspense in the layout.
       expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
