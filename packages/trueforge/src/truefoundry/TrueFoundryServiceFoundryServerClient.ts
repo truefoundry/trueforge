@@ -6,18 +6,22 @@ import { z } from 'zod';
 
 import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
+import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
 import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
+const TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH = 'internal/tfg/agent-skill-versions/resolve';
 const AGENT_SKILLS_PATH = 'v1/agent-skills';
 const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
 const AGENT_SKILLS_PAGE_SIZE = 100;
+/** SFY resolve `@ArrayMaxSize(50)` — chunk larger AgentSpec skill lists. */
+const AGENT_SKILL_RESOLVE_CHUNK_SIZE = 50;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -132,7 +136,7 @@ export class TrueFoundryServiceFoundryServerClient {
     tls: InternalTlsOptions;
     httpTimeoutMs: number;
     httpAgentTimeoutMs: number;
-    /** Service API key for `vend-token` only; user calls still pass a bearer `accessToken`. */
+    /** Service API key for vend-token and other privileged SFY calls. */
     apiKey: string;
   }) {
     const tls = input.tls;
@@ -145,6 +149,11 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#httpTimeoutMs = input.httpTimeoutMs;
     this.#httpAgentTimeoutMs = input.httpAgentTimeoutMs;
     this.#apiKey = input.apiKey;
+  }
+
+  /** Service API key (`TRUEFOUNDRY_API_KEY`); callers pass it explicitly when needed. */
+  get apiKey(): string {
+    return this.#apiKey;
   }
 
   /**
@@ -283,6 +292,52 @@ export class TrueFoundryServiceFoundryServerClient {
       query: { fqn: input.fqn },
       limit: AGENT_SKILLS_PAGE_SIZE,
     });
+  }
+
+  /**
+   * `POST /internal/tfg/agent-skill-versions/resolve`. Chunks to 50 FQNs.
+   * Caller supplies the token (caller JWT on save validate; service API key on turns).
+   * Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
+   */
+  async resolveAgentSkillVersions(input: {
+    accessToken: string;
+    skills: readonly {
+      fqn: string;
+      include_skill_md_content?: boolean;
+      include_presigned_url?: boolean;
+    }[];
+  }): Promise<ResolvedAgentSkillVersion[]> {
+    if (input.skills.length === 0) {
+      return [];
+    }
+    const resolved: ResolvedAgentSkillVersion[] = [];
+    for (let i = 0; i < input.skills.length; i += AGENT_SKILL_RESOLVE_CHUNK_SIZE) {
+      const chunk = input.skills.slice(i, i + AGENT_SKILL_RESOLVE_CHUNK_SIZE);
+      const payload = await this.#requestJson({
+        url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
+        accessToken: input.accessToken,
+        method: 'POST',
+        body: {
+          skills: chunk.map(({ fqn, include_skill_md_content = false, include_presigned_url = false }) => ({
+            fqn,
+            include_skill_md_content,
+            include_presigned_url,
+          })),
+        },
+      });
+      try {
+        resolved.push(...mapResolvedAgentSkillVersions(payload));
+      } catch (error) {
+        this.#logger.error('TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response', {
+          ...extractErrorLogFields(error),
+        });
+        throw new HTTPException(500, {
+          message: 'TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response',
+          cause: error,
+        });
+      }
+    }
+    return resolved;
   }
 
   /** Offset/limit list until empty page or `pagination.total`. */

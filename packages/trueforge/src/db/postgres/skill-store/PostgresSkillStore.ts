@@ -1,7 +1,10 @@
+import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { SkillVersion } from '../../../schemas/skill';
+import { resolveGitTurnSkills, validateGitAgentSkills } from '../../gitSkillMounts';
 import {
   SkillNameConflictError,
+  type AgentSkillsInput,
   type CreateSkillInput,
   type ISkillStore,
   type ListSkillsInput,
@@ -90,5 +93,13 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
     void input;
     return Promise.resolve([]);
+  }
+
+  validateAgentSkills(input: AgentSkillsInput): Promise<void> {
+    return validateGitAgentSkills(this, input);
+  }
+
+  resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
+    return resolveGitTurnSkills(this, input);
   }
 }

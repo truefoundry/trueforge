@@ -4,7 +4,6 @@ import {
   SkillMounter,
   type AgentDefinition,
   type AgentTracing,
-  type GitSkill,
   type ModelParams,
   type RemoteMcpHeaders,
   type SandboxProvider,
@@ -23,7 +22,6 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { parseGitSkill } from '../schemas/skill';
 
 export interface McpConnection {
   url: string;
@@ -128,52 +126,6 @@ export async function getMcpConnection({
 }
 
 /**
- * Expand agent_spec skill names into git mounts from the skill store.
- * Wire url/path/ref/description on the request are ignored — the store row wins.
- * Throws HTTPException(422) if any name is missing or not a git skill.
- */
-export async function resolveGitSkills({
-  tenant_id,
-  skills,
-  store,
-}: {
-  tenant_id: string;
-  skills: readonly { name: string }[];
-  store: ISkillStore;
-}): Promise<GitSkill[]> {
-  if (skills.length === 0) {
-    return [];
-  }
-  const names = skills.map(skill => skill.name);
-  const records = await store.listSkills({ tenant_id, names });
-  const byName = new Map(records.map(record => [record.name, record]));
-  const resolved: GitSkill[] = [];
-  for (const skill of skills) {
-    const record = byName.get(skill.name);
-    if (record === undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown skill "${skill.name}" — not configured`,
-      });
-    }
-    const git = parseGitSkill(record.manifest);
-    if (git === undefined) {
-      throw new HTTPException(422, {
-        message: `Skill "${skill.name}" is not a git skill`,
-      });
-    }
-    resolved.push({
-      type: 'git',
-      name: git.name,
-      description: git.description,
-      url: git.url,
-      path: git.path ?? '',
-      ref: git.ref,
-    });
-  }
-  return resolved;
-}
-
-/**
  * Build a runtime SandboxProvider from the configured store row, or the
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh Daytona client per call (no network I/O).
@@ -252,7 +204,6 @@ export function buildTurnSandbox(input: {
 /**
  * Cross-checks an AgentSpec against configured models / MCP / skills and
  * sandbox capability. Throws HTTPException(422) for semantic failures.
- * Skills are admitted by store identity (git name or registry FQN).
  */
 export async function validateAgentSpec({
   spec,
@@ -309,14 +260,7 @@ export async function validateAgentSpec({
 
   const requestedSkills = spec.skills ?? [];
   if (requestedSkills.length > 0) {
-    const names = requestedSkills.map(skill => skill.name);
-    const configuredNames = new Set((await skillStore.listSkills({ tenant_id, names })).map(record => record.name));
-    const unknown = requestedSkills.find(skill => !configuredNames.has(skill.name));
-    if (unknown !== undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown skill "${unknown.name}" — not configured`,
-      });
-    }
+    await skillStore.validateAgentSkills({ tenant_id, skills: requestedSkills });
   }
 
   const wantsSandbox = spec.config.sandbox.enabled;

@@ -135,4 +135,35 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
     await expect(store.listSkillVersions({ name: 'algorithmic-art' })).resolves.toEqual([]);
   });
+
+  it('validateAgentSkills and resolveTurnSkills round-trip git skills', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    const skills = [{ name: 'algorithmic-art', preload: false }];
+    await expect(store.validateAgentSkills({ tenant_id: TENANT, skills })).resolves.toBeUndefined();
+    await expect(store.resolveTurnSkills({ tenant_id: TENANT, skills })).resolves.toEqual([
+      {
+        type: 'git',
+        name: 'algorithmic-art',
+        description: 'Creating algorithmic art using p5.js with seeded randomness.',
+        url: 'https://github.com/anthropics/skills',
+        path: 'skills/algorithmic-art',
+        ref: 'main',
+      },
+    ]);
+  });
+
+  it('validateAgentSkills rejects preload on git skills', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await expect(
+      store.validateAgentSkills({
+        tenant_id: TENANT,
+        skills: [{ name: 'algorithmic-art', preload: true }],
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Skill "algorithmic-art": preload is not supported for git skills',
+    });
+  });
 }

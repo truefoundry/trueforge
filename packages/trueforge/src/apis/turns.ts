@@ -53,7 +53,6 @@ import {
   buildTurnSandbox,
   getMcpConnection,
   getModelDetails,
-  resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
@@ -221,15 +220,18 @@ function createTurnResolver(deps: {
           });
         }
       }
-      const gitSkills = await resolveGitSkills({
-        tenant_id,
-        skills: spec.skills ?? [],
-        store: skillStore,
-      });
+      const skills = spec.skills ?? [];
+      const mountSkills =
+        skills.length === 0
+          ? []
+          : await skillStore.resolveTurnSkills({
+              tenant_id,
+              skills,
+            });
       return buildTurnSandbox({
         provider,
         logger,
-        skills: gitSkills,
+        skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
