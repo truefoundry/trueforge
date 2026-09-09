@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -24,6 +24,7 @@ export type AgentConfigEditorsProps = {
   sandboxAvailable?: boolean;
   instructions?: string;
   onInstructionsSave?: (draft: AgentInstructionsDraft) => void;
+  loadMcpConnector?: (connectorId: string) => Promise<ConnectorState | undefined>;
   loadMcpTools?: (connectorId: string) => Promise<McpToolSelection[]>;
   onRefreshConnectors?: () => Promise<void>;
   onChange: (spec: AgentSpec) => void;
@@ -42,6 +43,7 @@ export function AgentConfigEditors({
   sandboxAvailable = false,
   instructions,
   onInstructionsSave,
+  loadMcpConnector,
   loadMcpTools,
   onRefreshConnectors,
   onChange,
@@ -53,6 +55,9 @@ export function AgentConfigEditors({
   const AgentInstructionsDrawer = useSlot('AgentInstructionsDrawer');
   const [query, setQuery] = useState('');
   const [activeConnectorId, setActiveConnectorId] = useState<string | null>(null);
+  const [activeConnector, setActiveConnector] = useState<ConnectorState | undefined>();
+  const [connectorLoading, setConnectorLoading] = useState(false);
+  const [connectorError, setConnectorError] = useState<string | null>(null);
   const [tools, setTools] = useState<McpToolSelection[]>([]);
   const [toolsLoading, setToolsLoading] = useState(false);
   const [toolsError, setToolsError] = useState<string | null>(null);
@@ -62,6 +67,10 @@ export function AgentConfigEditors({
     () => connectorsWithSelectedStubs({ connectors, selected: mounts }),
     [connectors, mounts],
   );
+  const catalogConnectorsRef = useRef(catalogConnectors);
+  useEffect(() => {
+    catalogConnectorsRef.current = catalogConnectors;
+  }, [catalogConnectors]);
   const activeConnectorAvailable =
     activeConnectorId !== null && catalogConnectors.some(connector => connector.id === activeConnectorId);
   const firstMountedConnectorId = mounts
@@ -72,31 +81,61 @@ export function AgentConfigEditors({
     firstMountedConnectorId ??
     catalogConnectors[0]?.id ??
     null;
+  const resolvedConnectors = useMemo(
+    () =>
+      activeConnector === undefined
+        ? catalogConnectors
+        : catalogConnectors.map(connector =>
+            connector.id === activeConnector.id ? { ...connector, ...activeConnector } : connector,
+          ),
+    [activeConnector, catalogConnectors],
+  );
 
   useEffect(() => {
-    if (editor !== 'mcp' || selectedConnectorId === null || loadMcpTools === undefined) return;
+    if (editor !== 'mcp' || selectedConnectorId === null) return;
     let cancelled = false;
+    const listedConnector = catalogConnectorsRef.current.find(connector => connector.id === selectedConnectorId);
+    setActiveConnector(undefined);
+    setConnectorLoading(loadMcpConnector !== undefined);
+    setConnectorError(null);
     setTools([]);
-    setToolsLoading(true);
+    setToolsLoading(false);
     setToolsError(null);
-    void loadMcpTools(selectedConnectorId)
-      .then(nextTools => {
+    void (async () => {
+      let connector = listedConnector;
+      if (loadMcpConnector !== undefined) {
+        try {
+          connector = (await loadMcpConnector(selectedConnectorId)) ?? listedConnector;
+          if (cancelled) return;
+          setActiveConnector(connector);
+        } catch (reason: unknown) {
+          if (!cancelled) setConnectorError(getErrorMessage(reason, 'Failed to load MCP server.'));
+          return;
+        } finally {
+          if (!cancelled) setConnectorLoading(false);
+        }
+      }
+      if (cancelled || connector?.authenticated === false || loadMcpTools === undefined) return;
+      setToolsLoading(true);
+      try {
+        const nextTools = await loadMcpTools(selectedConnectorId);
         if (!cancelled) setTools(nextTools);
-      })
-      .catch((reason: unknown) => {
+      } catch (reason: unknown) {
         if (!cancelled) setToolsError(getErrorMessage(reason, 'Failed to load tools.'));
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setToolsLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [editor, loadMcpTools, selectedConnectorId, toolsRequestEpoch]);
+  }, [editor, loadMcpConnector, loadMcpTools, selectedConnectorId, toolsRequestEpoch]);
 
   const close = () => {
     setQuery('');
     setActiveConnectorId(null);
+    setActiveConnector(undefined);
+    setConnectorError(null);
     setTools([]);
     setToolsError(null);
     onClose();
@@ -154,18 +193,27 @@ export function AgentConfigEditors({
         <AgentResourceConfigModal
           editor={resourceEditor}
           spec={spec}
-          connectors={connectors}
+          connectors={resolvedConnectors}
           skills={skills}
           skillsDisabled={skillsDisabled}
           query={query}
           activeConnectorId={selectedConnectorId}
           tools={tools}
+          connectorLoading={
+            connectorLoading ||
+            (loadMcpConnector !== undefined && activeConnector?.id !== selectedConnectorId && connectorError === null)
+          }
+          connectorError={connectorError}
           toolsLoading={toolsLoading}
           toolsError={toolsError}
           onQueryChange={setQuery}
           onSelectConnector={setActiveConnectorId}
           onRetryTools={() => setToolsRequestEpoch(epoch => epoch + 1)}
-          onRefreshConnectors={onRefreshConnectors}
+          {...(loadMcpConnector !== undefined
+            ? { onRefreshConnector: () => setToolsRequestEpoch(epoch => epoch + 1) }
+            : onRefreshConnectors !== undefined
+              ? { onRefreshConnector: () => void onRefreshConnectors() }
+              : {})}
           onChange={onChange}
           onClose={close}
         />

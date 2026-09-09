@@ -101,6 +101,10 @@ export function createHarnessBuilderServer(
         ...(page.nextPageToken === undefined ? {} : { nextPageToken: page.nextPageToken }),
       };
     },
+    getMcpConnector: async ({ connectorId }: { connectorId: string }) => {
+      const body = await client.mcpServers.get(connectorId);
+      return toUiConnectorFromReadEntry(body.data);
+    },
     getMcpTools: async ({ connectorId }: { connectorId: string }) => {
       const body = await client.mcpServers.listTools(connectorId);
       return body.data.flatMap(tool =>

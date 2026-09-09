@@ -1,18 +1,32 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
 import { AgentModelSettingsContent } from '@/atoms/draft/AgentModelSettingsContent.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
+import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSpec } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 vi.mock('@/atoms/MonacoEditorCore.js', () => ({
   MonacoEditorCore: ({ value, onChange }: { value: string; onChange?: (value: string) => void }) => (
     <textarea aria-label="JSON parameters editor" value={value} onChange={event => onChange?.(event.target.value)} />
   ),
 }));
+
+function deferred<T>() {
+  let settle: ((value: T) => void) | undefined;
+  return {
+    promise: new Promise<T>(resolve => {
+      settle = resolve;
+    }),
+    resolve(value: T) {
+      settle?.(value);
+    },
+  };
+}
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -712,6 +726,141 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('button', { name: 'Connect During Chat' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitemcheckbox', { name: /secret.read/ })).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('checks live auth before loading tools and overrides stale listing auth', async () => {
+    const calls: string[] = [];
+    const loadMcpConnector = vi.fn(async () => {
+      calls.push('detail');
+      return { id: 'private', name: 'Private', authenticated: true };
+    });
+    const loadMcpTools = vi.fn(async () => {
+      calls.push('tools');
+      return [{ id: 'secret.read', name: 'secret.read' }];
+    });
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[{ id: 'private', name: 'Private', authenticated: false }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpConnector={loadMcpConnector}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'secret.read' })).toBeInTheDocument();
+    expect(calls).toEqual(['detail', 'tools']);
+  });
+
+  it('does not load tools when the live detail requires auth', async () => {
+    const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
+
+    render(
+      <ServerProvider server={createMockAgentUIServer({ catalog: createMockCatalog() })}>
+        <SlotsProvider>
+          <AgentConfigEditors
+            editor="mcp"
+            spec={{ model: { name: 'openai/gpt' } }}
+            models={[]}
+            connectors={[{ id: 'private', name: 'Private', authenticated: true }]}
+            skills={[]}
+            loading={false}
+            error={null}
+            loadMcpConnector={async () => ({ id: 'private', name: 'Private', authenticated: false })}
+            loadMcpTools={loadMcpTools}
+            onChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </SlotsProvider>
+      </ServerProvider>,
+    );
+
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpTools).not.toHaveBeenCalled();
+  });
+
+  it('retries the selected MCP detail after an error', async () => {
+    const loadMcpConnector = vi
+      .fn<(connectorId: string) => Promise<{ id: string; name: string; authenticated: boolean }>>()
+      .mockRejectedValueOnce(new Error('Detail unavailable'))
+      .mockResolvedValue({ id: 'private', name: 'Private', authenticated: false });
+
+    render(
+      <ServerProvider server={createMockAgentUIServer({ catalog: createMockCatalog() })}>
+        <SlotsProvider>
+          <AgentConfigEditors
+            editor="mcp"
+            spec={{ model: { name: 'openai/gpt' } }}
+            models={[]}
+            connectors={[{ id: 'private', name: 'Private', authenticated: true }]}
+            skills={[]}
+            loading={false}
+            error={null}
+            loadMcpConnector={loadMcpConnector}
+            loadMcpTools={vi.fn()}
+            onChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </SlotsProvider>
+      </ServerProvider>,
+    );
+
+    expect(await screen.findByText('Detail unavailable')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpConnector).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores stale MCP detail results after selecting another connector', async () => {
+    const first = deferred<{ id: string; name: string; authenticated: boolean }>();
+    const second = deferred<{ id: string; name: string; authenticated: boolean }>();
+    const loadMcpConnector = vi.fn((connectorId: string) => (connectorId === 'first' ? first.promise : second.promise));
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[
+            { id: 'first', name: 'First', authenticated: true },
+            { id: 'second', name: 'Second', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpConnector={loadMcpConnector}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => expect(loadMcpConnector).toHaveBeenCalledWith('first'));
+    fireEvent.click(screen.getByRole('button', { name: 'Second' }));
+    await act(async () => {
+      second.resolve({ id: 'second', name: 'Second', authenticated: true });
+    });
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'second.tool' })).toBeInTheDocument();
+    await act(async () => {
+      first.resolve({ id: 'first', name: 'First', authenticated: false });
+    });
+    expect(screen.getByRole('menuitemcheckbox', { name: 'second.tool' })).toBeInTheDocument();
+    expect(loadMcpTools).toHaveBeenCalledTimes(1);
+    expect(loadMcpTools).toHaveBeenCalledWith('second');
   });
 
   it('mounts an unauthenticated connector with Connect During Chat', async () => {

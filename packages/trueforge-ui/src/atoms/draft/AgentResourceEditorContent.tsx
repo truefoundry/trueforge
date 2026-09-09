@@ -12,12 +12,14 @@ export type AgentResourceEditorContentProps = {
   query: string;
   activeConnectorId: string | null;
   tools: McpToolSelection[];
+  connectorLoading: boolean;
+  connectorError: string | null;
   toolsLoading: boolean;
   toolsError: string | null;
   onQueryChange: (query: string) => void;
   onSelectConnector: (connectorId: string) => void;
   onRetryTools: () => void;
-  onRefreshConnectors?: () => Promise<void>;
+  onRefreshConnector?: () => void;
   onChange: (spec: AgentSpec) => void;
 };
 
@@ -45,12 +47,14 @@ export function AgentResourceEditorContent(props: AgentResourceEditorContentProp
       query={props.query}
       activeConnectorId={props.activeConnectorId}
       tools={props.tools}
+      connectorLoading={props.connectorLoading}
+      connectorError={props.connectorError}
       toolsLoading={props.toolsLoading}
       toolsError={props.toolsError}
       onQueryChange={props.onQueryChange}
       onSelectConnector={props.onSelectConnector}
       onRetryTools={props.onRetryTools}
-      onRefreshConnectors={props.onRefreshConnectors}
+      onRefreshConnector={props.onRefreshConnector}
       onChange={props.onChange}
     />
   );

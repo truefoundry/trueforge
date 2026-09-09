@@ -38,6 +38,7 @@ export type CreateTrueFoundryServerOptions<
   getSkills: () => Promise<TSkill[]>;
   getMcp: () => Promise<TMcp[]>;
   listMcp?: (req?: PageParams) => Promise<ListResult<TMcp>>;
+  getMcpConnector?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpConnector'];
   getMcpTools?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpTools'];
   searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
   saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
@@ -122,6 +123,7 @@ export function createTrueFoundryServer<
     getSkills: opts.getSkills,
     getMcp: opts.getMcp,
     ...(opts.listMcp === undefined ? {} : { listMcp: opts.listMcp }),
+    ...(opts.getMcpConnector === undefined ? {} : { getMcpConnector: opts.getMcpConnector }),
     ...(opts.getMcpTools === undefined ? {} : { getMcpTools: opts.getMcpTools }),
     searchAgents: opts.searchAgents,
     saveAgent: opts.saveAgent,
