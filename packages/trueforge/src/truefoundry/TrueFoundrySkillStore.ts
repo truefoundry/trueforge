@@ -1,13 +1,14 @@
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type {
+  AgentSkillsInput,
   CreateSkillInput,
   ISkillStore,
   ListSkillsInput,
   SkillRecord,
   UpsertSkillInput,
-  ValidateSkillsAccessInput,
 } from '../db/skillStore';
 import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
@@ -75,7 +76,7 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
     let skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
     const names = input.names;
     if (names !== undefined) {
-      // TrueFoundry callers do not pass names: catalog list is unfiltered; save checks use validateAccess.
+      // TrueFoundry callers do not pass names: catalog list is unfiltered; save checks use validateAgentSkills.
       // SFY list has no multi-name IN (only optional skill-level fqn).
       // so filter locally if names is set.
       skills = skills.filter(skill => names.includes(skill.name));
@@ -114,18 +115,24 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
   }
 
   /** Check that each version FQN exists and is readable (SFY resolve). */
-  async validateAccess(input: ValidateSkillsAccessInput, transaction?: TTransaction): Promise<string | undefined> {
+  async validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void> {
     void input.tenant_id;
     void transaction;
-    if (input.names.length === 0) {
-      return undefined;
+    if (input.skills.length === 0) {
+      return;
     }
     const accessToken = await this.#resolveAccessToken();
+    const names = input.skills.map(skill => skill.name);
     const resolved = await this.#client.resolveAgentSkillVersions({
       accessToken,
-      skills: input.names.map(fqn => ({ fqn })),
+      skills: names.map(fqn => ({ fqn })),
     });
     const known = new Set(resolved.map(skill => skill.fqn));
-    return input.names.find(name => !known.has(name));
+    const unknown = names.find(name => !known.has(name));
+    if (unknown !== undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown skill "${unknown}" — not configured`,
+      });
+    }
   }
 }
