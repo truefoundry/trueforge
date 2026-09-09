@@ -2,7 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface DaytonaSandboxProvider {
+export interface SandboxProviderManifest {
     auth: TrueForge.DaytonaSandboxProviderAuth;
     /** Minutes before Daytona auto-archives the sandbox (0 disables). */
     autoArchiveIntervalInMinutes: number;
