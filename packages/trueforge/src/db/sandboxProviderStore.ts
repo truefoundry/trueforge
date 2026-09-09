@@ -1,14 +1,18 @@
 /**
  * DB-backed configured sandbox provider: at most one row per tenant. Persists the
- * Zod-validated `SandboxProviderManifest` jsonb document plus the last-known build
+ * Zod-validated `StoredSandboxProviderManifest` jsonb document plus the last-known build
  * status (`status` / `status_reason` / `build_metadata`), refreshed on read.
  * Implementations: PostgresSandboxProviderStore and SqliteSandboxProviderStore.
  */
-import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../schemas/sandboxProvider';
+import type {
+  SandboxBuildMetadata,
+  SandboxBuildStatus,
+  StoredSandboxProviderManifest,
+} from '../schemas/sandboxProvider';
 
 export interface SandboxProviderRecord {
   tenant_id: string;
-  manifest: SandboxProviderManifest;
+  manifest: StoredSandboxProviderManifest;
   /** Last persisted build status of the release sandbox image. */
   status: SandboxBuildStatus;
   /** Human-readable detail for `status`; null when ready. */
@@ -23,7 +27,7 @@ export interface SandboxProviderRecord {
 
 export interface UpsertSandboxProviderInput {
   tenant_id: string;
-  manifest: SandboxProviderManifest;
+  manifest: StoredSandboxProviderManifest;
   status: SandboxBuildStatus;
   status_reason: string | null;
   build_metadata: SandboxBuildMetadata | null;

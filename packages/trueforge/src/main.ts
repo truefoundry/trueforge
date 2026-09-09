@@ -211,8 +211,8 @@ function buildResolveAgentStore(options: {
 }
 
 /**
- * Per-request sandbox-provider store resolver. In TrueFoundry mode every request gets a
- * token-bound env/settings-server store; otherwise the persistence store is reused as-is.
+ * Sandbox-provider store resolver. In TrueFoundry mode the shared env-backed store is reused;
+ * otherwise the persistence store is reused as-is.
  */
 function buildResolveSandboxProviderStore<TTransaction>(options: {
   persistenceStore: ISandboxProviderStore<TTransaction>;
@@ -221,10 +221,8 @@ function buildResolveSandboxProviderStore<TTransaction>(options: {
   if (!isTrueFoundryModeEnabled(configuration)) {
     return () => persistenceStore;
   }
-  return c =>
-    new TrueFoundrySandboxProviderStore<TTransaction>({
-      context: resolveRequestContext(c),
-    });
+  const trueFoundryStore = new TrueFoundrySandboxProviderStore<TTransaction>();
+  return () => trueFoundryStore;
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */

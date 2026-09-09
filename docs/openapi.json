@@ -1335,6 +1335,17 @@
         ],
         "type": "object"
       },
+      "GetAvailableMCPServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AvailableMCPServer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetCapabilitiesResponse": {
         "properties": {
           "data": {
@@ -6092,6 +6103,64 @@
         ],
         "x-excluded": true,
         "x-fern-ignore": true
+      }
+    },
+    "/api/v1/mcp-servers/{name}": {
+      "get": {
+        "description": "A single MCP server as the slim chat projection, with live per-user auth_status.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAvailableMCPServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server (chat projection)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Get an MCP server for chat",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/api/v1/mcp-servers/{name}/authorize": {
