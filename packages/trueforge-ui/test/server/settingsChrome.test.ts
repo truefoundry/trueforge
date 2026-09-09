@@ -7,9 +7,10 @@ import { createMockCatalog } from './mockServer.js';
 describe('isSettingsChromeEnabled', () => {
   const catalog = createMockCatalog();
 
-  it('requires a catalog and treats missing settings capability as enabled', () => {
+  it('requires a catalog and explicit settings capability', () => {
     expect(isSettingsChromeEnabled({ catalog: null, capabilities: null })).toBe(false);
-    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(true);
+    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(false);
+    expect(isSettingsChromeEnabled({ catalog, capabilities: {} })).toBe(false);
     expect(
       isSettingsChromeEnabled({
         catalog,

@@ -87,6 +87,81 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
+    test("get (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: {
+                auth: { type: "dcr" },
+                auth_status: { authorization_url: "authorization_url", status: "authenticated" },
+                name: "name",
+                url: "url",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.mcpServers.get("name");
+        expect(response).toEqual({
+            data: {
+                auth: {
+                    type: "dcr",
+                },
+                authStatus: {
+                    authorizationUrl: "authorization_url",
+                    status: "authenticated",
+                },
+                name: "name",
+                url: "url",
+            },
+        });
+    });
+
+    test("get (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name")
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.get("name");
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("get (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/mcp-servers/name")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.mcpServers.get("name");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
     test("authorize (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
