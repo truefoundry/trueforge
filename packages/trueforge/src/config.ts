@@ -142,8 +142,8 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
 }
 
 /**
- * Empty stays empty. Otherwise parse as a URL, drop a trailing slash, and reject
- * query/hash or `.` / `..` path segments (those would make a bad UI prefix).
+ * Empty stays empty. Otherwise parse as a URL, store without a trailing slash
+ * (callers join with `/`), and reject query/hash or `.` / `..` path segments.
  */
 function parsePublicBaseUrl(raw: string | undefined): string {
   if (raw === undefined || raw.trim() === '') {
@@ -906,27 +906,39 @@ if (isTrueFoundryModeEnabled(configuration)) {
 }
 
 /**
+ * Effective public application URL. Empty `PUBLIC_BASE_URL` stays empty
+ * (callers that need a callback origin throw).
+ */
+function effectivePublicBaseUrl(config: ServerConfiguration): string {
+  // Standalone production is one process on $PORT. Ignore a leftover Vite
+  // PUBLIC_BASE_URL (e.g. http://localhost:3000) from the shared .env.
+  if (config.STANDALONE && config.NODE_ENV !== 'development') {
+    return `http://localhost:${String(config.PORT)}`;
+  }
+  return config.PUBLIC_BASE_URL;
+}
+
+/**
  * Public origin for OAuth callbacks.
  * Standalone (non-development) → `http://localhost:$PORT`; otherwise `PUBLIC_BASE_URL`
  * (required in development and distributed; throws if empty).
  */
 export function getPublicBaseUrl(config: ServerConfiguration = configuration): string {
-  if (config.STANDALONE && config.NODE_ENV !== 'development') {
-    return `http://localhost:${String(config.PORT)}`;
-  }
-  if (config.PUBLIC_BASE_URL === '') {
+  const publicBaseUrl = effectivePublicBaseUrl(config);
+  if (publicBaseUrl === '') {
     throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
   }
-  return config.PUBLIC_BASE_URL;
+  return publicBaseUrl;
 }
 
-/** `/` or `/custom/proxy/path/` — trailing slash for asset URLs and the boot script. Empty PUBLIC_BASE_URL → `/`. */
+/** `/` or `/custom/proxy/path/` — trailing slash for asset URLs and the boot script. Empty / standalone non-dev → `/`. */
 export function getPublicUiBasePath(config: ServerConfiguration = configuration): string {
-  if (config.PUBLIC_BASE_URL === '') {
+  const publicBaseUrl = effectivePublicBaseUrl(config);
+  if (publicBaseUrl === '') {
     return '/';
   }
-  const path = new URL(config.PUBLIC_BASE_URL).pathname.replace(/\/+$/, '');
-  return path === '' ? '/' : `${path}/`;
+  const path = new URL(publicBaseUrl).pathname;
+  return path === '/' ? '/' : `${path}/`;
 }
 
 export default configuration;
