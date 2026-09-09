@@ -138,6 +138,10 @@ export const ListAvailableMcpServersResponseSchema = z
   })
   .openapi('ListAvailableMCPServersResponse');
 
+export const GetAvailableMcpServerResponseSchema = z
+  .object({ data: AvailableMcpServerSchema })
+  .openapi('GetAvailableMCPServerResponse');
+
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerManifestAuth = z.infer<typeof McpServerManifestAuthSchema>;
 export type McpServerManifest = z.infer<typeof McpServerManifestSchema>;

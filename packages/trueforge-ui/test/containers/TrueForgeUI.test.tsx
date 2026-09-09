@@ -506,6 +506,50 @@ describe('SidebarLayout', () => {
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
+  it('keeps recent history visible when a named chat loads in the same page', async () => {
+    function OpenNamedChatButton() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'named-agent' })}>
+          Open named chat
+        </button>
+      );
+    }
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={mockServer(stubCatalog)}>
+          <ShellModeProvider>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <OpenNamedChatButton />
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    const recentChats = screen.getByRole('complementary', { name: 'Recent chats' });
+    expect(recentChats).toHaveClass('hidden', 'md:flex');
+    expect(recentChats.parentElement?.previousElementSibling?.tagName).toBe('HEADER');
+    expect(screen.getAllByText('New Chat')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new chat' }));
+    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open named chat' }));
+    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+  });
+
   it('highlights New Chat, New Agent, and Settings when selected', async () => {
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>

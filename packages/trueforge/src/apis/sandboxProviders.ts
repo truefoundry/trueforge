@@ -39,7 +39,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const record = await store.getSandboxProvider(requestContext.tenant_id);
-    if (record === undefined) {
+    if (record?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
@@ -70,7 +70,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       auth: {
         api_key: resolveStoredSecretValue({
           incoming: incoming.auth.api_key,
-          existing: existing?.manifest.auth.api_key,
+          existing: existing?.manifest.type === 'daytona' ? existing.manifest.auth.api_key : undefined,
         }),
       },
     });

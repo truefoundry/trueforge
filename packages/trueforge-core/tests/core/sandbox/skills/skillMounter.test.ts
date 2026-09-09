@@ -1,61 +1,90 @@
 /**
- * Public git-based SkillMounter: prompt rendering and the declarative sandbox
- * init it hands to Sandbox. (Host-specific mounters, e.g. the gateway's
- * TrueFoundry registry mounter, are tested in their own repo.)
+ * SkillMounter: prompt rendering and the declarative sandbox init it hands to Sandbox.
  */
 import { InstructionBuilder } from '../../../../src/core/InstructionBuilder';
 import type { ISkillMounter } from '../../../../src/core/sandbox/skills/ISkillMounter';
-import { SkillMounter } from '../../../../src/core/sandbox/skills/SkillMounter';
+import {
+  REQUESTED_SKILLS_FILE_NAME,
+  SkillMounter,
+  type GitSkill,
+  type Skill,
+} from '../../../../src/core/sandbox/skills/SkillMounter';
 
 const GIT_SKILL = {
+  type: 'git',
   name: 'git-skill',
   description: 'From git',
   url: 'https://github.com/acme/skills.git',
   path: '',
   ref: 'a'.repeat(40),
-};
+} satisfies GitSkill;
 
-const PROVIDER_PATHS = {
+const REGISTRY_SKILL = {
+  type: 'registry',
+  name: 'echo',
+  description: 'Echo',
+  fqn: 'agent-skill:acme/team/echo:1',
+  preload: false,
+  skillMdContent: null,
+  presignedUrl: 'https://example.com/echo.tar',
+} satisfies Skill;
+
+const PATHS = {
   skillsDir: '/custom/skills',
-  gitDownloaderPath: '/custom/git_downloader.py',
+  skillDownloaderPath: '/custom/skill_downloader.py',
 };
 
-// Renders a mounter's <skills> section the same way Sandbox does (empty section => '').
 function renderSkills(mounter: ISkillMounter): string {
   const builder = new InstructionBuilder('skills');
-  mounter.instruction(builder, { skillsDir: PROVIDER_PATHS.skillsDir });
+  mounter.instruction(builder, { skillsDir: PATHS.skillsDir });
   return builder.build();
 }
 
-describe('SkillMounter (public, git-only)', () => {
-  it('embeds the injected git downloader and TFY_SKILLS_DIR', () => {
-    const init = new SkillMounter([GIT_SKILL]).getSandboxInit(PROVIDER_PATHS);
+function readRequestedFile(mounter: SkillMounter): unknown {
+  const { uploads } = mounter.getSandboxInit(PATHS);
+  expect(uploads).toHaveLength(1);
+  const content = uploads[0]?.content.toString('utf-8');
+  expect(typeof content).toBe('string');
+  return JSON.parse(content ?? '');
+}
 
-    expect(init.command).toContain('/custom/git_downloader.py');
-    expect(init.command).not.toContain('/opt/tfy/git_downloader.py');
-    expect(init.env?.['AGENT_GIT_SKILLS']).toBeDefined();
-    expect(init.env?.['TFY_SKILLS_DIR']).toBe('/custom/skills');
-    expect(init.env?.['AGENT_SKILL_VERSION_FQNS']).toBeUndefined();
-    expect(init.env?.['TFY_API_KEY']).toBeUndefined();
+describe('SkillMounter', () => {
+  it('uploads git skills in the requested file and points the init command at the downloader', () => {
+    const mounter = new SkillMounter({ skills: [GIT_SKILL] });
+    const init = mounter.getSandboxInit(PATHS);
+
+    expect(init.command).toContain(PATHS.skillDownloaderPath);
+    expect(init.env?.['TFY_SKILLS_DIR']).toBe(PATHS.skillsDir);
     expect(init.timeoutSeconds).toBe(180);
+    expect(init.uploads[0]?.remotePath).toBe(`${PATHS.skillsDir}/${REQUESTED_SKILLS_FILE_NAME}`);
+    expect(readRequestedFile(mounter)).toEqual({
+      skills: [{ type: 'git', name: 'git-skill', url: GIT_SKILL.url, path: '', ref: GIT_SKILL.ref }],
+    });
   });
 
-  it('renders a <skills> section with a block per skill using the injected skills dir', () => {
-    const rendered = renderSkills(new SkillMounter([GIT_SKILL]));
-
+  it('renders skill prompt blocks under the injected skills dir', () => {
+    const rendered = renderSkills(new SkillMounter({ skills: [GIT_SKILL] }));
     expect(rendered).toContain('<skills>');
-    expect(rendered).toContain('git-skill');
-    expect(rendered).toContain('/custom/skills/git-skill');
-    expect(rendered).not.toContain('/opt/tfy/skills');
+    expect(rendered).toContain(`${PATHS.skillsDir}/git-skill`);
   });
 
-  it('uses an empty desired set for cleanup on a reused sandbox and renders nothing', () => {
-    const mounter = new SkillMounter([]);
-    const init = mounter.getSandboxInit(PROVIDER_PATHS);
-
+  it('uploads an empty requested file so that existing skills are cleaned up', () => {
+    const mounter = new SkillMounter({});
     expect(renderSkills(mounter)).toBe('');
-    expect(init.command).toContain('/custom/git_downloader.py');
-    expect(init.env?.['TFY_SKILLS_DIR']).toBe('/custom/skills');
-    expect(JSON.parse(Buffer.from(init.env?.['AGENT_GIT_SKILLS'] ?? '', 'base64').toString())).toEqual([]);
+    expect(readRequestedFile(mounter)).toEqual({ skills: [] });
+  });
+
+  it('writes git and registry entries into one requested file in caller order', () => {
+    expect(readRequestedFile(new SkillMounter({ skills: [GIT_SKILL, REGISTRY_SKILL] }))).toEqual({
+      skills: [
+        { type: 'git', name: 'git-skill', url: GIT_SKILL.url, path: '', ref: GIT_SKILL.ref },
+        {
+          type: 'registry',
+          name: 'echo',
+          fqn: 'agent-skill:acme/team/echo:1',
+          presigned_url: 'https://example.com/echo.tar',
+        },
+      ],
+    });
   });
 });
