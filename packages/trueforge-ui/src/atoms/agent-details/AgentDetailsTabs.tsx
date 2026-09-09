@@ -7,11 +7,17 @@ import type { AgentDetailsTab, AgentDetailsTabsProps } from './types.js';
 const tabs: Array<{ id: AgentDetailsTab; label: string; icon: string }> = [
   { id: 'overview', label: 'Overview', icon: 'info' },
   { id: 'sessions', label: 'Sessions', icon: 'message-square-text' },
+  { id: 'schedules', label: 'Schedules', icon: 'calendar-clock' },
   { id: 'code', label: 'Use In Code', icon: 'code' },
   { id: 'metrics', label: 'Metrics', icon: 'chart' },
 ];
 
-export function AgentDetailsTabs({ activeTab, onTabChange, showMetrics = false }: AgentDetailsTabsProps) {
+export function AgentDetailsTabs({
+  activeTab,
+  onTabChange,
+  showMetrics = false,
+  showSchedules = false,
+}: AgentDetailsTabsProps) {
   return (
     <div
       role="tablist"
@@ -19,7 +25,7 @@ export function AgentDetailsTabs({ activeTab, onTabChange, showMetrics = false }
       className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-primary-bg px-3"
     >
       {tabs
-        .filter(tab => tab.id !== 'metrics' || showMetrics)
+        .filter(tab => (tab.id !== 'metrics' || showMetrics) && (tab.id !== 'schedules' || showSchedules))
         .map(tab => (
           <button
             key={tab.id}
