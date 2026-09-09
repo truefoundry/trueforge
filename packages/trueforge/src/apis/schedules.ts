@@ -144,6 +144,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
 
   const listRunsHandler: RouteHandler<typeof listScheduleRunsRoute> = async c => {
     const { schedule_id: scheduleId } = c.req.valid('param');
+    const { limit, page_token: pageToken } = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     const schedule = await deps.scheduleStore.getSchedule({
       tenant_id: requestContext.tenant_id,
@@ -163,11 +164,20 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     ) {
       return c.json({ error: { message: FORBIDDEN_SCHEDULE_ACCESS } }, 403);
     }
-    const records = await deps.scheduleStore.listRuns({
-      tenant_id: requestContext.tenant_id,
-      schedule_id: scheduleId,
-    });
-    return c.json({ data: records.map(toWireScheduleRun) }, 200);
+    try {
+      const { data, pagination } = await deps.scheduleStore.listRuns({
+        tenant_id: requestContext.tenant_id,
+        schedule_id: scheduleId,
+        limit,
+        page_token: pageToken,
+      });
+      return c.json({ data: data.map(toWireScheduleRun), pagination }, 200);
+    } catch (error) {
+      if (error instanceof InvalidPageTokenError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
   };
 
   const createScheduleRunHandler: RouteHandler<typeof createScheduleRunRoute> = async c => {
