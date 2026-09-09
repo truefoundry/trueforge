@@ -16,8 +16,8 @@ if (!Number.isInteger(PORT)) {
   throw new Error(`FRONTEND_PORT must be an integer, got "${process.env.FRONTEND_PORT}"`);
 }
 
-/** Vite writes this into the production shell; the server substitutes at process start. */
-const SHELL_BASE_TOKEN = '__TRUEFORGE_BASE_PATH__';
+/** Vite writes this into the production shell; the server substitutes at process start. Must not appear in JS identifiers. */
+const SHELL_BASE_TOKEN = '%%TRUEFORGE_BASE_PATH%%';
 
 const apiProxy: ProxyOptions = {
   target: SERVER,

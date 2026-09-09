@@ -10,7 +10,7 @@ declare global {
   }
 }
 
-const SHELL_BASE_TOKEN = '__TRUEFORGE_BASE_PATH__';
+const SHELL_BASE_TOKEN = '%%TRUEFORGE_BASE_PATH%%';
 
 function documentUiBasePath(): string {
   if (typeof window === 'undefined') {

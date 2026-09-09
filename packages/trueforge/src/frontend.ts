@@ -15,8 +15,8 @@ const HASHED_ASSET_PREFIX = '/assets/';
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const REVALIDATE_CACHE_CONTROL = 'no-cache';
 
-/** Vite writes this into the production shell; replaced once at process start. */
-const SHELL_BASE_TOKEN = '__TRUEFORGE_BASE_PATH__';
+/** Vite writes this into the production shell; replaced once at process start. Must not appear in JS identifiers. */
+const SHELL_BASE_TOKEN = '%%TRUEFORGE_BASE_PATH%%';
 
 function isServerPath(pathname: string): boolean {
   return SERVER_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
