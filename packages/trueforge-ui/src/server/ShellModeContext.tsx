@@ -535,15 +535,7 @@ export function ShellModeProvider({
         ...(agentName != null ? { agentId: agentName, agentName } : {}),
       });
     },
-    [
-      isLibraryEnabled,
-      isComposerEnabled,
-      locked,
-      lockedAgentName,
-      setSettingsOpen,
-      setSessionsOpen,
-      setSchedulesOpen,
-    ],
+    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, setSettingsOpen, setSessionsOpen, setSchedulesOpen],
   );
 
   const clearChat = useCallback(() => {
