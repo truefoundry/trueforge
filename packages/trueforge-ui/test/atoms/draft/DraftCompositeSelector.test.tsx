@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSpec, CatalogServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
+import type { AgentSkill, AgentSpec, CatalogServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
@@ -55,7 +55,7 @@ function renderSelector({
       settings?: { enabled: boolean };
     };
   }>;
-  getSkills?: () => Promise<{ id: string; name: string }[]>;
+  getSkills?: () => Promise<AgentSkill[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
 } = {}) {
@@ -124,6 +124,22 @@ describe('DraftCompositeSelector', () => {
     );
     expect(screen.queryByRole('button', { name: /Tools/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
+  });
+
+  it('keeps registry skills plain in the draft composer', async () => {
+    const loadVersions = vi.fn(async () => []);
+    const skill: AgentSkill = Object.assign(
+      { id: 'agent-skill:acme/team-a/echo:3', name: 'echo' },
+      { version: 3, loadVersions },
+    );
+    renderSelector({ getSkills: async () => [skill] });
+
+    fireEvent.click(screen.getByRole('button', { name: /Tools/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Skills/ }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /echo/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select version for echo' })).not.toBeInTheDocument();
+    expect(loadVersions).not.toHaveBeenCalled();
   });
 
   it('uses contrasting search surfaces in light and dark themes', () => {

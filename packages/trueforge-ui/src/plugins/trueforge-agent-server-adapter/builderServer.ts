@@ -91,7 +91,21 @@ export function createHarnessBuilderServer(
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
     getSkills: async () => {
       const skills = await listSkills(client);
-      return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
+      return skills.map(skill => ({
+        id: skill.name,
+        name: skill.displayName ?? skill.name,
+        description: skill.description,
+        ...(skill.skillRepoName === undefined ? {} : { skillRepoName: skill.skillRepoName }),
+        ...(skill.version === undefined ? {} : { version: skill.version }),
+        ...(skill.version === undefined
+          ? {}
+          : {
+              loadVersions: async () => {
+                const body = await client.skills.listVersions({ name: skill.name });
+                return body.data;
+              },
+            }),
+      }));
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
     listMcp: async (req?: PageParams) => {
