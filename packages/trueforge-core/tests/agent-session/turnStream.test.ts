@@ -460,6 +460,30 @@ describe('TurnResourceResolver caches', () => {
     expect(creates).toBe(1);
   });
 
+  it('getModel single-flights by model name', async () => {
+    const logger = makeSilentLogger();
+    let llmCalls = 0;
+    const modelClient = makeMockILLM();
+    const resolver = new (class extends TurnResourceResolver {
+      async resolveTwice() {
+        const [a, b] = await Promise.all([this.getModel('acct/model-a'), this.getModel('acct/model-a')]);
+        expect(a).toBe(b);
+      }
+    })({
+      llm: async () => {
+        llmCalls += 1;
+        await new Promise(r => setTimeout(r, 10));
+        return { modelClient, defaultModelParams: {} };
+      },
+      mcp: () => Promise.reject(new Error('unused')),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger,
+    });
+    await resolver.resolveTwice();
+    expect(llmCalls).toBe(1);
+  });
+
   it('resolveSandbox called once per run via SessionHandle.createTurn', async () => {
     const sandbox = makeStubPublicSandbox();
     jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);

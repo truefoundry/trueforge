@@ -479,10 +479,10 @@ export { AgentResourceConfigModal } from './atoms/draft/AgentResourceConfigModal
 export type { AgentResourceConfigModalProps } from './atoms/draft/AgentResourceConfigModal.js';
 export { AgentResourceEditorContent } from './atoms/draft/AgentResourceEditorContent.js';
 export type { AgentResourceEditorContentProps } from './atoms/draft/AgentResourceEditorContent.js';
+export { AgentRuntimeConfigDrawer } from './atoms/draft/AgentRuntimeConfigDrawer.js';
+export type { AgentRuntimeConfigDrawerProps } from './atoms/draft/AgentRuntimeConfigDrawer.js';
 export { AgentRuntimeConfigFields } from './atoms/draft/AgentRuntimeConfigFields.js';
 export type { AgentRuntimeConfigFieldsProps } from './atoms/draft/AgentRuntimeConfigFields.js';
-export { AgentRuntimeConfigModal } from './atoms/draft/AgentRuntimeConfigModal.js';
-export type { AgentRuntimeConfigModalProps } from './atoms/draft/AgentRuntimeConfigModal.js';
 export { AgentRuntimeEditorContent } from './atoms/draft/AgentRuntimeEditorContent.js';
 export type { AgentRuntimeEditorContentProps } from './atoms/draft/AgentRuntimeEditorContent.js';
 export { AgentSkillsEditorContent } from './atoms/draft/AgentSkillsEditorContent.js';
