@@ -499,6 +499,15 @@ export function ShellModeProvider({
       isMutable?: boolean;
       isCreateAgent?: boolean;
     }) => {
+      const isMutable = isMutableOpt ?? agentName == null;
+      if (isMutable) {
+        if (!isComposerEnabled) return;
+      } else if (locked) {
+        if (agentName == null || lockedAgentName !== agentName) return;
+      } else if (!isLibraryEnabled) {
+        return;
+      }
+
       setSettingsOpen(false);
       setLibraryOpenState(false);
       setLibraryAgentId(null);
@@ -506,9 +515,7 @@ export function ShellModeProvider({
       setSchedulesOpen(false);
       setPendingSessionId(sessionId);
       setPendingSessionEpoch(n => n + 1);
-      const isMutable = isMutableOpt ?? agentName == null;
       if (isMutable) {
-        if (!isComposerEnabled) return;
         const isCreateAgent = isCreateAgentOpt === true;
         setMode({
           status: 'active',
@@ -518,12 +525,6 @@ export function ShellModeProvider({
           locked: false,
         });
         setAgentConfigOpenState(isCreateAgent);
-        return;
-      }
-      // Immutable: allow orphaned refs (deleted agent → no agentName).
-      if (locked) {
-        if (agentName == null || lockedAgentName !== agentName) return;
-      } else if (!isLibraryEnabled) {
         return;
       }
       setAgentConfigOpenState(false);

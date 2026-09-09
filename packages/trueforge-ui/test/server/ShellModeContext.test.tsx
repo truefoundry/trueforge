@@ -472,6 +472,32 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).toBe(keyBefore);
   });
 
+  it('does not queue history sessions rejected by shell capabilities', () => {
+    const library = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibrary' }),
+    });
+    const libraryEpoch = library.result.current.pendingSessionEpoch;
+
+    act(() => library.result.current.openHistorySession({ sessionId: 'draft', isMutable: true }));
+    expect(library.result.current.pendingSessionId).toBeUndefined();
+    expect(library.result.current.pendingSessionEpoch).toBe(libraryEpoch);
+
+    const singleAgent = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'SingleAgent', name: 'locked' }),
+    });
+    const singleAgentEpoch = singleAgent.result.current.pendingSessionEpoch;
+
+    act(() =>
+      singleAgent.result.current.openHistorySession({
+        sessionId: 'other-session',
+        agentName: 'other-agent',
+        isMutable: false,
+      }),
+    );
+    expect(singleAgent.result.current.pendingSessionId).toBeUndefined();
+    expect(singleAgent.result.current.pendingSessionEpoch).toBe(singleAgentEpoch);
+  });
+
   it('openHistorySession keeps immutable binding when agentName is missing', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
