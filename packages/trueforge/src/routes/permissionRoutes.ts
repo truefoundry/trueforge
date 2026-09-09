@@ -31,7 +31,7 @@ export const listPermissionsRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC or TrueFoundry auth is configured and the request has no valid credential.',
+      description: 'Invalid Bearer token or auth cookie',
     },
   },
 });
