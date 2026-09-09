@@ -5,7 +5,7 @@ import { sandboxScripts } from '../sandboxScripts.gen';
 import { SKILLS_PREAMBLE, getSkillPath, renderSkillPromptBody } from './constants';
 import type { ISkillMounter } from './ISkillMounter';
 
-/** Git skill: sparse-cloned in the sandbox by git_downloader.py (never preloaded). */
+/** Git skill: sparse-cloned in the sandbox by skill_downloader.py (never preloaded). */
 export interface GitSkill {
   readonly type: 'git';
   readonly name: string;
@@ -14,7 +14,7 @@ export interface GitSkill {
   readonly url: string;
   // Subdirectory within the repo that holds the skill (empty = repo root).
   readonly path: string;
-  // Branch, tag, or full object id — resolved and fetched by git_downloader.py in the sandbox.
+  // Branch, tag, or full object id — resolved and fetched by skill_downloader.py in the sandbox.
   readonly ref: string;
 }
 
@@ -99,12 +99,12 @@ export class SkillMounter implements ISkillMounter {
     }
   }
 
-  getSandboxInit(paths: { skillsDir: string; gitDownloaderPath: string }): SandboxInit {
+  getSandboxInit(paths: { skillsDir: string; skillDownloaderPath: string }): SandboxInit {
     // Always upload (including empty) so that existing skills are cleaned up.
     return {
       command: buildWriteAndRunScriptCommand({
-        scriptPath: paths.gitDownloaderPath,
-        scriptContent: sandboxScripts.gitDownloader,
+        scriptPath: paths.skillDownloaderPath,
+        scriptContent: sandboxScripts.skillDownloader,
       }),
       env: { TFY_SKILLS_DIR: paths.skillsDir },
       timeoutSeconds: SKILL_DOWNLOAD_TIMEOUT_SECONDS,

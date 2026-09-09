@@ -83,7 +83,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal, assert_never
+from typing import Annotated, Any, ClassVar, Literal
 from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -96,11 +96,11 @@ GIT_CLONE_TIMEOUT_SECONDS = 120
 # Per-registry-download wall-clock cap so a hung/slow download can't stall sandbox init indefinitely.
 REGISTRY_DOWNLOAD_TIMEOUT_SECONDS = 120
 # Cap registry download bytes and post-extract installed size (same bound as git installs).
-REGISTRY_SKILL_MAX_BYTES = 200 * 1024 * 1024  # 200MB
+REGISTRY_SKILL_MAX_BYTES = 100 * 1024 * 1024  # 100MB
 # Cap the installed skill size so a huge repo-root skill can't fill the persistent skills dir. The
 # sparse clone already bounds a subdir skill to its subdir; this also guards the whole-repo (root
 # subdir) case where checkout hydrates every file.
-GIT_SKILL_MAX_BYTES = 200 * 1024 * 1024  # 200MB installed
+GIT_SKILL_MAX_BYTES = 100 * 1024 * 1024  # 100MB installed
 # Resolved object id used for fetch + skip state (sha1 / sha256).
 OBJECT_ID_RE = re.compile(r"^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$")
 # Mount ref (branch/tag/SHA) charset — must match host AgentSpec SkillMount.ref validation.
@@ -327,8 +327,8 @@ class SkillSource(ABC):
         """Remove installs no longer requested. Returns removed ids/names."""
 
     @abstractmethod
-    def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
-        """Install/skip requested skills. If already exists, we skip. Returns how many are installed and skipped."""
+    def download(self, skills: list[Any], state: SkillDownloaderState) -> tuple[int, int]:
+        """Install/skip requested skills. If already present, skip. Returns (installed, skipped)."""
 
 
 class RegistrySkillSource(SkillSource):
@@ -345,19 +345,20 @@ class RegistrySkillSource(SkillSource):
         state.downloaded_registry_skills = [e for e in state.downloaded_registry_skills if e.fqn in requested_fqns]
         return removed
 
-    def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
-        satisfied = 0
+    def download(self, skills: list[Any], state: SkillDownloaderState) -> tuple[int, int]:
+        installed = 0
+        skipped = 0
         for skill in skills:
             if self._already_installed(state, skill):
-                satisfied += 1
+                skipped += 1
                 continue
             try:
                 self._install_tar(skill)
                 self._mark_downloaded(state, skill)
-                satisfied += 1
+                installed += 1
             except RuntimeError as e:
                 print(f"WARNING: {e}", file=sys.stderr)
-        return satisfied
+        return installed, skipped
 
     def _already_installed(self, state: SkillDownloaderState, skill: RequestedRegistrySkill) -> bool:
         dir_ = skill_dir(skill.name)
@@ -399,11 +400,20 @@ class RegistrySkillSource(SkillSource):
                 tar_path = Path(tmp) / "skill.tar"
                 tar_path.write_bytes(data)
                 with tarfile.open(tar_path, mode="r:*") as tar:
-                    tar.extractall(path=staging, filter="data")
-            if _installed_size_bytes(staging) > REGISTRY_SKILL_MAX_BYTES:
-                raise RuntimeError(
-                    f"extracted skill {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes"
-                )
+                    # The download cap only limits compressed bytes. Member `.size` is the
+                    # uncompressed file length from the tar headers — sum it and refuse before
+                    # extractall so a small archive cannot expand past REGISTRY_SKILL_MAX_BYTES on disk.
+                    claimed = sum(m.size for m in tar.getmembers() if m.isreg())
+                    if claimed > REGISTRY_SKILL_MAX_BYTES:
+                        raise RuntimeError(
+                            f"extracted skill {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes"
+                        )
+                    # Registry skill tars are system-generated (not user-uploaded), so extractall is fine.
+                    # filter= is 3.12+; local TFY provider often runs host 3.10/3.11.
+                    if sys.version_info >= (3, 12):
+                        tar.extractall(path=staging, filter="data")
+                    else:
+                        tar.extractall(path=staging)
             if dir_.exists():
                 shutil.rmtree(dir_)
             os.replace(staging, dir_)
@@ -432,16 +442,17 @@ class GitSkillSource(SkillSource):
         ]
         return removed
 
-    def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
+    def download(self, skills: list[Any], state: SkillDownloaderState) -> tuple[int, int]:
         """Install requested git skills at resolved object ids; skip unchanged pins.
 
-        Failures are isolated per repo/skill (stderr warnings). Returns satisfied count;
+        Failures are isolated per repo/skill (stderr warnings). Returns (installed, skipped);
         caller exits non-zero if any requested skill is missing.
         """
         SKILLS_ROOT.mkdir(parents=True, exist_ok=True)
 
         pending: list[tuple[GitSkill, str]] = []
-        satisfied = 0
+        installed = 0
+        skipped = 0
         for skill in skills:
             try:
                 object_id = self._resolve_object_id(skill.url, skill.ref, SKILLS_ROOT)
@@ -449,7 +460,7 @@ class GitSkillSource(SkillSource):
                 print(f"WARNING: {e} (skill: {skill.name})", file=sys.stderr)
                 continue
             if self._already_installed(state, skill, object_id):
-                satisfied += 1
+                skipped += 1
             else:
                 pending.append((skill, object_id))
 
@@ -474,14 +485,14 @@ class GitSkillSource(SkillSource):
                         try:
                             self._install_skill(repo_root, skill)
                             self._mark_downloaded(state, skill, oid)
-                            satisfied += 1
+                            installed += 1
                         except GitSkillError as e:
                             print(f"WARNING: {e}", file=sys.stderr)
             except GitSkillError as e:
                 # Don't abort-on-first: report every failing group; keep prior installs on disk.
                 names = ", ".join(s.name for s, _ in group)
                 print(f"WARNING: {e} (skills: {names})", file=sys.stderr)
-        return satisfied
+        return installed, skipped
 
     def _run_git(
         self, args: list[str], cwd: Path, input_text: str | None = None
@@ -628,7 +639,7 @@ class GitSkillSource(SkillSource):
 
 
 # Add a third skill type:
-# 1. RequestedFooSkill + resolve() + union member (RequestedSkill) + match case in load_requested_skills
+# 1. RequestedFooSkill + resolve() + union member (RequestedSkill)
 # 2. FooSkillSource with reconcile / download
 # 3. Append FooSkillSource() to SKILL_SOURCES (order = install order)
 # 4. Wire type: 'foo' on the host (SkillMounter)
@@ -650,16 +661,8 @@ def load_requested_skills() -> dict[str, list[Any]]:
     except ValidationError as e:
         sys.exit(f"Invalid {REQUESTED_FILE_NAME}: {e}")
 
-    # Sandboxes run Python 3.13 (see Sandbox.ts pre-installed tools). `match`/`case` are intentional.
-    # Exhaustive on RequestedSkill; add a case when introducing a new wire type.
     for item in requested.skills:
-        match item:
-            case RequestedGitSkill():
-                buckets[item.type].append(item.resolve())
-            case RequestedRegistrySkill():
-                buckets[item.type].append(item.resolve())
-            case _:
-                assert_never(item)
+        buckets[item.type].append(item.resolve())
     return buckets
 
 
@@ -680,8 +683,10 @@ def run_skill_download() -> None:
         _delete_requested_file()
         return
 
-    satisfied_by_source = {
-        source.type: source.download(loaded[source.type], state) if loaded[source.type] else 0
+    counts_by_source = {
+        source.type: (
+            source.download(loaded[source.type], state) if loaded[source.type] else (0, 0)
+        )
         for source in SKILL_SOURCES
     }
     save_state(state)
@@ -695,21 +700,22 @@ def run_skill_download() -> None:
     suffix = f" {' '.join(suffix_parts)}." if suffix_parts else ""
 
     failed_parts = [
-        f"{len(loaded[skill_type]) - satisfied_by_source[skill_type]}/{len(loaded[skill_type])} {skill_type}"
+        f"{len(loaded[skill_type]) - sum(counts_by_source[skill_type])}/{len(loaded[skill_type])} {skill_type}"
         for skill_type in SKILL_SOURCE_ORDER
-        if loaded[skill_type] and satisfied_by_source[skill_type] < len(loaded[skill_type])
+        if loaded[skill_type] and sum(counts_by_source[skill_type]) < len(loaded[skill_type])
     ]
     if failed_parts:
         sys.exit(
             f"Failed to install {' and '.join(failed_parts)} skill(s); see warnings above.{suffix}"
         )
 
-    ensured = [
-        f"{satisfied_by_source[skill_type]} {skill_type}"
-        for skill_type in SKILL_SOURCE_ORDER
-        if loaded[skill_type]
-    ]
-    print(f"Ensured {' and '.join(ensured)} skill(s) (downloaded or already up to date).{suffix}")
+    ensured = []
+    for skill_type in SKILL_SOURCE_ORDER:
+        if not loaded[skill_type]:
+            continue
+        installed, skipped = counts_by_source[skill_type]
+        ensured.append(f"{installed} installed/{skipped} skipped {skill_type}")
+    print(f"Ensured {' and '.join(ensured)} skill(s).{suffix}")
 
 
 def main() -> None:

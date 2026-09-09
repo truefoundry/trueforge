@@ -728,7 +728,7 @@ export class Sandbox extends LocalToolMCP {
     // command + env + timeout; runs even when empty so existing skills are cleaned up.
     const skillInit = this.skillMounter?.getSandboxInit({
       skillsDir,
-      gitDownloaderPath: this.provider.getGitDownloaderPath(sandboxId),
+      skillDownloaderPath: this.provider.getSkillDownloaderPath(sandboxId),
     });
     if (skillInit) {
       for (const upload of skillInit.uploads) {

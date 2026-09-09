@@ -81,7 +81,7 @@ describeUnix('LocalSandboxProvider missing root', () => {
       expect(provider.getGitCredentialsPath()).toBe('.git-credentials');
       expect(provider.getFileUploadsDir()).toBe('uploads');
       expect(provider.getSkillsDir()).toBe('skills');
-      expect(provider.getGitDownloaderPath()).toBe('git_downloader.py');
+      expect(provider.getSkillDownloaderPath()).toBe('skill_downloader.py');
       const install = provider.createCodeModeTransport().getClientInstall({
         sandboxId: join(sandboxRootPathParent, 'x'),
       });

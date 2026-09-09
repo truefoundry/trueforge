@@ -22,7 +22,7 @@ function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider
     getGitCredentialsPath: () => '/prov/.git-credentials',
     getFileUploadsDir: () => '/prov/uploads',
     getSkillsDir: () => '/prov/skills',
-    getGitDownloaderPath: () => '/prov/git_downloader.py',
+    getSkillDownloaderPath: () => '/prov/skill_downloader.py',
     downloadFile: jest.fn(),
     uploadFile: jest.fn().mockResolvedValue(undefined),
     createCodeModeTransport: jest.fn(),
@@ -136,7 +136,7 @@ describe('Sandbox provider-owned paths', () => {
           params.env?.['TFY_SKILLS_DIR'] === '/prov/skills' &&
           params.timeoutSeconds === 180 &&
           typeof params.command === 'string' &&
-          params.command.includes('/prov/git_downloader.py')
+          params.command.includes('/prov/skill_downloader.py')
         );
       }),
     ).toBe(true);

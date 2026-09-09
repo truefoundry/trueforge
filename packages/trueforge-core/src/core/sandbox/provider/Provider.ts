@@ -108,7 +108,7 @@ export interface SandboxProvider {
   /** Directory where skill mounts are materialized. */
   getSkillsDir(sandboxId: string): string;
   /** Path the skill downloader script is written to before it runs. */
-  getGitDownloaderPath(sandboxId: string): string;
+  getSkillDownloaderPath(sandboxId: string): string;
   /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
   downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;
   /** Uploads a file to the sandbox. */

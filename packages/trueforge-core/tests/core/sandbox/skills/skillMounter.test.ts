@@ -31,7 +31,7 @@ const REGISTRY_SKILL = {
 
 const PATHS = {
   skillsDir: '/custom/skills',
-  gitDownloaderPath: '/custom/git_downloader.py',
+  skillDownloaderPath: '/custom/skill_downloader.py',
 };
 
 function renderSkills(mounter: ISkillMounter): string {
@@ -53,7 +53,7 @@ describe('SkillMounter', () => {
     const mounter = new SkillMounter({ skills: [GIT_SKILL] });
     const init = mounter.getSandboxInit(PATHS);
 
-    expect(init.command).toContain(PATHS.gitDownloaderPath);
+    expect(init.command).toContain(PATHS.skillDownloaderPath);
     expect(init.env?.['TFY_SKILLS_DIR']).toBe(PATHS.skillsDir);
     expect(init.timeoutSeconds).toBe(180);
     expect(init.uploads[0]?.remotePath).toBe(`${PATHS.skillsDir}/${REQUESTED_SKILLS_FILE_NAME}`);
