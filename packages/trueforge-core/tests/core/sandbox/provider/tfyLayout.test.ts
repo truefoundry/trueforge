@@ -17,7 +17,7 @@ describe('TFYSandboxProvider layout', () => {
       provider.getGitCredentialsPath(),
       provider.getFileUploadsDir(),
       provider.getSkillsDir(),
-      provider.getGitDownloaderPath(),
+      provider.getSkillDownloaderPath(),
     ];
     for (const path of layout) {
       expect(path.startsWith('/')).toBe(false);
