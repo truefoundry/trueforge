@@ -3142,7 +3142,7 @@
         "discriminator": {
           "mapping": {
             "daytona": "#/components/schemas/DaytonaSandboxProvider",
-            "tfy": "#/components/schemas/TFYSandboxProvider"
+            "truefoundry": "#/components/schemas/TrueFoundrySandboxProvider"
           },
           "propertyName": "type"
         },
@@ -3151,7 +3151,7 @@
             "$ref": "#/components/schemas/DaytonaSandboxProvider"
           },
           {
-            "$ref": "#/components/schemas/TFYSandboxProvider"
+            "$ref": "#/components/schemas/TrueFoundrySandboxProvider"
           }
         ]
       },
@@ -3891,40 +3891,6 @@
         ],
         "type": "string"
       },
-      "TFYSandboxProvider": {
-        "additionalProperties": false,
-        "properties": {
-          "exec_timeout_ms": {
-            "description": "Default sandbox command exec timeout in milliseconds.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
-          },
-          "nats_bridge_url": {
-            "description": "Cluster-internal NATS WebSocket bridge URL.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "server_url": {
-            "description": "TFY sandbox HTTP server URL.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "TrueFoundry sandbox provider.",
-            "enum": [
-              "tfy"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "server_url",
-          "nats_bridge_url",
-          "exec_timeout_ms"
-        ],
-        "type": "object"
-      },
       "TextContent": {
         "properties": {
           "text": {
@@ -4341,6 +4307,40 @@
           "models",
           "type",
           "base_url"
+        ],
+        "type": "object"
+      },
+      "TrueFoundrySandboxProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "exec_timeout_ms": {
+            "description": "Default sandbox command exec timeout in milliseconds.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "nats_bridge_url": {
+            "description": "Cluster-internal NATS WebSocket bridge URL.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "server_url": {
+            "description": "TFY sandbox HTTP server URL.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "TrueFoundry sandbox provider.",
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "server_url",
+          "nats_bridge_url",
+          "exec_timeout_ms"
         ],
         "type": "object"
       },

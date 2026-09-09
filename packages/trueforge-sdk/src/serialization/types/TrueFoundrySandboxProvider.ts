@@ -4,21 +4,21 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const TfySandboxProvider: core.serialization.ObjectSchema<
-    serializers.TfySandboxProvider.Raw,
-    TrueForge.TfySandboxProvider
+export const TrueFoundrySandboxProvider: core.serialization.ObjectSchema<
+    serializers.TrueFoundrySandboxProvider.Raw,
+    TrueForge.TrueFoundrySandboxProvider
 > = core.serialization.object({
     execTimeoutMs: core.serialization.property("exec_timeout_ms", core.serialization.number()),
     natsBridgeUrl: core.serialization.property("nats_bridge_url", core.serialization.string()),
     serverUrl: core.serialization.property("server_url", core.serialization.string()),
-    type: core.serialization.stringLiteral("tfy"),
+    type: core.serialization.stringLiteral("truefoundry"),
 });
 
-export declare namespace TfySandboxProvider {
+export declare namespace TrueFoundrySandboxProvider {
     export interface Raw {
         exec_timeout_ms: number;
         nats_bridge_url: string;
         server_url: string;
-        type: "tfy";
+        type: "truefoundry";
     }
 }

@@ -4,13 +4,13 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { DaytonaSandboxProvider } from "./DaytonaSandboxProvider.js";
-import { TfySandboxProvider } from "./TfySandboxProvider.js";
+import { TrueFoundrySandboxProvider } from "./TrueFoundrySandboxProvider.js";
 
 export const SandboxProviderManifest: core.serialization.Schema<
     serializers.SandboxProviderManifest.Raw,
     TrueForge.SandboxProviderManifest
-> = core.serialization.undiscriminatedUnion([DaytonaSandboxProvider, TfySandboxProvider]);
+> = core.serialization.undiscriminatedUnion([DaytonaSandboxProvider, TrueFoundrySandboxProvider]);
 
 export declare namespace SandboxProviderManifest {
-    export type Raw = DaytonaSandboxProvider.Raw | TfySandboxProvider.Raw;
+    export type Raw = DaytonaSandboxProvider.Raw | TrueFoundrySandboxProvider.Raw;
 }

@@ -2,4 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export type SandboxProviderManifest = TrueForge.DaytonaSandboxProvider | TrueForge.TfySandboxProvider;
+export type SandboxProviderManifest = TrueForge.DaytonaSandboxProvider | TrueForge.TrueFoundrySandboxProvider;
