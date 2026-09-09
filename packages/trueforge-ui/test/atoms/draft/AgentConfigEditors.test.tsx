@@ -743,8 +743,8 @@ describe('AgentConfigEditors', () => {
     const props = {
       editor: 'mcp' as const,
       spec: { model: { name: 'openai/gpt' } } satisfies AgentSpec,
-      models: [] as const,
-      skills: [] as const,
+      models: [],
+      skills: [],
       loading: false,
       error: null,
       loadMcpTools,
