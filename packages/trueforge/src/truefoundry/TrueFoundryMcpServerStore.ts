@@ -49,10 +49,10 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
-/** Absolute FE landing for the upstream authorize `redirectURL` from `PUBLIC_BASE_URL` + safe `return_to`. */
+/** Absolute FE landing for the upstream authorize `redirectURL`. `return_to` is a browser path. */
 export function resolveAuthorizeRedirectURL(input: { returnTo?: string }): string {
   try {
-    return new URL(safeReturnTo(input.returnTo), `${getPublicBaseUrl()}/`).href;
+    return new URL(safeReturnTo(input.returnTo), `${new URL(getPublicBaseUrl()).origin}/`).href;
   } catch (error) {
     throw new McpConnectionError('PUBLIC_BASE_URL is required for TrueFoundry MCP OAuth but was empty', 500, {
       cause: error,

@@ -17,12 +17,16 @@ const SfyRegistryManifestSchema = z.object({
 
 const SfyRegistrySkillSchema = z
   .object({
+    id: z.string().min(1),
+    fqn: z.string().min(1),
     latest_version: z.object({
       fqn: z.string().min(1),
       manifest: SfyRegistryManifestSchema,
     }),
   })
-  .transform(({ latest_version }) => ({
+  .transform(({ id, fqn, latest_version }) => ({
+    skill_id: id,
+    skill_fqn: fqn,
     // Wire identity is the version FQN; short SFY name is display-only.
     name: latest_version.fqn,
     display_name: latest_version.manifest.name,
@@ -32,6 +36,7 @@ const SfyRegistrySkillSchema = z
   }));
 
 const SfyRegistrySkillVersionSchema = z.object({
+  agent_skill_id: z.string().min(1),
   fqn: z.string().min(1),
   manifest: SfyRegistryManifestSchema,
 });
@@ -41,6 +46,11 @@ export type SfyRegistrySkill = z.infer<typeof SfyRegistrySkillSchema>;
 /** Parse SFY registry skill list rows into the catalog wire shape. */
 export function mapSfyRegistrySkills(rows: readonly unknown[]): SfyRegistrySkill[] {
   return rows.map(row => SfyRegistrySkillSchema.parse(row));
+}
+
+/** Parse one SFY agent-skill-version. */
+export function parseSfyRegistrySkillVersion(version: unknown): z.infer<typeof SfyRegistrySkillVersionSchema> {
+  return SfyRegistrySkillVersionSchema.parse(version);
 }
 
 /** Map SFY registry skill-version rows for the versions dropdown. */

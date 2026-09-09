@@ -12,7 +12,12 @@ import type {
 import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
-import { mapSfyRegistrySkills, mapSfyRegistrySkillVersions, type SfyRegistrySkill } from './mapSfyAgentSkills';
+import {
+  mapSfyRegistrySkills,
+  mapSfyRegistrySkillVersions,
+  parseSfyRegistrySkillVersion,
+  type SfyRegistrySkill,
+} from './mapSfyAgentSkills';
 import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 export type TrueFoundrySkillApiClient = Pick<
@@ -92,14 +97,23 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
 
   async listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
     const accessToken = await this.#resolveAccessToken();
-    const rows = await this.#client.listAgentSkillVersions({
+    // `?fqn=` returns one version; use its agent_skill_id to list every version.
+    const [version] = await this.#client.listAgentSkillVersions({
       accessToken,
       fqn: input.name,
+    });
+    if (version === undefined) {
+      return [];
+    }
+    const { agent_skill_id } = parseSfyRegistrySkillVersion(version);
+    const rows = await this.#client.listAgentSkillVersions({
+      accessToken,
+      agent_skill_id,
     });
     return mapSfyRegistrySkillVersions(rows);
   }
 
-  /** Check that each version FQN exists and is readable (SFY resolve; failures → 424). */
+  /** Check that each version FQN exists and is readable (SFY resolve). */
   async validateAccess(input: ValidateSkillsAccessInput, transaction?: TTransaction): Promise<string | undefined> {
     void input.tenant_id;
     void transaction;

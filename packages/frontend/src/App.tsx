@@ -23,7 +23,7 @@ import { API_BASE_URL, uiRouterBasename } from './publicPath';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
-// UI + API share `VITE_BASE_PATH` / `BASE_URL`; Caddy strips it before Harness.
+// UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();
 

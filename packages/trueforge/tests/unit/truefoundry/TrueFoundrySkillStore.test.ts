@@ -12,6 +12,7 @@ const AGENT_TOKEN = 'agent-vend-token';
 const LOGGER = createLogger({ silent: true });
 const SFY_SKILL = {
   id: 'skill-1',
+  fqn: 'agent-skill:acme/team-a/echo',
   name: 'echo',
   latest_version: {
     id: 'ver-1',
@@ -42,6 +43,7 @@ function createStore(
   versions: unknown[] = [
     {
       id: 'ver-3',
+      agent_skill_id: 'skill-1',
       fqn: 'agent-skill:acme/team-a/echo:3',
       manifest: {
         name: 'echo',
@@ -55,7 +57,9 @@ function createStore(
 ) {
   const client = {
     listAgentSkills: jest.fn().mockResolvedValue([SFY_SKILL]),
-    listAgentSkillVersions: jest.fn().mockResolvedValue(versions),
+    listAgentSkillVersions: jest
+      .fn()
+      .mockImplementation(({ fqn }: { fqn?: string }) => (fqn === undefined ? versions : [versions[0]])),
     resolveAgentSkillVersions: jest.fn().mockResolvedValue([
       {
         fqn: 'agent-skill:acme/team-a/echo:3',
@@ -165,9 +169,13 @@ describe('TrueFoundrySkillStore', () => {
   it('uses a vend token for skill versions when listing as a saved agent', async () => {
     const { store, client } = createStore(AGENT);
     await store.listSkillVersions({ name: 'agent-skill:acme/team-a/echo:3' });
-    expect(client.listAgentSkillVersions).toHaveBeenCalledWith({
+    expect(client.listAgentSkillVersions).toHaveBeenNthCalledWith(1, {
       accessToken: AGENT_TOKEN,
       fqn: 'agent-skill:acme/team-a/echo:3',
+    });
+    expect(client.listAgentSkillVersions).toHaveBeenNthCalledWith(2, {
+      accessToken: AGENT_TOKEN,
+      agent_skill_id: 'skill-1',
     });
   });
 
@@ -175,6 +183,7 @@ describe('TrueFoundrySkillStore', () => {
     const { store } = createStore(undefined, [
       {
         id: 'ver-1',
+        agent_skill_id: 'skill-1',
         fqn: 'agent-skill:acme/team-a/echo:1',
         manifest: {
           name: 'echo',
@@ -186,6 +195,7 @@ describe('TrueFoundrySkillStore', () => {
       },
       {
         id: 'ver-2',
+        agent_skill_id: 'skill-1',
         fqn: 'agent-skill:acme/team-a/echo:2',
         manifest: {
           name: 'echo',
@@ -197,6 +207,7 @@ describe('TrueFoundrySkillStore', () => {
       },
       {
         id: 'ver-3',
+        agent_skill_id: 'skill-1',
         fqn: 'agent-skill:acme/team-a/echo:3',
         manifest: {
           name: 'echo',
@@ -239,9 +250,13 @@ describe('TrueFoundrySkillStore', () => {
         version: 3,
       },
     ]);
-    expect(client.listAgentSkillVersions).toHaveBeenCalledWith({
+    expect(client.listAgentSkillVersions).toHaveBeenNthCalledWith(1, {
       accessToken: ACCESS_TOKEN,
       fqn: 'agent-skill:acme/team-a/echo:3',
+    });
+    expect(client.listAgentSkillVersions).toHaveBeenNthCalledWith(2, {
+      accessToken: ACCESS_TOKEN,
+      agent_skill_id: 'skill-1',
     });
     const input: CreateSkillInput = {
       tenant_id: TENANT,

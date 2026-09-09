@@ -300,20 +300,31 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#logger.error('TrueFoundry ServiceFoundry agent skill resolve returned an unexpected response', {
         ...extractErrorLogFields(parsed.error),
       });
-      throw new HTTPException(424, {
-        message: 'TrueFoundry ServiceFoundry agent skill resolve returned an unexpected response',
+      throw new HTTPException(500, {
+        message: 'Upstream skill resolve returned an unexpected response',
         cause: parsed.error,
       });
     }
     return parsed.data.skills;
   }
 
-  /** `GET /v1/agent-skill-versions?fqn=`. */
-  async listAgentSkillVersions(input: { accessToken: string; fqn: string }): Promise<unknown[]> {
+  /** `GET /v1/agent-skill-versions?fqn=` (one row) or `?agent_skill_id=` (all versions). */
+  async listAgentSkillVersions(input: {
+    accessToken: string;
+    fqn?: string;
+    agent_skill_id?: string;
+  }): Promise<unknown[]> {
+    const query: Record<string, string> = {};
+    if (input.fqn !== undefined) {
+      query['fqn'] = input.fqn;
+    }
+    if (input.agent_skill_id !== undefined) {
+      query['agent_skill_id'] = input.agent_skill_id;
+    }
     return this.#listAllPages({
       path: AGENT_SKILL_VERSIONS_PATH,
       accessToken: input.accessToken,
-      query: { fqn: input.fqn },
+      query,
       limit: AGENT_SKILLS_PAGE_SIZE,
     });
   }

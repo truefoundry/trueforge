@@ -5667,12 +5667,12 @@
         "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
         "parameters": [
           {
-            "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+            "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+              "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
               "type": "string"
             }
           }

@@ -1,3 +1,5 @@
+import { getPublicUiBasePath } from '../config';
+
 /**
  * Same-origin relative path only.
  * - starts with `/`
@@ -10,10 +12,10 @@ function isSafeReturnTo(value: string): boolean {
   return SAFE_RETURN_TO.test(value);
 }
 
-/** Same-origin path, or `/` when missing or unsafe. */
+/** Same-origin path, or the public UI home when missing or unsafe. */
 export function safeReturnTo(value: string | undefined): string {
   if (value && isSafeReturnTo(value)) {
     return value;
   }
-  return '/';
+  return getPublicUiBasePath();
 }

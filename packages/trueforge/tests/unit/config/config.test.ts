@@ -1,4 +1,4 @@
-import type { ServerConfiguration } from '../../../src/config';
+import { getPublicUiBasePath, type ServerConfiguration } from '../../../src/config';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
 
 /** Minimal distributed config slice for resolve tests (unused fields are irrelevant). */
@@ -104,5 +104,28 @@ describe('resolveTrueFoundrySandboxProviderConfig', () => {
         }),
       ),
     ).toThrow(/TRUEFOUNDRY_SANDBOX_SETTINGS must be valid JSON/);
+  });
+});
+
+describe('getPublicUiBasePath', () => {
+  it('ignores a path-bearing PUBLIC_BASE_URL in standalone non-development', () => {
+    expect(
+      getPublicUiBasePath({
+        STANDALONE: true,
+        NODE_ENV: 'production',
+        PORT: 8790,
+        PUBLIC_BASE_URL: 'https://host.example/custom/proxy/path',
+      } as ServerConfiguration),
+    ).toBe('/');
+  });
+
+  it('honors PUBLIC_BASE_URL pathname in standalone development', () => {
+    expect(
+      getPublicUiBasePath({
+        STANDALONE: true,
+        NODE_ENV: 'development',
+        PUBLIC_BASE_URL: 'https://host.example/custom/proxy/path',
+      } as ServerConfiguration),
+    ).toBe('/custom/proxy/path/');
   });
 });

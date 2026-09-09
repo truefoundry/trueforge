@@ -1,4 +1,8 @@
-import { mapSfyRegistrySkills, mapSfyRegistrySkillVersions } from '../../../src/truefoundry/mapSfyAgentSkills';
+import {
+  mapSfyRegistrySkills,
+  mapSfyRegistrySkillVersions,
+  parseSfyRegistrySkillVersion,
+} from '../../../src/truefoundry/mapSfyAgentSkills';
 
 const MANIFEST = {
   name: 'echo',
@@ -8,12 +12,19 @@ const MANIFEST = {
   source: { type: 'blob-storage', description: 'Echo skill' },
 };
 
+const VERSION = {
+  agent_skill_id: 'skill-1',
+  fqn: 'agent-skill:acme/team-a/echo:3',
+  manifest: MANIFEST,
+};
+
 describe('mapSfyRegistrySkills', () => {
-  it('maps list rows with name=FQN and display_name=short SFY name', () => {
+  it('maps list rows with skill id/fqn and latest version FQN as name', () => {
     expect(
       mapSfyRegistrySkills([
         {
           id: 'skill-1',
+          fqn: 'agent-skill:acme/team-a/echo',
           name: 'echo',
           latest_version: {
             id: 'ver-1',
@@ -24,6 +35,8 @@ describe('mapSfyRegistrySkills', () => {
       ]),
     ).toEqual([
       {
+        skill_id: 'skill-1',
+        skill_fqn: 'agent-skill:acme/team-a/echo',
         name: 'agent-skill:acme/team-a/echo:3',
         display_name: 'echo',
         description: 'Echo skill',
@@ -34,15 +47,7 @@ describe('mapSfyRegistrySkills', () => {
   });
 
   it('maps version rows with name=FQN and display_name=short SFY name', () => {
-    expect(
-      mapSfyRegistrySkillVersions([
-        {
-          id: 'ver-1',
-          fqn: 'agent-skill:acme/team-a/echo:3',
-          manifest: MANIFEST,
-        },
-      ]),
-    ).toEqual([
+    expect(mapSfyRegistrySkillVersions([VERSION])).toEqual([
       {
         name: 'agent-skill:acme/team-a/echo:3',
         display_name: 'echo',
@@ -56,6 +61,8 @@ describe('mapSfyRegistrySkills', () => {
     expect(
       mapSfyRegistrySkills([
         {
+          id: 'skill-2',
+          fqn: 'agent-skill:acme/team-a/My Skill',
           latest_version: {
             fqn: 'agent-skill:acme/team-a/My Skill:1',
             manifest: {
@@ -69,6 +76,8 @@ describe('mapSfyRegistrySkills', () => {
       ]),
     ).toEqual([
       {
+        skill_id: 'skill-2',
+        skill_fqn: 'agent-skill:acme/team-a/My Skill',
         name: 'agent-skill:acme/team-a/My Skill:1',
         display_name: 'My Skill',
         description: 'Mixed-case display name',
@@ -76,5 +85,11 @@ describe('mapSfyRegistrySkills', () => {
         version: 1,
       },
     ]);
+  });
+});
+
+describe('parseSfyRegistrySkillVersion', () => {
+  it('reads agent_skill_id from one SFY version', () => {
+    expect(parseSfyRegistrySkillVersion(VERSION).agent_skill_id).toBe('skill-1');
   });
 });
