@@ -510,6 +510,33 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-current', 'true');
   });
 
+  it('shows the API error message when loading MCP tools fails', async () => {
+    const error = Object.assign(new Error('BadGatewayError Status code: 502 Body: <html>…</html>'), {
+      statusCode: 502,
+      body: { error: { message: 'Failed to connect to remote MCP server' } },
+    });
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[{ id: 'broken', name: 'Broken MCP', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={async () => Promise.reject(error)}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText('Failed to connect to remote MCP server')).toBeInTheDocument();
+    expect(screen.queryByText(/BadGatewayError/)).not.toBeInTheDocument();
+  });
+
   it('keeps an off-page selected MCP active via catalog stubs', async () => {
     const loadMcpTools = vi.fn(async (connectorId: string) => [
       { id: `${connectorId}.tool`, name: `${connectorId}.tool` },

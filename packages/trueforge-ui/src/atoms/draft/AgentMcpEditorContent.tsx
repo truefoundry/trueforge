@@ -14,13 +14,7 @@ import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Spinner } from '../primitives/Spinner.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import {
-  editableMountsFromSpec,
-  enabledToolsFromMount,
-  preloadFromMount,
-  withEnabledTools,
-  withPreload,
-} from './agentConfigMounts.js';
+import { editableMountsFromSpec, enabledToolsFromMount, withEnabledTools } from './agentConfigMounts.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
 
@@ -241,7 +235,7 @@ export function AgentMcpEditorContent({
                   Retry loading connectors
                 </button>
               ) : connectorsLoadingMore ? (
-                <span className="text-text-secondary text-[0.625rem]">Loading…</span>
+                <Spinner size={16} className="text-text-secondary" aria-label="Loading more MCP servers" />
               ) : null}
             </div>
           ) : null}
@@ -352,17 +346,6 @@ export function AgentMcpEditorContent({
                     })
                   : null}
               </div>
-              <label className="text-text-secondary flex shrink-0 cursor-pointer items-center justify-end gap-2 border-t border-border p-3 text-xs has-[:disabled]:cursor-not-allowed">
-                Preload tools
-                <Switch
-                  checked={activeMount !== undefined && preloadFromMount(activeMount.value)}
-                  disabled={activeMount === undefined}
-                  onCheckedChange={preload => {
-                    if (activeMount) updateMount(activeMount.id, withPreload(activeMount.value, preload));
-                  }}
-                  aria-label="Preload tools"
-                />
-              </label>
             </>
           )
         ) : (
