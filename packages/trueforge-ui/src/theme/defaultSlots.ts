@@ -32,6 +32,7 @@ import type {
 } from '../atoms/agent-details/types.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
+import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -200,6 +201,7 @@ export const defaultSlots = {
   AgentsLibrary,
   AgentLibraryRow,
   AgentsLibraryButton,
+  ApprovalNavBanner,
   SessionsBrowserButton,
   AgentDetailsPage,
   AgentDetailsHeader,
