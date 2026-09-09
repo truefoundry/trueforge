@@ -34,7 +34,7 @@ const SchedulesPage = lazy(() =>
 );
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
-const railWidthClassName = 'w-18';
+const railWidthClassName = 'w-20';
 
 const railActionButtonClassName = cn(sidebarRailButtonClassName, 'text-sidebar-text');
 
