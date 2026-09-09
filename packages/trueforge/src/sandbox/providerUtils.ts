@@ -80,7 +80,7 @@ export function toSandboxProviderFromRecord({
         logger,
         build_metadata: record.build_metadata,
       });
-    case 'tfy':
+    case 'truefoundry':
       return new TFYSandboxProvider({
         serverUrl: record.manifest.server_url,
         natsBridgeUrl: record.manifest.nats_bridge_url,
@@ -132,7 +132,7 @@ export async function checkSnapshotStatus({
   const persisted = sandboxStatusFromRecord(record);
 
   switch (record.manifest.type) {
-    case 'tfy':
+    case 'truefoundry':
       // Prebuilt image — no snapshot registration or refresh.
       return persisted;
     case 'daytona': {

@@ -6,11 +6,11 @@ import { toSandboxProviderFromRecord } from '../../../src/sandbox/providerUtils'
 const logger = createLogger({ silent: true });
 
 describe('toSandboxProviderFromRecord', () => {
-  it('builds TFYSandboxProvider from a tfy record', () => {
+  it('builds TFYSandboxProvider from a truefoundry record', () => {
     const record: SandboxProviderRecord = {
       tenant_id: 'acme',
       manifest: {
-        type: 'tfy',
+        type: 'truefoundry',
         server_url: 'http://sandbox-server',
         nats_bridge_url: 'ws://nats-bridge',
         exec_timeout_ms: 60_000,
@@ -24,6 +24,6 @@ describe('toSandboxProviderFromRecord', () => {
 
     const provider = toSandboxProviderFromRecord({ record, tenant_id: 'acme', logger });
     expect(provider).toBeInstanceOf(TFYSandboxProvider);
-    expect(provider.type).toBe('tfy');
+    expect(provider.type).toBe('truefoundry');
   });
 });

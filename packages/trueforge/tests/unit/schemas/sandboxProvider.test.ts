@@ -29,13 +29,13 @@ describe('SandboxProviderManifestSchema', () => {
   it('parses a TFY manifest', () => {
     expect(
       SandboxProviderManifestSchema.parse({
-        type: 'tfy',
+        type: 'truefoundry',
         server_url: 'http://sandbox-server',
         nats_bridge_url: 'ws://nats-bridge',
         exec_timeout_ms: 60_000,
       }),
     ).toEqual({
-      type: 'tfy',
+      type: 'truefoundry',
       server_url: 'http://sandbox-server',
       nats_bridge_url: 'ws://nats-bridge',
       exec_timeout_ms: 60_000,

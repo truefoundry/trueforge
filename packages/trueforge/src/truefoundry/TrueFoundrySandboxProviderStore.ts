@@ -117,13 +117,13 @@ function synthesizeTfyRecord({
   providerConfig,
 }: {
   tenantId: string;
-  providerConfig: Extract<TrueFoundrySandboxProviderConfig, { type: 'tfy' }>;
+  providerConfig: Extract<TrueFoundrySandboxProviderConfig, { type: 'truefoundry' }>;
 }): SandboxProviderRecord {
   const now = new Date().toISOString();
   return {
     tenant_id: tenantId,
     manifest: {
-      type: 'tfy',
+      type: 'truefoundry',
       server_url: providerConfig.serverUrl,
       nats_bridge_url: providerConfig.natsBridgeUrl,
       exec_timeout_ms: SANDBOX_DEFAULT_SETTINGS.timeoutMs,
@@ -156,7 +156,7 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
           providerConfig,
           accessToken: await this.#resolveAccessToken(),
         });
-      case 'tfy':
+      case 'truefoundry':
         return synthesizeTfyRecord({ tenantId, providerConfig });
     }
   }

@@ -58,7 +58,7 @@ describe('resolveTrueFoundrySandboxProviderConfig', () => {
         }),
       ),
     ).toEqual({
-      type: 'tfy',
+      type: 'truefoundry',
       serverUrl: 'http://sandbox-server',
       natsBridgeUrl: 'ws://nats-bridge',
     });

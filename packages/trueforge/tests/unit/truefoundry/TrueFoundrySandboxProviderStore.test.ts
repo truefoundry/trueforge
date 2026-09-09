@@ -101,7 +101,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
 
   it('get returns ready TFY record without settings fetch', async () => {
     mockResolveConfig.mockReturnValue({
-      type: 'tfy',
+      type: 'truefoundry',
       serverUrl: 'http://sandbox-server',
       natsBridgeUrl: 'ws://nats-bridge',
     });
@@ -117,7 +117,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
       status_reason: null,
       build_metadata: null,
       manifest: {
-        type: 'tfy',
+        type: 'truefoundry',
         server_url: 'http://sandbox-server',
         nats_bridge_url: 'ws://nats-bridge',
         exec_timeout_ms: 60_000,

@@ -6,7 +6,7 @@ import configuration, { type ServerConfiguration } from '../config';
  */
 export type TrueFoundrySandboxProviderConfig =
   | { type: 'daytona'; apiKey: string; settingsServerUrl: string }
-  | { type: 'tfy'; serverUrl: string; natsBridgeUrl: string };
+  | { type: 'truefoundry'; serverUrl: string; natsBridgeUrl: string };
 
 /**
  * Returns the configured shared sandbox provider when env is complete, or undefined.
@@ -35,7 +35,7 @@ export function resolveTrueFoundrySandboxProviderConfig(
   }
   if (config.TFY_SANDBOX_SERVER_URL !== undefined && config.TFY_SANDBOX_NATS_BRIDGE_URL !== undefined) {
     return {
-      type: 'tfy',
+      type: 'truefoundry',
       serverUrl: config.TFY_SANDBOX_SERVER_URL,
       natsBridgeUrl: config.TFY_SANDBOX_NATS_BRIDGE_URL,
     };

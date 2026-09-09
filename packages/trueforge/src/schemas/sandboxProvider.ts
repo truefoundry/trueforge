@@ -48,25 +48,25 @@ export const DaytonaSandboxProviderSchema = z
   .openapi('DaytonaSandboxProvider');
 
 /**
- * TFY (on-prem) sandbox provider config. No auth secrets — server URLs come from deployment env
- * in TrueFoundry mode; persisted only when synthesized into a store record.
+ * TrueFoundry (on-prem TFY sandbox server) provider config. No auth secrets — server URLs come
+ * from deployment env in TrueFoundry mode; persisted only when synthesized into a store record.
  */
-export const TFYSandboxProviderSchema = z
+export const TrueFoundrySandboxProviderSchema = z
   .object({
-    type: z.literal('tfy').describe('TrueFoundry sandbox provider.'),
+    type: z.literal('truefoundry').describe('TrueFoundry sandbox provider.'),
     server_url: z.string().min(1).describe('TFY sandbox HTTP server URL.'),
     nats_bridge_url: z.string().min(1).describe('Cluster-internal NATS WebSocket bridge URL.'),
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
   })
   .strict()
-  .openapi('TFYSandboxProvider');
+  .openapi('TrueFoundrySandboxProvider');
 
 /**
  * Persisted jsonb: the provider config only (no build status).
  * Discriminated on `type` so OpenAPI emits a `oneOf` under `SandboxProviderManifest`.
  */
 export const SandboxProviderManifestSchema = z
-  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, TFYSandboxProviderSchema])
+  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, TrueFoundrySandboxProviderSchema])
   .openapi('SandboxProviderManifest');
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
@@ -117,7 +117,7 @@ export const GetSandboxProviderResponseSchema = z
 /** Persisted jsonb — the provider config only (no build status). */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
-export type TFYSandboxProvider = z.infer<typeof TFYSandboxProviderSchema>;
+export type TrueFoundrySandboxProvider = z.infer<typeof TrueFoundrySandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;

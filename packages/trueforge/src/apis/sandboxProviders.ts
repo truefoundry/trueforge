@@ -37,7 +37,7 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
         ...manifest,
         auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
       };
-    case 'tfy':
+    case 'truefoundry':
       return manifest;
   }
 }
@@ -77,7 +77,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     switch (incoming.type) {
       case 'daytona':
         break;
-      case 'tfy':
+      case 'truefoundry':
       default:
         return c.json({ error: { message: 'Only Daytona sandbox providers can be configured via settings' } }, 400);
     }
