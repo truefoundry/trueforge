@@ -13,8 +13,8 @@ import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
   toDaytonaSandboxProviderInput,
-  type DaytonaSandboxProvider as DaytonaSandboxProviderManifest,
   type SandboxBuildMetadata,
+  type SandboxProviderManifest,
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
 
@@ -41,7 +41,7 @@ export function toDaytonaSandboxProvider({
   logger,
   build_metadata,
 }: {
-  manifest: DaytonaSandboxProviderManifest;
+  manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
@@ -132,7 +132,7 @@ export async function checkSnapshotStatus({
   const persisted = sandboxStatusFromRecord(record);
 
   // Prebuilt image — no snapshot registration or refresh.
-  if (record.manifest.type !== 'daytona') {
+  if (record.manifest.type === 'truefoundry') {
     return persisted;
   }
 

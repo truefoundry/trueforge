@@ -29,7 +29,7 @@ export type TrueFoundrySandboxSettings = z.infer<typeof TrueFoundrySandboxSettin
 
 /**
  * Shared sandbox provider selected by env in TrueFoundry mode.
- * Settings come from static `TRUEFOUNDRY_SANDBOX_SETTINGS` JSON (no settings-server fetch).
+ * Settings come from static `TRUEFOUNDRY_SANDBOX_SETTINGS` JSON.
  */
 export type TrueFoundrySandboxProviderConfig =
   | { type: 'daytona'; apiKey: string; settings: DaytonaSandboxSettings }
