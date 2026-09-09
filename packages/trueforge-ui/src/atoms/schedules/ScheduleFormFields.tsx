@@ -3,6 +3,7 @@
 import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { Button } from '../primitives/Button.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import {
   WEEKDAY_OPTIONS,
@@ -34,7 +35,9 @@ export type ScheduleFormFieldsProps = {
   agentId: string;
   onAgentIdChange?: (agentId: string) => void;
   agentOptions: Array<{ agentId: string; name: string }>;
+  agentOptionsLoaded?: boolean;
   agentPickerDisabled?: boolean;
+  onBuildAgent?: () => void;
 };
 
 export function ScheduleFormFields({
@@ -43,7 +46,9 @@ export function ScheduleFormFields({
   agentId,
   onAgentIdChange,
   agentOptions,
+  agentOptionsLoaded = true,
   agentPickerDisabled = false,
+  onBuildAgent,
 }: ScheduleFormFieldsProps) {
   const cron = valuesToCron(values);
   const cadence = formatCadenceSummary({ cron, timezone: values.timezone });
@@ -70,6 +75,21 @@ export function ScheduleFormFields({
           options={agentOptions.map(agent => ({ value: agent.agentId, label: agent.name }))}
           onValueChange={value => onAgentIdChange?.(value)}
           disabled={agentPickerDisabled || onAgentIdChange == null}
+          emptyContent={
+            agentOptionsLoaded ? (
+              <p className="text-text-secondary px-3 py-5 text-center text-sm">No Agents created yet</p>
+            ) : null
+          }
+          footer={
+            agentOptionsLoaded && agentOptions.length === 0 && onBuildAgent != null ? (
+              <div className="flex justify-end border-t border-border px-2 pt-2">
+                <Button.Ghost type="button" onClick={onBuildAgent}>
+                  <Icon name="plus" className="size-3.5" />
+                  Build Agent
+                </Button.Ghost>
+              </div>
+            ) : null
+          }
         />
       </div>
 
@@ -97,7 +117,7 @@ export function ScheduleFormFields({
       </label>
 
       <fieldset>
-        <legend className="mb-1.5 text-sm font-medium">Recurrence</legend>
+        <legend className="mb-1.5 text-sm font-medium">Frequency</legend>
         <div className="rounded-t-lg border border-border p-4">
           <div className="flex flex-col gap-4">
             <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-primary-bg p-1">
@@ -130,6 +150,33 @@ export function ScheduleFormFields({
                   Select Hourly, Daily, or Weekly to replace this schedule.
                 </span>
               </div>
+            ) : null}
+
+            {values.recurrence === 'weekly' ? (
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium">Days</legend>
+                <div className="flex gap-2">
+                  {WEEKDAY_OPTIONS.map(day => {
+                    const selected = values.weekdays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        className={cn(
+                          'min-w-0 flex-1 rounded-md border px-3 py-2 text-[0.8125rem] font-medium',
+                          selected
+                            ? 'border-primary-button-bg/40 bg-primary-button-bg/10 font-semibold text-primary-button-bg'
+                            : 'border-border text-text-secondary hover:bg-ghost-button-hover',
+                        )}
+                        aria-pressed={selected}
+                        onClick={() => toggleWeekday(day.value)}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
             ) : null}
 
             <div className="flex gap-4">
@@ -166,33 +213,6 @@ export function ScheduleFormFields({
                 />
               </div>
             </div>
-
-            {values.recurrence === 'weekly' ? (
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium">Days</legend>
-                <div className="flex gap-2">
-                  {WEEKDAY_OPTIONS.map(day => {
-                    const selected = values.weekdays.includes(day.value);
-                    return (
-                      <button
-                        key={day.value}
-                        type="button"
-                        className={cn(
-                          'min-w-0 flex-1 rounded-md border px-3 py-2 text-[0.8125rem] font-medium',
-                          selected
-                            ? 'border-primary-button-bg/40 bg-primary-button-bg/10 font-semibold text-primary-button-bg'
-                            : 'border-border text-text-secondary hover:bg-ghost-button-hover',
-                        )}
-                        aria-pressed={selected}
-                        onClick={() => toggleWeekday(day.value)}
-                      >
-                        {day.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
-            ) : null}
           </div>
         </div>
         <div className="rounded-b-lg border border-t-0 border-border bg-primary-button-bg/10 px-4 py-3">

@@ -3,6 +3,7 @@ import { MCP_SERVERS_PAGE_LIMIT, MCP_SERVERS_PAGE_LIMIT_MAX } from '../schemas/c
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateMcpServerRequestSchema,
+  GetAvailableMcpServerResponseSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
@@ -25,6 +26,10 @@ export const ListMcpServersQuerySchema = z
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListMCPServersQuery');
+
+const McpServerNameParamsSchema = z.object({
+  name: z.string().min(1).describe('MCP server name.'),
+});
 
 /** Chat/composer MCP list (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
@@ -51,6 +56,34 @@ export const listAvailableMcpServersRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+  },
+});
+
+/** Chat/composer single-server read (not under settings). */
+export const getAvailableMcpServerRoute = createRoute({
+  method: 'get',
+  path: '/{name}',
+  tags: [OpenApiTag.MCP_SERVERS],
+  summary: 'Get an MCP server for chat',
+  description: 'A single MCP server as the slim chat projection, with live per-user auth_status.',
+  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-method-name': 'get',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetAvailableMcpServerResponseSchema } },
+      description: 'The MCP server (chat projection).',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
     },
   },
 });
@@ -85,10 +118,6 @@ export const listMcpServersRoute = createRoute({
       description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
-});
-
-const McpServerNameParamsSchema = z.object({
-  name: z.string().min(1).describe('MCP server name.'),
 });
 
 export const getMcpServerRoute = createRoute({

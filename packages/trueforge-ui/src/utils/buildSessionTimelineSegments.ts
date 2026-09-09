@@ -21,6 +21,12 @@ import {
 } from './sessionTimelineEvents.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
 
+type SubAgentToolCallRequest = {
+  startedAtMs: number;
+  threadId: string;
+  modelEventId: string;
+};
+
 /**
  * Convert server turns and events into the transport-independent intervals
  * consumed by the Sessions timeline.
@@ -46,7 +52,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   const approvalRequiredIdsByTurnId = new Map<string, Set<string>>();
   const threadDoneEvents = new Map<string, TimelineEvent>();
   const subAgentToolCallIds = new Set<string>();
-  const toolCallRequestsByTurnId = new Map<string, Map<string, { startedAtMs: number; threadId: string }>>();
+  const toolCallRequestsByTurnId = new Map<string, Map<string, SubAgentToolCallRequest>>();
   let latestMs = originMs;
 
   for (const turn of turns) {
@@ -79,7 +85,11 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         const requests = toolCallRequestsByTurnId.get(turn.turnId) ?? new Map();
         for (const toolCall of toolCallsOf(event)) {
           if (typeof toolCall.id === 'string') {
-            requests.set(toolCall.id, { startedAtMs, threadId: eventThreadId(event) });
+            requests.set(toolCall.id, {
+              startedAtMs,
+              threadId: eventThreadId(event),
+              modelEventId: eventId(event),
+            });
           }
         }
         toolCallRequestsByTurnId.set(turn.turnId, requests);
@@ -88,6 +98,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   }
 
   const segments: SessionEventTimelineSegment[] = [];
+  const emittedWaitingRequestIds = new Set<string>();
 
   for (const turn of turns) {
     const createdMs = parseTimestamp(turn.created.createdAt);
@@ -134,6 +145,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         subAgentToolCallIds,
         toolCallRequestsByTurnId,
         threadDoneEvents,
+        emittedWaitingRequestIds,
         segments,
       });
       lastTimestampByThreadId.set(threadId, eventMs);
@@ -171,6 +183,7 @@ function appendEventSegments({
   subAgentToolCallIds,
   toolCallRequestsByTurnId,
   threadDoneEvents,
+  emittedWaitingRequestIds,
   segments,
 }: {
   event: TimelineEvent;
@@ -184,8 +197,9 @@ function appendEventSegments({
   toolResponsesByTurnId: Map<string, Map<string, TimelineEvent>>;
   approvalRequiredIdsByTurnId: Map<string, Set<string>>;
   subAgentToolCallIds: Set<string>;
-  toolCallRequestsByTurnId: Map<string, Map<string, { startedAtMs: number; threadId: string }>>;
+  toolCallRequestsByTurnId: Map<string, Map<string, SubAgentToolCallRequest>>;
   threadDoneEvents: Map<string, TimelineEvent>;
+  emittedWaitingRequestIds: Set<string>;
   segments: SessionEventTimelineSegment[];
 }): void {
   switch (event.type) {
@@ -240,17 +254,23 @@ function appendEventSegments({
       // assigned to the same thread id and rendered on the track's lane.
       const parentCallId = parentToolCallId(event);
       const request = parentCallId == null ? undefined : toolCallRequestsByTurnId.get(turn.turnId)?.get(parentCallId);
-      if (request != null && request.startedAtMs < eventMs) {
-        segments.push({
-          id: `${eventId(event)}-waiting`,
-          type: 'system',
-          title: 'system.waiting_for_sub_agent',
-          description: 'System waiting for sub-agent to start executing',
-          startMs: request.startedAtMs - originMs,
-          endMs: eventMs - originMs,
-          turnIndex,
-          threadId: request.threadId,
-        });
+      if (request != null) {
+        const waitingRequestId = `${turn.turnId}:${request.modelEventId}`;
+        if (!emittedWaitingRequestIds.has(waitingRequestId)) {
+          emittedWaitingRequestIds.add(waitingRequestId);
+          if (request.startedAtMs < eventMs) {
+            segments.push({
+              id: `${eventId(event)}-waiting`,
+              type: 'system',
+              title: 'system.waiting_for_sub_agent',
+              description: 'System waiting for sub-agent to start executing',
+              startMs: request.startedAtMs - originMs,
+              endMs: eventMs - originMs,
+              turnIndex,
+              threadId: request.threadId,
+            });
+          }
+        }
       }
       const doneEvent = threadDoneEvents.get(threadId);
       const doneMs = doneEvent == null ? null : parseTimestamp(eventCreatedAt(doneEvent));

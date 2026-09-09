@@ -13,6 +13,7 @@ import {
   useOptionalServer,
   useServer,
   useServerCapabilities,
+  useServerCapabilitiesSettled,
 } from '@/server/ServerContext.js';
 import type { AgentUIServer, CatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer } from './mockServer.js';
@@ -140,6 +141,25 @@ describe('ServerProvider', () => {
     await waitFor(() => expect(getCapabilities).toHaveBeenCalledTimes(2));
 
     expect(result.current.capabilities).toEqual(initialCapabilities);
+  });
+
+  it('settles when the initial capabilities request fails', async () => {
+    const server = createMockAgentUIServer({
+      getCapabilities: async () => {
+        throw new Error('Unavailable');
+      },
+    });
+    const { result } = renderHook(
+      () => ({
+        capabilities: useServerCapabilities(),
+        settled: useServerCapabilitiesSettled(),
+      }),
+      { wrapper: wrap(server) },
+    );
+
+    expect(result.current.settled).toBe(false);
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(result.current.capabilities).toBeNull();
   });
 });
 

@@ -141,6 +141,19 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
 }
 
+function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | 'truefoundry' | undefined {
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
+  }
+  const value = raw.trim();
+  if (value === 'daytona' || value === 'truefoundry') {
+    return value;
+  }
+  throw new Error(
+    `Environment variable TRUEFOUNDRY_SANDBOX_PROVIDER must be "daytona" or "truefoundry", got ${JSON.stringify(raw)}`,
+  );
+}
+
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
 function parsePostgresSslMode(raw: string | undefined): string {
   if (!raw) {
@@ -580,21 +593,31 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   TRUEFOUNDRY_MTLS_CERTS_DIR: string;
   /**
-   * When TrueFoundry mode is on, enable the shared Daytona sandbox for all tenants
-   * (settings-server snapshot; no per-tenant PUT). Env: `TRUEFOUNDRY_SANDBOX_ENABLED`. Default false.
+   * When TrueFoundry mode is on, enable the shared sandbox for all tenants
+   * (no per-tenant PUT). Env: `TRUEFOUNDRY_SANDBOX_ENABLED`. Default false.
    */
   TRUEFOUNDRY_SANDBOX_ENABLED: boolean;
   /**
-   * Shared Daytona API key used when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
+   * Shared sandbox backend when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
+   * Env: `TRUEFOUNDRY_SANDBOX_PROVIDER` (`daytona` | `truefoundry`).
+   */
+  TRUEFOUNDRY_SANDBOX_PROVIDER: 'daytona' | 'truefoundry' | undefined;
+  /**
+   * Shared API key (required for Daytona; optional for truefoundry).
    * Env: `TRUEFOUNDRY_SANDBOX_API_KEY`.
    */
   TRUEFOUNDRY_SANDBOX_API_KEY: string | undefined;
   /**
-   * Trusted internal URL that returns Daytona snapshot name and lifecycle settings
-   * (`snapshotName`, intervals, `timeoutMs`). Used when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
-   * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL`.
+   * TrueFoundry (on-prem) sandbox HTTP server URL when provider is `truefoundry`.
+   * Env: `TRUEFOUNDRY_SANDBOX_SERVER_URL`.
    */
-  TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: string | undefined;
+  TRUEFOUNDRY_SANDBOX_SERVER_URL: string | undefined;
+  /**
+   * Static JSON settings for the shared sandbox (provider-specific).
+   * Daytona: `snapshotName`, intervals, `timeoutMs`. TrueFoundry: `nats_bridge_url`.
+   * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS`.
+   */
+  TRUEFOUNDRY_SANDBOX_SETTINGS: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -761,8 +784,12 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('TRUEFOUNDRY_SANDBOX_ENABLED'),
         defaultValue: false,
       }),
+      TRUEFOUNDRY_SANDBOX_PROVIDER: parseTrueFoundrySandboxProvider(
+        getEnv('TRUEFOUNDRY_SANDBOX_PROVIDER', { required: false }),
+      ),
       TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
-      TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_SANDBOX_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
     };
 
 export function isOidcConfigured(
@@ -813,15 +840,40 @@ if (isTrueFoundryModeEnabled(configuration)) {
   if (configuration.TRUEFOUNDRY_API_KEY === undefined) {
     throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
   }
-  // Shared sandbox: TRUEFOUNDRY_SANDBOX_ENABLED requires a provider (Daytona today).
+
+  // Shared sandbox
   if (configuration.TRUEFOUNDRY_SANDBOX_ENABLED) {
+    if (configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_SANDBOX_ENABLED is true but TRUEFOUNDRY_SANDBOX_PROVIDER is not set. ' +
+          'Set TRUEFOUNDRY_SANDBOX_PROVIDER to "daytona" or "truefoundry", or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+      );
+    }
+    if (configuration.TRUEFOUNDRY_SANDBOX_SETTINGS === undefined) {
+      throw new Error(
+        'TRUEFOUNDRY_SANDBOX_ENABLED is true but TRUEFOUNDRY_SANDBOX_SETTINGS is not set. ' +
+          'Provide a JSON settings object, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+      );
+    }
+    try {
+      JSON.parse(configuration.TRUEFOUNDRY_SANDBOX_SETTINGS);
+    } catch (error) {
+      throw new Error('TRUEFOUNDRY_SANDBOX_SETTINGS must be valid JSON', { cause: error });
+    }
     if (
-      configuration.TRUEFOUNDRY_SANDBOX_API_KEY === undefined ||
-      configuration.TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL === undefined
+      configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona' &&
+      configuration.TRUEFOUNDRY_SANDBOX_API_KEY === undefined
     ) {
       throw new Error(
-        'TRUEFOUNDRY_SANDBOX_ENABLED is true but no sandbox provider is configured. ' +
-          'Set TRUEFOUNDRY_SANDBOX_API_KEY + TRUEFOUNDRY_SANDBOX_SETTINGS_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+        'TRUEFOUNDRY_SANDBOX_PROVIDER=daytona requires TRUEFOUNDRY_SANDBOX_API_KEY, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+      );
+    }
+    if (
+      configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'truefoundry' &&
+      configuration.TRUEFOUNDRY_SANDBOX_SERVER_URL === undefined
+    ) {
+      throw new Error(
+        'TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry requires TRUEFOUNDRY_SANDBOX_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
       );
     }
   }
