@@ -44,6 +44,7 @@ import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '.
 import { ComposerShell } from '../atoms/ComposerShell.js';
 import { AgentConfigEditors } from '../atoms/draft/AgentConfigEditors.js';
 import { AgentConfigPanel, AgentConfigSection } from '../atoms/draft/AgentConfigPanel.js';
+import { AgentCustomParametersEditor } from '../atoms/draft/AgentCustomParametersEditor.js';
 import { AgentInstructionsDrawer } from '../atoms/draft/AgentInstructionsDrawer.js';
 import { AgentMcpEditorContent } from '../atoms/draft/AgentMcpEditorContent.js';
 import { AgentModelConfigModal } from '../atoms/draft/AgentModelConfigModal.js';
@@ -72,7 +73,6 @@ import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SaveAgentForm } from '../atoms/SaveAgentForm.js';
-import { SaveAgentFormFields } from '../atoms/SaveAgentFormFields.js';
 import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
@@ -146,6 +146,7 @@ export const defaultSlots = {
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
   DraftCapabilitiesPanel,
+  AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
   AgentModelEditorContent,
@@ -228,7 +229,6 @@ export const defaultSlots = {
   SchedulesButton,
   SaveAgentButton,
   SaveAgentForm,
-  SaveAgentFormFields,
   SelectAgentEmptyState,
   ClearChatButton,
   ThreadListRowSkeleton,
