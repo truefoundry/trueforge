@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { NameSchema } from '../schemas/common';
 import type { SkillVersion } from '../schemas/skill';
 
 /** TrueFoundry skill version manifest (SFY wire). */
 const SfyRegistryManifestSchema = z.object({
-  name: NameSchema,
+  // Display label only — not TF ResourceName / DNS-label rules.
+  name: z.string().min(1),
   version: z.number().int().positive(),
   // SFY field is `ml_repo`; TrueForge wire is `skill_repo_name`.
   ml_repo: z.string().min(1),

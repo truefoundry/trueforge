@@ -307,7 +307,7 @@ export class TrueFoundryServiceFoundryServerClient {
       const page = listPage(response);
       items.push(...page);
       const total = listPaginationTotal(response);
-      if (total === undefined || items.length >= total || page.length === 0) {
+      if (page.length === 0 || (total !== undefined && items.length >= total)) {
         return items;
       }
     }

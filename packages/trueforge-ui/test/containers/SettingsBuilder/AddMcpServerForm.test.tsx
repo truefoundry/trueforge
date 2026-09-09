@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import AddMcpServerForm from '@/containers/SettingsBuilder/AddMcpServerForm.js';
+import type { ConnectorBase } from '@/server/types.js';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -16,9 +17,9 @@ beforeAll(() => {
 
 describe('AddMcpServerForm', () => {
   it('submits name, url, auth, and trimmed description', async () => {
-    const onAdd = vi.fn(async () => undefined);
+    const onSubmit = vi.fn(async () => undefined);
 
-    render(<AddMcpServerForm open onOpenChange={() => undefined} onAdd={onAdd} />);
+    render(<AddMcpServerForm open onOpenChange={() => undefined} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByPlaceholderText('analytics-postgres-mcp'), {
       target: { value: ' analytics-postgres-mcp ' },
@@ -32,7 +33,7 @@ describe('AddMcpServerForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
     await waitFor(() => {
-      expect(onAdd).toHaveBeenCalledWith({
+      expect(onSubmit).toHaveBeenCalledWith({
         name: 'analytics-postgres-mcp',
         url: 'https://mcp.example.com/mcp',
         description: 'Query analytics from Postgres',
@@ -42,9 +43,9 @@ describe('AddMcpServerForm', () => {
   });
 
   it('disables submit until description is filled', () => {
-    const onAdd = vi.fn(async () => undefined);
+    const onSubmit = vi.fn(async () => undefined);
 
-    render(<AddMcpServerForm open onOpenChange={() => undefined} onAdd={onAdd} />);
+    render(<AddMcpServerForm open onOpenChange={() => undefined} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByPlaceholderText('analytics-postgres-mcp'), {
       target: { value: 'custom-mcp' },
@@ -54,12 +55,72 @@ describe('AddMcpServerForm', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
-    expect(onAdd).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByPlaceholderText('Query analytics from Postgres'), {
       target: { value: 'Custom MCP tools' },
     });
 
     expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
+  });
+
+  it('prefills connector details and preserves an existing API key when left blank', async () => {
+    const onSubmit = vi.fn(async () => undefined);
+    const connector: ConnectorBase = {
+      id: 'custom-mcp',
+      name: 'Custom MCP',
+      description: 'Custom tools',
+      url: 'https://mcp.example.com/mcp',
+      authenticated: true,
+      requiresAuth: false,
+      auth: { type: 'header', headerName: 'X-API-Key' },
+    };
+
+    render(<AddMcpServerForm open connector={connector} onOpenChange={() => undefined} onSubmit={onSubmit} />);
+
+    expect(screen.getByLabelText(/Name/)).toHaveValue(connector.name);
+    expect(screen.getByLabelText(/Name/)).toHaveAttribute('readonly');
+    expect(screen.getByLabelText(/Name/)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByLabelText(/Name/)).toHaveClass('cursor-not-allowed', 'opacity-40');
+    expect(screen.getByLabelText(/Name/)).not.toHaveClass('cursor-text');
+    expect(screen.getByLabelText(/Description/)).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText(/URL/)).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText(/URL/)).toHaveClass('cursor-text');
+    expect(screen.getByRole('radio', { name: 'API Key' })).toBeChecked();
+    expect(screen.getByLabelText(/Header name/)).toHaveValue('X-API-Key');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText(/Description/), { target: { value: 'Updated tools' } });
+    fireEvent.change(screen.getByLabelText(/URL/), { target: { value: 'https://new.example.com/mcp' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith({
+        name: connector.name,
+        url: 'https://new.example.com/mcp',
+        description: 'Updated tools',
+        auth: { type: 'header', apiKey: '', headerName: 'X-API-Key' },
+      });
+    });
+  });
+
+  it('requires a key when changing a connector to API Key auth', () => {
+    const connector: ConnectorBase = {
+      id: 'custom-mcp',
+      name: 'Custom MCP',
+      description: 'Custom tools',
+      url: 'https://mcp.example.com/mcp',
+      authenticated: true,
+      requiresAuth: false,
+      auth: { type: 'none' },
+    };
+
+    render(<AddMcpServerForm open connector={connector} onOpenChange={() => undefined} onSubmit={() => undefined} />);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'API Key' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/^API key/), { target: { value: 'new-secret' } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });
