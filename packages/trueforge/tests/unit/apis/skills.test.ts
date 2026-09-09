@@ -108,13 +108,13 @@ describe('skills routers', () => {
     });
   });
 
-  it('GET / on the chat router returns the slim name/description projection', async () => {
+  it('GET / on the chat router returns the slim projection with display_name', async () => {
     const response = await availableRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: [
-        { name: putBody.name, description: putBody.description },
-        { name: 'create-only-skill', description: putBody.description },
+        { name: putBody.name, display_name: putBody.name, description: putBody.description },
+        { name: 'create-only-skill', display_name: 'create-only-skill', description: putBody.description },
       ],
     });
   });

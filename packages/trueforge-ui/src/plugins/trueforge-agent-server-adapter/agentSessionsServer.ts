@@ -26,7 +26,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     isMutable: session.agent.type === 'inline',
     metrics: {
       totalTurns: session.metrics.totalTurns,
-      totalCostInUsd: session.metrics.totalCostInUsd ?? 0, // TODO: fix this.
+      ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),
       totalDurationMs: session.metrics.totalDurationMs,
     },
     ...(session.title === null ? {} : { title: session.title }),

@@ -1159,7 +1159,7 @@ await client.schedules.delete("schedule_id");
 </dl>
 </details>
 
-<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">listRuns</a>(schedule_id) -> TrueForge.ListScheduleRunsResponse</code></summary>
+<details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">listRuns</a>(schedule_id, { ...params }) -> core.Page&lt;TrueForge.ScheduleRun, TrueForge.ListScheduleRunsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -1203,6 +1203,14 @@ await client.schedules.listRuns("schedule_id");
 <dd>
 
 **schedule_id:** `string` — Immutable schedule identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListRunsSchedulesRequest` 
     
 </dd>
 </dl>

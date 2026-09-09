@@ -130,7 +130,7 @@ export const AvailableSkillSchema = z
   .object({
     name: z.string().min(1).describe('Skill name.'),
     description: SkillDescriptionSchema,
-    display_name: z.string().min(1).optional().describe('Display label when it differs from name (registry).'),
+    display_name: z.string().min(1).optional().describe('Display name of the skill.'),
     skill_repo_name: z.string().min(1).optional().describe('Repo where the skill is registered.'),
     version: z.number().int().positive().optional().describe('Version number.'),
   })

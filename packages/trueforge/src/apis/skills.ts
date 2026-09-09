@@ -44,7 +44,7 @@ function toAvailableSkill(record: SkillRecord): AvailableSkill {
       version: registry.version,
     };
   }
-  return { name: record.name, description: manifest.description };
+  return { name: record.name, display_name: record.name, description: manifest.description };
 }
 
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */
