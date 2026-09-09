@@ -4,7 +4,11 @@ import type { AgentAction, AgentListAccess, Authorizer, GetPermissionsInput } fr
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type { ResourcePermission } from '../schemas/permissions';
-import { emptyPermissionsByResourceId, SCHEDULE_OWNER_PERMISSIONS, SESSION_OWNER_PERMISSIONS } from '../schemas/permissions';
+import {
+  emptyPermissionsByResourceId,
+  SCHEDULE_OWNER_PERMISSIONS,
+  SESSION_OWNER_PERMISSIONS,
+} from '../schemas/permissions';
 import type { AgentPermission, TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 const permissionByAction: Record<AgentAction, AgentPermission> = {
