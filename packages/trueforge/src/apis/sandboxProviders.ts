@@ -74,13 +74,6 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const incoming = body.manifest;
-    switch (incoming.type) {
-      case 'daytona':
-        break;
-      case 'truefoundry':
-      default:
-        return c.json({ error: { message: 'Only Daytona sandbox providers can be configured via settings' } }, 400);
-    }
     const resolveManifest = (existing: SandboxProviderRecord | undefined): DaytonaSandboxProviderManifest => ({
       ...incoming,
       auth: {

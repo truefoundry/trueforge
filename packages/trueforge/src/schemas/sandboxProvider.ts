@@ -101,9 +101,10 @@ export const ConfiguredSandboxProviderSchema = z
   .strict()
   .openapi('ConfiguredSandboxProvider');
 
+/** Settings PUT body — Daytona only */
 export const UpdateSandboxProviderRequestSchema = z
   .object({
-    manifest: SandboxProviderManifestSchema,
+    manifest: DaytonaSandboxProviderSchema,
   })
   .strict()
   .openapi('UpdateSandboxProviderRequest');
