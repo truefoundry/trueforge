@@ -8,6 +8,7 @@ import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -240,6 +241,7 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 }
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
+  const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
   const {
     skills,
     connectors,
@@ -641,12 +643,34 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       </>
     </>
   );
+  const compactActions = [
+    ...(hasValidModel
+      ? [
+          {
+            id: 'tools',
+            label: `Tools (${toolsCount})`,
+            icon: 'wrench',
+            onSelect: () => openPicker(),
+          },
+        ]
+      : []),
+    ...(onAttach === undefined
+      ? []
+      : [
+          {
+            id: 'attach',
+            label: 'Attach a file',
+            icon: 'paperclip',
+            onSelect: onAttach,
+          },
+        ]),
+  ];
 
-  // Gapless row: now that both triggers are icon-only, their ghost hover targets butt
-  // together as one toolbar cluster rather than reading as separate chips.
   return (
     <div ref={containerRef} className="relative flex flex-wrap items-center">
-      {hasValidModel ? (
+      {compactLayout ? (
+        <DraftComposerActionsMenu actions={compactActions} disabled={disabled || isRunning} />
+      ) : hasValidModel ? (
         <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
           <button
             type="button"
@@ -673,7 +697,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         </Tooltip>
       ) : null}
 
-      {onAttach ? (
+      {!compactLayout && onAttach ? (
         <Tooltip content="Attach a file">
           <button
             type="button"

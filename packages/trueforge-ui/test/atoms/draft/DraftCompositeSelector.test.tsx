@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
+import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSpec, CatalogServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
@@ -40,12 +41,23 @@ vi.mock('@/server/ShellModeContext.js', () => ({
   useOptionalShellMode: () => ({ setSettingsOpen }),
 }));
 
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
+
 function renderSelector({
   onAttach,
   getCapabilities,
   getSkills,
   getMcp,
   catalog = settingsCatalog,
+  compact = false,
 }: {
   onAttach?: () => void;
   getCapabilities?: () => Promise<{
@@ -58,6 +70,7 @@ function renderSelector({
   getSkills?: () => Promise<{ id: string; name: string }[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
+  compact?: boolean;
 } = {}) {
   const server = createMockAgentUIServer({
     ...(catalog === null ? {} : { catalog }),
@@ -78,13 +91,14 @@ function renderSelector({
         { id: 'slack', name: 'Slack', authenticated: true },
       ]),
   });
-  return render(
+  const selector = (
     <ServerProvider server={server}>
       <DraftCatalogProvider>
         <DraftCompositeSelector onAttach={onAttach} />
       </DraftCatalogProvider>
-    </ServerProvider>,
+    </ServerProvider>
   );
+  return render(compact ? <CompactLayoutProvider>{selector}</CompactLayoutProvider> : selector);
 }
 
 describe('DraftCompositeSelector', () => {
@@ -171,6 +185,24 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(attach);
     expect(onAttach).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
+  });
+
+  it('groups compact tools and attachment actions under a plus menu', () => {
+    const onAttach = vi.fn();
+    renderSelector({ onAttach, compact: true });
+
+    expect(screen.queryByRole('button', { name: 'Tools (2)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach a file' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('menuitem', { name: 'Tools (2)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Attach a file' }));
+
+    expect(onAttach).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Tools (2)' }));
+    expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
   });
 
   it('debounces connector changes into one draft update', async () => {

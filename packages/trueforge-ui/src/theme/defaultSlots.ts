@@ -58,6 +58,7 @@ import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorCont
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
+import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
@@ -146,6 +147,7 @@ export const defaultSlots = {
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
   DraftCapabilitiesPanel,
+  DraftComposerActionsMenu,
   AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
