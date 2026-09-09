@@ -72,6 +72,7 @@ Env:
 
 from __future__ import annotations
 
+import errno
 import os
 import re
 import shutil
@@ -271,6 +272,13 @@ def _rmtree(path: Path, ignore_errors: bool = True) -> None:
         pass
 
 
+def _format_os_error(e: BaseException) -> str:
+    """Prefer a clear sandbox-disk-full message when errno is ENOSPC."""
+    if isinstance(e, OSError) and e.errno == errno.ENOSPC:
+        return f"sandbox disk full: {e}"
+    return str(e)
+
+
 def _delete_skill_dir_by_name(name: str, label: str) -> None:
     """Remove a no-longer-requested skill directory; abort the whole run if removal
     fails so we never silently leave a stale skill on disk. skill_dir() returns None for a
@@ -379,14 +387,14 @@ class RegistrySkillSource(SkillSource):
             ) as resp:
                 data = resp.read(REGISTRY_SKILL_MAX_BYTES + 1)
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            raise RuntimeError(f"download failed for {skill.fqn}: {e}") from e
+            raise RuntimeError(f"download failed for {skill.fqn}: {_format_os_error(e)}") from e
         if len(data) > REGISTRY_SKILL_MAX_BYTES:
             raise RuntimeError(f"tar for {skill.fqn} exceeds {REGISTRY_SKILL_MAX_BYTES} bytes")
 
         staging = dir_.with_name(f".{dir_.name}.new-{os.getpid()}")
         _rmtree(staging)
-        staging.mkdir(parents=True, exist_ok=True)
         try:
+            staging.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(prefix="tfy-skill-tar-") as tmp:
                 tar_path = Path(tmp) / "skill.tar"
                 tar_path.write_bytes(data)
@@ -404,7 +412,7 @@ class RegistrySkillSource(SkillSource):
             raise
         except (tarfile.TarError, OSError) as e:
             _rmtree(staging)
-            raise RuntimeError(f"extract failed for {skill.fqn}: {e}") from e
+            raise RuntimeError(f"extract failed for {skill.fqn}: {_format_os_error(e)}") from e
 
 
 class GitSkillSource(SkillSource):
@@ -585,14 +593,14 @@ class GitSkillSource(SkillSource):
             shutil.copytree(src, staging, symlinks=True, ignore=shutil.ignore_patterns(".git"))
         except (OSError, shutil.Error) as e:
             _rmtree(staging)
-            raise GitSkillError(f"Failed to stage git skill {skill.name}: {e}")
+            raise GitSkillError(f"Failed to stage git skill {skill.name}: {_format_os_error(e)}")
         try:
             if dest.exists():
                 shutil.rmtree(dest)
             os.replace(staging, dest)
         except OSError as e:
             _rmtree(staging)
-            raise GitSkillError(f"Failed to install git skill {skill.name}: {e}")
+            raise GitSkillError(f"Failed to install git skill {skill.name}: {_format_os_error(e)}")
 
     def _mark_downloaded(
         self, state: SkillDownloaderState, skill: GitSkill, object_id: str
