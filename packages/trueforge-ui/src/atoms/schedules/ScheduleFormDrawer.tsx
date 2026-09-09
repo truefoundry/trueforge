@@ -268,7 +268,7 @@ function ScheduleFormDrawerBody({
       title={title}
       description={description}
       anchor="right"
-      size="lg"
+      size="xl"
       headerIcon={
         <span className="text-primary-button-bg inline-flex size-8 items-center justify-center">
           <Icon

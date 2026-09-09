@@ -230,23 +230,23 @@ function ChatProviderFromShell({
   }, [mode, draftDefaultAgentSpec, pendingSessionId]);
 
   return (
-    <TrueFoundryChatProvider
-      key={runtimeKey}
-      {...providerRest}
-      server={runtimeServer}
-      agent={agent}
-      listSessionsAgentId={listSessionsAgentId}
-      initialSessionId={pendingSessionId ?? hostInitialSessionId}
-    >
-      <DraftCatalogProvider>
+    <DraftCatalogProvider>
+      <TrueFoundryChatProvider
+        key={runtimeKey}
+        {...providerRest}
+        server={runtimeServer}
+        agent={agent}
+        listSessionsAgentId={listSessionsAgentId}
+        initialSessionId={pendingSessionId ?? hostInitialSessionId}
+      >
         <AgentConfigInstructionsProvider>
           <DraftSpecPreferenceBridge />
           <HistorySessionSwitchBridge />
           {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
           {children}
         </AgentConfigInstructionsProvider>
-      </DraftCatalogProvider>
-    </TrueFoundryChatProvider>
+      </TrueFoundryChatProvider>
+    </DraftCatalogProvider>
   );
 }
 
