@@ -20,8 +20,8 @@ import type { AgentMetricChartProps } from './types.js';
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Legend, Tooltip);
 
-const LIGHT_COLORS = ['#6366F1','#2563eb', '#0EA5E9'];
-const DARK_COLORS = ['#6366F1','#60a5fa', '#38BDF8'];
+const LIGHT_COLORS = ['#6366F1', '#2563eb', '#0EA5E9'];
+const DARK_COLORS = ['#6366F1', '#60a5fa', '#38BDF8'];
 const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 });
 const timestampFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -44,7 +44,7 @@ function formatTimestamp(timestamp: string): string {
 export function AgentMetricChart({ graph, definition, error, colorIndex = 0 }: AgentMetricChartProps) {
   const mode = useThemeMode();
   const colors = mode === 'dark' ? DARK_COLORS : LIGHT_COLORS;
-  const axisColor = mode === 'dark' ? '#a1a1aa' : '#71717a';
+  const axisColor = mode === 'dark' ? '#71717a' : '#a1a1aa';
   const gridColor = mode === 'dark' ? '#27272a' : '#e4e4e7';
   const labels = useMemo(
     () =>
