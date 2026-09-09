@@ -317,6 +317,40 @@ describe('ToolCallContainer', () => {
     expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
   });
 
+  it('shows the approval bar for a pending sandbox call', () => {
+    renderPendingApprovalMessage([
+      {
+        type: 'tool-call',
+        toolCallId: 'sandbox-1',
+        toolName: 'sandbox_exec',
+        args: {},
+        argsText: '{"command":"rm -rf output"}',
+        interrupt: { type: 'human', payload: {} },
+        approval: { id: 'sandbox-approval', approved: undefined },
+      },
+    ]);
+
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+  });
+
+  it('shows the approval bar for a pending list_tools call', () => {
+    renderPendingApprovalMessage([
+      {
+        type: 'tool-call',
+        toolCallId: 'list-tools-1',
+        toolName: 'list_tools',
+        args: {},
+        argsText: '{"mcp_server":"github-team"}',
+        interrupt: { type: 'human', payload: {} },
+        approval: { id: 'list-tools-approval', approved: undefined },
+      },
+    ]);
+
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+  });
+
   it('calls onRespondToToolApproval when Allow is clicked', () => {
     const onRespondToToolApproval = vi.fn();
     renderPendingApprovalMessage(

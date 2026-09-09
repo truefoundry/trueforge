@@ -7815,12 +7815,12 @@
             }
           },
           {
-            "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+            "description": "Absolute or sandbox-working-directory-relative file path, as listed in the assistant's `sandbox_artifacts` block.",
             "in": "query",
             "name": "path",
             "required": true,
             "schema": {
-              "description": "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+              "description": "Absolute or sandbox-working-directory-relative file path, as listed in the assistant's `sandbox_artifacts` block.",
               "minLength": 1,
               "type": "string"
             }

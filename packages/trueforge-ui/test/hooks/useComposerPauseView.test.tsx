@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const useAuiState = vi.hoisted(() => vi.fn());
 const useToolResponses = vi.hoisted(() => vi.fn());
+const useApprovals = vi.hoisted(() => vi.fn());
 
 vi.mock('@assistant-ui/react', () => ({
   useAuiState,
@@ -12,6 +13,7 @@ vi.mock('@assistant-ui/react', () => ({
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryToolResponses: useToolResponses,
+  useTrueFoundryApprovals: useApprovals,
 }));
 
 import { threadHasPendingMcpAuth, type ThreadPauseState, useComposerPauseView } from '@/hooks/useComposerPauseView.js';
@@ -84,6 +86,7 @@ describe('useComposerPauseView', () => {
     vi.clearAllMocks();
     useAuiState.mockReturnValue(false);
     useToolResponses.mockReturnValue({ pending: [] });
+    useApprovals.mockReturnValue({ pending: [] });
   });
 
   it('returns the normal composer when no pause source is pending', () => {
@@ -148,5 +151,26 @@ describe('useComposerPauseView', () => {
     });
 
     expect(result.current).toEqual({ kind: 'custom', toolName: 'ask_user_question' });
+  });
+
+  it('shows the approval pause when tool approvals are pending', () => {
+    useApprovals.mockReturnValue({
+      pending: [{ approvalId: 'appr-1', threadId: 'root', toolName: 'call_tool', args: {}, argsText: '{}' }],
+    });
+
+    const { result } = renderHook(() => useComposerPauseView());
+
+    expect(result.current).toEqual({ kind: 'approval' });
+  });
+
+  it('gives ask-user precedence over pending tool approvals', () => {
+    useToolResponses.mockReturnValue({ pending: [{ toolCallId: 'question-1', toolName: 'ask_user_question' }] });
+    useApprovals.mockReturnValue({
+      pending: [{ approvalId: 'appr-1', threadId: 'root', toolName: 'call_tool', args: {}, argsText: '{}' }],
+    });
+
+    const { result } = renderHook(() => useComposerPauseView());
+
+    expect(result.current).toEqual({ kind: 'ask-user' });
   });
 });

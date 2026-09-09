@@ -159,6 +159,7 @@ export function DropdownMenu({
               'text-text-primary shadow-md',
               className,
             )}
+            onMouseDown={event => event.stopPropagation()}
             onClick={closeOnClick ? () => setOpen(false) : undefined}
           >
             {children}
