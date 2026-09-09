@@ -51,7 +51,11 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const fetched = await store.getProvider({ tenant_id: TENANT, name: 'anthropic' });
+    const fetched = await store.getProvider({
+      tenant_id: TENANT,
+      name: 'anthropic',
+      model_name: 'claude-sonnet-4-6',
+    });
     expect(fetched).toEqual(created);
   });
 
@@ -67,7 +71,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
   it('getProvider returns undefined for unknown providers', async () => {
     const store = getStore();
-    expect(await store.getProvider({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
+    expect(await store.getProvider({ tenant_id: TENANT, name: 'missing', model_name: 'any' })).toBeUndefined();
   });
 
   it('upsert replaces the whole document and preserves created_at', async () => {

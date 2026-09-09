@@ -23,6 +23,12 @@ export interface ListModelProvidersInput {
 export interface GetModelProviderInput {
   tenant_id: string;
   name: string;
+  model_name: string;
+}
+
+export interface GetModelProviderForUpdateInput {
+  tenant_id: string;
+  name: string;
 }
 
 export interface CreateModelProviderInput {
@@ -57,7 +63,7 @@ export interface IModelProviderStore<TTransaction = never> {
    * Required before read-modify-write of secrets so concurrent keep/rotate cannot interleave.
    */
   getProviderForUpdate(
-    input: GetModelProviderInput,
+    input: GetModelProviderForUpdateInput,
     transaction: TTransaction,
   ): Promise<ModelProviderRecord | undefined>;
   /** Inserts a new provider. Throws ModelProviderNameConflictError on name clash. */

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import type { AgentInstructionsDraft } from './AgentInstructionsDrawer.js';
 import { initialUserMessagesFromSpec, withInitialUserMessages } from './agentConfigMessages.js';
 import { editableMountsFromSpec } from './agentConfigMounts.js';
@@ -83,7 +84,7 @@ export function AgentConfigEditors({
         if (!cancelled) setTools(nextTools);
       })
       .catch((reason: unknown) => {
-        if (!cancelled) setToolsError(reason instanceof Error ? reason.message : 'Failed to load tools.');
+        if (!cancelled) setToolsError(getErrorMessage(reason, 'Failed to load tools.'));
       })
       .finally(() => {
         if (!cancelled) setToolsLoading(false);

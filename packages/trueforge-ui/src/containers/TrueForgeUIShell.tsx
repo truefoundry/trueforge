@@ -10,12 +10,14 @@ import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
+import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
+import { createSessionListCache, withSessionListCache } from '../server/sessionListCache.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
 import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
@@ -163,6 +165,9 @@ function ChatProviderFromShell({
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
 
+  // Keep one isolated cache per shell, preserved across chat runtime remounts.
+  const [sessionListCache] = useState(createSessionListCache);
+
   const serverWithCreateIntent = useMemo((): AgentUIServer => {
     return {
       ...server,
@@ -180,6 +185,11 @@ function ChatProviderFromShell({
       },
     };
   }, [server, isCreateAgent]);
+
+  const runtimeServer = useMemo(
+    () => withSessionListCache({ server: serverWithCreateIntent, cache: sessionListCache }),
+    [serverWithCreateIntent, sessionListCache],
+  );
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.
@@ -220,22 +230,23 @@ function ChatProviderFromShell({
   }, [mode, draftDefaultAgentSpec, pendingSessionId]);
 
   return (
-    <TrueFoundryChatProvider
-      key={runtimeKey}
-      {...providerRest}
-      server={serverWithCreateIntent}
-      agent={agent}
-      listSessionsAgentId={listSessionsAgentId}
-      initialSessionId={pendingSessionId ?? hostInitialSessionId}
-    >
-      <DraftCatalogProvider>
+    <DraftCatalogProvider>
+      <TrueFoundryChatProvider
+        key={runtimeKey}
+        {...providerRest}
+        server={runtimeServer}
+        agent={agent}
+        listSessionsAgentId={listSessionsAgentId}
+        initialSessionId={pendingSessionId ?? hostInitialSessionId}
+      >
         <AgentConfigInstructionsProvider>
           <DraftSpecPreferenceBridge />
+          <HistorySessionSwitchBridge />
           {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
           {children}
         </AgentConfigInstructionsProvider>
-      </DraftCatalogProvider>
-    </TrueFoundryChatProvider>
+      </TrueFoundryChatProvider>
+    </DraftCatalogProvider>
   );
 }
 
