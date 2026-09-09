@@ -99,6 +99,7 @@ export function DropdownMenu({
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         setOpen(false);
         const triggerBtn = containerRef.current?.querySelector<HTMLElement>("[aria-haspopup='menu']");
         triggerBtn?.focus();
