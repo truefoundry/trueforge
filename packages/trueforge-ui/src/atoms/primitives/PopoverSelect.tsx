@@ -22,6 +22,7 @@ type CommonPopoverSelectProps<T extends string> = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  menuClassName?: string;
   /** Which edge of the trigger the menu opens toward. Default `bottom`. */
   menuPlacement?: 'top' | 'bottom';
   /** When set, renders a labeled chip trigger (label | value chip + chevron). */
@@ -174,6 +175,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
           className={cn(
             auiSelectMenuClass('left-0 min-w-full'),
             menuPlacement === 'top' && 'top-auto bottom-full mt-0 mb-1',
+            props.menuClassName,
           )}
         >
           {props.options.map(option => {
@@ -189,7 +191,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
                 className={auiSelectOptionClass()}
                 onClick={() => select(option)}
               >
-                <span className="min-w-0 flex-1 whitespace-nowrap">{option.label}</span>
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
                 <Icon name="check" className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')} />
               </button>
             );
