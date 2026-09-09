@@ -11,6 +11,7 @@ import {
 } from '../../../src/apis/sessions';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { UnrestrictedSessionPolicyProvider, type SessionPolicyProvider } from '../../../src/auth/sessionPolicy';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -45,6 +46,17 @@ const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAg
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
   canAccessAgent: deniedCanAccessAgent,
+};
+
+const denyAllSessionPolicyProvider: SessionPolicyProvider = {
+  resolveSessionPolicy: () =>
+    Promise.resolve({
+      allow_inline_agent_specs: false,
+      allowed_agent_names: [],
+      allowed_models: undefined,
+      allowed_skills: undefined,
+      allowed_mcp_servers: undefined,
+    }),
 };
 
 describe('sessions HTTP agent binding', () => {
@@ -97,6 +109,7 @@ describe('sessions HTTP agent binding', () => {
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       logger: createLogger({ silent: true }),
       authorizer: new TrueForgeAuthorizer(),
+      sessionPolicyProvider: new UnrestrictedSessionPolicyProvider(),
     };
     sessionDeps = deps;
     app = new OpenAPIHono();
@@ -632,5 +645,43 @@ describe('sessions HTTP agent binding', () => {
   it('rejects create bodies that mix name and AgentSpec fields', async () => {
     const both = await app.request('/', jsonInit('POST', { agent: { name: 'named-agent', ...inlineSpec } }));
     expect(both.status).toBe(400);
+  });
+  it('403s creating an inline session when session policy forbids inline specs', async () => {
+    const restrictedApp = new OpenAPIHono();
+    restrictedApp.route(
+      '/',
+      createSessionsRouter({
+        ...sessionDeps,
+        requestReplyRouter: new RequestReplyRouter(),
+        sessionPolicyProvider: denyAllSessionPolicyProvider,
+      }),
+    );
+    const res = await restrictedApp.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(res.status).toBe(403);
+  });
+
+  it('404s creating a named-agent session when the name is not policy-permitted', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'policy-blocked-agent',
+      manifest: inlineSpec,
+      external_id: null,
+    });
+    const restrictedApp = new OpenAPIHono();
+    restrictedApp.route(
+      '/',
+      createSessionsRouter({
+        ...sessionDeps,
+        requestReplyRouter: new RequestReplyRouter(),
+        sessionPolicyProvider: denyAllSessionPolicyProvider,
+      }),
+    );
+    const res = await restrictedApp.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(res.status).toBe(404);
   });
 });
