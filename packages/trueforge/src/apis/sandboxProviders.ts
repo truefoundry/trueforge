@@ -13,10 +13,7 @@ import {
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import type {
-  DaytonaSandboxProvider as DaytonaSandboxProviderManifest,
-  UpdateSandboxProviderRequest,
-} from '../schemas/sandboxProvider';
+import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 /** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
@@ -29,7 +26,7 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
   resolveRequestContext: ResolveRequestContext;
 }
 
-function redactSandboxProvider(manifest: DaytonaSandboxProviderManifest): DaytonaSandboxProviderManifest {
+function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
   return {
     ...manifest,
     auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
@@ -68,7 +65,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const incoming = body.manifest;
-    const resolveManifest = (existing: SandboxProviderRecord | undefined): DaytonaSandboxProviderManifest => ({
+    const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
       auth: {
         api_key: resolveStoredSecretValue({
