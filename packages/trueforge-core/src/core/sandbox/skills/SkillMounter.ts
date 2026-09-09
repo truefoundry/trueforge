@@ -18,8 +18,8 @@ export interface GitSkill {
   readonly ref: string;
 }
 
-/** Registry skill: sandbox dir uses artifact `name`; AgentSpec stores `fqn`. */
-interface RegistrySkill {
+/** Registry skill: sandbox dir uses artifact `name`; AgentSpec stores version FQN in `name`. */
+export interface RegistrySkill {
   readonly type: 'registry';
   readonly name: string;
   readonly description: string;

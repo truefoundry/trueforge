@@ -43,6 +43,21 @@ const SfyRegistrySkillVersionSchema = z.object({
 
 export type SfyRegistrySkill = z.infer<typeof SfyRegistrySkillSchema>;
 
+/** One resolved skill version from `…/agent-skill-versions/resolve`. */
+export const ResolvedAgentSkillVersionSchema = z.object({
+  fqn: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  skill_md_content: z.string().nullable().optional(),
+  presigned_url: z.string().min(1).optional(),
+});
+
+export type ResolvedAgentSkillVersion = z.infer<typeof ResolvedAgentSkillVersionSchema>;
+
+const ResolveAgentSkillVersionsResponseSchema = z.object({
+  skills: z.array(ResolvedAgentSkillVersionSchema),
+});
+
 /** Parse SFY registry skill list rows into the catalog wire shape. */
 export function mapSfyRegistrySkills(rows: readonly unknown[]): SfyRegistrySkill[] {
   return rows.map(row => SfyRegistrySkillSchema.parse(row));
@@ -64,4 +79,9 @@ export function mapSfyRegistrySkillVersions(rows: readonly unknown[]): SkillVers
       version: manifest.version,
     };
   });
+}
+
+/** Parse resolve response body. */
+export function mapResolvedAgentSkillVersions(payload: unknown): ResolvedAgentSkillVersion[] {
+  return ResolveAgentSkillVersionsResponseSchema.parse(payload).skills;
 }

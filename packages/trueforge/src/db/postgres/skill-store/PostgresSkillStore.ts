@@ -1,13 +1,15 @@
+import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import type { SkillVersion } from '../../../schemas/skill';
+import { resolveGitTurnSkills, validateGitAgentSkills } from '../../gitSkillMounts';
 import {
   SkillNameConflictError,
+  type AgentSkillsInput,
   type CreateSkillInput,
   type ISkillStore,
   type ListSkillsInput,
   type SkillRecord,
   type UpsertSkillInput,
-  type ValidateSkillsAccessInput,
 } from '../../skillStore';
 import { isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -93,21 +95,11 @@ export class PostgresSkillStore implements ISkillStore<Transaction<Database>> {
     return Promise.resolve([]);
   }
 
-  async validateAccess(
-    input: ValidateSkillsAccessInput,
-    transaction?: Transaction<Database>,
-  ): Promise<string | undefined> {
-    if (input.names.length === 0) {
-      return undefined;
-    }
-    const db = transaction ?? this.#db;
-    const rows = await db
-      .selectFrom('skill')
-      .select('name')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', 'in', [...input.names])
-      .execute();
-    const configured = new Set(rows.map(row => row.name));
-    return input.names.find(name => !configured.has(name));
+  validateAgentSkills(input: AgentSkillsInput): Promise<void> {
+    return validateGitAgentSkills(this, input);
+  }
+
+  resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
+    return resolveGitTurnSkills(this, input);
   }
 }
