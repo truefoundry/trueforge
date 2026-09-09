@@ -516,10 +516,7 @@ describe('SidebarLayout', () => {
     function OpenNamedChatButton() {
       const shell = useShellMode();
       return (
-        <button
-          type="button"
-          onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'named-agent' })}
-        >
+        <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'named-agent' })}>
           Open named chat
         </button>
       );

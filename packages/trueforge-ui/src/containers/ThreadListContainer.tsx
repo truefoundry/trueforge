@@ -265,10 +265,7 @@ function RecentChatsSection({
       <div
         ref={viewportRef}
         data-slot={THREAD_LIST_VIEWPORT_SLOT}
-        className={cn(
-          'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto',
-          hideScrollbar && 'aui-scrollbar-hidden',
-        )}
+        className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto', hideScrollbar && 'aui-scrollbar-hidden')}
       >
         {children}
       </div>
@@ -368,11 +365,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
-        <ThreadListItemsByRecency
-          indices={indices}
-          onThreadOpen={onThreadOpen}
-          canDeleteSession={canDeleteSession}
-        />
+        <ThreadListItemsByRecency indices={indices} onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
       </ThreadListPrimitive.Root>
     );
   }
@@ -390,11 +383,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         )
       }
     >
-      <RecentChatsSection
-        viewportRef={viewportRef}
-        hideScrollbar={isRecentHistory}
-        showAgentFilter={!isRecentHistory}
-      >
+      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory} showAgentFilter={!isRecentHistory}>
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>
