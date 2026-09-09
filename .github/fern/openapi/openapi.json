@@ -4839,7 +4839,7 @@
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/SandboxProviderManifest"
+            "$ref": "#/components/schemas/DaytonaSandboxProvider"
           }
         },
         "required": [

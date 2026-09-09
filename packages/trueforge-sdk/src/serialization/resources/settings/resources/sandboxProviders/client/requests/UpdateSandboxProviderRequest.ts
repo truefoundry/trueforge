@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../../../../../../api/index.js";
 import * as core from "../../../../../../../core/index.js";
 import type * as serializers from "../../../../../../index.js";
-import { SandboxProviderManifest } from "../../../../../../types/SandboxProviderManifest.js";
+import { DaytonaSandboxProvider } from "../../../../../../types/DaytonaSandboxProvider.js";
 
 export const UpdateSandboxProviderRequest: core.serialization.Schema<
     serializers.settings.UpdateSandboxProviderRequest.Raw,
     TrueForge.settings.UpdateSandboxProviderRequest
 > = core.serialization.object({
-    manifest: SandboxProviderManifest,
+    manifest: DaytonaSandboxProvider,
 });
 
 export declare namespace UpdateSandboxProviderRequest {
     export interface Raw {
-        manifest: SandboxProviderManifest.Raw;
+        manifest: DaytonaSandboxProvider.Raw;
     }
 }

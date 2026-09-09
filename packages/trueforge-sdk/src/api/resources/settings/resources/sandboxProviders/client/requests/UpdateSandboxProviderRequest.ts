@@ -18,5 +18,5 @@ import type * as TrueForge from "../../../../../../index.js";
  *     }
  */
 export interface UpdateSandboxProviderRequest {
-    manifest: TrueForge.SandboxProviderManifest;
+    manifest: TrueForge.DaytonaSandboxProvider;
 }
