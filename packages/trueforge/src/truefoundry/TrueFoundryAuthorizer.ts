@@ -4,7 +4,7 @@ import type { AgentAction, AgentListAccess, Authorizer, GetPermissionsInput } fr
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type { ResourcePermission } from '../schemas/permissions';
-import { emptyPermissionsByResourceId, OWNER_RESOURCE_PERMISSIONS } from '../schemas/permissions';
+import { emptyPermissionsByResourceId, SCHEDULE_OWNER_PERMISSIONS, SESSION_OWNER_PERMISSIONS } from '../schemas/permissions';
 import type { AgentPermission, TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 const permissionByAction: Record<AgentAction, AgentPermission> = {
@@ -91,13 +91,25 @@ export class TrueFoundryAuthorizer implements Authorizer {
       return data;
     }
 
+    if (input.resourceType === 'schedule') {
+      const ownedIds = await input.store.getOwnedIds({
+        tenant_id: requestContext.tenant_id,
+        ids: resourceIds,
+        subject_id: requestContext.subject.id,
+      });
+      for (const id of ownedIds) {
+        data[id] = [...SCHEDULE_OWNER_PERMISSIONS];
+      }
+      return data;
+    }
+
     const ownedIds = await input.store.getOwnedIds({
       tenant_id: requestContext.tenant_id,
       ids: resourceIds,
       subject_id: requestContext.subject.id,
     });
     for (const id of ownedIds) {
-      data[id] = [...OWNER_RESOURCE_PERMISSIONS];
+      data[id] = [...SESSION_OWNER_PERMISSIONS];
     }
     return data;
   }

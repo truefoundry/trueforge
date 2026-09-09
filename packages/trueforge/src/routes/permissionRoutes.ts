@@ -11,7 +11,7 @@ export const listPermissionsRoute = createRoute({
   path: '/list-permissions',
   tags: [OpenApiTag.INTERNAL],
   summary: 'List permissions for resources',
-  description: 'Return granted actions (MANAGE, DELETE) for each requested agent, schedule, or session id.',
+  description: 'Return granted actions for each requested agent, schedule, or session id.',
   'x-fern-sdk-group-name': ['internal'],
   'x-fern-sdk-method-name': 'list_permissions',
   request: {
@@ -28,6 +28,10 @@ export const listPermissionsRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC or TrueFoundry auth is configured and the request has no valid credential.',
     },
   },
 });

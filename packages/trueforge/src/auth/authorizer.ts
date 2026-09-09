@@ -5,7 +5,8 @@ import {
   AGENT_OWNER_PERMISSIONS,
   AGENT_USE_PERMISSIONS,
   emptyPermissionsByResourceId,
-  OWNER_RESOURCE_PERMISSIONS,
+  SCHEDULE_OWNER_PERMISSIONS,
+  SESSION_OWNER_PERMISSIONS,
   type ResourcePermission,
 } from '../schemas/permissions';
 import type { RequestContext } from './identity';
@@ -59,13 +60,25 @@ export class TrueForgeAuthorizer implements Authorizer {
       return data;
     }
 
+    if (input.resourceType === 'schedule') {
+      const ownedIds = await input.store.getOwnedIds({
+        tenant_id: input.requestContext.tenant_id,
+        ids: input.resourceIds,
+        subject_id: input.requestContext.subject.id,
+      });
+      for (const id of ownedIds) {
+        data[id] = [...SCHEDULE_OWNER_PERMISSIONS];
+      }
+      return data;
+    }
+
     const ownedIds = await input.store.getOwnedIds({
       tenant_id: input.requestContext.tenant_id,
       ids: input.resourceIds,
       subject_id: input.requestContext.subject.id,
     });
     for (const id of ownedIds) {
-      data[id] = [...OWNER_RESOURCE_PERMISSIONS];
+      data[id] = [...SESSION_OWNER_PERMISSIONS];
     }
     return data;
   }
