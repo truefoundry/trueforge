@@ -12,10 +12,16 @@ import {
   SkillTypeSchema,
 } from './skill';
 
+/**
+ * Catalog presets are user-savable `git` entries only.
+ * `registry` is TrueFoundry-managed.
+ */
+export const CatalogSkillTypeSchema = SkillTypeSchema.exclude(['registry']).openapi('CatalogSkillType');
+
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogSkillSchema = z
   .object({
-    type: SkillTypeSchema,
+    type: CatalogSkillTypeSchema,
     name: NameSchema,
     url: SkillGitUrlSchema,
     path: SkillGitPathSchema.optional(),

@@ -12,9 +12,12 @@ const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
+const AGENT_SKILLS_PATH = 'v1/agent-skills';
+const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
+const AGENT_SKILLS_PAGE_SIZE = 100;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -109,6 +112,10 @@ async function readServiceFoundryErrorMessage(
 
 function listPage(response: ListResponse): unknown[] {
   return Array.isArray(response) ? response : response.data;
+}
+
+function listPaginationTotal(response: ListResponse): number | undefined {
+  return Array.isArray(response) ? undefined : response.pagination?.total;
 }
 
 export class TrueFoundryServiceFoundryServerClient {
@@ -256,6 +263,54 @@ export class TrueFoundryServiceFoundryServerClient {
       timeoutMs: this.#httpAgentTimeoutMs,
       notFoundOk: true,
     });
+  }
+
+  /** `GET /v1/agent-skills` with empty skills excluded. */
+  async listAgentSkills(accessToken: string): Promise<unknown[]> {
+    return this.#listAllPages({
+      path: AGENT_SKILLS_PATH,
+      accessToken,
+      query: { include_empty_agent_skills: 'false' },
+      limit: AGENT_SKILLS_PAGE_SIZE,
+    });
+  }
+
+  /** `GET /v1/agent-skill-versions?fqn=`. */
+  async listAgentSkillVersions(input: { accessToken: string; fqn: string }): Promise<unknown[]> {
+    return this.#listAllPages({
+      path: AGENT_SKILL_VERSIONS_PATH,
+      accessToken: input.accessToken,
+      query: { fqn: input.fqn },
+      limit: AGENT_SKILLS_PAGE_SIZE,
+    });
+  }
+
+  /** Offset/limit list until empty page or `pagination.total`. */
+  async #listAllPages(input: {
+    path: string;
+    accessToken: string;
+    query?: Record<string, string>;
+    limit: number;
+  }): Promise<unknown[]> {
+    const items: unknown[] = [];
+    for (;;) {
+      const payload = await this.#requestJson({
+        url: this.#url(input.path, {
+          ...input.query,
+          offset: String(items.length),
+          limit: String(input.limit),
+        }),
+        accessToken: input.accessToken,
+        method: 'GET',
+      });
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      items.push(...page);
+      const total = listPaginationTotal(response);
+      if (page.length === 0 || (total !== undefined && items.length >= total)) {
+        return items;
+      }
+    }
   }
 
   /** Per-subject authorize; includes a consent URL when auth is required. */

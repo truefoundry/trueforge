@@ -10,7 +10,7 @@ export interface CatalogSkill {
     path?: string;
     /** Git ref — branch name, tag, or commit SHA. */
     ref: string;
-    type: TrueForge.SkillType;
+    type: TrueForge.CatalogSkillType;
     /** Full HTTPS URL of a GitHub or GitLab repository. */
     url: string;
 }

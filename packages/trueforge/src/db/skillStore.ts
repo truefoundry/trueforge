@@ -3,22 +3,20 @@
  * identity as columns plus a Zod-validated `SkillManifest` jsonb document.
  * Implementations: PostgresSkillStore and SqliteSkillStore.
  */
-import type { ResourceName } from '../schemas/common';
-import type { SkillManifest } from '../schemas/skill';
+import type { SkillManifest, SkillVersion } from '../schemas/skill';
 
 export interface SkillRecord {
   tenant_id: string;
-  name: ResourceName;
+  /**
+   * Store identity: git ResourceName in standalone, registry version FQN in TrueFoundry.
+   * Same string as AgentSpec `skills[].name`, list filters, and AvailableSkill `name`.
+   */
+  name: string;
   manifest: SkillManifest;
   /** ISO-8601 UTC instant. */
   created_at: string;
   /** ISO-8601 UTC instant. */
   updated_at: string;
-}
-
-export interface GetSkillInput {
-  tenant_id: string;
-  name: string;
 }
 
 export interface ListSkillsInput {
@@ -29,7 +27,7 @@ export interface ListSkillsInput {
 
 export interface CreateSkillInput {
   tenant_id: string;
-  name: ResourceName;
+  name: string;
   manifest: SkillManifest;
 }
 
@@ -51,9 +49,9 @@ export class SkillNameConflictError extends Error {
 
 export interface ISkillStore<TTransaction = never> {
   listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]>;
-  getSkill(input: GetSkillInput, transaction?: TTransaction): Promise<SkillRecord | undefined>;
   /** Inserts a new skill. Throws SkillNameConflictError on name clash. */
   createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
   /** Single-row write: creates the skill or replaces the whole manifest. */
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
+  listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
 }
