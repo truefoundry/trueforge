@@ -78,7 +78,7 @@ export function createMockAgentUIServer(overrides: Partial<AgentUIServer> = {}):
     getTurn: unavailable,
     listEvents: unavailable,
     getCapabilities: async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: true } },
     }),
     getModels: async () => [],
     getSkills: async () => [],

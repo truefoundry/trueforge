@@ -36,7 +36,7 @@ import {
   getTimelineRange,
   groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
-  pickLongestNonOverlappingSegments,
+  mergeOverlappingSubAgentSegments,
   TIMELINE_TYPE,
   type TimelineGap,
   type TimelineHoverTarget,
@@ -196,7 +196,7 @@ export function AgentSessionEventTimelineChart({
     () => durationSegments.filter(segment => segment.type === 'sub_agent'),
     [durationSegments],
   );
-  const mainSubAgents = useMemo(() => pickLongestNonOverlappingSegments(subAgentSegments), [subAgentSegments]);
+  const mainSubAgents = useMemo(() => mergeOverlappingSubAgentSegments(subAgentSegments), [subAgentSegments]);
   const subAgentGroups = useMemo(
     () => getSubAgentHoverGroups({ bars: mainSubAgents, subAgentSegments }),
     [mainSubAgents, subAgentSegments],
@@ -206,9 +206,8 @@ export function AgentSessionEventTimelineChart({
     [durationSegments, msPerPx, subAgentSegments],
   );
   const mainCandidates = useMemo(() => {
-    const kept = new Set(mainSubAgents.map(segment => segment.id));
-    return durationSegments.filter(
-      segment => segment.threadId === MAIN_THREAD_ID || (segment.type === 'sub_agent' && kept.has(segment.id)),
+    return [...durationSegments.filter(segment => segment.threadId === MAIN_THREAD_ID), ...mainSubAgents].sort(
+      (left, right) => left.startMs - right.startMs || left.endMs - right.endMs,
     );
   }, [durationSegments, mainSubAgents]);
   const toolCallGroups = useMemo(

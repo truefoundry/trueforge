@@ -1,4 +1,8 @@
-import { clearScheduleShareSearch } from '../utils/scheduleShareUrl.js';
+import {
+  clearScheduleShareSearch,
+  readScheduleShareSearch,
+  writeScheduleShareSearch,
+} from '../utils/scheduleShareUrl.js';
 import { readSessionShareSearch, writeSessionShareSearch } from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
@@ -112,12 +116,20 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     clearScheduleShareSearch(params);
   } else if (place.type === 'libraryAgent') {
     const share = readSessionShareSearch(search);
+    const scheduleShare = readScheduleShareSearch(search);
     writeSessionShareSearch(params, {
       view: null,
       timeRange: null,
       ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
     });
     clearScheduleShareSearch(params);
+    if (share.tab === 'schedules') {
+      writeScheduleShareSearch(params, {
+        status: scheduleShare.status,
+        q: scheduleShare.q,
+        isNew: scheduleShare.isNew,
+      });
+    }
   } else if (place.type === 'schedules') {
     writeSessionShareSearch(params, {
       sessionId: null,

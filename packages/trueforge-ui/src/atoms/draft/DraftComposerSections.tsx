@@ -62,11 +62,13 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
 }
 
 export function DraftComposerRightSection({ disabled, isRunning }: ComposerRightSectionProps) {
+  const shell = useOptionalShellMode();
   const DraftModelSelector = useSlot('DraftModelSelector');
+  const isBuilder = shell != null && shellIsCreateAgent(shell.mode);
 
   return (
     <div className="flex min-w-0 items-center gap-1">
-      <DraftModelSelector disabled={disabled} isRunning={isRunning} />
+      {!isBuilder ? <DraftModelSelector disabled={disabled} isRunning={isRunning} /> : null}
       <DraftReasoningEffortSelector disabled={disabled} isRunning={isRunning} />
     </div>
   );

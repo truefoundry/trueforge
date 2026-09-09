@@ -154,7 +154,10 @@ export const ScheduleRunSchema = z
   .openapi('ScheduleRun');
 
 export const ListScheduleRunsResponseSchema = z
-  .object({ data: z.array(ScheduleRunSchema) })
+  .object({
+    data: z.array(ScheduleRunSchema),
+    pagination: TokenPaginationSchema,
+  })
   .openapi('ListScheduleRunsResponse');
 
 /**

@@ -646,6 +646,43 @@ describe('mcp-servers routers', () => {
     });
   });
 
+  it('GET /{name} on the chat router returns the slim projection with live auth_status', async () => {
+    const missing = await mcpServersRouter.request('/missing-server');
+    expect(missing.status).toBe(404);
+
+    const noAuth = await mcpServersRouter.request('/deepwiki');
+    expect(noAuth.status).toBe(200);
+    expect(await noAuth.json()).toEqual({
+      data: {
+        name: 'deepwiki',
+        url: putBody.url,
+        auth_status: { status: 'not_required' },
+      },
+    });
+
+    const dcr = await mcpServersRouter.request('/linear');
+    expect(dcr.status).toBe(200);
+    expect(await dcr.json()).toEqual({
+      data: {
+        name: 'linear',
+        url: putBodyWithDcr.url,
+        auth: { type: 'dcr' },
+        auth_status: { status: 'auth_required' },
+      },
+    });
+
+    const headerAuth = await mcpServersRouter.request('/private-mcp');
+    expect(headerAuth.status).toBe(200);
+    expect(await headerAuth.json()).toEqual({
+      data: {
+        name: 'private-mcp',
+        url: putBodyWithHeaderAuth.url,
+        auth: { type: 'header' },
+        auth_status: { status: 'authenticated' },
+      },
+    });
+  });
+
   it('GET / chat list auth_status is scoped to the calling user', async () => {
     const record = await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithDcr.name });
     if (record === undefined) throw new Error('expected DCR server to exist');

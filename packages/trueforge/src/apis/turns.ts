@@ -232,7 +232,7 @@ function createTurnResolver(deps: {
       return buildTurnSandbox({
         provider,
         logger,
-        gitSkills,
+        skills: gitSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,

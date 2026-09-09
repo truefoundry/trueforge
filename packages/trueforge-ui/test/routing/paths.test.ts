@@ -113,6 +113,13 @@ describe('sanitizeSearchForPlace', () => {
     );
     expect(sanitizeSearchForPlace({ type: 'library' }, scheduleSearch)).toBe('?theme=dark');
   });
+
+  it('keeps embedded schedule state on an agent Schedules tab', () => {
+    const search = '?theme=dark&agentId=agent-1&tab=schedules&agent=stale&status=paused&q=digest&isNew=true';
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, search)).toBe(
+      '?theme=dark&agentId=agent-1&tab=schedules&status=paused&q=digest&isNew=true',
+    );
+  });
 });
 
 describe('matchPath', () => {
