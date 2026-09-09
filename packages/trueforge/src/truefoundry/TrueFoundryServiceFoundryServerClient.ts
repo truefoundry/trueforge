@@ -266,10 +266,10 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /** `GET /v1/agent-skills` with empty skills excluded. */
-  async listAgentSkills(accessToken: string): Promise<unknown[]> {
+  async listAgentSkills(input: { accessToken: string }): Promise<unknown[]> {
     return this.#listAllPages({
       path: AGENT_SKILLS_PATH,
-      accessToken,
+      accessToken: input.accessToken,
       query: { include_empty_agent_skills: 'false' },
       limit: AGENT_SKILLS_PAGE_SIZE,
     });

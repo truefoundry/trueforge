@@ -108,18 +108,18 @@ describe('skills routers', () => {
     });
   });
 
-  it('GET / on the chat router returns the slim projection with display_name', async () => {
+  it('GET / on the chat router returns name and description for git skills', async () => {
     const response = await availableRouter.request('/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       data: [
-        { name: putBody.name, display_name: putBody.name, description: putBody.description },
-        { name: 'create-only-skill', display_name: 'create-only-skill', description: putBody.description },
+        { name: putBody.name, description: putBody.description },
+        { name: 'create-only-skill', description: putBody.description },
       ],
     });
   });
 
-  it('GET / maps registry rows to FQN name and display_name', async () => {
+  it('GET / maps registry rows with TrueFoundry metadata', async () => {
     const fqn = 'agent-skill:acme/team-a/echo:3';
     const now = '2026-01-01T00:00:00.000Z';
     const skillStore = {
@@ -128,11 +128,11 @@ describe('skills routers', () => {
           tenant_id: 'default',
           name: fqn,
           manifest: {
-            type: 'registry' as const,
+            type: 'truefoundry' as const,
             name: fqn,
             display_name: 'echo',
             description: 'Echo skill',
-            skill_repo_name: 'team-a',
+            repository_name: 'team-a',
             version: 3,
           },
           created_at: now,
@@ -154,10 +154,12 @@ describe('skills routers', () => {
       data: [
         {
           name: fqn,
-          display_name: 'echo',
           description: 'Echo skill',
-          skill_repo_name: 'team-a',
-          version: 3,
+          metadata: {
+            display_name: 'echo',
+            repository_name: 'team-a',
+            version: '3',
+          },
         },
       ],
     });
@@ -165,11 +167,11 @@ describe('skills routers', () => {
 
   it('settings create/put forward registry bodies to the store (no early git-only 400)', async () => {
     const registryManifest = {
-      type: 'registry' as const,
+      type: 'truefoundry' as const,
       name: 'agent-skill:acme/team-a/echo:3',
       display_name: 'echo',
       description: 'Echo skill',
-      skill_repo_name: 'team-a',
+      repository_name: 'team-a',
       version: 3,
     };
     const now = '2026-01-01T00:00:00.000Z';
@@ -210,11 +212,11 @@ describe('skills routers', () => {
 
   it('settings create/put return 424 when the skill store is TrueFoundry-managed', async () => {
     const registryManifest = {
-      type: 'registry' as const,
+      type: 'truefoundry' as const,
       name: 'agent-skill:acme/team-a/echo:3',
       display_name: 'echo',
       description: 'Echo skill',
-      skill_repo_name: 'team-a',
+      repository_name: 'team-a',
       version: 3,
     };
     const managedStore = {

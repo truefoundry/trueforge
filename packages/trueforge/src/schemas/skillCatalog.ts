@@ -14,9 +14,9 @@ import {
 
 /**
  * Catalog presets are user-savable `git` entries only.
- * `registry` is TrueFoundry-managed.
+ * `truefoundry` is TrueFoundry-managed.
  */
-export const CatalogSkillTypeSchema = SkillTypeSchema.exclude(['registry']).openapi('CatalogSkillType');
+export const CatalogSkillTypeSchema = SkillTypeSchema.exclude(['truefoundry']).openapi('CatalogSkillType');
 
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogSkillSchema = z

@@ -12,7 +12,7 @@ import {
   putSkillRoute,
 } from '../routes/skillRoutes';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
-import { parseRegistrySkill } from '../schemas/skill';
+import { parseTrueFoundryRegistrySkill } from '../schemas/skill';
 
 export type ResolveSkillStore<TTransaction = never> = (
   c: Context,
@@ -34,17 +34,19 @@ function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
 
 function toAvailableSkill(record: SkillRecord): AvailableSkill {
   const { manifest } = record;
-  const registry = parseRegistrySkill(manifest);
+  const registry = parseTrueFoundryRegistrySkill(manifest);
   if (registry !== undefined) {
     return {
       name: record.name,
-      display_name: registry.display_name,
       description: registry.description,
-      skill_repo_name: registry.skill_repo_name,
-      version: registry.version,
+      metadata: {
+        display_name: registry.display_name,
+        repository_name: registry.repository_name,
+        version: String(registry.version),
+      },
     };
   }
-  return { name: record.name, display_name: record.name, description: manifest.description };
+  return { name: record.name, description: manifest.description };
 }
 
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */

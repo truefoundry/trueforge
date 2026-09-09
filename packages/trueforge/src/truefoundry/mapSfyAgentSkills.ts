@@ -6,7 +6,7 @@ const SfyRegistryManifestSchema = z.object({
   // Display label only — not TF ResourceName / DNS-label rules.
   name: z.string().min(1),
   version: z.number().int().positive(),
-  // SFY field is `ml_repo`; TrueForge wire is `skill_repo_name`.
+  // SFY field is `ml_repo`; TrueForge wire is `repository_name`.
   ml_repo: z.string().min(1),
   source: z
     .object({
@@ -27,7 +27,7 @@ const SfyRegistrySkillSchema = z
     name: latest_version.fqn,
     display_name: latest_version.manifest.name,
     description: latest_version.manifest.source?.description ?? latest_version.manifest.name,
-    skill_repo_name: latest_version.manifest.ml_repo,
+    repository_name: latest_version.manifest.ml_repo,
     version: latest_version.manifest.version,
   }));
 

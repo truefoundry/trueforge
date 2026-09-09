@@ -1,14 +1,14 @@
 /**
  * Configured skill domain + wire schemas (`skill.manifest` JSONB and list projections).
  * Catalog presets live in skillCatalog.ts.
- * SkillManifest is a `type`-discriminated oneOf of GitSkill | RegistrySkill.
+ * SkillManifest is a `type`-discriminated oneOf of GitSkill | TrueFoundryRegistrySkill.
  */
 import { z } from '@hono/zod-openapi';
 import { NameSchema } from './common';
 
-const SKILL_TYPES = ['git', 'registry'] as const;
+const SKILL_TYPES = ['git', 'truefoundry'] as const;
 
-/** OpenAPI + persisted discriminant (`git` | `registry`) — same pattern as MCPServerType. */
+/** OpenAPI + persisted discriminant (`git` | `truefoundry`) — same pattern as MCPServerType. */
 export const SkillTypeSchema = z.enum(SKILL_TYPES).openapi('SkillType');
 
 // GitHub is exactly owner/repo; GitLab allows subgroups (group[/subgroup...]/project, ≥2 segments).
@@ -68,35 +68,35 @@ const GitSkillSchema = z
   .strict()
   .openapi('GitSkill');
 
-/** Registry catalog row: `name` is the version FQN (unique); `display_name` is the short SFY name. */
-const RegistrySkillSchema = z
+/** TrueFoundry registry catalog row: `name` is the version FQN; `display_name` is the short SFY name. */
+const TrueFoundryRegistrySkillSchema = z
   .object({
-    type: z.literal(SkillTypeSchema.enum.registry),
+    type: z.literal(SkillTypeSchema.enum.truefoundry),
     name: z.string().min(1),
     display_name: z.string().min(1),
     description: SkillDescriptionSchema,
-    skill_repo_name: z.string().min(1).describe('Repo where the skill is registered.'),
+    repository_name: z.string().min(1).describe('Repo where the skill is registered.'),
     version: z.number().int().positive(),
   })
   .strict()
-  .openapi('RegistrySkill');
+  .openapi('TrueFoundryRegistrySkill');
 
 export const SkillManifestSchema = z
-  .discriminatedUnion('type', [GitSkillSchema, RegistrySkillSchema])
+  .discriminatedUnion('type', [GitSkillSchema, TrueFoundryRegistrySkillSchema])
   .openapi('SkillManifest');
 
 export type SkillManifest = z.infer<typeof SkillManifestSchema>;
 export type GitSkill = z.infer<typeof GitSkillSchema>;
-export type RegistrySkill = z.infer<typeof RegistrySkillSchema>;
+export type TrueFoundryRegistrySkill = z.infer<typeof TrueFoundryRegistrySkillSchema>;
 
 /** Narrow SkillManifest → git mount shape for turn resolve. */
 export function parseGitSkill(manifest: SkillManifest): GitSkill | undefined {
   return manifest.type === 'git' ? manifest : undefined;
 }
 
-/** Narrow SkillManifest → registry catalog shape for chat list projection. */
-export function parseRegistrySkill(manifest: SkillManifest): RegistrySkill | undefined {
-  return manifest.type === 'registry' ? manifest : undefined;
+/** Narrow SkillManifest → TrueFoundry registry catalog shape for chat list projection. */
+export function parseTrueFoundryRegistrySkill(manifest: SkillManifest): TrueFoundryRegistrySkill | undefined {
+  return manifest.type === 'truefoundry' ? manifest : undefined;
 }
 
 /** Admin/settings wire view: identity column plus nested manifest. */
@@ -108,7 +108,7 @@ export const ConfiguredSkillSchema = z
   .strict()
   .openapi('ConfiguredSkill');
 
-/** Create/update $ref SkillManifest so OpenAPI SkillType stays git|registry. */
+/** Create/update $ref SkillManifest so OpenAPI SkillType stays git|truefoundry. */
 export const CreateSkillRequestSchema = z
   .object({
     manifest: SkillManifestSchema,
@@ -130,9 +130,7 @@ export const AvailableSkillSchema = z
   .object({
     name: z.string().min(1).describe('Skill name.'),
     description: SkillDescriptionSchema,
-    display_name: z.string().min(1).optional().describe('Display name of the skill.'),
-    skill_repo_name: z.string().min(1).optional().describe('Repo where the skill is registered.'),
-    version: z.number().int().positive().optional().describe('Version number.'),
+    metadata: z.record(z.string(), z.string()).optional().describe('Optional skill metadata.'),
   })
   .strict()
   .openapi('AvailableSkill');

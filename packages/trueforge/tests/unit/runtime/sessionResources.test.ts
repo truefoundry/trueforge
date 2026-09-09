@@ -300,11 +300,11 @@ describe('validateAgentSpec', () => {
           tenant_id: 'default',
           name: fqn,
           manifest: {
-            type: 'registry' as const,
+            type: 'truefoundry' as const,
             name: fqn,
             display_name: 'echo',
             description: 'Echo',
-            skill_repo_name: 'team-a',
+            repository_name: 'team-a',
             version: 1,
           },
           created_at: now,

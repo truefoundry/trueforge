@@ -37,7 +37,7 @@ describe('TrueFoundryServiceFoundryServerClient listAgentSkills paging', () => {
       apiKey: 'key',
     });
 
-    await expect(client.listAgentSkills('token')).resolves.toEqual([...page1, ...page2]);
+    await expect(client.listAgentSkills({ accessToken: 'token' })).resolves.toEqual([...page1, ...page2]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

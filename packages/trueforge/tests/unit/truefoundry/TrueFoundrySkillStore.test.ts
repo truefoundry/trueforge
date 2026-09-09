@@ -76,16 +76,16 @@ describe('TrueFoundrySkillStore', () => {
   it('lists registry catalog rows as skill records with the caller token', async () => {
     const { store, client } = createStore();
     const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
-    expect(client.listAgentSkills).toHaveBeenCalledWith(ACCESS_TOKEN);
+    expect(client.listAgentSkills).toHaveBeenCalledWith({ accessToken: ACCESS_TOKEN });
     expect(client.vendToken).not.toHaveBeenCalled();
     expect(records).toHaveLength(1);
     expect(records[0]?.name).toBe('agent-skill:acme/team-a/echo:3');
     expect(records[0]?.manifest).toEqual({
-      type: 'registry',
+      type: 'truefoundry',
       name: 'agent-skill:acme/team-a/echo:3',
       display_name: 'echo',
       description: 'Echo skill',
-      skill_repo_name: 'team-a',
+      repository_name: 'team-a',
       version: 3,
     });
   });
@@ -93,7 +93,17 @@ describe('TrueFoundrySkillStore', () => {
   it('listSkills uses latest_version only (not every historic version)', async () => {
     const { store } = createStore();
     const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
-    expect(records.map(r => (r.manifest.type === 'registry' ? r.manifest.version : undefined))).toEqual([3]);
+    expect(records.map(r => (r.manifest.type === 'truefoundry' ? r.manifest.version : undefined))).toEqual([3]);
+    expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
+  });
+
+  it('listSkills filters names locally after listing the full catalog', async () => {
+    const { store, client } = createStore();
+    const records = await store.listSkills({
+      tenant_id: TENANT,
+      names: ['agent-skill:acme/team-a/echo:3', 'agent-skill:acme/team-a/missing:1'],
+    });
+    expect(client.listAgentSkills).toHaveBeenCalledWith({ accessToken: ACCESS_TOKEN });
     expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
 
@@ -105,7 +115,7 @@ describe('TrueFoundrySkillStore', () => {
       agentId: 'ext-agent',
       tenantName: TENANT,
     });
-    expect(client.listAgentSkills).toHaveBeenCalledWith(AGENT_TOKEN);
+    expect(client.listAgentSkills).toHaveBeenCalledWith({ accessToken: AGENT_TOKEN });
   });
 
   it('uses a vend token for skill versions when listing as a saved agent', async () => {

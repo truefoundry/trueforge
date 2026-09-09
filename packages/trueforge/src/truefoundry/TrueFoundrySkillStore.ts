@@ -2,7 +2,7 @@ import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type { CreateSkillInput, ISkillStore, ListSkillsInput, SkillRecord, UpsertSkillInput } from '../db/skillStore';
-import type { RegistrySkill, SkillVersion } from '../schemas/skill';
+import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
 import { mapSfyRegistrySkills, mapSfyRegistrySkillVersions, type SfyRegistrySkill } from './mapSfyAgentSkills';
@@ -15,12 +15,12 @@ export type TrueFoundrySkillApiClient = Pick<
 
 function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillRecord {
   const now = new Date().toISOString();
-  const manifest: RegistrySkill = {
-    type: 'registry',
+  const manifest: TrueFoundryRegistrySkill = {
+    type: 'truefoundry',
     name: skill.name,
     display_name: skill.display_name,
     description: skill.description,
-    skill_repo_name: skill.skill_repo_name,
+    repository_name: skill.repository_name,
     version: skill.version,
   };
   return {
@@ -56,7 +56,16 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
 
   async listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]> {
     void transaction;
-    return (await this.#listRegistrySkills(input)).map(skill => toRegistryRecord(input.tenant_id, skill));
+    if (input.names?.length === 0) {
+      return [];
+    }
+    const accessToken = await this.#resolveAccessToken();
+    const skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
+    const names = input.names;
+    // SFY list accepts at most one skill-level `fqn` (no multi-name IN, no version FQN), so filter locally.
+    // TODO: Add a support for multi-name/fqn IN filter in SFY ServiceFoundryServerClient.
+    const filtered = names === undefined ? skills : skills.filter(skill => names.includes(skill.name));
+    return filtered.map(skill => toRegistryRecord(input.tenant_id, skill));
   }
 
   createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord> {
@@ -78,15 +87,5 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
       fqn: input.name,
     });
     return mapSfyRegistrySkillVersions(rows);
-  }
-
-  async #listRegistrySkills(input: ListSkillsInput): Promise<SfyRegistrySkill[]> {
-    if (input.names?.length === 0) {
-      return [];
-    }
-    const accessToken = await this.#resolveAccessToken();
-    const skills = mapSfyRegistrySkills(await this.#client.listAgentSkills(accessToken));
-    const names = input.names;
-    return names === undefined ? skills : skills.filter(skill => names.includes(skill.name));
   }
 }

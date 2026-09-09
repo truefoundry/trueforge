@@ -27,7 +27,7 @@ describe('mapSfyRegistrySkills', () => {
         name: 'agent-skill:acme/team-a/echo:3',
         display_name: 'echo',
         description: 'Echo skill',
-        skill_repo_name: 'team-a',
+        repository_name: 'team-a',
         version: 3,
       },
     ]);
@@ -72,7 +72,7 @@ describe('mapSfyRegistrySkills', () => {
         name: 'agent-skill:acme/team-a/My Skill:1',
         display_name: 'My Skill',
         description: 'Mixed-case display name',
-        skill_repo_name: 'team-a',
+        repository_name: 'team-a',
         version: 1,
       },
     ]);
