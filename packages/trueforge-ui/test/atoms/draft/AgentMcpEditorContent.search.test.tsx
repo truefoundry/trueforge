@@ -33,6 +33,7 @@ describe('AgentMcpEditorContent tool search', () => {
 
     expect(screen.getByRole('menuitemcheckbox', { name: 'web_search' })).toBeInTheDocument();
     expect(screen.getByRole('menuitemcheckbox', { name: 'web_fetch' })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Preload tools' })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText('Search Tools'), { target: { value: 'fetch' } });
 
