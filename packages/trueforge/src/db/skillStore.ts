@@ -63,7 +63,7 @@ export interface ISkillStore<TTransaction = never> {
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord>;
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]>;
   /** Admit AgentSpec skill refs (git store or TrueFoundry SFY resolve with caller token). */
-  validateAgentSkills(input: AgentSkillsInput): Promise<void>;
+  validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void>;
   /** Expand AgentSpec skill refs to sandbox mounts (git store or TrueFoundry SFY resolve with API key). */
   resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]>;
 }

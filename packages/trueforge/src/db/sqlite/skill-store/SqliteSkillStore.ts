@@ -95,7 +95,8 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
     return Promise.resolve([]);
   }
 
-  validateAgentSkills(input: AgentSkillsInput): Promise<void> {
+  validateAgentSkills(input: AgentSkillsInput, transaction?: Transaction<Database>): Promise<void> {
+    void transaction;
     return validateGitAgentSkills(this, input);
   }
 

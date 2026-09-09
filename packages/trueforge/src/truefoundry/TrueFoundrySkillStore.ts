@@ -116,7 +116,8 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
     return mapSfyRegistrySkillVersions(rows);
   }
 
-  async validateAgentSkills(input: AgentSkillsInput): Promise<void> {
+  async validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void> {
+    void transaction;
     const { skills } = input;
     if (skills.length === 0) {
       return;
