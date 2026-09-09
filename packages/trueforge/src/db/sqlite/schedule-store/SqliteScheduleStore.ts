@@ -294,7 +294,11 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
     return { data: data.map(toScheduleRecord), pagination };
   }
 
-  async listRuns(input: ListRunsInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord[]> {
+  async listRuns(
+    input: ListRunsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: ScheduleRunRecord[]; pagination: TokenPagination }> {
+    const offset = decodeOffsetPageToken(input.page_token);
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('schedule_run')
@@ -303,8 +307,11 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .where('schedule_id', '=', input.schedule_id)
       .orderBy('scheduled_for', 'desc')
       .orderBy('id')
+      .limit(input.limit + 1)
+      .offset(offset)
       .execute();
-    return rows.map(toRunRecord);
+    const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
+    return { data: data.map(toRunRecord), pagination };
   }
 
   async getRun(input: GetRunInput, transaction?: Transaction<Database>): Promise<ScheduleRunRecord | undefined> {

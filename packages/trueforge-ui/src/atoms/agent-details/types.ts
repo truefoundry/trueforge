@@ -95,6 +95,7 @@ export type AgentDetailsTabsProps = {
   activeTab: AgentDetailsTab;
   onTabChange: (tab: AgentDetailsTab) => void;
   showMetrics?: boolean;
+  showSchedules?: boolean;
 };
 
 export type AgentMetricsProps = {
@@ -130,6 +131,7 @@ export type AgentMetricChartProps = {
   graph?: AgentMetricGraph;
   definition: AgentMetricChartDefinition;
   error?: string;
+  colorIndex?: number;
 };
 
 export type AgentOverviewProps = {

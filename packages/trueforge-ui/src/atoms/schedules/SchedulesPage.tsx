@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
@@ -38,6 +38,11 @@ type AgentOption = { agentId: string; name: string };
 
 type DrawerState = { kind: 'closed' } | { kind: 'create'; agentId?: string } | { kind: 'edit'; schedule: Schedule };
 
+export type SchedulesPageProps = {
+  /** Lock the page to one agent when embedded in Agent Details. */
+  agentId?: string;
+};
+
 const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | ScheduleStatus; label: string }> = [
   { value: 'all', label: 'All statuses' },
   { value: 'active', label: 'Active' },
@@ -61,6 +66,16 @@ function filtersFromSearch(search: string): {
     nameQuery: share.q ?? '',
     statusFilter: share.status ?? 'all',
     agentFilter: share.agent ?? 'all',
+  };
+}
+
+function initialDrawerState(agentId?: string): DrawerState {
+  const share = readScheduleShareSearch(window.location.search);
+  if (!share.isNew) return { kind: 'closed' };
+  const initialAgentId = agentId ?? share.agent;
+  return {
+    kind: 'create',
+    ...(initialAgentId == null ? {} : { agentId: initialAgentId }),
   };
 }
 
@@ -120,7 +135,7 @@ function ScheduleRowActions({
   );
 }
 
-export function SchedulesPage() {
+export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const scheduleServer = useScheduleServer();
   const server = useServer();
   const toaster = useToasterOptional();
@@ -136,8 +151,10 @@ export function SchedulesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | ScheduleStatus>(
     () => filtersFromSearch(window.location.search).statusFilter,
   );
-  const [agentFilter, setAgentFilter] = useState(() => filtersFromSearch(window.location.search).agentFilter);
-  const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
+  const [agentFilter, setAgentFilter] = useState(
+    () => agentId ?? filtersFromSearch(window.location.search).agentFilter,
+  );
+  const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState(agentId));
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
@@ -217,22 +234,28 @@ export function SchedulesPage() {
   // Keep filters in the URL so deep links and Agents → Schedules work.
   useEffect(() => {
     replaceScheduleShareSearch({
-      agent: agentFilter === 'all' ? null : agentFilter,
+      agent: agentId === undefined && agentFilter !== 'all' ? agentFilter : null,
       status: statusFilter === 'all' ? null : statusFilter,
       q: nameQuery.trim().length === 0 ? null : nameQuery,
     });
-  }, [agentFilter, statusFilter, nameQuery]);
+  }, [agentFilter, agentId, statusFilter, nameQuery]);
 
-  // One-shot: Agents "+ Schedule" lands with isNew=true; open create then strip the flag.
+  useEffect(() => {
+    if (agentId === undefined) return;
+    setAgentFilter(current => {
+      if (current === agentId) return current;
+      setPageToken(undefined);
+      setPrevTokenStack([]);
+      return agentId;
+    });
+  }, [agentId]);
+
+  // One-shot: the initial state opens create synchronously; then strip the URL flag.
   useEffect(() => {
     if (didConsumeIsNewRef.current) return;
     const share = readScheduleShareSearch(window.location.search);
     if (!share.isNew) return;
     didConsumeIsNewRef.current = true;
-    setDrawer({
-      kind: 'create',
-      ...(share.agent != null ? { agentId: share.agent } : {}),
-    });
     replaceScheduleShareSearch({ isNew: null });
   }, []);
 
@@ -242,17 +265,18 @@ export function SchedulesPage() {
       setNameQuery(next.nameQuery);
       setStatusFilter(next.statusFilter);
       setAgentFilter(current => {
-        if (current === next.agentFilter) return current;
+        const nextAgentFilter = agentId ?? next.agentFilter;
+        if (current === nextAgentFilter) return current;
         setPageToken(undefined);
         setPrevTokenStack([]);
-        return next.agentFilter;
+        return nextAgentFilter;
       });
     };
     window.addEventListener('popstate', syncFromUrl);
     return () => {
       window.removeEventListener('popstate', syncFromUrl);
     };
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter });
@@ -346,7 +370,7 @@ export function SchedulesPage() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
       <PageHeader
-        title="Scheduled Agents"
+        title={agentId === undefined ? 'Scheduled Agents' : undefined}
         end={
           <>
             <div className="w-full sm:w-56">
@@ -359,20 +383,22 @@ export function SchedulesPage() {
               className="sm:w-40"
               aria-label="Filter by status"
             />
-            <PopoverSelect
-              value={agentFilter}
-              onValueChange={value => {
-                setAgentFilter(value);
-                setPageToken(undefined);
-                setPrevTokenStack([]);
-              }}
-              options={[
-                { value: 'all', label: 'All agents' },
-                ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
-              ]}
-              className="sm:w-40"
-              aria-label="Filter by agent"
-            />
+            {agentId === undefined ? (
+              <PopoverSelect
+                value={agentFilter}
+                onValueChange={value => {
+                  setAgentFilter(value);
+                  setPageToken(undefined);
+                  setPrevTokenStack([]);
+                }}
+                options={[
+                  { value: 'all', label: 'All agents' },
+                  ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
+                ]}
+                className="sm:w-40"
+                aria-label="Filter by agent"
+              />
+            ) : null}
             <Button.Primary
               type="button"
               onClick={() =>
@@ -428,7 +454,7 @@ export function SchedulesPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Name</TableHead>
                   <TableHead>Agent</TableHead>
-                  <TableHead>Cadence</TableHead>
+                  <TableHead>Frequency</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last 5 runs</TableHead>
                   <TableHead>
@@ -544,4 +570,10 @@ export function SchedulesPage() {
       ) : null}
     </div>
   );
+}
+
+declare module '../../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    SchedulesPage: ComponentType<SchedulesPageProps>;
+  }
 }

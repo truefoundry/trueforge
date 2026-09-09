@@ -16,7 +16,7 @@ function buildDir(): string {
 function appWithFrontend(dir: string): OpenAPIHono {
   const app = new OpenAPIHono();
   app.get('/api/v1/health', c => c.json({ ok: true }));
-  mountFrontend(app, dir);
+  mountFrontend(app, { dir, uiBasePath: '/' });
   return app;
 }
 
@@ -24,8 +24,24 @@ const HTML_ACCEPT = { accept: 'text/html,application/xhtml+xml' };
 
 describe('mountFrontend', () => {
   it('reports whether the directory holds a build', () => {
-    expect(mountFrontend(new OpenAPIHono(), path.join(tmpdir(), 'trueforge-missing-build'))).toBe(false);
-    expect(mountFrontend(new OpenAPIHono(), buildDir())).toBe(true);
+    expect(
+      mountFrontend(new OpenAPIHono(), { dir: path.join(tmpdir(), 'trueforge-missing-build'), uiBasePath: '/' }),
+    ).toBe(false);
+    expect(mountFrontend(new OpenAPIHono(), { dir: buildDir(), uiBasePath: '/' })).toBe(true);
+  });
+
+  it('substitutes the public UI prefix into the cached app shell', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'trueforge-frontend-'));
+    writeFileSync(
+      path.join(dir, 'index.html'),
+      "<html><script>window.__TRUEFORGE_BASE_PATH__='%%TRUEFORGE_BASE_PATH%%';</script></html>",
+    );
+    const app = new OpenAPIHono();
+    mountFrontend(app, { dir, uiBasePath: '/custom/proxy/path/' });
+
+    const response = await app.request('/', { headers: HTML_ACCEPT });
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toContain("window.__TRUEFORGE_BASE_PATH__='/custom/proxy/path/'");
   });
 
   it('serves the app shell for client-only deep links', async () => {

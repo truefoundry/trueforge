@@ -1,5 +1,4 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -21,6 +20,7 @@ import {
   authorizeMcpServerRoute,
   createMcpServerRoute,
   deleteAuthorizationMcpServerRoute,
+  getAvailableMcpServerRoute,
   getMcpServerRoute,
   listAvailableMcpServersRoute,
   listMcpServersRoute,
@@ -117,35 +117,50 @@ async function toConfiguredMcpServer<TTransaction>(params: {
   };
 }
 
+function toAvailableMcpServer(params: { record: McpServerRecord; authStatus: McpAuthStatus }): AvailableMcpServer {
+  const authType = params.record.manifest.auth?.type;
+  return {
+    name: params.record.name,
+    url: params.record.manifest.url,
+    ...(authType !== undefined ? { auth: { type: authType } } : {}),
+    auth_status: params.authStatus,
+  };
+}
+
+async function resolveAvailableMcpServer<TTransaction>(params: {
+  store: IMcpServerWithAuthStore<TTransaction>;
+  record: McpServerRecord;
+  userRef: string;
+}): Promise<AvailableMcpServer> {
+  const statuses = await params.store.resolveAuthStatuses({
+    records: [params.record],
+    userRef: params.userRef,
+  });
+  return toAvailableMcpServer({
+    record: params.record,
+    authStatus: statuses.get(params.record.name) ?? { status: 'auth_required' },
+  });
+}
+
 /** Admin/settings MCP CRUD. */
 export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const { limit, page_token: pageToken } = c.req.valid('query');
-    try {
-      const { data: records, pagination } = await deps.resolveMcpServerStore(c).listServers({
-        tenant_id: requestContext.tenant_id,
-        names: undefined,
-        limit,
-        page_token: pageToken,
-      });
-      const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
-        records,
-        userRef,
-      });
-      const data: ConfiguredMcpServer[] = records.map(record => ({
-        name: record.name,
-        manifest: redactMcpServerManifest(record.manifest),
-        auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
-      }));
-      return c.json({ data, pagination }, 200);
-    } catch (error) {
-      if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
-      }
-      throw error;
-    }
+    const records = await deps.resolveMcpServerStore(c).listServers({
+      tenant_id: requestContext.tenant_id,
+      names: undefined,
+    });
+    const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
+      records,
+      userRef,
+    });
+    const data: ConfiguredMcpServer[] = records.map(record => ({
+      name: record.name,
+      manifest: redactMcpServerManifest(record.manifest),
+      auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
+    }));
+    return c.json({ data }, 200);
   };
 
   const getHandler: RouteHandler<typeof getMcpServerRoute> = async c => {
@@ -460,41 +475,51 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     }
   };
 
+  const getAvailableHandler: RouteHandler<typeof getAvailableMcpServerRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const requestContext = deps.resolveRequestContext(c);
+    const record = await deps.resolveMcpServerStore(c).getServer({
+      tenant_id: requestContext.tenant_id,
+      name,
+    });
+    if (!record) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    return c.json(
+      {
+        data: await resolveAvailableMcpServer({
+          store: deps.resolveMcpServerStore(c),
+          record,
+          userRef: requestContext.subject.id,
+        }),
+      },
+      200,
+    );
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listAvailableMcpServersRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const { limit, page_token: pageToken } = c.req.valid('query');
-    try {
-      const { data: records, pagination } = await deps.resolveMcpServerStore(c).listServers({
-        tenant_id: requestContext.tenant_id,
-        names: undefined,
-        limit,
-        page_token: pageToken,
-      });
-      const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
-        records,
-        userRef,
-      });
-      const data: AvailableMcpServer[] = records.map(record => {
-        const authType = record.manifest.auth?.type;
-        return {
-          name: record.name,
-          url: record.manifest.url,
-          ...(authType !== undefined ? { auth: { type: authType } } : {}),
-          auth_status: statuses.get(record.name) ?? { status: 'auth_required' },
-        };
-      });
-      return c.json({ data, pagination }, 200);
-    } catch (error) {
-      if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
-      }
-      throw error;
-    }
+    const records = await deps.resolveMcpServerStore(c).listServers({
+      tenant_id: requestContext.tenant_id,
+      names: undefined,
+    });
+    const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
+      records,
+      userRef,
+    });
+    const data: AvailableMcpServer[] = records.map(record =>
+      toAvailableMcpServer({
+        record,
+        authStatus: statuses.get(record.name) ?? { status: 'auth_required' },
+      }),
+    );
+    return c.json({ data }, 200);
   });
   router.openapi(listMcpServerToolsRoute, listToolsHandler);
   router.openapi(authorizeMcpServerRoute, authorizeHandler);
   router.openapi(deleteAuthorizationMcpServerRoute, deleteAuthorizationHandler);
+  router.openapi(getAvailableMcpServerRoute, getAvailableHandler);
   return router;
 }

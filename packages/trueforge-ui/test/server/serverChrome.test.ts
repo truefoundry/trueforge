@@ -22,9 +22,16 @@ describe('serverChrome', () => {
   const metrics = createMockAgentMetricsServer();
   const routes = resolveRoutesConfig();
 
-  it('isSettingsChromeEnabled requires catalog; missing settings capability counts as on', () => {
+  it('isSettingsChromeEnabled requires a catalog and explicit capability', () => {
     expect(isSettingsChromeEnabled({ catalog: null, capabilities: null })).toBe(false);
-    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(true);
+    expect(isSettingsChromeEnabled({ catalog, capabilities: null })).toBe(false);
+    expect(isSettingsChromeEnabled({ catalog, capabilities: {} })).toBe(false);
+    expect(
+      isSettingsChromeEnabled({
+        catalog,
+        capabilities: { settings: { enabled: true } },
+      }),
+    ).toBe(true);
     expect(
       isSettingsChromeEnabled({
         catalog,

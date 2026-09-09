@@ -1,4 +1,3 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
@@ -32,10 +31,7 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     this.#clientName = input.clientName;
   }
 
-  listServers(
-    input: ListMcpServersInput,
-    transaction?: TTransaction,
-  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }> {
+  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
     return this.#store.listServers(input, transaction);
   }
 

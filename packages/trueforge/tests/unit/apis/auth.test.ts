@@ -11,6 +11,7 @@ import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticat
 import configuration from '../../../src/config';
 
 jest.mock('../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
   const OIDC = {
     OIDC_ISSUER_URL: 'https://issuer.example.com/',
     OIDC_CLIENT_ID: 'harness-client',
@@ -29,18 +30,17 @@ jest.mock('../../../src/config', () => {
     OIDC,
     PORT: 8790,
   };
+  const publicBase = {
+    ...actual.default,
+    PUBLIC_BASE_URL: config.PUBLIC_BASE_URL,
+    NODE_ENV: 'development',
+  };
   return {
+    ...actual,
     __esModule: true,
     default: config,
-    getPublicBaseUrl: (value = config) => {
-      if (value.STANDALONE && value.NODE_ENV !== 'development') {
-        return `http://localhost:${String(value.PORT)}`;
-      }
-      if (value.PUBLIC_BASE_URL === '') {
-        throw new Error('PUBLIC_BASE_URL is required for OIDC callbacks but was empty');
-      }
-      return value.PUBLIC_BASE_URL;
-    },
+    getPublicBaseUrl: () => actual.getPublicBaseUrl(publicBase),
+    getPublicUiBasePath: () => actual.getPublicUiBasePath(publicBase),
   };
 });
 

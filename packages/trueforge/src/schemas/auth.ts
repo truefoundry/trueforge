@@ -5,7 +5,7 @@ export const AuthLoginQuerySchema = z.object({
   return_to: z
     .string()
     .optional()
-    .describe('Path to return to after login. Must be a same-origin relative path; anything else falls back to "/".'),
+    .describe('Path to return to after login. Same-origin relative path; otherwise the public UI home.'),
 });
 
 export const OAuthCallbackQuerySchema = z.object({

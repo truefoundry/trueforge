@@ -13,7 +13,6 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { auiInputClass } from '../lib/inputClasses.js';
-import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
@@ -242,18 +241,7 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
-  const {
-    skills,
-    connectors,
-    connectorLogos,
-    connectorsHasMore,
-    connectorsLoadMoreFailed,
-    connectorsLoadingMore,
-    loading,
-    ensureLoaded,
-    refreshConnectors,
-    loadMoreConnectors,
-  } = useDraftCatalog();
+  const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
@@ -373,13 +361,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   }, [open, setOpenAndFlush]);
 
   useEffect(() => () => clearFlushTimer(), [clearFlushTimer]);
-
-  const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
-    enabled: open && tab === 'connectors',
-    hasMore: connectorsHasMore && !connectorsLoadMoreFailed,
-    loading: connectorsLoadingMore || loading,
-    onLoadMore: loadMoreConnectors,
-  });
 
   const catalogConnectors = useMemo(
     () => connectorsWithSelectedStubs({ connectors, selected: selectedMcp }),
@@ -517,10 +498,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             <span className="text-xs leading-none">{skillsDisabledReason}</span>
           </div>
         ) : null}
-        <div
-          ref={tab === 'connectors' ? connectorsListRef : undefined}
-          className="min-h-0 flex-1 overflow-y-auto px-1 pb-2"
-        >
+        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
               {pinnedSelectedConnectors.length > 0 ? (
@@ -573,24 +551,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   settingsTarget="Connectors"
                   onOpenSettings={shell && canConfigureConnectors ? () => openSettings('connectors') : undefined}
                 />
-              ) : null}
-              {connectorsHasMore ? (
-                <div
-                  ref={connectorsLoadMoreFailed ? undefined : connectorsSentinelRef}
-                  className="flex h-8 items-center justify-center"
-                >
-                  {connectorsLoadMoreFailed ? (
-                    <button
-                      type="button"
-                      className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                      onClick={loadMoreConnectors}
-                    >
-                      Retry loading connectors
-                    </button>
-                  ) : connectorsLoadingMore ? (
-                    <span className="text-text-secondary text-[0.625rem]">Loading…</span>
-                  ) : null}
-                </div>
               ) : null}
             </>
           ) : (
