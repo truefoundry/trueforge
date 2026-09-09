@@ -95,6 +95,7 @@ export type AgentDetailsTabsProps = {
   activeTab: AgentDetailsTab;
   onTabChange: (tab: AgentDetailsTab) => void;
   showMetrics?: boolean;
+  showSchedules?: boolean;
 };
 
 export type AgentMetricsProps = {

@@ -89,6 +89,19 @@ describe('draft composer sections', () => {
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
   });
 
+  it('keeps only the reasoning selector in the builder composer', async () => {
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <BuilderMode>
+          <DraftSections />
+        </BuilderMode>
+      </ShellModeProvider>,
+    );
+
+    expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
+    expect(screen.queryByTitle('Select model')).not.toBeInTheDocument();
+  });
+
   it('shows the Agent config trigger only in compact builder layouts', () => {
     const { rerender } = render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
