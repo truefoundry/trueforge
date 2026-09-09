@@ -36,7 +36,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const skills = await store.listSkills({ tenant_id: TENANT });
+    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
     expect(skills).toEqual([created]);
   });
 
@@ -76,7 +76,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const skills = await store.listSkills({ tenant_id: TENANT });
+    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
     expect(skills).toEqual([updated]);
   });
 
@@ -98,7 +98,7 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
       manifest: manifest(),
     });
 
-    const skills = await store.listSkills({ tenant_id: TENANT });
+    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
     expect(skills.map(skill => skill.name)).toEqual(['algorithmic-art', 'web-artifacts']);
     expect(skills.every(skill => skill.tenant_id === TENANT)).toBe(true);
   });

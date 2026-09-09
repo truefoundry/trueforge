@@ -55,6 +55,7 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
     const requestContext = deps.resolveRequestContext(c);
     const records = await deps.resolveSkillStore(c).listSkills({
       tenant_id: requestContext.tenant_id,
+      names: undefined,
     });
     return c.json({ data: records.map(toConfiguredSkill) }, 200);
   };
@@ -104,6 +105,7 @@ export function createAvailableSkillsRouter<TTransaction>(deps: SkillsRouterDeps
     const requestContext = deps.resolveRequestContext(c);
     const records = await deps.resolveSkillStore(c).listSkills({
       tenant_id: requestContext.tenant_id,
+      names: undefined,
     });
     return c.json({ data: records.map(toAvailableSkill) }, 200);
   });

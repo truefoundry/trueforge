@@ -22,7 +22,7 @@ export interface SkillRecord {
 export interface ListSkillsInput {
   tenant_id: string;
   /** `undefined` lists all; empty returns `[]` without querying; otherwise `WHERE name IN (...)`. */
-  names?: readonly string[];
+  names: readonly string[] | undefined;
 }
 
 export interface ValidateSkillsAccessInput {

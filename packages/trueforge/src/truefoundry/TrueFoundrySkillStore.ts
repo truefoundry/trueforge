@@ -107,10 +107,11 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
       return undefined;
     }
     const accessToken = await this.#resolveAccessToken();
-    await this.#client.resolveAgentSkillVersions({
+    const resolved = await this.#client.resolveAgentSkillVersions({
       accessToken,
       skills: input.names.map(fqn => ({ fqn })),
     });
-    return undefined;
+    const known = new Set(resolved.map(skill => skill.fqn));
+    return input.names.find(name => !known.has(name));
   }
 }
