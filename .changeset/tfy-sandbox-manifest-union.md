@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Widen sandbox provider manifests to a Daytona | TFY discriminated union (TFY on-prem URLs, no auth).
+Widen sandbox provider manifests to a Daytona | truefoundry discriminated union. TrueFoundry mode uses TRUEFOUNDRY_SANDBOX_PROVIDER + static TRUEFOUNDRY_SANDBOX_SETTINGS JSON

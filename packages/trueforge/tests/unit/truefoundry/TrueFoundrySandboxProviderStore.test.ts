@@ -1,4 +1,3 @@
-import type { RequestContext } from '../../../src/auth/identity';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from '../../../src/truefoundry/errors';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { TrueFoundrySandboxProviderStore } from '../../../src/truefoundry/TrueFoundrySandboxProviderStore';
@@ -15,32 +14,14 @@ const mockResolveConfig = resolveTrueFoundrySandboxProviderConfig as jest.Mocked
   typeof resolveTrueFoundrySandboxProviderConfig
 >;
 
-const ACCESS_TOKEN = 'caller-token';
 const TENANT = 'acme';
-const context: RequestContext = {
-  tenant_id: TENANT,
-  subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
-  roles: [],
-  user_credential: ACCESS_TOKEN,
-};
-const SETTINGS_BODY = {
+const DAYTONA_SETTINGS = {
   snapshotName: 'tfy-sandbox-snap',
   autoStopIntervalInMinutes: 10,
   autoArchiveIntervalInMinutes: 90,
   autoDeleteIntervalInMinutes: 10_000,
   timeoutMs: 90_000,
-};
-
-function mockSettingsFetch(body: unknown = SETTINGS_BODY, status = 200): jest.Mock {
-  const fetchMock = jest.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
-    json: async () => body,
-  });
-  global.fetch = fetchMock as typeof fetch;
-  return fetchMock;
-}
+} as const;
 
 describe('TrueFoundrySandboxProviderStore', () => {
   beforeEach(() => {
@@ -48,69 +29,47 @@ describe('TrueFoundrySandboxProviderStore', () => {
     mockResolveConfig.mockReturnValue({
       type: 'daytona',
       apiKey: 'dtn-shared-key',
-      settingsServerUrl: 'https://settings.example/daytona/settings',
+      settings: { ...DAYTONA_SETTINGS },
     });
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
   });
 
   it('get returns undefined when shared sandbox is not configured', async () => {
     mockResolveConfig.mockReturnValue(undefined);
-    const fetchMock = mockSettingsFetch();
-    const store = new TrueFoundrySandboxProviderStore({ context });
+    const store = new TrueFoundrySandboxProviderStore();
     await expect(store.getSandboxProvider(TENANT)).resolves.toBeUndefined();
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('get fails when settings fetch times out', async () => {
-    const timeout = new Error('The operation was aborted due to timeout');
-    timeout.name = 'TimeoutError';
-    global.fetch = jest.fn().mockRejectedValue(timeout) as typeof fetch;
-    const store = new TrueFoundrySandboxProviderStore({ context });
-
-    await expect(store.getSandboxProvider(TENANT)).rejects.toThrow('Sandbox settings endpoint timed out after 10s');
-  });
-
-  it('get returns ready Daytona record with snapshot build_ref from settings server', async () => {
-    const fetchMock = mockSettingsFetch();
-    const store = new TrueFoundrySandboxProviderStore({ context });
+  it('get returns ready Daytona record from static settings', async () => {
+    const store = new TrueFoundrySandboxProviderStore();
 
     const record = await store.getSandboxProvider(TENANT);
 
-    expect(fetchMock).toHaveBeenCalledWith('https://settings.example/daytona/settings', {
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ACCESS_TOKEN}` },
-      signal: expect.any(AbortSignal),
-    });
     expect(record).toMatchObject({
       tenant_id: TENANT,
       status: 'ready',
       status_reason: null,
-      build_metadata: { build_ref: SETTINGS_BODY.snapshotName },
+      build_metadata: { build_ref: DAYTONA_SETTINGS.snapshotName },
       manifest: {
         type: 'daytona',
         auth: { api_key: 'dtn-shared-key' },
-        exec_timeout_ms: SETTINGS_BODY.timeoutMs,
-        auto_stop_interval_in_minutes: SETTINGS_BODY.autoStopIntervalInMinutes,
-        auto_archive_interval_in_minutes: SETTINGS_BODY.autoArchiveIntervalInMinutes,
-        auto_delete_interval_in_minutes: SETTINGS_BODY.autoDeleteIntervalInMinutes,
+        exec_timeout_ms: DAYTONA_SETTINGS.timeoutMs,
+        auto_stop_interval_in_minutes: DAYTONA_SETTINGS.autoStopIntervalInMinutes,
+        auto_archive_interval_in_minutes: DAYTONA_SETTINGS.autoArchiveIntervalInMinutes,
+        auto_delete_interval_in_minutes: DAYTONA_SETTINGS.autoDeleteIntervalInMinutes,
       },
     });
   });
 
-  it('get returns ready TFY record without settings fetch', async () => {
+  it('get returns ready truefoundry record from static settings', async () => {
     mockResolveConfig.mockReturnValue({
       type: 'truefoundry',
       serverUrl: 'http://sandbox-server',
       natsBridgeUrl: 'ws://nats-bridge',
     });
-    const fetchMock = mockSettingsFetch();
-    const store = new TrueFoundrySandboxProviderStore({ context });
+    const store = new TrueFoundrySandboxProviderStore();
 
     const record = await store.getSandboxProvider(TENANT);
 
-    expect(fetchMock).not.toHaveBeenCalled();
     expect(record).toMatchObject({
       tenant_id: TENANT,
       status: 'ready',
@@ -126,7 +85,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
   });
 
   it('writes and get-for-update are managed (424)', () => {
-    const store = new TrueFoundrySandboxProviderStore({ context });
+    const store = new TrueFoundrySandboxProviderStore();
     const assertManaged = (run: () => unknown) => {
       try {
         run();

@@ -266,7 +266,10 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     });
 
     const stored = await sandboxProviderStore.getSandboxProvider('default');
-    expect(stored?.manifest.auth.api_key).toBe(rotatedKey);
+    expect(stored?.manifest.type).toBe('daytona');
+    if (stored?.manifest.type === 'daytona') {
+      expect(stored.manifest.auth.api_key).toBe(rotatedKey);
+    }
   });
 
   it('PUT update reuses persisted build_metadata (no image upgrade on re-save)', async () => {
