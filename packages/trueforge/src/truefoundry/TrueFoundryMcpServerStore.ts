@@ -1,8 +1,3 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import {
-  decodeOffsetPageToken,
-  paginateOffsetRows,
-} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
@@ -124,30 +119,21 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     return async () => ({ headers: await headers() });
   }
 
-  async listServers(
-    input: ListMcpServersInput,
-    transaction?: TTransaction,
-  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }> {
+  async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
     void transaction;
-    const offset = decodeOffsetPageToken(input.page_token);
     if (input.names?.length === 0) {
-      return paginateOffsetRows([], input.limit, offset);
+      return [];
     }
 
     const accessToken = await this.#resolveAccessToken();
     const [rows, gatewayUrl] = await Promise.all([
       this.#client.listMcpServers({
         accessToken,
-        limit: input.limit + 1,
-        offset,
         ...(input.names !== undefined ? { names: input.names } : {}),
       }),
       this.#resolveGatewayUrl(),
     ]);
-    const records = mapSfyMcpServers({ rows }).map(server =>
-      toRecord({ tenant_id: input.tenant_id, server, gatewayUrl }),
-    );
-    return paginateOffsetRows(records, input.limit, offset);
+    return mapSfyMcpServers({ rows }).map(server => toRecord({ tenant_id: input.tenant_id, server, gatewayUrl }));
   }
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
