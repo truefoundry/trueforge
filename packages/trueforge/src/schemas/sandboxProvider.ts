@@ -48,8 +48,8 @@ export const DaytonaSandboxProviderSchema = z
   .openapi('DaytonaSandboxProvider');
 
 /**
- * TrueFoundry (on-prem TFY sandbox server) provider config. No auth secrets — server URLs come
- * from deployment env in TrueFoundry mode; persisted only when synthesized into a store record.
+ * TrueFoundry (on-prem) sandbox config — env-synthesized store records only.
+ * Not part of the settings OpenAPI surface (Settings never returns or accepts this).
  */
 export const TrueFoundrySandboxProviderSchema = z
   .object({
@@ -58,16 +58,15 @@ export const TrueFoundrySandboxProviderSchema = z
     nats_bridge_url: z.string().min(1).describe('Cluster-internal NATS WebSocket bridge URL.'),
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
   })
-  .strict()
-  .openapi('TrueFoundrySandboxProvider');
+  .strict();
 
 /**
- * Persisted jsonb: the provider config only (no build status).
- * Discriminated on `type` so OpenAPI emits a `oneOf` under `SandboxProviderManifest`.
+ * Store / runtime jsonb (Daytona settings rows + env-synthesized truefoundry).
  */
-export const SandboxProviderManifestSchema = z
-  .discriminatedUnion('type', [DaytonaSandboxProviderSchema, TrueFoundrySandboxProviderSchema])
-  .openapi('SandboxProviderManifest');
+export const SandboxProviderManifestSchema = z.discriminatedUnion('type', [
+  DaytonaSandboxProviderSchema,
+  TrueFoundrySandboxProviderSchema,
+]);
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
 export const SandboxBuildStatusSchema = z
@@ -91,17 +90,19 @@ export const SandboxStatusSchema = z
   })
   .strict();
 
-/** Settings wire item: nested manifest plus build status (no build_metadata). */
+/**
+ * Settings wire item: Daytona only. TrueFoundry sandboxes are env-managed and omitted from settings GET.
+ */
 export const ConfiguredSandboxProviderSchema = z
   .object({
-    manifest: SandboxProviderManifestSchema,
+    manifest: DaytonaSandboxProviderSchema,
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
   })
   .strict()
   .openapi('ConfiguredSandboxProvider');
 
-/** Settings PUT body — Daytona only */
+/** Settings PUT body — Daytona only. */
 export const UpdateSandboxProviderRequestSchema = z
   .object({
     manifest: DaytonaSandboxProviderSchema,

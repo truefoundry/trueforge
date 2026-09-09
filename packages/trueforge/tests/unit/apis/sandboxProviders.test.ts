@@ -138,6 +138,27 @@ describe('sandboxProviders router', () => {
     expect(await response.json()).toEqual({ error: { message: 'No sandbox provider configured' } });
   });
 
+  it('GET / returns 404 when only an env-managed truefoundry provider exists', async () => {
+    const { settingsRouter: router, sandboxProviderStore: store } = await createRouters();
+    await store.upsertSandboxProvider({
+      tenant_id: 'default',
+      manifest: {
+        type: 'truefoundry',
+        server_url: 'http://sandbox-server',
+        nats_bridge_url: 'ws://nats-bridge',
+        exec_timeout_ms: 60_000,
+      },
+      status: 'ready',
+      status_reason: null,
+      build_metadata: null,
+    });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: { message: 'No sandbox provider configured' } });
+    expect(mockCheckStatus).not.toHaveBeenCalled();
+  });
+
   it('PUT builds the image + upserts, GET returns redacted auth plus live image status', async () => {
     const put = await settingsRouter.request('/', putInit(putBody));
     expect(put.status).toBe(200);

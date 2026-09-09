@@ -1,5 +1,7 @@
 ---
 "@truefoundry/trueforge": patch
+"@truefoundry/trueforge-core": patch
+"@truefoundry/trueforge-sdk": patch
 ---
 
-Widen sandbox provider manifests to a Daytona | truefoundry discriminated union. TrueFoundry mode uses TRUEFOUNDRY_SANDBOX_PROVIDER + static TRUEFOUNDRY_SANDBOX_SETTINGS JSON
+TrueFoundry mode: env-backed Daytona | truefoundry sandbox via TRUEFOUNDRY_SANDBOX_* (static SETTINGS JSON). Core provider type is `truefoundry`; settings API stays Daytona-only (truefoundry manifests are internal — GET 404s them).

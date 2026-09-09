@@ -15,7 +15,6 @@ import {
 } from '../sandbox/providerUtils';
 import type {
   DaytonaSandboxProvider as DaytonaSandboxProviderManifest,
-  SandboxProviderManifest,
   UpdateSandboxProviderRequest,
 } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
@@ -30,16 +29,11 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
   resolveRequestContext: ResolveRequestContext;
 }
 
-function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
-  switch (manifest.type) {
-    case 'daytona':
-      return {
-        ...manifest,
-        auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
-      };
-    case 'truefoundry':
-      return manifest;
-  }
+function redactSandboxProvider(manifest: DaytonaSandboxProviderManifest): DaytonaSandboxProviderManifest {
+  return {
+    ...manifest,
+    auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
+  };
 }
 
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
@@ -48,7 +42,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const record = await store.getSandboxProvider(requestContext.tenant_id);
-    if (record === undefined) {
+    if (record?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
