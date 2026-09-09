@@ -731,12 +731,53 @@ export function runScheduleStoreContractSuite(deps: {
       created_by_subject: USER_SUBJECT,
     });
 
-    const forA = await store.listRuns({ tenant_id: TENANT, schedule_id: scheduleA.id });
-    expect(forA.map(row => row.id)).toEqual([newer.id, older.id]);
-    expect(forA.every(row => row.schedule_id === scheduleA.id)).toBe(true);
+    const forA = await store.listRuns({
+      tenant_id: TENANT,
+      schedule_id: scheduleA.id,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(forA.data.map(row => row.id)).toEqual([newer.id, older.id]);
+    expect(forA.data.every(row => row.schedule_id === scheduleA.id)).toBe(true);
+    expect(forA.pagination.next_page_token).toBeUndefined();
 
-    const forB = await store.listRuns({ tenant_id: TENANT, schedule_id: scheduleB.id });
-    expect(forB.map(row => row.id)).toEqual([otherScheduleRun.id]);
+    const forB = await store.listRuns({
+      tenant_id: TENANT,
+      schedule_id: scheduleB.id,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(forB.data.map(row => row.id)).toEqual([otherScheduleRun.id]);
+
+    const midSlot = new Date('2026-08-27T11:00:00.000Z');
+    const mid = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: scheduleA.id,
+      name: cronRunName(midSlot),
+      scheduled_for: midSlot,
+      status: 'triggered',
+      created_by_subject: USER_SUBJECT,
+    });
+
+    const page1 = await store.listRuns({
+      tenant_id: TENANT,
+      schedule_id: scheduleA.id,
+      limit: 2,
+      page_token: undefined,
+    });
+    expect(page1.data.map(row => row.id)).toEqual([newer.id, mid.id]);
+    expect(page1.pagination.limit).toBe(2);
+    expect(page1.pagination.next_page_token).toEqual(expect.any(String));
+
+    const page2 = await store.listRuns({
+      tenant_id: TENANT,
+      schedule_id: scheduleA.id,
+      limit: 2,
+      page_token: page1.pagination.next_page_token,
+    });
+    expect(page2.data.map(row => row.id)).toEqual([older.id]);
+    expect(page2.pagination.previous_page_token).toEqual(expect.any(String));
+    expect(page2.pagination.next_page_token).toBeUndefined();
   });
 
   it('updateRunStatus stamps triggered_at only for triggered; returns undefined when gone', async () => {

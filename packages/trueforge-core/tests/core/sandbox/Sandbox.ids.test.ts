@@ -21,7 +21,7 @@ function makeProvider(
     getGitCredentialsPath: sandboxId => `${sandboxId}/.git-credentials`,
     getFileUploadsDir: sandboxId => `${sandboxId}/uploads`,
     getSkillsDir: sandboxId => `${sandboxId}/skills`,
-    getGitDownloaderPath: sandboxId => `${sandboxId}/git_downloader.py`,
+    getSkillDownloaderPath: sandboxId => `${sandboxId}/skill_downloader.py`,
     downloadFile: jest.fn(),
     uploadFile: jest.fn().mockResolvedValue(undefined),
     createCodeModeTransport: jest.fn(),
