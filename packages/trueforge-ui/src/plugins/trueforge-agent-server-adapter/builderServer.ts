@@ -88,21 +88,23 @@ export function createHarnessBuilderServer(
     // Draft mounts `{ id, name }`; toHarnessSkill admits AgentSpec.skills[].name = id ?? name.
     getSkills: async () => {
       const skills = await listSkills(client);
-      return skills.map(skill => ({
-        id: skill.name,
-        name: skill.metadata?.display_name ?? skill.name,
-        description: skill.description,
-        ...(skill.skillRepoName === undefined ? {} : { skillRepoName: skill.skillRepoName }),
-        ...(skill.version === undefined ? {} : { version: skill.version }),
-        ...(skill.version === undefined
-          ? {}
-          : {
-              loadVersions: async () => {
-                const body = await client.skills.listVersions({ name: skill.name });
-                return body.data;
-              },
-            }),
-      }));
+      return skills.map(skill => {
+        const { display_name, repository_name, version: versionRaw } = skill.metadata ?? {};
+        const version = Number(versionRaw);
+        const hasVersion = Number.isInteger(version) && version > 0;
+        return {
+          id: skill.name,
+          name: display_name ?? skill.name,
+          description: skill.description,
+          ...(repository_name === undefined ? {} : { skillRepoName: repository_name }),
+          ...(hasVersion
+            ? {
+                version,
+                loadVersions: async () => (await client.skills.listVersions({ name: skill.name })).data,
+              }
+            : {}),
+        };
+      });
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
     getMcpTools: async ({ connectorId }: { connectorId: string }) => {

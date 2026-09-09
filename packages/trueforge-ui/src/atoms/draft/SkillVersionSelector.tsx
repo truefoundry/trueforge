@@ -75,7 +75,6 @@ export function SkillVersionSelector({
   if (latestVersion === undefined) return null;
 
   const load = () => {
-    console.log('load', skill);
     if (versions !== null || loading) return;
     setLoading(true);
     setError(null);

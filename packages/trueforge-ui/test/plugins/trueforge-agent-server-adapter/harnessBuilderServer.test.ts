@@ -215,10 +215,12 @@ describe('harnessBuilderServer', () => {
           data: [
             {
               name: 'agent-skill:acme/team-a/echo:3',
-              display_name: 'echo',
               description: 'Echo skill',
-              skill_repo_name: 'team-a',
-              version: 3,
+              metadata: {
+                display_name: 'echo',
+                repository_name: 'team-a',
+                version: '3',
+              },
             },
           ],
         });
