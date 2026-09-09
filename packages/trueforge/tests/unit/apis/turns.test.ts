@@ -120,6 +120,7 @@ describe('turns', () => {
       const agent = await agentStore.createAgent({
         tenant_id: 'default',
         name: 'managed-agent',
+        description: '',
         manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
         external_id: 'managed-agent-external',
         created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
@@ -427,6 +428,7 @@ describe('turns', () => {
           subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
         },
         name: 'named-for-turn',
+        description: '',
         manifest: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',

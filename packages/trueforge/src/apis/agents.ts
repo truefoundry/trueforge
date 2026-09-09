@@ -46,6 +46,7 @@ function toWireAgent(record: AgentRecord): Agent {
   return {
     id: record.id,
     name: record.name,
+    description: record.description,
     manifest: record.manifest,
     created_by_subject: record.created_by_subject,
   };
@@ -104,6 +105,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       const record = await deps.resolveAgentStore(c).createAgent({
         tenant_id: requestContext.tenant_id,
         name: body.name,
+        description: body.description,
         manifest,
         external_id: null,
         created_by_subject: createdBySubjectFromRequestContext(requestContext),
@@ -195,6 +197,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,
       id: agentId,
+      ...(body.description === undefined ? {} : { description: body.description }),
       manifest,
     });
     if (record === undefined) {

@@ -27,6 +27,7 @@ function recordColumns(eb: ExpressionBuilder<Database, 'agent'>) {
     'id' as const,
     'tenant_id' as const,
     'name' as const,
+    'description' as const,
     jsonText<AgentSpec>(eb.ref('manifest')).as('manifest'),
     'external_id' as const,
     jsonText<CreatedBySubject>(eb.ref('created_by_subject')).as('created_by_subject'),
@@ -39,6 +40,7 @@ function toRecord(row: {
   id: string;
   tenant_id: string;
   name: AgentRecord['name'];
+  description: string;
   manifest: AgentSpec;
   external_id: string | null;
   created_by_subject: CreatedBySubject;
@@ -94,6 +96,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
           id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
+          description: input.description,
           manifest: jsonbBind(input.manifest),
           external_id: input.external_id,
           created_by_subject: jsonbBind(input.created_by_subject),
@@ -118,8 +121,8 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
-    if (input.manifest === undefined && input.external_id === undefined) {
-      throw new Error('updateAgent requires manifest and/or external_id');
+    if (input.manifest === undefined && input.description === undefined && input.external_id === undefined) {
+      throw new Error('updateAgent requires manifest, description, and/or external_id');
     }
     const db = transaction ?? this.#db;
     try {
@@ -127,6 +130,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
         .updateTable('agent')
         .set({
           ...(input.manifest === undefined ? {} : { manifest: jsonbBind(input.manifest) }),
+          ...(input.description === undefined ? {} : { description: input.description }),
           ...(input.external_id === undefined ? {} : { external_id: input.external_id }),
           updated_at: nowIso(),
         })

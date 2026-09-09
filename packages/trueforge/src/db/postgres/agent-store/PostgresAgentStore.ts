@@ -23,6 +23,7 @@ function toRecord(row: Selectable<AgentTable>): AgentRecord {
     id: row.id,
     tenant_id: row.tenant_id,
     name: row.name,
+    description: row.description,
     manifest: parseStoredAgentSpec(row.manifest),
     external_id: row.external_id,
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
@@ -90,6 +91,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
           id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
+          description: input.description,
           manifest: json(input.manifest),
           external_id: input.external_id,
           created_by_subject: json(input.created_by_subject),
@@ -113,8 +115,8 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   }
 
   async updateAgent(input: UpdateAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
-    if (input.manifest === undefined && input.external_id === undefined) {
-      throw new Error('updateAgent requires manifest and/or external_id');
+    if (input.manifest === undefined && input.description === undefined && input.external_id === undefined) {
+      throw new Error('updateAgent requires manifest, description, and/or external_id');
     }
     const db = transaction ?? this.#db;
     try {
@@ -122,6 +124,7 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
         .updateTable('agent')
         .set({
           ...(input.manifest === undefined ? {} : { manifest: json(input.manifest) }),
+          ...(input.description === undefined ? {} : { description: input.description }),
           ...(input.external_id === undefined ? {} : { external_id: input.external_id }),
           updated_at: now(),
         })

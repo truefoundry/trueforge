@@ -61,6 +61,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
       subject_display_name: 'alice',
     },
     name: 'reporter',
+    description: '',
     manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
     external_id: 'reporter-external-id',
   });
@@ -220,6 +221,7 @@ describe('schedule list agent_names filter', () => {
         subject_display_name: 'alice',
       },
       name: 'reporter-two',
+      description: '',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: null,
     });

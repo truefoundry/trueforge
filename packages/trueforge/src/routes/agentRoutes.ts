@@ -154,7 +154,7 @@ export const putAgentRoute = createRoute({
   path: '/{agent_id}',
   tags: [OpenApiTag.AGENTS],
   summary: 'Update an agent',
-  description: 'Replaces the manifest for an existing agent keyed by immutable `agent_id`.',
+  description: 'Update an existing agent by immutable id.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'update',
   request: {

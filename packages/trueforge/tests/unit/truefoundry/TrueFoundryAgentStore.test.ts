@@ -59,6 +59,7 @@ function record(overrides: Partial<AgentRecord> = {}): AgentRecord {
     id: 'agent-1',
     tenant_id: TENANT,
     name: 'research',
+    description: '',
     manifest: manifest(),
     external_id: null,
     created_by_subject: CREATED_BY_SUBJECT,
@@ -178,6 +179,7 @@ describe('TrueFoundryAgentStore', () => {
           tenant_id: TENANT,
           created_by_subject: CREATED_BY_SUBJECT,
           name: 'research',
+          description: '',
           manifest: manifest({ mcp_servers: [{ name: 'slack' }] }),
           external_id: null,
         },
@@ -215,6 +217,7 @@ describe('TrueFoundryAgentStore', () => {
           tenant_id: TENANT,
           created_by_subject: CREATED_BY_SUBJECT,
           name: 'research',
+          description: '',
           manifest: manifest(),
           external_id: null,
         },
@@ -226,7 +229,7 @@ describe('TrueFoundryAgentStore', () => {
     expect(deleteRemoteAgent).not.toHaveBeenCalled();
   });
 
-  it('createAgent uses agent name as description even when instructions are empty', async () => {
+  it('createAgent uses agent name as description when description is blank', async () => {
     const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
       expect(input.description).toBe('research');
       expect(input.mcp_servers).toEqual([]);
@@ -244,7 +247,34 @@ describe('TrueFoundryAgentStore', () => {
         tenant_id: TENANT,
         created_by_subject: CREATED_BY_SUBJECT,
         name: 'research',
+        description: '',
         manifest: AgentSpecSchema.parse({ model: { name: 'openai-gateway/gpt-5' }, instructions: '' }),
+        external_id: null,
+      },
+      TXN,
+    );
+    expect(putRemoteAgent).toHaveBeenCalled();
+  });
+
+  it('createAgent syncs description to ServiceFoundry', async () => {
+    const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
+      expect(input.description).toBe('Finds papers');
+      return { externalId: 'sf-1' };
+    });
+    const createAgent = jest.fn(async () => record({ external_id: null, description: 'Finds papers' }));
+    const updateAgent = jest.fn(async () => record({ external_id: 'sf-1', description: 'Finds papers' }));
+    const store = tfStore({
+      inner: mockInner({ createAgent, updateAgent }),
+      client: mockClient({ putRemoteAgent }),
+    });
+
+    await store.createAgent(
+      {
+        tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'research',
+        description: 'Finds papers',
+        manifest: manifest(),
         external_id: null,
       },
       TXN,
@@ -272,6 +302,7 @@ describe('TrueFoundryAgentStore', () => {
           tenant_id: TENANT,
           created_by_subject: CREATED_BY_SUBJECT,
           name: 'research',
+          description: '',
           manifest: manifest(),
           external_id: null,
         },
@@ -302,6 +333,7 @@ describe('TrueFoundryAgentStore', () => {
           tenant_id: TENANT,
           created_by_subject: CREATED_BY_SUBJECT,
           name: 'research',
+          description: '',
           manifest: manifest(),
           external_id: null,
         },
@@ -335,6 +367,7 @@ describe('TrueFoundryAgentStore', () => {
           tenant_id: TENANT,
           created_by_subject: CREATED_BY_SUBJECT,
           name: 'research',
+          description: '',
           manifest: manifest(),
           external_id: null,
         },
