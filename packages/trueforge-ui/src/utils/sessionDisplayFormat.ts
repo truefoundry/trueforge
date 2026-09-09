@@ -25,6 +25,23 @@ export function formatDurationMs(durationMs: number): string {
   return `${(durationMs / 3_600_000).toFixed(2)}h`;
 }
 
+export function roundDurationMsToSecond(durationMs: number): number {
+  return Math.max(0, Math.round(durationMs / 1_000) * 1_000);
+}
+
+/** Whole-unit duration for prominent summary UI (e.g. 3m 8s). */
+export function formatReadableDurationMs(durationMs: number): string {
+  const totalSeconds = roundDurationMsToSecond(durationMs) / 1_000;
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  return [
+    ...(hours > 0 ? [`${hours}h`] : []),
+    ...(minutes > 0 ? [`${minutes}m`] : []),
+    ...(seconds > 0 || totalSeconds === 0 ? [`${seconds}s`] : []),
+  ].join(' ');
+}
+
 export function formatSessionListMetrics(metrics: {
   totalTurns: number;
   totalCostInUsd?: number;
@@ -33,6 +50,6 @@ export function formatSessionListMetrics(metrics: {
   return [
     `${metrics.totalTurns} turns`,
     ...(metrics.totalCostInUsd == null ? [] : [formatCostUsd(metrics.totalCostInUsd)]),
-    formatDurationMs(metrics.totalDurationMs),
+    formatReadableDurationMs(metrics.totalDurationMs),
   ].join(' | ');
 }

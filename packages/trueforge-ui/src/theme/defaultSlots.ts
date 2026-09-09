@@ -32,6 +32,7 @@ import type {
 } from '../atoms/agent-details/types.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
+import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
 import { AssistantMessageBubble } from '../atoms/AssistantMessageBubble.js';
 import { AttachmentCard } from '../atoms/AttachmentCard.js';
 import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
@@ -43,6 +44,7 @@ import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '.
 import { ComposerShell } from '../atoms/ComposerShell.js';
 import { AgentConfigEditors } from '../atoms/draft/AgentConfigEditors.js';
 import { AgentConfigPanel, AgentConfigSection } from '../atoms/draft/AgentConfigPanel.js';
+import { AgentCustomParametersEditor } from '../atoms/draft/AgentCustomParametersEditor.js';
 import { AgentInstructionsDrawer } from '../atoms/draft/AgentInstructionsDrawer.js';
 import { AgentMcpEditorContent } from '../atoms/draft/AgentMcpEditorContent.js';
 import { AgentModelConfigModal } from '../atoms/draft/AgentModelConfigModal.js';
@@ -50,8 +52,8 @@ import { AgentModelEditorContent } from '../atoms/draft/AgentModelEditorContent.
 import { AgentModelSettingsContent } from '../atoms/draft/AgentModelSettingsContent.js';
 import { AgentResourceConfigModal } from '../atoms/draft/AgentResourceConfigModal.js';
 import { AgentResourceEditorContent } from '../atoms/draft/AgentResourceEditorContent.js';
+import { AgentRuntimeConfigDrawer } from '../atoms/draft/AgentRuntimeConfigDrawer.js';
 import { AgentRuntimeConfigFields } from '../atoms/draft/AgentRuntimeConfigFields.js';
-import { AgentRuntimeConfigModal } from '../atoms/draft/AgentRuntimeConfigModal.js';
 import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorContent.js';
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
@@ -71,7 +73,6 @@ import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SaveAgentForm } from '../atoms/SaveAgentForm.js';
-import { SaveAgentFormFields } from '../atoms/SaveAgentFormFields.js';
 import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
@@ -145,6 +146,7 @@ export const defaultSlots = {
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
   DraftCapabilitiesPanel,
+  AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
   AgentModelEditorContent,
@@ -157,7 +159,7 @@ export const defaultSlots = {
   AgentConfigPanel,
   AgentConfigSection,
   AgentRuntimeConfigFields,
-  AgentRuntimeConfigModal,
+  AgentRuntimeConfigDrawer,
   AgentRuntimeEditorContent,
   DraftCompositeSelector,
   CatalogRow,
@@ -199,6 +201,7 @@ export const defaultSlots = {
   AgentsLibrary,
   AgentLibraryRow,
   AgentsLibraryButton,
+  ApprovalNavBanner,
   SessionsBrowserButton,
   AgentDetailsPage,
   AgentDetailsHeader,
@@ -226,7 +229,6 @@ export const defaultSlots = {
   SchedulesButton,
   SaveAgentButton,
   SaveAgentForm,
-  SaveAgentFormFields,
   SelectAgentEmptyState,
   ClearChatButton,
   ThreadListRowSkeleton,

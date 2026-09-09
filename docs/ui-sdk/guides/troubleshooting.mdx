@@ -86,8 +86,11 @@ description: "Common failure modes and their causes."
     The provider toggles the `dark` class on `document.documentElement`. Pass a controlled `theme.mode` derived from your own state so the two stay aligned.
   </Accordion>
 
-  <Accordion title="Import of Button or AskUserPrompt fails">
-    A few names are published as types only, so importing them as values fails. `Button` and `IconButton` are restyled through [theme tokens](/ui-sdk/setup-custom-ui/custom-theme) rather than replaced. `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` are override-only — supply your own component typed with the published props.
+  <Accordion title="Import of AskUserPrompt fails">
+    A few names are published as types only, so importing them as values fails.
+    `AskUserPrompt`, `McpAuthPrompt`, and `ReasoningCard` are override-only — supply your own
+    component typed with the published props. `Button` / `IconButton` are public values restyled
+    through [theme tokens](/ui-sdk/setup-custom-ui/custom-theme), not slot overrides.
   </Accordion>
 
   <Accordion title="SSR or React Server Components errors">

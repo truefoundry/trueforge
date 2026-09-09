@@ -240,15 +240,9 @@ function ScheduleFormDrawerBody({
     footer = (
       <div className="flex flex-col gap-2">
         {error != null ? <p className="text-failure-bg text-sm">{error}</p> : null}
-        <Button
-          type="button"
-          variant="secondary"
-          className="w-full"
-          disabled={activating}
-          onClick={() => void handleActivate()}
-        >
+        <Button.Secondary type="button" className="w-full" disabled={activating} onClick={() => void handleActivate()}>
           Activate Anyway
-        </Button>
+        </Button.Secondary>
       </div>
     );
   } else {
@@ -256,12 +250,12 @@ function ScheduleFormDrawerBody({
       <div className="flex flex-col gap-2">
         {error != null ? <p className="text-failure-bg text-sm">{error}</p> : null}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button.Secondary type="button" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
-          </Button>
-          <Button type="submit" form="schedule-form" disabled={!canSubmit || saving}>
+          </Button.Secondary>
+          <Button.Primary type="submit" form="schedule-form" disabled={!canSubmit || saving}>
             Save
-          </Button>
+          </Button.Primary>
         </div>
       </div>
     );
@@ -274,7 +268,7 @@ function ScheduleFormDrawerBody({
       title={title}
       description={description}
       anchor="right"
-      size="lg"
+      size="xl"
       headerIcon={
         <span className="text-primary-button-bg inline-flex size-8 items-center justify-center">
           <Icon

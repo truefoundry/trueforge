@@ -25,22 +25,26 @@ describe('IconButton', () => {
 
     const button = screen.getByRole('button', { name: 'Open settings' });
     expect(button).toBe(ref.current);
-    expect(button).toHaveAttribute('title', 'Settings');
     expect(button).toHaveAttribute('type', 'button');
     expect(button).toHaveAttribute('data-track', 'settings');
     expect(button).toHaveClass('h-8', 'w-8', 'host-icon-button');
+    expect(button.className).toMatch(/\[&_svg\]:size-3\.5/);
+
+    fireEvent.mouseEnter(button);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Settings');
 
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it('does not add an empty title when no tooltip is provided', () => {
+  it('does not render a tooltip when none is provided', () => {
     render(
       <IconButton aria-label="Close">
         <span aria-hidden="true">×</span>
       </IconButton>,
     );
 
-    expect(screen.getByRole('button', { name: 'Close' })).not.toHaveAttribute('title');
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 });

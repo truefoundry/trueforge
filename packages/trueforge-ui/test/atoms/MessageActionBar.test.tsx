@@ -11,9 +11,13 @@ describe('MessageActionBar', () => {
     );
 
     const copyButton = screen.getByRole('button', { name: 'Copy' });
-    expect(copyButton).toHaveAttribute('title', 'Copy');
+    fireEvent.mouseEnter(copyButton);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Copy');
     expect(copyButton.querySelector('svg')).toHaveClass('lucide-copy');
-    expect(copyButton.parentElement).toHaveClass('aui-assistant-action-bar-root', 'host-bar');
+    expect(copyButton.closest('.aui-assistant-action-bar-root')).toHaveClass(
+      'aui-assistant-action-bar-root',
+      'host-bar',
+    );
 
     fireEvent.click(copyButton);
     expect(onCopy).toHaveBeenCalledOnce();

@@ -1,7 +1,10 @@
-import { HTTPException } from 'hono/http-exception';
+import type { Logger } from 'winston';
+import type { RequestContext } from '../auth/identity';
+import type { AgentRecord } from '../db/agentStore';
 import {
   flattenProviderModels,
   type CreateModelProviderInput,
+  type GetModelProviderForUpdateInput,
   type GetModelProviderInput,
   type IModelProviderStore,
   type ListModelProvidersInput,
@@ -9,21 +12,28 @@ import {
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
+import { trueFoundryManaged } from './errors';
 import { mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
-import { TRUEFOUNDRY_MANAGED_MESSAGE, TRUEFOUNDRY_MANAGED_STATUS } from './trueFoundryManaged';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
-
-function managed(): never {
-  throw new HTTPException(TRUEFOUNDRY_MANAGED_STATUS, { message: TRUEFOUNDRY_MANAGED_MESSAGE });
-}
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #accessToken: string;
+  readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: { client: TrueFoundryServiceFoundryServerClient; accessToken: string }) {
+  constructor(input: {
+    client: TrueFoundryServiceFoundryServerClient;
+    context: RequestContext;
+    agent: AgentRecord | undefined;
+    logger: Logger;
+  }) {
     this.#client = input.client;
-    this.#accessToken = input.accessToken;
+    this.#resolveAccessToken = accessTokenForRequest({
+      client: input.client,
+      context: asTrueFoundryRequestContext(input.context),
+      agent: input.agent,
+      logger: input.logger,
+    });
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
@@ -36,45 +46,55 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     transaction?: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void transaction;
-    const records = await this.#records(input);
+    const records = await this.#records({
+      tenant_id: input.tenant_id,
+      filter: { provider_account_name: input.name, name: input.model_name },
+    });
     return records.find(record => record.name === input.name);
   }
 
   getProviderForUpdate(
-    input: GetModelProviderInput,
+    input: GetModelProviderForUpdateInput,
     transaction: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   createProvider(input: CreateModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord> {
     void input;
     void transaction;
-    return managed();
+    return trueFoundryManaged();
   }
 
   async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 
-  async #records(input: { tenant_id: string }): Promise<ModelProviderRecord[]> {
+  async #records(input: {
+    tenant_id: string;
+    filter?: { provider_account_name: string; name: string };
+  }): Promise<ModelProviderRecord[]> {
+    const accessToken = await this.#resolveAccessToken();
     const [integrations, installations] = await Promise.all([
-      this.#client.listProviderIntegrations(this.#accessToken),
-      this.#client.listGatewayInstallations(this.#accessToken),
+      this.#client.listProviderIntegrations({
+        accessToken,
+        ...(input.filter !== undefined ? { filter: input.filter } : {}),
+      }),
+      this.#client.listGatewayInstallations(accessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
     return toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
-      accessToken: this.#accessToken,
+      accessToken,
       models: mapEnabledModels({ integrations }),
     });
   }

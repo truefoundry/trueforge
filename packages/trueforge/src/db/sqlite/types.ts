@@ -272,6 +272,7 @@ export interface ScheduleRunTable {
   status: ScheduleRunStatus;
   created_by_subject: JsonbColumn<CreatedBySubject>;
   triggered_at: string | null;
+  reason: string | null;
   created_at: string;
   updated_at: string;
 }

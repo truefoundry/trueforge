@@ -9,7 +9,7 @@ import {
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
 import { useTrueFoundryRespondToToolApproval } from '@truefoundry/assistant-ui-runtime';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';
 import {
@@ -32,6 +32,7 @@ import {
   resolveSubAgentMeta,
   toStatus,
 } from '../utils/toolCallParsing.js';
+import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
@@ -153,6 +154,8 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   const durationText = elapsedMs === undefined ? undefined : formatDuration(elapsedMs);
   const status = toStatus(part.status?.type);
   const onToggle = () => setExpanded(prev => !prev);
+  const expandSubAgent = useCallback(() => setExpanded(true), []);
+  useRegisterApprovalExpand(isSubAgent ? part.toolCallId : '', expandSubAgent);
 
   if (part.toolName === ASK_USER_TOOL_NAME) {
     if (hasPendingAskUserResponse(part)) {
@@ -232,6 +235,8 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
         argsJson={argsJson}
         resultText={resultText}
         resultJson={resultJson}
+        approvalSlot={showApproval ? <ToolApprovalSlot part={part} /> : undefined}
+        approvalId={showApproval ? part.approval?.id : undefined}
       />
     );
   }
@@ -257,6 +262,8 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
           showResponseLine={status !== 'running' && !!resultDisplay.data}
           mcpServerName={mcpServer}
           {...slots}
+          approvalSlot={showApproval ? <ToolApprovalSlot part={part} /> : undefined}
+          approvalId={showApproval ? part.approval?.id : undefined}
         />
       );
     }
@@ -279,6 +286,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
         mcpServerName={mcpServer}
         {...slots}
         approvalSlot={showApproval ? <ToolApprovalSlot part={part} /> : undefined}
+        approvalId={showApproval ? part.approval?.id : undefined}
       />
     );
   }
@@ -300,6 +308,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
       showResponseLine={status !== 'running' && resultDisplay.data !== undefined}
       {...slots}
       approvalSlot={showApproval ? <ToolApprovalSlot part={part} /> : undefined}
+      approvalId={showApproval ? part.approval?.id : undefined}
     />
   );
 };

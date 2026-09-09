@@ -11,7 +11,6 @@
  */
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -66,7 +65,7 @@ import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
-import type { IAgentStore } from './db/agentStore';
+import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -91,19 +90,20 @@ import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
+import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (c?: Context) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   destroyDb: () => Promise<void>;
   redis: RedisClientType | undefined;
@@ -111,20 +111,16 @@ interface ServerPersistence<TTransaction> {
   serviceFoundryClient: TrueFoundryServiceFoundryServerClient | undefined;
 }
 
-function requireRequestCredentialToken(c: Context): string {
-  const credential = resolveRequestContext(c).user_credential;
-  if (credential === null) {
-    throw new HTTPException(401, {
-      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, and agents',
-    });
-  }
-  return credential;
-}
-
 /** Shared ServiceFoundry HTTP client when TrueFoundry mode is on; otherwise undefined. */
 function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFoundryServerClient | undefined {
   if (!isTrueFoundryModeEnabled(configuration)) {
     return undefined;
+  }
+  const apiKey = configuration.TRUEFOUNDRY_API_KEY;
+  if (apiKey === undefined) {
+    // this is unreachable because the config validation fails if TRUEFOUNDRY_API_KEY is not set
+    // we will refactor config itself later to have a truefoundry section where this will be required
+    throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
   }
   return new TrueFoundryServiceFoundryServerClient({
     serviceFoundryServerUrl: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL,
@@ -132,20 +128,28 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
+    apiKey,
   });
 }
 
-/** Per-request model-provider store over a shared ServiceFoundry client, else {@link persistenceStore}. */
+/**
+ * Per-request model-provider store over a shared ServiceFoundry client, else {@link persistenceStore}.
+ * `runAsAgent` is set only when a turn should use a saved agent's token.
+ */
 function buildResolveModelProviderStore<TTransaction>(options: {
   persistenceStore: IModelProviderStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (c: Context) => IModelProviderStore<TTransaction> {
-  return (c: Context) => {
+  logger: Logger;
+}): (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction> {
+  return (c: Context, runAsAgent?: AgentRecord) => {
     const { persistenceStore, client } = options;
     if (client) {
+      const requestContext = resolveRequestContext(c);
       return new TrueFoundryModelProviderStore<TTransaction>({
         client,
-        accessToken: requireRequestCredentialToken(c),
+        context: requestContext,
+        agent: runAsAgent,
+        logger: options.logger,
       });
     }
     return persistenceStore;
@@ -154,22 +158,24 @@ function buildResolveModelProviderStore<TTransaction>(options: {
 
 /**
  * Per-request MCP store over ServiceFoundry. Without request context (scheduler / OAuth callback)
- * falls back to the local with-auth store.
+ * falls back to the local with-auth store. `runAsAgent` selects a saved agent's token for turns.
  */
 function buildResolveMcpServerStore<TTransaction>(options: {
   persistenceStore: IMcpServerStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (c?: Context) => IMcpServerWithAuthStore<TTransaction> {
-  return (c?: Context) => {
+  logger: Logger;
+}): (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction> {
+  return (c?: Context, runAsAgent?: AgentRecord) => {
     const { persistenceStore, tokenStore, client } = options;
     if (c && client) {
       const requestContext = resolveRequestContext(c);
       const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
       return new TrueFoundryMcpServerStore<TTransaction>({
         client,
-        accessToken: requireRequestCredentialToken(c),
-        subject: requestContext.subject,
+        context: requestContext,
+        agent: runAsAgent,
+        logger: options.logger,
         perServerHeaders: rawPerServerHeaders ? parsePerServerMcpHeaders(rawPerServerHeaders) : {},
       });
     }
@@ -194,12 +200,29 @@ function buildResolveAgentStore(options: {
       return new TrueFoundryAgentStore({
         inner: persistenceStore,
         client,
-        accessToken: requireRequestCredentialToken(c),
+        context: resolveRequestContext(c),
         db,
       });
     }
     return persistenceStore;
   };
+}
+
+/**
+ * Per-request sandbox-provider store resolver. In TrueFoundry mode every request gets a
+ * token-bound env/settings-server store; otherwise the persistence store is reused as-is.
+ */
+function buildResolveSandboxProviderStore<TTransaction>(options: {
+  persistenceStore: ISandboxProviderStore<TTransaction>;
+}): (c: Context) => ISandboxProviderStore<TTransaction> {
+  const { persistenceStore } = options;
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return () => persistenceStore;
+  }
+  return c =>
+    new TrueFoundrySandboxProviderStore<TTransaction>({
+      context: resolveRequestContext(c),
+    });
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
@@ -249,16 +272,17 @@ async function createStandalonePersistence(options: {
     tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
+  const sandboxProviderStore = new SqliteSandboxProviderStore(db);
   return {
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveAgentStore: () => agentStore,
+    resolveSandboxProviderStore: () => sandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
     skillStore: new SqliteSkillStore(db),
-    sandboxProviderStore: new SqliteSandboxProviderStore(db),
     scheduleStore: new SqliteScheduleStore(db),
     destroyDb: () => db.destroy(),
     redis: undefined,
@@ -324,27 +348,35 @@ async function createDistributedPersistence(options: {
   const modelProviderStore = new PostgresModelProviderStore(db);
   const mcpServerStore = new PostgresMcpServerStore(db);
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
+  const resolveModelProviderStore = buildResolveModelProviderStore({
+    persistenceStore: modelProviderStore,
+    client: serviceFoundryClient,
+    logger,
+  });
+  const resolveMcpServerStore = buildResolveMcpServerStore({
+    persistenceStore: mcpServerStore,
+    tokenStore,
+    client: serviceFoundryClient,
+    logger,
+  });
+  const resolveAgentStore = buildResolveAgentStore({
+    persistenceStore: agentStore,
+    db,
+    client: serviceFoundryClient,
+  });
+  const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
+    persistenceStore: new PostgresSandboxProviderStore(db),
+  });
   return {
     sessionStore: new PostgresSessionStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
-    resolveModelProviderStore: buildResolveModelProviderStore({
-      persistenceStore: modelProviderStore,
-      client: serviceFoundryClient,
-    }),
-    resolveMcpServerStore: buildResolveMcpServerStore({
-      persistenceStore: mcpServerStore,
-      tokenStore,
-      client: serviceFoundryClient,
-    }),
-    resolveAgentStore: buildResolveAgentStore({
-      persistenceStore: agentStore,
-      db,
-      client: serviceFoundryClient,
-    }),
+    resolveModelProviderStore,
+    resolveMcpServerStore,
+    resolveAgentStore,
+    resolveSandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
     skillStore: new PostgresSkillStore(db),
-    sandboxProviderStore: new PostgresSandboxProviderStore(db),
     scheduleStore: new PostgresScheduleStore(db),
     destroyDb: () => db.destroy(),
     redis: await connectRedis({ url: redisUrl, logger }),
@@ -360,10 +392,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
     skillStore,
-    sandboxProviderStore,
     scheduleStore,
     destroyDb,
     redis,
@@ -420,10 +452,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
     skillStore,
-    sandboxProviderStore,
     scheduleStore,
     sessionStore,
     sessionMetricsStore,

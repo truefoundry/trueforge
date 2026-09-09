@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { cn } from '../lib/cn.js';
@@ -11,10 +11,31 @@ export type DropdownMenuProps = {
   children: React.ReactNode;
   align?: 'start' | 'end';
   className?: string;
+  containerClassName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  closeOnClick?: boolean;
 };
 
-export function DropdownMenu({ trigger, children, align = 'end', className }: DropdownMenuProps) {
-  const [open, setOpen] = useState(false);
+export function DropdownMenu({
+  trigger,
+  children,
+  align = 'end',
+  className,
+  containerClassName,
+  open: controlledOpen,
+  onOpenChange,
+  closeOnClick = true,
+}: DropdownMenuProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (controlledOpen === undefined) setInternalOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -138,7 +159,8 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
               'text-text-primary shadow-md',
               className,
             )}
-            onClick={() => setOpen(false)}
+            onMouseDown={event => event.stopPropagation()}
+            onClick={closeOnClick ? () => setOpen(false) : undefined}
           >
             {children}
           </div>,
@@ -147,8 +169,10 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
       : null;
 
   return (
-    <div ref={containerRef} className="relative inline-flex">
-      <div onClick={() => setOpen(v => !v)}>{triggerEl}</div>
+    <div ref={containerRef} className={cn('relative inline-flex', containerClassName)}>
+      <div className="contents" onClick={() => setOpen(!open)}>
+        {triggerEl}
+      </div>
       {menu}
     </div>
   );

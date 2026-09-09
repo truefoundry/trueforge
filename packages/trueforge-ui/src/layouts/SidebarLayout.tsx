@@ -12,7 +12,7 @@ import {
 } from 'react';
 
 import { useAui } from '../assistant-ui.js';
-import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
+import { auiButtonClass, sidebarRailButtonClassName } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
@@ -34,13 +34,12 @@ const SchedulesPage = lazy(() =>
 );
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
-const railWidthClassName = 'w-18';
+const railWidthClassName = 'w-20';
 
-const railActionButtonClassName =
-  'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text';
+const railActionButtonClassName = cn(sidebarRailButtonClassName, 'text-sidebar-text');
 
 const railSelectedClassName =
-  'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text';
+  'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text';
 
 function SidebarNav(): ReactNode {
   const aui = useAui();
@@ -92,7 +91,7 @@ function SidebarNav(): ReactNode {
           })}
           onClick={handleNewChat}
         >
-          <Icon name="square-pen" size={16} />
+          <Icon name="square-pen" size={14} />
           <span className="text-center">New Chat</span>
         </button>
       ) : null}
@@ -108,8 +107,8 @@ function SidebarNav(): ReactNode {
           })}
           onClick={handleNewAgent}
         >
-          <Icon name="agent-2" size={16} />
-          <span className="text-center">New Agent</span>
+          <Icon name="agent-2" size={14} />
+          <span className="text-center whitespace-nowrap">Build Agent</span>
         </button>
       ) : null}
       <AgentsLibraryButton compact />
@@ -217,7 +216,7 @@ export function SidebarLayout({ className }: { className?: string }) {
         <aside
           role="dialog"
           aria-label="Agent Config"
-          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:w-88 md:max-w-none md:shrink-0 md:shadow-none"
+          className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:max-w-140 md:flex-1 md:shadow-none 2xl:max-w-150"
         >
           <AgentConfigDrawerContainer showClose={isMobile} />
         </aside>

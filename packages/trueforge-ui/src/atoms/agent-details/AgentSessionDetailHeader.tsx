@@ -6,6 +6,7 @@ import { Icon } from '../../icons/Icon.js';
 import { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { Button } from '../primitives/Button.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionDetailHeaderProps } from './types.js';
 
@@ -40,7 +41,7 @@ export function AgentSessionDetailHeader({
   };
 
   return (
-    <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+    <div className="flex shrink-0 items-center gap-3 border-b border-border p-3">
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <h2 className="min-w-0 truncate text-sm font-semibold text-text-primary">{title}</h2>
         <code className="min-w-0 truncate font-mono text-xs text-text-secondary">{sessionId}</code>
@@ -63,15 +64,15 @@ export function AgentSessionDetailHeader({
           href={resumeHref}
           target="_blank"
           rel="noopener noreferrer"
-          className={auiButtonClass({ variant: 'outline', size: 'sm' })}
+          className={auiButtonClass({ variant: 'secondary', size: 'large' })}
         >
           {resumeLabel}
-          <Icon name="square-arrow-out-up-right" size="0.875em" className="shrink-0" />
+          <Icon name="square-arrow-out-up-right" className="shrink-0" />
         </a>
       ) : resumeLabel != null && onResume != null ? (
-        <button type="button" className={auiButtonClass({ variant: 'outline', size: 'sm' })} onClick={onResume}>
+        <Button.Secondary type="button" size="large" onClick={onResume}>
           {resumeLabel}
-        </button>
+        </Button.Secondary>
       ) : null}
       <button
         type="button"

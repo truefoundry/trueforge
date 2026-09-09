@@ -105,7 +105,7 @@ async function createRouters(): Promise<{
         }),
       tokenStore,
       skillStore: new SqliteSkillStore(db),
-      sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -389,7 +389,11 @@ describe('model-provider secret redaction and strict PUT', () => {
     expect(updateBody.data.manifest.auth.api_key).toBe(toRedactedSecretValue(anthropicBody.auth.api_key));
     expect(updateBody.data.manifest.models).toHaveLength(2);
 
-    const stored = await modelProviderStore.getProvider({ tenant_id: 'default', name: 'anthropic' });
+    const stored = await modelProviderStore.getProvider({
+      tenant_id: 'default',
+      name: 'anthropic',
+      model_name: 'claude-sonnet-4-6',
+    });
     if (!stored || !('auth' in stored.manifest)) {
       throw new Error('expected stored anthropic provider with auth');
     }
@@ -408,7 +412,11 @@ describe('model-provider secret redaction and strict PUT', () => {
       data: configured('anthropic', withRedactedApiKey({ ...anthropicProvider, auth: { api_key: rotatedKey } })),
     });
 
-    const stored = await modelProviderStore.getProvider({ tenant_id: 'default', name: 'anthropic' });
+    const stored = await modelProviderStore.getProvider({
+      tenant_id: 'default',
+      name: 'anthropic',
+      model_name: 'claude-sonnet-4-6',
+    });
     if (!stored || !('auth' in stored.manifest)) {
       throw new Error('expected stored anthropic provider with auth');
     }

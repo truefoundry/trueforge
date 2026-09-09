@@ -17,7 +17,7 @@ describe('ThreadListNewButton', () => {
     expect(button).toHaveAttribute('type', 'button');
     expect(button).toHaveTextContent('New Chat');
     expect(button).toHaveClass('consumer-class');
-    expect(button).toHaveStyle({ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' });
+    expect(button).toHaveStyle({ borderRadius: 'var(--thread-list-item-radius, 0.75rem)' });
     fireEvent.click(button);
     expect(onClick).toHaveBeenCalledOnce();
   });

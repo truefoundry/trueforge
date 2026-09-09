@@ -2,27 +2,18 @@
 
 import { useEffect, useRef } from 'react';
 
-import type { AgentSpec, ModelSelection } from '../server/types.js';
-import { useSlot } from '../theme/SlotsProvider.js';
-import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
-import type { EditableMount } from './draft/agentConfigMounts.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import type { AgentSpec } from '../server/types.js';
 import { auiInputClass } from './lib/inputClasses.js';
+import { Button } from './primitives/Button.js';
 
 export type SaveAgentFormProps = {
   intent: 'create' | 'update';
   name: string;
   spec: AgentSpec;
-  modelEntry?: ModelSelection;
-  mcpMounts: EditableMount[];
-  skillMounts: EditableMount[];
   saving: boolean;
   error: string | null;
   onNameChange: (name: string) => void;
   onChange: (spec: AgentSpec) => void;
-  onEdit: (editor: AgentConfigEditor) => void;
-  onToggleMcpPreload: (id: string) => void;
-  onRemoveMcp?: (id: string) => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -31,20 +22,12 @@ export function SaveAgentForm({
   intent,
   name,
   spec,
-  modelEntry,
-  mcpMounts,
-  skillMounts,
   saving,
   error,
   onNameChange,
-  onChange,
-  onEdit,
-  onToggleMcpPreload,
-  onRemoveMcp,
   onCancel,
   onSave,
 }: SaveAgentFormProps) {
-  const SaveAgentFormFields = useSlot('SaveAgentFormFields');
   const errorRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -63,32 +46,22 @@ export function SaveAgentForm({
             disabled={saving || intent === 'update'}
             onChange={event => onNameChange(event.target.value)}
             placeholder="release-notes"
-            className={auiInputClass('h-9 disabled:opacity-60')}
+            className={auiInputClass('h-8 disabled:opacity-60')}
           />
         </label>
 
-        <label className="mb-3 block">
-          <span className="mb-1.5 block text-sm font-medium">Instructions</span>
-          <textarea
-            value={spec.instructions ?? ''}
-            disabled={saving}
-            onChange={event => onChange({ ...spec, instructions: event.target.value })}
-            rows={5}
-            placeholder="You are a release notes writer for a platform team."
-            className={auiInputClass('resize-y py-2 disabled:opacity-60')}
-          />
-        </label>
-
-        <SaveAgentFormFields
-          spec={spec}
-          modelEntry={modelEntry}
-          mcpMounts={mcpMounts}
-          skillMounts={skillMounts}
-          disabled={saving}
-          onEdit={onEdit}
-          onToggleMcpPreload={onToggleMcpPreload}
-          onRemoveMcp={onRemoveMcp}
-        />
+        {/* TODO: Uncomment the description field when the backend supports description */}
+        {/* <label className="mb-3 block">
+            <span className="mb-1.5 block text-sm font-medium">Description</span>
+            <textarea
+              value={spec.description ?? ''}
+              disabled={saving}
+              onChange={event => onChange({ ...spec, description: event.target.value })}
+              rows={4}
+              placeholder="Describe what this agent does."
+              className={auiInputClass('resize-y py-2 disabled:opacity-60')}
+            />
+          </label> */}
 
         {error ? (
           <p
@@ -102,17 +75,12 @@ export function SaveAgentForm({
       </div>
 
       <div className="bg-card-bg sticky bottom-0 z-10 flex shrink-0 justify-end gap-2 border-t border-border px-5 py-4">
-        <button type="button" disabled={saving} className={auiButtonClass({ variant: 'secondary' })} onClick={onCancel}>
+        <Button.Secondary type="button" disabled={saving} onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="button"
-          disabled={saving || !name.trim() || !spec.model.name.trim()}
-          className={auiButtonClass({ variant: 'default' })}
-          onClick={onSave}
-        >
+        </Button.Secondary>
+        <Button.Primary type="button" disabled={saving || !name.trim() || !spec.model.name.trim()} onClick={onSave}>
           {saving ? 'Saving…' : 'Save changes'}
-        </button>
+        </Button.Primary>
       </div>
     </div>
   );

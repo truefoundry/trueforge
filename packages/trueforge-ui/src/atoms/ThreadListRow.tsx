@@ -37,7 +37,7 @@ export function ThreadListRow({
       data-slot="aui_thread-list-item"
       data-active={active || undefined}
       className={cn(
-        'group flex min-w-0 items-center gap-0.5 rounded-md transition-colors',
+        'group flex min-w-0 items-center gap-0.5 rounded-[0.75rem] transition-colors',
         active
           ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
           : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
@@ -47,11 +47,11 @@ export function ThreadListRow({
       <button
         type="button"
         onClick={onSelect}
-        style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)' }}
+        style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)' }}
         className={auiButtonClass({
           variant: 'ghost',
           className: cn(
-            '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-md px-2.5 py-1.5 text-left font-normal shadow-none',
+            '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.75rem] px-2.5 py-1.5 text-left font-normal shadow-none',
             'bg-transparent hover:bg-transparent hover:text-inherit',
             active ? 'text-dropdown-selected-item-text' : 'text-inherit',
           ),

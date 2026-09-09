@@ -81,16 +81,16 @@ function ScheduleRowActions({
 }) {
   return (
     <div className="inline-flex items-center justify-end gap-1.5">
-      <button
+      <Button.Secondary
         type="button"
         disabled={running}
         aria-label={`Run now ${schedule.name}`}
-        className={auiButtonClass({ variant: 'outline', size: 'sm' })}
+        size="large"
         onClick={onRunNow}
       >
         <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
         Run now
-      </button>
+      </Button.Secondary>
       <DropdownMenu
         align="end"
         trigger={
@@ -99,7 +99,7 @@ function ScheduleRowActions({
             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
             aria-label={`Actions for ${schedule.name}`}
           >
-            <Icon name="ellipsis" className="size-4" />
+            <Icon name="ellipsis" />
           </button>
         }
       >
@@ -373,7 +373,7 @@ export function SchedulesPage() {
               className="sm:w-40"
               aria-label="Filter by agent"
             />
-            <Button
+            <Button.Primary
               type="button"
               onClick={() =>
                 setDrawer({
@@ -384,12 +384,12 @@ export function SchedulesPage() {
             >
               <Icon name="plus" className="size-3.5" />
               Create Schedule
-            </Button>
+            </Button.Primary>
           </>
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
         {loading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
             {Array.from({ length: 5 }, (_, i) => (
@@ -422,7 +422,7 @@ export function SchedulesPage() {
             ) : null}
           </div>
         ) : (
-          <div className="rounded-lg border border-border">
+          <div className="overflow-hidden rounded-lg border border-border">
             <Table className="min-w-[48rem]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -443,13 +443,7 @@ export function SchedulesPage() {
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="text-text-primary font-medium">
-                        <button
-                          type="button"
-                          className="text-primary-button-bg hover:underline text-left"
-                          onClick={() => setDrawer({ kind: 'edit', schedule })}
-                        >
-                          {schedule.name}
-                        </button>
+                        <span className="text-left !no-underline">{schedule.name}</span>
                       </TableCell>
                       <TableCell>{agentLabel}</TableCell>
                       <TableCell>{cadence}</TableCell>
@@ -539,12 +533,12 @@ export function SchedulesPage() {
             </DialogHeader>
           </DialogContent>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setPendingDelete(null)}>
+            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
               Cancel
-            </Button>
-            <Button type="button" variant="destructive" onClick={() => void handleDelete(pendingDelete)}>
+            </Button.Secondary>
+            <Button.Destructive type="button" onClick={() => void handleDelete(pendingDelete)}>
               Delete
-            </Button>
+            </Button.Destructive>
           </DialogFooter>
         </Dialog>
       ) : null}

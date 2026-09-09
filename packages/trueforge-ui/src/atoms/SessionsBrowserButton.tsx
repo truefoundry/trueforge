@@ -6,7 +6,7 @@ import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { isSessionsChromeEnabled } from '../server/serverChrome.js';
 import { defaultSessionTimeRange, readSessionShareSearch } from '../utils/sessionShareUrl.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { auiButtonClass, sidebarButtonRadiusClassName, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
 export type SessionsBrowserButtonProps = {
@@ -24,7 +24,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
   if (!enabled) return null;
 
   return (
-    <div className={cn('relative min-w-0 w-full', className)}>
+    <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
       <button
         type="button"
         aria-label={compact ? 'Sessions' : undefined}
@@ -33,12 +33,11 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
         className={auiButtonClass({
           variant: 'ghost',
           className: cn(
-            'rounded-md text-sm font-medium text-text-primary shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
-            compact
-              ? 'h-auto w-full flex-col gap-1.5 whitespace-normal px-1 py-3 text-[0.625rem] leading-tight !justify-center'
-              : 'h-8 w-full !justify-start px-2.5',
+            sidebarButtonRadiusClassName,
+            'font-normal text-sidebar-text shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
+            compact ? sidebarRailButtonClassName : 'h-8 w-full !justify-start px-2.5 text-sm',
             sessionsOpen &&
-              'bg-primary-button-bg text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
+              'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
         onClick={() => {
@@ -54,7 +53,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
           shell.setSessionsOpen(true);
         }}
       >
-        <Icon name="message-square-text" size={compact ? 16 : undefined} />
+        <Icon name="message-square-text" size={compact ? 14 : undefined} />
         {compact ? (
           <span className="text-center">Sessions</span>
         ) : (

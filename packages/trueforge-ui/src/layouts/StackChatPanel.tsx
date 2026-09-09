@@ -167,7 +167,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
         {libraryOpen || schedulesOpen ? (
           <button
             type="button"
-            className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+            className={auiButtonClass({ variant: 'ghost', size: 'small' })}
             onClick={() => {
               shell?.setLibraryOpen(false);
               shell?.setSchedulesOpen(false);

@@ -46,17 +46,17 @@ export function McpAuthPrompt({
               <span className="shrink-0 text-xs font-semibold text-text-secondary">:</span>
               <span className="truncate font-sans font-medium text-text-primary">{server.name}</span>
             </div>
-            <Button size="sm" disabled={readOnly} onClick={() => onConnect(server.id)} className="shrink-0">
+            <Button.Primary size="small" disabled={readOnly} onClick={() => onConnect(server.id)} className="shrink-0">
               Connect
               <Icon name="external-link" size="0.75em" className="ml-1" />
-            </Button>
+            </Button.Primary>
           </div>
         ))}
         {onContinue && (
           <div className="flex justify-end border-t border-border pt-2">
-            <Button size="sm" disabled={readOnly} onClick={onContinue}>
+            <Button.Primary size="small" disabled={readOnly} onClick={onContinue}>
               Continue
-            </Button>
+            </Button.Primary>
           </div>
         )}
       </div>

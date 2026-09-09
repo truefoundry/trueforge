@@ -91,7 +91,7 @@ describe('sessions HTTP agent binding', () => {
       resolveMcpServerStore: () => mcpServerStore,
       skillStore,
       resolveAgentStore: () => agentStore,
-      sandboxProviderStore,
+      resolveSandboxProviderStore: () => sandboxProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -498,6 +498,15 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(tooLongKey.status).toBe(400);
 
+    const badCharsetKey = await app.request(
+      '/',
+      jsonInit('POST', {
+        agent: { spec: inlineSpec },
+        metadata: { 'env[prod]': 'v' },
+      }),
+    );
+    expect(badCharsetKey.status).toBe(400);
+
     const tooLongValue = await app.request(
       '/',
       jsonInit('POST', {
@@ -506,6 +515,31 @@ describe('sessions HTTP agent binding', () => {
       }),
     );
     expect(tooLongValue.status).toBe(400);
+  });
+
+  it('lists by metadata[key]=value containment and rejects bare metadata', async () => {
+    const prod = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'prod', team: 'platform' } }),
+    );
+    expect(prod.status).toBe(201);
+    const prodId = ((await prod.json()) as { data: { id: string } }).data.id;
+
+    const staging = await app.request(
+      '/',
+      jsonInit('POST', { agent: { spec: inlineSpec }, metadata: { env: 'staging' } }),
+    );
+    expect(staging.status).toBe(201);
+    const stagingId = ((await staging.json()) as { data: { id: string } }).data.id;
+
+    const filtered = await app.request('/?metadata[env]=prod&metadata[team]=platform');
+    expect(filtered.status).toBe(200);
+    const filteredIds = ListSessionsResponseSchema.parse(await filtered.json()).data.map(session => session.id);
+    expect(filteredIds).toContain(prodId);
+    expect(filteredIds).not.toContain(stagingId);
+
+    const bare = await app.request(`/?metadata=${encodeURIComponent(JSON.stringify({ env: 'prod' }))}`);
+    expect(bare.status).toBe(400);
   });
 
   it('POST get-or-create-by-external-id is idempotent and 403s for another creator', async () => {

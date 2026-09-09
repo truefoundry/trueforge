@@ -1,5 +1,23 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.2
+
+### Patch Changes
+
+- a000b47: List sessions accepts `metadata[key]=value` query params (OpenAPI deepObject) for exact metadata containment filtering. Bare JSON-string `metadata` query params are rejected. Metadata keys are limited to 32 characters and cannot include `[]` or whitespace so they do not collide with the bracket query form.
+- 0ec8dc6: Omit session `total_cost_in_usd` when cost is unavailable (instead of defaulting to 0), matching turn metrics.
+- 461166e: Use agent name for ServiceFoundry remote agent description so save succeeds when instructions are empty.
+- 11865b4: Add optional session `source`. Persist as nullable JSONB with a list filter index; expose on session responses and list via `source_type` / `source_id`. Schedule dispatch sets source on create; public create/update do not accept it.
+- 3c1d544: Fetch MCP servers and gateway installations in parallel.
+- ac091cc: TrueFoundry mode: shared Daytona sandbox via TRUEFOUNDRY_SANDBOX_* env and settings-server snapshot (lru-cache TTL).
+- 5d72138: Keep `npx @truefoundry/trueforge` working on native Windows: import Kysely migrations with `pathToFileURL`, and keep sandbox guest paths POSIX. Source development stays Unix/WSL; CI also runs unit and SQLite store tests on Windows.
+- Updated dependencies [a000b47]
+- Updated dependencies [0ec8dc6]
+- Updated dependencies [11865b4]
+- Updated dependencies [5d72138]
+  - @truefoundry/trueforge-core@0.2.0-rc.2
+  - @truefoundry/trueforge-sdk@0.1.4-rc.2
+
 ## 0.2.0-rc.1
 
 ### Minor Changes
