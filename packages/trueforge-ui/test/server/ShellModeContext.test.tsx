@@ -421,11 +421,13 @@ describe('ShellModeProvider', () => {
     expect(result.current.listSessionsAgentId).toBe('locked');
   });
 
-  it('openHistorySession remounts into immutable binding with pendingSessionId', () => {
+  it('openHistorySession rebinds immutable in place without changing runtimeKey', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
     });
     expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
+    const keyBefore = result.current.runtimeKey;
+    const epochBefore = result.current.pendingSessionEpoch;
 
     act(() => result.current.openHistorySession({ sessionId: 'sess-1', agentName: 'from-sdk' }));
     expect(result.current.mode).toEqual({
@@ -437,7 +439,37 @@ describe('ShellModeProvider', () => {
       locked: false,
     });
     expect(result.current.pendingSessionId).toBe('sess-1');
-    expect(result.current.runtimeKey).toContain('sess-1');
+    expect(result.current.runtimeKey).toBe(keyBefore);
+    expect(result.current.pendingSessionEpoch).toBe(epochBefore + 1);
+  });
+
+  it('re-opening the same history session bumps pendingSessionEpoch', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-1', agentName: 'from-sdk' }));
+    const epochBefore = result.current.pendingSessionEpoch;
+    const keyBefore = result.current.runtimeKey;
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-1', agentName: 'from-sdk' }));
+    expect(result.current.pendingSessionId).toBe('sess-1');
+    expect(result.current.pendingSessionEpoch).toBe(epochBefore + 1);
+    expect(result.current.runtimeKey).toBe(keyBefore);
+  });
+
+  it('history switches across mutability keep runtimeKey stable', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const keyBefore = result.current.runtimeKey;
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-named', agentName: 'from-sdk' }));
+    expect(result.current.runtimeKey).toBe(keyBefore);
+
+    act(() => result.current.openHistorySession({ sessionId: 'sess-draft', isMutable: true }));
+    expect(result.current.mode).toMatchObject({ status: 'active', isMutable: true });
+    expect(result.current.runtimeKey).toBe(keyBefore);
   });
 
   it('openHistorySession keeps immutable binding when agentName is missing', () => {

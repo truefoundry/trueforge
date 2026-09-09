@@ -114,11 +114,8 @@ type ShellModeContextValue = {
   /** Remember plain-draft composer choices as the seed for future New Chat / New Agent. */
   rememberDraftSpec: (agentSpec: AgentSpec, kind?: DraftPreferenceKind) => void;
   /**
-   * Open a history session, remounting when mutability/identity changes.
-   * Prefer explicit `isMutable` from the session row; when omitted, agentName
-   * present → immutable and agentName absent → mutable. Immutable rows may omit
-   * `agentName` when the registry agent was deleted.
-   * `isCreateAgent` is only applied when mutable (default false when omitted).
+   * Open a history session without remounting the runtime.
+   * Prefer explicit `isMutable`; otherwise agentName means immutable.
    */
   openHistorySession: (req: {
     sessionId: string;
@@ -130,7 +127,7 @@ type ShellModeContextValue = {
   clearChat: () => void;
   /** Return library-only mode to its idle landing; no-op in other modes. */
   openLibraryHome: () => void;
-  /** Remount key for the chat runtime when binding changes. */
+  /** Changes only when the chat runtime must reset. */
   runtimeKey: string;
   /**
    * History list filter forwarded as `listSessions({ agentId })`.
@@ -140,8 +137,10 @@ type ShellModeContextValue = {
   setHistoryAgentFilter: (agentId: string | null) => void;
   /** Effective `listSessionsAgentId` for the runtime (SingleAgent locks to name). */
   listSessionsAgentId: string | undefined;
-  /** Session to open after a binding remount (history click across mutability). */
+  /** Session selected from history. */
   pendingSessionId: string | undefined;
+  /** Distinguishes repeated selections of the same session. */
+  pendingSessionEpoch: number;
   /**
    * Bumped when the Agents catalog may have changed (e.g. after saveAgent).
    * Library chrome should re-fetch when this changes.
@@ -237,6 +236,7 @@ export function ShellModeProvider({
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
+  const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
   const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
   const settingsOpen = settingsEnabled && settingsOpenState;
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
@@ -505,6 +505,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setPendingSessionId(sessionId);
+      setPendingSessionEpoch(n => n + 1);
       const isMutable = isMutableOpt ?? agentName == null;
       if (isMutable) {
         if (!isComposerEnabled) return;
@@ -517,7 +518,6 @@ export function ShellModeProvider({
           locked: false,
         });
         setAgentConfigOpenState(isCreateAgent);
-        bumpEpoch(true);
         return;
       }
       // Immutable: allow orphaned refs (deleted agent → no agentName).
@@ -534,14 +534,12 @@ export function ShellModeProvider({
         locked: false,
         ...(agentName != null ? { agentId: agentName, agentName } : {}),
       });
-      bumpEpoch(false);
     },
     [
       isLibraryEnabled,
       isComposerEnabled,
       locked,
       lockedAgentName,
-      bumpEpoch,
       setSettingsOpen,
       setSessionsOpen,
       setSchedulesOpen,
@@ -582,16 +580,11 @@ export function ShellModeProvider({
     bumpEpoch(false);
   }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, bumpEpoch]);
 
-  // Mutable remounts are driven only by mutableEpoch (library Edit / New Chat / Clear).
-  // Agent id and model must not be in the key — saveAgent binds those onto the same draft.
+  // Only explicit resets remount the runtime; history and identity changes happen in place.
   const runtimeKey = useMemo(() => {
     if (effectiveMode.status === 'idle') return 'idle';
-    if (effectiveMode.isMutable) {
-      return `mut:${pendingSessionId ?? ''}:${mutableEpoch}`;
-    }
-    const id = effectiveMode.agentId ?? effectiveMode.agentName ?? '';
-    return `immut:${id}:${pendingSessionId ?? ''}:${clearEpoch}`;
-  }, [effectiveMode, mutableEpoch, clearEpoch, pendingSessionId]);
+    return `chat:${mutableEpoch}:${clearEpoch}`;
+  }, [effectiveMode.status, mutableEpoch, clearEpoch]);
 
   const value = useMemo<ShellModeContextValue>(
     () => ({
@@ -629,6 +622,7 @@ export function ShellModeProvider({
       setHistoryAgentFilter,
       listSessionsAgentId,
       pendingSessionId,
+      pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
     }),
@@ -665,6 +659,7 @@ export function ShellModeProvider({
       historyAgentFilter,
       listSessionsAgentId,
       pendingSessionId,
+      pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
     ],
