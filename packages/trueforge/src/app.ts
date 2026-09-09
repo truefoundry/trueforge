@@ -203,15 +203,13 @@ export interface ServerDeps<TTransaction> {
   authorizer: Authorizer;
   /** Executes a persisted schedule run without caller-derived identity. */
   executeScheduleRun: (scheduleRunId: string) => Promise<void>;
-  /** Service credential accepted only by the internal schedule execution route. */
-  scheduleExecutionApiKey: string | undefined;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
-  const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(deps.scheduleExecutionApiKey);
+  const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
 
   if (configuration.ACCESS_LOGS) {

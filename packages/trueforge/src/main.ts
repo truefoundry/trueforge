@@ -583,7 +583,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     authenticator,
     authorizer,
     executeScheduleRun: executeRun,
-    scheduleExecutionApiKey: configuration.TRUEFORGE_API_KEY,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

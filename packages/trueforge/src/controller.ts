@@ -16,6 +16,7 @@ export function createHttpScheduleRunExecutor(params: {
   const client = new TrueForge({
     baseUrl: normalizeTlsUrl({ url: params.baseUrl, enabled: params.tls.enabled }),
     token: params.apiKey,
+    timeoutInSeconds: 60,
     ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
   });
   return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
