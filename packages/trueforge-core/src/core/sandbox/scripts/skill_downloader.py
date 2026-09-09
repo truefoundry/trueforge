@@ -396,7 +396,11 @@ class RegistrySkillSource(SkillSource):
         _rmtree(staging)
         try:
             staging.mkdir(parents=True, exist_ok=True)
-            with tempfile.TemporaryDirectory(prefix="tfy-skill-tar-") as tmp:
+            with tempfile.TemporaryDirectory(
+                prefix=".registry-skill-tar-",
+                dir=os.fspath(SKILLS_ROOT),
+                ignore_cleanup_errors=True,
+            ) as tmp:
                 tar_path = Path(tmp) / "skill.tar"
                 tar_path.write_bytes(data)
                 with tarfile.open(tar_path, mode="r:*") as tar:
