@@ -174,7 +174,7 @@ const ConnectorDetails = ({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <h4 className="text-lg font-semibold text-text-primary">{connector.name}</h4>
-              <span className="mt-2 inline-flex items-center rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-text-secondary">
+              <span className="inline-flex items-center rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium text-text-secondary">
                 {AUTH_TYPE_LABELS[connector.auth.type] ?? AUTH_TYPE_LABELS.none}
               </span>
               <span
@@ -192,8 +192,8 @@ const ConnectorDetails = ({
                 {connector.authenticated ? 'Connected' : 'Not authenticated'}
               </span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className="text-text-secondary">· {connector.description}</span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="text-text-secondary">{connector.description}</span>
             </div>
           </div>
 
