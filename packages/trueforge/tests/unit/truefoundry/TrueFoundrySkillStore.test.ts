@@ -93,7 +93,7 @@ describe('TrueFoundrySkillStore', () => {
   it('listSkills uses latest_version only (not every historic version)', async () => {
     const { store } = createStore();
     const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
-    expect(records.map(r => r.manifest.version)).toEqual([3]);
+    expect(records.map(r => (r.manifest.type === 'registry' ? r.manifest.version : undefined))).toEqual([3]);
     expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
 

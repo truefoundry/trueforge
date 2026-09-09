@@ -51,4 +51,30 @@ describe('mapSfyRegistrySkills', () => {
       },
     ]);
   });
+
+  it('accepts SFY manifest names that are not ResourceName slugs', () => {
+    expect(
+      mapSfyRegistrySkills([
+        {
+          latest_version: {
+            fqn: 'agent-skill:acme/team-a/My Skill:1',
+            manifest: {
+              name: 'My Skill',
+              version: 1,
+              ml_repo: 'team-a',
+              source: { description: 'Mixed-case display name' },
+            },
+          },
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'agent-skill:acme/team-a/My Skill:1',
+        display_name: 'My Skill',
+        description: 'Mixed-case display name',
+        skill_repo_name: 'team-a',
+        version: 1,
+      },
+    ]);
+  });
 });

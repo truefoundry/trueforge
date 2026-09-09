@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { createHarnessChatServer, type HarnessAgentSpec } from '@/plugins/trueforge-agent-server-adapter/chatServer.js';
+import {
+  createHarnessChatServer,
+  toHarnessAgentSpec,
+  toUiAgentSpec,
+  type HarnessAgentSpec,
+} from '@/plugins/trueforge-agent-server-adapter/chatServer.js';
 
 const session = {
   id: 'ses_1',
@@ -75,7 +80,7 @@ describe('createHarnessChatServer', () => {
     assert.equal(created.isMutable, true);
     assert.equal(created.title, undefined);
     assert.deepEqual(created.agentSpec?.mcpServers?.[0], { name: 'github', enableTools: ['@all'] });
-    assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review' });
+    assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review', preload: false });
   });
 
   it('sends skill name refs and strips UI-only mount ids before admission', async () => {
@@ -85,7 +90,7 @@ describe('createHarnessChatServer', () => {
     await server.createSession({
       agentSpec: {
         model: { name: 'test/model' },
-        skills: [{ id: skillName, name: 'echo' }],
+        skills: [{ id: skillName, name: 'echo', preload: true }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
     });
@@ -96,8 +101,20 @@ describe('createHarnessChatServer', () => {
       spec: {
         model: { name: 'test/model' },
         mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-        skills: [{ name: skillName }],
+        skills: [{ name: skillName, preload: true }],
       },
+    });
+  });
+
+  it('defaults skill preload to false when omitted', () => {
+    const ui = toUiAgentSpec({
+      model: { name: 'test/model' },
+      skills: [{ name: 'agent-skill:acme/team-a/echo:3' }],
+    });
+    assert.deepEqual(ui.skills?.[0], { name: 'agent-skill:acme/team-a/echo:3', preload: false });
+    assert.deepEqual(toHarnessAgentSpec({ model: { name: 'test/model' }, skills: [{ name: 'echo' }] }).skills?.[0], {
+      name: 'echo',
+      preload: false,
     });
   });
 
