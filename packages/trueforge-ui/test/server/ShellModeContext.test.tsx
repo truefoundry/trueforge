@@ -81,9 +81,10 @@ describe('ShellModeProvider', () => {
     expect(result.current).toBeNull();
   });
 
-  it('opens settings on first paint when initialSettingsOpen is true', () => {
+  it('waits for explicit capability before honoring initialSettingsOpen', async () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap(undefined, true) });
-    expect(result.current.settingsOpen).toBe(true);
+    expect(result.current.settingsOpen).toBe(false);
+    await waitFor(() => expect(result.current.settingsOpen).toBe(true));
     expect(result.current.settingsSection).toBe('models');
 
     act(() => result.current.setSettingsOpen(false));
@@ -99,24 +100,60 @@ describe('ShellModeProvider', () => {
     expect(result.current.settingsOpen).toBe(false);
   });
 
-  it('opens settings to a requested section', () => {
+  it('ignores initialSettingsOpen when Settings capability is disabled', async () => {
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog(),
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { enabled: false },
+        },
+      }),
+    });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      {
+        wrapper: function Wrapper({ children }: { children: ReactNode }) {
+          return (
+            <ServerProvider server={server}>
+              <ShellModeProvider initialSettingsOpen>{children}</ShellModeProvider>
+            </ServerProvider>
+          );
+        },
+      },
+    );
+
+    expect(result.current.shell.settingsOpen).toBe(false);
+    await waitFor(() => expect(result.current.capabilities?.settings?.enabled).toBe(false));
+    act(() => result.current.shell.setSettingsOpen(true));
+    expect(result.current.shell.settingsOpen).toBe(false);
+  });
+
+  it('opens settings to a requested section', async () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
 
-    act(() => result.current.setSettingsOpen(true, 'connectors'));
-
-    expect(result.current.settingsOpen).toBe(true);
+    await waitFor(() => {
+      act(() => result.current.setSettingsOpen(true, 'connectors'));
+      expect(result.current.settingsOpen).toBe(true);
+    });
     expect(result.current.settingsSection).toBe('connectors');
   });
 
-  it('closes the library when settings opens and vice versa', () => {
+  it('closes the library when settings opens and vice versa', async () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
 
     act(() => result.current.setLibraryOpen(true));
     expect(result.current.libraryOpen).toBe(true);
     expect(result.current.settingsOpen).toBe(false);
 
-    act(() => result.current.setSettingsOpen(true));
-    expect(result.current.settingsOpen).toBe(true);
+    await waitFor(() => {
+      act(() => result.current.setSettingsOpen(true));
+      expect(result.current.settingsOpen).toBe(true);
+    });
     expect(result.current.libraryOpen).toBe(false);
 
     act(() => result.current.setLibraryOpen(true));
@@ -309,13 +346,15 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode.status).toBe('idle');
   });
 
-  it('openDraft and selectAgent close Settings', () => {
+  it('openDraft and selectAgent close Settings', async () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
     });
 
-    act(() => result.current.setSettingsOpen(true));
-    expect(result.current.settingsOpen).toBe(true);
+    await waitFor(() => {
+      act(() => result.current.setSettingsOpen(true));
+      expect(result.current.settingsOpen).toBe(true);
+    });
 
     act(() => result.current.openDraft());
     expect(result.current.settingsOpen).toBe(false);
