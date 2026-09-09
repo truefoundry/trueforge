@@ -118,12 +118,12 @@ describe('TrueFoundrySkillStore', () => {
     expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
 
-  it('validateAccess resolves version FQNs via SFY', async () => {
+  it('validateAgentSkills resolves version FQNs via SFY', async () => {
     const { store, client } = createStore();
     await expect(
-      store.validateAccess({
+      store.validateAgentSkills({
         tenant_id: TENANT,
-        names: ['agent-skill:acme/team-a/echo:3'],
+        skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
       }),
     ).resolves.toBeUndefined();
     expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
@@ -132,7 +132,7 @@ describe('TrueFoundrySkillStore', () => {
     });
   });
 
-  it('validateAccess returns the first name missing from the resolve response', async () => {
+  it('validateAgentSkills rejects the first name missing from the resolve response', async () => {
     const { store, client } = createStore();
     client.resolveAgentSkillVersions.mockResolvedValue([
       {
@@ -142,16 +142,22 @@ describe('TrueFoundrySkillStore', () => {
       },
     ]);
     await expect(
-      store.validateAccess({
+      store.validateAgentSkills({
         tenant_id: TENANT,
-        names: ['agent-skill:acme/team-a/echo:3', 'agent-skill:acme/team-a/missing:1'],
+        skills: [
+          { name: 'agent-skill:acme/team-a/echo:3', preload: false },
+          { name: 'agent-skill:acme/team-a/missing:1', preload: false },
+        ],
       }),
-    ).resolves.toBe('agent-skill:acme/team-a/missing:1');
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Unknown skill "agent-skill:acme/team-a/missing:1" — not configured',
+    });
   });
 
-  it('validateAccess is a no-op for an empty name list', async () => {
+  it('validateAgentSkills is a no-op for an empty skill list', async () => {
     const { store, client } = createStore();
-    await store.validateAccess({ tenant_id: TENANT, names: [] });
+    await store.validateAgentSkills({ tenant_id: TENANT, skills: [] });
     expect(client.resolveAgentSkillVersions).not.toHaveBeenCalled();
   });
 
@@ -287,5 +293,24 @@ describe('TrueFoundrySkillStore', () => {
     const records = await store.listSkills({ tenant_id: TENANT, names: undefined });
     expect(records).toHaveLength(1);
     expect(records[0]?.name).toBe('agent-skill:acme/team-a/echo:3');
+  });
+
+  it('validateAgentSkills uses the caller token on resolve', async () => {
+    const { store, client } = createStore();
+    client.resolveAgentSkillVersions.mockResolvedValue([
+      {
+        fqn: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+    ]);
+    await store.validateAgentSkills({
+      tenant_id: TENANT,
+      skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+    });
+    expect(client.resolveAgentSkillVersions).toHaveBeenCalledWith({
+      accessToken: ACCESS_TOKEN,
+      skills: [{ fqn: 'agent-skill:acme/team-a/echo:3' }],
+    });
   });
 });

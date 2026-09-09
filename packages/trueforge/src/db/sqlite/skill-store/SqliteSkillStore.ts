@@ -1,13 +1,14 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { SkillManifest, SkillVersion } from '../../../schemas/skill';
+import { validateGitAgentSkills } from '../../gitSkillMounts';
 import {
   SkillNameConflictError,
+  type AgentSkillsInput,
   type CreateSkillInput,
   type ISkillStore,
   type ListSkillsInput,
   type SkillRecord,
   type UpsertSkillInput,
-  type ValidateSkillsAccessInput,
 } from '../../skillStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -93,21 +94,8 @@ export class SqliteSkillStore implements ISkillStore<Transaction<Database>> {
     return Promise.resolve([]);
   }
 
-  async validateAccess(
-    input: ValidateSkillsAccessInput,
-    transaction?: Transaction<Database>,
-  ): Promise<string | undefined> {
-    if (input.names.length === 0) {
-      return undefined;
-    }
-    const db = transaction ?? this.#db;
-    const rows = await db
-      .selectFrom('skill')
-      .select('name')
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', 'in', [...input.names])
-      .execute();
-    const configured = new Set(rows.map(row => row.name));
-    return input.names.find(name => !configured.has(name));
+  validateAgentSkills(input: AgentSkillsInput, transaction?: Transaction<Database>): Promise<void> {
+    void transaction;
+    return validateGitAgentSkills(this, input);
   }
 }

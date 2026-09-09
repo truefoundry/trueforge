@@ -1,13 +1,14 @@
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
 import type {
+  AgentSkillsInput,
   CreateSkillInput,
   ISkillStore,
   ListSkillsInput,
   SkillRecord,
   UpsertSkillInput,
-  ValidateSkillsAccessInput,
 } from '../db/skillStore';
 import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
@@ -22,7 +23,7 @@ import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryService
 
 export type TrueFoundrySkillApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
-  'listAgentSkills' | 'listAgentSkillVersions' | 'resolveAgentSkillVersions' | 'vendToken'
+  'listAgentSkills' | 'listAgentSkillVersions' | 'vendToken' | 'resolveAgentSkillVersions'
 >;
 
 function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillRecord {
@@ -75,7 +76,7 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
     let skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
     const names = input.names;
     if (names !== undefined) {
-      // TrueFoundry callers do not pass names: catalog list is unfiltered; save checks use validateAccess.
+      // TrueFoundry callers do not pass names: catalog list is unfiltered; save checks use validateAgentSkills.
       // SFY list has no multi-name IN (only optional skill-level fqn).
       // so filter locally if names is set.
       skills = skills.filter(skill => names.includes(skill.name));
@@ -113,19 +114,46 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
     return mapSfyRegistrySkillVersions(rows);
   }
 
-  /** Check that each version FQN exists and is readable (SFY resolve). */
-  async validateAccess(input: ValidateSkillsAccessInput, transaction?: TTransaction): Promise<string | undefined> {
-    void input.tenant_id;
+  async validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void> {
     void transaction;
-    if (input.names.length === 0) {
-      return undefined;
+    const { skills } = input;
+    if (skills.length === 0) {
+      return;
     }
+
+    const seenFqns = new Set<string>();
+    for (const skill of skills) {
+      if (seenFqns.has(skill.name)) {
+        throw new HTTPException(422, {
+          message: `Duplicate skill FQN "${skill.name}"`,
+        });
+      }
+      seenFqns.add(skill.name);
+    }
+
     const accessToken = await this.#resolveAccessToken();
     const resolved = await this.#client.resolveAgentSkillVersions({
       accessToken,
-      skills: input.names.map(fqn => ({ fqn })),
+      skills: skills.map(skill => ({ fqn: skill.name })),
     });
-    const known = new Set(resolved.map(skill => skill.fqn));
-    return input.names.find(name => !known.has(name));
+
+    const byFqn = new Map(resolved.map(row => [row.fqn, row]));
+    for (const skill of skills) {
+      if (!byFqn.has(skill.name)) {
+        throw new HTTPException(422, {
+          message: `Unknown skill "${skill.name}" — not configured`,
+        });
+      }
+    }
+
+    const seenNames = new Set<string>();
+    for (const row of resolved) {
+      if (seenNames.has(row.name)) {
+        throw new HTTPException(422, {
+          message: `Agent skills must have unique names; duplicate skill name(s): ${row.name}`,
+        });
+      }
+      seenNames.add(row.name);
+    }
   }
 }

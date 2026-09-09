@@ -311,7 +311,7 @@ describe('validateAgentSpec', () => {
           updated_at: now,
         },
       ],
-      validateAccess: async () => undefined,
+      validateAgentSkills: async () => undefined,
       createSkill: async () => {
         throw new Error('unused');
       },
