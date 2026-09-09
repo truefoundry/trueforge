@@ -1689,14 +1689,10 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1751,14 +1747,10 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -5930,32 +5922,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers as a slim name/url list for the composer.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers as a slim name/url list for the composer.",
         "responses": {
           "200": {
             "content": {
@@ -5965,17 +5932,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers (chat projection)."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers (chat projection)."
           },
           "401": {
             "content": {
@@ -5992,11 +5949,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -8206,32 +8158,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers with auth_status. Header secrets are redacted.",
         "responses": {
           "200": {
             "content": {
@@ -8241,17 +8168,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers"
           },
           "401": {
             "content": {
@@ -8278,11 +8195,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"
