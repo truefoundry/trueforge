@@ -100,7 +100,7 @@ export class SkillMounter implements ISkillMounter {
   }
 
   getSandboxInit(paths: { skillsDir: string; gitDownloaderPath: string }): SandboxInit {
-    // Always upload (including empty) so a reused sandbox can prune.
+    // Always upload (including empty) so that existing skills are cleaned up.
     return {
       command: buildWriteAndRunScriptCommand({
         scriptPath: paths.gitDownloaderPath,

@@ -224,7 +224,7 @@ export function buildTurnSandbox(input: {
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
 }): Sandbox {
-  // Empty mounter still uploads requested-skills file so reused sandboxes can prune.
+  // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,

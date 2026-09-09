@@ -8,7 +8,7 @@
 
 Reads `.tfy-requested-skills.json` (uploaded by the host), installs each entry under
 TFY_SKILLS_DIR, then deletes the requested file. Empty `"skills": []` clears installs.
-On-disk state skips unchanged skills and prunes ones no longer requested.
+On-disk state skips unchanged skills and removes ones no longer requested.
 
 Git: each skill is a blob-filtered sparse `git` clone of only the requested subdir at
 a resolved object id (keyed by name). Mount `ref` (branch, tag, or full object id) is
@@ -16,7 +16,7 @@ resolved here via `git ls-remote` — the host never spawns git. Sparse clone is
 instead of a full-repo tarball so cost tracks subdir size, not monorepo size.
 
 Registry: download a presigned tar of the skill artifact and extract it under the
-skill name. State records installed FQNs for skip/prune.
+skill name. State records installed FQNs for skip/remove.
 
 Requested file example:
   {
@@ -180,7 +180,7 @@ class DownloadedGitSkill(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     name: str
-    # Installed object id; empty = unknown → reinstall. Name still tracked for prune.
+    # Installed object id; empty = unknown → reinstall. Name still tracked for cleanup.
     ref: str = ""
     # Installed repo path ("" = root); mismatch vs requested forces reinstall.
     path: str = ""
@@ -199,7 +199,7 @@ class SkillDownloaderState(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     # Keep git and registry installs in separate lists (do not merge into one discriminated
-    # array). Each SkillArm already reads/writes only its own rows, and the persisted
+    # array). Each SkillSource already reads/writes only its own rows, and the persisted
     # identities differ: git skip/reinstall keys on name + resolved object id + path;
     # registry keys on fqn + name. A shared list would add type filters with no load-path win.
     downloaded_git_skills: list[DownloadedGitSkill] = Field(default_factory=list)
@@ -272,7 +272,7 @@ def _rmtree(path: Path, ignore_errors: bool = True) -> None:
 
 
 def _delete_skill_dir_by_name(name: str, label: str) -> None:
-    """Fail-closed prune of a no-longer-requested skill's directory: abort the whole run if removal
+    """Remove a no-longer-requested skill directory; abort the whole run if removal
     fails so we never silently leave a stale skill on disk. skill_dir() returns None for a
     corrupt/tampered name, so rmtree never runs on an out-of-tree path."""
     dir_ = skill_dir(name)
@@ -309,22 +309,22 @@ def _delete_requested_file() -> None:
 
 
 
-class SkillArm(ABC):
+class SkillSource(ABC):
     """One install source (git clone, registry tar, …). Helpers live on subclasses."""
 
-    label: ClassVar[str]
+    type: ClassVar[str]
 
     @abstractmethod
     def reconcile(self, skills: list[Any], state: SkillDownloaderState) -> list[str]:
-        """Prune installs no longer requested. Returns removed ids/names."""
+        """Remove installs no longer requested. Returns removed ids/names."""
 
     @abstractmethod
     def download(self, skills: list[Any], state: SkillDownloaderState) -> int:
-        """Install/skip requested skills. Returns how many are satisfied."""
+        """Install/skip requested skills. If already exists, we skip. Returns how many are installed and skipped."""
 
 
-class RegistrySkillArm(SkillArm):
-    label = "registry"
+class RegistrySkillSource(SkillSource):
+    type = "registry"
 
     def reconcile(self, skills: list[Any], state: SkillDownloaderState) -> list[str]:
         requested_fqns = {s.fqn for s in skills}
@@ -407,8 +407,8 @@ class RegistrySkillArm(SkillArm):
             raise RuntimeError(f"extract failed for {skill.fqn}: {e}") from e
 
 
-class GitSkillArm(SkillArm):
-    label = "git"
+class GitSkillSource(SkillSource):
+    type = "git"
 
     def reconcile(self, skills: list[Any], state: SkillDownloaderState) -> list[str]:
         requested_names = {g.name for g in skills}
@@ -416,7 +416,7 @@ class GitSkillArm(SkillArm):
         for entry in state.downloaded_git_skills:
             if entry.name in requested_names:
                 continue
-            # Fail-closed prune: a failed delete aborts the run rather than leaving a stale skill on disk.
+            # Fail closed: a failed delete aborts the run rather than leaving a stale skill on disk.
             _delete_skill_dir_by_name(entry.name, entry.name)
             removed.append(entry.name)
         state.downloaded_git_skills = [
@@ -621,17 +621,17 @@ class GitSkillArm(SkillArm):
 
 # Add a third skill type:
 # 1. RequestedFooSkill + resolve() + union member (RequestedSkill) + match case in load_requested_skills
-# 2. FooSkillArm with reconcile / download
-# 3. Append FooSkillArm() to SKILL_ARMS (order = install order)
+# 2. FooSkillSource with reconcile / download
+# 3. Append FooSkillSource() to SKILL_SOURCES (order = install order)
 # 4. Wire type: 'foo' on the host (SkillMounter)
 # Registry first: presigned URLs expire; git sparse clones can take much longer.
-SKILL_ARMS: tuple[SkillArm, ...] = (RegistrySkillArm(), GitSkillArm())
-SKILL_ARM_ORDER: tuple[str, ...] = tuple(arm.label for arm in SKILL_ARMS)
+SKILL_SOURCES: tuple[SkillSource, ...] = (RegistrySkillSource(), GitSkillSource())
+SKILL_SOURCE_ORDER: tuple[str, ...] = tuple(source.type for source in SKILL_SOURCES)
 
 
 def load_requested_skills() -> dict[str, list[Any]]:
-    """Read requested file into per-arm buckets. Missing → empty (prune all arms)."""
-    buckets: dict[str, list[Any]] = {label: [] for label in SKILL_ARM_ORDER}
+    """Read requested file into per-source buckets. Missing → empty (clean up all sources)."""
+    buckets: dict[str, list[Any]] = {skill_type: [] for skill_type in SKILL_SOURCE_ORDER}
     path = SKILLS_ROOT / REQUESTED_FILE_NAME
     if not path.is_file():
         return buckets
@@ -658,13 +658,13 @@ def load_requested_skills() -> dict[str, list[Any]]:
 def run_skill_download() -> None:
     loaded = load_requested_skills()
     state = load_state()
-    removed_by_arm = {arm.label: arm.reconcile(loaded[arm.label], state) for arm in SKILL_ARMS}
+    removed_by_source = {source.type: source.reconcile(loaded[source.type], state) for source in SKILL_SOURCES}
 
     if not any(loaded.values()):
         bits = [
-            f"Removed {len(removed_by_arm[label])} {label} skill(s)"
-            for label in SKILL_ARM_ORDER
-            if removed_by_arm[label]
+            f"Removed {len(removed_by_source[skill_type])} {skill_type} skill(s)"
+            for skill_type in SKILL_SOURCE_ORDER
+            if removed_by_source[skill_type]
         ]
         if bits:
             print(f"{'; '.join(bits)}. (requested empty.)")
@@ -672,24 +672,24 @@ def run_skill_download() -> None:
         _delete_requested_file()
         return
 
-    satisfied_by_arm = {
-        arm.label: arm.download(loaded[arm.label], state) if loaded[arm.label] else 0
-        for arm in SKILL_ARMS
+    satisfied_by_source = {
+        source.type: source.download(loaded[source.type], state) if loaded[source.type] else 0
+        for source in SKILL_SOURCES
     }
     save_state(state)
     _delete_requested_file()
 
     suffix_parts = [
-        f"Removed {len(removed_by_arm[label])} stale {label} skill(s)"
-        for label in SKILL_ARM_ORDER
-        if removed_by_arm[label]
+        f"Removed {len(removed_by_source[skill_type])} stale {skill_type} skill(s)"
+        for skill_type in SKILL_SOURCE_ORDER
+        if removed_by_source[skill_type]
     ]
     suffix = f" {' '.join(suffix_parts)}." if suffix_parts else ""
 
     failed_parts = [
-        f"{len(loaded[label]) - satisfied_by_arm[label]}/{len(loaded[label])} {label}"
-        for label in SKILL_ARM_ORDER
-        if loaded[label] and satisfied_by_arm[label] < len(loaded[label])
+        f"{len(loaded[skill_type]) - satisfied_by_source[skill_type]}/{len(loaded[skill_type])} {skill_type}"
+        for skill_type in SKILL_SOURCE_ORDER
+        if loaded[skill_type] and satisfied_by_source[skill_type] < len(loaded[skill_type])
     ]
     if failed_parts:
         sys.exit(
@@ -697,7 +697,9 @@ def run_skill_download() -> None:
         )
 
     ensured = [
-        f"{satisfied_by_arm[label]} {label}" for label in SKILL_ARM_ORDER if loaded[label]
+        f"{satisfied_by_source[skill_type]} {skill_type}"
+        for skill_type in SKILL_SOURCE_ORDER
+        if loaded[skill_type]
     ]
     print(f"Ensured {' and '.join(ensured)} skill(s) (downloaded or already up to date).{suffix}")
 

@@ -68,7 +68,7 @@ describe('SkillMounter', () => {
     expect(rendered).toContain(`${PATHS.skillsDir}/git-skill`);
   });
 
-  it('uploads an empty requested file so a reused sandbox can prune', () => {
+  it('uploads an empty requested file so that existing skills are cleaned up', () => {
     const mounter = new SkillMounter({});
     expect(renderSkills(mounter)).toBe('');
     expect(readRequestedFile(mounter)).toEqual({ skills: [] });
