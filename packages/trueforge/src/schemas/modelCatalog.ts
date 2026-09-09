@@ -14,10 +14,12 @@ import {
 /**
  * Catalog entry. Well-known types list model presets; `custom` is a sentinel that
  * carries `supported_reasoning_efforts` for the custom-provider settings form.
+ * `truefoundry` is TrueFoundry-managed (not a user-savable preset), so it is excluded.
  */
-export const CatalogWellKnownModelProviderTypeSchema = ModelProviderTypeSchema.exclude(['custom']).openapi(
-  'CatalogWellKnownModelProviderType',
-);
+export const CatalogWellKnownModelProviderTypeSchema = ModelProviderTypeSchema.exclude([
+  'custom',
+  'truefoundry',
+]).openapi('CatalogWellKnownModelProviderType');
 
 /** Same shape as a configured model; named for the catalog view it appears in. */
 export const CatalogModelSchema = ConfiguredModelSchema.openapi('CatalogModel');

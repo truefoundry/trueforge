@@ -3,16 +3,22 @@
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
 
+import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
+import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
+import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
+import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
+import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
 import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
@@ -146,6 +152,7 @@ function ChatProviderFromShell({
   children,
   initialSessionId: hostInitialSessionId,
   onRemoteIdChange,
+  server,
   ...providerRest
 }: {
   children: ReactNode;
@@ -153,6 +160,26 @@ function ChatProviderFromShell({
   onRemoteIdChange?: (id: string | undefined) => void;
 } & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
   const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
+
+  const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
+
+  const serverWithCreateIntent = useMemo((): AgentUIServer => {
+    return {
+      ...server,
+      createSession: request => {
+        if (request.agentSpec === undefined) {
+          return server.createSession(request);
+        }
+        const withMetadata: CreateSessionRequest & { metadata: Record<string, string> } = {
+          ...request,
+          metadata: {
+            [IS_CREATE_AGENT_METADATA_KEY]: isCreateAgentMetadataValue(isCreateAgent),
+          },
+        };
+        return server.createSession(withMetadata);
+      },
+    };
+  }, [server, isCreateAgent]);
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.
@@ -196,14 +223,17 @@ function ChatProviderFromShell({
     <TrueFoundryChatProvider
       key={runtimeKey}
       {...providerRest}
+      server={serverWithCreateIntent}
       agent={agent}
       listSessionsAgentId={listSessionsAgentId}
       initialSessionId={pendingSessionId ?? hostInitialSessionId}
     >
       <DraftCatalogProvider>
-        <DraftSpecPreferenceBridge />
-        {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
-        {children}
+        <AgentConfigInstructionsProvider>
+          <DraftSpecPreferenceBridge />
+          {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
+          {children}
+        </AgentConfigInstructionsProvider>
       </DraftCatalogProvider>
     </TrueFoundryChatProvider>
   );
@@ -249,29 +279,41 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const server = resolved.server;
   const layoutTree = <LayoutChildren layout={layout} className={className} />;
 
+  const shellTree = (
+    <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+      <LibrarySessionShareBoot />
+      {resolvedRoutes != null ? (
+        <Suspense fallback={null}>
+          <ShellRouteSync
+            routes={resolvedRoutes}
+            activeRemoteId={activeRemoteId}
+            initialSettingsOpen={initialSettingsOpen}
+          />
+        </Suspense>
+      ) : null}
+      <ChatProviderFromShell
+        server={server}
+        onError={onError}
+        onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+        {...providerRest}
+      >
+        {layoutTree}
+      </ChatProviderFromShell>
+    </ShellModeProvider>
+  );
+  // Widget visibility provider is used to control the visibility of the widget with isolated state
+  const visibilityTree =
+    layout === 'widget' ? <WidgetVisibilityProvider>{shellTree}</WidgetVisibilityProvider> : shellTree;
+
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <CustomActionRenderersProvider renderers={customActionRenderers}>
         <ServerProvider server={server}>
-          <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-            {resolvedRoutes != null ? (
-              <Suspense fallback={null}>
-                <ShellRouteSync
-                  routes={resolvedRoutes}
-                  activeRemoteId={activeRemoteId}
-                  initialSettingsOpen={initialSettingsOpen}
-                />
-              </Suspense>
-            ) : null}
-            <ChatProviderFromShell
-              server={server}
-              onError={onError}
-              onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
-              {...providerRest}
-            >
-              {layoutTree}
-            </ChatProviderFromShell>
-          </ShellModeProvider>
+          {resolvedRoutes != null ? (
+            <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
+          ) : (
+            visibilityTree
+          )}
         </ServerProvider>
       </CustomActionRenderersProvider>
     </SlotsProvider>

@@ -47,7 +47,8 @@ already bound, dev exits instead of picking another. Proxy wiring lives in
 
 [`authFetch.ts`](src/authFetch.ts) wraps `fetch` and redirects to OIDC login on HTTP 401.
 [`authSession.ts`](src/authSession.ts) probes `/me` with a non-redirecting client so the
-welcome screen can show before login. Pass the auth-aware `fetch` into
+welcome screen can show before login. Logout chrome appears when `me().data.type` is
+`oidc-connected`. Pass the auth-aware `fetch` into
 `server={{ type: 'trueforge', fetch }}` so the built-in Harness adapter shares the same
 session cookies.
 

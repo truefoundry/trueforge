@@ -62,7 +62,7 @@ describe('useChatHeaderContentVisible', () => {
     expect(result.current.header).toBe(true);
   });
 
-  it('hides Clear on mutable sessions even after chat has started', () => {
+  it('shows New Chat header on mutable drafts; Clear is visible', () => {
     const { result } = renderHook(
       () => ({
         named: useNamedAgentHeaderVisible(),
@@ -77,7 +77,22 @@ describe('useChatHeaderContentVisible', () => {
       },
     );
 
-    expect(result.current.named).toBe(false);
+    expect(result.current.named).toBe(true);
+    expect(result.current.save).toBe(false);
+    expect(result.current.clear).toBe(true);
+    expect(result.current.header).toBe(true);
+  });
+
+  it('hides Clear on a fresh draft; header still shows the title', () => {
+    const { result } = renderHook(
+      () => ({
+        clear: useChatChromeActionsVisible(),
+        header: useChatHeaderContentVisible(),
+      }),
+      { wrapper: wrap({ messages: [], agentConfig: { mode: 'AgentComposer' } }) },
+    );
+
     expect(result.current.clear).toBe(false);
+    expect(result.current.header).toBe(true);
   });
 });

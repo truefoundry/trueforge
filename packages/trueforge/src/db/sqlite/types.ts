@@ -7,7 +7,11 @@
  */
 import type {
   AgentSpec,
+  CreatedBySubject,
   PersistedTurnEvent,
+  SessionMetadata,
+  SessionMetrics,
+  SessionSource,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -25,6 +29,7 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -54,7 +59,9 @@ export interface SessionTable {
   tenant_id: string;
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by: string;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  /** Optional provenance (e.g. schedule). Null for interactive sessions. */
+  source: JsonbColumn<SessionSource> | null;
   /** Named registry binding; XOR with `agent_spec`. */
   agent_id: string | null;
   /**
@@ -66,7 +73,11 @@ export interface SessionTable {
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
   last_turn_id: string | null;
+  /** Optional unique key within `tenant_id` when set. */
+  external_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
+  metadata: JsonbColumn<SessionMetadata>;
+  metrics: JsonbColumn<SessionMetrics>;
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;
@@ -214,6 +225,54 @@ export interface AgentTable {
   name: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JsonbColumn<AgentSpec>;
+  external_id: string | null;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Configured schedules.
+ * PRIMARY KEY (id).
+ * FK (agent_id) → agent(id) ON DELETE CASCADE.
+ */
+export interface ScheduleTable {
+  /** application-generated (ulid); FK target for schedule_run */
+  id: string;
+  tenant_id: string;
+  /** FK → agent(id). Immutable. */
+  agent_id: string;
+  /** Create-time snapshot of registry agent name. */
+  agent_name: string;
+  /** Display label; not unique. */
+  name: string;
+  /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
+  manifest: JsonbColumn<ScheduleManifest>;
+  /** `paused` stops triggering and drops the pending run; in-flight runs continue */
+  status: ScheduleStatus;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One row per schedule run, pending or historical — mirrors the Postgres `schedule_run`
+ * PRIMARY KEY (id); UNIQUE (tenant_id, schedule_id, name).
+ */
+export interface ScheduleRunTable {
+  /** application-generated (ulid) */
+  id: string;
+  tenant_id: string;
+  /** FK -> schedule.id, ON DELETE CASCADE */
+  schedule_id: string;
+  /** the run name: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
+  name: string;
+  scheduled_for: string;
+  /** `scheduled` | `triggered` | `failed` | `missed` — length ≤ 16 */
+  status: ScheduleRunStatus;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  triggered_at: string | null;
+  reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -244,7 +303,7 @@ export interface McpServerTable {
 /**
  * PRIMARY KEY (oauth_server_id, user_id)
  * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
- * (`user_id` = `UserContext.userRef`); any tenant-scoped read resolves `oauth_server_id`
+ * (`user_id` = `RequestContext.subject.id`); any tenant-scoped read resolves `oauth_server_id`
  * through mcp_server (by tenant_id + name) first.
  */
 export interface OAuthTokenTable {
@@ -280,6 +339,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  schedule: ScheduleTable;
+  schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

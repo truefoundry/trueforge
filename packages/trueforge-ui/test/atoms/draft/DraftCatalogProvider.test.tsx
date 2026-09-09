@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider, useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { reconcileDraftSandbox, reconcileDraftSpecPreferences } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
-import { withCapabilitiesSandbox } from '@/server/draftSpecPreferences.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSkill, ConnectorState, ModelSelection } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -23,9 +22,15 @@ function CatalogProbe() {
       <button type="button" onClick={() => void catalog.refreshConnectors()}>
         Refresh connectors
       </button>
+      <button type="button" onClick={() => catalog.loadMoreConnectors()}>
+        Load more connectors
+      </button>
       <output data-testid="models">{catalog.models.map(model => model.name).join(',')}</output>
       <output data-testid="skills">{catalog.skills.map(skill => skill.name).join(',')}</output>
       <output data-testid="connectors">{catalog.connectors.map(connector => connector.name).join(',')}</output>
+      <output data-testid="connectors-has-more">{String(catalog.connectorsHasMore)}</output>
+      <output data-testid="connectors-load-more-failed">{String(catalog.connectorsLoadMoreFailed)}</output>
+      <output data-testid="connectors-loading-more">{String(catalog.connectorsLoadingMore)}</output>
       <output data-testid="loading">{String(catalog.loading)}</output>
       <output data-testid="error">{catalog.error ?? ''}</output>
     </div>
@@ -58,10 +63,21 @@ function deferred<T>() {
 }
 
 describe('DraftCatalogProvider', () => {
-  it('reconciles loaded sandbox capabilities into the active draft config', () => {
+  it('does not enable sandbox merely because the capability is available for New Agent', () => {
     const update = reconcileDraftSandbox({
       agentSpec: { model: { name: 'model' } },
       sandboxEnabled: true,
+      kind: 'agent',
+    });
+
+    expect(update).toEqual({});
+  });
+
+  it('enables sandbox on New Chat when the capability is available', () => {
+    const update = reconcileDraftSandbox({
+      agentSpec: { model: { name: 'model' } },
+      sandboxEnabled: true,
+      kind: 'chat',
     });
 
     expect(update).toEqual({
@@ -69,20 +85,42 @@ describe('DraftCatalogProvider', () => {
     });
   });
 
-  it('does not update an active draft whose sandbox already matches capabilities', () => {
+  it('disables sandbox on New Chat when the capability becomes unavailable', () => {
     const update = reconcileDraftSandbox({
-      agentSpec: withCapabilitiesSandbox({ model: { name: 'model' } }, true),
-      sandboxEnabled: true,
+      agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+      sandboxEnabled: false,
+      kind: 'chat',
     });
 
-    expect(update).toEqual({});
+    expect(update).toEqual({
+      config: { sandbox: { enabled: false } },
+    });
+  });
+
+  it('does not update an active draft whose sandbox already matches capabilities', () => {
+    expect(
+      reconcileDraftSandbox({
+        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        sandboxEnabled: true,
+        kind: 'agent',
+      }),
+    ).toEqual({});
+    expect(
+      reconcileDraftSandbox({
+        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        sandboxEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({});
   });
 
   it('does not update an active draft while sandbox capabilities are unavailable', () => {
-    const agentSpec = withCapabilitiesSandbox({ model: { name: 'model' } }, true);
+    const agentSpec = { model: { name: 'model' }, config: { sandbox: { enabled: true } } };
 
-    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined })).toEqual({});
-    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined, kind: 'agent' })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null, kind: 'agent' })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined, kind: 'chat' })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null, kind: 'chat' })).toEqual({});
   });
 
   it('prunes unavailable remembered choices and falls back to the live model catalog', () => {
@@ -110,6 +148,22 @@ describe('DraftCatalogProvider', () => {
       skills: [{ name: 'Available skill' }],
       mcpServers: [{ name: 'Available MCP' }],
     });
+  });
+
+  it('keeps off-page MCP mounts while more connector pages remain', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        mcpServers: [{ name: 'Available MCP' }, { name: 'Off-page MCP' }],
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [],
+      connectors: [{ id: 'available-mcp', name: 'Available MCP' }],
+      connectorsHasMore: true,
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({});
   });
 
   it('clears remembered skills when skills are unavailable', () => {
@@ -344,5 +398,77 @@ describe('DraftCatalogProvider', () => {
     await waitFor(() => expect(screen.getByTestId('models')).toHaveTextContent('inner/model'));
     expect(innerGetModels).toHaveBeenCalledOnce();
     expect(outerGetModels).not.toHaveBeenCalled();
+  });
+
+  it('loads the first MCP page via listMcp and appends on loadMoreConnectors', async () => {
+    const listMcp = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [{ id: 'a', name: 'Alpha' }],
+        nextPageToken: 'page-2',
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 'b', name: 'Beta' }],
+      });
+    const getMcp = vi.fn(async (): Promise<ConnectorState[]> => {
+      throw new Error('getMcp should not run when listMcp is present');
+    });
+    const server = createMockAgentUIServer({ listMcp, getMcp });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+
+    await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha'));
+    expect(screen.getByTestId('connectors-has-more')).toHaveTextContent('true');
+    expect(listMcp).toHaveBeenCalledWith({ limit: 50 });
+    expect(getMcp).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more connectors' }));
+
+    await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha,Beta'));
+    expect(screen.getByTestId('connectors-has-more')).toHaveTextContent('false');
+    expect(listMcp).toHaveBeenCalledWith({ limit: 50, pageToken: 'page-2' });
+  });
+
+  it('stops automatic pagination after failure and allows an explicit retry', async () => {
+    const listMcp = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [{ id: 'a', name: 'Alpha' }],
+        nextPageToken: 'page-2',
+      })
+      .mockRejectedValueOnce(new Error('Page unavailable'))
+      .mockResolvedValueOnce({
+        data: [{ id: 'b', name: 'Beta' }],
+      });
+    const server = createMockAgentUIServer({ listMcp });
+
+    render(
+      <ServerProvider server={server}>
+        <DraftCatalogProvider>
+          <CatalogProbe />
+        </DraftCatalogProvider>
+      </ServerProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load catalog' }));
+    await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more connectors' }));
+    await waitFor(() => expect(screen.getByTestId('connectors-load-more-failed')).toHaveTextContent('true'));
+    expect(screen.getByTestId('connectors-has-more')).toHaveTextContent('true');
+    expect(listMcp).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load more connectors' }));
+    await waitFor(() => expect(screen.getByTestId('connectors')).toHaveTextContent('Alpha,Beta'));
+    expect(screen.getByTestId('connectors-load-more-failed')).toHaveTextContent('false');
+    expect(listMcp).toHaveBeenCalledTimes(3);
   });
 });

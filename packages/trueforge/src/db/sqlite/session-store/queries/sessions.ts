@@ -1,8 +1,18 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import {
+  CreatedBySubjectSchema,
+  SessionMetadataSchema,
+  SessionSourceSchema,
+  type AgentSpec,
+  type CreatedBySubject,
+  type SessionMetadata,
+  type SessionMetrics,
+  type SessionSource,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type {
   CreateSessionInput,
   DeleteSessionInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   ListSessionsInput,
   UpdateSessionInput,
@@ -13,13 +23,14 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionListPageToken';
 import {
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
 import { sessionAgentFromColumns, sessionAgentToColumns } from '../../../sessionAgentColumns';
 import { isUniqueViolation } from '../../client';
-import { jsonbBind, jsonText, nowIso } from '../../sqlExpressions';
+import { jsonbBind, jsonText, nowIso, whereCreatedByOrAgentIds } from '../../sqlExpressions';
 import type { Database } from '../../types';
 
 type SessionCustom = Record<string, never>;
@@ -39,16 +50,24 @@ function parseSessionCustom(value: Record<string, unknown> | null): SessionCusto
   return value;
 }
 
+function parseSessionMetadata(value: unknown): SessionMetadata {
+  return SessionMetadataSchema.parse(value);
+}
+
 function mapRowToSessionRecord(row: {
   tenant_id: string;
   session_id: string;
-  created_by: string;
+  created_by_subject: CreatedBySubject;
+  source: SessionSource | null;
   agent_id: string | null;
   agent_name: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
   last_turn_id: string | null;
+  external_id: string | null;
   custom: Record<string, unknown> | null;
+  metadata: SessionMetadata;
+  metrics: SessionMetrics;
   created_at: string;
   updated_at: string;
   last_activity_timestamp_ms: number;
@@ -56,7 +75,8 @@ function mapRowToSessionRecord(row: {
   return {
     tenant_id: row.tenant_id,
     session_id: row.session_id,
-    created_by: row.created_by,
+    created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    source: SessionSourceSchema.nullable().parse(row.source),
     agent: sessionAgentFromColumns({
       session_id: row.session_id,
       agent_id: row.agent_id,
@@ -65,7 +85,10 @@ function mapRowToSessionRecord(row: {
     }),
     title: row.title,
     last_turn_id: row.last_turn_id,
+    external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
+    metadata: parseSessionMetadata(row.metadata),
+    metrics: row.metrics,
     created_at: new Date(row.created_at),
     updated_at: new Date(row.updated_at),
     last_activity_timestamp_ms: row.last_activity_timestamp_ms,
@@ -76,13 +99,17 @@ function sessionSelectColumns() {
   return [
     'tenant_id' as const,
     'session_id' as const,
-    'created_by' as const,
+    jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject'),
+    jsonText<SessionSource | null>(sql.ref('source')).as('source'),
     'agent_id' as const,
     'agent_name' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
     'last_turn_id' as const,
+    'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
+    jsonText<SessionMetadata>(sql.ref('metadata')).as('metadata'),
+    jsonText<SessionMetrics>(sql.ref('metrics')).as('metrics'),
     'created_at' as const,
     'updated_at' as const,
     'last_activity_timestamp_ms' as const,
@@ -99,12 +126,19 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .values({
         tenant_id: input.tenant_id,
         session_id: input.session_id,
-        created_by: input.created_by,
+        created_by_subject: jsonbBind(input.created_by_subject),
+        source: input.source !== null ? jsonbBind(input.source) : null,
         agent_id: columns.agent_id,
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
+        metadata: jsonbBind(input.metadata),
+        external_id: input.external_id,
+        metrics: jsonbBind({
+          total_duration_ms: 0,
+          total_turns: 0,
+        }),
         created_at: now,
         updated_at: now,
         last_activity_timestamp_ms: Date.now(),
@@ -112,6 +146,19 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
+      // Which index fired is resolved by lookup, not by parsing the driver
+      // message: SQLite describes a partial unique index by column list or by
+      // index name depending on version. The failed INSERT already rolled back,
+      // so a hit here is the pre-existing row that owns this external id.
+      if (input.external_id !== null) {
+        const owner = await getSessionByExternalId(db, {
+          tenant_id: input.tenant_id,
+          external_id: input.external_id,
+        });
+        if (owner !== undefined) {
+          throw new SessionExternalIdConflictError(input.external_id, { cause: error });
+        }
+      }
       throw new SessionAlreadyExistsError(input.session_id, { cause: error });
     }
     throw error;
@@ -144,9 +191,28 @@ export async function getSession(
   return mapRowToSessionRecord(row);
 }
 
+export async function getSessionByExternalId(
+  db: Kysely<Database>,
+  input: GetSessionByExternalIdInput,
+): Promise<ProtoSessionRecord | undefined> {
+  const row = await db
+    .selectFrom('session')
+    .select(sessionSelectColumns)
+    .where('tenant_id', '=', input.tenant_id)
+    .where('external_id', '=', input.external_id)
+    .executeTakeFirst();
+
+  if (row === undefined) {
+    return undefined;
+  }
+
+  return mapRowToSessionRecord(row);
+}
+
 export async function updateSession(db: Kysely<Database>, input: UpdateSessionInput<SessionCustom>): Promise<void> {
   const agent = input.agent;
   const title = input.title;
+  const metadata = input.metadata;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -173,6 +239,9 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   if (title !== undefined) {
     qb = qb.set({ title });
   }
+  if (metadata !== undefined) {
+    qb = qb.set({ metadata: jsonbBind(metadata) });
+  }
 
   const result = await qb.executeTakeFirst();
 
@@ -198,8 +267,24 @@ export async function listSessions(
   if (input.agent_id !== undefined) {
     query = query.where('agent_id', '=', input.agent_id);
   }
-  if (input.created_by !== undefined) {
-    query = query.where('created_by', '=', input.created_by);
+  query = whereCreatedByOrAgentIds(query, input.created_by_or_agent_ids);
+  if (input.metadata !== undefined) {
+    if (Object.keys(input.metadata).length === 0) {
+      query = query.where(sql<boolean>`NOT EXISTS (SELECT 1 FROM json_each(metadata))`);
+    } else {
+      for (const [key, value] of Object.entries(input.metadata)) {
+        // Match metadata keys exactly; some key names are parsed as JSON paths.
+        query = query.where(
+          sql<boolean>`EXISTS (SELECT 1 FROM json_each(metadata) WHERE key = ${key} AND atom = ${value})`,
+        );
+      }
+    }
+  }
+  if (input.source_type !== undefined) {
+    query = query.where(sql`json_extract(source, '$.type')`, '=', input.source_type);
+  }
+  if (input.source_id !== undefined) {
+    query = query.where(sql`json_extract(source, '$.id')`, '=', input.source_id);
   }
   if (input.start_timestamp !== undefined) {
     query = query.where('created_at', '>=', input.start_timestamp.toISOString());

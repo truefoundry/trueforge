@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { createLogger } from 'winston';
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
+const describeUnix = process.platform === 'win32' ? describe.skip : describe;
+
 async function makeProvider(sandboxRootPathParent: string): Promise<LocalSandboxProvider> {
   const codeModeSocketParentPath = join(tmpdir(), 'cm');
   await mkdir(codeModeSocketParentPath, { recursive: true, mode: 0o700 });
@@ -16,7 +18,7 @@ async function makeProvider(sandboxRootPathParent: string): Promise<LocalSandbox
   });
 }
 
-describe('LocalSandboxProvider missing root', () => {
+describeUnix('LocalSandboxProvider missing root', () => {
   it('throws SandboxNotAvailableError when the sandbox root does not exist', async () => {
     const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-missing-'));
     const provider = await makeProvider(sandboxRootPathParent);

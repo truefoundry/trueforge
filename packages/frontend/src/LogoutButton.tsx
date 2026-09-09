@@ -2,10 +2,11 @@ import { CenteredModal, Icon } from '@truefoundry/trueforge-ui';
 import { useEffect, useState } from 'react';
 import { getCachedIsOidcConnectedSession, isOidcConnectedSession, logout } from './authSession';
 import './LogoutButton.css';
+import { UI_BASE_PATH } from './publicPath';
 
 /**
  * Icon button next to Settings (via `ShellActionsActionSlot` override).
- * Shown only when `auth.me()` returns `type: "oidc-connected"`.
+ * Shown only when `auth.me()` returns `data.type: "oidc-connected"`.
  * Uses a module cache so remounts of the action slot do not hide the control during refetches.
  */
 export function LogoutButton() {
@@ -43,8 +44,8 @@ export function LogoutButton() {
     setBusy(true);
     void logout()
       .then(() => {
-        // Land on the welcome gate (probe /me → unauthenticated → GetStartedScreen).
-        window.location.assign('/');
+        // Land on the welcome gate under the UI public path (not site root).
+        window.location.assign(UI_BASE_PATH);
       })
       .catch(() => {
         setBusy(false);

@@ -95,8 +95,14 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const servers = await store.listServers({ tenant_id: TENANT, names: undefined });
-    expect(servers).toEqual([updated]);
+    const servers = await store.listServers({
+      tenant_id: TENANT,
+      names: undefined,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(servers.data).toEqual([updated]);
+    expect(servers.pagination).toEqual({ limit: 25 });
   });
 
   it('listServers returns only the tenant, ordered by name', async () => {
@@ -109,9 +115,14 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     });
     await store.upsertServer({ tenant_id: 'other-tenant', name: 'linear', manifest: manifest() });
 
-    const servers = await store.listServers({ tenant_id: TENANT, names: undefined });
-    expect(servers.map(server => server.name)).toEqual(['deepwiki', 'linear']);
-    expect(servers.every(server => server.tenant_id === TENANT)).toBe(true);
+    const servers = await store.listServers({
+      tenant_id: TENANT,
+      names: undefined,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(servers.data.map(server => server.name)).toEqual(['deepwiki', 'linear']);
+    expect(servers.data.every(server => server.tenant_id === TENANT)).toBe(true);
   });
 
   it('listServers filters by names and returns empty for an empty name list', async () => {
@@ -131,12 +142,54 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     const filtered = await store.listServers({
       tenant_id: TENANT,
       names: ['notion', 'missing', 'deepwiki'],
+      limit: 25,
+      page_token: undefined,
     });
-    expect(filtered.map(server => server.name)).toEqual(['deepwiki', 'notion']);
+    expect(filtered.data.map(server => server.name)).toEqual(['deepwiki', 'notion']);
 
-    await expect(store.listServers({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
+    await expect(
+      store.listServers({ tenant_id: TENANT, names: [], limit: 25, page_token: undefined }),
+    ).resolves.toEqual({ data: [], pagination: { limit: 25 } });
   });
 
+  it('listServers paginates with limit and page_token', async () => {
+    const store = getStore();
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'alpha',
+      manifest: manifest({ name: 'alpha', url: 'https://mcp.alpha.example/mcp' }),
+    });
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'bravo',
+      manifest: manifest({ name: 'bravo', url: 'https://mcp.bravo.example/mcp' }),
+    });
+    await store.upsertServer({
+      tenant_id: TENANT,
+      name: 'charlie',
+      manifest: manifest({ name: 'charlie', url: 'https://mcp.charlie.example/mcp' }),
+    });
+
+    const first = await store.listServers({
+      tenant_id: TENANT,
+      names: undefined,
+      limit: 2,
+      page_token: undefined,
+    });
+    expect(first.data.map(server => server.name)).toEqual(['alpha', 'bravo']);
+    expect(first.pagination.limit).toBe(2);
+    expect(first.pagination.next_page_token).toBeDefined();
+
+    const second = await store.listServers({
+      tenant_id: TENANT,
+      names: undefined,
+      limit: 2,
+      page_token: first.pagination.next_page_token,
+    });
+    expect(second.data.map(server => server.name)).toEqual(['charlie']);
+    expect(second.pagination.next_page_token).toBeUndefined();
+    expect(second.pagination.previous_page_token).toBeDefined();
+  });
   it('upsert leaves oauth columns null and does not clear a saved OAuth client', async () => {
     const store = getStore();
     const created = await store.upsertServer({

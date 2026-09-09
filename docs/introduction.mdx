@@ -81,7 +81,7 @@ The agent features are identical in both modes — only the backend around the s
 | | Local | Hosted |
 | --- | --- | --- |
 | **Best for** | Personal use — one process on your machine, like Claude Desktop | A shared deployment for your team, like Claude's managed agents |
-| **How to run** | `npx @truefoundry/trueforge` | Docker Compose or Helm |
+| **How to run** | `npx @truefoundry/trueforge` | Docker Compose, Helm, or Railway |
 | **Storage** | SQLite | Postgres, shared by all replicas |
 | **Extra infra** | None | Postgres + Redis |
 | **Replicas** | Single process | Multiple replicas behind a load balancer. Redis peers them so streams and cancellations follow the client across replicas. |
@@ -103,7 +103,7 @@ The agent features are identical in both modes — only the backend around the s
     Configure models, MCP servers, skills, and sandbox — and customize the shipped catalogs.
   </Card>
   <Card title="Create an Agent" icon="robot" href="/create-agent/overview">
-    Select a model, attach connectors and skills, then save to the Agents Library.
+    Select a model, attach connectors and skills, then save under Agents.
   </Card>
   <Card title="Harness Capabilities" icon="layer-group" href="/key-features/overview">
     Sandbox-as-tool, subagents, deferred tools, code mode, compaction, and human checkpoints.

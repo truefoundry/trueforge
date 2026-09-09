@@ -1,6 +1,3 @@
-/**
- * Store-backed model/MCP/skill/sandbox resolution for session admit and turns.
- */
 import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
@@ -17,16 +14,14 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { IMcpServerStore, McpServerRecord } from '../db/mcpServerStore';
+import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
-import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
-import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider } from '../sandbox/providerUtils';
-import { resolveConfiguredMcpRequestHeaders } from '../schemas/mcpServer';
+import type { ReasoningEffort } from '../schemas/modelProvider';
 
 export interface McpConnection {
   url: string;
@@ -49,6 +44,7 @@ export function parseModelFqn(name: string): { providerName: string; modelName: 
  * Load turn-ready model config and defaults for a configured FQN (`provider/model`).
  * Malformed FQN or missing provider/model → HTTPException(422).
  */
+
 export async function getModelDetails({
   tenant_id,
   name,
@@ -61,6 +57,7 @@ export async function getModelDetails({
   providerConfig: VercelAIProviderConfig;
   defaultModelParams: ModelParams;
   modelProperties: AgentDefinition['modelProperties'];
+  reasoningEfforts: ReasoningEffort[] | undefined;
 }> {
   const parsed = parseModelFqn(name);
   if (parsed === undefined) {
@@ -82,92 +79,45 @@ export async function getModelDetails({
   }
   // Provider types are adapter names, so this assignment is what keeps them so: a type with no
   // `buildLanguageModel` case fails to compile here.
-  const { type, base_url } = provider.manifest;
+  const { type, base_url: baseUrl } = provider.manifest;
   return {
     providerConfig: {
       provider: { type, name: provider.name },
       model: { id: model.model_id, name: model.name },
       name,
-      baseUrl: base_url,
-      // Custom providers may omit auth; adapters still require a string.
+      baseUrl,
       apiKey: provider.manifest.auth?.api_key ?? '',
       headers: {},
     },
     defaultModelParams: model.properties.max_output_tokens ? { max_tokens: model.properties.max_output_tokens } : {},
     modelProperties: { contextLength: model.properties.context_length },
-  };
-}
-
-function dcrHeadersResolver(params: {
-  record: McpServerRecord;
-  tokenStore: IOAuthTokenStore;
-  mcpServerStore: IMcpServerStore;
-  clientName: string;
-  userRef: string;
-}): RemoteMcpHeaders {
-  const { record, tokenStore, mcpServerStore, clientName, userRef } = params;
-  return async () => {
-    const result = await resolveMcpAuth({
-      tokenStore,
-      mcpServerStore,
-      serverId: record.id,
-      userRef,
-      mcpServerUrl: record.manifest.url,
-      mcpServerName: record.name,
-      clientName,
-    });
-    if (isMcpAuthRequired(result)) {
-      // Wire `id` must match RemoteMCP.id (AgentSpec name), not the DB row ULID —
-      // init events, tool-call metadata, and snapshots all key by name.
-      return {
-        authRequired: {
-          servers: [{ id: record.name, name: record.name, auth_url: result.authUrl.href }],
-        },
-      };
-    }
-    return { headers: result.headers };
+    reasoningEfforts: model.properties.reasoning_efforts,
   };
 }
 
 /**
- * Load MCP url + headers for a configured server.
- * DCR uses resolveMcpAuth; header / no-auth use resolveConfiguredMcpRequestHeaders.
- * Returns undefined when the server is not registered — callers choose the response.
+ * Load MCP url + headers for a configured server. Returns undefined when unregistered.
+ *
+ * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
 export async function getMcpConnection({
   tenant_id,
   name,
   store,
-  tokenStore,
-  clientName,
   userRef,
 }: {
   tenant_id: string;
   name: string;
-  store: IMcpServerStore;
-  tokenStore: IOAuthTokenStore;
-  clientName: string;
+  store: IMcpServerWithAuthStore;
   userRef: string;
 }): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
   }
-  if (record.manifest.auth?.type === 'dcr') {
-    return {
-      url: record.manifest.url,
-      headers: dcrHeadersResolver({
-        record,
-        tokenStore,
-        mcpServerStore: store,
-        clientName,
-        userRef,
-      }),
-    };
-  }
   return {
     url: record.manifest.url,
-    headers: resolveConfiguredMcpRequestHeaders(record.manifest),
+    headers: store.resolveInvokeHeaders({ record, userRef }),
   };
 }
 
@@ -306,27 +256,14 @@ export async function validateAgentSpec({
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
 }): Promise<void> {
-  const parsed = parseModelFqn(spec.model.name);
-  if (parsed === undefined) {
-    throw new HTTPException(422, {
-      message: `Model name must be a fully qualified "provider/model": ${spec.model.name}`,
-    });
-  }
-  const provider = await modelProviderStore.getProvider({ tenant_id, name: parsed.providerName });
-  if (provider === undefined) {
-    throw new HTTPException(422, {
-      message: `Unknown model "${spec.model.name}" — provider not configured`,
-    });
-  }
-  const model = provider.manifest.models.find(entry => entry.name === parsed.modelName);
-  if (model === undefined) {
-    throw new HTTPException(422, {
-      message: `Unknown model "${spec.model.name}" — not configured on provider`,
-    });
-  }
+  const resolved = await getModelDetails({
+    tenant_id,
+    name: spec.model.name,
+    store: modelProviderStore,
+  });
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
-    const efforts = model.properties.reasoning_efforts;
+    const efforts = resolved.reasoningEfforts;
     if (!efforts?.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
         message: efforts
@@ -340,7 +277,14 @@ export async function validateAgentSpec({
   if (requestedMcpServers.length > 0) {
     const names = requestedMcpServers.map(server => server.name);
     const configuredNames = new Set(
-      (await mcpServerStore.listServers({ tenant_id, names })).map(record => record.name),
+      (
+        await mcpServerStore.listServers({
+          tenant_id,
+          names,
+          limit: Math.max(names.length, 1),
+          page_token: undefined,
+        })
+      ).data.map(record => record.name),
     );
     const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
     if (unknown !== undefined) {

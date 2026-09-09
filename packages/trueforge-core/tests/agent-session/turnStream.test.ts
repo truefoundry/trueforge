@@ -23,7 +23,7 @@ describe('TurnHandle.stream()', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: {
         type: 'inline',
         spec: makeAgentSpec({
@@ -32,6 +32,7 @@ describe('TurnHandle.stream()', () => {
           },
         }),
       },
+      external_id: null,
     });
     return { store, session };
   }
@@ -459,6 +460,30 @@ describe('TurnResourceResolver caches', () => {
     expect(creates).toBe(1);
   });
 
+  it('getModel single-flights by model name', async () => {
+    const logger = makeSilentLogger();
+    let llmCalls = 0;
+    const modelClient = makeMockILLM();
+    const resolver = new (class extends TurnResourceResolver {
+      async resolveTwice() {
+        const [a, b] = await Promise.all([this.getModel('acct/model-a'), this.getModel('acct/model-a')]);
+        expect(a).toBe(b);
+      }
+    })({
+      llm: async () => {
+        llmCalls += 1;
+        await new Promise(r => setTimeout(r, 10));
+        return { modelClient, defaultModelParams: {} };
+      },
+      mcp: () => Promise.reject(new Error('unused')),
+      mcpRequestTimeoutMs: 1_000,
+      mcpConnectTimeoutMs: 1_000,
+      logger,
+    });
+    await resolver.resolveTwice();
+    expect(llmCalls).toBe(1);
+  });
+
   it('resolveSandbox called once per run via SessionHandle.createTurn', async () => {
     const sandbox = makeStubPublicSandbox();
     jest.spyOn(sandbox, 'close').mockResolvedValue(undefined);
@@ -484,7 +509,7 @@ describe('TurnResourceResolver caches', () => {
     const session = await sessions.create({
       tenant_id: 't',
       session_id: 's',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: {
         type: 'inline',
         spec: makeAgentSpec({
@@ -493,6 +518,7 @@ describe('TurnResourceResolver caches', () => {
           },
         }),
       },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),

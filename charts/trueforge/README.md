@@ -138,9 +138,12 @@ configs:
           key: client-secret
     # optional claim overrides (defaults shown):
     # userReferenceClaim: sub
+    # userDisplayNameClaim: name
     # userRoleClaim: groups
     # adminRoleValue: admin
     # scopes: "openid,profile,email,groups"
+    # Optional email allowlist (exact + * globs). Empty = unrestricted.
+    # allowedEmails: "alice@acme.com,*@partner.com"
 ```
 
 ## Using Secrets
@@ -193,7 +196,7 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `replicaCount`        | `1`                                 | Number of server replicas.            |
+| `server.replicaCount` | `1`                                 | Number of server replicas.            |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). |
@@ -208,8 +211,14 @@ extraObjects:
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Container CPU, memory, and ephemeral-storage requests/limits. |
+| `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`TRUEFORGE_MTLS_*`). When true, probes use `scheme: HTTPS`. |
+| `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
+| `mtls.certsDir`       | `/etc/tls`                          | Mount path / `TRUEFORGE_MTLS_CERTS_DIR`. |
 
-Also available (defaults inert): `strategy`, `priorityClassName`,
+The server uses a RollingUpdate strategy by default (`server.strategy`); the
+controller is fixed to a single replica with `Recreate` and exposes neither.
+
+Also available (defaults inert): `priorityClassName`,
 `topologySpreadConstraints`, `initContainers`, `extraContainers`,
 `extraVolumes`, `extraVolumeMounts`, `service.annotations`, `service.labels`,
 `startupProbe`.
@@ -226,6 +235,7 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - Set `server.publicBaseUrl` to the real public origin before using MCP OAuth or OIDC.
 - Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.
+- If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).
 - Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
 - Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).

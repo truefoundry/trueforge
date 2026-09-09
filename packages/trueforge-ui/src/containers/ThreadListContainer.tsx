@@ -132,17 +132,21 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const showDelete = canDeleteSession && remoteId != null;
+  const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
 
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
         title={title ?? 'New Chat'}
-        active={id === mainThreadId}
+        active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         lastMessageAt={lastMessageAt}
         onSelect={() => {
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
+          shell?.setLibraryOpen(false);
+          shell?.setSessionsOpen(false);
+          shell?.setSchedulesOpen(false);
 
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
           const sessionMutable = threadListItemIsMutable(custom);
@@ -266,6 +270,8 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListShell = useSlot('ThreadListShell');
   const ThreadListNewButton = useSlot('ThreadListNewButton');
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SchedulesButton = useSlot('SchedulesButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -321,11 +327,14 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
   const handleNewChat = () => {
     onThreadOpen?.();
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
       return;
     }
     shell?.setSettingsOpen(false);
+    shell?.setSchedulesOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -349,11 +358,9 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
       header={
         <div className="flex flex-col gap-1">
           {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-          <AgentsLibraryButton
-            onSelectAgent={() => {
-              onThreadOpen?.();
-            }}
-          />
+          <AgentsLibraryButton />
+          <SessionsBrowserButton />
+          <SchedulesButton />
         </div>
       }
     >

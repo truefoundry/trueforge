@@ -5,10 +5,12 @@ import {
   TurnNotFoundError,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { createTurnsRouter, turnStreamId } from '../../../src/apis/turns';
-import { LOCAL_USER_CONTEXT } from '../../../src/auth/identity';
+import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
+import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -18,8 +20,17 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import type { Database } from '../../../src/db/sqlite/types';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+
+function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
+  return new McpServerWithAuthStore({
+    store: new SqliteMcpServerStore(db),
+    tokenStore,
+    clientName: 'test-client',
+  });
+}
 
 describe('turns', () => {
   describe('turn ownership', () => {
@@ -30,9 +41,9 @@ describe('turns', () => {
       const sessions = new Sessions({ sessionStore });
 
       await sessionStore.createSession({
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         session_id: 's1',
-        created_by: 'someone-else',
+        created_by_subject: { subject_id: 'someone-else', subject_type: 'user', subject_display_name: 'someone-else' },
         agent: {
           type: 'inline',
           spec: AgentSpecSchema.parse({
@@ -41,8 +52,12 @@ describe('turns', () => {
           }),
         },
         custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
       });
 
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -50,15 +65,15 @@ describe('turns', () => {
           sessions,
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore: new SqliteModelProviderStore(db),
-          mcpServerStore: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           skillStore: new SqliteSkillStore(db),
-          agentStore: new SqliteAgentStore(db),
+          resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           logger: createLogger({ silent: true }),
-          resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -96,6 +111,77 @@ describe('turns', () => {
       expect(downloadResponse.status).toBe(403);
       expect(await downloadResponse.json()).toEqual(forbiddenAccess);
     });
+
+    it('lets an agent manager use read routes but keeps create-turn and sandbox download creator-only', async () => {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const agentStore = new SqliteAgentStore(db);
+      const agent = await agentStore.createAgent({
+        tenant_id: 'default',
+        name: 'managed-agent',
+        manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+        external_id: 'managed-agent-external',
+        created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+      });
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: 'managed-session',
+        created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
+        agent: { type: 'reference', id: agent.id, name: agent.name },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions: new Sessions({ sessionStore }),
+          sessionStore,
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          skillStore: new SqliteSkillStore(db),
+          resolveAgentStore: () => agentStore,
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          logger: createLogger({ silent: true }),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: {
+            listAgentAccess: input =>
+              Promise.resolve(
+                input.action === 'manage'
+                  ? { kind: 'agent_external_ids', agent_external_ids: ['managed-agent-external'] }
+                  : { kind: 'agent_external_ids', agent_external_ids: [] },
+              ),
+            canAccessAgent: () => Promise.resolve(false),
+          },
+        }),
+      );
+
+      expect((await app.request('/managed-session/turns')).status).toBe(200);
+      expect((await app.request('/managed-session/turns/missing')).status).toBe(404);
+      expect((await app.request('/managed-session/turns/missing/events')).status).toBe(404);
+      expect((await app.request('/managed-session/turns/missing/subscribe')).status).toBe(404);
+      expect(
+        (
+          await app.request(
+            `/managed-session/turns/missing/download-sandbox-file?path=${encodeURIComponent('/workspace/file.txt')}`,
+          )
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await app.request('/managed-session/turns', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ stream: false }),
+          })
+        ).status,
+      ).toBe(403);
+    });
   });
 
   describe('create turn non-streaming', () => {
@@ -131,8 +217,21 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
+            session_id: 's1',
+            tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
-            record: { last_turn_id: null, created_by: LOCAL_USER_CONTEXT.userRef },
+            record: {
+              last_turn_id: null,
+              created_by_subject: {
+                subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+                subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+                subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+              },
+              agent: {
+                type: 'inline',
+                spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+              },
+            },
             createTurn: () =>
               Promise.resolve({
                 id: 'turn-non-stream',
@@ -161,6 +260,7 @@ describe('turns', () => {
       } as unknown as Sessions;
 
       const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(undefined);
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -168,15 +268,15 @@ describe('turns', () => {
           sessions,
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore,
-          agentStore: new SqliteAgentStore(db),
-          mcpServerStore: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveModelProviderStore: () => modelProviderStore,
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveAgentStore: () => new SqliteAgentStore(db),
           skillStore: new SqliteSkillStore(db),
           eventSubscriptions,
-          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           logger,
-          resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -202,7 +302,7 @@ describe('turns', () => {
 
       // Resumable stream must exist before the JSON response returns.
       await expect(
-        eventSubscriptions.get(turnStreamId(TENANT_ID, 's1', 'turn-non-stream')).assertSubscribable(),
+        eventSubscriptions.get(turnStreamId('default', 's1', 'turn-non-stream')).assertSubscribable(),
       ).resolves.toBeUndefined();
 
       releaseRest?.();
@@ -244,11 +344,17 @@ describe('turns', () => {
       const sessions = {
         get: () =>
           Promise.resolve({
+            session_id: 's1',
+            tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: agentSpec,
             record: {
               session_id: 's1',
               last_turn_id: null,
-              created_by: LOCAL_USER_CONTEXT.userRef,
+              created_by_subject: {
+                subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+                subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+                subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+              },
               agent: { type: 'inline', spec: agentSpec },
             },
             createTurn: () =>
@@ -261,6 +367,7 @@ describe('turns', () => {
           }),
       } as unknown as Sessions;
 
+      const tokenStore = new SqliteOAuthTokenStore(db);
       const app = new OpenAPIHono();
       app.route(
         '/',
@@ -268,15 +375,15 @@ describe('turns', () => {
           sessions,
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
-          modelProviderStore,
-          mcpServerStore: new SqliteMcpServerStore(db),
-          tokenStore: new SqliteOAuthTokenStore(db),
+          resolveModelProviderStore: () => modelProviderStore,
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           skillStore: new SqliteSkillStore(db),
-          agentStore: new SqliteAgentStore(db),
+          resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
-          sandboxProviderStore: new SqliteSandboxProviderStore(db),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           logger,
-          resolveUserContext: () => LOCAL_USER_CONTEXT,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -294,6 +401,97 @@ describe('turns', () => {
             typeof message === 'string' && message.includes('Turn stream ended after session/turn was removed'),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe('create turn referenced agent', () => {
+    const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAgent']>[0]) =>
+      Promise.resolve(false),
+    );
+    const denyAllAuthorizer: Authorizer = {
+      listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
+      canAccessAgent: deniedCanAccessAgent,
+    };
+
+    async function referencedAgentHarness(authorizer: Authorizer) {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const sessions = new Sessions({ sessionStore });
+      const agentStore = new SqliteAgentStore(db);
+      const agent = await agentStore.createAgent({
+        tenant_id: 'default',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        name: 'named-for-turn',
+        manifest: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+        }),
+        external_id: null,
+      });
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: 's1',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        agent: { type: 'reference', id: agent.id, name: agent.name },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+      const tokenStore = new SqliteOAuthTokenStore(db);
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions,
+          sessionStore,
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          skillStore: new SqliteSkillStore(db),
+          resolveAgentStore: () => agentStore,
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          logger: createLogger({ silent: true }),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer,
+        }),
+      );
+      return { app, agent, agentStore };
+    }
+
+    it('returns 422 when the referenced agent no longer exists', async () => {
+      const { app, agent, agentStore } = await referencedAgentHarness(new TrueForgeAuthorizer());
+      await agentStore.deleteAgent({ tenant_id: 'default', id: agent.id });
+      const response = await app.request('/s1/turns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stream: false }),
+      });
+      expect(response.status).toBe(422);
+      expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
+    });
+
+    it('returns 404 when the caller cannot use the referenced agent', async () => {
+      deniedCanAccessAgent.mockClear();
+      const { app, agent } = await referencedAgentHarness(denyAllAuthorizer);
+      const response = await app.request('/s1/turns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stream: false }),
+      });
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ error: { message: `Agent not found: ${agent.id}` } });
+      expect(deniedCanAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
     });
   });
 });

@@ -13,7 +13,6 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ulid } from 'ulid';
 import { createLogger } from 'winston';
 import {
   CodeModeUdsTransport,
@@ -29,6 +28,7 @@ import {
   runSupervisorSession,
 } from '../../../src/sandbox/local/core/hostRun.js';
 import { LocalSandboxProvider } from '../../../src/sandbox/local/provider/LocalSandboxProvider.js';
+import { newId } from '../../../src/utils/id.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 const SANDBOXES = join(ROOT, 'sandboxes');
@@ -81,8 +81,8 @@ async function smokeCodeModeSocketParentAllow(params: {
   platform: 'darwin' | 'linux';
 }): Promise<void> {
   const parent = await realpath(params.codeModeSocketParentPath);
-  const allowedSock = join(parent, ulid().toLowerCase());
-  const leftoverSock = join('/tmp', `tfy-srt-leak-${ulid().toLowerCase().slice(0, 10)}`);
+  const allowedSock = join(parent, newId());
+  const leftoverSock = join('/tmp', `tfy-srt-leak-${newId().slice(0, 10)}`);
   await unlink(allowedSock).catch(() => undefined);
   await unlink(leftoverSock).catch(() => undefined);
 
@@ -630,7 +630,7 @@ function assertPeerSecretPresent(label: string, sample: string): void {
  * Identity comes from the kernel, not from client-supplied fields.
  */
 async function smokeUdsPeerCredentials(): Promise<void> {
-  const sockPath = join(tmpdir(), `cm-pc-${ulid().toLowerCase().slice(0, 10)}`);
+  const sockPath = join(tmpdir(), `cm-pc-${newId().slice(0, 10)}`);
   await unlink(sockPath).catch(() => undefined);
 
   const script = [

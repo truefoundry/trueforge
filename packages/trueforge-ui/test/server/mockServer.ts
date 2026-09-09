@@ -1,4 +1,10 @@
-import type { AgentUIServer, CatalogServer } from '@/server/types.js';
+import type {
+  AgentMetricsServer,
+  AgentSessionsServer,
+  AgentUIServer,
+  CatalogServer,
+  ScheduleServer,
+} from '@/server/types.js';
 
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected mock server call');
@@ -24,6 +30,38 @@ export function createMockCatalog(overrides: Partial<CatalogServer> = {}): Catal
       authenticateConnector: unavailable,
       disconnectConnector: unavailable,
     },
+    ...overrides,
+  };
+}
+
+export function createMockAgentSessionsServer(overrides: Partial<AgentSessionsServer> = {}): AgentSessionsServer {
+  return {
+    getAgent: unavailable,
+    getCodeSnippets: async () => [],
+    listSessions: async () => ({ data: [] }),
+    listSessionEvents: async () => ({ data: [] }),
+    ...overrides,
+  };
+}
+
+export function createMockScheduleServer(overrides: Partial<ScheduleServer> = {}): ScheduleServer {
+  return {
+    listSchedules: async () => ({ data: [] }),
+    getSchedule: unavailable,
+    createSchedule: unavailable,
+    updateSchedule: unavailable,
+    deleteSchedule: unavailable,
+    listScheduleRuns: async () => [],
+    createScheduleRun: unavailable,
+    ...overrides,
+  };
+}
+
+export function createMockAgentMetricsServer(overrides: Partial<AgentMetricsServer> = {}): AgentMetricsServer {
+  return {
+    getCharts: async () => [],
+    getMeters: async () => [],
+    getChartData: unavailable,
     ...overrides,
   };
 }

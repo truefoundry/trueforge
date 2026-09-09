@@ -14,6 +14,7 @@ import type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
@@ -42,6 +43,7 @@ import { decodeSessionListPageToken, paginateSessionListRows } from './SessionLi
 import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
+  SessionExternalIdConflictError,
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
@@ -173,17 +175,32 @@ export class InMemorySessionStore<
     if (this.sessions.has(key)) {
       throw new SessionAlreadyExistsError(input.session_id);
     }
+    const externalId = input.external_id;
+    if (externalId !== null) {
+      for (const stored of this.sessions.values()) {
+        if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === externalId) {
+          throw new SessionExternalIdConflictError(externalId);
+        }
+      }
+    }
     const now = new Date();
     const record: SessionRecord<TSessionCustom> = {
       tenant_id: input.tenant_id,
       session_id: input.session_id,
-      created_by: input.created_by,
+      created_by_subject: input.created_by_subject,
       agent: deepCopy(input.agent),
       title: null,
       last_turn_id: null,
+      external_id: externalId,
+      source: input.source !== null ? deepCopy(input.source) : null,
       created_at: now,
       updated_at: now,
       last_activity_timestamp_ms: Date.now(),
+      metrics: {
+        total_duration_ms: 0,
+        total_turns: 0,
+      },
+      metadata: deepCopy(input.metadata),
       custom: input.custom !== null ? deepCopy(input.custom) : null,
     };
     this.sessions.set(key, { record, turnIds: [] });
@@ -209,6 +226,15 @@ export class InMemorySessionStore<
     return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
   }
 
+  async getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined> {
+    for (const stored of this.sessions.values()) {
+      if (stored.record.tenant_id === input.tenant_id && stored.record.external_id === input.external_id) {
+        return deepCopy(stored.record);
+      }
+    }
+    return undefined;
+  }
+
   async updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void> {
     const key = sessionKey(input.session_id);
     const stored = this.sessions.get(key);
@@ -224,6 +250,9 @@ export class InMemorySessionStore<
     if (input.title !== undefined) {
       stored.record.title = input.title;
     }
+    if (input.metadata !== undefined) {
+      stored.record.metadata = deepCopy(input.metadata);
+    }
     const now = Date.now();
     stored.record.updated_at = new Date(now);
     stored.record.last_activity_timestamp_ms = now;
@@ -234,6 +263,7 @@ export class InMemorySessionStore<
     input: ListSessionsInput,
   ): Promise<{ data: SessionRecord<TSessionCustom>[]; pagination: TokenPagination }> {
     const records: SessionRecord<TSessionCustom>[] = [];
+    const createdByOrAgentIds = input.created_by_or_agent_ids;
     for (const stored of this.sessions.values()) {
       if (stored.record.tenant_id !== input.tenant_id) {
         continue;
@@ -244,7 +274,30 @@ export class InMemorySessionStore<
       ) {
         continue;
       }
-      if (input.created_by !== undefined && stored.record.created_by !== input.created_by) {
+      if (createdByOrAgentIds !== undefined) {
+        const creatorMatches =
+          stored.record.created_by_subject.subject_id === createdByOrAgentIds.created_by_subject_id;
+        const agentMatches =
+          stored.record.agent.type === 'reference' && createdByOrAgentIds.agent_ids.includes(stored.record.agent.id);
+        if (!creatorMatches && !agentMatches) {
+          continue;
+        }
+      }
+      const metadataFilter = input.metadata;
+      if (metadataFilter !== undefined) {
+        const entries = Object.entries(metadataFilter);
+        if (entries.length === 0) {
+          if (Object.keys(stored.record.metadata).length > 0) {
+            continue;
+          }
+        } else if (!entries.every(([key, value]) => stored.record.metadata[key] === value)) {
+          continue;
+        }
+      }
+      if (input.source_type !== undefined && stored.record.source?.type !== input.source_type) {
+        continue;
+      }
+      if (input.source_id !== undefined && stored.record.source?.id !== input.source_id) {
         continue;
       }
       const createdAt = stored.record.created_at.getTime();
@@ -332,6 +385,7 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
+    stored.record.metrics.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date();
     if (input.update_session_title_if_not_exist !== null && stored.record.title === null) {
@@ -355,6 +409,7 @@ export class InMemorySessionStore<
       if (list) {
         list.push(deepCopy(input.turn_done_event));
       }
+      this.addTerminalSessionMetrics(input.session_id, turn.created_at, cancelledState);
     }
 
     return deepCopy(turn);
@@ -397,6 +452,7 @@ export class InMemorySessionStore<
     if (list) {
       list.push(deepCopy(input.turn_done_event));
     }
+    this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
@@ -408,6 +464,20 @@ export class InMemorySessionStore<
     }
     list.push(...deepCopy(input.events));
     return;
+  }
+
+  /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
+  private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
+    const stored = this.sessions.get(sessionKey(sessionId));
+    if (!stored) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
+    const turnCost = state.metrics?.total_cost_in_usd;
+    if (turnCost !== undefined) {
+      stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
+    }
+    stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
   private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {

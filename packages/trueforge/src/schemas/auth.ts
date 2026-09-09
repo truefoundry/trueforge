@@ -28,16 +28,33 @@ export const OAuthCallbackSuccessSchema = z.object({
   success: z.literal(true).describe('Present when the OAuth callback completed without a return_to.'),
 });
 
-export const GetMeResponseSchema = z
+export const GetMeSubjectSchema = z
   .object({
-    type: z
-      .enum(['default', 'oidc-connected'])
-      .describe(
-        'Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.',
-      ),
-    email: z.string().describe('User email from the ID token when connected; `"default"` when anonymous.'),
-    role: z.string().describe('Caller role.'),
+    id: z.string().describe('Stable subject identifier for the caller.'),
+    type: z.string().describe('Subject kind as returned by the identity provider (stored as-is).'),
+    display_name: z.string().describe('Human-readable name for the caller.'),
   })
-  .openapi('GetMeResponse');
+  .openapi('GetMeSubject');
 
+export const MeSessionTypeSchema = z
+  .enum(['default', 'oidc-connected'])
+  .describe(
+    '`oidc-connected` when the process is running with browser OIDC login; `default` for standalone or TrueFoundry token auth.',
+  )
+  .openapi('MeSessionType');
+
+export const MeSchema = z
+  .object({
+    type: MeSessionTypeSchema,
+    tenant_id: z.string().describe('Tenant scope for the authenticated caller.'),
+    subject: GetMeSubjectSchema,
+    roles: z.array(z.string()).describe('Roles for the authenticated caller.'),
+  })
+  .openapi('Me');
+
+export const GetMeResponseSchema = z.object({ data: MeSchema }).openapi('GetMeResponse');
+
+export type GetMeSubject = z.infer<typeof GetMeSubjectSchema>;
+export type MeSessionType = z.infer<typeof MeSessionTypeSchema>;
+export type Me = z.infer<typeof MeSchema>;
 export type GetMeResponse = z.infer<typeof GetMeResponseSchema>;

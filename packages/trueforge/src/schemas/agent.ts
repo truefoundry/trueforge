@@ -3,19 +3,23 @@
  * AgentSpec document (JSON key `manifest`).
  */
 import { z } from '@hono/zod-openapi';
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
+
+const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
 
 /** Create body: unique immutable `name` plus manifest. `id` is never client-supplied. */
 export const CreateAgentRequestSchema = z
   .object({
-    name: NameSchema,
+    name: NameSchema.refine(name => !RESERVED_AGENT_NAMES.has(name), {
+      message: 'Agent name is reserved, cannot be used',
+    }),
     manifest: AgentSpecSchema,
   })
   .strict()
   .openapi('CreateAgentRequest');
 
-/** PUT body: full manifest replacement. Identity is the path `agent_id`. */
+/** PUT body: full manifest replacement only. */
 export const UpdateAgentRequestSchema = z
   .object({
     manifest: AgentSpecSchema,
@@ -29,6 +33,7 @@ export const AgentSchema = z
     id: z.string().min(1).describe('Immutable server-generated agent identifier.'),
     name: NameSchema,
     manifest: AgentSpecSchema,
+    created_by_subject: CreatedBySubjectSchema,
   })
   .strict()
   .openapi('Agent');
@@ -42,7 +47,8 @@ export const AgentCodeSnippetSampleCodeSchema = z
     stream: z.string().describe('SDK sample that streams turn events.'),
     non_stream: z.string().describe('SDK sample that creates a turn without streaming.'),
   })
-  .strict();
+  .strict()
+  .openapi('AgentCodeSnippetSampleCode');
 
 export const AgentCodeSnippetSchema = z
   .object({
@@ -51,16 +57,20 @@ export const AgentCodeSnippetSchema = z
     icon: z.url(),
     sample_code: AgentCodeSnippetSampleCodeSchema,
   })
-  .strict();
+  .strict()
+  .openapi('AgentCodeSnippet');
 
 export const AgentCodeSnippetsSchema = z
   .object({
     base_url: z.url().describe('Origin to pass as the TrueForge SDK `baseUrl`.'),
     snippets: z.array(AgentCodeSnippetSchema),
   })
-  .strict();
+  .strict()
+  .openapi('AgentCodeSnippets');
 
-export const GetAgentCodeSnippetsResponseSchema = z.object({ data: AgentCodeSnippetsSchema });
+export const GetAgentCodeSnippetsResponseSchema = z
+  .object({ data: AgentCodeSnippetsSchema })
+  .openapi('GetAgentCodeSnippetsResponse');
 
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 export type UpdateAgentRequest = z.infer<typeof UpdateAgentRequestSchema>;

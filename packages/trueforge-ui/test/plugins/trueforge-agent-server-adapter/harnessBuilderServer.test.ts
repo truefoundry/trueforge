@@ -33,7 +33,11 @@ describe('harnessBuilderServer', () => {
           modelId: 'o3',
           name: 'openai/o3',
           provider: { name: 'openai' },
-          properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+          properties: {
+            contextLength: 200_000,
+            maxOutputTokens: 100_000,
+            reasoningEfforts: ['low', 'medium', 'high'],
+          },
         },
         logo: 'https://assets.example/openai.svg',
       }),
@@ -41,7 +45,11 @@ describe('harnessBuilderServer', () => {
         id: 'o3',
         name: 'openai/o3',
         provider: { name: 'openai', logo: 'https://assets.example/openai.svg' },
-        properties: { reasoningEfforts: ['low', 'medium', 'high'] },
+        properties: {
+          contextLength: 200_000,
+          maxOutputTokens: 100_000,
+          reasoningEfforts: ['low', 'medium', 'high'],
+        },
       },
     );
     assert.deepEqual(
@@ -144,6 +152,30 @@ describe('harnessBuilderServer', () => {
         provider: { name: 'openai' },
         properties: {},
       },
+    ]);
+  });
+
+  it('getMcpTools loads connector tools and normalizes untrusted rows', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/mcp-servers/github/tools')) {
+        return Response.json({
+          data: [
+            { id: 'ignored', name: 'search', description: 'Search repositories' },
+            { name: 'read_file', description: 42 },
+            { id: 'missing-name', description: null },
+          ],
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    if (builder.getMcpTools === undefined) throw new Error('expected getMcpTools');
+
+    assert.deepEqual(await builder.getMcpTools({ connectorId: 'github' }), [
+      { id: 'search', name: 'search', description: 'Search repositories' },
+      { id: 'read_file', name: 'read_file', description: '' },
     ]);
   });
 
@@ -299,5 +331,130 @@ describe('harnessBuilderServer', () => {
         instructions: 'Write release notes.',
       },
     });
+  });
+
+  it('deleteAgent deletes by name via list + DELETE', async () => {
+    const requests: { method: string; url: string }[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      requests.push({ method, url });
+      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
+        });
+      }
+      if (url.endsWith('/api/v1/agents/agt_1') && method === 'DELETE') {
+        return Response.json({});
+      }
+      return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    await builder.deleteAgent?.({ agentName: 'writer' });
+
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0]?.method, 'GET');
+    assert.equal(requests[1]?.method, 'DELETE');
+    assert.ok(requests[1]?.url.endsWith('/api/v1/agents/agt_1'));
+  });
+
+  it('deleteAgent is a no-op when the name is missing', async () => {
+    const requests: { method: string; url: string }[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      requests.push({ method, url });
+      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+        return Response.json({ data: [] });
+      }
+      return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    await builder.deleteAgent?.({ agentName: 'missing' });
+
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0]?.method, 'GET');
+  });
+
+  it('listMcp maps a page and preserves nextPageToken', async () => {
+    const urls: string[] = [];
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      urls.push(url);
+      if (url.includes('/api/v1/mcp-servers')) {
+        return Response.json({
+          data: [
+            {
+              name: 'linear',
+              url: 'https://mcp.linear.app/mcp',
+              auth: { type: 'dcr' },
+              auth_status: { status: 'authenticated' },
+            },
+          ],
+          pagination: { limit: 50, next_page_token: 'tok-2' },
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    assert.ok(builder.listMcp);
+    const page = await builder.listMcp({ limit: 50 });
+    assert.deepEqual(page.data, [
+      {
+        id: 'linear',
+        name: 'linear',
+        description: 'https://mcp.linear.app/mcp',
+        url: 'https://mcp.linear.app/mcp',
+        auth: { type: 'dcr' },
+        requiresAuth: false,
+        authenticated: true,
+      },
+    ]);
+    assert.equal(page.nextPageToken, 'tok-2');
+    assert.ok(urls[0]?.includes('limit=50'));
+  });
+
+  it('getMcp drains every page', async () => {
+    let calls = 0;
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (!url.includes('/api/v1/mcp-servers')) {
+        return new Response(`Unexpected request: ${url}`, { status: 500 });
+      }
+      calls += 1;
+      if (calls === 1) {
+        return Response.json({
+          data: [
+            {
+              name: 'a',
+              url: 'https://a.example/mcp',
+              auth_status: { status: 'authenticated' },
+            },
+          ],
+          pagination: { limit: 100, next_page_token: 'next' },
+        });
+      }
+      return Response.json({
+        data: [
+          {
+            name: 'b',
+            url: 'https://b.example/mcp',
+            auth_status: { status: 'authenticated' },
+          },
+        ],
+        pagination: { limit: 100 },
+      });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    const all = await builder.getMcp();
+    assert.deepEqual(
+      all.map(row => row.name),
+      ['a', 'b'],
+    );
+    assert.equal(calls, 2);
   });
 });

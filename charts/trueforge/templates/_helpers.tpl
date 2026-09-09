@@ -49,6 +49,41 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Controller selector labels. A distinct app name (…-controller) keeps the server
+Service (which selects trueforge.selectorLabels) from ever routing HTTP traffic
+to controller pods, which run no HTTP server.
+*/}}
+{{- define "trueforge.controller.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "trueforge.name" . }}-controller
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Controller labels.
+*/}}
+{{- define "trueforge.controller.labels" -}}
+helm.sh/chart: {{ include "trueforge.chart" . }}
+{{ include "trueforge.controller.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/component: controller
+{{- end }}
+
+{{/*
+Base URL the controller uses to reach the server API. Defaults to the in-cluster
+server Service when controller.serverUrl is empty.
+*/}}
+{{- define "trueforge.controller.serverUrl" -}}
+{{- if .Values.controller.serverUrl -}}
+{{- .Values.controller.serverUrl -}}
+{{- else -}}
+{{- printf "http://%s:%v" (include "trueforge.fullname" .) .Values.service.port -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Service account name.
 */}}
 {{- define "trueforge.serviceAccountName" -}}
@@ -171,6 +206,9 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "POSTGRES_PASSWORD" "valueFrom" (dict "secretKeyRef" (dict "name" (include "trueforge.postgres.secretName" .) "key" "password"))) -}}
 {{- else -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
+{{- if .Values.externalPostgres.sslMode -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
+{{- end -}}
 {{- end -}}
 
 {{- if .Values.configs.oidc.enabled -}}
@@ -180,14 +218,59 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "OIDC_CLIENT_ID" "value" .Values.configs.oidc.clientId) -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_REFERENCE_CLAIM" "value" .Values.configs.oidc.userReferenceClaim) -}}
+{{- $env = append $env (dict "name" "OIDC_USER_DISPLAY_NAME_CLAIM" "value" .Values.configs.oidc.userDisplayNameClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_ADMIN_ROLE_VALUE" "value" .Values.configs.oidc.adminRoleValue) -}}
 {{- $env = append $env (dict "name" "OIDC_SCOPES" "value" .Values.configs.oidc.scopes) -}}
+{{- if .Values.configs.oidc.allowedEmails -}}
+{{- $env = append $env (dict "name" "OIDC_ALLOWED_EMAILS" "value" .Values.configs.oidc.allowedEmails) -}}
+{{- end -}}
 {{- end -}}
 
 {{- range .Values.server.extraEnv -}}
 {{- $env = append $env . -}}
 {{- end -}}
 
+{{- if .Values.mtls.enabled -}}
+{{- $_ := required "mtls.secretName is required when mtls.enabled is true" .Values.mtls.secretName -}}
+{{- $env = append $env (dict "name" "TRUEFORGE_MTLS_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "TRUEFORGE_MTLS_CERTS_DIR" "value" .Values.mtls.certsDir) -}}
+{{- end -}}
+
 {{- toYaml $env -}}
+{{- end }}
+
+{{/*
+httpGet probe with scheme HTTPS when mtls.enabled (kubelet speaks TLS without a client cert).
+Expects dict: probe (values probe object), root (chart root context).
+*/}}
+{{- define "trueforge.httpProbe" -}}
+{{- $probe := deepCopy (index . "probe") -}}
+{{- $root := index . "root" -}}
+{{- if and $root.Values.mtls.enabled $probe.httpGet -}}
+{{- $_ := set $probe.httpGet "scheme" "HTTPS" -}}
+{{- end -}}
+{{- toYaml $probe -}}
+{{- end }}
+
+{{/*
+mTLS secret volume when mtls.enabled.
+*/}}
+{{- define "trueforge.mtlsVolume" -}}
+{{- if .Values.mtls.enabled -}}
+- name: mtls
+  secret:
+    secretName: {{ .Values.mtls.secretName | quote }}
+{{- end -}}
+{{- end }}
+
+{{/*
+mTLS secret volumeMount when mtls.enabled.
+*/}}
+{{- define "trueforge.mtlsVolumeMount" -}}
+{{- if .Values.mtls.enabled -}}
+- name: mtls
+  mountPath: {{ .Values.mtls.certsDir | quote }}
+  readOnly: true
+{{- end -}}
 {{- end }}

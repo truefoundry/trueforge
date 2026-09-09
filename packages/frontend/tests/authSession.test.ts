@@ -15,9 +15,12 @@ function createClient(params: { type?: 'default' | 'oidc-connected'; meError?: E
       me: async () => {
         if (params.meError != null) throw params.meError;
         return {
-          type: params.type ?? 'default',
-          email: 'user@example.com',
-          role: 'user',
+          data: {
+            type: params.type ?? 'default',
+            tenantId: 'default',
+            subject: { id: 'user-1', type: 'user', displayName: 'user-1' },
+            roles: [],
+          },
         };
       },
     },

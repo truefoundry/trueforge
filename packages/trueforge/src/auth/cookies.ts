@@ -6,6 +6,7 @@ import { getPublicBaseUrl } from '../config';
 
 export const OAUTH_STATE_COOKIE = 'oauth_state';
 export const ID_TOKEN_COOKIE = 'id_token';
+export const ACCESS_TOKEN_COOKIE = 'accessToken';
 
 const OAuthStateSchema = z.object({
   state: z.string(),
@@ -63,4 +64,8 @@ export function clearAuthCookie(params: { context: Context; name: string }): voi
 
 export function readIdTokenCookie(params: { context: Context }): string | undefined {
   return getCookie(params.context, ID_TOKEN_COOKIE);
+}
+
+export function readAccessTokenCookie(params: { context: Context }): string | undefined {
+  return getCookie(params.context, ACCESS_TOKEN_COOKIE);
 }

@@ -3,11 +3,17 @@
  * Composer pickers + agent library backed by the Harness agents registry.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
-import { toUiConnectorFromReadEntry } from './catalogs/connectorCatalog.js';
+import type {
+  AgentBuilderServer,
+  AgentLibraryEntry,
+  ModelSelection,
+  PageParams,
+  SearchAgentsParams,
+} from '../../server/types.js';
+import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
 import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { listConfiguredMcpServers, listSkills } from './lists.js';
+import { listConfiguredMcpServers, listConfiguredMcpServersPage, listSkills } from './lists.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export type CreateHarnessBuilderServerOptions = CreateTrueForgeClientOptions & {
@@ -36,7 +42,7 @@ export function toModelSelection({
   model: TrueForgeApi.AvailableModel;
   logo?: string;
 }): ModelSelection {
-  const efforts = model.properties.reasoningEfforts;
+  const { contextLength, maxOutputTokens, reasoningEfforts } = model.properties;
   return {
     id: model.modelId,
     name: model.name,
@@ -45,7 +51,9 @@ export function toModelSelection({
       ...(logo === undefined ? {} : { logo }),
     },
     properties: {
-      ...(efforts !== undefined && efforts.length > 0 ? { reasoningEfforts: [...efforts] } : {}),
+      ...(contextLength === undefined ? {} : { contextLength }),
+      ...(maxOutputTokens === undefined ? {} : { maxOutputTokens }),
+      ...(reasoningEfforts === undefined ? {} : { reasoningEfforts: [...reasoningEfforts] }),
     },
   };
 }
@@ -86,6 +94,19 @@ export function createHarnessBuilderServer(
       return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
+    listMcp: async (req?: PageParams) => {
+      const page = await listConfiguredMcpServersPage(client, req ?? {});
+      return {
+        data: page.data.map(toUiConnectorFromReadEntry),
+        ...(page.nextPageToken === undefined ? {} : { nextPageToken: page.nextPageToken }),
+      };
+    },
+    getMcpTools: async ({ connectorId }: { connectorId: string }) => {
+      const body = await client.mcpServers.listTools(connectorId);
+      return body.data.flatMap(tool =>
+        typeof tool.name === 'string' && tool.name.trim() !== '' ? [toUiTool(tool)] : [],
+      );
+    },
 
     async searchAgents(req?: SearchAgentsParams) {
       const { data } = await client.agents.list();
@@ -110,6 +131,13 @@ export function createHarnessBuilderServer(
       }
       const created = await client.agents.create({ name: agentName, manifest });
       return { agentId: created.data.id };
+    },
+
+    async deleteAgent({ agentName }) {
+      const { data } = await client.agents.list();
+      const existing = data.find(agent => agent.name === agentName);
+      if (!existing) return;
+      await client.agents.delete(existing.id);
     },
   };
 }

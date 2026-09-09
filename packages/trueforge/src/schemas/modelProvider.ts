@@ -79,7 +79,7 @@ const ModelProviderManifestBaseSchema = z
  * one of each because the `(tenant_id, name)` primary key replaces the row rather than adding a
  * sibling. `base_url` defaults to the adapter's endpoint and stays overridable.
  */
-function wellKnownProviderSchema<Type extends Exclude<ModelProviderType, 'custom'>>({
+function wellKnownProviderSchema<Type extends Exclude<ModelProviderType, 'custom' | 'truefoundry'>>({
   type,
   base_url,
 }: {
@@ -132,6 +132,19 @@ const AlibabaModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
 }).openapi('AlibabaModelProvider');
 
+/**
+ * Managed by TrueFoundry: modelled like `custom` (its own `base_url` + `auth`), but unnamed like a
+ * well-known type. The gateway endpoint and passthrough token are populated by the store at runtime;
+ * `auth` is stripped from API responses.
+ */
+const TrueFoundryModelProviderSchema = ModelProviderManifestBaseSchema.extend({
+  type: z.literal('truefoundry'),
+  base_url: z.url().describe('Base URL of the TrueFoundry AI gateway the models are invoked against.'),
+  auth: ModelProviderAuthSchema.optional(),
+})
+  .strict()
+  .openapi('TrueFoundryModelProvider');
+
 /** The one type a caller names, because only it supplies its own endpoint. */
 const CustomModelProviderSchema = ModelProviderManifestBaseSchema.extend({
   type: z.literal('custom'),
@@ -165,6 +178,7 @@ const ModelProviderBodySchema = z
     MoonshotModelProviderSchema,
     TogetherAIModelProviderSchema,
     AlibabaModelProviderSchema,
+    TrueFoundryModelProviderSchema,
     CustomModelProviderSchema,
   ])
   .superRefine(refineModelProviderManifest);

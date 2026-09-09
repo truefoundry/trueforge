@@ -6,6 +6,7 @@ import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
+import { PageHeader } from '@/atoms/PageHeader.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
 import { useOptionalCatalogServer, useOptionalRefreshServerCapabilities } from '@/server/ServerContext.js';
@@ -98,18 +99,20 @@ const TruefoundrySettingsBuilder = () => {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1.5">
-        <button
-          type="button"
-          aria-label="Back"
-          title="Back"
-          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-          onClick={closeSettings}
-        >
-          <Icon name="arrow-left" />
-        </button>
-        <h1 className="text-lg font-semibold tracking-tight text-text-primary">Settings</h1>
-      </header>
+      <PageHeader
+        title="Settings"
+        start={
+          <button
+            type="button"
+            aria-label="Back"
+            title="Back"
+            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+            onClick={closeSettings}
+          >
+            <Icon name="arrow-left" />
+          </button>
+        }
+      />
 
       <div className={cn('flex min-h-0 flex-1 flex-col', !compact && 'md:flex-row')}>
         <nav

@@ -285,4 +285,43 @@ describe('createHarnessChatServer', () => {
       },
     ]);
   });
+
+  it('fills missing turn.done metrics fields for the runtime contract', async () => {
+    const fetchGetTurn: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      if (url.endsWith('/api/v1/sessions/ses_1/turns/trn_1') && method === 'GET') {
+        return Response.json({
+          data: {
+            id: 'trn_1',
+            session_id: 'ses_1',
+            previous_turn_id: null,
+            created_at: '2026-08-03T00:00:00.000Z',
+            state: {
+              status: 'done',
+              completed_at: '2026-08-03T00:00:01.000Z',
+              output: null,
+              required_actions: [],
+              metrics: { total_input_tokens: 12 },
+            },
+          },
+        });
+      }
+      return fetchMock(input, init);
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchGetTurn });
+    const turn = await server.getTurn({ sessionId: 'ses_1', turnId: 'trn_1' });
+
+    assert.equal(turn.state.status, 'done');
+    if (turn.state.status !== 'done') throw new Error('expected done');
+    assert.deepEqual(turn.state.metrics, {
+      totalInputTokens: 12,
+      totalOutputTokens: 0,
+      totalTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheWriteTokens: 0,
+      totalReasoningTokens: 0,
+    });
+  });
 });

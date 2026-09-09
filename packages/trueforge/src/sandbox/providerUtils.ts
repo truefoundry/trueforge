@@ -16,9 +16,13 @@ import {
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
 
-/** Daytona rejected the credentials (401 unauthorized / 403 forbidden); retrying the same key cannot succeed. */
+/** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
-  return error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403);
+  return error instanceof DaytonaError && error.statusCode === 401;
+}
+
+export function isDaytonaPermissionError(error: unknown): boolean {
+  return error instanceof DaytonaError && error.statusCode === 403;
 }
 
 /**

@@ -65,7 +65,7 @@ export function mountFrontend(app: OpenAPIHono, dir: string): boolean {
   const serveAppShell = serveStatic({ root: dir, rewriteRequestPath: () => '/index.html', precompressed: true });
 
   /**
-   * Client routes (`/sessions/{id}`, `/settings`) have no file on disk, so a
+   * Client routes (`/sessions/{id}`, `/settings`, `/library`) have no file on disk, so a
    * deep link only reaches the app when the shell answers the navigation.
    * Runs after `serveBuild`, so real files still win; requests that do not
    * accept HTML keep their 404 rather than getting the shell as a fake asset.

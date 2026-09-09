@@ -61,6 +61,30 @@ describe('PostMcpOauthScreen', () => {
     expect(channels[1]?.close).toHaveBeenCalledOnce();
   });
 
+  it('treats TrueFoundry code (without error) as success', () => {
+    window.history.replaceState({}, '', '/?screenType=mcp-auth&pUid=popup-tfy&code=inbound-auth-code');
+
+    render(<PostMcpOauthScreen />);
+
+    expect(screen.getByRole('heading', { name: 'Authorization successful' })).toBeInTheDocument();
+    expect(channels[0]?.postMessage).toHaveBeenCalledWith({
+      popupUid: 'popup-tfy',
+      isSuccess: true,
+    });
+  });
+
+  it('treats TrueFoundry error as failure even when code is also present', () => {
+    window.history.replaceState({}, '', '/?screenType=mcp-auth&pUid=popup-deny&code=x&error=access_denied');
+
+    render(<PostMcpOauthScreen />);
+
+    expect(screen.getByRole('heading', { name: 'Authorization failed' })).toBeInTheDocument();
+    expect(channels[0]?.postMessage).toHaveBeenCalledWith({
+      popupUid: 'popup-deny',
+      isSuccess: false,
+    });
+  });
+
   it('renders and broadcasts a failed authorization result', () => {
     window.history.replaceState({}, '', '/oauth/callback?pUid=popup-456&isSuccess=false');
 

@@ -3,8 +3,10 @@
 import { AgentsClient } from "./api/resources/agents/client/Client.js";
 import { AuthClient } from "./api/resources/auth/client/Client.js";
 import { CatalogsClient } from "./api/resources/catalogs/client/Client.js";
+import { InternalClient } from "./api/resources/internal/client/Client.js";
 import { McpServersClient } from "./api/resources/mcpServers/client/Client.js";
 import { ModelsClient } from "./api/resources/models/client/Client.js";
+import { SchedulesClient } from "./api/resources/schedules/client/Client.js";
 import { ServerClient } from "./api/resources/server/client/Client.js";
 import { SessionsClient } from "./api/resources/sessions/client/Client.js";
 import { SettingsClient } from "./api/resources/settings/client/Client.js";
@@ -26,9 +28,11 @@ export class TrueForge {
     protected _server: ServerClient | undefined;
     protected _mcpServers: McpServersClient | undefined;
     protected _models: ModelsClient | undefined;
+    protected _schedules: SchedulesClient | undefined;
     protected _sessions: SessionsClient | undefined;
     protected _skills: SkillsClient | undefined;
     protected _catalogs: CatalogsClient | undefined;
+    protected _internal: InternalClient | undefined;
     protected _settings: SettingsClient | undefined;
 
     constructor(options: TrueForge.Options) {
@@ -55,6 +59,10 @@ export class TrueForge {
         return (this._models ??= new ModelsClient(this._options));
     }
 
+    public get schedules(): SchedulesClient {
+        return (this._schedules ??= new SchedulesClient(this._options));
+    }
+
     public get sessions(): SessionsClient {
         return (this._sessions ??= new SessionsClient(this._options));
     }
@@ -65,6 +73,10 @@ export class TrueForge {
 
     public get catalogs(): CatalogsClient {
         return (this._catalogs ??= new CatalogsClient(this._options));
+    }
+
+    public get internal(): InternalClient {
+        return (this._internal ??= new InternalClient(this._options));
     }
 
     public get settings(): SettingsClient {

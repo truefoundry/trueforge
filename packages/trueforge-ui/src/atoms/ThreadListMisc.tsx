@@ -12,11 +12,11 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
     <button
       type="button"
       aria-label="Start new chat"
-      style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)', ...style }}
+      style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)', ...style }}
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+          '!justify-start h-8 px-2.5 text-sm font-normal text-sidebar-text shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
           className,
         ),
       })}

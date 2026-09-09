@@ -1,6 +1,11 @@
+import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import {
+  decodeOffsetPageToken,
+  paginateOffsetRows,
+} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import type { Kysely, Selectable, Transaction } from 'kysely';
-import { ulid } from 'ulid';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
+import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
   McpServerNameConflictError,
@@ -34,17 +39,26 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
     this.#db = db;
   }
 
-  async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {
+  async listServers(
+    input: ListMcpServersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }> {
+    const offset = decodeOffsetPageToken(input.page_token);
     if (input.names?.length === 0) {
-      return [];
+      return paginateOffsetRows([], input.limit, offset);
     }
     const db = transaction ?? this.#db;
     let query = db.selectFrom('mcp_server').selectAll().where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
-    const rows = await query.orderBy('name').execute();
-    return rows.map(toRecord);
+    const rows = await query
+      .orderBy('name')
+      .limit(input.limit + 1)
+      .offset(offset)
+      .execute();
+    const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
+    return { data: data.map(toRecord), pagination };
   }
 
   async getServer(input: GetMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord | undefined> {
@@ -78,7 +92,7 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
       const row = await db
         .insertInto('mcp_server')
         .values({
-          id: ulid(),
+          id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: json(input.manifest),
@@ -103,7 +117,7 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
     const row = await db
       .insertInto('mcp_server')
       .values({
-        id: ulid(),
+        id: newId(),
         tenant_id: input.tenant_id,
         name: input.name,
         manifest: json(input.manifest),

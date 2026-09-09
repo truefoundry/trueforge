@@ -9,21 +9,58 @@ import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
   const tenant = 'tenant-1';
 
+  it('create/get persists metadata', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const created = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's-meta',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'meta' }) },
+      metadata: { env: 'test' },
+      external_id: null,
+    });
+    expect(created.metadata).toEqual({ env: 'test' });
+
+    await store.updateSession({
+      tenant_id: tenant,
+      session_id: 's-meta',
+      agent: undefined,
+      title: undefined,
+      metadata: { env: 'prod' },
+    });
+    const afterReplace = await sessions.get({ tenant_id: tenant, session_id: 's-meta' });
+    expect(afterReplace?.metadata).toEqual({ env: 'prod' });
+
+    await store.updateSession({
+      tenant_id: tenant,
+      session_id: 's-meta',
+      agent: undefined,
+      title: 't',
+      metadata: undefined,
+    });
+    const afterOmit = await sessions.get({ tenant_id: tenant, session_id: 's-meta' });
+    expect(afterOmit?.record.title).toBe('t');
+    expect(afterOmit?.metadata).toEqual({ env: 'prod' });
+  });
+
   it('create/get persists an inline value-agent session', async () => {
     const store = new InMemorySessionStore<{ tag: string }>();
     const sessions = new Sessions<{ tag: string }>({ sessionStore: store });
     const created = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'hydrate-me' }) },
       custom: { tag: 'a' },
+      external_id: null,
     });
     expect(created.agent).toEqual({
       type: 'inline',
       spec: expect.objectContaining({ instructions: 'hydrate-me' }),
     });
     expect(created.custom).toEqual({ tag: 'a' });
+    expect(created.metadata).toEqual({});
 
     const loaded = await sessions.get({ tenant_id: tenant, session_id: 's1' });
     expect(loaded?.agent).toEqual({
@@ -33,14 +70,70 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(loaded?.session_id).toBe('s1');
   });
 
+  it('getOrCreateByExternalId creates once and returns the existing row on retry', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const agent = { type: 'inline' as const, spec: makeAgentSpec({ instructions: 'first' }) };
+
+    const first = await sessions.getOrCreateByExternalId({
+      tenant_id: tenant,
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent,
+      external_id: 'run-1',
+    });
+    expect(first.created).toBe(true);
+    expect(first.session.record.external_id).toBe('run-1');
+
+    const again = await sessions.getOrCreateByExternalId({
+      tenant_id: tenant,
+      created_by_subject: { subject_id: 'other', subject_type: 'user', subject_display_name: 'other' },
+      agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'ignored' }) },
+      external_id: 'run-1',
+    });
+    expect(again.created).toBe(false);
+    expect(again.session.session_id).toBe(first.session.session_id);
+    expect(again.session.record.created_by_subject.subject_id).toBe('user-1');
+    expect(again.session.agent).toEqual({
+      type: 'inline',
+      spec: expect.objectContaining({ instructions: 'first' }),
+    });
+  });
+
+  it('getOrCreateByExternalId returns the winner when create loses the unique race', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const agent = { type: 'inline' as const, spec: makeAgentSpec() };
+
+    await sessions.create({
+      tenant_id: tenant,
+      session_id: 'winner',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent,
+      external_id: 'run-1',
+    });
+
+    const getByExternalId = jest.spyOn(sessions, 'getByExternalId');
+    getByExternalId.mockResolvedValueOnce(undefined);
+
+    const { session, created } = await sessions.getOrCreateByExternalId({
+      tenant_id: tenant,
+      created_by_subject: { subject_id: 'user-2', subject_type: 'user', subject_display_name: 'user-2' },
+      agent,
+      external_id: 'run-1',
+    });
+    expect(created).toBe(false);
+    expect(session.session_id).toBe('winner');
+  });
+
   it('run() happy path commits a running turn without executing', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -69,8 +162,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const created = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -106,8 +200,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -134,8 +229,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const t1 = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -164,8 +260,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     const first = await session.createTurn({
       turn_id: mintTestTurnId(),
@@ -196,8 +293,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
     await expect(
       session.createTurn({
@@ -233,8 +331,9 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const session = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',
-      created_by: 'user-1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
       agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
     });
 
     // Failure path: resources acquired before the throw must be released.

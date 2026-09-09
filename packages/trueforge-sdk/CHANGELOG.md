@@ -1,4 +1,29 @@
+## [0.1.4-rc.2] - 2026-09-08
+
+## [0.1.4-rc.1] - 2026-09-07
+
+## 0.1.4-rc.2
+
+### Patch Changes
+
+- a000b47: List sessions accepts `metadata[key]=value` query params (OpenAPI deepObject) for exact metadata containment filtering. Bare JSON-string `metadata` query params are rejected. Metadata keys are limited to 32 characters and cannot include `[]` or whitespace so they do not collide with the bracket query form.
+- 0ec8dc6: Omit session `total_cost_in_usd` when cost is unavailable (instead of defaulting to 0), matching turn metrics.
+- 11865b4: Add optional session `source`. Persist as nullable JSONB with a list filter index; expose on session responses and list via `source_type` / `source_id`. Schedule dispatch sets source on create; public create/update do not accept it.
+
 ## [0.1.4-rc.0] - 2026-08-27
+
+## 0.1.4-rc.1
+
+### Patch Changes
+
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 2dcb3a0: Add `created_by_me` to list sessions and list schedules so callers can restrict results to resources they created (excluding managed-agent visibility).
+- 52987a7: Add `internal.agents.getCodeSnippets` API under the new SDK `internal` namespace.
+- 38ce068: Add tenant-unique optional session `external_id`, `Sessions.getOrCreateByExternalId`, and an idempotent `POST /internal/sessions/get-or-create-by-external-id` endpoint and SDK method.
+- b654052: Add caller-owned session `metadata` (`Record<string, string>` with size limits) on create, update, and read. Persist as a new `session.metadata` jsonb column; leave session `custom` unchanged.
+- 4c1260e: Wire TrueFoundry MCP authorize, status, and delete through ServiceFoundry; stub list auth_status; gate oauth2 invoke mid-turn with authRequired; paginate MCP server lists. UI treats SFY consent `code`/`error` on the FE landing like local DCR success/failure.
+- f175245: Add TrueFoundry-managed MCP list/get (SFY registry, gateway proxy URL, create/update 424).
 
 ## [0.1.3] - 2026-08-19
 

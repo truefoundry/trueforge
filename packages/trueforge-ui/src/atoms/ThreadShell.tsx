@@ -41,7 +41,7 @@ export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShel
     >
       <div
         className={cn(
-          'mx-auto flex w-full min-w-0 max-w-(--thread-max-width) flex-col px-3 pt-3 sm:px-4 sm:pt-4',
+          'mx-auto flex w-full min-w-0 max-w-(--thread-max-width) flex-col px-3 pt-3',
           isEmpty ? 'min-h-full justify-center pb-4' : 'pb-32',
         )}
       >
@@ -78,7 +78,7 @@ export const MessageGroup = forwardRef<HTMLDivElement, MessageGroupProps>(({ cla
   <div
     ref={ref}
     data-slot="aui_message-group"
-    className={cn('flex flex-col gap-y-6 empty:hidden', className)}
+    className={cn('flex flex-col gap-y-4 empty:hidden', className)}
     {...rest}
   />
 ));

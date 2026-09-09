@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import type { MonacoEditorCoreProps } from './MonacoEditorCore.js';
 
@@ -17,22 +18,28 @@ function ToolbarButton({
   tooltip,
   icon,
   active,
+  variant = 'ghost',
 }: {
   onClick: () => void;
   tooltip: string;
   icon: string;
   active?: boolean;
+  variant?: 'ghost' | 'secondary';
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={tooltip}
-      className={cn(
-        'flex cursor-pointer items-center justify-center rounded p-1.5 text-xs transition-colors',
-        'hover:bg-ghost-button-hover text-text-secondary hover:text-text-primary',
-        active && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
-      )}
+      className={auiButtonClass({
+        variant,
+        size: 'icon',
+        className: cn(
+          'h-7 w-7 shrink-0',
+          variant === 'ghost' && 'text-text-secondary hover:text-text-primary',
+          active && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+        ),
+      })}
       aria-label={tooltip}
     >
       <Icon name={icon} size="0.875em" />
@@ -78,6 +85,8 @@ export function CodeEditor({
     lineNumbers: showLineNumbers ? 'on' : ('off' as const),
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
+    // Avoid a blank numbered line when the buffer ends with `\n`.
+    renderFinalNewline: 'off' as const,
     wordWrap: 'on' as const,
   };
 
@@ -105,6 +114,7 @@ export function CodeEditor({
               onClick={handleCopy}
               tooltip={copied ? 'Copied!' : 'Copy'}
               icon={copied ? 'check' : 'copy'}
+              variant="secondary"
             />
             <ToolbarButton onClick={handleDownload} tooltip="Download" icon="download" />
             <ToolbarButton

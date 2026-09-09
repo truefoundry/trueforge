@@ -16,10 +16,17 @@ describe('UserMessageActionBar', () => {
     const editButton = screen.getByRole('button', { name: 'Edit' });
     const copyButton = screen.getByRole('button', { name: 'Copy' });
 
-    expect(retryButton).toHaveAttribute('title', 'Try again');
-    expect(editButton).toHaveAttribute('title', 'Edit');
-    expect(copyButton).toHaveAttribute('title', 'Copy');
-    expect(retryButton.parentElement).toHaveClass('aui-user-action-bar-root', 'host-bar');
+    fireEvent.mouseEnter(retryButton);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Try again');
+    fireEvent.mouseLeave(retryButton);
+
+    fireEvent.mouseEnter(editButton);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Edit');
+    fireEvent.mouseLeave(editButton);
+
+    fireEvent.mouseEnter(copyButton);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Copy');
+    expect(retryButton.closest('.aui-user-action-bar-root')).toHaveClass('aui-user-action-bar-root', 'host-bar');
 
     fireEvent.click(retryButton);
     fireEvent.click(editButton);

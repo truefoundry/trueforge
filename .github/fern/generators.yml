@@ -24,7 +24,7 @@ api:
         prefer-undiscriminated-unions-with-literals: true
         only-include-referenced-schemas: true
         type-dates-as-strings: true
-        object-query-parameters: false
+        object-query-parameters: true
         idiomatic-request-names: true
         respect-nullable-schemas: true
         wrap-references-to-nullable-in-optional: false
@@ -37,7 +37,7 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.88.3
+        version: 3.91.0
         output:
           location: local-file-system
           path: ../../packages/trueforge-sdk
@@ -58,8 +58,29 @@ groups:
               provenance: true
             engines:
               node: '>=22'
+            # Merged onto Fern's dist import/require map. Workspace loaders opt in
+            # with --conditions=trueforge-dev / customConditions. Never name this
+            # "development" (Vite/webpack auto-activate it; src/ is not published).
+            #
+            # Runtime loads src/ (no build); types stay on the generated .d.ts.
+            # Generated source is not exactOptionalPropertyTypes-clean, and pointing
+            # `types` at src/ would pull it into every consumer's tsc program.
+            exports:
+              '.':
+                'trueforge-dev':
+                  types: './dist/cjs/index.d.ts'
+                  default: './src/index.ts'
+                import:
+                  types: './dist/esm/index.d.mts'
+                  default: './dist/esm/index.mjs'
+                require:
+                  types: './dist/cjs/index.d.ts'
+                  default: './dist/cjs/index.js'
+                default: './dist/cjs/index.js'
           allowExtraFields: true
           allowCustomFetcher: true
+          # Map query params (OpenAPI additionalProperties) as deepObject brackets, not JSON strings.
+          deepObjectMapQueryParameters: true
           enableInlineTypes: false
           fetchSupport: native
           fileResponseType: binary-response

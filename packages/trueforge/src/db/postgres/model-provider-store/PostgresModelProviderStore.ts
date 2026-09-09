@@ -6,6 +6,7 @@ import {
   type CreateModelProviderInput,
   type GetModelProviderInput,
   type IModelProviderStore,
+  type ListModelProvidersInput,
   type ModelProviderRecord,
   type UpsertModelProviderInput,
 } from '../../modelProviderStore';
@@ -30,12 +31,15 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     this.#db = db;
   }
 
-  async listProviders(tenantId: string, transaction?: Transaction<Database>): Promise<ModelProviderRecord[]> {
+  async listProviders(
+    input: ListModelProvidersInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ModelProviderRecord[]> {
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('model_provider')
       .selectAll()
-      .where('tenant_id', '=', tenantId)
+      .where('tenant_id', '=', input.tenant_id)
       .orderBy('name')
       .execute();
     return rows.map(toRecord);
@@ -120,7 +124,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     return toRecord(row);
   }
 
-  async listModels(tenantId: string, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
-    return flattenProviderModels(await this.listProviders(tenantId, transaction));
+  async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
+    return flattenProviderModels(await this.listProviders(input, transaction));
   }
 }

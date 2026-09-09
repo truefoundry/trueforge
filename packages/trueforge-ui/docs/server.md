@@ -144,7 +144,7 @@ interface AgentBuilderServer<
   getModels(): Promise<TModel[]>;
   getSkills(): Promise<TSkill[]>;
   getMcp(): Promise<TMcp[]>;
-  /** Search / list named agents for the Agents Library. */
+  /** Search / list named agents for the Agents. */
   searchAgents(req?: { query?: string; limit?: number; offset?: number }): Promise<TAgent[]>;
   /** Promote draft AgentSpec → named agent */
   saveAgent(req: { agentName: string; agentSpec: AgentSpec; draftSessionId?: string }): Promise<TSave>;

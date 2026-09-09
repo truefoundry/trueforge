@@ -54,6 +54,8 @@ export default defineConfig(
       'packages/trueforge-sdk/**',
       // Build-generated sources (catalogs, sandbox scripts); not in package tsconfigs.
       '**/*.gen.ts',
+      // Railway IaC config: consumed by the railway CLI, not part of a package tsconfig.
+      '.railway/**',
     ],
   },
   {

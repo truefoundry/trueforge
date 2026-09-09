@@ -22,6 +22,27 @@ body {
   height: 100%;
 }
 
+/* Primary CTA fill: gradient isn't a valid Tailwind color token, so paint it as background-image. */
+.harness-primary-gradient button.bg-primary-button-bg,
+.harness-primary-gradient .auth-screen-button {
+  background-image: radial-gradient(289.46% 144.73% at 8.33% 7.41%, #b27aff 0%, #155dfc 58.99%, #4f39f6 100%);
+}
+
+.harness-primary-gradient[data-theme='light'] aside.bg-sidebar-bg button.bg-primary-button-bg {
+  box-shadow: 0 0.25rem 0.75rem color-mix(in oklab, #4f39f6 35%, transparent);
+}
+
+/* New Agent welcome only: polka-dot canvas on the empty thread viewport.
+   `.new-agent-welcome` is set by NewAgentWelcomeScreen; WelcomeScreen unmounts once the thread has messages. */
+[data-slot='aui_thread-viewport']:has(.new-agent-welcome) {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--border, #d4d4d8) 85%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 1.25rem 1.25rem;
+}
+
 .boot-screen {
   min-height: 100dvh;
   display: grid;

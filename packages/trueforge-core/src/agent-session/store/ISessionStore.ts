@@ -11,6 +11,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
+import type { SessionMetadata } from '../schemas/session';
 import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
 
 /**
@@ -19,7 +20,7 @@ import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
  */
 export type CreateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
-  'tenant_id' | 'session_id' | 'agent' | 'created_by'
+  'tenant_id' | 'session_id' | 'agent' | 'created_by_subject' | 'external_id' | 'metadata' | 'source'
 > & {
   custom: TSessionCustom | null;
 };
@@ -27,6 +28,7 @@ export type CreateSessionInput<TSessionCustom extends object = Record<string, ne
 /**
  * PATCH fields for an existing session; `undefined` fields are left unchanged.
  * `agent` may be set only on inline sessions, and only as an inline arm (`{ type: 'inline', spec }`).
+ * `metadata` when set fully replaces the stored map (`{}` clears).
  */
 export type UpdateSessionInput<TSessionCustom extends object = Record<string, never>> = Pick<
   SessionRecord<TSessionCustom>,
@@ -34,11 +36,17 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
 > & {
   agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'inline' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
+  metadata: SessionRecord<TSessionCustom>['metadata'] | undefined;
 };
 
 export interface GetSessionInput {
   tenant_id: string;
   session_id: string;
+}
+
+export interface GetSessionByExternalIdInput {
+  tenant_id: string;
+  external_id: string;
 }
 
 export interface DeleteSessionInput {
@@ -57,8 +65,26 @@ export interface ListSessionsInput {
   end_timestamp: Date | undefined;
   /** When set, only sessions bound to this named agent id. */
   agent_id: string | undefined;
-  /** When set, only sessions created by this identity. */
-  created_by: string | undefined;
+  /** When set, match creator or named-agent binding. Empty `agent_ids` means creator-only. */
+  created_by_or_agent_ids:
+    | {
+        created_by_subject_id: string;
+        agent_ids: readonly string[];
+      }
+    | undefined;
+  /**
+   * When set, only sessions whose metadata contains all key/value pairs
+   * (exact string equality; extra session keys are allowed).
+   * `undefined` means no metadata filter; `{}` matches only sessions with empty metadata.
+   */
+  metadata: SessionMetadata | undefined;
+  /** When set, only sessions whose `source.type` matches. */
+  source_type: string | undefined;
+  /**
+   * When set, only sessions whose `source.id` matches.
+   * Requires `source_type`.
+   */
+  source_id: string | undefined;
 }
 
 /** Turn row fields without assembled snapshot (create input / listTurns). */
@@ -215,7 +241,7 @@ export interface ISessionStore<
   /**
    * Persists a discriminated `agent` (ref | value). SQL backends may flatten to columns.
    * `session_id` is globally unique across tenants.
-   * Persists caller-supplied `created_by` (immutable after create).
+   * Persists caller-supplied `created_by_subject` (immutable after create).
    * Sets `last_activity_timestamp_ms` (= now) on create.
    */
   createSession(input: CreateSessionInput<TSessionCustom>): Promise<void>;
@@ -230,9 +256,16 @@ export interface ISessionStore<
   getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined>;
 
   /**
+   * Lookup by tenant-scoped `external_id`. Missing or null external ids are not found.
+   * Does **not** bump `last_activity_timestamp_ms` (read path).
+   */
+  getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined>;
+
+  /**
    * PATCH semantics — update only the provided fields:
    * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
+   * - metadata: full replace of the caller-owned string map when set.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;
@@ -242,8 +275,10 @@ export interface ISessionStore<
    * (`order` defaults to `desc`, `session_id` tie-break). `page_token` is a
    * keyset cursor on `(updated_at, session_id)`. `start_timestamp` /
    * `end_timestamp` are inclusive instant bounds on `created_at`. Optional
-   * `agent_id` filters ref-bound sessions; optional `created_by` filters by
-   * creator identity. Does **not** bump `last_activity_timestamp_ms` (read path).
+   * `agent_id` filters ref-bound sessions. `created_by_or_agent_ids` matches
+   * rows created by its subject OR bound to one of its agent ids; optional
+   * `source_type` / `source_id` filter by JSON `source` (expression-indexed,
+   * no scalar columns). Does **not** bump `last_activity_timestamp_ms` (read path).
    */
   listSessions(
     input: ListSessionsInput,
@@ -262,7 +297,8 @@ export interface ISessionStore<
    * row or leave `last_turn_id` pointing at a turn that was never created.
    * The implementation supplies the mechanism (session lock, row lock/tx, …).
    *
-   * Also bumps `session.last_activity_timestamp_ms` in that same atomic unit.
+   * Also bumps `session.last_activity_timestamp_ms` and increments
+   * `session.metrics.total_turns` in that same atomic unit.
    *
    * Fork semantics for `turn.previous_turn_id`:
    * - `null` — new root turn (no parent); always allowed.
@@ -281,10 +317,8 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * One tx: (a) conditionally cancel a running turn with `reason`; (b) if it
-   * did cancel, insert the caller-built `turn_done_event` — already-terminal
-   * turns skip the event insert; (c) return the now-immutable turn record.
-   * Missing turn → {@link TurnNotFoundError}.
+   * Cancel if still running (persist `turn_done` and fold cost/duration into
+   * `session.metrics`); already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
@@ -297,15 +331,9 @@ export interface ISessionStore<
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * Writes the terminal state and `turn_done_event` atomically. Store contract —
-   * **first terminal write wins**:
-   * - Allowed: `running` → `done` | `cancelled` | `error`.
-   * - Rejected with **409** (or equivalent conflict): any write when status is already
-   *   terminal — including done→cancelled, cancelled→done, error→*, terminal→running.
-   * - Missing turn → 404 / not-found.
-   *
-   * Check under the same concurrency control as other turn mutations (lock/CAS) —
-   * not a racy read-then-write outside the critical section.
+   * First terminal write wins (`running` → done/cancelled/error); otherwise 409.
+   * Winning write also folds cost/duration into `session.metrics`. Missing → 404.
+   * Must use the same lock/CAS as other turn mutations.
    */
   updateTurnState(input: UpdateTurnStateInput): Promise<void>;
 

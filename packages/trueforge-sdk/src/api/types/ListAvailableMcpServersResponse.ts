@@ -4,4 +4,5 @@ import type * as TrueForge from "../index.js";
 
 export interface ListAvailableMcpServersResponse {
     data: TrueForge.AvailableMcpServer[];
+    pagination: TrueForge.TokenPagination;
 }

@@ -47,5 +47,7 @@ export default defineConfig({
     'react-syntax-highlighter',
     'monaco-editor',
     '@truefoundry/trueforge-sdk',
+    'chart.js',
+    'react-chartjs-2',
   ],
 });

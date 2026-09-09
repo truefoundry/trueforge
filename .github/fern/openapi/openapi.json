@@ -26,6 +26,9 @@
       "Agent": {
         "additionalProperties": false,
         "properties": {
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
           "id": {
             "description": "Immutable server-generated agent identifier.",
             "minLength": 1,
@@ -41,7 +44,74 @@
         "required": [
           "id",
           "name",
-          "manifest"
+          "manifest",
+          "created_by_subject"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippet": {
+        "additionalProperties": false,
+        "properties": {
+          "icon": {
+            "format": "uri",
+            "type": "string"
+          },
+          "label_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "language": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sample_code": {
+            "$ref": "#/components/schemas/AgentCodeSnippetSampleCode"
+          }
+        },
+        "required": [
+          "label_name",
+          "language",
+          "icon",
+          "sample_code"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippetSampleCode": {
+        "additionalProperties": false,
+        "properties": {
+          "non_stream": {
+            "description": "SDK sample that creates a turn without streaming.",
+            "type": "string"
+          },
+          "stream": {
+            "description": "SDK sample that streams turn events.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stream",
+          "non_stream"
+        ],
+        "type": "object"
+      },
+      "AgentCodeSnippets": {
+        "additionalProperties": false,
+        "properties": {
+          "base_url": {
+            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "format": "uri",
+            "type": "string"
+          },
+          "snippets": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCodeSnippet"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_url",
+          "snippets"
         ],
         "type": "object"
       },
@@ -468,7 +538,7 @@
             "$ref": "#/components/schemas/ResourceName"
           },
           "type": {
-            "$ref": "#/components/schemas/MCPServerType"
+            "$ref": "#/components/schemas/CatalogMCPServerType"
           },
           "url": {
             "description": "URL of the remote MCP server.",
@@ -483,6 +553,12 @@
           "description"
         ],
         "type": "object"
+      },
+      "CatalogMCPServerType": {
+        "enum": [
+          "remote"
+        ],
+        "type": "string"
       },
       "CatalogModel": {
         "additionalProperties": false,
@@ -926,6 +1002,53 @@
         ],
         "type": "object"
       },
+      "CreateScheduleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ScheduleManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "agent_name",
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
+      "CreateScheduleRunRequest": {
+        "additionalProperties": false,
+        "description": "Trigger an immediate run for the given schedule. The task is taken from the schedule manifest.",
+        "properties": {
+          "schedule_id": {
+            "description": "Immutable schedule identifier.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id"
+        ],
+        "type": "object"
+      },
+      "CreateScheduleRunResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ScheduleRun"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "CreateSessionAgent": {
         "anyOf": [
           {
@@ -941,6 +1064,9 @@
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "required": [
@@ -979,6 +1105,38 @@
           }
         },
         "type": "object"
+      },
+      "CreatedBySubject": {
+        "additionalProperties": false,
+        "description": "Who created this resource.",
+        "properties": {
+          "subject_display_name": {
+            "description": "Display name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_id": {
+            "description": "Subject id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_type": {
+            "description": "Subject type.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_id",
+          "subject_type",
+          "subject_display_name"
+        ],
+        "type": "object"
+      },
+      "CronExpression": {
+        "description": "Standard 5-field cron expression, evaluated in `timezone`.",
+        "pattern": "^[\\d*,\\-/]+(?:\\s+[\\d*,\\-/]+){4}$",
+        "type": "string"
       },
       "CustomModelProvider": {
         "additionalProperties": false,
@@ -1033,6 +1191,10 @@
         "type": "object"
       },
       "DeleteAgentResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "DeleteScheduleResponse": {
         "properties": {},
         "type": "object"
       },
@@ -1151,6 +1313,17 @@
         },
         "type": "object"
       },
+      "GetAgentCodeSnippetsResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AgentCodeSnippets"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetAgentResponse": {
         "properties": {
           "data": {
@@ -1200,27 +1373,34 @@
       },
       "GetMeResponse": {
         "properties": {
-          "email": {
-            "description": "User email from the ID token when connected; `\"default\"` when anonymous.",
+          "data": {
+            "$ref": "#/components/schemas/Me"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetMeSubject": {
+        "properties": {
+          "display_name": {
+            "description": "Human-readable name for the caller.",
             "type": "string"
           },
-          "role": {
-            "description": "Caller role.",
+          "id": {
+            "description": "Stable subject identifier for the caller.",
             "type": "string"
           },
           "type": {
-            "description": "Session kind: `default` when no valid OIDC session; `oidc-connected` after a successful browser login.",
-            "enum": [
-              "default",
-              "oidc-connected"
-            ],
+            "description": "Subject kind as returned by the identity provider (stored as-is).",
             "type": "string"
           }
         },
         "required": [
+          "id",
           "type",
-          "email",
-          "role"
+          "display_name"
         ],
         "type": "object"
       },
@@ -1249,6 +1429,28 @@
         ],
         "type": "object"
       },
+      "GetOrCreateSessionByExternalIdRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/CreateSessionAgent"
+          },
+          "external_id": {
+            "description": "Caller-supplied id unique within the tenant.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SessionSourceSchedule"
+          }
+        },
+        "required": [
+          "external_id",
+          "agent"
+        ],
+        "type": "object"
+      },
       "GetSandboxProviderCatalogResponse": {
         "properties": {
           "data": {
@@ -1267,6 +1469,50 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/ConfiguredSandboxProvider"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetScheduleResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Schedule"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSessionMetricsChartDataResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionMetricsChartDataResponse"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSessionMetricsChartResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionMetricsChartResponse"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetSessionMetricsMeterResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SessionMetricsMeterResponse"
           }
         },
         "required": [
@@ -1432,10 +1678,14 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -1490,10 +1740,14 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -1508,6 +1762,38 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "ListScheduleRunsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRun"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListSchedulesResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/Schedule"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -1923,7 +2209,7 @@
             "$ref": "#/components/schemas/MCPServerType"
           },
           "url": {
-            "description": "URL of the remote MCP server.",
+            "description": "MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL.",
             "format": "uri",
             "type": "string"
           }
@@ -1971,7 +2257,8 @@
       },
       "MCPServerType": {
         "enum": [
-          "remote"
+          "remote",
+          "truefoundry"
         ],
         "type": "string"
       },
@@ -2004,6 +2291,55 @@
           "name"
         ],
         "type": "object"
+      },
+      "Me": {
+        "properties": {
+          "roles": {
+            "description": "Roles for the authenticated caller.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/GetMeSubject"
+          },
+          "tenant_id": {
+            "description": "Tenant scope for the authenticated caller.",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MeSessionType"
+          }
+        },
+        "required": [
+          "type",
+          "tenant_id",
+          "subject",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "MeSessionType": {
+        "description": "`oidc-connected` when the process is running with browser OIDC login; `default` for standalone or TrueFoundry token auth.",
+        "enum": [
+          "default",
+          "oidc-connected"
+        ],
+        "type": "string"
+      },
+      "MetricsUnit": {
+        "enum": [
+          "count",
+          "$",
+          "ms"
+        ],
+        "type": "string",
+        "x-fern-enum": {
+          "$": {
+            "name": "USD"
+          }
+        }
       },
       "Model": {
         "properties": {
@@ -2324,6 +2660,7 @@
             "moonshot": "#/components/schemas/MoonshotModelProvider",
             "openai": "#/components/schemas/OpenAIModelProvider",
             "together": "#/components/schemas/TogetherAIModelProvider",
+            "truefoundry": "#/components/schemas/TrueFoundryModelProvider",
             "zai": "#/components/schemas/ZaiModelProvider"
           },
           "propertyName": "type"
@@ -2352,6 +2689,9 @@
           },
           {
             "$ref": "#/components/schemas/AlibabaModelProvider"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryModelProvider"
           },
           {
             "$ref": "#/components/schemas/CustomModelProvider"
@@ -2798,6 +3138,142 @@
         ],
         "type": "object"
       },
+      "Schedule": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "id": {
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ScheduleManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "agent_name",
+          "name",
+          "manifest",
+          "created_by_subject",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ScheduleManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "cron": {
+            "$ref": "#/components/schemas/CronExpression"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleStatus"
+          },
+          "task": {
+            "description": "First user message sent to the agent on every run.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "timezone": {
+            "$ref": "#/components/schemas/Timezone"
+          }
+        },
+        "required": [
+          "task",
+          "cron"
+        ],
+        "type": "object"
+      },
+      "ScheduleRun": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schedule_id": {
+            "type": "string"
+          },
+          "scheduled_for": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScheduleRunStatus"
+          },
+          "triggered_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_id",
+          "name",
+          "scheduled_for",
+          "status",
+          "created_by_subject",
+          "triggered_at",
+          "reason",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ScheduleRunStatus": {
+        "enum": [
+          "scheduled",
+          "triggered",
+          "failed"
+        ],
+        "type": "string"
+      },
+      "ScheduleStatus": {
+        "default": "active",
+        "enum": [
+          "active",
+          "paused"
+        ],
+        "type": "string"
+      },
       "Session": {
         "properties": {
           "agent": {
@@ -2807,13 +3283,21 @@
             "description": "ISO 8601 creation timestamp.",
             "type": "string"
           },
-          "created_by": {
-            "description": "Caller identity that created the session (immutable).",
-            "type": "string"
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
           },
           "id": {
             "description": "Unique session id.",
             "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/SessionMetrics"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SessionSource"
           },
           "title": {
             "description": "Optional human-readable title; null until set.",
@@ -2831,9 +3315,12 @@
           "id",
           "agent",
           "title",
-          "created_by",
+          "created_by_subject",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "metrics",
+          "metadata",
+          "source"
         ],
         "type": "object"
       },
@@ -2996,6 +3483,304 @@
           "event"
         ],
         "type": "object"
+      },
+      "SessionMetadata": {
+        "additionalProperties": {
+          "description": "Metadata value; at most 128 characters.",
+          "maxLength": 128,
+          "type": "string"
+        },
+        "description": "Caller-owned session metadata",
+        "type": "object"
+      },
+      "SessionMetrics": {
+        "additionalProperties": false,
+        "description": "Rolled-up cost, duration, and turn counters for a session.",
+        "properties": {
+          "total_cost_in_usd": {
+            "description": "Estimated total cost in USD for this session",
+            "minimum": 0,
+            "type": "number"
+          },
+          "total_duration_ms": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_turns": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_duration_ms",
+          "total_turns"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsChart": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_type": {
+            "enum": [
+              "line"
+            ],
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/SessionMetricsChartName"
+          }
+        },
+        "required": [
+          "name",
+          "display_name",
+          "description",
+          "chart_type"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsChartDataResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "graphs": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsGraph"
+            },
+            "type": "array"
+          },
+          "step": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "graphs"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsChartName": {
+        "description": "Session metrics chart to return.",
+        "enum": [
+          "sessions_over_time",
+          "sessions_cost_over_time",
+          "turns_over_time"
+        ],
+        "type": "string"
+      },
+      "SessionMetricsChartResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "charts": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsChart"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "charts"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsGraph": {
+        "additionalProperties": false,
+        "properties": {
+          "chart_type": {
+            "enum": [
+              "line"
+            ],
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "graph_lines": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsGraphLine"
+            },
+            "type": "array"
+          },
+          "name": {
+            "$ref": "#/components/schemas/SessionMetricsChartName"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/MetricsUnit"
+          }
+        },
+        "required": [
+          "name",
+          "display_name",
+          "description",
+          "unit",
+          "chart_type",
+          "graph_lines"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsGraphLine": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsPoint"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "values"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsMeter": {
+        "additionalProperties": false,
+        "properties": {
+          "aggregate_value": {
+            "minimum": 0,
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "enum": [
+              "total_sessions",
+              "total_cost_in_usd",
+              "total_turns",
+              "cost_per_session_in_usd",
+              "avg_turns_per_session",
+              "min_turns_per_session",
+              "max_turns_per_session",
+              "median_turns_per_session",
+              "min_session_duration_ms",
+              "max_session_duration_ms",
+              "median_session_duration_ms",
+              "p95_session_duration_ms"
+            ],
+            "type": "string"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/MetricsUnit"
+          }
+        },
+        "required": [
+          "name",
+          "aggregate_value",
+          "description",
+          "unit"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsMeterResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "meters": {
+            "items": {
+              "$ref": "#/components/schemas/SessionMetricsMeter"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "meters"
+        ],
+        "type": "object"
+      },
+      "SessionMetricsPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "timestamp": {
+            "type": "string"
+          },
+          "value": {
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "timestamp",
+          "value"
+        ],
+        "type": "object"
+      },
+      "SessionSource": {
+        "additionalProperties": false,
+        "description": "How this session was created (e.g. a schedule run). Null for interactive sessions.",
+        "properties": {
+          "id": {
+            "description": "Schedule id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "description": "Schedule run id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Session was created by a schedule run.",
+            "enum": [
+              "schedule"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "run_id"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "SessionSourceSchedule": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Schedule id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "run_id": {
+            "description": "Schedule run id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Session was created by a schedule run.",
+            "enum": [
+              "schedule"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "run_id"
+        ],
+        "type": "object"
+      },
+      "SessionSourceType": {
+        "description": "When set, returns only sessions created by this source type.",
+        "enum": [
+          "schedule"
+        ],
+        "type": "string"
       },
       "SettingsCapability": {
         "properties": {
@@ -3247,6 +4032,12 @@
         ],
         "type": "object"
       },
+      "Timezone": {
+        "default": "UTC",
+        "description": "IANA time zone the cron expression is evaluated in.",
+        "minLength": 1,
+        "type": "string"
+      },
       "TogetherAIModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -3466,6 +4257,39 @@
           "created_at",
           "thread_id",
           "tool_calls"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryModelProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ModelProviderAuth"
+          },
+          "base_url": {
+            "description": "Base URL of the TrueFoundry AI gateway the models are invoked against.",
+            "format": "uri",
+            "type": "string"
+          },
+          "models": {
+            "description": "Models exposed by this provider (at least one).",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredModel"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "models",
+          "type",
+          "base_url"
         ],
         "type": "object"
       },
@@ -3972,11 +4796,30 @@
         ],
         "type": "object"
       },
+      "UpdateScheduleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/ScheduleManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UpdateSessionRequest": {
         "additionalProperties": false,
         "properties": {
           "agent": {
             "$ref": "#/components/schemas/SessionAgentSpecBody"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/SessionMetadata"
           }
         },
         "type": "object"
@@ -4142,19 +4985,284 @@
     "securitySchemes": {
       "BearerAuth": {
         "bearerFormat": "JWT",
-        "description": "ID token (`Authorization: Bearer <id_token>`). Required on protected routes. Browser sessions may use the HttpOnly `id_token` cookie instead.",
+        "description": "Caller credential (`Authorization: Bearer <token>`). Required on protected routes when auth is enabled. Browser sessions may use the HttpOnly `id_token` or `accessToken` cookie instead.",
         "scheme": "bearer",
         "type": "http"
       }
     }
   },
   "info": {
-    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone deployments (no OIDC) accept requests without credentials — middleware stamps a local default user. When OIDC is configured, protected routes require a valid `id_token` cookie or `Authorization: Bearer` ID token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
+    "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.2.0-rc.0"
+    "version": "0.2.0-rc.2"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/internal/metrics/charts": {
+      "get": {
+        "description": "List available session metric charts.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartResponse"
+                }
+              }
+            },
+            "description": "Available session metric charts."
+          }
+        },
+        "summary": "Get session metrics charts",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "list_charts"
+      }
+    },
+    "/api/internal/metrics/charts-data": {
+      "get": {
+        "description": "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Session metrics chart to return.",
+            "in": "query",
+            "name": "chart_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SessionMetricsChartName"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsChartDataResponse"
+                }
+              }
+            },
+            "description": "Zero-filled time series for one chart."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics chart data",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_chart_data"
+      }
+    },
+    "/api/internal/metrics/meters": {
+      "get": {
+        "description": "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
+        "parameters": [
+          {
+            "description": "Named agent identifier.",
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "description": "Named agent identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive lower bound on session `created_at`.",
+            "in": "query",
+            "name": "start_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive lower bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on session `created_at`.",
+            "in": "query",
+            "name": "end_timestamp",
+            "required": true,
+            "schema": {
+              "description": "Inclusive upper bound on session `created_at`.",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionMetricsMeterResponse"
+                }
+              }
+            },
+            "description": "Session metric meters."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid timestamps or a window longer than 30 days."
+          }
+        },
+        "summary": "Get session metrics meters",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "metrics"
+        ],
+        "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/sessions/get-or-create-by-external-id": {
+      "post": {
+        "description": "Idempotent get-or-create: returns the existing session for this `external_id`, or creates one",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetOrCreateSessionByExternalIdRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session already existed for this external id."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSessionResponse"
+                }
+              }
+            },
+            "description": "Session created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The agent spec is valid but references a resource this server does not provide (e.g. model, MCP server, skill, or sandbox)."
+          }
+        },
+        "summary": "Get or create a session by external id",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
+    },
     "/api/v1/agents": {
       "get": {
         "description": "All configured agents for the tenant.",
@@ -4255,7 +5363,7 @@
     },
     "/api/v1/agents/{agent_id}": {
       "delete": {
-        "description": "Delete a configured agent by immutable id. Idempotent if already gone.",
+        "description": "Delete a configured agent by immutable id.",
         "parameters": [
           {
             "description": "Immutable agent identifier.",
@@ -4290,6 +5398,16 @@
               }
             },
             "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Agent not found."
           }
         },
         "summary": "Delete an agent",
@@ -4448,72 +5566,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "data": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "base_url": {
-                          "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
-                          "format": "uri",
-                          "type": "string"
-                        },
-                        "snippets": {
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "icon": {
-                                "format": "uri",
-                                "type": "string"
-                              },
-                              "label_name": {
-                                "minLength": 1,
-                                "type": "string"
-                              },
-                              "language": {
-                                "minLength": 1,
-                                "type": "string"
-                              },
-                              "sample_code": {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "non_stream": {
-                                    "description": "SDK sample that creates a turn without streaming.",
-                                    "type": "string"
-                                  },
-                                  "stream": {
-                                    "description": "SDK sample that streams turn events.",
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "stream",
-                                  "non_stream"
-                                ],
-                                "type": "object"
-                              }
-                            },
-                            "required": [
-                              "label_name",
-                              "language",
-                              "icon",
-                              "sample_code"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        }
-                      },
-                      "required": [
-                        "base_url",
-                        "snippets"
-                      ],
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "data"
-                  ],
-                  "type": "object"
+                  "$ref": "#/components/schemas/GetAgentCodeSnippetsResponse"
                 }
               }
             },
@@ -4535,7 +5588,11 @@
           "Agents"
         ],
         "x-excluded": true,
-        "x-fern-ignore": true
+        "x-fern-sdk-group-name": [
+          "internal",
+          "agents"
+        ],
+        "x-fern-sdk-method-name": "get_code_snippets"
       }
     },
     "/api/v1/auth/callback": {
@@ -4644,7 +5701,7 @@
     },
     "/api/v1/auth/me": {
       "get": {
-        "description": "Returns the authenticated caller identity. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` ID token (401 otherwise). When auth is disabled, returns the default identity.",
+        "description": "Returns the authenticated caller identity (`type`, `tenant_id`, `subject`, `roles`) wrapped as `{ data }`. `type` is `oidc-connected` when browser OIDC is enabled, otherwise `default`. When auth is enabled this requires a valid `id_token` cookie or `Authorization: Bearer` token (401 otherwise). When auth is disabled, returns the standalone default identity.",
         "responses": {
           "200": {
             "content": {
@@ -4654,7 +5711,7 @@
                 }
               }
             },
-            "description": "Session type and identity for the current request."
+            "description": "Caller identity for the current request."
           },
           "401": {
             "content": {
@@ -4664,7 +5721,7 @@
                 }
               }
             },
-            "description": "Auth is enabled and the request has no valid cookie or Bearer ID token."
+            "description": "Auth is enabled and the request has no valid cookie or Bearer token."
           }
         },
         "summary": "Current session",
@@ -4858,7 +5915,32 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "MCP servers as a slim name/url list for the composer. No auth or auth_status.",
+        "description": "Paginated MCP servers as a slim name/url list for the composer.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 100, max 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -4868,7 +5950,17 @@
                 }
               }
             },
-            "description": "All MCP servers (chat projection)."
+            "description": "Paginated MCP servers (chat projection)."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -4885,6 +5977,11 @@
         "tags": [
           "MCP Servers"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -4995,7 +6092,7 @@
     },
     "/api/v1/mcp-servers/{name}/authorize": {
       "delete": {
-        "description": "For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).",
+        "description": "Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. No-op when the server does not use stored OAuth tokens.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -5018,7 +6115,7 @@
                 }
               }
             },
-            "description": "The MCP server after disconnect (auth_required for dcr)."
+            "description": "The MCP server after disconnect."
           },
           "404": {
             "content": {
@@ -5041,7 +6138,7 @@
         "x-fern-sdk-method-name": "delete_authorization"
       },
       "get": {
-        "description": "For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.",
+        "description": "Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -5055,12 +6152,12 @@
             }
           },
           {
-            "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
+            "description": "Same-origin path to land in the browser after consent.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.",
+              "description": "Same-origin path to land in the browser after consent.",
               "type": "string"
             }
           }
@@ -5237,7 +6334,7 @@
                 }
               }
             },
-            "description": "OIDC is configured and the request has no valid session cookie."
+            "description": "Auth is configured and the request has no valid no Bearer token or session cookie."
           }
         },
         "summary": "List models for chat",
@@ -5250,9 +6347,514 @@
         "x-fern-sdk-method-name": "list"
       }
     },
+    "/api/v1/schedules": {
+      "get": {
+        "description": "List schedules for the tenant, newest first.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 25",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+            "in": "query",
+            "name": "agent_names",
+            "required": false,
+            "schema": {
+              "description": "Filter by one or more agent names (comma-separated). When set, at least one name is required.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "When true, only schedules created by the authenticated subject.",
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "description": "When true, only schedules created by the authenticated subject.",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSchedulesResponse"
+                }
+              }
+            },
+            "description": "Paginated matching schedules."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          }
+        },
+        "summary": "List schedules",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Create a schedule for an existing agent (by name) and add its first pending run when active.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScheduleResponse"
+                }
+              }
+            },
+            "description": "Created schedule."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid cron or timezone."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Named agent not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
+          }
+        },
+        "summary": "Create a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/schedules/runs": {
+      "post": {
+        "description": "Start a schedule run immediately using the schedule task. Does not replace or advance the cron pending run.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScheduleRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateScheduleRunResponse"
+                }
+              }
+            },
+            "description": "Run created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request or turn input."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Schedule or agent not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Run name conflict (retry)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The run cannot be started (e.g. agent resources unavailable)."
+          }
+        },
+        "summary": "Trigger a schedule run",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "create_run"
+      }
+    },
+    "/api/v1/schedules/{schedule_id}": {
+      "delete": {
+        "description": "Delete a schedule and its runs. Idempotent.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteScheduleResponse"
+                }
+              }
+            },
+            "description": "Deleted."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          }
+        },
+        "summary": "Delete a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
+      "get": {
+        "description": "Get a schedule by id.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScheduleResponse"
+                }
+              }
+            },
+            "description": "The schedule."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          }
+        },
+        "summary": "Get a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Replace name and manifest; replaces or drops the pending run when status/cron/timezone change.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetScheduleResponse"
+                }
+              }
+            },
+            "description": "Updated schedule."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid cron."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller is not the schedule creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The name is already taken for this agent, or the schedule was modified concurrently (retry)."
+          }
+        },
+        "summary": "Update a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "update"
+      }
+    },
+    "/api/v1/schedules/{schedule_id}/runs": {
+      "get": {
+        "description": "List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.",
+        "parameters": [
+          {
+            "description": "Immutable schedule identifier.",
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable schedule identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListScheduleRunsResponse"
+                }
+              }
+            },
+            "description": "Runs of the schedule."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The caller cannot read the schedule."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found."
+          }
+        },
+        "summary": "List runs of a schedule",
+        "tags": [
+          "Schedules"
+        ],
+        "x-fern-sdk-group-name": [
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "list_runs"
+      }
+    },
     "/api/v1/sessions": {
       "get": {
-        "description": "List the caller's sessions (newest first by default), token-paginated. Results are scoped to the authenticated identity via the session store's `created_by` filter (not a client query param). Optional `agent_id` filters to sessions bound to that named agent. Pass `page_token` to fetch the next page, keeping the other query params constant.",
+        "description": "List the sessions (newest first by default).",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 25.",
@@ -5316,6 +6918,47 @@
             "required": false,
             "schema": {
               "description": "When set, only sessions bound to this agent id are returned.",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "When true, only sessions created by the authenticated subject.",
+            "in": "query",
+            "name": "created_by_me",
+            "required": false,
+            "schema": {
+              "description": "When true, only sessions created by the authenticated subject.",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs.",
+            "explode": true,
+            "in": "query",
+            "name": "metadata",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SessionMetadata"
+            },
+            "style": "deepObject"
+          },
+          {
+            "description": "When set, returns only sessions created by this source type.",
+            "in": "query",
+            "name": "source_type",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SessionSourceType"
+            }
+          },
+          {
+            "description": "When set, returns only sessions from this specific source. Requires source_type.",
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "description": "When set, returns only sessions from this specific source. Requires source_type.",
               "minLength": 1,
               "type": "string"
             }
@@ -5423,7 +7066,7 @@
     },
     "/api/v1/sessions/{session_id}": {
       "delete": {
-        "description": "Delete a session and all related turns, events, and internal state. Only the session creator (`created_by`) may delete it. Idempotent if already gone.",
+        "description": "Delete a session and all related turns, events, and internal state. Only the session creator may delete it. Idempotent if already gone.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5463,7 +7106,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID. Only the session creator (`created_by`) may fetch it.",
+        "description": "Fetch a session by ID. Only the session creator may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5520,7 +7163,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator (`created_by`) may update it.",
+        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5609,7 +7252,7 @@
     },
     "/api/v1/sessions/{session_id}/cancel": {
       "post": {
-        "description": "Cancel the running last turn for a session. Only the session creator (`created_by`) may cancel.",
+        "description": "Cancel the running last turn for a session. Only the session creator may cancel.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5688,7 +7331,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator (`created_by`) may list events.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5795,7 +7438,7 @@
     },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
-        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator (`created_by`) may list turns.",
+        "description": "List turns for a session (newest first by default), token-paginated. Only the session creator may list turns.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5890,7 +7533,7 @@
         "x-fern-sdk-method-name": "list_turns"
       },
       "post": {
-        "description": "Create a turn within a session and execute it.\nOnly the session creator (`created_by`) may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
+        "description": "Create a turn within a session and execute it.\nOnly the session creator may create turns.\nWhen `stream` is true (default), respond with a Server-Sent Events stream of turn events.\nWhen `stream` is false, return the turn immediately with `state.status: \"running\"` while execution continues in the background; use get turn or subscribe to observe completion.\nUse `previous_turn_id` to chain to the session's last turn (defaults to `auto`); use `none` for a new root.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -5941,6 +7584,16 @@
             },
             "description": "Invalid request body."
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie"
+          },
           "403": {
             "content": {
               "application/json": {
@@ -5959,7 +7612,7 @@
                 }
               }
             },
-            "description": "Session or prior turn not found."
+            "description": "Session, prior turn, or referenced agent not found."
           },
           "412": {
             "content": {
@@ -6015,7 +7668,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "Fetch a single turn by ID. Only the session creator (`created_by`) may fetch it.",
+        "description": "Fetch a single turn by ID. Only the session creator may fetch it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6085,7 +7738,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/download-sandbox-file": {
       "get": {
-        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator (`created_by`) may download.",
+        "description": "Download a file from the sandbox this turn ran in. Paths come from the assistant's `sandbox_artifacts` block. Only the session creator may download.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6217,7 +7870,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
-        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator (`created_by`) may list events.",
+        "description": "Paginated persisted events for a turn (insertion order by default). Only the session creator may list events.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6334,7 +7987,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {
       "get": {
-        "description": "Subscribe to the live SSE stream for a turn. Only the session creator (`created_by`) may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
+        "description": "Subscribe to the live SSE stream for a turn. Only the session creator may subscribe. Pass `after_sequence_number` to resume after a disconnect (exclusive — events after this sequence number are replayed).",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -6442,7 +8095,32 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 100, max 200.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Page size. Defaults to 100, max 200.",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6452,7 +8130,17 @@
                 }
               }
             },
-            "description": "All MCP servers"
+            "description": "Paginated MCP servers"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -6479,6 +8167,11 @@
         "tags": [
           "MCP Servers"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"
@@ -6537,6 +8230,16 @@
               }
             },
             "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because the MCP servers are managed by external system"
           }
         },
         "summary": "Create an MCP server",
@@ -6550,7 +8253,7 @@
         "x-fern-sdk-method-name": "create"
       },
       "put": {
-        "description": "Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
+        "description": "Create or replace by `name`. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6591,6 +8294,16 @@
               }
             },
             "description": "The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint)."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because the MCP servers are managed by external system"
           }
         },
         "summary": "Create or replace an MCP server",
@@ -6606,7 +8319,7 @@
     },
     "/api/v1/settings/mcp-servers/{name}": {
       "get": {
-        "description": "A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.",
+        "description": "A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
           {
             "description": "MCP server name.",
@@ -6740,6 +8453,16 @@
               }
             },
             "description": "A model provider with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because the model providers are managed by external system"
           }
         },
         "summary": "Create a model provider",
@@ -6784,6 +8507,16 @@
               }
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because the model providers are managed by external system"
           }
         },
         "summary": "Create or replace a model provider",
@@ -7074,6 +8807,9 @@
   ],
   "tags": [
     {
+      "name": "Internal"
+    },
+    {
       "name": "Auth"
     },
     {
@@ -7093,6 +8829,9 @@
     },
     {
       "name": "Agents"
+    },
+    {
+      "name": "Schedules"
     },
     {
       "name": "Agent Sessions"

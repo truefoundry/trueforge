@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
 
+import { importAbsoluteModule } from '../util/crossPlatform';
 import type { Database } from './sqlite/types';
 
 /**
@@ -22,6 +23,7 @@ export async function migrateSqliteToLatest(db: Kysely<Database>): Promise<void>
     provider: new FileMigrationProvider({
       fs,
       path,
+      import: importAbsoluteModule,
       migrationFolder: path.join(import.meta.dirname, 'sqlite', 'migrations'),
     }),
   });
@@ -29,9 +31,7 @@ export async function migrateSqliteToLatest(db: Kysely<Database>): Promise<void>
   const { error, results } = await migrator.migrateToLatest();
 
   results?.forEach(it => {
-    if (it.status === 'Success') {
-      console.log(`migration "${it.migrationName}" was executed successfully`);
-    } else if (it.status === 'Error') {
+    if (it.status === 'Error') {
       console.error(`failed to execute migration "${it.migrationName}"`);
     }
   });

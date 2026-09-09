@@ -31,7 +31,14 @@ describe('mountFrontend', () => {
   it('serves the app shell for client-only deep links', async () => {
     const app = appWithFrontend(buildDir());
 
-    for (const clientPath of ['/', '/settings', '/sessions/abc123', '/agents/my-agent']) {
+    for (const clientPath of [
+      '/',
+      '/settings',
+      '/library',
+      '/library/agent-1',
+      '/sessions/abc123',
+      '/agents/my-agent',
+    ]) {
       const response = await app.request(clientPath, { headers: HTML_ACCEPT });
       expect(response.status).toBe(200);
       await expect(response.text()).resolves.toContain('id="root"');
