@@ -5145,7 +5145,7 @@
                 }
               }
             },
-            "description": "OIDC or TrueFoundry auth is configured and the request has no valid credential."
+            "description": "Invalid Bearer token or auth cookie"
           }
         },
         "summary": "List permissions for resources",
