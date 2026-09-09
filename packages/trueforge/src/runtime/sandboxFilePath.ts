@@ -26,9 +26,6 @@ const MAX_SEGMENT_BYTES = 255;
  * indistinguishable from a real outage.
  */
 export function validateSandboxFilePath(path: string): void {
-  if (!path.startsWith('/')) {
-    throw new SandboxInvalidPathError({ path, reason: 'must be absolute' });
-  }
   if (path.includes('\0')) {
     throw new SandboxInvalidPathError({ path, reason: 'must not contain a NUL byte' });
   }

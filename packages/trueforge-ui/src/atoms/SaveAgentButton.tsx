@@ -5,21 +5,18 @@ import {
   useTrueFoundryAgentSpec,
   useTrueFoundryFlushAgentSpec,
 } from '@truefoundry/assistant-ui-runtime';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
+import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
-import type { AgentSpec, McpToolSelection } from '../server/types.js';
+import type { AgentSpec } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
-import type { AgentConfigEditor } from './draft/AgentConfigEditors.js';
 import { useOptionalAgentConfigInstructions } from './draft/AgentConfigInstructionsContext.js';
-import { DraftCatalogProvider, useDraftCatalog } from './draft/DraftCatalogProvider.js';
-import { editableMountsFromSpec, withPreload } from './draft/agentConfigMounts.js';
 import { Button } from './primitives/Button.js';
-import { CenteredModal } from './primitives/CenteredModal.js';
+import { SideDrawer } from './primitives/SideDrawer.js';
 
 type SaveIntent = 'create' | 'update';
 
@@ -51,11 +48,9 @@ export function SaveAgentButton({
   instructionsOverride,
 }: SaveAgentButtonProps) {
   return (
-    <DraftCatalogProvider>
-      <SaveAgentButtonContent disabled={disabled} className={className} instructionsOverride={instructionsOverride}>
-        {children}
-      </SaveAgentButtonContent>
-    </DraftCatalogProvider>
+    <SaveAgentButtonContent disabled={disabled} className={className} instructionsOverride={instructionsOverride}>
+      {children}
+    </SaveAgentButtonContent>
   );
 }
 
@@ -78,29 +73,17 @@ function SaveAgentButtonContent({
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
   const configInstructions = useOptionalAgentConfigInstructions();
-  const catalog = useDraftCatalog();
-  const serverCapabilities = useServerCapabilities();
-  const AgentConfigEditors = useSlot('AgentConfigEditors');
   const SaveAgentForm = useSlot('SaveAgentForm');
   const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
-  const [editor, setEditor] = useState<AgentConfigEditor | null>(null);
   const [intent, setIntent] = useState<SaveIntent>('create');
   const [name, setName] = useState('');
   const [draftSpec, setDraftSpec] = useState<AgentSpec | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const mcpMounts = useMemo(() => editableMountsFromSpec(draftSpec?.mcpServers), [draftSpec?.mcpServers]);
-  const skillMounts = useMemo(() => editableMountsFromSpec(draftSpec?.skills), [draftSpec?.skills]);
-  const modelEntry = useMemo(
-    () => catalog.models.find(model => model.name === draftSpec?.model.name),
-    [catalog.models, draftSpec?.model.name],
-  );
-
   const close = () => {
     if (saving) return;
-    setEditor(null);
     setOpen(false);
     setDraftSpec(null);
     setError(null);
@@ -109,7 +92,6 @@ function SaveAgentButtonContent({
   const show = async () => {
     if (agentSpecRef.current === null || builder === null) return;
     setError(null);
-    catalog.ensureLoaded();
     configInstructions?.flush();
     await flushAgentSpec();
     const flushedAgentSpec = agentSpecRef.current;
@@ -146,7 +128,6 @@ function SaveAgentButtonContent({
       shell?.invalidateAgentsList();
       setOpen(false);
       setDraftSpec(null);
-      setEditor(null);
     } catch (caught) {
       setError(getErrorMessage(caught, 'Could not save agent'));
     } finally {
@@ -154,35 +135,11 @@ function SaveAgentButtonContent({
     }
   };
 
-  const toggleMcpPreload = (id: string) => {
-    if (draftSpec === null) return;
-    const next = mcpMounts.map(item =>
-      item.id === id ? withPreload(item.value, Reflect.get(item.value, 'preload') !== true) : item.value,
-    );
-    setDraftSpec({ ...draftSpec, mcpServers: next });
-  };
-
-  const removeMcp = (id: string) => {
-    if (draftSpec === null) return;
-    setDraftSpec({
-      ...draftSpec,
-      mcpServers: mcpMounts.filter(item => item.id !== id).map(item => item.value),
-    });
-  };
-
   const isUpdateMode =
     shell?.mode.status === 'active' &&
     shell.mode.isMutable &&
     (shell.mode.agentName !== undefined || shell.mode.agentId !== undefined);
   const triggerLabel = isUpdateMode && children === 'Save Agent' ? 'Update Agent' : children;
-  const getMcpTools = builder === null ? undefined : Reflect.get(builder, 'getMcpTools');
-  const loadMcpTools =
-    typeof getMcpTools === 'function'
-      ? async (connectorId: string): Promise<McpToolSelection[]> => {
-          const result: unknown = await getMcpTools.call(builder, { connectorId });
-          return Array.isArray(result) ? result : [];
-        }
-      : undefined;
 
   if (!visible) return null;
 
@@ -199,11 +156,12 @@ function SaveAgentButtonContent({
         {triggerLabel}
       </Button.Primary>
 
-      <CenteredModal
+      <SideDrawer
         open={open}
         onOpenChange={next => !next && close()}
         title={intent === 'create' ? 'Save agent' : 'Update agent'}
-        className="md:h-auto md:max-h-[85dvh] md:max-w-2xl"
+        anchor="right"
+        size="md"
         aria-label={intent === 'create' ? 'Save agent' : 'Update agent'}
       >
         {draftSpec ? (
@@ -211,39 +169,15 @@ function SaveAgentButtonContent({
             intent={intent}
             name={name}
             spec={draftSpec}
-            modelEntry={modelEntry}
-            mcpMounts={mcpMounts}
-            skillMounts={skillMounts}
             saving={saving}
             error={error}
             onNameChange={setName}
             onChange={setDraftSpec}
-            onEdit={setEditor}
-            onToggleMcpPreload={toggleMcpPreload}
-            onRemoveMcp={removeMcp}
             onCancel={close}
             onSave={() => void save()}
           />
         ) : null}
-      </CenteredModal>
-
-      {draftSpec ? (
-        <AgentConfigEditors
-          editor={editor}
-          spec={draftSpec}
-          models={catalog.models}
-          connectors={catalog.connectors}
-          skills={catalog.skills}
-          loading={catalog.loading}
-          error={catalog.error}
-          skillsDisabled={serverCapabilities?.skill.enabled !== true}
-          sandboxAvailable={serverCapabilities?.sandbox.enabled === true}
-          loadMcpTools={loadMcpTools}
-          onRefreshConnectors={catalog.refreshConnectors}
-          onChange={setDraftSpec}
-          onClose={() => setEditor(null)}
-        />
-      ) : null}
+      </SideDrawer>
     </>
   );
 }

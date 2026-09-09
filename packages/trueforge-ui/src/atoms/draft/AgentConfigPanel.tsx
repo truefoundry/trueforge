@@ -208,7 +208,9 @@ export function AgentConfigPanel({
 }: AgentConfigPanelProps) {
   const Section = useSlot('AgentConfigSection');
   const AgentModelEditorContent = useSlot('AgentModelEditorContent');
+  const AgentModelSettingsContent = useSlot('AgentModelSettingsContent');
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelSettingsMenuOpen, setModelSettingsMenuOpen] = useState(false);
   const [modelQuery, setModelQuery] = useState('');
   const mcp = editableMountsFromSpec(spec.mcpServers);
   const skills = editableMountsFromSpec(spec.skills);
@@ -249,84 +251,94 @@ export function AgentConfigPanel({
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Section>
-          <DropdownMenu
-            open={modelMenuOpen}
-            onOpenChange={open => {
-              setModelMenuOpen(open);
-              if (!open) setModelQuery('');
-            }}
-            closeOnClick={false}
-            align="start"
-            containerClassName="flex w-full"
-            className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden p-0"
-            trigger={
-              <button
-                type="button"
-                aria-label="Edit Model"
-                title="Edit Model"
-                className="py-1 cursor-pointer flex w-full items-center gap-2 rounded-md text-left transition-colors"
-              >
-                <ProviderMark
-                  logo={model?.provider.logo}
-                  label={model?.provider.name ?? spec.model.name}
-                  className="size-4 text-[0.5rem]"
-                />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {displayModelLabel(spec.model.name)}
-                </span>
-                {modelInfo.length ? (
-                  <span
-                    title={modelInfoTitle}
-                    className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]"
-                  >
-                    {modelInfo.join(' · ')}
-                  </span>
-                ) : null}
-                <Icon name="chevrons-up-down" className="text-text-secondary size-3.5 shrink-0" />
-              </button>
-            }
-          >
-            <AgentModelEditorContent
-              spec={spec}
-              models={models}
-              loading={modelsLoading}
-              error={modelsError}
-              query={modelQuery}
-              onQueryChange={setModelQuery}
-              onChange={next => {
-                onChange?.(next);
-                setModelMenuOpen(false);
-                setModelQuery('');
+          <div className="flex w-full items-center gap-1">
+            <DropdownMenu
+              open={modelMenuOpen}
+              onOpenChange={open => {
+                setModelMenuOpen(open);
+                if (!open) setModelQuery('');
               }}
-            />
-          </DropdownMenu>
-          <div className="mt-2 flex items-center gap-2">
-            <dl className="text-text-secondary flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-1 text-xs">
-              {modelParams.length ? (
-                modelParams.map(entry => (
-                  <div key={entry.label} className="flex gap-1">
-                    <dt>{entry.label}:</dt>
-                    <dd className="text-text-primary font-medium">{entry.value}</dd>
-                  </div>
-                ))
-              ) : (
-                <div>model settings: defaults</div>
-              )}
-            </dl>
-            <button
-              type="button"
-              aria-label="Model settings"
-              title="Model settings"
-              className={auiButtonClass({
-                variant: 'ghost',
-                size: 'icon',
-                className: 'size-7 shrink-0 self-start',
-              })}
-              onClick={() => onOpenEditor('model-settings')}
+              closeOnClick={false}
+              align="start"
+              containerClassName="flex min-w-0 flex-1"
+              className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden p-0"
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Edit Model"
+                  title="Edit Model"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-md py-1 text-left transition-colors"
+                >
+                  <ProviderMark
+                    logo={model?.provider.logo}
+                    label={model?.provider.name ?? spec.model.name}
+                    className="size-4 text-[0.5rem]"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {displayModelLabel(spec.model.name)}
+                  </span>
+                  {modelInfo.length ? (
+                    <span
+                      title={modelInfoTitle}
+                      className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]"
+                    >
+                      {modelInfo.join(' · ')}
+                    </span>
+                  ) : null}
+                  <Icon name="chevrons-up-down" className="text-text-secondary size-3.5 shrink-0" />
+                </button>
+              }
             >
-              <Icon name="sliders" className="size-3.5" />
-            </button>
+              <AgentModelEditorContent
+                spec={spec}
+                models={models}
+                loading={modelsLoading}
+                error={modelsError}
+                query={modelQuery}
+                onQueryChange={setModelQuery}
+                onChange={next => {
+                  onChange?.(next);
+                  setModelMenuOpen(false);
+                  setModelQuery('');
+                }}
+              />
+            </DropdownMenu>
+            <DropdownMenu
+              open={modelSettingsMenuOpen}
+              onOpenChange={setModelSettingsMenuOpen}
+              closeOnClick={false}
+              align="start"
+              className="w-[min(36rem,calc(100vw-2rem))] overflow-hidden p-0"
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Model settings"
+                  title="Model settings"
+                  className={auiButtonClass({
+                    variant: 'ghost',
+                    size: 'icon',
+                    className: 'size-7 shrink-0',
+                  })}
+                >
+                  <Icon name="sliders" className="size-3.5" />
+                </button>
+              }
+            >
+              <AgentModelSettingsContent spec={spec} model={model} onChange={next => onChange?.(next)} />
+            </DropdownMenu>
           </div>
+          <dl className="text-text-secondary mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+            {modelParams.length ? (
+              modelParams.map(entry => (
+                <div key={entry.label} className="flex gap-1">
+                  <dt>{entry.label}:</dt>
+                  <dd className="text-text-primary font-medium">{entry.value}</dd>
+                </div>
+              ))
+            ) : (
+              <div>model settings: defaults</div>
+            )}
+          </dl>
         </Section>
 
         <Section title="Instructions" description="Define the agent's role, goals, and behavior.">
