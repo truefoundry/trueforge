@@ -57,10 +57,8 @@ spec:
             {{- with .Values.controller.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.controller.resources }}
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- include "trueforge.controller.resources" . | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -68,11 +66,9 @@ spec:
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-      {{- $resources := default dict .Values.controller.resources }}
-      {{- $limits := default dict (index $resources "limits") }}
       volumes:
         - name: tmp
-          {{- with index $limits "ephemeral-storage" }}
+          {{- with include "trueforge.controller.tmpEmptyDirSizeLimit" . }}
           emptyDir:
             sizeLimit: {{ . | quote }}
           {{- else }}

@@ -64,6 +64,30 @@ helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --set server.publicBaseUrl=https://trueforge.example.com
 ```
 
+## Resource tiers (TrueFoundry parent)
+
+Sizing in this chart is Kubernetes `resources` / `controller.resources` and
+`server.replicaCount`. `resourceTier` is a TrueFoundry control-plane preset, not
+a Kubernetes field, so it is **unset** by default.
+
+When this chart is nested under `truefoundry`, the parent may set
+`global.resourceTier` (`small` / `medium` / `large`). That **replaces** the
+`resources` tables (replica counts stay as set: server `replicaCount`, controller
+always 1). `resourceTierOverride` pins a preset without changing the parent
+global. An unknown tier fails the render.
+
+| Preset | Server requests | Controller requests |
+| --- | --- | --- |
+| `small` | 50m / 128Mi | 50m / 128Mi |
+| `medium` | 100m / 256Mi | 100m / 256Mi |
+| `large` | 500m / 512Mi | 500m / 512Mi |
+
+```yaml
+# Parent truefoundry values (example)
+global:
+  resourceTier: large
+```
+
 ## Postgres
 
 Bundled by default (`postgresql.enabled=true`). The chart ships a **dev**
@@ -198,6 +222,7 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
+| `resourceTierOverride`| `""`                                | Optional TrueFoundry `small` / `medium` / `large` preset; empty uses `resources`. |
 | `server.replicaCount` | `1`                                 | Number of server replicas.            |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
@@ -212,7 +237,7 @@ extraObjects:
 | `podDisruptionBudget.enabled` | `false`                       | Enable a PodDisruptionBudget (`minAvailable` defaults to `1`). |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
-| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Container CPU, memory, and ephemeral-storage requests/limits. |
+| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
 | `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`TRUEFORGE_MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
 | `mtls.certsDir`       | `/etc/tls`                          | Mount path / `TRUEFORGE_MTLS_CERTS_DIR`. |

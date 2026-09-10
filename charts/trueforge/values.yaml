@@ -121,6 +121,10 @@ configs:
 global:
   security:
     allowInsecureImages: true
+# TrueFoundry size knob. Empty = use `resources` / `controller.resources`.
+# A parent chart (truefoundry) may pass global.resourceTier; this override pins
+# the preset without changing that global.
+resourceTierOverride: ""
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
 # wired to this release automatically. See the Bitnami postgresql chart for the

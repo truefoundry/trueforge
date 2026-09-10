@@ -163,6 +163,148 @@ postgresql subchart (existingSecret override or <release>-postgresql).
 {{- end }}
 
 {{/*
+TrueFoundry size knob. Empty when unset so a standalone install uses `resources`.
+Set by a parent chart's global.resourceTier, or resourceTierOverride.
+Not a Kubernetes concept; do not default it here.
+*/}}
+{{- define "trueforge.resourceTier" -}}
+{{- $override := .Values.resourceTierOverride | default "" | toString | trim -}}
+{{- $fromGlobal := "" -}}
+{{- with .Values.global -}}
+{{- $fromGlobal = .resourceTier | default "" | toString | trim -}}
+{{- end -}}
+{{- $tier := $override | default $fromGlobal -}}
+{{- if $tier -}}
+{{- if not (has $tier (list "small" "medium" "large")) -}}
+{{- fail (printf "resourceTier must be small, medium, or large (got %q)" $tier) -}}
+{{- end -}}
+{{- $tier -}}
+{{- end -}}
+{{- end }}
+
+{{- define "trueforge.replicas" -}}
+{{- .Values.server.replicaCount -}}
+{{- end }}
+
+{{- define "trueforge.defaultResources.small" -}}
+requests:
+  cpu: 50m
+  memory: 128Mi
+  ephemeral-storage: 128Mi
+limits:
+  cpu: 100m
+  memory: 256Mi
+  ephemeral-storage: 256Mi
+{{- end }}
+
+{{- define "trueforge.defaultResources.medium" -}}
+requests:
+  cpu: 100m
+  memory: 256Mi
+  ephemeral-storage: 256Mi
+limits:
+  cpu: 200m
+  memory: 512Mi
+  ephemeral-storage: 512Mi
+{{- end }}
+
+{{- define "trueforge.defaultResources.large" -}}
+requests:
+  cpu: 500m
+  memory: 512Mi
+  ephemeral-storage: 512Mi
+limits:
+  cpu: 1000m
+  memory: 1024Mi
+  ephemeral-storage: 1024Mi
+{{- end }}
+
+{{- define "trueforge.controller.defaultResources.small" -}}
+requests:
+  cpu: 50m
+  memory: 128Mi
+  ephemeral-storage: 128Mi
+limits:
+  cpu: 100m
+  memory: 256Mi
+  ephemeral-storage: 256Mi
+{{- end }}
+
+{{- define "trueforge.controller.defaultResources.medium" -}}
+requests:
+  cpu: 100m
+  memory: 256Mi
+  ephemeral-storage: 128Mi
+limits:
+  cpu: 200m
+  memory: 512Mi
+  ephemeral-storage: 256Mi
+{{- end }}
+
+{{- define "trueforge.controller.defaultResources.large" -}}
+requests:
+  cpu: 500m
+  memory: 512Mi
+  ephemeral-storage: 128Mi
+limits:
+  cpu: 1000m
+  memory: 1024Mi
+  ephemeral-storage: 256Mi
+{{- end }}
+
+{{/*
+Server requests/limits. Default is `.Values.resources`. A TrueFoundry resourceTier
+replaces that table (child-chart resource defaults must not overlay it).
+*/}}
+{{- define "trueforge.resources" -}}
+{{- $tier := include "trueforge.resourceTier" . | trim -}}
+{{- if $tier -}}
+{{- $defaultsYaml := "" -}}
+{{- if eq $tier "small" -}}
+  {{- $defaultsYaml = include "trueforge.defaultResources.small" . -}}
+{{- else if eq $tier "medium" -}}
+  {{- $defaultsYaml = include "trueforge.defaultResources.medium" . -}}
+{{- else if eq $tier "large" -}}
+  {{- $defaultsYaml = include "trueforge.defaultResources.large" . -}}
+{{- end -}}
+{{- $defaultsYaml -}}
+{{- else -}}
+{{- toYaml (.Values.resources | default dict) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Controller requests/limits. Default is `.Values.controller.resources`.
+Replica count is always 1, even when a resourceTier is set.
+*/}}
+{{- define "trueforge.controller.resources" -}}
+{{- $tier := include "trueforge.resourceTier" . | trim -}}
+{{- if $tier -}}
+{{- $defaultsYaml := "" -}}
+{{- if eq $tier "small" -}}
+  {{- $defaultsYaml = include "trueforge.controller.defaultResources.small" . -}}
+{{- else if eq $tier "medium" -}}
+  {{- $defaultsYaml = include "trueforge.controller.defaultResources.medium" . -}}
+{{- else if eq $tier "large" -}}
+  {{- $defaultsYaml = include "trueforge.controller.defaultResources.large" . -}}
+{{- end -}}
+{{- $defaultsYaml -}}
+{{- else -}}
+{{- toYaml (.Values.controller.resources | default dict) -}}
+{{- end -}}
+{{- end }}
+
+{{- define "trueforge.tmpEmptyDirSizeLimit" -}}
+{{- $merged := include "trueforge.resources" . | fromYaml | default dict -}}
+{{- index ($merged.limits | default dict) "ephemeral-storage" -}}
+{{- end }}
+
+{{- define "trueforge.controller.tmpEmptyDirSizeLimit" -}}
+{{- $merged := include "trueforge.controller.resources" . | fromYaml | default dict -}}
+{{- index ($merged.limits | default dict) "ephemeral-storage" -}}
+{{- end }}
+
+{{/*
 JSON env entry from a string | { valueFrom: ... } field.
 Expects: name (env var), field (values path for errors), value.
 Literals become env value; valueFrom maps are passed through. The chart does

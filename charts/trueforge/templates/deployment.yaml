@@ -6,7 +6,7 @@ metadata:
     {{- include "trueforge.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.server.replicaCount }}
+  replicas: {{ include "trueforge.replicas" . }}
   {{- end }}
   {{- with .Values.server.strategy }}
   strategy:
@@ -71,10 +71,8 @@ spec:
           readinessProbe:
             {{- include "trueforge.httpProbe" (dict "probe" . "root" $) | nindent 12 }}
           {{- end }}
-          {{- with .Values.resources }}
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- include "trueforge.resources" . | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -85,11 +83,9 @@ spec:
         {{- with .Values.extraContainers }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- $resources := default dict .Values.resources }}
-      {{- $limits := default dict (index $resources "limits") }}
       volumes:
         - name: tmp
-          {{- with index $limits "ephemeral-storage" }}
+          {{- with include "trueforge.tmpEmptyDirSizeLimit" . }}
           emptyDir:
             sizeLimit: {{ . | quote }}
           {{- else }}
