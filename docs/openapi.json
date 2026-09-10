@@ -1830,6 +1830,45 @@
         ],
         "type": "object"
       },
+      "ListPermissionsRequest": {
+        "properties": {
+          "resource_ids": {
+            "description": "Resource ids of `resource_type` to evaluate for the caller.",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "resource_type": {
+            "$ref": "#/components/schemas/PermissionResourceType"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_ids"
+        ],
+        "type": "object"
+      },
+      "ListPermissionsResponse": {
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ResourcePermission"
+              },
+              "type": "array"
+            },
+            "description": "Permissions granted to the caller, keyed by resource id. Missing or inaccessible ids are `[]`.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListScheduleRunsResponse": {
         "properties": {
           "data": {
@@ -2849,6 +2888,15 @@
         ],
         "type": "object"
       },
+      "PermissionResourceType": {
+        "description": "Resource type to evaluate permissions for.",
+        "enum": [
+          "agent",
+          "schedule",
+          "session"
+        ],
+        "type": "string"
+      },
       "PreviousTurnIdInput": {
         "anyOf": [
           {
@@ -2941,6 +2989,15 @@
         "maxLength": 64,
         "minLength": 2,
         "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
+        "type": "string"
+      },
+      "ResourcePermission": {
+        "description": "Granted action on a resource.",
+        "enum": [
+          "USE",
+          "MANAGE",
+          "DELETE"
+        ],
         "type": "string"
       },
       "ResponseFormat": {
@@ -5125,6 +5182,61 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/internal/list-permissions": {
+      "post": {
+        "description": "Return granted actions for each requested agent, schedule, or session id.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListPermissionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPermissionsResponse"
+                }
+              }
+            },
+            "description": "Permissions keyed by resource id."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie"
+          }
+        },
+        "summary": "List permissions for resources",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal"
+        ],
+        "x-fern-sdk-method-name": "list_permissions"
+      }
+    },
     "/api/internal/metrics/charts": {
       "get": {
         "description": "List available session metric charts.",
