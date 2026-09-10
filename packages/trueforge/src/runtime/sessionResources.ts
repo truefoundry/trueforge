@@ -57,6 +57,30 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
   return { [X_TFY_METADATA]: JSON.stringify(metadata) };
 }
 
+/**
+ * Merge gateway metadata into MCP invoke headers. Preserves authRequired;
+ * metadata is applied after auth/per-server headers.
+ */
+export function withGatewayMetadataHeaders(input: {
+  headers: RemoteMcpHeaders;
+  metadataHeaders: Record<string, string>;
+}): RemoteMcpHeaders {
+  const { headers, metadataHeaders } = input;
+  if (Object.keys(metadataHeaders).length === 0) {
+    return headers;
+  }
+  if (typeof headers !== 'function') {
+    return { ...headers, ...metadataHeaders };
+  }
+  return async () => {
+    const result = await headers();
+    if ('authRequired' in result) {
+      return result;
+    }
+    return { headers: { ...result.headers, ...metadataHeaders } };
+  };
+}
+
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
   const slash = name.indexOf('/');
