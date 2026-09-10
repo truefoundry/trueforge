@@ -1,8 +1,3 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import {
-  decodeOffsetPageToken,
-  paginateOffsetRows,
-} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
@@ -43,25 +38,16 @@ export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Databas
     this.#db = db;
   }
 
-  async listServers(
-    input: ListMcpServersInput,
-    transaction?: Transaction<Database>,
-  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }> {
-    const offset = decodeOffsetPageToken(input.page_token);
+  async listServers(input: ListMcpServersInput, transaction?: Transaction<Database>): Promise<McpServerRecord[]> {
     if (input.names?.length === 0) {
-      return paginateOffsetRows([], input.limit, offset);
+      return [];
     }
     const db = transaction ?? this.#db;
     let query = db.selectFrom('mcp_server').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if (input.names !== undefined) {
       query = query.where('name', 'in', [...input.names]);
     }
-    const rows = await query
-      .orderBy('name')
-      .limit(input.limit + 1)
-      .offset(offset)
-      .execute();
-    return paginateOffsetRows(rows, input.limit, offset);
+    return await query.orderBy('name').execute();
   }
 
   async getServer(input: GetMcpServerInput, transaction?: Transaction<Database>): Promise<McpServerRecord | undefined> {

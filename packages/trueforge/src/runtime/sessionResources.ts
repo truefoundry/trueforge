@@ -280,10 +280,8 @@ export async function validateAgentSpec({
         await mcpServerStore.listServers({
           tenant_id,
           names,
-          limit: Math.max(names.length, 1),
-          page_token: undefined,
         })
-      ).data.map(record => record.name),
+      ).map(record => record.name),
     );
     const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
     if (unknown !== undefined) {

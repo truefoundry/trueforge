@@ -24,6 +24,7 @@ let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
 let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
+let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
 
 try {
@@ -32,6 +33,7 @@ try {
     isOidcConfigured,
     isTrueFoundryModeEnabled,
     getTrueForgeAuthMode,
+    getPublicUiBasePath,
     TrueForgeAuthMode,
   } = await import('./config'));
 } catch (error) {
@@ -511,7 +513,7 @@ try {
       )
     : await createServerRuntime(await createDistributedPersistence({ configuration, logger }), logger);
 
-  if (mountFrontend(app, configuration.FRONTEND_DIR)) {
+  if (mountFrontend(app, { dir: configuration.FRONTEND_DIR, uiBasePath: getPublicUiBasePath() })) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
   } else {
     logger.warn(

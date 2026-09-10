@@ -8,14 +8,12 @@ import type { AgentSpec, ConnectorState, McpToolSelection } from '../../server/t
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
-import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Spinner } from '../primitives/Spinner.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { editableMountsFromSpec, enabledToolsFromMount, withEnabledTools } from './agentConfigMounts.js';
-import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
 
 export type AgentMcpEditorContentProps = {
@@ -104,8 +102,6 @@ export function AgentMcpEditorContent({
   onRefreshConnector,
   onChange,
 }: AgentMcpEditorContentProps) {
-  const { connectorsHasMore, connectorsLoadMoreFailed, connectorsLoadingMore, loading, loadMoreConnectors } =
-    useDraftCatalog();
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
@@ -125,12 +121,6 @@ export function AgentMcpEditorContent({
   const filteredTools =
     normalizedToolQuery === '' ? tools : tools.filter(tool => tool.name.toLowerCase().includes(normalizedToolQuery));
 
-  const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
-    enabled: true,
-    hasMore: connectorsHasMore && !connectorsLoadMoreFailed,
-    loading: connectorsLoadingMore || loading,
-    onLoadMore: loadMoreConnectors,
-  });
   const updateMount = (mountId: string, value: object) => {
     onChange({
       ...spec,
@@ -196,7 +186,7 @@ export function AgentMcpEditorContent({
             className={auiInputClass('h-8 w-full pl-7')}
           />
         </label>
-        <div ref={connectorsListRef} className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredConnectors.map(connector => {
             const mounted = mcpMounts.some(item => item.id === connector.id || item.name === connector.name);
             const active = connector.id === activeConnectorId;
@@ -225,24 +215,6 @@ export function AgentMcpEditorContent({
               </button>
             );
           })}
-          {connectorsHasMore ? (
-            <div
-              ref={connectorsLoadMoreFailed ? undefined : connectorsSentinelRef}
-              className="flex h-8 items-center justify-center"
-            >
-              {connectorsLoadMoreFailed ? (
-                <button
-                  type="button"
-                  className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                  onClick={loadMoreConnectors}
-                >
-                  Retry loading connectors
-                </button>
-              ) : connectorsLoadingMore ? (
-                <Spinner size={16} className="text-text-secondary" aria-label="Loading more MCP servers" />
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
 

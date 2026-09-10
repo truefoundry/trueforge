@@ -4,7 +4,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.1-a5f8116"
+  tag: "0.2.0-rc.2-5632412"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -51,8 +51,9 @@ server:
       maxSurge: 1
   # Container port the server listens on (PORT).
   port: 8790
-  # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
-  # Required for OIDC and MCP OAuth to work correctly.
+  # Public application URL for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
+  # May include a pathname (e.g. https://host/custom/proxy/path); that path is the UI/API
+  # public prefix when a reverse proxy strips it. Required for OIDC and MCP OAuth.
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30
