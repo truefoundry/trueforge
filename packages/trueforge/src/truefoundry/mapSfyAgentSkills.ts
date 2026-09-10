@@ -17,16 +17,12 @@ const SfyRegistryManifestSchema = z.object({
 
 const SfyRegistrySkillSchema = z
   .object({
-    id: z.string().min(1),
-    fqn: z.string().min(1),
     latest_version: z.object({
       fqn: z.string().min(1),
       manifest: SfyRegistryManifestSchema,
     }),
   })
-  .transform(({ id, fqn, latest_version }) => ({
-    skill_id: id,
-    skill_fqn: fqn,
+  .transform(({ latest_version }) => ({
     // Wire identity is the version FQN; short SFY name is display-only.
     name: latest_version.fqn,
     display_name: latest_version.manifest.name,

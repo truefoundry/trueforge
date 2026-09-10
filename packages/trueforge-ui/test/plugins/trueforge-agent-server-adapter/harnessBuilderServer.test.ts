@@ -155,6 +155,36 @@ describe('harnessBuilderServer', () => {
     ]);
   });
 
+  it('getMcpConnector loads the live per-user auth status', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/mcp-servers/github%20enterprise')) {
+        return Response.json({
+          data: {
+            name: 'github enterprise',
+            url: 'https://github.example/mcp',
+            auth: { type: 'dcr' },
+            auth_status: { status: 'auth_required' },
+          },
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    if (builder.getMcpConnector === undefined) throw new Error('expected getMcpConnector');
+
+    assert.deepEqual(await builder.getMcpConnector({ connectorId: 'github enterprise' }), {
+      id: 'github enterprise',
+      name: 'github enterprise',
+      description: 'https://github.example/mcp',
+      url: 'https://github.example/mcp',
+      auth: { type: 'dcr' },
+      requiresAuth: true,
+      authenticated: false,
+    });
+  });
+
   it('getMcpTools loads connector tools and normalizes untrusted rows', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);

@@ -71,18 +71,14 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
 
   async listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]> {
     void transaction;
-    if (input.names?.length === 0) {
-      return [];
+    // Catalog list is always full; name filters belong on validateAgentSkills (SFY resolve).
+    if (input.names !== undefined) {
+      throw new HTTPException(422, {
+        message: 'TrueFoundry skill list does not support name filters',
+      });
     }
     const accessToken = await this.#resolveAccessToken();
-    let skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
-    const names = input.names;
-    if (names !== undefined) {
-      // TrueFoundry callers do not pass names: catalog list is unfiltered; save checks use validateAgentSkills.
-      // SFY list has no multi-name IN (only optional skill-level fqn).
-      // so filter locally if names is set.
-      skills = skills.filter(skill => names.includes(skill.name));
-    }
+    const skills = mapSfyRegistrySkills(await this.#client.listAgentSkills({ accessToken }));
     return skills.map(skill => toRegistryRecord(input.tenant_id, skill));
   }
 
