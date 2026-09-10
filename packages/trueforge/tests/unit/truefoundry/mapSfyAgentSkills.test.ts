@@ -20,7 +20,7 @@ const VERSION = {
 };
 
 describe('mapSfyRegistrySkills', () => {
-  it('maps list rows with skill id/fqn and latest version FQN as name', () => {
+  it('maps list rows with latest version FQN as name', () => {
     expect(
       mapSfyRegistrySkills([
         {
@@ -36,8 +36,6 @@ describe('mapSfyRegistrySkills', () => {
       ]),
     ).toEqual([
       {
-        skill_id: 'skill-1',
-        skill_fqn: 'agent-skill:acme/team-a/echo',
         name: 'agent-skill:acme/team-a/echo:3',
         display_name: 'echo',
         description: 'Echo skill',
@@ -77,8 +75,6 @@ describe('mapSfyRegistrySkills', () => {
       ]),
     ).toEqual([
       {
-        skill_id: 'skill-2',
-        skill_fqn: 'agent-skill:acme/team-a/My Skill',
         name: 'agent-skill:acme/team-a/My Skill:1',
         display_name: 'My Skill',
         description: 'Mixed-case display name',

@@ -108,14 +108,18 @@ describe('TrueFoundrySkillStore', () => {
     expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
   });
 
-  it('listSkills filters names locally after listing the full catalog', async () => {
+  it('listSkills rejects name filters', async () => {
     const { store, client } = createStore();
-    const records = await store.listSkills({
-      tenant_id: TENANT,
-      names: ['agent-skill:acme/team-a/echo:3', 'agent-skill:acme/team-a/missing:1'],
+    await expect(
+      store.listSkills({
+        tenant_id: TENANT,
+        names: ['agent-skill:acme/team-a/echo:3'],
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'TrueFoundry skill list does not support name filters',
     });
-    expect(client.listAgentSkills).toHaveBeenCalledWith({ accessToken: ACCESS_TOKEN });
-    expect(records.map(r => r.name)).toEqual(['agent-skill:acme/team-a/echo:3']);
+    expect(client.listAgentSkills).not.toHaveBeenCalled();
   });
 
   it('validateAgentSkills resolves version FQNs via SFY', async () => {
