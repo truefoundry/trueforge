@@ -3,7 +3,6 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ResourceName } from "./ResourceName.js";
 import { SkillManifest } from "./SkillManifest.js";
 
 export const ConfiguredSkill: core.serialization.ObjectSchema<
@@ -11,12 +10,12 @@ export const ConfiguredSkill: core.serialization.ObjectSchema<
     TrueForge.ConfiguredSkill
 > = core.serialization.object({
     manifest: SkillManifest,
-    name: ResourceName,
+    name: core.serialization.string(),
 });
 
 export declare namespace ConfiguredSkill {
     export interface Raw {
         manifest: SkillManifest.Raw;
-        name: ResourceName.Raw;
+        name: string;
     }
 }

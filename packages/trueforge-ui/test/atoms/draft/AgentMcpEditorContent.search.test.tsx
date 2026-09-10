@@ -15,6 +15,8 @@ describe('AgentMcpEditorContent tool search', () => {
       ],
       activeConnectorId: 'github',
       tools: [],
+      connectorLoading: false,
+      connectorError: null,
       toolsLoading: false,
       toolsError: null,
       onQueryChange: vi.fn(),
@@ -56,11 +58,14 @@ describe('AgentMcpEditorContent tool search', () => {
             { id: 'web_search', name: 'web_search', description: 'Perform web searches' },
             { id: 'web_fetch', name: 'web_fetch', description: 'Fetch web URLs' },
           ]}
+          connectorLoading={false}
+          connectorError={null}
           toolsLoading={false}
           toolsError={null}
           onQueryChange={vi.fn()}
           onSelectConnector={vi.fn()}
           onRetryTools={vi.fn()}
+          onRefreshConnector={vi.fn()}
           onChange={vi.fn()}
         />
       </SlotsProvider>,
@@ -92,11 +97,14 @@ describe('AgentMcpEditorContent tool search', () => {
             },
             { id: 'web_fetch', name: 'web_fetch', description: 'Fetch web URLs' },
           ]}
+          connectorLoading={false}
+          connectorError={null}
           toolsLoading={false}
           toolsError={null}
           onQueryChange={vi.fn()}
           onSelectConnector={vi.fn()}
           onRetryTools={vi.fn()}
+          onRefreshConnector={vi.fn()}
           onChange={vi.fn()}
         />
       </SlotsProvider>,

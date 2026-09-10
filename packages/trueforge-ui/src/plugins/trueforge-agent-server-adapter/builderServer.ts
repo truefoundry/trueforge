@@ -83,11 +83,22 @@ export function createHarnessBuilderServer(
       });
     },
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
+    // Catalog AvailableSkill.name is store identity (FQN in TFY). Picker `id` copies that
+    // attach key; `name` is displayName so the draft can show a label without losing the wire key.
+    // Draft mounts `{ id, name }`; toHarnessSkill admits AgentSpec.skills[].name = id ?? name.
     getSkills: async () => {
       const skills = await listSkills(client);
-      return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
+      return skills.map(skill => ({
+        id: skill.name,
+        name: skill.metadata?.display_name ?? skill.name,
+        description: skill.description,
+      }));
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
+    getMcpConnector: async ({ connectorId }: { connectorId: string }) => {
+      const body = await client.mcpServers.get(connectorId);
+      return toUiConnectorFromReadEntry(body.data);
+    },
     getMcpTools: async ({ connectorId }: { connectorId: string }) => {
       const body = await client.mcpServers.listTools(connectorId);
       return body.data.flatMap(tool =>
