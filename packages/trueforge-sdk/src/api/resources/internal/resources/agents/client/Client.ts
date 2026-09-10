@@ -26,6 +26,7 @@ export class AgentsClient {
      * TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
      *
      * @param {string} agent_id - Immutable agent identifier.
+     * @param {TrueForge.internal.GetCodeSnippetsAgentsRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.NotFoundError}
@@ -37,15 +38,21 @@ export class AgentsClient {
      */
     public getCodeSnippets(
         agent_id: string,
+        request: TrueForge.internal.GetCodeSnippetsAgentsRequest = {},
         requestOptions?: AgentsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.GetAgentCodeSnippetsResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__getCodeSnippets(agent_id, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__getCodeSnippets(agent_id, request, requestOptions));
     }
 
     private async __getCodeSnippets(
         agent_id: string,
+        request: TrueForge.internal.GetCodeSnippetsAgentsRequest = {},
         requestOptions?: AgentsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.GetAgentCodeSnippetsResponse>> {
+        const { baseUrl } = request;
+        const _queryParams: Record<string, unknown> = {
+            base_url: baseUrl,
+        };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -60,7 +67,11 @@ export class AgentsClient {
             ),
             method: "GET",
             headers: _headers,
-            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            queryString: core.url
+                .queryBuilder()
+                .addMany(_queryParams)
+                .mergeAdditional(requestOptions?.queryParams)
+                .build(),
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
             maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
             abortSignal: requestOptions?.abortSignal,

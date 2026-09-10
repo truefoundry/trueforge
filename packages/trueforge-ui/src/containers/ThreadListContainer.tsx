@@ -22,6 +22,7 @@ import {
 } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -44,7 +45,8 @@ export type ThreadListContainerProps = {
 const deleteItemClass =
   'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-failure-bg outline-none transition-colors hover:bg-failure-bg/12 hover:text-failure-bg focus:bg-failure-bg/12 focus:text-failure-bg data-[highlighted]:bg-failure-bg/12 data-[highlighted]:text-failure-bg';
 
-function ThreadListItemDeleteMenu() {
+function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
+  const PermissionGuard = useSlot('PermissionGuard');
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -77,11 +79,18 @@ function ThreadListItemDeleteMenu() {
         </button>
         {sheetOpen ? (
           <BottomSheet open onOpenChange={setSheetOpen} aria-label="Session actions">
-            <div className="flex flex-col gap-1 p-2" role="menu">
-              <ThreadListItemPrimitive.Delete className={deleteItemClass} onClick={() => setSheetOpen(false)}>
-                <Icon name="trash" className="size-3.5" />
-                Delete
-              </ThreadListItemPrimitive.Delete>
+            <div className="flex flex-col gap-1 p-2 *:w-full" role="menu">
+              <PermissionGuard allowed={!disabled}>
+                <ThreadListItemPrimitive.Delete
+                  className={deleteItemClass}
+                  onClick={() => {
+                    if (!disabled) setSheetOpen(false);
+                  }}
+                >
+                  <Icon name="trash" className="size-3.5" />
+                  Delete
+                </ThreadListItemPrimitive.Delete>
+              </PermissionGuard>
             </div>
           </BottomSheet>
         ) : null}
@@ -103,14 +112,14 @@ function ThreadListItemDeleteMenu() {
         portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
+        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md *:w-full"
       >
-        <ThreadListItemPrimitive.Delete asChild>
-          <ThreadListItemMorePrimitive.Item className={deleteItemClass}>
+        <PermissionGuard allowed={!disabled}>
+          <ThreadListItemPrimitive.Delete className={deleteItemClass}>
             <Icon name="trash" className="size-3.5" />
             Delete
-          </ThreadListItemMorePrimitive.Item>
-        </ThreadListItemPrimitive.Delete>
+          </ThreadListItemPrimitive.Delete>
+        </PermissionGuard>
       </ThreadListItemMorePrimitive.Content>
     </ThreadListItemMorePrimitive.Root>
   );
@@ -119,9 +128,11 @@ function ThreadListItemDeleteMenu() {
 function ThreadListItemRow({
   onThreadOpen,
   canDeleteSession,
+  canDeleteResource,
 }: {
   onThreadOpen?: () => void;
   canDeleteSession: boolean;
+  canDeleteResource: (sessionId: string) => boolean;
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
@@ -134,6 +145,7 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const showDelete = canDeleteSession && remoteId != null;
+  const deleteDisabled = remoteId != null && !canDeleteResource(remoteId);
   const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
 
   return (
@@ -183,7 +195,7 @@ function ThreadListItemRow({
           }
           void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
         }}
-        actions={showDelete ? <ThreadListItemDeleteMenu /> : undefined}
+        actions={showDelete ? <ThreadListItemDeleteMenu disabled={deleteDisabled} /> : undefined}
       />
     </ThreadListItemPrimitive.Root>
   );
@@ -216,10 +228,12 @@ function ThreadListItemsByRecency({
   indices,
   onThreadOpen,
   canDeleteSession,
+  canDeleteResource,
 }: {
   indices: number[];
   onThreadOpen?: () => void;
   canDeleteSession: boolean;
+  canDeleteResource: (sessionId: string) => boolean;
 }) {
   // Newest-first: remount/switchToThread can append the active session to threadIds.
   const threadIds = useAuiState(s => s.threads.threadIds);
@@ -230,7 +244,11 @@ function ThreadListItemsByRecency({
         const key = threadIds[index] ?? String(index);
         return (
           <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
-            <ThreadListItemRow onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
+            <ThreadListItemRow
+              onThreadOpen={onThreadOpen}
+              canDeleteSession={canDeleteSession}
+              canDeleteResource={canDeleteResource}
+            />
           </ThreadListItemByIndexProvider>
         );
       })}
@@ -289,6 +307,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
   const hasMore = useAuiState(s => s.threads.hasMore);
   const threadIds = useAuiState(s => s.threads.threadIds);
+  const threadItems = useAuiState(s => s.threads.threadItems);
   const shell = useOptionalShellMode();
 
   const ThreadListShell = useSlot('ThreadListShell');
@@ -310,6 +329,11 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const isIdle = shell?.mode.status === 'idle';
   const isRecentHistory = variant === 'recent-history';
   const canDeleteSession = typeof server?.deleteSession === 'function';
+  const remoteSessionIds = useMemo(
+    () => threadItems.flatMap(item => (item.remoteId == null ? [] : [item.remoteId])),
+    [threadItems],
+  );
+  const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds: remoteSessionIds });
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
   // Re-measure after commit (threadIds / hasMore) instead of rAF-chaining, which
@@ -374,7 +398,12 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
-        <ThreadListItemsByRecency indices={indices} onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
+        <ThreadListItemsByRecency
+          indices={indices}
+          onThreadOpen={onThreadOpen}
+          canDeleteSession={canDeleteSession}
+          canDeleteResource={sessionId => allows(sessionId, 'DELETE')}
+        />
       </ThreadListPrimitive.Root>
     );
   }
