@@ -3,9 +3,13 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { useResourcePermissions } from '@/hooks/useResourcePermissions.js';
+import {
+  ActiveSessionPermissionsProvider,
+  useActiveSessionCanManage,
+  useResourcePermissions,
+} from '@/hooks/useResourcePermissions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ResourcePermission } from '@/server/types.js';
+import type { ListPermissionsResponse, ResourcePermission } from '@/server/types.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 describe('useResourcePermissions', () => {
@@ -65,5 +69,75 @@ describe('useResourcePermissions', () => {
     rerender({ ids: ['session-error'] });
     await waitFor(() => expect(result.current.error).toEqual(new Error('permission service unavailable')));
     expect(result.current.allows('session-error', 'DELETE')).toBe(false);
+  });
+
+  it('keeps known grants while an expanded request loads and fails', async () => {
+    let rejectExpanded: ((reason: unknown) => void) | undefined;
+    const knownResponse: { data: Record<string, ResourcePermission[]> } = {
+      data: { known: ['MANAGE'] },
+    };
+    const listPermissions = vi
+      .fn()
+      .mockResolvedValueOnce(knownResponse)
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ data: Record<string, ResourcePermission[]> }>((_resolve, reject) => {
+            rejectExpanded = reject;
+          }),
+      );
+    const server = createMockAgentUIServer({ permissions: { listPermissions } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ServerProvider server={server}>{children}</ServerProvider>
+    );
+    const { result, rerender } = renderHook(
+      ({ ids }) => useResourcePermissions({ resourceType: 'session', resourceIds: ids }),
+      { initialProps: { ids: ['known'] }, wrapper },
+    );
+
+    await waitFor(() => expect(result.current.allows('known', 'MANAGE')).toBe(true));
+    rerender({ ids: ['known', 'new'] });
+    expect(result.current.allows('known', 'MANAGE')).toBe(true);
+    expect(result.current.allows('new', 'MANAGE')).toBe(false);
+
+    await act(async () => {
+      rejectExpanded?.(new Error('permission service unavailable'));
+    });
+    await waitFor(() => expect(result.current.error).toEqual(new Error('permission service unavailable')));
+    expect(result.current.allows('known', 'MANAGE')).toBe(true);
+    expect(result.current.allows('new', 'MANAGE')).toBe(false);
+  });
+
+  it('keeps a locally created active session manageable while permissions load', () => {
+    const server = createMockAgentUIServer({
+      permissions: {
+        listPermissions: vi.fn(() => new Promise<ListPermissionsResponse>(() => undefined)),
+      },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ServerProvider server={server}>
+        <ActiveSessionPermissionsProvider sessionId="new-session" assumeManage>
+          {children}
+        </ActiveSessionPermissionsProvider>
+      </ServerProvider>
+    );
+    const { result } = renderHook(() => useActiveSessionCanManage(), { wrapper });
+
+    expect(result.current).toBe(true);
+  });
+
+  it('keeps a loaded active session read-only while permissions load', () => {
+    const server = createMockAgentUIServer({
+      permissions: {
+        listPermissions: vi.fn(() => new Promise<ListPermissionsResponse>(() => undefined)),
+      },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <ServerProvider server={server}>
+        <ActiveSessionPermissionsProvider sessionId="loaded-session">{children}</ActiveSessionPermissionsProvider>
+      </ServerProvider>
+    );
+    const { result } = renderHook(() => useActiveSessionCanManage(), { wrapper });
+
+    expect(result.current).toBe(false);
   });
 });

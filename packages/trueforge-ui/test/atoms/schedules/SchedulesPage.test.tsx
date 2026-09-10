@@ -149,6 +149,21 @@ describe('SchedulesPage', () => {
     expect(screen.getByRole('button', { name: 'Run now daily-digest' })).toBeDisabled();
   });
 
+  it('disables global schedule creation when no listed agent has USE', async () => {
+    const listPermissions = vi.fn(async () => ({ data: { 'demo-agent': [] } }));
+    renderPage(sampleSchedules, {}, undefined, undefined, {
+      permissions: { listPermissions },
+    });
+
+    await waitFor(() => {
+      expect(listPermissions).toHaveBeenCalledWith({
+        resourceType: 'agent',
+        resourceIds: ['demo-agent'],
+      });
+    });
+    expect(screen.getByRole('button', { name: 'Create Schedule' })).toBeDisabled();
+  });
+
   it('locks embedded schedules to the supplied agent', async () => {
     const { scheduleServer } = renderPage(sampleSchedules, {}, undefined, undefined, { agentId: 'demo-agent' });
 

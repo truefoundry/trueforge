@@ -12,11 +12,13 @@ import {
 } from 'react';
 
 import { useOptionalPermissionsServer } from '../server/ServerContext.js';
-import type { PermissionResourceType, ResourcePermission } from '../server/types.js';
+import type { PermissionResourceType, PermissionsServer, ResourcePermission } from '../server/types.js';
 
 const PERMISSIONS_BATCH_SIZE = 100;
 
 type PermissionsLoadState = {
+  server: PermissionsServer | null;
+  resourceType: PermissionResourceType | null;
   key: string;
   data: Record<string, ResourcePermission[]>;
   loading: boolean;
@@ -56,7 +58,11 @@ export function useResourcePermissions({
   const idsKey = JSON.stringify([...new Set(resourceIds.filter(resourceId => resourceId.length > 0))]);
   const hasResourceIds = idsKey !== '[]';
   const requestKey = `${resourceType}:${idsKey}`;
+  const requestedIds = useMemo(() => parseResourceIds(idsKey), [idsKey]);
+  const requestedIdSet = useMemo(() => new Set(requestedIds), [requestedIds]);
   const [state, setState] = useState<PermissionsLoadState>({
+    server: null,
+    resourceType: null,
     key: '',
     data: {},
     loading: false,
@@ -67,8 +73,11 @@ export function useResourcePermissions({
     if (server == null || !hasResourceIds) return;
 
     let cancelled = false;
-    const requestedIds = parseResourceIds(idsKey);
-    setState({ key: requestKey, data: {}, loading: true, error: null });
+    setState(current =>
+      current.server === server && current.resourceType === resourceType
+        ? { ...current, key: requestKey, loading: true, error: null }
+        : { server, resourceType, key: requestKey, data: {}, loading: true, error: null },
+    );
     void Promise.all(
       permissionBatches(requestedIds).map(resourceIdsBatch =>
         server.listPermissions({ resourceType, resourceIds: resourceIdsBatch }),
@@ -77,6 +86,8 @@ export function useResourcePermissions({
       responses => {
         if (cancelled) return;
         setState({
+          server,
+          resourceType,
           key: requestKey,
           data: Object.assign({}, ...responses.map(response => response.data)),
           loading: false,
@@ -85,27 +96,33 @@ export function useResourcePermissions({
       },
       caught => {
         if (cancelled) return;
-        setState({ key: requestKey, data: {}, loading: false, error: caught });
+        setState(current => ({
+          server,
+          resourceType,
+          key: requestKey,
+          data: current.server === server && current.resourceType === resourceType ? current.data : {},
+          loading: false,
+          error: caught,
+        }));
       },
     );
 
     return () => {
       cancelled = true;
     };
-  }, [hasResourceIds, idsKey, requestKey, resourceType, server]);
+  }, [hasResourceIds, requestKey, requestedIds, resourceType, server]);
 
-  const ready =
-    server == null || !hasResourceIds || (state.key === requestKey && !state.loading && state.error == null);
-  const loading = server != null && hasResourceIds && (state.key !== requestKey || state.loading);
-  const error = state.key === requestKey ? state.error : null;
+  const sameScope = state.server === server && state.resourceType === resourceType;
+  const loading = server != null && hasResourceIds && (!sameScope || state.key !== requestKey || state.loading);
+  const error = sameScope && state.key === requestKey ? state.error : null;
 
   const allows = useCallback(
     (resourceId: string | null | undefined, permission: ResourcePermission) => {
       if (server == null || resourceId == null || resourceId === '') return true;
-      if (!hasResourceIds) return false;
-      return ready && (state.data[resourceId] ?? []).includes(permission);
+      if (!requestedIdSet.has(resourceId) || !sameScope) return false;
+      return (state.data[resourceId] ?? []).includes(permission);
     },
-    [hasResourceIds, ready, server, state.data],
+    [requestedIdSet, sameScope, server, state.data],
   );
 
   return { loading, error, allows };
@@ -115,14 +132,20 @@ const ActiveSessionManageContext = createContext(true);
 
 export function ActiveSessionPermissionsProvider({
   sessionId,
+  assumeManage = false,
   children,
 }: {
   sessionId: string | null | undefined;
+  assumeManage?: boolean;
   children: ReactNode;
 }) {
   const resourceIds = useMemo(() => (sessionId == null ? [] : [sessionId]), [sessionId]);
   const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds });
-  return createElement(ActiveSessionManageContext.Provider, { value: allows(sessionId, 'MANAGE') }, children);
+  return createElement(
+    ActiveSessionManageContext.Provider,
+    { value: assumeManage || allows(sessionId, 'MANAGE') },
+    children,
+  );
 }
 
 export function useActiveSessionCanManage(): boolean {

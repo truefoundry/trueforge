@@ -174,11 +174,19 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     () => agentId ?? filtersFromSearch(window.location.search).agentFilter,
   );
   const permissionAgentId = agentId ?? (agentFilter === 'all' ? null : agentFilter);
+  const permissionAgentIds = useMemo(
+    () => (permissionAgentId == null ? agentOptions.map(option => option.agentId) : [permissionAgentId]),
+    [agentOptions, permissionAgentId],
+  );
   const { allows: allowsAgent } = useResourcePermissions({
     resourceType: 'agent',
-    resourceIds: permissionAgentId == null ? [] : [permissionAgentId],
+    resourceIds: permissionAgentIds,
   });
-  const canCreateSchedule = allowsAgent(permissionAgentId, 'USE');
+  const canCreateSchedule =
+    server.permissions == null ||
+    (permissionAgentId == null
+      ? agentOptions.some(option => allowsAgent(option.agentId, 'USE'))
+      : allowsAgent(permissionAgentId, 'USE'));
   const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState(agentId));
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));

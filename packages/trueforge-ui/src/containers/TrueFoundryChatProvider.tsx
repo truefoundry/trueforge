@@ -17,14 +17,38 @@ import { ToasterProvider, useToaster } from './ToasterContainer.js';
 
 type RuntimeAdapters = NonNullable<UseTrueFoundryAgentRuntimeOptions['adapters']>;
 
-function ActiveSessionPermissionScope({ children }: { children: ReactNode }) {
+function ActiveSessionPermissionScope({
+  locallyCreatedSessionIds,
+  children,
+}: {
+  locallyCreatedSessionIds: ReadonlySet<string>;
+  children: ReactNode;
+}) {
   const remoteId = useAuiState(state => state.threadListItem.remoteId);
-  return <ActiveSessionPermissionsProvider sessionId={remoteId}>{children}</ActiveSessionPermissionsProvider>;
+  return (
+    <ActiveSessionPermissionsProvider
+      sessionId={remoteId}
+      assumeManage={remoteId != null && locallyCreatedSessionIds.has(remoteId)}
+    >
+      {children}
+    </ActiveSessionPermissionsProvider>
+  );
 }
 
-function withoutCreateAgentSessions(server: AgentUIServer): AgentUIServer {
+function runtimeServer({
+  server,
+  locallyCreatedSessionIds,
+}: {
+  server: AgentUIServer;
+  locallyCreatedSessionIds: Set<string>;
+}): AgentUIServer {
   return {
     ...server,
+    async createSession(request) {
+      const session = await server.createSession(request);
+      locallyCreatedSessionIds.add(session.id);
+      return session;
+    },
     async listSessions(request) {
       const result = await server.listSessions(request);
       return {
@@ -70,7 +94,12 @@ function ChatRuntimeScope({
 }) {
   const { showError } = useToaster();
   const reportError = onError ?? showError;
-  const historyServer = useMemo(() => withoutCreateAgentSessions(server), [server]);
+  const localSessionState = useMemo(() => ({ server, ids: new Set<string>() }), [server]);
+  const locallyCreatedSessionIds = localSessionState.ids;
+  const historyServer = useMemo(
+    () => runtimeServer({ server, locallyCreatedSessionIds }),
+    [locallyCreatedSessionIds, server],
+  );
   // composer().send() is void and swallows onNew rejections; clear optimistic
   // busy when the runtime reports a pre-stream failure (e.g. createSession).
   const resolvedOnError = useCallback(
@@ -97,7 +126,9 @@ function ChatRuntimeScope({
 
   return (
     <AssistantRuntimeProvider runtime={runtime as never}>
-      <ActiveSessionPermissionScope>{children}</ActiveSessionPermissionScope>
+      <ActiveSessionPermissionScope locallyCreatedSessionIds={locallyCreatedSessionIds}>
+        {children}
+      </ActiveSessionPermissionScope>
     </AssistantRuntimeProvider>
   );
 }
