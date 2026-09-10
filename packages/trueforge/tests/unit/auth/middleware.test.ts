@@ -385,7 +385,7 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
 });
 
 describe('createApiKeyAuthMiddleware', () => {
-  function createServiceApp(apiKey: string | undefined) {
+  function createServiceApp(apiKey: string) {
     const app = new OpenAPIHono();
     app.onError((error, c) => {
       if (error instanceof HTTPException) {

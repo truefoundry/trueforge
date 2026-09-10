@@ -95,13 +95,13 @@ export class ScheduleNotFoundError extends Error {
  *
  * Callers start the turn (e.g. via `startTurnInProcess`) with request-scoped stores.
  */
-export type PreparedScheduleTurn = {
+export interface PreparedScheduleTurn {
   session: SessionHandle;
   input: TurnInputItem[];
   previous_turn_id: string;
   userRef: string;
   agent: AgentRecord;
-};
+}
 
 export async function startScheduleRun(params: {
   item: ScheduleDispatchItem;
