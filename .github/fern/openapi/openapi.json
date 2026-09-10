@@ -1350,6 +1350,17 @@
         ],
         "type": "object"
       },
+      "GetAvailableMCPServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AvailableMCPServer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetCapabilitiesResponse": {
         "properties": {
           "data": {
@@ -1693,14 +1704,10 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1755,14 +1762,10 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1787,10 +1790,14 @@
               "$ref": "#/components/schemas/ScheduleRun"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -5734,12 +5741,12 @@
         "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
         "parameters": [
           {
-            "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+            "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+              "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
               "type": "string"
             }
           }
@@ -5989,32 +5996,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers as a slim name/url list for the composer.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers as a slim name/url list for the composer.",
         "responses": {
           "200": {
             "content": {
@@ -6024,17 +6006,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers (chat projection)."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers (chat projection)."
           },
           "401": {
             "content": {
@@ -6051,11 +6023,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -6162,6 +6129,64 @@
         ],
         "x-excluded": true,
         "x-fern-ignore": true
+      }
+    },
+    "/api/v1/mcp-servers/{name}": {
+      "get": {
+        "description": "A single MCP server as the slim chat projection, with live per-user auth_status.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAvailableMCPServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server (chat projection)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Get an MCP server for chat",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/api/v1/mcp-servers/{name}/authorize": {
@@ -6882,6 +6907,29 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Page size. Defaults to 25",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6893,7 +6941,17 @@
                 }
               }
             },
-            "description": "Runs of the schedule."
+            "description": "Paginated runs of the schedule."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "403": {
             "content": {
@@ -6920,6 +6978,11 @@
         "tags": [
           "Schedules"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "schedules"
         ],
@@ -8169,32 +8232,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers with auth_status. Header secrets are redacted.",
         "responses": {
           "200": {
             "content": {
@@ -8204,17 +8242,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers"
           },
           "401": {
             "content": {
@@ -8241,11 +8269,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"

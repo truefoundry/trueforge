@@ -3,7 +3,7 @@ import type { AppendMessage } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ComposerContainer } from '@/containers/ComposerContainer.js';
+import { canSubmitComposer, ComposerContainer } from '@/containers/ComposerContainer.js';
 import { ComposerBusyProvider } from '@/hooks/useComposerBusyState.js';
 import {
   CustomActionRenderersProvider,
@@ -39,14 +39,6 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   useTrueFoundryAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
 }));
 
-vi.mock('@assistant-ui/core/react', async importOriginal => {
-  const actual = await importOriginal<typeof import('@assistant-ui/core/react')>();
-  return {
-    ...actual,
-    useThreadIsRunning: () => false,
-  };
-});
-
 function SecretSelectProbe({ onSubmit }: CustomActionRendererProps) {
   return (
     <button type="button" onClick={() => onSubmit('chosen-secret')}>
@@ -64,6 +56,45 @@ function renderComposer(onNew?: (message: AppendMessage) => Promise<void>) {
     </RuntimeHarness>,
   );
 }
+
+describe('canSubmitComposer', () => {
+  it.each([
+    { name: 'New Chat', requiresModel: true, hasModel: true },
+    { name: 'Try Agent', requiresModel: false, hasModel: false },
+    { name: 'Build Agent', requiresModel: true, hasModel: true },
+  ])('allows attachment-only submission in $name', ({ requiresModel, hasModel }) => {
+    expect(
+      canSubmitComposer({
+        disabled: false,
+        hasText: false,
+        hasAttachments: true,
+        requiresModel,
+        hasModel,
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks empty messages and mutable drafts without a model', () => {
+    expect(
+      canSubmitComposer({
+        disabled: false,
+        hasText: false,
+        hasAttachments: false,
+        requiresModel: false,
+        hasModel: false,
+      }),
+    ).toBe(false);
+    expect(
+      canSubmitComposer({
+        disabled: false,
+        hasText: false,
+        hasAttachments: true,
+        requiresModel: true,
+        hasModel: false,
+      }),
+    ).toBe(false);
+  });
+});
 
 describe('ComposerContainer', () => {
   beforeEach(() => {

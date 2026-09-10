@@ -15,7 +15,6 @@ const TFG_AGENTS_PATH = 'internal/tfg/agents';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
-const INTEGRATIONS_PAGE_SIZE = 1000;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -112,10 +111,6 @@ function listPage(response: ListResponse): unknown[] {
   return Array.isArray(response) ? response : response.data;
 }
 
-function listPaginationTotal(response: ListResponse): number | undefined {
-  return Array.isArray(response) ? undefined : response.pagination?.total;
-}
-
 export class TrueFoundryServiceFoundryServerClient {
   readonly #baseUrl: string;
   readonly #logger: Logger;
@@ -145,29 +140,28 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#apiKey = input.apiKey;
   }
 
-  async listProviderIntegrations(accessToken: string): Promise<unknown[]> {
-    const items: unknown[] = [];
-    let offset = 0;
-    for (;;) {
-      const payload = await this.#requestJson({
-        url: this.#url(INTEGRATIONS_PATH, {
-          type: 'model',
-          offset: String(offset),
-          limit: String(INTEGRATIONS_PAGE_SIZE),
-        }),
-        accessToken,
-        method: 'GET',
-      });
-      const response = this.#parseListResponse(payload);
-      const page = listPage(response);
-      const total = listPaginationTotal(response);
-      items.push(...page);
-      if (total === undefined || items.length >= total || page.length === 0) {
-        break;
-      }
-      offset = items.length;
-    }
-    return items;
+  /**
+   * Model integrations. No limit/offset → full match set in one response.
+   * Pass `filter` (account + model name together) for a point lookup.
+   */
+  async listProviderIntegrations(input: {
+    accessToken: string;
+    filter?: { provider_account_name: string; name: string };
+  }): Promise<unknown[]> {
+    const filterQuery =
+      input.filter === undefined
+        ? {}
+        : {
+            provider_account_name: input.filter.provider_account_name,
+            name: input.filter.name,
+          };
+    const query: Record<string, string> = { type: 'model', ...filterQuery };
+    const payload = await this.#requestJson({
+      url: this.#url(INTEGRATIONS_PATH, query),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    return listPage(this.#parseListResponse(payload));
   }
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {
@@ -178,25 +172,16 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /** One page of MCP servers; optional `names` filters with `name IN (…)`. */
-  async listMcpServers(input: {
-    accessToken: string;
-    limit: number;
-    offset: number;
-    names?: readonly string[];
-  }): Promise<unknown[]> {
-    const query: Record<string, string> = {
-      offset: String(input.offset),
-      limit: String(input.limit),
-      ...(input.names !== undefined
-        ? {
+  async listMcpServers(input: { accessToken: string; names?: readonly string[] }): Promise<unknown[]> {
+    const query: Record<string, string> =
+      input.names === undefined
+        ? {}
+        : {
             filter: JSON.stringify({
               op: 'and',
               values: [{ field: 'name', op: 'IN', values: [...input.names] }],
             }),
-          }
-        : {}),
-    };
+          };
     const payload = await this.#requestJson({
       url: this.#url(MCP_SERVERS_PATH, query),
       accessToken: input.accessToken,

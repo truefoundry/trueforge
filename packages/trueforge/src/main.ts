@@ -24,6 +24,7 @@ let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
 let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
+let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
 
 try {
@@ -32,6 +33,7 @@ try {
     isOidcConfigured,
     isTrueFoundryModeEnabled,
     getTrueForgeAuthMode,
+    getPublicUiBasePath,
     TrueForgeAuthMode,
   } = await import('./config'));
 } catch (error) {
@@ -223,18 +225,15 @@ function buildResolveAgentStore(options: {
 }
 
 /**
- * Per-request sandbox-provider store resolver. In TrueFoundry mode every request gets a
- * token-bound env/settings-server store; otherwise the persistence store is reused as-is.
+ * Sandbox-provider store resolver. In TrueFoundry mode the shared env-backed store is reused;
+ * otherwise the persistence store is reused as-is.
  */
 function buildResolveSandboxProviderStore<TTransaction>(options: {
   persistenceStore: ISandboxProviderStore<TTransaction>;
 }): (rc: RequestContext) => ISandboxProviderStore<TTransaction> {
   const { persistenceStore } = options;
   if (isTrueFoundryModeEnabled(configuration)) {
-    return rc =>
-      new TrueFoundrySandboxProviderStore<TTransaction>({
-        requestContext: rc,
-      });
+    return () => new TrueFoundrySandboxProviderStore<TTransaction>();
   }
   return () => persistenceStore;
 }
@@ -628,7 +627,7 @@ try {
       )
     : await createServerRuntime(await createDistributedPersistence({ configuration, logger }), logger);
 
-  if (mountFrontend(app, configuration.FRONTEND_DIR)) {
+  if (mountFrontend(app, { dir: configuration.FRONTEND_DIR, uiBasePath: getPublicUiBasePath() })) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
   } else {
     logger.warn(

@@ -127,6 +127,29 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
     onToggle: (enabled: boolean) => void;
   }> = [];
 
+  if (firstReasoningEffort !== undefined) {
+    rows.push({
+      label: 'Reasoning Effort',
+      enabled: params.reasoningEffort !== undefined,
+      onToggle: enabled =>
+        enabled ? setParam('reasoningEffort', firstReasoningEffort) : removeParam('reasoningEffort'),
+      control: (
+        <select
+          value={params.reasoningEffort ?? ''}
+          aria-label="Reasoning effort value"
+          className={auiInputClass('h-8 cursor-pointer py-1.5')}
+          onChange={event => setParam('reasoningEffort', event.target.value)}
+        >
+          {reasoningEfforts.map(effort => (
+            <option key={effort} value={effort}>
+              {effort}
+            </option>
+          ))}
+        </select>
+      ),
+    });
+  }
+
   if (maxOutputTokens !== undefined) {
     rows.push({
       label: 'Maximum Tokens',
@@ -159,29 +182,6 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
             }}
           />
         </div>
-      ),
-    });
-  }
-
-  if (firstReasoningEffort !== undefined) {
-    rows.push({
-      label: 'Reasoning Effort',
-      enabled: params.reasoningEffort !== undefined,
-      onToggle: enabled =>
-        enabled ? setParam('reasoningEffort', firstReasoningEffort) : removeParam('reasoningEffort'),
-      control: (
-        <select
-          value={params.reasoningEffort ?? ''}
-          aria-label="Reasoning effort value"
-          className={auiInputClass('h-8 cursor-pointer py-1.5')}
-          onChange={event => setParam('reasoningEffort', event.target.value)}
-        >
-          {reasoningEfforts.map(effort => (
-            <option key={effort} value={effort}>
-              {effort}
-            </option>
-          ))}
-        </select>
       ),
     });
   }

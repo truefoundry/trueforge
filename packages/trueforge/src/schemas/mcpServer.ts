@@ -7,7 +7,6 @@
  * Turn execution resolves DCR tokens via resolveMcpAuth.
  */
 import { z } from '@hono/zod-openapi';
-import { TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
@@ -107,7 +106,6 @@ export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSc
 export const ListMcpServersResponseSchema = z
   .object({
     data: z.array(ConfiguredMcpServerSchema),
-    pagination: TokenPaginationSchema,
   })
   .openapi('ListMCPServersResponse');
 
@@ -134,9 +132,12 @@ export const AvailableMcpServerSchema = z
 export const ListAvailableMcpServersResponseSchema = z
   .object({
     data: z.array(AvailableMcpServerSchema),
-    pagination: TokenPaginationSchema,
   })
   .openapi('ListAvailableMCPServersResponse');
+
+export const GetAvailableMcpServerResponseSchema = z
+  .object({ data: AvailableMcpServerSchema })
+  .openapi('GetAvailableMCPServerResponse');
 
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerManifestAuth = z.infer<typeof McpServerManifestAuthSchema>;

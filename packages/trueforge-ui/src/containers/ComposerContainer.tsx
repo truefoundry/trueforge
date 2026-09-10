@@ -19,6 +19,22 @@ export type ComposerContainerProps = {
   placeholder?: string;
 };
 
+export function canSubmitComposer({
+  disabled,
+  hasText,
+  hasAttachments,
+  requiresModel,
+  hasModel,
+}: {
+  disabled: boolean;
+  hasText: boolean;
+  hasAttachments: boolean;
+  requiresModel: boolean;
+  hasModel: boolean;
+}): boolean {
+  return !disabled && (hasText || hasAttachments) && (!requiresModel || hasModel);
+}
+
 function ComposerBody({
   placeholder,
   forceDisabled = false,
@@ -33,6 +49,7 @@ function ComposerBody({
   const aui = useAui();
   const shell = useOptionalShellMode();
   const hasText = useAuiState(s => s.composer.text.trim().length > 0);
+  const hasAttachments = useAuiState(s => s.composer.attachments.length > 0);
   const { agentSpec } = useTrueFoundryAgentSpec();
   // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
@@ -41,7 +58,7 @@ function ComposerBody({
   const cancel = useTrueFoundryCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const disabled = isBusy || forceDisabled;
-  const canSubmit = !disabled && hasText && (!requiresModel || hasModel);
+  const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
   const submit = () => {
     if (!canSubmit) return;
     send(() => aui.composer().send());

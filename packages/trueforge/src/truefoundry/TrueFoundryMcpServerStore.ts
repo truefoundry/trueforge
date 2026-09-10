@@ -1,8 +1,3 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import {
-  decodeOffsetPageToken,
-  paginateOffsetRows,
-} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { McpConnectionError, type RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
@@ -54,10 +49,10 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization'));
 }
 
-/** Absolute FE landing for the upstream authorize `redirectURL` from `PUBLIC_BASE_URL` + safe `return_to`. */
+/** Absolute FE landing for the upstream authorize `redirectURL`. `return_to` is a browser path. */
 export function resolveAuthorizeRedirectURL(input: { returnTo?: string }): string {
   try {
-    return new URL(safeReturnTo(input.returnTo), `${getPublicBaseUrl()}/`).href;
+    return new URL(safeReturnTo(input.returnTo), `${new URL(getPublicBaseUrl()).origin}/`).href;
   } catch (error) {
     throw new McpConnectionError('PUBLIC_BASE_URL is required for TrueFoundry MCP OAuth but was empty', 500, {
       cause: error,
@@ -124,30 +119,21 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     return async () => ({ headers: await headers() });
   }
 
-  async listServers(
-    input: ListMcpServersInput,
-    transaction?: TTransaction,
-  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }> {
+  async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
     void transaction;
-    const offset = decodeOffsetPageToken(input.page_token);
     if (input.names?.length === 0) {
-      return paginateOffsetRows([], input.limit, offset);
+      return [];
     }
 
     const accessToken = await this.#resolveAccessToken();
     const [rows, gatewayUrl] = await Promise.all([
       this.#client.listMcpServers({
         accessToken,
-        limit: input.limit + 1,
-        offset,
         ...(input.names !== undefined ? { names: input.names } : {}),
       }),
       this.#resolveGatewayUrl(),
     ]);
-    const records = mapSfyMcpServers({ rows }).map(server =>
-      toRecord({ tenant_id: input.tenant_id, server, gatewayUrl }),
-    );
-    return paginateOffsetRows(records, input.limit, offset);
+    return mapSfyMcpServers({ rows }).map(server => toRecord({ tenant_id: input.tenant_id, server, gatewayUrl }));
   }
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {

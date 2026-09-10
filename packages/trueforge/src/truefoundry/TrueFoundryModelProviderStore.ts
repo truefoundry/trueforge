@@ -4,6 +4,7 @@ import type { AgentRecord } from '../db/agentStore';
 import {
   flattenProviderModels,
   type CreateModelProviderInput,
+  type GetModelProviderForUpdateInput,
   type GetModelProviderInput,
   type IModelProviderStore,
   type ListModelProvidersInput,
@@ -45,12 +46,15 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     transaction?: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void transaction;
-    const records = await this.#records(input);
+    const records = await this.#records({
+      tenant_id: input.tenant_id,
+      filter: { provider_account_name: input.name, name: input.model_name },
+    });
     return records.find(record => record.name === input.name);
   }
 
   getProviderForUpdate(
-    input: GetModelProviderInput,
+    input: GetModelProviderForUpdateInput,
     transaction: TTransaction,
   ): Promise<ModelProviderRecord | undefined> {
     void input;
@@ -74,10 +78,16 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 
-  async #records(input: { tenant_id: string }): Promise<ModelProviderRecord[]> {
+  async #records(input: {
+    tenant_id: string;
+    filter?: { provider_account_name: string; name: string };
+  }): Promise<ModelProviderRecord[]> {
     const accessToken = await this.#resolveAccessToken();
     const [integrations, installations] = await Promise.all([
-      this.#client.listProviderIntegrations(accessToken),
+      this.#client.listProviderIntegrations({
+        accessToken,
+        ...(input.filter !== undefined ? { filter: input.filter } : {}),
+      }),
       this.#client.listGatewayInstallations(accessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);

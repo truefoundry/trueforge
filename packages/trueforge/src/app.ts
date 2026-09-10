@@ -31,7 +31,7 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
-import configuration, { getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
+import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -145,15 +145,18 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
 /**
  * Single source for both the served document and the one the SDK is built from.
  * When `authEnabled`, advertises required Bearer auth on operations that inherit global security.
+ * `serverUrl` is the public prefix for Try it out (e.g. `/custom/proxy/path`); omit for the SDK spec.
  */
-export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean }) {
+export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean; serverUrl?: string }) {
   const authEnabled = options?.authEnabled ?? false;
   if (authEnabled) {
     registerOpenApiBearerAuth(app);
   }
+  const serverUrl = options?.serverUrl;
   return app.getOpenAPI31Document({
     ...openApiDocConfig,
     ...(authEnabled ? { security: [{ [BEARER_AUTH_SCHEME]: [] }] } : {}),
+    ...(serverUrl !== undefined && serverUrl !== '' ? { servers: [{ url: serverUrl }] } : {}),
   });
 }
 
@@ -176,8 +179,8 @@ export interface ServerDeps<TTransaction> {
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
-   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode
-   * (env + settings-server Daytona).
+   * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
+   * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -424,8 +427,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
 
-  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
-  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app, { authEnabled })));
+  const uiBasePath = getPublicUiBasePath();
+  const openApiSpecPath = `${uiBasePath}api/v1/openapi.json`;
+  const openApiServerUrl = uiBasePath === '/' ? undefined : uiBasePath.replace(/\/$/, '');
+  app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
+  app.get('/api/v1/openapi.json', c =>
+    c.json(
+      buildOpenApiDocument(app, {
+        authEnabled,
+        ...(openApiServerUrl === undefined ? {} : { serverUrl: openApiServerUrl }),
+      }),
+    ),
+  );
 
   app.notFound(routeNotFound);
 

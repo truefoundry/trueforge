@@ -11,12 +11,13 @@ import type {
   AgentDetail,
   AgentMetricsServer,
   CodeSnippet,
+  ScheduleServer,
   Session,
   SessionEventItem,
   SessionListEntry,
 } from '@/server/types.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
-import { createMockAgentUIServer } from '../server/mockServer.js';
+import { createMockAgentUIServer, createMockScheduleServer } from '../server/mockServer.js';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -85,6 +86,7 @@ function renderPage({
   })),
   withSessions = true,
   metrics,
+  schedules,
   overrides,
   initialEntries = ['/library/agent-1'],
   serverOverrides,
@@ -96,6 +98,7 @@ function renderPage({
   getSession?: () => Promise<Session>;
   withSessions?: boolean;
   metrics?: AgentMetricsServer;
+  schedules?: ScheduleServer;
   overrides?: SlotOverrides;
   initialEntries?: string[];
   serverOverrides?: Parameters<typeof createMockAgentUIServer>[0];
@@ -104,6 +107,7 @@ function renderPage({
     getSession,
     ...(withSessions ? { sessions: { getAgent, getCodeSnippets, listSessions, listSessionEvents } } : {}),
     ...(metrics == null ? {} : { metrics }),
+    ...(schedules == null ? {} : { schedules }),
     ...serverOverrides,
   });
   render(
@@ -189,6 +193,36 @@ describe('AgentDetailsPage', () => {
 
     expect(await screen.findByRole('tab', { name: 'Metrics' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Metrics deep link')).toBeInTheDocument();
+  });
+
+  it('shows an agent-scoped Schedules tab when supported', async () => {
+    renderPage({
+      schedules: createMockScheduleServer(),
+      overrides: {
+        SchedulesPage: ({ agentId }) => <div>Schedules for {agentId}</div>,
+      },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for release-notes-writer' }));
+    expect(screen.queryByRole('menuitem', { name: 'Manage Schedules' })).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Schedules' }));
+    expect(screen.getByText('Schedules for agent-1')).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');
+    expect(new URL(window.location.href).searchParams.get('agent')).toBeNull();
+  });
+
+  it('opens the create schedule drawer after redirecting from + Schedule', async () => {
+    window.history.replaceState(null, '', '/library/agent-1?agentId=agent-1&tab=schedules&isNew=true');
+    renderPage({
+      initialEntries: ['/library/agent-1?agentId=agent-1&tab=schedules&isNew=true'],
+      schedules: createMockScheduleServer(),
+    });
+
+    expect(await screen.findByRole('heading', { name: 'New Schedule' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('isNew')).toBeNull();
+    });
   });
 
   it('loads code snippets lazily and retains them across tab changes', async () => {

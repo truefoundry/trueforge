@@ -108,6 +108,8 @@ export interface ListSchedulesInput {
 export interface ListRunsInput {
   tenant_id: string;
   schedule_id: string;
+  limit: number;
+  page_token: string | undefined;
 }
 
 export interface GetScheduleInput {
@@ -279,5 +281,8 @@ export interface IScheduleStore<TTransaction = never> {
   /**
    * Runs of one schedule (any status), newest `scheduled_for` first.
    */
-  listRuns(input: ListRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
+  listRuns(
+    input: ListRunsInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: ScheduleRunRecord[]; pagination: TokenPagination }>;
 }

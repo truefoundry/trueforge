@@ -398,6 +398,32 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
   });
 
+  it('changes runtime switches only when the switch is clicked', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="runtime"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          sandboxAvailable
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Context compaction'));
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Context compaction' }));
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
   it('retains nested runtime values while their parent is disabled', () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },
@@ -508,6 +534,33 @@ describe('AgentConfigEditors', () => {
 
     await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('github'));
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('shows the API error message when loading MCP tools fails', async () => {
+    const error = Object.assign(new Error('BadGatewayError Status code: 502 Body: <html>…</html>'), {
+      statusCode: 502,
+      body: { error: { message: 'Failed to connect to remote MCP server' } },
+    });
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[{ id: 'broken', name: 'Broken MCP', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={async () => Promise.reject(error)}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText('Failed to connect to remote MCP server')).toBeInTheDocument();
+    expect(screen.queryByText(/BadGatewayError/)).not.toBeInTheDocument();
   });
 
   it('keeps an off-page selected MCP active via catalog stubs', async () => {
