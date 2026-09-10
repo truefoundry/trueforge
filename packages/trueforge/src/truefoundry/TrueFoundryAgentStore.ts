@@ -27,15 +27,12 @@ function asError(value: unknown): Error {
 
 function toPutRemoteAgentPayload({
   name,
-  tenantName,
   manifest,
 }: {
   name: string;
-  tenantName: string;
   manifest: AgentSpec;
 }): Omit<PutRemoteAgentInput, 'accessToken'> {
   return {
-    tenantName,
     name,
     description: name,
     model: manifest.model.name,
@@ -134,7 +131,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
     try {
       ({ externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
-        ...toPutRemoteAgentPayload({ name: input.name, tenantName: input.tenant_id, manifest: input.manifest }),
+        ...toPutRemoteAgentPayload({ name: input.name, manifest: input.manifest }),
       }));
       const updated = await this.#inner.updateAgent(
         { tenant_id: input.tenant_id, id: created.id, external_id: externalId },
@@ -150,7 +147,6 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
         try {
           await this.#client.deleteRemoteAgent({
             accessToken: await this.#resolveAccessToken(),
-            tenantName: input.tenant_id,
             externalId,
           });
         } catch (cleanupError) {
@@ -184,7 +180,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
       const { externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
-        ...toPutRemoteAgentPayload({ name: previous.name, tenantName: input.tenant_id, manifest: nextManifest }),
+        ...toPutRemoteAgentPayload({ name: previous.name, manifest: nextManifest }),
       });
 
       try {
@@ -203,7 +199,6 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
             accessToken: await this.#resolveAccessToken(),
             ...toPutRemoteAgentPayload({
               name: previous.name,
-              tenantName: input.tenant_id,
               manifest: previous.manifest,
             }),
           });
@@ -225,7 +220,6 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       if (previous?.external_id) {
         await this.#client.deleteRemoteAgent({
           accessToken: await this.#resolveAccessToken(),
-          tenantName: input.tenant_id,
           externalId: previous.external_id,
         });
       }

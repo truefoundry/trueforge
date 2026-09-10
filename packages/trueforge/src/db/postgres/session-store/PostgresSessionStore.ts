@@ -32,7 +32,7 @@ import {
   decodeOffsetPageToken,
   encodeOffsetPageToken,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { AgentSpec, TurnInputItem, TurnState } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionMetadata, TurnInputItem, TurnState } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentInfo, ContextMessage, JsonValue } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { Kysely } from 'kysely';
@@ -72,8 +72,8 @@ import {
   updateTurnState as updateTurnStateQuery,
 } from './queries/turns';
 
-/** Placeholder agent_id when named import cannot resolve a local agent (satisfies XOR; stale ref). */
-const IMPORT_MISSING_AGENT_ID = 'tfy-import:missing-agent';
+/** Prefix on session.agent_id when the SF agent is not yet imported locally. */
+const IMPORT_UNRESOLVED_AGENT_ID_PREFIX = 'tfy-import:';
 
 type SessionCustom = Record<string, never>;
 type TurnCustom = Record<string, never>;
@@ -239,7 +239,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   // --- temporary SF→TrueForge migration (remove after backfill) ---
 
-  async getImportCheckpoint(input: { tenant_id: string }): Promise<{ created_at: string | null }> {
+  async getImportSessionsCheckpoint(input: { tenant_id: string }): Promise<{ created_at: string | null }> {
     const row = await this.db
       .selectFrom('session')
       .select(sql<string | null>`min(created_at)`.as('created_at'))
@@ -258,17 +258,28 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     const sessionId = input.session.session_id;
     const agentName = input.session.agent_name;
     const agentSpec = input.session.agent_spec;
+    const sfAgentId = input.session.agent_id;
     const hasName = typeof agentName === 'string' && agentName.length > 0;
     const hasSpec = agentSpec != null;
+    const hasSfAgentId = typeof sfAgentId === 'string' && sfAgentId.length > 0;
 
-    // session_agent_xor_check: exactly one of agent_id or agent_spec.
-    if (hasName === hasSpec) {
-      throw new Error('Provide exactly one of agent_name or agent_spec');
+    if (!hasName && !hasSpec) {
+      throw new Error('Provide agent_name and/or agent_spec');
     }
 
     let agentId: string | null = null;
     let resolvedAgentName: string | null = null;
-    if (hasName) {
+    const metadata: SessionMetadata = { imported: 'true' };
+
+    if (hasSpec) {
+      // Draft XOR: agent_spec on columns. SF may also send name/id — stash in metadata.
+      if (hasName) {
+        metadata['agent_name'] = agentName;
+      }
+      if (hasSfAgentId) {
+        metadata['agent_id'] = sfAgentId;
+      }
+    } else if (hasName) {
       const agent = await this.db
         .selectFrom('agent')
         .select(['id', 'name'])
@@ -279,16 +290,22 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
         agentId = agent.id;
         resolvedAgentName = agent.name;
       } else {
-        // SF GET …/agent-sessions/:id/full does not return agentId (only agent_name), so we
-        // cannot preserve the SF agent id. Use a dummy id so XOR holds; the ref stays stale
-        // until/unless a matching agent is imported later.
-        agentId = IMPORT_MISSING_AGENT_ID;
+        if (!hasSfAgentId) {
+          throw new Error(
+            `Named session import requires agent_id when agent "${agentName}" does not exist locally`,
+          );
+        }
+        // Stale ref until the agent is imported; prefix so it never collides with a TrueForge ULID.
+        agentId = `${IMPORT_UNRESOLVED_AGENT_ID_PREFIX}${sfAgentId}`;
         resolvedAgentName = agentName;
+        metadata['agent_id'] = sfAgentId;
       }
     }
 
     return this.db.transaction().execute(async trx => {
       const { session, turns } = input;
+      // ON CONFLICT DO NOTHING + RETURNING yields no row when session_id already exists
+      // (does not select the existing row) → inserted === undefined → imported: false.
       const inserted = await trx
         .insertInto('session')
         .values({
@@ -302,7 +319,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
           title: session.title,
           last_turn_id: session.last_turn_id,
           custom: session.custom !== null ? json(session.custom) : null,
-          metadata: json({ imported: 'true' }),
+          metadata: json(metadata),
           external_id: null,
           metrics: json({ total_duration_ms: 0, total_turns: turns.length }),
           last_activity_timestamp_ms: session.last_activity_timestamp_ms,

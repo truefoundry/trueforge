@@ -12,15 +12,21 @@ import {
 } from '../db/agentStore';
 import { PostgresSessionStore } from '../db/postgres/session-store/PostgresSessionStore';
 import {
-  getImportCheckpointRoute,
+  getImportSessionsCheckpointRoute,
   importAgentsRoute,
   importSessionRoute,
 } from '../routes/agentImportRoutes';
 import type { ImportAgentItemResult } from '../schemas/agentImport';
+import {
+  TFY_ASSUME_USER_HEADER,
+  tenantSystemAssumeUserHeader,
+} from '../truefoundry/TrueFoundryServiceFoundryServerClient';
 
 export interface AgentImportRouterDeps {
   resolveAgentStore: (c: Context) => IAgentStore;
   sessionStore: ISessionStore;
+  /** Builds TrueFoundryAgentStore with SF client constructor assume-user headers. */
+  createImportAgentStore?: (headers: Record<string, string>) => IAgentStore;
 }
 
 function errorDetail(error: unknown): string {
@@ -35,12 +41,16 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
 
   const importAgentsHandler: RouteHandler<typeof importAgentsRoute> = async c => {
     const { agents } = c.req.valid('json');
-    const agentStore = deps.resolveAgentStore(c);
 
     const results: ImportAgentItemResult[] = [];
     for (const agent of agents) {
       try {
-        const record = await agentStore.createAgent({
+        const agentStore =
+          deps.createImportAgentStore?.({
+            [TFY_ASSUME_USER_HEADER]: tenantSystemAssumeUserHeader(agent.tenant_id),
+          }) ?? deps.resolveAgentStore(c);
+
+        const created = await agentStore.createAgent({
           tenant_id: agent.tenant_id,
           name: agent.name,
           manifest: agent.manifest,
@@ -48,10 +58,10 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
           created_by_subject: agent.created_by_subject,
         });
         results.push({
-          name: record.name,
+          name: created.name,
           tenant_id: agent.tenant_id,
           status: 'created',
-          agent_id: record.id,
+          agent_id: created.id,
         });
       } catch (error) {
         if (error instanceof AgentNameConflictError || error instanceof AgentExternalIdConflictError) {
@@ -80,15 +90,11 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
       }
       return c.json({ data: result }, 201);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.startsWith('Provide exactly one')) {
-        throw new HTTPException(400, { message, cause: error });
-      }
       throw new HTTPException(500, { message: errorDetail(error), cause: error });
     }
   };
 
-  const checkpointHandler: RouteHandler<typeof getImportCheckpointRoute> = async c => {
+  const checkpointHandler: RouteHandler<typeof getImportSessionsCheckpointRoute> = async c => {
     if (!(deps.sessionStore instanceof PostgresSessionStore)) {
       throw new HTTPException(500, {
         message: 'Session import requires Postgres (STANDALONE=false)',
@@ -96,7 +102,7 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
     }
     const { tenant_id } = c.req.valid('query');
     try {
-      const data = await deps.sessionStore.getImportCheckpoint({ tenant_id });
+      const data = await deps.sessionStore.getImportSessionsCheckpoint({ tenant_id });
       return c.json({ data }, 200);
     } catch (error) {
       throw new HTTPException(500, { message: errorDetail(error), cause: error });
@@ -105,6 +111,6 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
 
   router.openapi(importAgentsRoute, importAgentsHandler);
   router.openapi(importSessionRoute, importSessionHandler);
-  router.openapi(getImportCheckpointRoute, checkpointHandler);
+  router.openapi(getImportSessionsCheckpointRoute, checkpointHandler);
   return router;
 }

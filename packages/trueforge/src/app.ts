@@ -179,6 +179,8 @@ export interface ServerDeps<TTransaction> {
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  /** Import: TrueFoundryAgentStore whose SF client was built with constructor assume-user headers. */
+  createImportAgentStore?: (headers: Record<string, string>) => IAgentStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
    * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
@@ -363,6 +365,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAgentImportRouter({
         resolveAgentStore: deps.resolveAgentStore,
         sessionStore: deps.sessionStore,
+        ...(deps.createImportAgentStore !== undefined
+          ? { createImportAgentStore: deps.createImportAgentStore }
+          : {}),
       }),
       truefoundryAdminMiddleware,
     ),

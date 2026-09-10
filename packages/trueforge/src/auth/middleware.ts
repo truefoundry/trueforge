@@ -29,7 +29,11 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
   };
 }
 
-/** Only `TRUEFOUNDRY_API_KEY` by string equality (service-to-service). Body may choose tenant_id. */
+/**
+ * Service-to-service API key auth for internal import.
+ * Sets request_context so resolveAgentStore can build TrueFoundryAgentStore
+ * (needs user_credential for ServiceFoundry put/delete). Body supplies tenant_id.
+ */
 export const truefoundryAdminMiddleware: MiddlewareHandler = async (c, next) => {
   const token = extractRequestToken(c);
   if (configuration.STANDALONE) {
@@ -40,14 +44,10 @@ export const truefoundryAdminMiddleware: MiddlewareHandler = async (c, next) => 
     throw new HTTPException(403, { message: 'Service API key required' });
   }
   c.set('request_context', {
-    tenant_id: 'default',
-    subject: {
-      id: 'truefoundry-api-key',
-      type: 'user',
-      display_name: 'truefoundry-api-key',
-    },
+    tenant_id: 'system',
+    subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
     roles: [],
-    user_credential: token,
+    user_credential: apiKey,
   });
   return next();
 };

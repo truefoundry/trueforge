@@ -104,6 +104,8 @@ interface ServerPersistence<TTransaction> {
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  /** Import: TrueFoundryAgentStore whose SF client was built with constructor assume-user headers. */
+  createImportAgentStore?: (headers: Record<string, string>) => IAgentStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -117,7 +119,10 @@ interface ServerPersistence<TTransaction> {
 }
 
 /** Shared ServiceFoundry HTTP client when TrueFoundry mode is on; otherwise undefined. */
-function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFoundryServerClient | undefined {
+function createServiceFoundryServerClient(
+  logger: Logger,
+  headers?: Record<string, string>,
+): TrueFoundryServiceFoundryServerClient | undefined {
   if (!isTrueFoundryModeEnabled(configuration)) {
     return undefined;
   }
@@ -134,6 +139,7 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
+    ...(headers !== undefined ? { headers } : {}),
   });
 }
 
@@ -389,6 +395,26 @@ async function createDistributedPersistence(options: {
     db,
     client: serviceFoundryClient,
   });
+  const createImportAgentStore =
+    serviceFoundryClient === undefined
+      ? undefined
+      : (headers: Record<string, string>): IAgentStore<Transaction<PostgresDatabase>> => {
+          const client = createServiceFoundryServerClient(logger, headers);
+          if (client === undefined) {
+            throw new Error('TrueFoundry ServiceFoundry client required for agent import');
+          }
+          return new TrueFoundryAgentStore({
+            inner: agentStore,
+            client,
+            context: {
+              tenant_id: 'system',
+              subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
+              roles: [],
+              user_credential: client.apiKey,
+            },
+            db,
+          });
+        };
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: new PostgresSandboxProviderStore(db),
   });
@@ -399,6 +425,7 @@ async function createDistributedPersistence(options: {
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    ...(createImportAgentStore !== undefined ? { createImportAgentStore } : {}),
     resolveSandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -422,6 +449,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    createImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
@@ -482,6 +510,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    ...(createImportAgentStore !== undefined ? { createImportAgentStore } : {}),
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,

@@ -5,8 +5,8 @@ import { createRoute } from '@hono/zod-openapi';
 import {
   ImportAgentsRequestSchema,
   ImportAgentsResponseSchema,
-  ImportCheckpointQuerySchema,
-  ImportCheckpointResponseSchema,
+  ImportSessionsCheckpointQuerySchema,
+  ImportSessionsCheckpointResponseSchema,
   ImportSessionRequestSchema,
   ImportSessionResponseSchema,
 } from '../schemas/agentImport';
@@ -44,7 +44,7 @@ export const importSessionRoute = createRoute({
   tags: [OpenApiTag.INTERNAL],
   summary: 'Import one historical session snapshot',
   description:
-    'Ops/backfill only. Named sessions link agent_name to a local agent when present; otherwise a dummy agent_id. Drafts use agent_spec. 409 if session_id exists.',
+    'Ops/backfill only. Named sessions link agent_name to a local agent when present; otherwise a dummy agent_id. Drafts use agent_spec (SF name/id stashed in metadata when both present). 409 if session_id exists.',
   'x-fern-ignore': true,
   request: {
     body: {
@@ -72,7 +72,7 @@ export const importSessionRoute = createRoute({
   },
 });
 
-export const getImportCheckpointRoute = createRoute({
+export const getImportSessionsCheckpointRoute = createRoute({
   method: 'get',
   path: '/checkpoint',
   tags: [OpenApiTag.INTERNAL],
@@ -80,11 +80,11 @@ export const getImportCheckpointRoute = createRoute({
   description: 'Min created_at among imported sessions for one tenant (metadata.imported=true).',
   'x-fern-ignore': true,
   request: {
-    query: ImportCheckpointQuerySchema,
+    query: ImportSessionsCheckpointQuerySchema,
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: ImportCheckpointResponseSchema } },
+      content: { 'application/json': { schema: ImportSessionsCheckpointResponseSchema } },
       description: 'Per-tenant checkpoint watermark.',
     },
     400: {
