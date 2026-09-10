@@ -33,6 +33,10 @@ function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTok
 }
 
 describe('turns', () => {
+  it('namespaces turn stream ids under tfg', () => {
+    expect(turnStreamId('ten', 'sess', 'turn1')).toBe('tfg:agent:turn:ten:sess:turn1:stream');
+  });
+
   describe('turn ownership', () => {
     it('returns 403 for all turn routes when the caller is not the session creator', async () => {
       const db = createSqliteDb(':memory:');
