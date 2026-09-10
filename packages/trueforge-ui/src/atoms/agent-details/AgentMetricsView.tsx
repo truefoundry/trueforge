@@ -6,6 +6,13 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentMetricChartProps, AgentMetricsViewProps } from './types.js';
 
+const featuredMetricNames = [
+  'total_cost_in_usd',
+  'cost_per_session_in_usd',
+  'total_sessions',
+  'avg_turns_per_session',
+];
+
 export function AgentMetricsView({
   meters,
   meterError,
@@ -18,6 +25,13 @@ export function AgentMetricsView({
   const AgentMetricCard = useSlot('AgentMetricCard');
   const AgentMetricChart = useSlot('AgentMetricChart');
   const AgentMetricsTimeRangeFilter = useSlot('AgentMetricsTimeRangeFilter');
+  const featuredMeters =
+    meters == null
+      ? undefined
+      : featuredMetricNames.flatMap(name => {
+          const meter = meters.find(candidate => candidate.name === name);
+          return meter == null ? [] : [meter];
+        });
 
   return (
     <div className="min-h-0 flex-1 overflow-auto bg-secondary-bg/40 p-4" data-slot="agent-metrics-view">
@@ -30,18 +44,18 @@ export function AgentMetricsView({
           {meterError}
         </div>
       ) : meters == null ? (
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4" aria-label="Loading metrics">
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Loading metrics">
           {Array.from({ length: 4 }, (_, index) => (
             <Skeleton key={index} className="h-20 rounded-lg" />
           ))}
         </div>
-      ) : meters.length === 0 ? (
+      ) : featuredMeters?.length === 0 ? (
         <div className="mb-4 rounded-lg border border-border bg-card-bg p-6 text-center text-sm text-text-secondary">
           No aggregate metrics
         </div>
       ) : (
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-          {meters.map(meter => (
+        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {featuredMeters?.map(meter => (
             <AgentMetricCard key={meter.name} meter={meter} />
           ))}
         </div>
