@@ -2,7 +2,12 @@ import {
   CreatedBySubjectSchema,
   type AgentSpec,
   type CreatedBySubject,
+  type TokenPagination,
 } from '@truefoundry/trueforge-core/agent-session';
+import {
+  decodeOffsetPageToken,
+  paginateOffsetRows,
+} from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
@@ -62,17 +67,31 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     this.#db = db;
   }
 
-  async listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+  async listAgents(
+    input: ListAgentsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: AgentRecord[]; pagination: TokenPagination }> {
     if (input.external_ids?.length === 0) {
-      return [];
+      return { data: [], pagination: { limit: input.limit ?? 0 } };
     }
     const db = transaction ?? this.#db;
     let query = db.selectFrom('agent').select(recordColumns).where('tenant_id', '=', input.tenant_id);
     if (input.external_ids !== undefined) {
       query = query.where('external_id', 'in', [...input.external_ids]);
     }
-    const rows = await query.orderBy('name').execute();
-    return rows.map(toRecord);
+    query = query.orderBy('name');
+    if (input.limit === undefined) {
+      const rows = await query.execute();
+      const data = rows.map(toRecord);
+      return { data, pagination: { limit: data.length } };
+    }
+    const offset = decodeOffsetPageToken(input.page_token);
+    const rows = await query
+      .limit(input.limit + 1)
+      .offset(offset)
+      .execute();
+    const { data, pagination } = paginateOffsetRows(rows, input.limit, offset);
+    return { data: data.map(toRecord), pagination };
   }
 
   async getOwnedIds(input: GetOwnedIdsInput, transaction?: Transaction<Database>): Promise<readonly string[]> {

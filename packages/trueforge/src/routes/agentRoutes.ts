@@ -12,25 +12,49 @@ import {
   ListAgentsResponseSchema,
   UpdateAgentRequestSchema,
 } from '../schemas/agent';
+import { PAGE_LIMIT } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
+import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
 export const AgentIdParamsSchema = z.object({
   agent_id: z.string().min(1).max(64).describe('Immutable agent identifier.'),
 });
 
+export const ListAgentsQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(PAGE_LIMIT)
+      .optional()
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+    page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
+  })
+  .openapi('ListAgentsQuery');
+
 export const listAgentsRoute = createRoute({
   method: 'get',
   path: '/',
   tags: [OpenApiTag.AGENTS],
   summary: 'List agents',
-  description: 'All configured agents for the tenant.',
+  description: 'List configured agents for the tenant, ordered by name.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'list',
+  'x-fern-pagination': TOKEN_PAGINATION,
+  request: {
+    query: ListAgentsQuerySchema,
+  },
   responses: {
     200: {
       content: { 'application/json': { schema: ListAgentsResponseSchema } },
-      description: 'All configured agents.',
+      description: 'Paginated matching agents.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid query parameters or page token.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

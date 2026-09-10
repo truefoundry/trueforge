@@ -4,7 +4,12 @@
  * `AgentSpec` jsonb document.
  * Implementations: PostgresAgentStore and SqliteAgentStore.
  */
-import { AgentSpecSchema, type AgentSpec, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import {
+  AgentSpecSchema,
+  type AgentSpec,
+  type CreatedBySubject,
+  type TokenPagination,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { ResourceName } from '../schemas/common';
 
 export interface AgentRecord {
@@ -35,6 +40,9 @@ export interface ListAgentsInput {
   tenant_id: string;
   /** When set, only agents whose `external_id` is in this list. */
   external_ids?: readonly string[];
+  /** When omitted, return the full matching set (no SQL LIMIT). */
+  limit?: number;
+  page_token?: string;
 }
 
 export interface GetOwnedIdsInput {
@@ -104,7 +112,10 @@ export class AgentExternalIdConflictError extends Error {
 }
 
 export interface IAgentStore<TTransaction = never> {
-  listAgents(input: ListAgentsInput, transaction?: TTransaction): Promise<AgentRecord[]>;
+  listAgents(
+    input: ListAgentsInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: AgentRecord[]; pagination: TokenPagination }>;
   /** Ids among `ids` owned by `subject_id`. Empty `ids` → `[]`. */
   getOwnedIds(input: GetOwnedIdsInput, transaction?: TTransaction): Promise<readonly string[]>;
   /** Agents with a non-null `external_id` among `ids`. Empty `ids` → `[]`. */
