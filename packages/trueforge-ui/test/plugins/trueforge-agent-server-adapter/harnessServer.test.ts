@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { createHarnessChatServer, type HarnessAgentSpec } from '@/plugins/trueforge-agent-server-adapter/chatServer.js';
+import {
+  createHarnessChatServer,
+  toHarnessAgentSpec,
+  toUiAgentSpec,
+  type HarnessAgentSpec,
+} from '@/plugins/trueforge-agent-server-adapter/chatServer.js';
 
 const session = {
   id: 'ses_1',
@@ -75,17 +80,17 @@ describe('createHarnessChatServer', () => {
     assert.equal(created.isMutable, true);
     assert.equal(created.title, undefined);
     assert.deepEqual(created.agentSpec?.mcpServers?.[0], { name: 'github', enableTools: ['@all'] });
-    assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review' });
+    assert.deepEqual(created.agentSpec?.skills?.[0], { name: 'review', preload: false });
   });
 
   it('sends skill name refs and strips UI-only mount ids before admission', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
+    const skillName = 'agent-skill:acme/team-a/echo:3';
 
     await server.createSession({
       agentSpec: {
         model: { name: 'test/model' },
-        // Draft picker may round-trip a mount as `{ id, name }`.
-        skills: [{ name: 'review' }],
+        skills: [{ id: skillName, name: 'echo', preload: true }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
     });
@@ -96,8 +101,20 @@ describe('createHarnessChatServer', () => {
       spec: {
         model: { name: 'test/model' },
         mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-        skills: [{ name: 'review' }],
+        skills: [{ name: skillName, preload: true }],
       },
+    });
+  });
+
+  it('defaults skill preload to false when omitted', () => {
+    const ui = toUiAgentSpec({
+      model: { name: 'test/model' },
+      skills: [{ name: 'agent-skill:acme/team-a/echo:3' }],
+    });
+    assert.deepEqual(ui.skills?.[0], { name: 'agent-skill:acme/team-a/echo:3', preload: false });
+    assert.deepEqual(toHarnessAgentSpec({ model: { name: 'test/model' }, skills: [{ name: 'echo' }] }).skills?.[0], {
+      name: 'echo',
+      preload: false,
     });
   });
 
@@ -187,6 +204,24 @@ describe('createHarnessChatServer', () => {
     assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('agent_id'), 'agt_1');
     assert.equal(page.data[0]?.agentName, 'reviewer');
     assert.equal(page.data[0]?.isMutable, false);
+  });
+
+  it('forwards createdByMe to listSessions as created_by_me', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({ data: [], pagination: { limit: 20 } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    await server.listSessions({ createdByMe: true, limit: 10 });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('created_by_me'), 'true');
   });
 
   it('listSessions forwards an unknown agentId to the API (empty page from the server)', async () => {

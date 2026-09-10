@@ -149,7 +149,10 @@ export function App() {
   if (session === 'checking') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
+          <span className="boot-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </div>
       </ThemeProvider>
     );
   }
@@ -175,7 +178,10 @@ export function App() {
   if (boot.status === 'loading') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
+          <span className="boot-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </div>
       </ThemeProvider>
     );
   }

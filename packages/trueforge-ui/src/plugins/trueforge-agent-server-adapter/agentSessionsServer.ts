@@ -66,6 +66,7 @@ export function createHarnessAgentSessionsServer(
         ...(requestParams.agentId === undefined || requestParams.agentId.length === 0
           ? {}
           : { agentId: requestParams.agentId }),
+        ...(requestParams.createdByMe === undefined ? {} : { createdByMe: requestParams.createdByMe }),
       });
       return toListResult(page, toSessionListEntry);
     },

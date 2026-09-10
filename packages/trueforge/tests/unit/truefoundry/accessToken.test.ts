@@ -122,15 +122,21 @@ describe('accessTokenForRequest', () => {
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 
-  it('shares one vend across stores on the same request', async () => {
+  it('shares one vend across model, MCP, and skill stores on the same request', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue('agent-token') };
     const context = createTrueFoundryRequestContext(CONTEXT);
 
     const model = accessTokenForRequest({ client, requestContext: context, agent: AGENT, logger: LOGGER });
     const mcp = accessTokenForRequest({ client, requestContext: context, agent: AGENT, logger: LOGGER });
+    const skill = accessTokenForRequest({ client, requestContext: context, agent: AGENT, logger: LOGGER });
 
     expect(model).toBe(mcp);
-    await expect(Promise.all([model(), mcp()])).resolves.toEqual(['agent-token', 'agent-token']);
+    expect(mcp).toBe(skill);
+    await expect(Promise.all([model(), mcp(), skill()])).resolves.toEqual([
+      'agent-token',
+      'agent-token',
+      'agent-token',
+    ]);
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 

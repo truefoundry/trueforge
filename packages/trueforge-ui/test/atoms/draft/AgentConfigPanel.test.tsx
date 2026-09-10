@@ -42,6 +42,7 @@ const catalogProps = {
   models: [model, secondModel],
   modelsLoading: false,
   modelsError: null,
+  skills: [{ id: 'agent-skill:acme/team-a/echo:3', name: 'Echo', version: 3 }],
 };
 
 const spec: AgentSpec = {
@@ -299,6 +300,54 @@ describe('AgentConfigPanel', () => {
     expect(onChange).toHaveBeenCalledWith({
       ...spec,
       mcpServers: [{ id: 'github', name: 'GitHub', enableTools: ['issues.list'], preload: true }],
+    });
+  });
+
+  it('removes a skill directly from its config chip without offering preload for a git skill', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Preload skill Research' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Research' }));
+    expect(onChange).toHaveBeenCalledWith({ ...spec, skills: [] });
+  });
+
+  it('toggles preload for an older version of a TrueFoundry skill', () => {
+    const onChange = vi.fn();
+    const registrySpec = {
+      ...spec,
+      skills: [{ id: 'agent-skill:acme/team-a/echo:2', name: 'Echo' }],
+    };
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={registrySpec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={registrySpec.instructions ?? ''}
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preload skill Echo' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...registrySpec,
+      skills: [{ id: 'agent-skill:acme/team-a/echo:2', name: 'Echo', preload: true }],
     });
   });
 

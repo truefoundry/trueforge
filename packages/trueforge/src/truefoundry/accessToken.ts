@@ -73,7 +73,7 @@ export function agentAccessToken(input: {
 export function callerAccessToken(context: RequestContext): ResolveAccessToken {
   if (context.user_credential === null) {
     throw new HTTPException(401, {
-      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, and agents',
+      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, skills, and agents',
     });
   }
   const token = context.user_credential;
@@ -82,7 +82,7 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
 
 /**
  * Token for a TrueFoundry request, optionally scoped to the saved agent executing a turn.
- * Saved-agent callables are stored on this request's context so model and MCP stores share one vend.
+ * Saved-agent callables are stored on this request's context so model, MCP, and skill stores share one vend.
  */
 export function accessTokenForRequest(input: {
   client: AgentTokenVendor;

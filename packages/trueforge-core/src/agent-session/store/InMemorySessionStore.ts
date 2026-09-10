@@ -14,6 +14,7 @@ import type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetOwnedIdsInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
@@ -224,6 +225,24 @@ export class InMemorySessionStore<
   async getSession(input: GetSessionInput): Promise<SessionRecord<TSessionCustom> | undefined> {
     const stored = this.sessions.get(sessionKey(input.session_id));
     return stored?.record.tenant_id === input.tenant_id ? deepCopy(stored.record) : undefined;
+  }
+
+  async getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const wanted = new Set(input.ids);
+    const ids: string[] = [];
+    for (const stored of this.sessions.values()) {
+      if (
+        stored.record.tenant_id === input.tenant_id &&
+        wanted.has(stored.record.session_id) &&
+        stored.record.created_by_subject.subject_id === input.subject_id
+      ) {
+        ids.push(stored.record.session_id);
+      }
+    }
+    return ids;
   }
 
   async getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<TSessionCustom> | undefined> {

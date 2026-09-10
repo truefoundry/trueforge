@@ -133,6 +133,7 @@ export type {
 
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
+export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
 export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 

@@ -22,12 +22,14 @@ export type AgentMcpEditorContentProps = {
   query: string;
   activeConnectorId: string | null;
   tools: McpToolSelection[];
+  connectorLoading: boolean;
+  connectorError: string | null;
   toolsLoading: boolean;
   toolsError: string | null;
   onQueryChange: (query: string) => void;
   onSelectConnector: (connectorId: string) => void;
   onRetryTools: () => void;
-  onRefreshConnectors?: () => Promise<void>;
+  onRefreshConnector?: () => void;
   onChange: (spec: AgentSpec) => void;
 };
 
@@ -66,7 +68,7 @@ function selectedToolsHeaderLabel(mcpMounts: ReturnType<typeof editableMountsFro
   return `Selected Tools (${count})`;
 }
 
-function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; onConnected: () => Promise<void> }) {
+function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; onConnected: () => void }) {
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
   return (
     <Button.Primary
@@ -75,7 +77,7 @@ function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; o
       disabled={isOAuthLoading}
       onClick={() => {
         void handleAuthorize(connectorId, isSuccess => {
-          if (isSuccess) void onConnected();
+          if (isSuccess) onConnected();
         });
       }}
     >
@@ -90,16 +92,27 @@ export function AgentMcpEditorContent({
   query,
   activeConnectorId,
   tools,
+  connectorLoading,
+  connectorError,
   toolsLoading,
   toolsError,
   onQueryChange,
   onSelectConnector,
   onRetryTools,
-  onRefreshConnectors,
+  onRefreshConnector,
   onChange,
 }: AgentMcpEditorContentProps) {
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Freeze open-time selected MCPs at the top; live picks must not reshuffle the list.
+  const [openSelectedKeys] = useState(() => {
+    const keys = new Set<string>();
+    for (const mount of editableMountsFromSpec(spec.mcpServers)) {
+      keys.add(mount.id);
+      keys.add(mount.name);
+    }
+    return keys;
+  });
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
   const catalogConnectors = connectorsWithSelectedStubs({ connectors, selected: mcpMounts });
   const selectedConnector = catalogConnectors.find(item => item.id === activeConnectorId);
@@ -110,9 +123,13 @@ export function AgentMcpEditorContent({
   const canAddActiveConnector = selectedConnector !== undefined && selectedConnector.authenticated === true;
   const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredConnectors = catalogConnectors.filter(item =>
-    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery),
-  );
+  const filteredConnectors = catalogConnectors
+    .filter(item => `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery))
+    .sort((left, right) => {
+      const leftPinned = openSelectedKeys.has(left.id) || openSelectedKeys.has(left.name);
+      const rightPinned = openSelectedKeys.has(right.id) || openSelectedKeys.has(right.name);
+      return Number(rightPinned) - Number(leftPinned);
+    });
   const normalizedToolQuery = toolQuery.trim().toLowerCase();
   const filteredTools =
     normalizedToolQuery === '' ? tools : tools.filter(tool => tool.name.toLowerCase().includes(normalizedToolQuery));
@@ -216,12 +233,23 @@ export function AgentMcpEditorContent({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col border-b border-border md:border-r md:border-b-0">
         {selectedConnector ? (
-          needsAuth ? (
+          connectorLoading ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center p-3" aria-label="Loading MCP server">
+              <Spinner size={20} className="text-text-secondary" />
+            </div>
+          ) : connectorError ? (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center">
+              <p className="text-failure-bg text-sm">{connectorError}</p>
+              <Button.Secondary type="button" size="small" className="mt-2" onClick={onRetryTools}>
+                Retry
+              </Button.Secondary>
+            </div>
+          ) : needsAuth ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
               <Icon name="lock" className="text-text-secondary size-10" />
               <p className="text-text-primary text-sm font-semibold">You&apos;re not connected to this MCP Server</p>
-              {onRefreshConnectors ? (
-                <ConnectNowButton connectorId={selectedConnector.id} onConnected={onRefreshConnectors} />
+              {onRefreshConnector ? (
+                <ConnectNowButton connectorId={selectedConnector.id} onConnected={onRefreshConnector} />
               ) : null}
               <div className="text-text-secondary flex w-full max-w-xs items-center gap-3 text-xs">
                 <span className="bg-border h-px flex-1" />

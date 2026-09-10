@@ -1,6 +1,6 @@
 import { createLogger } from 'winston';
 import { getPublicBaseUrl } from '../../../src/config';
-import { McpServerNotFoundError } from '../../../src/db/mcpServerStore';
+import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
 import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
@@ -77,6 +77,23 @@ function dcrRecord(overrides: { name?: string } = {}) {
       url: 'https://gateway.example/mcp-server/github',
       description: 'GitHub MCP',
       auth: { type: 'dcr' as const },
+    },
+    created_at: '2026-01-15T12:00:00.000Z',
+    updated_at: '2026-01-16T12:00:00.000Z',
+  };
+}
+
+function truefoundryRecordWithoutAuth(overrides: { name?: string; id?: string } = {}) {
+  const name = overrides.name ?? 'private-api';
+  return {
+    id: overrides.id ?? 'mcp-id-header',
+    tenant_id: TENANT,
+    name,
+    manifest: {
+      type: 'truefoundry' as const,
+      name,
+      url: `https://gateway.example/mcp-server/${name}`,
+      description: 'Per-user token MCP',
     },
     created_at: '2026-01-15T12:00:00.000Z',
     updated_at: '2026-01-16T12:00:00.000Z',
@@ -163,7 +180,7 @@ describe('TrueFoundryMcpServerStore', () => {
       expect(statuses.get('slack')).toEqual({ status: 'authenticated' });
     });
 
-    it('calls live status for a single record', async () => {
+    it('calls live status for a single dcr record', async () => {
       const { store, client } = createStore();
       client.getMcpAuthStatus.mockResolvedValue({
         status: 'auth_required',
@@ -184,13 +201,30 @@ describe('TrueFoundryMcpServerStore', () => {
         authorization_url: 'https://consent.example/authorize',
       });
     });
+
+    it('calls live status for a single truefoundry record without wire auth', async () => {
+      const { store, client } = createStore();
+      client.getMcpAuthStatus.mockResolvedValue({ status: 'auth_required' });
+      const record = truefoundryRecordWithoutAuth();
+      const statuses = await store.resolveAuthStatuses({
+        records: [record],
+        userRef: 'user-1',
+      });
+      expect(client.getMcpAuthStatus).toHaveBeenCalledWith({
+        accessToken: ACCESS_TOKEN,
+        mcpServerId: record.id,
+        subjectId: 'user-1',
+        subjectType: 'user',
+      });
+      expect(statuses.get(record.name)).toEqual({ status: 'auth_required' });
+    });
   });
 
   describe('resolveInvokeHeaders mid-turn', () => {
-    async function invoke(store: TrueFoundryMcpServerStore) {
-      const headers = store.resolveInvokeHeaders({ record: dcrRecord(), userRef: 'user-1' });
+    async function invoke(store: TrueFoundryMcpServerStore, record: McpServerRecord = dcrRecord()) {
+      const headers = store.resolveInvokeHeaders({ record, userRef: 'user-1' });
       if (typeof headers !== 'function') {
-        throw new Error('expected async headers resolver for truefoundry+dcr');
+        throw new Error('expected async headers resolver for truefoundry MCP');
       }
       return headers();
     }
@@ -206,6 +240,29 @@ describe('TrueFoundryMcpServerStore', () => {
           servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
         },
       });
+    });
+
+    it('gates non-dcr truefoundry servers through authorize as well', async () => {
+      const { store, client } = createStore();
+      const record = truefoundryRecordWithoutAuth();
+      client.getMcpServerByName.mockResolvedValue({
+        id: record.id,
+        name: record.name,
+        proxyUrl: `${MCP_PROXY_BASE_URL_TEMPLATE}/mcp-server/${record.name}`,
+        createdAt: record.created_at,
+        updatedAt: record.updated_at,
+        manifest: { description: record.manifest.description, auth_data: { type: 'header' } },
+      });
+      client.getMcpAuthorize.mockResolvedValue({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/auth-override',
+      });
+      await expect(invoke(store, record)).resolves.toEqual({
+        authRequired: {
+          servers: [{ id: record.name, name: record.name, auth_url: 'https://consent.example/auth-override' }],
+        },
+      });
+      expect(client.getMcpAuthorize).toHaveBeenCalled();
     });
 
     it('returns gateway Bearer when authorize reports authenticated', async () => {

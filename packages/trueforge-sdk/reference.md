@@ -1,4 +1,71 @@
 # Reference
+## Internal
+<details><summary><code>client.internal.<a href="/src/api/resources/internal/client/Client.ts">listPermissions</a>({ ...params }) -> TrueForge.ListPermissionsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Return granted actions for each requested agent, schedule, or session id.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.listPermissions({
+    resourceIds: ["resource_ids"],
+    resourceType: "agent"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListPermissionsRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `InternalClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Agents
 <details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">list</a>() -> TrueForge.ListAgentsResponse</code></summary>
 <dl>
@@ -2332,6 +2399,71 @@ await client.skills.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `SkillsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.skills.<a href="/src/api/resources/skills/client/Client.ts">listVersions</a>({ ...params }) -> TrueForge.ListSkillVersionsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Versions for one skill.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.skills.listVersions({
+    name: "name"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListVersionsSkillsRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
