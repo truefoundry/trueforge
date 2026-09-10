@@ -68,7 +68,7 @@ following namespace:
 ```typescript
 import { TrueForge } from "@truefoundry/trueforge-sdk";
 
-const request: TrueForge.CreateAgentRequest = {
+const request: TrueForge.ListPermissionsRequest = {
     ...
 };
 ```
@@ -504,9 +504,9 @@ const text = new TextDecoder().decode(bytes);
 This SDK supports direct imports of subpackage clients, which allows JavaScript bundlers to tree-shake and include only the imported subpackage code. This results in much smaller bundle sizes.
 
 ```typescript
-import { AgentsClient } from '@truefoundry/trueforge-sdk/agents';
+import { InternalClient } from '@truefoundry/trueforge-sdk/internal';
 
-const client = new AgentsClient({...});
+const client = new InternalClient({...});
 ```
 
 ### Additional Headers
