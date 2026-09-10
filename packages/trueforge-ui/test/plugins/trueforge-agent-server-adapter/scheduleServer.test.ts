@@ -91,28 +91,16 @@ describe('createScheduleServer.listSchedules', () => {
     expect(page.nextPageToken).toBe('tok');
   });
 
-  it('allows listSchedules limit of 100', async () => {
+  it('caps limit at 25', async () => {
     const list = vi.fn(async () => ({
       data: [],
-      response: { pagination: { limit: 100 } },
+      response: { pagination: { limit: 25 } },
       hasNextPage: () => false,
       getNextPage: async () => undefined,
     }));
     const server = createScheduleServer({ client: mockClient({ list }) });
     await server.listSchedules({ limit: 100 });
-    expect(list).toHaveBeenCalledWith({ limit: 100 });
-  });
-
-  it('clamps listSchedules limit to 100', async () => {
-    const list = vi.fn(async () => ({
-      data: [],
-      response: { pagination: { limit: 100 } },
-      hasNextPage: () => false,
-      getNextPage: async () => undefined,
-    }));
-    const server = createScheduleServer({ client: mockClient({ list }) });
-    await server.listSchedules({ limit: 200 });
-    expect(list).toHaveBeenCalledWith({ limit: 100 });
+    expect(list).toHaveBeenCalledWith({ limit: 25 });
   });
 });
 

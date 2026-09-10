@@ -3,7 +3,7 @@
  * Handlers are registered in apis/schedules.ts.
  */
 import { createRoute, z } from '@hono/zod-openapi';
-import { NameSchema, PAGE_LIMIT, SCHEDULES_PAGE_LIMIT, parseCommaSeparatedQuery } from '../schemas/common';
+import { NameSchema, PAGE_LIMIT, parseCommaSeparatedQuery } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateScheduleRequestSchema,
@@ -28,10 +28,10 @@ export const ListSchedulesQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(SCHEDULES_PAGE_LIMIT)
+      .max(PAGE_LIMIT)
       .optional()
-      .default(SCHEDULES_PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(SCHEDULES_PAGE_LIMIT)}`),
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
     // comma-separated string -> array of names
     agent_names: z

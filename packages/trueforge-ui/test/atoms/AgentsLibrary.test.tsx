@@ -489,7 +489,7 @@ describe('AgentsLibraryButton', () => {
 
     await waitFor(() => {
       expect(listSchedules).toHaveBeenCalledWith(
-        expect.objectContaining({ agentIds: ['alpha-agent', 'beta-agent'], limit: 100 }),
+        expect.objectContaining({ agentIds: ['alpha-agent', 'beta-agent'], limit: 25 }),
       );
     });
 
