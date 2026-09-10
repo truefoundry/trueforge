@@ -80,6 +80,7 @@ const app = createServerApp({
   sandboxCatalog: SandboxCatalog.load(),
   resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
   resolveAgentStore: () => agentStore,
+  resolveImportAgentStore: () => agentStore,
   scheduleStore: new SqliteScheduleStore(db),
   sessionStore,
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
