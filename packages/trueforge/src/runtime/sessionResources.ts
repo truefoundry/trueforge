@@ -48,7 +48,6 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
   return metadata;
 }
 
-/** Header map for model/MCP gateway calls; empty when metadata has no keys. */
 export function gatewayMetadataHeaders(metadata: Record<string, string>): Record<string, string> {
   if (Object.keys(metadata).length === 0) {
     return {};
