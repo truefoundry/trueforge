@@ -154,6 +154,9 @@ Notes on behaviour:
   `try_agent_name` hides the filter for a Try Agent flow, while
   `history_agent_name` shows an explicitly selected filter. Both values are
   display names; the shell resolves the backend agent id before listing sessions.
+  Non-chat destinations such as Build Agent, Agents, Sessions, Schedules, and
+  Settings clear this query state. User filter changes start a clean chat and
+  reset history pagination; All Chats remains paginated in 20-session pages.
 - Unrecognized paths (and malformed escapes) normalize to the root place.
 - `/settings` is registered only while Settings chrome is available (catalog
   present and `capabilities.settings.enabled !== false`). When that gate is

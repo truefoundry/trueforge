@@ -214,6 +214,36 @@ describe('ShellRouteSync', () => {
     expect(search).toBe('');
   });
 
+  it('clears history filter query state when leaving chat routes', () => {
+    renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+
+    act(() =>
+      shell.setHistoryAgentFilter({
+        agentId: 'helper-id',
+        agentName: 'helper',
+        intent: 'history',
+      }),
+    );
+    expect(search).toBe('?history_agent_name=helper');
+
+    act(() => shell.openAgentBuilder());
+    expect(pathname).toBe('/build-agent');
+    expect(search).toBe('');
+    expect(shell.historyAgentFilter).toBeNull();
+
+    act(() =>
+      shell.setHistoryAgentFilter({
+        agentId: 'helper-id',
+        agentName: 'helper',
+        intent: 'history',
+      }),
+    );
+    act(() => shell.setLibraryOpen(true));
+    expect(pathname).toBe('/library');
+    expect(search).toBe('');
+    expect(shell.historyAgentFilter).toBeNull();
+  });
+
   it('applies and mirrors the build-agent route', () => {
     renderSync({ initialEntries: ['/build-agent'] });
     expect(shell.mode).toMatchObject({ status: 'active', isMutable: true, isCreateAgent: true });

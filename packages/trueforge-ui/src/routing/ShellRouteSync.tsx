@@ -23,6 +23,10 @@ import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
 
+function placeOwnsHistoryAgentSearch(place: RoutePlace): boolean {
+  return place.type === 'root' || place.type === 'agent' || place.type === 'session';
+}
+
 /**
  * Single bidirectional bridge between shell state and the URL. Mounted under
  * `ShellModeProvider` but outside the keyed chat runtime so boot applies once.
@@ -239,7 +243,9 @@ export function ShellRouteSync({
     const historyAgentSearch: HistoryAgentSearch | null =
       urlPlace.type === 'agent'
         ? { intent: 'try-agent', agentName: urlPlace.agentName }
-        : readHistoryAgentSearch(location.search);
+        : placeOwnsHistoryAgentSearch(urlPlace)
+          ? readHistoryAgentSearch(location.search)
+          : null;
     bootHistoryAgentRef.current = historyAgentSearch;
     appliedUrlPlaceRef.current = urlPlace;
     const settingsOnBoot = settingsChromeEnabled && (initialSettingsOpen || urlPlace.type === 'settings');
@@ -261,6 +267,8 @@ export function ShellRouteSync({
     }
     if (urlPlace.type !== 'agent' && historyAgentSearch != null) {
       applyHistoryAgentSearch(historyAgentSearch);
+    } else if (!placeOwnsHistoryAgentSearch(urlPlace)) {
+      applyHistoryAgentSearch(null);
     }
 
     const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
@@ -298,13 +306,19 @@ export function ShellRouteSync({
       : effectiveRoutes.basename;
     const browserPathname = `${basename}${location.pathname}` || '/';
     const latestSearch = window.location.pathname === browserPathname ? window.location.search : location.search;
-    const historyAgentSearch =
-      shell.historyAgentFilter == null
+    const ownsHistoryAgentSearch = placeOwnsHistoryAgentSearch(place);
+    const historyAgentSearch = ownsHistoryAgentSearch
+      ? shell.historyAgentFilter == null
         ? bootHistoryAgentRef.current
         : {
             intent: shell.historyAgentFilter.intent,
             agentName: shell.historyAgentFilter.agentName,
-          };
+          }
+      : null;
+    if (!ownsHistoryAgentSearch && shell.historyAgentFilter != null) {
+      requestedHistoryAgentRef.current = null;
+      shell.setHistoryAgentFilter(null);
+    }
     if (shell.historyAgentFilter != null) bootHistoryAgentRef.current = null;
     const targetSearch = updateHistoryAgentSearch(sanitizeSearchForPlace(place, latestSearch), historyAgentSearch);
 
@@ -370,8 +384,10 @@ export function ShellRouteSync({
       }
       applyPlace(urlPlace);
     }
-    if (urlPlace.type !== 'agent') {
+    if (urlPlace.type !== 'agent' && placeOwnsHistoryAgentSearch(urlPlace)) {
       applyHistoryAgentSearch(readHistoryAgentSearch(location.search));
+    } else if (!placeOwnsHistoryAgentSearch(urlPlace)) {
+      applyHistoryAgentSearch(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);

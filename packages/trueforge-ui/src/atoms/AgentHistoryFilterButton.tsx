@@ -80,6 +80,11 @@ export function AgentHistoryFilterButton() {
   if (!enabled) return null;
 
   const pick = (filter: HistoryAgentFilter | null) => {
+    if (shell?.isComposerEnabled === true) {
+      shell.openDraft();
+    } else {
+      shell?.openLibraryHome();
+    }
     shell?.setHistoryAgentFilter(filter);
     setOpen(false);
   };

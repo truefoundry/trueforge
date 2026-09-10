@@ -42,7 +42,16 @@ function mockServer(partial: Partial<AgentUIServer> = {}): AgentUIServer {
 function FilterProbe() {
   const shell = useShellMode();
   const filter = shell.historyAgentFilter;
-  return <span data-testid="filter-value">{filter == null ? 'all' : `${filter.agentName}:${filter.intent}`}</span>;
+  return (
+    <>
+      <span data-testid="filter-value">{filter == null ? 'all' : `${filter.agentName}:${filter.intent}`}</span>
+      <span data-testid="runtime-key">{shell.runtimeKey}</span>
+      <span data-testid="pending-session">{shell.pendingSessionId ?? 'none'}</span>
+      <button type="button" onClick={() => shell.openHistorySession({ sessionId: 'draft-session', isMutable: true })}>
+        Open draft session
+      </button>
+    </>
+  );
 }
 
 function wrap({
@@ -100,6 +109,9 @@ describe('AgentHistoryFilterButton', () => {
 
     expect(screen.getByTestId('filter-value')).toHaveTextContent('all');
     expect(screen.queryByTestId('history-filter-active-dot')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open draft session' }));
+    const runtimeKeyBeforeFilter = screen.getByTestId('runtime-key').textContent;
+    expect(screen.getByTestId('pending-session')).toHaveTextContent('draft-session');
 
     fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
     await waitFor(() => expect(screen.getByRole('menuitem', { name: /From SDK/i })).toBeInTheDocument());
@@ -113,8 +125,16 @@ describe('AgentHistoryFilterButton', () => {
     });
 
     expect(screen.getByTestId('filter-value')).toHaveTextContent('From SDK:history');
+    expect(screen.getByTestId('pending-session')).toHaveTextContent('none');
+    expect(screen.getByTestId('runtime-key').textContent).not.toBe(runtimeKeyBeforeFilter);
     expect(screen.getByTestId('history-filter-active-dot')).toBeInTheDocument();
     expect(searchAgents).toHaveBeenCalled();
+
+    const runtimeKeyBeforeClear = screen.getByTestId('runtime-key').textContent;
+    fireEvent.click(screen.getByRole('button', { name: /Filter chat history/i }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'All chats' }));
+    expect(screen.getByTestId('filter-value')).toHaveTextContent('all');
+    expect(screen.getByTestId('runtime-key').textContent).not.toBe(runtimeKeyBeforeClear);
   });
 
   it('hides All chats while a search query is active', async () => {
