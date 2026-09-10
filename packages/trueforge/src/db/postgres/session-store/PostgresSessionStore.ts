@@ -1,3 +1,10 @@
+import {
+  AgentSpecSchema,
+  type AgentSpec,
+  type SessionMetadata,
+  type TurnInputItem,
+  type TurnState,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type { TurnRecord } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforge-core/agent-session/schemas/events';
@@ -32,7 +39,6 @@ import {
   decodeOffsetPageToken,
   encodeOffsetPageToken,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { AgentSpec, SessionMetadata, TurnInputItem, TurnState } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentInfo, ContextMessage, JsonValue } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { Kysely } from 'kysely';
@@ -74,6 +80,14 @@ import {
 
 /** Prefix on session.agent_id when the SF agent is not yet imported locally. */
 const IMPORT_UNRESOLVED_AGENT_ID_PREFIX = 'tfy-import:';
+
+/** Client/data rejection for session import — map to HTTP 4xx (not retryable). */
+export class SessionImportValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SessionImportValidationError';
+  }
+}
 
 type SessionCustom = Record<string, never>;
 type TurnCustom = Record<string, never>;
@@ -252,9 +266,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     return { created_at: new Date(row.created_at).toISOString() };
   }
 
-  async importSessionSnapshot(
-    input: ImportSessionRequest,
-  ): Promise<{ imported: boolean; session_id: string }> {
+  async importSessionSnapshot(input: ImportSessionRequest): Promise<{ imported: boolean; session_id: string }> {
     const sessionId = input.session.session_id;
     const agentName = input.session.agent_name;
     const agentSpec = input.session.agent_spec;
@@ -264,15 +276,22 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     const hasSfAgentId = typeof sfAgentId === 'string' && sfAgentId.length > 0;
 
     if (!hasName && !hasSpec) {
-      throw new Error('Provide agent_name and/or agent_spec');
+      throw new SessionImportValidationError('Provide agent_name and/or agent_spec');
     }
 
     let agentId: string | null = null;
     let resolvedAgentName: string | null = null;
+    let resolvedAgentSpec: AgentSpec | null = null;
     const metadata: SessionMetadata = { imported: 'true' };
 
     if (hasSpec) {
       // Draft XOR: agent_spec on columns. SF may also send name/id — stash in metadata.
+      const parsedSpec = AgentSpecSchema.safeParse(agentSpec);
+      if (!parsedSpec.success) {
+        // Ops must fix the transformed spec; do not persist — session reads parse with AgentSpecSchema.
+        throw new Error(`Invalid agent_spec for session import: ${parsedSpec.error.message}`);
+      }
+      resolvedAgentSpec = parsedSpec.data;
       if (hasName) {
         metadata['agent_name'] = agentName;
       }
@@ -291,7 +310,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
         resolvedAgentName = agent.name;
       } else {
         if (!hasSfAgentId) {
-          throw new Error(
+          throw new SessionImportValidationError(
             `Named session import requires agent_id when agent "${agentName}" does not exist locally`,
           );
         }
@@ -315,7 +334,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
           source: null,
           agent_id: agentId,
           agent_name: resolvedAgentName,
-          agent_spec: hasSpec ? jsonUnknown<AgentSpec>(agentSpec) : null,
+          agent_spec: resolvedAgentSpec !== null ? jsonUnknown<AgentSpec>(resolvedAgentSpec) : null,
           title: session.title,
           last_turn_id: session.last_turn_id,
           custom: session.custom !== null ? json(session.custom) : null,
@@ -346,9 +365,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
             ancestor_ids: turn.ancestor_ids,
             input: jsonUnknown<TurnInputItem[]>(turn.input),
             state: jsonUnknown<TurnState>(turn.state),
-            checkpoint: jsonUnknown<TurnCheckpoint>(
-              turn.checkpoint ?? { mcp_servers: null, sandbox_info: null },
-            ),
+            checkpoint: jsonUnknown<TurnCheckpoint>(turn.checkpoint ?? { mcp_servers: null, sandbox_info: null }),
             custom: turn.custom !== null ? json(turn.custom) : null,
             created_at: new Date(turn.created_at),
             updated_at: updatedAt,

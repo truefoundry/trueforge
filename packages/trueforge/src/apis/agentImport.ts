@@ -3,19 +3,10 @@
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
-import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import {
-  AgentExternalIdConflictError,
-  AgentNameConflictError,
-  type IAgentStore,
-} from '../db/agentStore';
-import { PostgresSessionStore } from '../db/postgres/session-store/PostgresSessionStore';
-import {
-  getImportSessionsCheckpointRoute,
-  importAgentsRoute,
-  importSessionRoute,
-} from '../routes/agentImportRoutes';
+import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../db/agentStore';
+import { PostgresSessionStore, SessionImportValidationError } from '../db/postgres/session-store/PostgresSessionStore';
+import { getImportSessionsCheckpointRoute, importAgentsRoute, importSessionRoute } from '../routes/agentImportRoutes';
 import type { ImportAgentItemResult } from '../schemas/agentImport';
 import {
   TFY_ASSUME_USER_HEADER,
@@ -23,10 +14,9 @@ import {
 } from '../truefoundry/TrueFoundryServiceFoundryServerClient';
 
 export interface AgentImportRouterDeps {
-  resolveAgentStore: (c: Context) => IAgentStore;
   sessionStore: ISessionStore;
-  /** Builds TrueFoundryAgentStore with SF client constructor assume-user headers. */
-  createImportAgentStore?: (headers: Record<string, string>) => IAgentStore;
+  /** TrueFoundryAgentStore (or DB store) with SF client assume-user headers when needed. */
+  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore;
 }
 
 function errorDetail(error: unknown): string {
@@ -41,15 +31,18 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
 
   const importAgentsHandler: RouteHandler<typeof importAgentsRoute> = async c => {
     const { agents } = c.req.valid('json');
-
     const results: ImportAgentItemResult[] = [];
+    const first = agents[0];
+    if (first === undefined) {
+      return c.json({ data: { results } }, 200);
+    }
+
+    const agentStore = deps.resolveImportAgentStore({
+      [TFY_ASSUME_USER_HEADER]: tenantSystemAssumeUserHeader(first.tenant_id),
+    });
+
     for (const agent of agents) {
       try {
-        const agentStore =
-          deps.createImportAgentStore?.({
-            [TFY_ASSUME_USER_HEADER]: tenantSystemAssumeUserHeader(agent.tenant_id),
-          }) ?? deps.resolveAgentStore(c);
-
         const created = await agentStore.createAgent({
           tenant_id: agent.tenant_id,
           name: agent.name,
@@ -90,6 +83,9 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
       }
       return c.json({ data: result }, 201);
     } catch (error) {
+      if (error instanceof SessionImportValidationError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
       throw new HTTPException(500, { message: errorDetail(error), cause: error });
     }
   };

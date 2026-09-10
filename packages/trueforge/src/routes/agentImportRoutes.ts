@@ -5,10 +5,10 @@ import { createRoute } from '@hono/zod-openapi';
 import {
   ImportAgentsRequestSchema,
   ImportAgentsResponseSchema,
-  ImportSessionsCheckpointQuerySchema,
-  ImportSessionsCheckpointResponseSchema,
   ImportSessionRequestSchema,
   ImportSessionResponseSchema,
+  ImportSessionsCheckpointQuerySchema,
+  ImportSessionsCheckpointResponseSchema,
 } from '../schemas/agentImport';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
@@ -59,7 +59,7 @@ export const importSessionRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid body.',
+      description: 'Invalid body or non-importable session (e.g. missing agent_id for unresolved named agent).',
     },
     409: {
       content: { 'application/json': { schema: ImportSessionResponseSchema } },

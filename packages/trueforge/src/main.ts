@@ -104,8 +104,8 @@ interface ServerPersistence<TTransaction> {
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  /** Import: TrueFoundryAgentStore whose SF client was built with constructor assume-user headers. */
-  createImportAgentStore?: (headers: Record<string, string>) => IAgentStore<TTransaction>;
+  /** Import agents: SF assume-user headers on the client; DB store when TrueFoundry mode is off. */
+  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -310,6 +310,7 @@ async function createStandalonePersistence(options: {
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveAgentStore: () => agentStore,
+    resolveImportAgentStore: () => agentStore,
     resolveSandboxProviderStore: () => sandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -395,26 +396,25 @@ async function createDistributedPersistence(options: {
     db,
     client: serviceFoundryClient,
   });
-  const createImportAgentStore =
-    serviceFoundryClient === undefined
-      ? undefined
-      : (headers: Record<string, string>): IAgentStore<Transaction<PostgresDatabase>> => {
-          const client = createServiceFoundryServerClient(logger, headers);
-          if (client === undefined) {
-            throw new Error('TrueFoundry ServiceFoundry client required for agent import');
-          }
-          return new TrueFoundryAgentStore({
-            inner: agentStore,
-            client,
-            context: {
-              tenant_id: 'system',
-              subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
-              roles: [],
-              user_credential: client.apiKey,
-            },
-            db,
-          });
-        };
+  const resolveImportAgentStore = (
+    serviceFoundryServerHeaders: Record<string, string>,
+  ): IAgentStore<Transaction<PostgresDatabase>> => {
+    const client = createServiceFoundryServerClient(logger, serviceFoundryServerHeaders);
+    if (client === undefined) {
+      return agentStore;
+    }
+    return new TrueFoundryAgentStore({
+      inner: agentStore,
+      client,
+      context: {
+        tenant_id: 'system',
+        subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
+        roles: [],
+        user_credential: client.apiKey,
+      },
+      db,
+    });
+  };
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: new PostgresSandboxProviderStore(db),
   });
@@ -425,7 +425,7 @@ async function createDistributedPersistence(options: {
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
-    ...(createImportAgentStore !== undefined ? { createImportAgentStore } : {}),
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -449,7 +449,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
-    createImportAgentStore,
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
@@ -510,7 +510,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
-    ...(createImportAgentStore !== undefined ? { createImportAgentStore } : {}),
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,

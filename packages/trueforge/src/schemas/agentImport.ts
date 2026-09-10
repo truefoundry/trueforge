@@ -22,10 +22,7 @@ export const ImportAgentItemSchema = z
 
 export const ImportAgentsRequestSchema = z
   .object({
-    agents: z
-      .array(ImportAgentItemSchema)
-      .min(1)
-      .describe('Agents to create; each carries tenant_id and created_by_subject.'),
+    agents: z.array(ImportAgentItemSchema).describe('Agents to create; each carries tenant_id and created_by_subject.'),
   })
   .strict()
   .openapi('ImportAgentsRequest');
