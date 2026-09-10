@@ -15,6 +15,12 @@ RUN apt-get update \
         tree \
         unzip \
         zip \
+      # Node.js 22 LTS (+ bundled npm) via NodeSource; build fails if node/npm are non-functional.
+      && curl -fsSL https://deb.nodesource.com/setup_22.x -o /tmp/nodesource_setup.sh \
+      && bash /tmp/nodesource_setup.sh \
+      && apt-get install -y --no-install-recommends nodejs \
+      && node --version \
+      && npm --version \
       && curl -LO https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz \
       && tar -zxvf helm-${HELM_VERSION}-linux-amd64.tar.gz \
       && mv linux-amd64/helm /usr/local/bin/helm \
@@ -22,8 +28,8 @@ RUN apt-get update \
       && helm version \
       && curl -L https://github.com/nats-io/nats-server/releases/download/${NATS_SERVER_VERSION}/nats-server-${NATS_SERVER_VERSION}-linux-amd64.tar.gz -o /tmp/nats-server.tar.gz \
       && tar -xzf /tmp/nats-server.tar.gz -C /tmp \
-      && mv /tmp/nats-server-${NATS_SERVER_VERSION}-linux-amd64/nats-server /usr/local/bin/nats-server \
-      && rm -rf /tmp/nats-server.tar.gz /tmp/nats-server-${NATS_SERVER_VERSION}-linux-amd64 \
+      && mv /tmp/nats-server-${NATS_SERVER_VERSION}/nats-server /usr/local/bin/nats-server \
+      && rm -rf /tmp/nats-server.tar.gz /tmp/nats-server-${NATS_SERVER_VERSION} \
       && mkdir -p /var/lib/nats /var/log/nats \
       && nats-server --version \
       && git config --global user.email "trueforge@example.org" \
