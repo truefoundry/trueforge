@@ -1,4 +1,19 @@
+## [0.2.0-rc.3] - 2026-09-10
+
 ## [0.1.4-rc.2] - 2026-09-08
+
+## 0.2.0-rc.3
+
+### Minor Changes
+
+- 74eae6c: Remove pagination from list MCP servers across the API, SDK, and UI; return and search the complete configured MCP catalog client-side.
+
+### Patch Changes
+
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 44f9cbe: TrueFoundry mode: env-backed Daytona | truefoundry sandbox via TRUEFOUNDRY_SANDBOX_* (static SETTINGS JSON). Settings OpenAPI stays Daytona-only (`SandboxProviderManifest`); truefoundry is store-internal (`StoredSandboxProviderManifest`).
 
 ## [0.1.4-rc.1] - 2026-09-07
 
