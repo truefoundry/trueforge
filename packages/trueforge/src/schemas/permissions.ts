@@ -7,30 +7,24 @@ export const PermissionResourceTypeSchema = z
   .openapi('PermissionResourceType');
 
 export const AgentResourcePermissionSchema = z
-  .union([
-    z.literal('USE').describe('Run or invoke the agent.'),
-    z.literal('MANAGE').describe('Update and other non-delete mutations.'),
-    z.literal('DELETE').describe('Delete the agent.'),
-  ])
+  .enum(['USE', 'MANAGE', 'DELETE'])
+  .describe('Granted action on an agent.')
   .openapi('AgentResourcePermission');
 
 export const ScheduleResourcePermissionSchema = z
-  .union([
-    z.literal('MANAGE').describe('Update and other non-delete mutations.'),
-    z.literal('DELETE').describe('Delete the schedule.'),
-  ])
+  .enum(['MANAGE', 'DELETE'])
+  .describe('Granted action on a schedule.')
   .openapi('ScheduleResourcePermission');
 
 export const SessionResourcePermissionSchema = z
-  .union([
-    z.literal('MANAGE').describe('Update and other non-delete mutations.'),
-    z.literal('DELETE').describe('Delete the session.'),
-  ])
+  .enum(['MANAGE', 'DELETE'])
+  .describe('Granted action on a session.')
   .openapi('SessionResourcePermission');
 
 /** Any permission that may appear in a list-permissions response. */
 export const ResourcePermissionSchema = z
-  .union([AgentResourcePermissionSchema, ScheduleResourcePermissionSchema, SessionResourcePermissionSchema])
+  .enum(['USE', 'MANAGE', 'DELETE'])
+  .describe('Granted action on a resource.')
   .openapi('ResourcePermission');
 
 export const ListPermissionsRequestSchema = z
@@ -59,10 +53,10 @@ export type ResourcePermission = z.infer<typeof ResourcePermissionSchema>;
 export type ListPermissionsRequest = z.infer<typeof ListPermissionsRequestSchema>;
 export type ListPermissionsResponse = z.infer<typeof ListPermissionsResponseSchema>;
 
-export const AGENT_USE_PERMISSIONS: readonly AgentResourcePermission[] = ['USE'];
-export const AGENT_OWNER_PERMISSIONS: readonly AgentResourcePermission[] = ['USE', 'MANAGE', 'DELETE'];
-export const SCHEDULE_OWNER_PERMISSIONS: readonly ScheduleResourcePermission[] = ['MANAGE', 'DELETE'];
-export const SESSION_OWNER_PERMISSIONS: readonly SessionResourcePermission[] = ['MANAGE', 'DELETE'];
+export const AGENT_USE_PERMISSIONS = [AgentResourcePermissionSchema.enum.USE] as const;
+export const AGENT_OWNER_PERMISSIONS = AgentResourcePermissionSchema.options;
+export const SCHEDULE_OWNER_PERMISSIONS = ScheduleResourcePermissionSchema.options;
+export const SESSION_OWNER_PERMISSIONS = SessionResourcePermissionSchema.options;
 
 /** Response scaffold: every requested id starts with no grants. */
 export function emptyPermissionsByResourceId(resourceIds: readonly string[]): Record<string, ResourcePermission[]> {

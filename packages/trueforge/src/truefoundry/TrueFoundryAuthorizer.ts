@@ -18,22 +18,22 @@ const permissionByAction: Record<AgentAction, AgentPermission> = {
   delete: 'DELETE_AGENT',
 };
 
+const resourcePermissionByAgentPermission = {
+  USE_AGENT: 'USE',
+  MANAGE_AGENT: 'MANAGE',
+  DELETE_AGENT: 'DELETE',
+} as const satisfies Partial<Record<AgentPermission, ResourcePermission>>;
+
+const mappableAgentPermissions = ['USE_AGENT', 'MANAGE_AGENT', 'DELETE_AGENT'] as const;
+
 function allowsAction(permissions: readonly AgentPermission[], action: AgentAction): boolean {
   return permissions.includes(permissionByAction[action]);
 }
 
 function toResourcePermissions(permissions: readonly AgentPermission[]): ResourcePermission[] {
-  const granted: ResourcePermission[] = [];
-  if (permissions.includes('USE_AGENT')) {
-    granted.push('USE');
-  }
-  if (permissions.includes('MANAGE_AGENT')) {
-    granted.push('MANAGE');
-  }
-  if (permissions.includes('DELETE_AGENT')) {
-    granted.push('DELETE');
-  }
-  return granted;
+  return mappableAgentPermissions
+    .filter(agentPermission => permissions.includes(agentPermission))
+    .map(agentPermission => resourcePermissionByAgentPermission[agentPermission]);
 }
 
 function requireUserCredential(context: RequestContext): string {

@@ -354,19 +354,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
-    '/api/internal',
-    withAuth(
-      createPermissionsRouter({
-        authorizer: deps.authorizer,
-        resolveAgentStore: deps.resolveAgentStore,
-        scheduleStore: deps.scheduleStore,
-        sessionStore: deps.sessionStore,
-        resolveRequestContext,
-      }),
-      authMiddleware,
-    ),
-  );
-  app.route(
     '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
@@ -390,6 +377,19 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveRequestContext,
         resolveAgentStore: deps.resolveAgentStore,
         authorizer: deps.authorizer,
+      }),
+      authMiddleware,
+    ),
+  );
+  app.route(
+    '/api/internal',
+    withAuth(
+      createPermissionsRouter({
+        authorizer: deps.authorizer,
+        resolveAgentStore: deps.resolveAgentStore,
+        scheduleStore: deps.scheduleStore,
+        sessionStore: deps.sessionStore,
+        resolveRequestContext,
       }),
       authMiddleware,
     ),
