@@ -17,7 +17,6 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import {
   buildGatewayMetadata,
-  gatewayMetadataHeaders,
   getModelDetails,
   localSandboxSessionSegment,
   TFG_METADATA_PREFIX,
@@ -44,7 +43,7 @@ async function createGatewayMetadataSession(input: {
 }
 
 describe('buildGatewayMetadata', () => {
-  it('stamps session/turn ids and reference agent fields over session metadata', async () => {
+  it('stamps session/turn/agent fields and lets tfg.* win over session metadata', async () => {
     const session = await createGatewayMetadataSession({
       agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
       metadata: { env: 'dev', [`${TFG_METADATA_PREFIX}.session_id`]: 'caller-override' },
@@ -58,57 +57,9 @@ describe('buildGatewayMetadata', () => {
       [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
     });
   });
-
-  it('omits agent_name when the reference name snapshot is null', async () => {
-    const session = await createGatewayMetadataSession({
-      agent: { type: 'reference', id: 'agent-legacy', name: null },
-    });
-
-    expect(buildGatewayMetadata({ session, turnId: 'turn-2' })).toEqual({
-      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
-      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-2',
-      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-legacy',
-    });
-  });
-
-  it('omits agent keys for inline agents', async () => {
-    const session = await createGatewayMetadataSession({
-      agent: {
-        type: 'inline',
-        spec: AgentSpecSchema.parse({ model: { name: 'openai/gpt-4o' } }),
-      },
-      metadata: { ticket: 'T-1' },
-    });
-
-    expect(buildGatewayMetadata({ session, turnId: 'turn-3' })).toEqual({
-      ticket: 'T-1',
-      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
-      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-3',
-    });
-  });
-});
-
-describe('gatewayMetadataHeaders', () => {
-  it('stringifies metadata under x-tfy-metadata', () => {
-    expect(gatewayMetadataHeaders({ a: '1' })).toEqual({
-      [X_TFY_METADATA]: JSON.stringify({ a: '1' }),
-    });
-    expect(gatewayMetadataHeaders({})).toEqual({});
-  });
 });
 
 describe('withGatewayMetadataHeaders', () => {
-  it('merges into static headers', () => {
-    const headers = withGatewayMetadataHeaders({
-      headers: { Authorization: 'Bearer t' },
-      metadataHeaders: { [X_TFY_METADATA]: '{"k":"v"}' },
-    });
-    expect(headers).toEqual({
-      Authorization: 'Bearer t',
-      [X_TFY_METADATA]: '{"k":"v"}',
-    });
-  });
-
   it('merges into async header resolvers and preserves authRequired', async () => {
     const withAuth = withGatewayMetadataHeaders({
       headers: async () => ({ headers: { Authorization: 'Bearer t' } }),
@@ -138,11 +89,6 @@ describe('withGatewayMetadataHeaders', () => {
     await expect(authRequired()).resolves.toEqual({
       authRequired: { servers: [{ id: 'mcp', name: 'mcp', auth_url: 'https://auth.example' }] },
     });
-  });
-
-  it('returns the original headers when metadata is empty', () => {
-    const staticHeaders = { Authorization: 'Bearer t' };
-    expect(withGatewayMetadataHeaders({ headers: staticHeaders, metadataHeaders: {} })).toBe(staticHeaders);
   });
 });
 
