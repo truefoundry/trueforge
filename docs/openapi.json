@@ -5896,22 +5896,22 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "OIDC: redirect to the IdP. TrueFoundry mode: redirect to platform `/signin/external` (from PUBLIC_BASE_URL). Standalone: redirect to the UI home.",
+        "description": "OIDC: redirect to the IdP. TrueFoundry mode: redirect to PUBLIC_BASE_URL origin + `return_to` (callers pass `/signin/external?redirectPath=…`). Standalone: redirect to the UI home.",
         "parameters": [
           {
-            "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
+            "description": "Same-origin relative path. OIDC/standalone: post-login landing. TrueFoundry: platform login path (e.g. `/signin/external?redirectPath=…`); omitted → platform login with UI home as redirectPath.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
+              "description": "Same-origin relative path. OIDC/standalone: post-login landing. TrueFoundry: platform login path (e.g. `/signin/external?redirectPath=…`); omitted → platform login with UI home as redirectPath.",
               "type": "string"
             }
           }
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the IdP authorization endpoint."
+            "description": "Redirect to the IdP, TrueFoundry platform login, or UI home."
           }
         },
         "summary": "Start the login flow",
