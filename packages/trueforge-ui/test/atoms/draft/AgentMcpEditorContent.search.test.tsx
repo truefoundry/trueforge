@@ -15,6 +15,8 @@ describe('AgentMcpEditorContent tool search', () => {
       ],
       activeConnectorId: 'github',
       tools: [],
+      connectorLoading: false,
+      connectorError: null,
       toolsLoading: false,
       toolsError: null,
       onQueryChange: vi.fn(),
