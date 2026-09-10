@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 
 import { createDb } from '../../../src/db/postgres/client';
+import { TRUEFORGE_SCHEMA } from '../../../src/db/postgres/schema';
 
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
 
@@ -24,12 +25,13 @@ describePg('createDb postgres session timeouts', () => {
       const { rows } = await sql<{ name: string; setting: string }>`
         SELECT name, setting
         FROM pg_settings
-        WHERE name IN ('statement_timeout', 'idle_in_transaction_session_timeout')
+        WHERE name IN ('statement_timeout', 'idle_in_transaction_session_timeout', 'search_path')
       `.execute(db);
 
       const byName = new Map(rows.map(row => [row.name, row.setting]));
       expect(byName.get('statement_timeout')).toBe(String(statementTimeoutMs));
       expect(byName.get('idle_in_transaction_session_timeout')).toBe(String(idleInTransactionSessionTimeoutMs));
+      expect(byName.get('search_path')).toBe(TRUEFORGE_SCHEMA);
     } finally {
       await db.destroy();
     }

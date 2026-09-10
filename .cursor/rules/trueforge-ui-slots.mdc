@@ -1,0 +1,43 @@
+---
+description: trueforge-ui JSX components must be host-overridable via useSlot / AtomSlots
+globs: packages/trueforge-ui/src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Slotted UI components (`useSlot`)
+
+Every newly created or newly JSX-bearing component in `@truefoundry/trueforge-ui`
+MUST be host-overridable through the slots system. Do not hard-import leaf UI into
+layouts/containers when a slot exists (or should exist).
+
+## Checklist for a new / newly JSX component
+
+1. Export the component and augment `AtomSlots` in the same file:
+
+```tsx
+declare module '../theme/SlotsProvider.js' {
+  interface AtomSlots {
+    MyComponent: typeof MyComponent;
+  }
+}
+```
+
+2. Register the default in `src/theme/defaultSlots.ts`.
+3. Parents render it via `useSlot('MyComponent')`, never a direct import of the
+   default implementation (except inside `defaultSlots.ts`).
+4. Keep the public prop surface stable so hosts can swap the implementation.
+
+## Examples
+
+```tsx
+// ❌ BAD — layout hard-wires a leaf
+import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
+<AgentsLibraryButton compact />
+
+// ✅ GOOD — host can override
+const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+<AgentsLibraryButton compact />
+```
+
+Primitives that are already slotted (Button, SearchInput, etc.) follow the same
+rule when exposed as named atoms; internal helpers with no JSX need no slot.

@@ -16,7 +16,7 @@ export interface OAuthToken {
   scope: string | null;
 }
 
-/** Composite key: MCP server row id + harness `UserContext.userRef`. */
+/** Composite key: MCP server row id + harness `RequestContext.subject.id`. */
 export interface OAuthTokenKey {
   id: string;
   userRef: string;

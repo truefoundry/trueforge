@@ -30,7 +30,7 @@ function makeSandbox(options: {
     getGitCredentialsPath: () => '/tmp/.git-credentials',
     getFileUploadsDir: () => '/tmp/uploads',
     getSkillsDir: () => '/opt/tfy/skills',
-    getGitDownloaderPath: () => '/opt/tfy/git_downloader.py',
+    getSkillDownloaderPath: () => '/opt/tfy/skill_downloader.py',
     downloadFile: jest.fn(),
     uploadFile: jest.fn(),
     createCodeModeTransport: () => {

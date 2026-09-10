@@ -14,8 +14,15 @@ describe("SessionsClient", () => {
                 {
                     agent: { spec: { model: { name: "name" } }, type: "inline" },
                     created_at: "created_at",
-                    created_by: "created_by",
+                    created_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
                     id: "id",
+                    metadata: { key: "value" },
+                    metrics: { total_duration_ms: 1, total_turns: 1 },
+                    source: { id: "id", run_id: "run_id", type: "schedule" },
                     title: "title",
                     updated_at: "updated_at",
                 },
@@ -43,8 +50,24 @@ describe("SessionsClient", () => {
                         type: "inline",
                     },
                     createdAt: "created_at",
-                    createdBy: "created_by",
+                    createdBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
                     id: "id",
+                    metadata: {
+                        key: "value",
+                    },
+                    metrics: {
+                        totalDurationMs: 1,
+                        totalTurns: 1,
+                    },
+                    source: {
+                        id: "id",
+                        runId: "run_id",
+                        type: "schedule",
+                    },
                     title: "title",
                     updatedAt: "updated_at",
                 },
@@ -84,8 +107,15 @@ describe("SessionsClient", () => {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
+                metadata: { key: "value" },
+                metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
+                source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
             },
@@ -116,8 +146,25 @@ describe("SessionsClient", () => {
                     type: "inline",
                 },
                 createdAt: "created_at",
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
+                metadata: {
+                    key: "value",
+                },
+                metrics: {
+                    totalCostInUsd: 1.1,
+                    totalDurationMs: 1,
+                    totalTurns: 1,
+                },
+                source: {
+                    id: "id",
+                    runId: "run_id",
+                    type: "schedule",
+                },
                 title: "title",
                 updatedAt: "updated_at",
             },
@@ -204,8 +251,15 @@ describe("SessionsClient", () => {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
+                metadata: { key: "value" },
+                metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
+                source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
             },
@@ -231,8 +285,25 @@ describe("SessionsClient", () => {
                     type: "inline",
                 },
                 createdAt: "created_at",
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
+                metadata: {
+                    key: "value",
+                },
+                metrics: {
+                    totalCostInUsd: 1.1,
+                    totalDurationMs: 1,
+                    totalTurns: 1,
+                },
+                source: {
+                    id: "id",
+                    runId: "run_id",
+                    type: "schedule",
+                },
                 title: "title",
                 updatedAt: "updated_at",
             },
@@ -314,8 +385,15 @@ describe("SessionsClient", () => {
             data: {
                 agent: { spec: { model: { name: "name" } }, type: "inline" },
                 created_at: "created_at",
-                created_by: "created_by",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
                 id: "id",
+                metadata: { key: "value" },
+                metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
+                source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
             },
@@ -342,8 +420,25 @@ describe("SessionsClient", () => {
                     type: "inline",
                 },
                 createdAt: "created_at",
-                createdBy: "created_by",
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
                 id: "id",
+                metadata: {
+                    key: "value",
+                },
+                metrics: {
+                    totalCostInUsd: 1.1,
+                    totalDurationMs: 1,
+                    totalTurns: 1,
+                },
+                source: {
+                    id: "id",
+                    runId: "run_id",
+                    type: "schedule",
+                },
                 title: "title",
                 updatedAt: "updated_at",
             },
@@ -813,6 +908,26 @@ describe("SessionsClient", () => {
             .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnStream("session_id", {});
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("create_turn_stream (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { stream: true };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(403)
             .jsonBody(rawResponseBody)
             .build();
@@ -822,7 +937,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
-    test("create_turn_stream (4)", async () => {
+    test("create_turn_stream (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: true };
@@ -842,7 +957,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("create_turn_stream (5)", async () => {
+    test("create_turn_stream (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: true };
@@ -862,7 +977,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.PreconditionFailedError);
     });
 
-    test("create_turn_stream (6)", async () => {
+    test("create_turn_stream (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: true };
@@ -882,7 +997,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
     });
 
-    test("create_turn_stream (7)", async () => {
+    test("create_turn_stream (8)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: true };
@@ -979,6 +1094,26 @@ describe("SessionsClient", () => {
             .post("/api/v1/sessions/session_id/turns")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurn("session_id", {});
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("create_turn (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { stream: false };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(403)
             .jsonBody(rawResponseBody)
             .build();
@@ -988,7 +1123,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
-    test("create_turn (4)", async () => {
+    test("create_turn (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: false };
@@ -1008,7 +1143,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("create_turn (5)", async () => {
+    test("create_turn (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: false };
@@ -1028,7 +1163,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.PreconditionFailedError);
     });
 
-    test("create_turn (6)", async () => {
+    test("create_turn (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: false };
@@ -1048,7 +1183,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ContentTooLargeError);
     });
 
-    test("create_turn (7)", async () => {
+    test("create_turn (8)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: false };

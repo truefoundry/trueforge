@@ -1,12 +1,8 @@
-/**
- * DB-backed MCP server route definitions.
- * Admin routes mount at /api/v1/settings/mcp-servers; the chat list,
- * tools, and authorize routes mount at /api/v1/mcp-servers.
- */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateMcpServerRequestSchema,
+  GetAvailableMcpServerResponseSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
@@ -15,23 +11,55 @@ import {
 } from '../schemas/mcpServer';
 import { OpenApiTag } from './openapiTags';
 
-/** Chat/composer read view — mounted at /api/v1/mcp-servers (not under settings). */
+const McpServerNameParamsSchema = z.object({
+  name: z.string().min(1).describe('MCP server name.'),
+});
+
+/** Chat/composer MCP list (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
   method: 'get',
   path: '/',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers for chat',
-  description: 'MCP servers as a slim name/url list for the composer. No auth or auth_status.',
+  description: 'Configured MCP servers as a slim name/url list for the composer.',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableMcpServersResponseSchema } },
-      description: 'All MCP servers (chat projection).',
+      description: 'All configured MCP servers (chat projection).',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+  },
+});
+
+/** Chat/composer single-server read (not under settings). */
+export const getAvailableMcpServerRoute = createRoute({
+  method: 'get',
+  path: '/{name}',
+  tags: [OpenApiTag.MCP_SERVERS],
+  summary: 'Get an MCP server for chat',
+  description: 'A single MCP server as the slim chat projection, with live per-user auth_status.',
+  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-method-name': 'get',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetAvailableMcpServerResponseSchema } },
+      description: 'The MCP server (chat projection).',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
     },
   },
 });
@@ -41,14 +69,13 @@ export const listMcpServersRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers',
-  description:
-    'All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.',
+  description: 'Configured MCP servers with auth_status. Header secrets are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: ListMcpServersResponseSchema } },
-      description: 'All MCP servers',
+      description: 'All configured MCP servers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -61,17 +88,13 @@ export const listMcpServersRoute = createRoute({
   },
 });
 
-const McpServerNameParamsSchema = z.object({
-  name: z.string().min(1).describe('MCP server name.'),
-});
-
 export const getMcpServerRoute = createRoute({
   method: 'get',
   path: '/{name}',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Get a single MCP server by name',
   description:
-    'A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.',
+    'A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -122,6 +145,10 @@ export const createMcpServerRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
     },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the MCP servers are managed by external system',
+    },
   },
 });
 
@@ -131,8 +158,7 @@ export const putMcpServerRoute = createRoute({
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'Create or replace an MCP server',
   description:
-    'Create or replace by `name`. Does not start DCR or change oauth client columns. ' +
-    'Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
+    'Create or replace by `name`. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
@@ -153,6 +179,10 @@ export const putMcpServerRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the MCP servers are managed by external system',
     },
   },
 });
@@ -202,12 +232,7 @@ export const listMcpServerToolsRoute = createRoute({
 });
 
 const McpAuthorizeQuerySchema = z.object({
-  return_to: z
-    .string()
-    .optional()
-    .describe(
-      'Optional path to return to after OAuth. Must be a same-origin relative path; the OAuth callback redirects here with `isSuccess`/`reason` appended.',
-    ),
+  return_to: z.string().optional().describe('Same-origin path to land in the browser after consent.'),
 });
 
 export const authorizeMcpServerRoute = createRoute({
@@ -218,10 +243,7 @@ export const authorizeMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'authorize',
   description:
-    'For servers without auth returns not_required, and for header credentials returns authenticated ' +
-    '(no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token ' +
-    'exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. ' +
-    'Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.',
+    'Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.',
   request: {
     params: McpServerNameParamsSchema,
     query: McpAuthorizeQuerySchema,
@@ -262,16 +284,15 @@ export const deleteAuthorizationMcpServerRoute = createRoute({
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'delete_authorization',
   description:
-    'For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status ' +
-    'auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. ' +
-    'No-op for header or no-auth servers (returns the server unchanged).',
+    'Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. ' +
+    'No-op when the server does not use stored OAuth tokens.',
   request: {
     params: McpServerNameParamsSchema,
   },
   responses: {
     200: {
       content: { 'application/json': { schema: GetMcpServerResponseSchema } },
-      description: 'The MCP server after disconnect (auth_required for dcr).',
+      description: 'The MCP server after disconnect.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

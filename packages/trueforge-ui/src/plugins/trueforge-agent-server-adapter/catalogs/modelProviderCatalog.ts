@@ -71,7 +71,7 @@ export function toUiCatalogModelProviderEntry(
 
 const PROVIDER_TYPES: readonly string[] = [...Object.values(TrueForgeApi.CatalogWellKnownModelProviderType), 'custom'];
 
-function isProviderType(type: string): type is TrueForgeApi.ModelProviderManifest['type'] {
+function isProviderType(type: string): type is Exclude<TrueForgeApi.ModelProviderManifest['type'], 'truefoundry'> {
   return PROVIDER_TYPES.includes(type);
 }
 

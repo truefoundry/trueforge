@@ -1,5 +1,5 @@
 import { BrandLogo } from '@truefoundry/trueforge-ui';
-import { AUTH_LOGIN_HREF } from './authFetch';
+import { buildLoginHref } from './authFetch';
 import './authScreens.css';
 
 /**
@@ -16,7 +16,7 @@ export function GetStartedScreen() {
           type="button"
           className="auth-screen-button"
           onClick={() => {
-            window.location.assign(AUTH_LOGIN_HREF);
+            window.location.assign(buildLoginHref());
           }}
         >
           Let&apos;s Get Started

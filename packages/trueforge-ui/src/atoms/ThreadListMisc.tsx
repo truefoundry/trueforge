@@ -12,11 +12,11 @@ export function ThreadListNewButton({ className, children, style, ...rest }: Thr
     <button
       type="button"
       aria-label="Start new chat"
-      style={{ borderRadius: 'var(--thread-list-item-radius, 0.5rem)', ...style }}
+      style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)', ...style }}
       className={auiButtonClass({
         variant: 'ghost',
         className: cn(
-          '!justify-start h-8 px-2.5 text-sm font-medium text-text-primary shadow-none hover:bg-ghost-button-hover hover:text-ghost-button-text',
+          '!justify-start h-8 px-2.5 text-sm font-normal text-sidebar-text shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text',
           className,
         ),
       })}
@@ -65,7 +65,7 @@ export function ThreadListEmptyState({ message = 'No threads yet', className }: 
 }
 
 export type ThreadListShellProps = {
-  header: ReactNode;
+  header?: ReactNode;
   children: ReactNode;
   className?: string;
 };
@@ -73,7 +73,7 @@ export type ThreadListShellProps = {
 export function ThreadListShell({ header, children, className }: ThreadListShellProps) {
   return (
     <div className={cn('font-sans-flex flex h-full min-h-0 flex-1 flex-col overflow-hidden', className)}>
-      <div className="shrink-0 border-b border-border px-2 py-2">{header}</div>
+      {header != null ? <div className="shrink-0 border-b border-border px-2 py-2">{header}</div> : null}
       {/* History section owns overflow scroll so infinite-load IO can root on it. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2">{children}</div>
     </div>

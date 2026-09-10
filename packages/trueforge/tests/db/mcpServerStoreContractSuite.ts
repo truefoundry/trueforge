@@ -95,7 +95,10 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const servers = await store.listServers({ tenant_id: TENANT, names: undefined });
+    const servers = await store.listServers({
+      tenant_id: TENANT,
+      names: undefined,
+    });
     expect(servers).toEqual([updated]);
   });
 
@@ -109,7 +112,10 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     });
     await store.upsertServer({ tenant_id: 'other-tenant', name: 'linear', manifest: manifest() });
 
-    const servers = await store.listServers({ tenant_id: TENANT, names: undefined });
+    const servers = await store.listServers({
+      tenant_id: TENANT,
+      names: undefined,
+    });
     expect(servers.map(server => server.name)).toEqual(['deepwiki', 'linear']);
     expect(servers.every(server => server.tenant_id === TENANT)).toBe(true);
   });
@@ -136,7 +142,6 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
 
     await expect(store.listServers({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
   });
-
   it('upsert leaves oauth columns null and does not clear a saved OAuth client', async () => {
     const store = getStore();
     const created = await store.upsertServer({

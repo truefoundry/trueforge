@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { Icon } from '../icons/Icon.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
+import { Button } from './primitives/Button.js';
 
 export type ComposerLeftSectionProps = {
   disabled: boolean;
@@ -52,30 +53,26 @@ export function ComposerRightSection(_: ComposerRightSectionProps): ReactNode {
 export function ComposerSendButton({ canSubmit, isRunning, onSubmit, onCancel }: ComposerSendButtonProps) {
   if (isRunning) {
     return (
-      <button
-        type="button"
-        className={auiButtonClass({ size: 'sm' })}
-        disabled={!onCancel}
-        onClick={onCancel}
-        aria-label="Cancel"
-      >
+      <Button.Primary type="button" size="small" disabled={!onCancel} onClick={onCancel} aria-label="Cancel">
         <Spinner size={14} />
         Cancel
-      </button>
+      </Button.Primary>
     );
   }
 
   return (
-    <button
+    <Button.Primary
       type="button"
-      className={auiButtonClass({ size: 'icon' })}
+      size="icon"
+      data-slot="aui_composer-send"
+      className="shadow-none"
       disabled={!canSubmit}
       onClick={onSubmit}
       title="Send message"
       aria-label="Send message"
     >
       <Icon name="arrow-up" />
-    </button>
+    </Button.Primary>
   );
 }
 

@@ -22,7 +22,6 @@ pnpm openapi:write
 fern check
 # --force skips the overwrite prompt when packages/trueforge-sdk already exists (needed non-interactively / in CI).
 fern generate --group ts-sdk --version "$current_version" --local --generate-tests --force --log-level debug
-
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
 # resolves to this workspace. CI sets frozen-lockfile, so refresh the root
 # lockfile first or that install fails when the generator added/removed deps.

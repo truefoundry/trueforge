@@ -5,7 +5,8 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 
-// Resets an immutable (named) chat. Hidden while idle or on mutable drafts.
+// Resets the current chat / draft (Try Agent, New Chat, New Agent, Edit).
+// Hidden while idle and on a fresh chat.
 export function ClearChatButton() {
   const shell = useOptionalShellMode();
   const visible = useChatChromeActionsVisible();
@@ -16,7 +17,7 @@ export function ClearChatButton() {
     <button
       type="button"
       title="Clear chat"
-      className={auiButtonClass({ variant: 'ghost', size: 'sm' })}
+      className={auiButtonClass({ variant: 'ghost', size: 'large' })}
       onClick={() => shell.clearChat()}
     >
       <Icon name="broom" size="0.875rem" />

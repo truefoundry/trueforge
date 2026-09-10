@@ -9,16 +9,12 @@ import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
+import { themePortalRoot } from './lib/themePortalRoot.js';
 import { useIsMobile } from './lib/useIsMobile.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { BottomSheet } from './primitives/BottomSheet.js';
 import { DropdownMenuItem } from './primitives/DropdownMenu.js';
 import SearchInput from './primitives/SearchInput.js';
-
-/** Keep portaled chrome under ThemeProvider so preset/custom CSS vars still apply. */
-function themePortalRoot(from: HTMLElement | null): HTMLElement {
-  return from?.closest('.aui-theme-root') ?? document.body;
-}
 
 /**
  * Funnel popover for filtering chat history by agent id.

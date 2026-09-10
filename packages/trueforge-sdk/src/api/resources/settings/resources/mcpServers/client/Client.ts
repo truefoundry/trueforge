@@ -24,7 +24,7 @@ export class McpServersClient {
     }
 
     /**
-     * All MCP servers with nested auth_status (settings / admin projection). Header auth values are redacted.
+     * Configured MCP servers with auth_status. Header secrets are redacted.
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -124,6 +124,7 @@ export class McpServersClient {
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.FailedDependencyError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -228,6 +229,17 @@ export class McpServersClient {
                         }),
                         _response.rawResponse,
                     );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -241,13 +253,14 @@ export class McpServersClient {
     }
 
     /**
-     * Create or replace by `name`. Does not start DCR or change oauth client columns. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
+     * Create or replace by `name`. Header secrets: real value sets/rotates; redacted keeps existing (400 if none).
      *
      * @param {TrueForge.settings.UpdateMcpServerRequest} request
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
      * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.FailedDependencyError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -341,6 +354,17 @@ export class McpServersClient {
                         }),
                         _response.rawResponse,
                     );
+                case 424:
+                    throw new TrueForge.FailedDependencyError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -354,7 +378,7 @@ export class McpServersClient {
     }
 
     /**
-     * A single MCP server by name, with nested auth_status (settings / admin projection). Header auth values are redacted.
+     * A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.
      *
      * @param {string} name - MCP server name.
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.

@@ -8,6 +8,8 @@ import {
 } from '../../../../../src/sandbox/local/core/CodeModeUdsTransport';
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
+const describeUnix = process.platform === 'win32' ? describe.skip : describe;
+
 async function mkdirWithRealpathBytes(bytes: number): Promise<string> {
   const prefix = '/tmp';
   const realPrefix = realpathSync(prefix);
@@ -24,7 +26,7 @@ async function mkdirWithRealpathBytes(bytes: number): Promise<string> {
   return dir;
 }
 
-describe('Code Mode UDS parent length', () => {
+describeUnix('Code Mode UDS parent length', () => {
   it('allows a 65-byte realpath parent and listens', async () => {
     const dir = await mkdirWithRealpathBytes(MAX_CODE_MODE_SOCKET_PARENT_BYTES);
     try {
@@ -46,11 +48,8 @@ describe('Code Mode UDS parent length', () => {
   });
 });
 
-describe('LocalSandboxProvider.isSupported socket probe', () => {
+describeUnix('LocalSandboxProvider.isSupported socket probe', () => {
   it('returns unsupported when the configured parent is over the byte limit', async () => {
-    if (process.platform !== 'darwin' && process.platform !== 'linux') {
-      return;
-    }
     const dir = await mkdirWithRealpathBytes(MAX_CODE_MODE_SOCKET_PARENT_BYTES + 1);
     try {
       const support = await LocalSandboxProvider.isSupported({ codeModeSocketParentPath: dir });

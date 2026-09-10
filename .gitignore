@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.tgz
+!vendor/*.tgz
 .DS_Store
 *.log
 coverage/
@@ -37,3 +38,5 @@ service-account*.json
 # Local Cursor scratch (committed rules under .cursor/rules/ stay tracked)
 .cursor/notes/
 .cursor/plans/
+
+.vscode

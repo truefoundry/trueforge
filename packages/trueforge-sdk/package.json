@@ -1,6 +1,6 @@
 {
     "name": "@truefoundry/trueforge-sdk",
-    "version": "0.1.4-rc.0",
+    "version": "0.1.4-rc.2",
     "private": false,
     "type": "commonjs",
     "main": "./dist/cjs/index.js",
@@ -8,6 +8,10 @@
     "types": "./dist/cjs/index.d.ts",
     "exports": {
         ".": {
+            "trueforge-dev": {
+                "types": "./dist/cjs/index.d.ts",
+                "default": "./src/index.ts"
+            },
             "import": {
                 "types": "./dist/esm/index.d.mts",
                 "default": "./dist/esm/index.mjs"
@@ -83,6 +87,17 @@
                 "default": "./dist/cjs/api/resources/models/exports.js"
             },
             "default": "./dist/cjs/api/resources/models/exports.js"
+        },
+        "./schedules": {
+            "import": {
+                "types": "./dist/esm/api/resources/schedules/exports.d.mts",
+                "default": "./dist/esm/api/resources/schedules/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/schedules/exports.d.ts",
+                "default": "./dist/cjs/api/resources/schedules/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/schedules/exports.js"
         },
         "./sessions": {
             "import": {
@@ -160,6 +175,50 @@
                 "default": "./dist/cjs/api/resources/catalogs/resources/skills/exports.js"
             },
             "default": "./dist/cjs/api/resources/catalogs/resources/skills/exports.js"
+        },
+        "./internal": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/exports.js"
+        },
+        "./internal/metrics": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/metrics/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/metrics/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/metrics/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
+        },
+        "./internal/sessions": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/sessions/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/sessions/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/sessions/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/sessions/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/sessions/exports.js"
+        },
+        "./internal/agents": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/agents/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/agents/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/agents/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/agents/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/agents/exports.js"
         },
         "./settings": {
             "import": {

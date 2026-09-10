@@ -21,7 +21,7 @@ import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path/posix';
 import type { ISkillMounter } from './skills/ISkillMounter';
 
 /** Layout derived from install remotePath (always `…/mcp_client.py`). */
@@ -725,12 +725,19 @@ export class Sandbox extends LocalToolMCP {
     }
 
     // Fold skill installation into this single init exec. The mounter returns a declarative
-    // command + env + timeout; runs even when empty so its downloader can prune a reused sandbox.
+    // command + env + timeout; runs even when empty so existing skills are cleaned up.
     const skillInit = this.skillMounter?.getSandboxInit({
       skillsDir,
-      gitDownloaderPath: this.provider.getGitDownloaderPath(sandboxId),
+      skillDownloaderPath: this.provider.getSkillDownloaderPath(sandboxId),
     });
     if (skillInit) {
+      for (const upload of skillInit.uploads) {
+        await this.provider.uploadFile({
+          sandboxId,
+          remotePath: upload.remotePath,
+          content: upload.content,
+        });
+      }
       initSteps.push(skillInit.command);
     }
 

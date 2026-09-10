@@ -115,4 +115,82 @@ describe('DropdownMenu', () => {
     expect(screen.getByRole('menuitem', { name: 'Rename item' })).toHaveAttribute('name', 'rename');
     expect(screen.getByRole('separator', { name: 'More actions' })).toHaveAttribute('data-divider', 'actions');
   });
+
+  it('portals the menu outside an overflow-hidden ancestor', () => {
+    render(
+      <div data-testid="clipped" style={{ overflow: 'hidden', height: 24 }}>
+        <DropdownMenu trigger={<button>Actions</button>}>
+          <DropdownMenuItem>Edit</DropdownMenuItem>
+          <DropdownMenuItem>Resume</DropdownMenuItem>
+          <DropdownMenuItem>Delete</DropdownMenuItem>
+        </DropdownMenu>
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+
+    const menu = screen.getByRole('menu');
+    expect(menu).toBeInTheDocument();
+    expect(screen.getByTestId('clipped').contains(menu)).toBe(false);
+    expect(menu.className).toContain('fixed');
+  });
+
+  it('keeps the menu open for interactive content when closeOnClick is false', () => {
+    render(
+      <DropdownMenu closeOnClick={false} trigger={<button>Actions</button>}>
+        <button type="button">Interactive content</button>
+      </DropdownMenu>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Interactive content' }));
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+
+  it('keeps a parent menu open while selecting from a nested portaled menu', () => {
+    const onSelect = vi.fn();
+    render(
+      <DropdownMenu closeOnClick={false} trigger={<button>Settings</button>}>
+        <DropdownMenu trigger={<button>Type</button>}>
+          <DropdownMenuItem onClick={onSelect}>JSON</DropdownMenuItem>
+        </DropdownMenu>
+      </DropdownMenu>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+
+    const nestedItem = screen.getByRole('menuitem', { name: 'JSON' });
+    fireEvent.mouseDown(nestedItem);
+    fireEvent.click(nestedItem);
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(screen.getAllByRole('menu')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('supports controlled open state', () => {
+    const onOpenChange = vi.fn();
+    const { rerender } = render(
+      <DropdownMenu open={false} onOpenChange={onOpenChange} trigger={<button>Actions</button>}>
+        <DropdownMenuItem>Rename</DropdownMenuItem>
+      </DropdownMenu>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+
+    rerender(
+      <DropdownMenu open onOpenChange={onOpenChange} trigger={<button>Actions</button>}>
+        <DropdownMenuItem>Rename</DropdownMenuItem>
+      </DropdownMenu>,
+    );
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
 });

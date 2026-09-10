@@ -1,4 +1,5 @@
-import type { SessionAgent } from '../schemas/session';
+import type { SessionAgent, SessionMetadata, SessionMetrics, SessionSource } from '../schemas/session';
+import type { CreatedBySubject } from '../schemas/subject';
 
 /**
  * Session persistence record. Agent binding is a single discriminated `agent`
@@ -9,13 +10,22 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
   tenant_id: string;
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by: string;
+  created_by_subject: CreatedBySubject;
   agent: SessionAgent;
   /**
    * Public session title (nullable). Written via updateSession patch or createTurn's
    * update_session_title_if_not_exist (first write wins; caller derives).
    */
   title: string | null;
+  /**
+   * Optional caller-supplied key, unique within a tenant when set.
+   * Null means the session has no external id.
+   */
+  external_id: string | null;
+  /**
+   * How the session was created. Null for interactive sessions.
+   */
+  source: SessionSource | null;
   /**
    * Session tip — used for `previous_turn_id: 'auto'` resolution and turn
    * listing anchors. Advanced only by `createTurn` (atomic link).
@@ -30,5 +40,7 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * updateSession, and createTurn — never on reads.
    */
   last_activity_timestamp_ms: number;
+  metrics: SessionMetrics;
+  metadata: SessionMetadata;
   custom: TCustom | null;
 }

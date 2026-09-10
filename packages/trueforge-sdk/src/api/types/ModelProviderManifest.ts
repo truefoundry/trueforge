@@ -11,4 +11,5 @@ export type ModelProviderManifest =
     | TrueForge.MoonshotModelProvider
     | TrueForge.OpenAiModelProvider
     | TrueForge.TogetherAiModelProvider
+    | TrueForge.TrueFoundryModelProvider
     | TrueForge.ZaiModelProvider;

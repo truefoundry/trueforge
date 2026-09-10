@@ -87,3 +87,30 @@ services:
     # cut off turn drain.
     stop_grace_period: 35s
     restart: unless-stopped
+
+  # Schedule controller: runs the periodic control loops (schedule dispatch) as a separate service.
+  controller:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: truefoundry-server:latest
+    command: ['node', 'dist/controller-main.js']
+    environment:
+      NODE_ENV: production
+      STANDALONE: 'false'
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      # The controller is its own container, so localhost would be itself; `server` is
+      # the compose DNS name that resolves to the server container.
+      SERVER_URL: http://server:8790
+    env_file:
+      - path: packages/trueforge/.env
+        required: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    # Above GRACEFUL_TIMEOUT_SECONDS (30) so SIGKILL does not cut off loop drain.
+    stop_grace_period: 35s
+    restart: unless-stopped

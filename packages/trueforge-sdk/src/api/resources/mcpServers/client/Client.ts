@@ -23,7 +23,7 @@ export class McpServersClient {
     }
 
     /**
-     * MCP servers as a slim name/url list for the composer. No auth or auth_status.
+     * Configured MCP servers as a slim name/url list for the composer.
      *
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
@@ -103,7 +103,102 @@ export class McpServersClient {
     }
 
     /**
-     * For servers without auth returns not_required, and for header credentials returns authenticated (no browser flow). For auth.type dcr, returns authenticated when a usable (or refreshable) token exists; otherwise runs DCR if needed and returns auth_required with an authorization URL. Optional return_to is where the OAuth callback then redirects the browser; without it the callback returns JSON.
+     * A single MCP server as the slim chat projection, with live per-user auth_status.
+     *
+     * @param {string} name - MCP server name.
+     * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.UnauthorizedError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.mcpServers.get("name")
+     */
+    public get(
+        name: string,
+        requestOptions?: McpServersClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.GetAvailableMcpServerResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__get(name, requestOptions));
+    }
+
+    private async __get(
+        name: string,
+        requestOptions?: McpServersClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.GetAvailableMcpServerResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/mcp-servers/${core.url.encodePathParam(name)}`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.GetAvailableMcpServerResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 401:
+                    throw new TrueForge.UnauthorizedError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(_response.error, _response.rawResponse, "GET", "/api/v1/mcp-servers/{name}");
+    }
+
+    /**
+     * Returns current auth status. When OAuth is required, includes an authorization URL. Optional return_to is the post-consent landing path.
      *
      * @param {string} name - MCP server name.
      * @param {TrueForge.AuthorizeMcpServersRequest} request
@@ -250,7 +345,7 @@ export class McpServersClient {
     }
 
     /**
-     * For auth.type dcr, deletes the stored OAuth token and returns the server with auth_status auth_required, keeping the dynamically registered OAuth client so the next authorize can reuse it. No-op for header or no-auth servers (returns the server unchanged).
+     * Disconnects OAuth for the MCP server when applicable and returns the updated server with auth_status. No-op when the server does not use stored OAuth tokens.
      *
      * @param {string} name - MCP server name.
      * @param {McpServersClient.RequestOptions} requestOptions - Request-specific configuration.

@@ -6,10 +6,16 @@ import { z } from '@hono/zod-openapi';
 import { NameSchema, uniqueNames } from './common';
 import { McpServerDescriptionSchema, McpServerManifestAuthSchema, McpServerTypeSchema } from './mcpServer';
 
+/**
+ * Catalog presets are user-savable `remote` entries only.
+ * `truefoundry` is TrueFoundry-managed.
+ */
+export const CatalogMcpServerTypeSchema = McpServerTypeSchema.exclude(['truefoundry']).openapi('CatalogMCPServerType');
+
 /** Catalog entry — discovery preset the settings UI copies into a PUT body. */
 export const CatalogMcpServerSchema = z
   .object({
-    type: McpServerTypeSchema,
+    type: CatalogMcpServerTypeSchema,
     name: NameSchema,
     logo: z.url().optional().describe('URL of the MCP server logo asset.'),
     url: z.url().describe('URL of the remote MCP server.'),

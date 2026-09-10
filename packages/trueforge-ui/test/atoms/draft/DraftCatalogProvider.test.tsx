@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider, useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { reconcileDraftSandbox, reconcileDraftSpecPreferences } from '@/atoms/draft/DraftSpecPreferenceBridge.js';
-import { withCapabilitiesSandbox } from '@/server/draftSpecPreferences.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSkill, ConnectorState, ModelSelection } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -58,10 +57,21 @@ function deferred<T>() {
 }
 
 describe('DraftCatalogProvider', () => {
-  it('reconciles loaded sandbox capabilities into the active draft config', () => {
+  it('does not enable sandbox merely because the capability is available for New Agent', () => {
     const update = reconcileDraftSandbox({
       agentSpec: { model: { name: 'model' } },
       sandboxEnabled: true,
+      kind: 'agent',
+    });
+
+    expect(update).toEqual({});
+  });
+
+  it('enables sandbox on New Chat when the capability is available', () => {
+    const update = reconcileDraftSandbox({
+      agentSpec: { model: { name: 'model' } },
+      sandboxEnabled: true,
+      kind: 'chat',
     });
 
     expect(update).toEqual({
@@ -69,20 +79,42 @@ describe('DraftCatalogProvider', () => {
     });
   });
 
-  it('does not update an active draft whose sandbox already matches capabilities', () => {
+  it('disables sandbox on New Chat when the capability becomes unavailable', () => {
     const update = reconcileDraftSandbox({
-      agentSpec: withCapabilitiesSandbox({ model: { name: 'model' } }, true),
-      sandboxEnabled: true,
+      agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+      sandboxEnabled: false,
+      kind: 'chat',
     });
 
-    expect(update).toEqual({});
+    expect(update).toEqual({
+      config: { sandbox: { enabled: false } },
+    });
+  });
+
+  it('does not update an active draft whose sandbox already matches capabilities', () => {
+    expect(
+      reconcileDraftSandbox({
+        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        sandboxEnabled: true,
+        kind: 'agent',
+      }),
+    ).toEqual({});
+    expect(
+      reconcileDraftSandbox({
+        agentSpec: { model: { name: 'model' }, config: { sandbox: { enabled: true } } },
+        sandboxEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({});
   });
 
   it('does not update an active draft while sandbox capabilities are unavailable', () => {
-    const agentSpec = withCapabilitiesSandbox({ model: { name: 'model' } }, true);
+    const agentSpec = { model: { name: 'model' }, config: { sandbox: { enabled: true } } };
 
-    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined })).toEqual({});
-    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined, kind: 'agent' })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null, kind: 'agent' })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: undefined, kind: 'chat' })).toEqual({});
+    expect(reconcileDraftSandbox({ agentSpec, sandboxEnabled: null, kind: 'chat' })).toEqual({});
   });
 
   it('prunes unavailable remembered choices and falls back to the live model catalog', () => {
@@ -110,6 +142,21 @@ describe('DraftCatalogProvider', () => {
       skills: [{ name: 'Available skill' }],
       mcpServers: [{ name: 'Available MCP' }],
     });
+  });
+
+  it('prunes MCP mounts missing from the complete connector catalog', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        mcpServers: [{ name: 'Available MCP' }, { name: 'Removed MCP' }],
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [],
+      connectors: [{ id: 'available-mcp', name: 'Available MCP' }],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({ mcpServers: [{ name: 'Available MCP' }] });
   });
 
   it('clears remembered skills when skills are unavailable', () => {

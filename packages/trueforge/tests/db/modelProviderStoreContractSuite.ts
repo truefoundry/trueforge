@@ -51,7 +51,11 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const fetched = await store.getProvider({ tenant_id: TENANT, name: 'anthropic' });
+    const fetched = await store.getProvider({
+      tenant_id: TENANT,
+      name: 'anthropic',
+      model_name: 'claude-sonnet-4-6',
+    });
     expect(fetched).toEqual(created);
   });
 
@@ -67,7 +71,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
 
   it('getProvider returns undefined for unknown providers', async () => {
     const store = getStore();
-    expect(await store.getProvider({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
+    expect(await store.getProvider({ tenant_id: TENANT, name: 'missing', model_name: 'any' })).toBeUndefined();
   });
 
   it('upsert replaces the whole document and preserves created_at', async () => {
@@ -91,7 +95,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(updated.created_at).toBe(created.created_at);
     expect(Date.parse(updated.updated_at)).toBeGreaterThanOrEqual(Date.parse(created.updated_at));
 
-    const providers = await store.listProviders(TENANT);
+    const providers = await store.listProviders({ tenant_id: TENANT });
     expect(providers).toEqual([updated]);
   });
 
@@ -101,7 +105,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'anthropic', manifest: anthropic });
 
-    const providers = await store.listProviders(TENANT);
+    const providers = await store.listProviders({ tenant_id: TENANT });
     expect(providers.map(record => record.name)).toEqual(['anthropic', 'openai']);
     expect(providers.every(record => record.tenant_id === TENANT)).toBe(true);
   });
@@ -109,7 +113,11 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
   it('stores custom providers with base_url', async () => {
     const store = getStore();
     const created = await store.upsertProvider({ tenant_id: TENANT, name: custom.name, manifest: custom });
-    expect(created.manifest.base_url).toBe('https://llm.internal.example.com/v1');
+    const { manifest } = created;
+    if (manifest.type !== 'custom') {
+      throw new Error(`expected custom manifest, got ${manifest.type}`);
+    }
+    expect(manifest.base_url).toBe('https://llm.internal.example.com/v1');
   });
 
   it('listModels flattens documents into fully qualified names', async () => {
@@ -118,7 +126,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: TENANT, name: 'openai', manifest: openai });
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
 
-    const models = await store.listModels(TENANT);
+    const models = await store.listModels({ tenant_id: TENANT });
     expect(models).toEqual([
       {
         name: 'anthropic/claude-sonnet-4-6',

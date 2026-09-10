@@ -220,6 +220,33 @@ describe("McpServersClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
+    test("create (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/mcp-servers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.create({
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
+    });
+
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
@@ -327,6 +354,33 @@ describe("McpServersClient", () => {
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
+    test("create_or_update (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { description: "x", name: "xy", type: "remote", url: "url" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/settings/mcp-servers")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.mcpServers.createOrUpdate({
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    type: "remote",
+                    url: "url",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
     });
 
     test("get (1)", async () => {

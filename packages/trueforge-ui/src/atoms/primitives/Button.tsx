@@ -11,10 +11,27 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   asChild?: never;
 };
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'default', size = 'default', ...props }, ref) => {
+export type FixedVariantButtonProps = Omit<ButtonProps, 'variant'>;
+
+const ButtonRoot = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = 'primary', size = 'large', ...props }, ref) => {
     return <button ref={ref} className={auiButtonClass({ variant, size, className })} {...props} />;
   },
 );
 
-Button.displayName = 'Button';
+ButtonRoot.displayName = 'Button';
+
+function fixedVariant(variant: ButtonVariant, displayName: string) {
+  const Fixed = React.forwardRef<HTMLButtonElement, FixedVariantButtonProps>((props, ref) => (
+    <ButtonRoot ref={ref} variant={variant} {...props} />
+  ));
+  Fixed.displayName = displayName;
+  return Fixed;
+}
+
+export const Button = Object.assign(ButtonRoot, {
+  Primary: fixedVariant('primary', 'Button.Primary'),
+  Secondary: fixedVariant('secondary', 'Button.Secondary'),
+  Ghost: fixedVariant('ghost', 'Button.Ghost'),
+  Destructive: fixedVariant('destructive', 'Button.Destructive'),
+});

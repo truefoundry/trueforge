@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import { createLogger } from 'winston';
 import { LocalSandboxProvider } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
+const describeUnix = process.platform === 'win32' ? describe.skip : describe;
+
 async function makeProvider(sandboxRootPathParent: string): Promise<LocalSandboxProvider> {
   const codeModeSocketParentPath = join(tmpdir(), 'cm');
   await mkdir(codeModeSocketParentPath, { recursive: true, mode: 0o700 });
@@ -16,7 +18,7 @@ async function makeProvider(sandboxRootPathParent: string): Promise<LocalSandbox
   });
 }
 
-describe('LocalSandboxProvider missing root', () => {
+describeUnix('LocalSandboxProvider missing root', () => {
   it('throws SandboxNotAvailableError when the sandbox root does not exist', async () => {
     const sandboxRootPathParent = await mkdtemp(join(tmpdir(), 'tfy-local-missing-'));
     const provider = await makeProvider(sandboxRootPathParent);
@@ -79,7 +81,7 @@ describe('LocalSandboxProvider missing root', () => {
       expect(provider.getGitCredentialsPath()).toBe('.git-credentials');
       expect(provider.getFileUploadsDir()).toBe('uploads');
       expect(provider.getSkillsDir()).toBe('skills');
-      expect(provider.getGitDownloaderPath()).toBe('git_downloader.py');
+      expect(provider.getSkillDownloaderPath()).toBe('skill_downloader.py');
       const install = provider.createCodeModeTransport().getClientInstall({
         sandboxId: join(sandboxRootPathParent, 'x'),
       });

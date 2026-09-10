@@ -5,17 +5,24 @@ const models = [{ model_id: 'a-model', name: 'a-model', properties: {} }];
 
 function parse(body: Record<string, unknown>): { success: boolean; name?: string; base_url?: string } {
   const result = ModelProviderManifestSchema.safeParse({ auth: { api_key: 'k' }, models, ...body });
-  return result.success
-    ? { success: true, name: modelProviderName(result.data), base_url: result.data.base_url }
-    : { success: false };
+  if (!result.success) {
+    return { success: false };
+  }
+  return {
+    success: true,
+    name: modelProviderName(result.data),
+    ...('base_url' in result.data && result.data.base_url !== undefined ? { base_url: result.data.base_url } : {}),
+  };
 }
 
 /** A custom endpoint is arbitrary, so there is nothing to default to, and nothing to name it after. */
-const CALLER_SUPPLIED_TYPES = ['custom'];
+const NAMED_TYPES = ['custom'];
+/** Types whose adapter has no implicit host — the endpoint must be supplied (custom by the caller, truefoundry by the store). */
+const REQUIRES_BASE_URL = ['custom', 'truefoundry'];
 
 /** Only `custom` takes a name; the others reject one, so fixtures name just that type. */
 function providerFor(type: string, body: Record<string, unknown> = {}): Record<string, unknown> {
-  return { type, ...(CALLER_SUPPLIED_TYPES.includes(type) ? { name: 'internal' } : {}), ...body };
+  return { type, ...(NAMED_TYPES.includes(type) ? { name: 'internal' } : {}), ...body };
 }
 
 describe('ModelProviderManifestSchema', () => {
@@ -31,7 +38,7 @@ describe('ModelProviderManifestSchema', () => {
   it('defaults base_url for every type that has a known endpoint', () => {
     for (const type of VERCEL_AI_PROVIDER_NAMES) {
       const parsed = parse(providerFor(type));
-      if (CALLER_SUPPLIED_TYPES.includes(type)) {
+      if (REQUIRES_BASE_URL.includes(type)) {
         expect([type, parsed.success]).toEqual([type, false]);
       } else {
         expect([type, parsed.base_url]).toEqual([type, expect.stringMatching(/^https:\/\//)]);

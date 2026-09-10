@@ -1,11 +1,10 @@
 # Default values for the trueforge chart.
 
-replicaCount: 1
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.0-8e9f92d"
+  tag: "0.2.0-rc.2-5632412"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -34,14 +33,6 @@ securityContext:
       - ALL
 # Optional PriorityClass for the server pods.
 priorityClassName: ""
-# Rolling update controls (omit keys you do not want to set).
-strategy: {}
-# strategy:
-#   type: RollingUpdate
-#   rollingUpdate:
-#     maxUnavailable: 0
-#     maxSurge: 1
-
 service:
   type: ClusterIP
   port: 8790
@@ -50,10 +41,19 @@ service:
 # Server runtime configuration. Keys map to environment variables read in
 # packages/trueforge/src/config.ts.
 server:
+  # Number of server replicas (ignored when autoscaling.enabled is true).
+  replicaCount: 1
+  # Rolling update strategy for the server Deployment.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   # Container port the server listens on (PORT).
   port: 8790
-  # Public origin for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
-  # Required for OIDC and MCP OAuth to work correctly.
+  # Public application URL for MCP OAuth / OIDC callbacks (PUBLIC_BASE_URL).
+  # May include a pathname (e.g. https://host/custom/proxy/path); that path is the UI/API
+  # public prefix when a reverse proxy strips it. Required for OIDC and MCP OAuth.
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30
@@ -61,6 +61,32 @@ server:
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.
   extraEnv: []
+# Schedule controller. A dedicated, single-replica Deployment that runs the
+# periodic control loops (schedule dispatch). It MUST run as exactly one replica
+# per database, so it is never autoscaled. It calls the server API over HTTP and
+# reuses the server's Postgres/Redis env; it exposes no port and no Service.
+controller:
+  # Set false to skip the controller Deployment (schedules will not fire).
+  enabled: true
+  # Container command. Runs the controller entry from the published package inside
+  # the image (root Dockerfile layout: /app/node_modules/@truefoundry/trueforge).
+  command:
+    - node
+    - node_modules/@truefoundry/trueforge/dist/controller-main.js
+  # Base URL the controller uses to reach the server (SERVER_URL).
+  # Empty → the in-cluster server Service (http://<fullname>:<service.port>).
+  serverUrl: ""
+  # Extra env for the controller only; same item shape as server.extraEnv.
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+      ephemeral-storage: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 256Mi
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
 # { valueFrom: { secretKeyRef: ... } }.
@@ -80,9 +106,13 @@ configs:
     #       name: trueforge-oidc
     #       key: client-secret
     userReferenceClaim: sub
+    userDisplayNameClaim: name
     userRoleClaim: groups
     adminRoleValue: admin
     scopes: "openid,profile,email"
+    # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
+    # Empty = unrestricted. Matched against the ID token `email` claim.
+    allowedEmails: ""
 # Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
 # left only rolling `latest` tags under docker.io/bitnami, so the subchart image
 # defaults no longer pull. We source pinned legacy images from the TrueFoundry
@@ -148,6 +178,9 @@ externalPostgres:
   #     secretKeyRef:
   #       name: my-postgres-secret
   #       key: password
+  # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
+  # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
+  sslMode: ""
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
@@ -194,6 +227,13 @@ resources:
     cpu: 200m
     memory: 512Mi
     ephemeral-storage: 512Mi
+# Mutual TLS for the server HTTPS listener and controller→server hop.
+# When enabled, chart probes use scheme HTTPS (same pattern as deltafusion-ingestor).
+# Secret must contain tls.crt / tls.key / ca.crt (e.g. truefoundry-internal-tls).
+mtls:
+  enabled: false
+  secretName: ""
+  certsDir: /etc/tls
 # startupProbe runs until success before liveness/readiness; sized for migrate + Redis connect.
 startupProbe:
   httpGet:

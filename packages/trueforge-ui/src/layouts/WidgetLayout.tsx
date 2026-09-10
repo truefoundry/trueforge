@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -8,11 +8,12 @@ import { CompactLayoutProvider } from '../atoms/lib/CompactLayoutContext.js';
 import { Icon } from '../icons/Icon.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { StackChatPanel } from './StackChatPanel.js';
+import { useWidgetVisibility } from './WidgetVisibilityContext.js';
 
 /** FAB-anchored panel with the same list ↔ thread stack as `dock`. */
 export function WidgetLayout({ className }: { className?: string }) {
   const BrandLogo = useSlot('BrandLogo');
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useWidgetVisibility();
   const fabRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
@@ -26,7 +27,7 @@ export function WidgetLayout({ className }: { className?: string }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  }, [open, setOpen]);
 
   useEffect(() => {
     if (open) {

@@ -3,16 +3,21 @@
 import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useEffect } from 'react';
 
-import { withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
+import { type DraftPreferenceKind, withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
+import { mountName } from '../lib/mountName.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
 
-function mountName(mount: object): string | null {
-  const name = Reflect.get(mount, 'name');
-  return typeof name === 'string' ? name : null;
+function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
+  if (spec.config === undefined) return undefined;
+  // `sandbox` is draft runtime config and may be absent from AgentRuntimeConfig typings.
+  const sandbox = Reflect.get(spec.config, 'sandbox');
+  if (typeof sandbox !== 'object' || sandbox === null) return undefined;
+  const enabled = Reflect.get(sandbox, 'enabled');
+  return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
 function filterMounts<T extends object>(mounts: T[] | undefined, availableNames: Set<string>): T[] | undefined {
@@ -74,10 +79,34 @@ export function reconcileDraftSpecPreferences({
 export function reconcileDraftSandbox({
   agentSpec,
   sandboxEnabled,
+  kind = 'agent',
 }: {
   agentSpec: AgentSpec;
   sandboxEnabled: boolean | null | undefined;
+  kind?: DraftPreferenceKind;
 }): Partial<AgentSpec> {
+  if (kind === 'chat') {
+    if (sandboxEnabled == null) return {};
+    const current = readDraftSandboxEnabled(agentSpec);
+    if (sandboxEnabled === true && current !== true) {
+      return {
+        config: {
+          ...agentSpec.config,
+          sandbox: { ...agentSpec.config?.sandbox, enabled: true },
+        },
+      };
+    }
+    if (sandboxEnabled === false && current === true) {
+      return {
+        config: {
+          ...agentSpec.config,
+          sandbox: { ...agentSpec.config?.sandbox, enabled: false },
+        },
+      };
+    }
+    return {};
+  }
+
   const nextSpec = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
@@ -85,6 +114,7 @@ export function reconcileDraftSandbox({
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
+ * New Chat and New Agent keep separate seeds; chat never persists runtime config.
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
@@ -94,6 +124,7 @@ export function DraftSpecPreferenceBridge() {
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isPlainDraft = mode.status === 'active' && mode.isMutable && mode.agentId == null && pendingSessionId == null;
+  const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
 
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
@@ -101,17 +132,18 @@ export function DraftSpecPreferenceBridge() {
 
   useEffect(() => {
     if (isPlainDraft && agentSpec != null) {
-      rememberDraftSpec(agentSpec);
+      rememberDraftSpec(agentSpec, preferenceKind);
     }
-  }, [agentSpec, isPlainDraft, rememberDraftSpec]);
+  }, [agentSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
 
   useEffect(() => {
+    // New Chat mirrors capabilities onto the live draft; New Agent only disables when unavailable.
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null) return;
-    const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled });
+    const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled, kind: preferenceKind });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isPlainDraft, sandboxEnabled, updateAgentSpec]);
+  }, [agentSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;

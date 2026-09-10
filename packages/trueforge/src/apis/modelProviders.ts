@@ -1,4 +1,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import type { Context } from 'hono';
+import type { ResolveRequestContext } from '../auth/identity';
 import {
   ModelProviderNameConflictError,
   type IModelProviderStore,
@@ -18,11 +20,11 @@ import {
   type UpdateModelProviderRequest,
 } from '../schemas/modelProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
-import { TENANT_ID } from './sessions';
 
 export interface ModelProvidersRouterDeps<TTransaction> {
-  modelProviderStore: IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+  resolveRequestContext: ResolveRequestContext;
 }
 
 function redactModelProvider(manifest: ModelProviderManifest): ModelProviderManifest {
@@ -42,15 +44,16 @@ function resolveModelProviderManifestForWrite({
   incoming: ModelProviderManifest;
   existing: ModelProviderManifest | undefined;
 }): ModelProviderManifest {
-  if (incoming.auth === undefined) {
+  if (!('auth' in incoming) || incoming.auth === undefined) {
     return incoming;
   }
+  const existingApiKey = existing && 'auth' in existing ? existing.auth?.api_key : undefined;
   return {
     ...incoming,
     auth: {
       api_key: resolveStoredSecretValue({
         incoming: incoming.auth.api_key,
-        existing: existing?.auth?.api_key,
+        existing: existingApiKey,
       }),
     },
   };
@@ -65,18 +68,24 @@ function toWireProvider(record: ModelProviderRecord): ConfiguredModelProvider {
 
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
-    const records = await deps.modelProviderStore.listProviders(TENANT_ID);
+    const requestContext = deps.resolveRequestContext(c);
+    const records = await deps.resolveModelProviderStore(c).listProviders({ tenant_id: requestContext.tenant_id });
     return c.json({ data: records.map(toWireProvider) }, 200);
   };
 
   const createHandler: RouteHandler<typeof createModelProviderRoute> = async c => {
     const body: CreateModelProviderRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const provider = body.manifest;
     const name = modelProviderName(provider);
     try {
       // Create has no prior row; redacted keep resolves to MissingStoredSecretError → 400.
       const manifest = resolveModelProviderManifestForWrite({ incoming: provider, existing: undefined });
-      const record = await deps.modelProviderStore.createProvider({ tenant_id: TENANT_ID, name, manifest });
+      const record = await deps.resolveModelProviderStore(c).createProvider({
+        tenant_id: requestContext.tenant_id,
+        name,
+        manifest,
+      });
       return c.json({ data: toWireProvider(record) }, 201);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
@@ -90,22 +99,21 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
+    const store = deps.resolveModelProviderStore(c);
     const body: UpdateModelProviderRequest = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
     const provider = body.manifest;
     const name = modelProviderName(provider);
     try {
       // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
       // cannot re-write a secret over a rotate that committed in between.
       const record = await deps.withTransaction(async transaction => {
-        const existing = await deps.modelProviderStore.getProviderForUpdate(
-          { tenant_id: TENANT_ID, name },
-          transaction,
-        );
+        const existing = await store.getProviderForUpdate({ tenant_id: requestContext.tenant_id, name }, transaction);
         const manifest = resolveModelProviderManifestForWrite({
           incoming: provider,
           existing: existing?.manifest,
         });
-        return deps.modelProviderStore.upsertProvider({ tenant_id: TENANT_ID, name, manifest }, transaction);
+        return store.upsertProvider({ tenant_id: requestContext.tenant_id, name, manifest }, transaction);
       });
       return c.json({ data: toWireProvider(record) }, 200);
     } catch (error) {

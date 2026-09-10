@@ -4,7 +4,11 @@
  */
 import type {
   AgentSpec,
+  CreatedBySubject,
   PersistedTurnEvent,
+  SessionMetadata,
+  SessionMetrics,
+  SessionSource,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -21,7 +25,12 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
-import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type {
+  SandboxBuildMetadata,
+  SandboxBuildStatus,
+  StoredSandboxProviderManifest,
+} from '../../schemas/sandboxProvider';
+import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
@@ -51,7 +60,11 @@ export interface SessionTable {
   /** key */
   session_id: string;
   /** Caller identity that created the session (immutable after create). */
-  created_by: string;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  /**
+   * Null for interactive sessions.
+   */
+  source: JSONColumnType<SessionSource, SessionSource | null, SessionSource | null> | null;
   /**
    * Named registry binding; XOR with `agent_spec`
    * (CHECK session_agent_xor_check).
@@ -77,8 +90,16 @@ export interface SessionTable {
    *      tiny fixed-width column keeps the bump a cheap HOT update
    */
   last_turn_id: string | null;
+  /**
+   * Optional unique key within `tenant_id` (`session_external_id_uq`,
+   * partial WHERE external_id IS NOT NULL).
+   */
+  external_id: string | null;
   /** top: caller-owned opaque extension; never mixed with store state */
   custom: JSONColumnType<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> | null;
+  /** Caller-owned metadata; always present (DEFAULT '{}'). */
+  metadata: JSONColumnType<SessionMetadata, SessionMetadata, SessionMetadata>;
+  metrics: JSONColumnType<SessionMetrics, SessionMetrics, SessionMetrics>;
   /** top: list ordering (indexed below) */
   created_at: Date;
   updated_at: Date;
@@ -340,8 +361,8 @@ export interface SkillTable {
 export interface SandboxProviderTable {
   /** key */
   tenant_id: string;
-  /** SandboxProviderManifest document; replaced whole on every upsert */
-  manifest: JSONColumnType<SandboxProviderManifest, SandboxProviderManifest, SandboxProviderManifest>;
+  /** StoredSandboxProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<StoredSandboxProviderManifest, StoredSandboxProviderManifest, StoredSandboxProviderManifest>;
   /** Last persisted build status of the release sandbox image. */
   status: SandboxBuildStatus;
   /** Human-readable detail for `status`; null when ready. */
@@ -364,6 +385,56 @@ export interface AgentTable {
   name: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
+  external_id: string | null;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Configured schedules — immutable ULID `id` PK.
+ * PRIMARY KEY (id)
+ * CREATE INDEX schedule_agent_idx ON schedule (tenant_id, agent_name)
+ * CREATE INDEX schedule_agent_id_idx ON schedule (tenant_id, agent_id)
+ * FK (agent_id) → agent(id) ON DELETE CASCADE
+ */
+export interface ScheduleTable {
+  /** application-generated (ulid); FK target for schedule_run */
+  id: string;
+  tenant_id: string;
+  /** FK → agent(id). Immutable. */
+  agent_id: string;
+  /** Create-time snapshot of registry agent name. */
+  agent_name: string;
+  /** Display label; not unique. */
+  name: string;
+  /** ScheduleManifest document ({ task, cron, timezone }); replaced whole on update */
+  manifest: JSONColumnType<ScheduleManifest, ScheduleManifest, ScheduleManifest>;
+  /** `paused` stops triggering and drops the pending run; in-flight runs continue */
+  status: ScheduleStatus;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * One row per run, pending or historical.
+ * PRIMARY KEY (id)
+ */
+export interface ScheduleRunTable {
+  /** application-generated (ulid) */
+  id: string;
+  tenant_id: string;
+  /** FK -> schedule.id, ON DELETE CASCADE */
+  schedule_id: string;
+  /** unique per trigger time: `sched-<unixSeconds>` for cron, `manual-<token>` for run-now */
+  name: string;
+  scheduled_for: Date;
+  /** `scheduled` | `triggered` | `failed` | `missed` — varchar(16) */
+  status: ScheduleRunStatus;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  triggered_at: Date | null;
+  reason: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -395,7 +466,7 @@ export interface McpServerTable {
 /**
  * PRIMARY KEY (oauth_server_id, user_id)
  * No `tenant_id` — already scoped to tenant via the FK. Tokens are per harness user
- * (`user_id` = `UserContext.userRef`); any tenant-scoped read resolves `oauth_server_id`
+ * (`user_id` = `RequestContext.subject.id`); any tenant-scoped read resolves `oauth_server_id`
  * through mcp_server (by tenant_id + name) first.
  */
 export interface OAuthTokenTable {
@@ -436,6 +507,8 @@ export interface OAuthPendingAuthorizationTable {
  * itself — the documented, bounded cost of the raw-array model. `model_provider`,
  * `skill`, `sandbox_provider`, `agent`, `mcp_server`, and the two `oauth_*` tables
  * are low-write, low-volume (one row per tenant/resource, or short-lived).
+ * `schedule` is low-write; `schedule_run` takes a handful of bounded updates per
+ * trigger and is otherwise append-only.
  *
  * Canonical Kysely database.
  */
@@ -450,6 +523,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  schedule: ScheduleTable;
+  schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;
   oauth_token: OAuthTokenTable;
   oauth_pending_authorization: OAuthPendingAuthorizationTable;

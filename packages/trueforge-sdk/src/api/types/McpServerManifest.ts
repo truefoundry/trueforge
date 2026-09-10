@@ -8,6 +8,6 @@ export interface McpServerManifest {
     description: string;
     name: TrueForge.ResourceName;
     type: TrueForge.McpServerType;
-    /** URL of the remote MCP server. */
+    /** MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL. */
     url: string;
 }

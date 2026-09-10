@@ -83,8 +83,8 @@ function TestShell({ server, children }: { server?: AgentUIServer; children?: Re
 }
 
 async function openSettings() {
-  fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
   await waitFor(() => {
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
   });
 }
@@ -96,6 +96,7 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
 
     await openSettings();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
 
     rerender(<TestShell server={createServer({ catalog: false })} />);
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
@@ -118,7 +119,7 @@ describe('TruefoundrySettingsBuilder', () => {
 
     rerender(<TestShell server={createServer({ skills: true, sandbox: true })} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skills' }));
     await waitFor(() => {
       expect(screen.getByText('Skill settings content')).toBeInTheDocument();
     });
@@ -169,12 +170,21 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(parentKeyDown).not.toHaveBeenCalled();
   });
 
+  it('closes via the Back control', async () => {
+    render(<TestShell server={createServer()} />);
+    await openSettings();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
+  });
+
   async function expectCatalogsRefreshOnClose(close: () => void) {
     const getModels = vi.fn(async () => []);
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const getCapabilities = vi.fn(async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: true } },
     }));
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),
@@ -199,7 +209,7 @@ describe('TruefoundrySettingsBuilder', () => {
 
   it('refreshes composer catalogs when settings close', async () => {
     await expectCatalogsRefreshOnClose(() => {
-      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      fireEvent.keyDown(window, { key: 'Escape' });
     });
   });
 
@@ -217,7 +227,7 @@ describe('TruefoundrySettingsBuilder', () => {
       expect(screen.getByText('Skill settings content')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to agent' }));
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument();
 
     rerender(<TestShell server={createServer()} />);

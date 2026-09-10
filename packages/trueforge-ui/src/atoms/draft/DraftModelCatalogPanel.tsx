@@ -1,11 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import { Icon } from '../../icons/Icon.js';
 import type { ModelSelection } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
+import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
 
 function monogram(value: string): string {
   const trimmed = value.trim();
@@ -15,6 +17,10 @@ function monogram(value: string): string {
 export function displayModelLabel(modelName: string): string {
   const slash = modelName.lastIndexOf('/');
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
+}
+
+function formatTokens(value: number): string {
+  return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
 
 export function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
@@ -64,6 +70,7 @@ export function DraftModelCatalogPanel({
   onOpenSettings,
   listboxId,
   showHeading = true,
+  showSearch = true,
 }: {
   models: ModelSelection[];
   loading: boolean;
@@ -74,37 +81,48 @@ export function DraftModelCatalogPanel({
   onOpenSettings?: () => void;
   listboxId: string;
   showHeading?: boolean;
+  showSearch?: boolean;
 }) {
-  const needle = query.trim().toLowerCase();
-  const filtered = needle
-    ? models.filter(
-        model =>
-          model.name.toLowerCase().includes(needle) ||
-          model.id.toLowerCase().includes(needle) ||
-          model.provider.name.toLowerCase().includes(needle),
-      )
-    : models;
+  const needle = normalizeModelSearchText(query);
+  const filtered = useMemo(
+    () => (needle ? models.filter(model => modelMatchesQuery({ model, needle })) : models),
+    [models, needle],
+  );
   const sections = groupModelsByProvider(filtered);
+  const detailedGridClass = 'grid-cols-[minmax(0,1fr)_5rem]';
 
   return (
     <>
-      <div className="border-b border-border px-3 py-2">
-        {showHeading ? <p className="text-text-primary mb-2 text-sm font-semibold">Select model</p> : null}
-        <label className="relative block">
-          <Icon
-            name="search"
-            className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={event => onQueryChange(event.target.value)}
-            placeholder="Search"
-            className={auiInputClass('h-8 py-1 pr-2 pl-7')}
-            autoFocus
-          />
-        </label>
-      </div>
+      {showSearch && (
+        <div className="border-b border-border px-3 py-2">
+          {showHeading ? <p className="text-text-primary mb-2 text-sm font-normal">Select model</p> : null}
+          <label className="relative block">
+            <Icon
+              name="search"
+              className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={event => onQueryChange(event.target.value)}
+              placeholder="Search"
+              className={auiInputClass('h-8 py-1 pr-2 pl-7')}
+              autoFocus
+            />
+          </label>
+        </div>
+      )}
+      {!showHeading ? (
+        <div
+          className={cn(
+            'text-text-secondary grid gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold uppercase',
+            detailedGridClass,
+          )}
+        >
+          <span>Model</span>
+          <span>Context</span>
+        </div>
+      ) : null}
       <div
         id={listboxId}
         role="listbox"
@@ -144,15 +162,41 @@ export function DraftModelCatalogPanel({
                       role="option"
                       aria-selected={active}
                       className={cn(
-                        'flex w-full items-center rounded-md px-2 py-2 text-left text-sm',
-                        active
-                          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-                          : 'hover:bg-ghost-button-hover',
+                        'w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                        showHeading ? 'flex' : cn('grid gap-2', detailedGridClass),
+                        active ? 'bg-primary-button-bg/10 text-primary-button-bg' : 'hover:bg-ghost-button-hover',
                       )}
                       onClick={() => onSelect(model)}
                     >
-                      <span className="truncate font-medium">{displayModelLabel(model.name)}</span>
-                      {active ? <Icon name="check" className="ml-auto size-3.5" /> : null}
+                      <span className="min-w-0">
+                        <span className="block truncate font-normal">{displayModelLabel(model.name)}</span>
+                        {showHeading &&
+                        (model.properties.contextLength !== undefined ||
+                          model.properties.maxOutputTokens !== undefined) ? (
+                          <span className="text-text-secondary mt-0.5 block truncate text-[10px]">
+                            {[
+                              model.properties.contextLength === undefined
+                                ? null
+                                : `${formatTokens(model.properties.contextLength)} context`,
+                              model.properties.maxOutputTokens === undefined
+                                ? null
+                                : `${formatTokens(model.properties.maxOutputTokens)} output`,
+                            ]
+                              .filter(value => value !== null)
+                              .join(' · ')}
+                          </span>
+                        ) : null}
+                      </span>
+                      {!showHeading ? (
+                        <>
+                          <span className={cn('text-text-secondary text-xs', active && 'text-primary-button-bg')}>
+                            {model.properties.contextLength === undefined
+                              ? '—'
+                              : formatTokens(model.properties.contextLength)}
+                          </span>
+                        </>
+                      ) : null}
+                      {active && showHeading ? <Icon name="check" className="ml-auto size-3.5" /> : null}
                     </button>
                   );
                 })}

@@ -3,8 +3,9 @@ import {
   claimValues,
   resolveRole,
   resolveUserRef,
-  toUserContext,
+  toRequestContext,
 } from '../../../src/auth/claims';
+import { EmailNotAllowedError } from '../../../src/auth/emailAllowlist';
 import type { OIDCConfig } from '../../../src/config';
 
 function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
@@ -13,12 +14,16 @@ function config(overrides: Partial<OIDCConfig> = {}): OIDCConfig {
     OIDC_CLIENT_ID: 'client-id',
     OIDC_CLIENT_SECRET: 'client-secret',
     OIDC_USER_REFERENCE_CLAIM: 'sub',
+    OIDC_USER_DISPLAY_NAME_CLAIM: 'name',
     OIDC_USER_ROLE_CLAIM: 'groups',
     OIDC_ADMIN_ROLE_VALUE: 'harness-admins',
     OIDC_SCOPES: ['openid', 'profile', 'email', 'groups'],
+    OIDC_ALLOWED_EMAILS: [],
     ...overrides,
   };
 }
+
+const TEST_TOKEN = 'test';
 
 describe('claimValues', () => {
   it('passes through an array of strings', () => {
@@ -90,16 +95,85 @@ describe('resolveRole', () => {
   });
 });
 
-describe('toUserContext', () => {
-  it('combines userRef and role from the claims', () => {
-    expect(toUserContext({ sub: 'user-123', groups: ['harness-admins'] }, config())).toEqual({
-      userRef: 'user-123',
-      role: 'admin',
+describe('toRequestContext', () => {
+  it('maps claims onto RequestContext with roles from the role claim', () => {
+    expect(
+      toRequestContext({
+        claims: { sub: 'user-123', groups: ['harness-admins'], name: 'User One' },
+        config: config(),
+        user_credential: TEST_TOKEN,
+      }),
+    ).toEqual({
+      tenant_id: 'default',
+      subject: { id: 'user-123', type: 'user', display_name: 'User One' },
+      roles: ['harness-admins'],
+      user_credential: TEST_TOKEN,
+    });
+  });
+
+  it('falls back display_name to subject id when the display-name claim is absent', () => {
+    expect(
+      toRequestContext({
+        claims: { sub: 'user-123', groups: ['harness-admins'] },
+        config: config(),
+        user_credential: TEST_TOKEN,
+      }),
+    ).toEqual({
+      tenant_id: 'default',
+      subject: { id: 'user-123', type: 'user', display_name: 'user-123' },
+      roles: ['harness-admins'],
+      user_credential: TEST_TOKEN,
     });
   });
 
   it('propagates resolveUserRef throwing when the reference claim is missing', () => {
-    expect(() => toUserContext({ groups: ['harness-admins'] }, config())).toThrow();
+    expect(() =>
+      toRequestContext({
+        claims: { groups: ['harness-admins'] },
+        config: config(),
+        user_credential: TEST_TOKEN,
+      }),
+    ).toThrow();
+  });
+
+  it('allows any email when the allowlist is empty', () => {
+    expect(
+      toRequestContext({
+        claims: { sub: 'user-123', groups: [], email: 'anyone@elsewhere.com' },
+        config: config({ OIDC_ALLOWED_EMAILS: [] }),
+        user_credential: TEST_TOKEN,
+      }),
+    ).toEqual({
+      tenant_id: 'default',
+      subject: { id: 'user-123', type: 'user', display_name: 'user-123' },
+      roles: [],
+      user_credential: TEST_TOKEN,
+    });
+  });
+
+  it('throws EmailNotAllowedError when the email is outside the allowlist', () => {
+    expect(() =>
+      toRequestContext({
+        claims: { sub: 'user-123', groups: [], email: 'outsider@elsewhere.com' },
+        config: config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
+        user_credential: TEST_TOKEN,
+      }),
+    ).toThrow(EmailNotAllowedError);
+  });
+
+  it('allows a matching domain glob', () => {
+    expect(
+      toRequestContext({
+        claims: { sub: 'user-123', groups: ['harness-admins'], email: 'alice@company.com' },
+        config: config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }),
+        user_credential: TEST_TOKEN,
+      }),
+    ).toEqual({
+      tenant_id: 'default',
+      subject: { id: 'user-123', type: 'user', display_name: 'user-123' },
+      roles: ['harness-admins'],
+      user_credential: TEST_TOKEN,
+    });
   });
 });
 
@@ -116,16 +190,20 @@ describe('buildAuthorizationRequestParams', () => {
     expect(scopes).toEqual(['openid', 'profile', 'email', 'groups']);
   });
 
-  it('requests both the role claim and the (default) reference claim as essential in the id_token', () => {
+  it('requests reference and role claims as essential in the id_token', () => {
     const { claims } = buildAuthorizationRequestParams(config({ OIDC_USER_ROLE_CLAIM: 'roles' }));
-    expect(claims).toEqual({ id_token: { sub: { essential: true }, roles: { essential: true } } });
+    expect(claims).toEqual({
+      id_token: { sub: { essential: true }, roles: { essential: true } },
+    });
   });
 
   it('requests a non-default reference claim as essential too', () => {
     const { claims } = buildAuthorizationRequestParams(
       config({ OIDC_USER_REFERENCE_CLAIM: 'email', OIDC_USER_ROLE_CLAIM: 'roles' }),
     );
-    expect(claims).toEqual({ id_token: { email: { essential: true }, roles: { essential: true } } });
+    expect(claims).toEqual({
+      id_token: { email: { essential: true }, roles: { essential: true } },
+    });
   });
 
   it('collapses to a single essential entry when the reference and role claim names collide', () => {
@@ -133,5 +211,16 @@ describe('buildAuthorizationRequestParams', () => {
       config({ OIDC_USER_REFERENCE_CLAIM: 'groups', OIDC_USER_ROLE_CLAIM: 'groups' }),
     );
     expect(claims).toEqual({ id_token: { groups: { essential: true } } });
+  });
+
+  it('requests email as essential when an allowlist is configured', () => {
+    const { claims } = buildAuthorizationRequestParams(config({ OIDC_ALLOWED_EMAILS: ['*@company.com'] }));
+    expect(claims).toEqual({
+      id_token: {
+        sub: { essential: true },
+        groups: { essential: true },
+        email: { essential: true },
+      },
+    });
   });
 });

@@ -6,6 +6,7 @@ import {
   isValidElement,
   memo,
   useCallback,
+  useMemo,
   useState,
   type ComponentType,
   type ReactNode,
@@ -15,6 +16,7 @@ import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/pris
 
 import { Icon } from '../icons/Icon.js';
 import { useOptionalContentClassNames } from '../theme/ThemeProvider.js';
+import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
 export type SyntaxHighlighterProps = {
@@ -24,6 +26,11 @@ export type SyntaxHighlighterProps = {
   className?: string;
   showLineNumbers?: boolean;
 };
+
+/** Drop a single trailing newline so line numbers do not paint an empty last row. */
+export function stripTrailingNewline(code: string): string {
+  return code.endsWith('\n') ? code.slice(0, -1) : code;
+}
 
 function applyLineNumberClassName(children: ReactNode, className: string | undefined): ReactNode {
   if (!className) return children;
@@ -44,6 +51,7 @@ function SyntaxHighlighterImpl({ code, language, darkTheme, className, showLineN
   const classNames = useOptionalContentClassNames();
   const style = darkTheme ? oneDark : oneLight;
   const [copied, setCopied] = useState(false);
+  const displayCode = useMemo(() => stripTrailingNewline(code), [code]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(code).then(() => {
@@ -65,10 +73,11 @@ function SyntaxHighlighterImpl({ code, language, darkTheme, className, showLineN
         onClick={handleCopy}
         title={copied ? 'Copied!' : 'Copy'}
         aria-label={copied ? 'Copied!' : 'Copy'}
-        className={cn(
-          'absolute top-2 right-2 z-10 flex cursor-pointer items-center justify-center rounded p-1.5 text-xs transition-colors',
-          'bg-primary-bg/80 text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
-        )}
+        className={auiButtonClass({
+          variant: 'secondary',
+          size: 'icon',
+          className: 'absolute top-2 right-2 z-10 h-7 w-7',
+        })}
       >
         <Icon name={copied ? 'check' : 'copy'} size="0.875em" />
       </button>
@@ -99,7 +108,7 @@ function SyntaxHighlighterImpl({ code, language, darkTheme, className, showLineN
           </code>
         )}
       >
-        {code}
+        {displayCode}
       </PrismHighlighter>
     </div>
   );

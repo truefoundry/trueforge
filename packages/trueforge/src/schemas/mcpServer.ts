@@ -10,8 +10,12 @@ import { z } from '@hono/zod-openapi';
 import type { OAuthToken } from '../mcp/auth/types';
 import { NameSchema } from './common';
 
-/** Transport/kind of MCP server. Extend when non-remote kinds ship. */
-export const McpServerTypeSchema = z.enum(['remote']).openapi('MCPServerType');
+/**
+ * Transport/kind of MCP server.
+ * `remote` — user-configured URL (standalone / local registry).
+ * `truefoundry` — TrueFoundry-managed: gateway proxy URL.
+ */
+export const McpServerTypeSchema = z.enum(['remote', 'truefoundry']).openapi('MCPServerType');
 
 const McpServerHeaderAuthSchema = z
   .object({
@@ -52,7 +56,7 @@ export const McpServerManifestObjectSchema = z
   .object({
     type: McpServerTypeSchema,
     name: NameSchema,
-    url: z.url().describe('URL of the remote MCP server.'),
+    url: z.url().describe('MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL.'),
     description: McpServerDescriptionSchema,
     auth: McpServerManifestAuthSchema.optional(),
   })
@@ -100,7 +104,9 @@ export const UpdateMcpServerRequestSchema = z
 
 export const GetMcpServerResponseSchema = z.object({ data: ConfiguredMcpServerSchema }).openapi('GetMCPServerResponse');
 export const ListMcpServersResponseSchema = z
-  .object({ data: z.array(ConfiguredMcpServerSchema) })
+  .object({
+    data: z.array(ConfiguredMcpServerSchema),
+  })
   .openapi('ListMCPServersResponse');
 
 /** Public auth mechanism for chat/composer (no secrets). */
@@ -124,8 +130,14 @@ export const AvailableMcpServerSchema = z
   .openapi('AvailableMCPServer');
 
 export const ListAvailableMcpServersResponseSchema = z
-  .object({ data: z.array(AvailableMcpServerSchema) })
+  .object({
+    data: z.array(AvailableMcpServerSchema),
+  })
   .openapi('ListAvailableMCPServersResponse');
+
+export const GetAvailableMcpServerResponseSchema = z
+  .object({ data: AvailableMcpServerSchema })
+  .openapi('GetAvailableMCPServerResponse');
 
 export type McpServerType = z.infer<typeof McpServerTypeSchema>;
 export type McpServerManifestAuth = z.infer<typeof McpServerManifestAuthSchema>;
@@ -156,6 +168,10 @@ export function resolveMcpAuthStatus({
   manifest: McpServerManifest;
   token?: OAuthToken;
 }): McpAuthStatus {
+  // TrueFoundry list responses treat this as authenticated until live per-item status is requested.
+  if (manifest.type === 'truefoundry') {
+    return { status: 'authenticated' };
+  }
   if (manifest.auth?.type === 'dcr') {
     return token ? { status: 'authenticated' } : { status: 'auth_required' };
   }

@@ -1,14 +1,14 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import type { Context } from 'hono';
 import type { Logger } from 'winston';
-import { isAdmin, resolveUserContext } from '../auth/identity';
+import { hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import type { SandboxBuildStatus } from '../schemas/sandboxProvider';
-import { TENANT_ID } from './sessions';
 
 /**
  * Why skills are unavailable, keyed off the sandbox build status.
@@ -22,19 +22,21 @@ function skillDisabledReason(status: SandboxBuildStatus | undefined): string {
 }
 
 export function createCapabilitiesRouter<TTransaction>(deps: {
-  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
+  resolveRequestContext: ResolveRequestContext;
 }) {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
+    const requestContext = deps.resolveRequestContext(c);
     // Sandbox is usable only when a provider is configured AND its image build reports ready.
     // Refresh the persisted status (and re-activate an idle snapshot); fail closed (disabled) if it throws.
     let status: SandboxBuildStatus | undefined;
     try {
       const refreshed = await checkSnapshotStatus({
-        store: deps.sandboxProviderStore,
-        tenant_id: TENANT_ID,
+        store: deps.resolveSandboxProviderStore(c),
+        tenant_id: requestContext.tenant_id,
         logger: deps.logger,
       });
       status = refreshed?.status;
@@ -42,7 +44,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       deps.logger.warn('Sandbox image status check failed; reporting sandbox disabled', extractErrorLogFields(error));
     }
     const sandboxEnabled = status === 'ready' || (status === undefined && isLocalSandboxFallbackEnabled());
-    const settingsEnabled = isAdmin(resolveUserContext(c));
+    const settingsEnabled = hasAdminRole(requestContext);
     return c.json(
       {
         data: {

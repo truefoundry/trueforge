@@ -16,6 +16,7 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
     }),
   useTrueFoundryCancel: () => vi.fn(),
   useTrueFoundryToolResponses: () => ({ pending: [] }),
+  useTrueFoundryApprovals: () => ({ pending: [] }),
   useTrueFoundryRespondToToolApproval: () => vi.fn(),
   useTrueFoundryMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
   useTrueFoundryHistoryPagination: () => ({
@@ -54,13 +55,15 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   ),
 }));
 
+import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
 import { TrueForgeUI, type ChatLayout } from '@/containers/TrueForgeUI.js';
 import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
 import { StackChatPanel } from '@/layouts/StackChatPanel.js';
 import { WidgetLayout } from '@/layouts/WidgetLayout.js';
+import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import { ShellModeProvider } from '@/server/ShellModeContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
@@ -81,6 +84,19 @@ beforeAll(() => {
   };
 });
 
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
+
 describe('TrueForgeUI', () => {
   const server = mockServer();
   const layouts: ChatLayout[] = ['sidebar', 'drawer', 'dock', 'widget'];
@@ -100,10 +116,13 @@ describe('TrueForgeUI', () => {
     await waitFor(() => {
       switch (layout) {
         case 'sidebar':
-          expect(screen.getByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
+          expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
           break;
         case 'drawer':
-          expect(screen.getByRole('button', { name: 'New chat' })).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+          // SingleAgent has no composer — New Agent is composer-only.
+          expect(screen.queryByRole('button', { name: 'New Agent' })).not.toBeInTheDocument();
           break;
         case 'dock':
           expect(container.querySelector('[data-aui-compact-layout]')).toBeInTheDocument();
@@ -114,6 +133,24 @@ describe('TrueForgeUI', () => {
       }
     });
     expect(container.querySelector('.h-96')).toBeInTheDocument();
+  });
+
+  it('keeps the widget open across mutable runtime remounts', async () => {
+    render(
+      <TrueForgeUI server={mockServer()} agentConfig={{ mode: 'AgentComposer' }} layout="widget" className="h-96" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Chat' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Agent' }));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Chat' })).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+    });
   });
 
   it('mounts a custom layout component inside providers', async () => {
@@ -139,7 +176,7 @@ describe('TrueForgeUI', () => {
     });
   });
 
-  it('refetches composer data when starting a new chat', async () => {
+  it('keeps composer catalogs cached when starting a new chat', async () => {
     const getCapabilities = vi
       .fn()
       .mockResolvedValueOnce({ data: { sandbox: { enabled: true }, skill: { enabled: true } } })
@@ -172,9 +209,9 @@ describe('TrueForgeUI', () => {
 
     await waitFor(() => {
       expect(getCapabilities).toHaveBeenCalledTimes(2);
-      expect(getModels).toHaveBeenCalledTimes(2);
-      expect(getSkills).toHaveBeenCalledTimes(2);
-      expect(getMcp).toHaveBeenCalledTimes(2);
+      expect(getModels).toHaveBeenCalledTimes(1);
+      expect(getSkills).toHaveBeenCalledTimes(1);
+      expect(getMcp).toHaveBeenCalledTimes(1);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Tools (0)' }));
@@ -182,7 +219,7 @@ describe('TrueForgeUI', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Select Sandbox first');
   });
 
-  it('shares catalog data with the Save Agent stacked editors', async () => {
+  it('keeps configuration editors out of Save Agent', async () => {
     const getModels = vi.fn(async () => [
       {
         id: 'openai-main/gpt-4.1',
@@ -202,22 +239,16 @@ describe('TrueForgeUI', () => {
       />,
     );
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Start new agent' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save Agent' }));
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Model' }));
-
-    const modelDialog = document.querySelector('dialog[aria-label="Edit model"]');
-    if (!(modelDialog instanceof HTMLDialogElement)) throw new Error('expected stacked model dialog');
-    expect(await within(modelDialog).findByRole('option', { name: 'gpt-4.1' })).toBeInTheDocument();
-    fireEvent.click(within(modelDialog).getByRole('button', { name: 'Close' }));
-
-    fireEvent.click(within(saveDialog).getByRole('button', { name: 'Edit Connectors' }));
-    const mcpDialog = document.querySelector('dialog[aria-label="Edit Connectors"]');
-    if (!(mcpDialog instanceof HTMLDialogElement)) throw new Error('expected stacked MCP dialog');
-    expect(await within(mcpDialog).findByText('GitHub')).toBeInTheDocument();
-    expect(getModels).toHaveBeenCalledOnce();
-    expect(getMcp).toHaveBeenCalledOnce();
-    expect(getSkills).toHaveBeenCalledOnce();
+    expect(within(saveDialog).getByLabelText('Agent name')).toBeInTheDocument();
+    expect(within(saveDialog).queryByLabelText('Description')).not.toBeInTheDocument();
+    expect(within(saveDialog).queryByRole('button', { name: 'Edit Model' })).not.toBeInTheDocument();
+    expect(within(saveDialog).queryByRole('button', { name: 'Edit Connectors' })).not.toBeInTheDocument();
+    expect(getModels).toHaveBeenCalled();
+    expect(getMcp).toHaveBeenCalled();
+    expect(getSkills).toHaveBeenCalled();
   });
 
   it('renders only the MCP authorization screen when requested by the URL', async () => {
@@ -280,47 +311,133 @@ describe('TrueForgeUI', () => {
 });
 
 describe('StackChatPanel', () => {
-  it('starts on a new chat and opens the session list from history', () => {
+  it('shows New Chat and New Agent actions on the thread header', () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <StackChatPanel />
-          </div>
-        </RuntimeHarness>
+        <ShellModeProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <StackChatPanel />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
       </SlotsProvider>,
     );
 
-    expect(screen.getByLabelText('Sessions')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Start new chat' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Agent' })).toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByLabelText('Sessions'));
+  it.each([
+    ['dock/widget', StackChatPanel],
+    ['drawer', DrawerLayout],
+  ] as const)('%s can return to chat after opening schedules', async (_name, Layout) => {
+    const server = createMockAgentUIServer({
+      schedules: {
+        listSchedules: vi.fn(async () => ({ data: [] })),
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
 
-    expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Sessions')).not.toBeInTheDocument();
+    function OpenSchedules() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.setSchedulesOpen(true)}>
+          Open schedules
+        </button>
+      );
+    }
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+            <RuntimeHarness messages={[]}>
+              <OpenSchedules />
+              <div className="h-96">
+                <Layout />
+              </div>
+            </RuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open schedules' }));
+    expect(await screen.findByRole('heading', { name: 'Scheduled Agents' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to chat' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Scheduled Agents' })).not.toBeInTheDocument();
+    });
   });
 });
 
 describe('SidebarLayout', () => {
-  it('shows the app brand in the mobile sessions drawer', () => {
+  it('lets mobile builders close and reopen Agent Config', () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+
+    try {
+      render(
+        <SlotsProvider>
+          <ServerProvider server={mockServer(stubCatalog)}>
+            <ShellModeProvider>
+              <AgentConfigInstructionsProvider>
+                <RuntimeHarness messages={[]}>
+                  <div className="h-96">
+                    <SidebarLayout />
+                  </div>
+                </RuntimeHarness>
+              </AgentConfigInstructionsProvider>
+            </ShellModeProvider>
+          </ServerProvider>
+        </SlotsProvider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close agent config' }));
+      expect(screen.queryByRole('dialog', { name: 'Agent Config' })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Agent config' }));
+      expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
+  });
+
+  it('shows the app brand in the mobile navigation drawer', () => {
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: { src: '/acme.svg' } } }}>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <SidebarLayout />
-          </div>
-        </RuntimeHarness>
+        <ShellModeProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <SidebarLayout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sessions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Navigation' }));
 
-    const drawer = screen.getByRole('dialog', { name: 'Sessions' });
-    expect(within(drawer).getByText('Acme')).toBeInTheDocument();
+    const drawer = screen.getByRole('dialog', { name: 'Navigation' });
+    expect(drawer).toHaveClass('w-20');
     expect(within(drawer).getByAltText('Acme')).toHaveAttribute('src', '/acme.svg');
+    expect(within(drawer).queryByText('Acme')).not.toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('button', { name: 'Start new agent' })).toBeInTheDocument();
+    expect(within(drawer).queryByText('No threads yet')).not.toBeInTheDocument();
   });
 
-  it('shows the default wordmark without a name in expanded chrome', () => {
+  it('shows the default icon mark in the permanent rail', () => {
     const { container } = render(
       <SlotsProvider>
         <RuntimeHarness messages={[]}>
@@ -332,11 +449,12 @@ describe('SidebarLayout', () => {
     );
 
     const mark = container.querySelector('aside svg');
-    expect(mark).toHaveAttribute('viewBox', '0 0 614 100');
+    expect(mark).toHaveAttribute('viewBox', '0 0 140 140');
     expect(screen.queryByText('TrueForge')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
-  it('shows a wide logo when expanded and its square icon when collapsed', () => {
+  it('uses the square brand icon in the rail (not the wide wordmark)', () => {
     const { container } = render(
       <SlotsProvider
         theme={{ brand: { mode: 'logo', name: 'Acme', icon: '/acme-icon.svg', logo: '/acme-wordmark.svg' } }}
@@ -349,16 +467,11 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-wordmark.svg');
-    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
     expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme-icon.svg');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('supports icon-only branding in expanded chrome', () => {
+  it('supports icon-only branding in the rail', () => {
     const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-only', name: 'Acme', icon: '/acme-icon.svg' } }}>
         <RuntimeHarness messages={[]}>
@@ -374,8 +487,8 @@ describe('SidebarLayout', () => {
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
   });
 
-  it('shows the brand and toggles the desktop sidebar rail', () => {
-    const { unmount } = render(
+  it('shows a permanent labeled rail with New Chat and no expand control', () => {
+    const { container } = render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
         <RuntimeHarness messages={[]}>
           <div className="h-96">
@@ -385,25 +498,103 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByText('Acme')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
-
+    expect(container.querySelector('aside img')).toHaveAttribute('src', '/acme.svg');
     expect(screen.queryByText('Acme')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start new chat' })).toBeInTheDocument();
+    expect(screen.getByText('New Chat')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Documentation' })).toHaveAttribute('href', 'https://trueforge.dev');
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
+  });
 
-    // New Chat / Agents remount ChatProvider via runtimeKey; collapse must survive.
-    unmount();
+  it('keeps recent history visible when a named chat loads in the same page', async () => {
+    function OpenNamedChatButton() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'named-agent' })}>
+          Open named chat
+        </button>
+      );
+    }
+
     render(
-      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme', icon: '/acme.svg' } }}>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <SidebarLayout />
-          </div>
-        </RuntimeHarness>
+      <SlotsProvider>
+        <ServerProvider server={mockServer(stubCatalog)}>
+          <ShellModeProvider>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <OpenNamedChatButton />
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
       </SlotsProvider>,
     );
-    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+
+    const recentChats = screen.getByRole('complementary', { name: 'Recent chats' });
+    expect(recentChats).toHaveClass('hidden', 'md:flex');
+    expect(recentChats.parentElement?.previousElementSibling?.tagName).toBe('HEADER');
+    expect(screen.getAllByText('New Chat')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new chat' }));
+    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open named chat' }));
+    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+  });
+
+  it('highlights New Chat, New Agent, and Settings when selected', async () => {
+    render(
+      <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
+        <ServerProvider server={mockServer(stubCatalog)}>
+          <ShellModeProvider>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    const newChat = screen.getByRole('button', { name: 'Start new chat' });
+    const newAgent = screen.getByRole('button', { name: 'Start new agent' });
+    expect(newChat).toHaveAttribute('aria-current', 'page');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(newAgent);
+    const selectedNewAgent = await screen.findByRole('button', { name: 'Start new agent' });
+    const deselectedNewChat = screen.getByRole('button', { name: 'Start new chat' });
+    expect(selectedNewAgent).toHaveAttribute('aria-current', 'page');
+    expect(deselectedNewChat).not.toHaveAttribute('aria-current');
+    const config = await screen.findByRole('dialog', { name: 'Agent Config' });
+    const chatColumn = config.nextElementSibling;
+    expect(config).toHaveClass('md:max-w-140', 'md:flex-1', '2xl:max-w-150', 'border-r');
+    expect(chatColumn).not.toBeNull();
+    expect(config.querySelector('header')).toHaveClass('min-h-14');
+    expect(chatColumn?.querySelector('header')).toHaveClass('min-h-14');
+    expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
+
+    const [settingsButton] = await screen.findAllByRole('button', { name: 'Settings' });
+    if (settingsButton === undefined) {
+      throw new Error('Expected settings button');
+    }
+    expect(settingsButton).not.toHaveAttribute('aria-current');
+    fireEvent.click(settingsButton);
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    expect(settingsButton).toHaveAttribute('aria-current', 'page');
+    expect(deselectedNewChat).not.toHaveAttribute('aria-current');
+    expect(selectedNewAgent).not.toHaveAttribute('aria-current');
   });
 
   it('toggles theme from the footer and shows settings only when catalog is provided', async () => {
@@ -421,18 +612,14 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
-    const expandButton = screen.queryByRole('button', { name: 'Expand sidebar' });
-    if (expandButton != null) {
-      fireEvent.click(expandButton);
-    }
-    expect(await screen.findAllByRole('button', { name: 'Agents Library (0)' })).not.toHaveLength(0);
+    expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+    expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
       throw new Error('Expected theme toggle');
     }
     fireEvent.click(themeButton);
-    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(1);
 
     // Settings stays available with a locked agentName when catalog is present.
     rerender(
@@ -448,7 +635,7 @@ describe('SidebarLayout', () => {
         </ServerProvider>
       </SlotsProvider>,
     );
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(2);
+    expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
@@ -501,63 +688,36 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
     expect(screen.queryByRole('button', { name: 'Settings' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ })).toHaveLength(1);
   });
 });
 
 describe('DrawerLayout a11y', () => {
-  it('opens sessions panel, focuses dialog, and restores focus on Escape', async () => {
+  it('exposes New Chat and New Agent actions', () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <DrawerLayout />
-          </div>
-        </RuntimeHarness>
+        <ShellModeProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <DrawerLayout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
       </SlotsProvider>,
     );
 
-    const sessionsBtn = screen.getByRole('button', { name: 'Sessions' });
-    expect(sessionsBtn).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(sessionsBtn);
-    expect(sessionsBtn).toHaveAttribute('aria-expanded', 'true');
-    const dialog = screen.getByRole('dialog', { name: 'Sessions' });
-    expect(dialog).toBeInTheDocument();
-    await waitFor(() => {
-      expect(dialog).toHaveFocus();
-    });
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Sessions' })).not.toBeInTheDocument();
-    expect(sessionsBtn).toHaveAttribute('aria-expanded', 'false');
-    await waitFor(() => {
-      expect(sessionsBtn).toHaveFocus();
-    });
-  });
-
-  it('closes sessions panel when backdrop is clicked', () => {
-    render(
-      <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <DrawerLayout />
-          </div>
-        </RuntimeHarness>
-      </SlotsProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sessions' }));
-    expect(screen.getByRole('dialog', { name: 'Sessions' })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close sessions' }));
-    expect(screen.queryByRole('dialog', { name: 'Sessions' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Agent' })).toBeInTheDocument();
   });
 });
 
 describe('layout slot overrides', () => {
   function CustomClearChat() {
     return <button type="button">custom clear</button>;
+  }
+
+  function CustomSaveAgent() {
+    return <button type="button">custom save</button>;
   }
 
   function CustomActionSlot() {
@@ -586,6 +746,24 @@ describe('layout slot overrides', () => {
 
     expect(screen.getByRole('button', { name: 'custom clear' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+  });
+
+  it.each(hosts)('%s places Clear Chat immediately before Save Agent', (_name, Layout) => {
+    render(
+      <SlotsProvider overrides={{ ClearChatButton: CustomClearChat, SaveAgentButton: CustomSaveAgent }}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <Layout />
+            </div>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </SlotsProvider>,
+    );
+
+    const clearChat = screen.getByRole('button', { name: 'custom clear' });
+    const saveAgent = screen.getByRole('button', { name: 'custom save' });
+    expect(clearChat.nextElementSibling).toBe(saveAgent);
   });
 
   it.each(hosts)('%s honors overrides.ShellActionsActionSlot to the right of shell actions', (_name, Layout) => {
@@ -644,7 +822,7 @@ describe('layout slot overrides', () => {
       expect(before.length).toBeGreaterThan(0);
       const beforeNode = before[0];
 
-      fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0]!);
       // SettingsBuilder is lazy-loaded behind Suspense in the layout.
       expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 
@@ -660,11 +838,13 @@ describe('WidgetLayout a11y', () => {
   it('opens chat dialog, focuses it, and restores FAB focus on Escape', async () => {
     render(
       <SlotsProvider>
-        <RuntimeHarness messages={[]}>
-          <div className="h-96">
-            <WidgetLayout />
-          </div>
-        </RuntimeHarness>
+        <WidgetVisibilityProvider>
+          <RuntimeHarness messages={[]}>
+            <div className="h-96">
+              <WidgetLayout />
+            </div>
+          </RuntimeHarness>
+        </WidgetVisibilityProvider>
       </SlotsProvider>,
     );
 

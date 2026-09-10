@@ -15,6 +15,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@truefoundry/trueforge-sdk$': '<rootDir>/../trueforge-sdk/src/index.ts',
     '^@truefoundry/trueforge-core/agent-session/(.*)$': '<rootDir>/../trueforge-core/src/agent-session/$1',
     '^@truefoundry/trueforge-core/core/(.*)$': '<rootDir>/../trueforge-core/src/core/$1',
   },

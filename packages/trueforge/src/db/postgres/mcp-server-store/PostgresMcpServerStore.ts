@@ -1,6 +1,6 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
-import { ulid } from 'ulid';
 import type { OAuthClientRecord } from '../../../mcp/auth/types';
+import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
   McpServerNameConflictError,
@@ -78,7 +78,7 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
       const row = await db
         .insertInto('mcp_server')
         .values({
-          id: ulid(),
+          id: newId(),
           tenant_id: input.tenant_id,
           name: input.name,
           manifest: json(input.manifest),
@@ -103,7 +103,7 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
     const row = await db
       .insertInto('mcp_server')
       .values({
-        id: ulid(),
+        id: newId(),
         tenant_id: input.tenant_id,
         name: input.name,
         manifest: json(input.manifest),

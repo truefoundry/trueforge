@@ -1,4 +1,10 @@
-import { getErrorMessage, ThemeProvider, TrueForgeUI, type SlotOverrides } from '@truefoundry/trueforge-ui';
+import {
+  getErrorMessage,
+  ThemeProvider,
+  TrueForgeUI,
+  type SlotOverrides,
+  type ThemeConfig,
+} from '@truefoundry/trueforge-ui';
 import {
   createTrueForgeClient,
   getCapabilities,
@@ -12,10 +18,23 @@ import { probeSession, type SessionState } from './authSession';
 import { parseAuthErrorReason, shouldShowAuthErrorScreen, stripAuthErrorSearch } from './authStatusSearch';
 import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
+import { NewAgentWelcomeScreen } from './NewAgentWelcomeScreen';
+import { API_BASE_URL, uiRouterBasename } from './publicPath';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
-const bootClient = createTrueForgeClient({ fetch: authAwareFetch });
+// UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
+const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
+const routerBasename = uiRouterBasename();
+
+/** Host brand: primary CTA fill is a gradient (see `index.css`); keep solid token for accents. */
+const appTheme: ThemeConfig = {
+  className: 'harness-primary-gradient',
+  tokens: {
+    primaryButtonBg: '#6366F1',
+    primaryButtonHover: '#3d2dd4',
+  },
+};
 
 type BootState =
   | { status: 'loading' }
@@ -77,7 +96,7 @@ export function App() {
         if (first === undefined) {
           setBoot({
             status: 'ready',
-            openSettings: true,
+            openSettings: capabilities.settings.enabled,
             defaultAgentSpec: {
               model: { name: '' },
               config: sandboxConfig,
@@ -113,12 +132,15 @@ export function App() {
     };
   }, [session]);
 
-  const overrides: SlotOverrides = useMemo(() => ({ ShellActionsActionSlot: LogoutButton }), []);
+  const overrides: SlotOverrides = useMemo(
+    () => ({ ShellActionsActionSlot: LogoutButton, WelcomeScreen: NewAgentWelcomeScreen }),
+    [],
+  );
 
   const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
   if (authErrorReason != null) {
     return (
-      <ThemeProvider>
+      <ThemeProvider theme={appTheme}>
         <AuthErrorScreen reason={authErrorReason} />
       </ThemeProvider>
     );
@@ -126,7 +148,7 @@ export function App() {
 
   if (session === 'checking') {
     return (
-      <ThemeProvider>
+      <ThemeProvider theme={appTheme}>
         <div className="boot-screen">Loading application…</div>
       </ThemeProvider>
     );
@@ -134,7 +156,7 @@ export function App() {
 
   if (session === 'unauthenticated') {
     return (
-      <ThemeProvider>
+      <ThemeProvider theme={appTheme}>
         <GetStartedScreen />
       </ThemeProvider>
     );
@@ -142,7 +164,7 @@ export function App() {
 
   if (boot.status === 'error') {
     return (
-      <ThemeProvider>
+      <ThemeProvider theme={appTheme}>
         <div className="boot-screen" data-error="true">
           Failed to load application configuration: {boot.message}
         </div>
@@ -152,7 +174,7 @@ export function App() {
 
   if (boot.status === 'loading') {
     return (
-      <ThemeProvider>
+      <ThemeProvider theme={appTheme}>
         <div className="boot-screen">Loading application…</div>
       </ThemeProvider>
     );
@@ -161,15 +183,17 @@ export function App() {
   return (
     <div className="app-root">
       <TrueForgeUI
-        server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }}
+        server={{ type: 'trueforge', baseUrl: API_BASE_URL, fetch: authAwareFetch }}
         layout="sidebar"
         withRouter
+        {...(routerBasename ? { routes: { basename: routerBasename } } : {})}
         agentConfig={{
           mode: 'AgentLibraryWithComposer',
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         initialSettingsOpen={boot.openSettings}
         overrides={overrides}
+        theme={appTheme}
         className="app-assistant"
       />
     </div>

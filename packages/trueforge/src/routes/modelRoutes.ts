@@ -19,7 +19,7 @@ export const listAvailableModelsRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'OIDC is configured and the request has no valid session cookie.',
+      description: 'Auth is configured and the request has no valid no Bearer token or session cookie.',
     },
   },
 });

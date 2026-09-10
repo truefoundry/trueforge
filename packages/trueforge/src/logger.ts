@@ -1,10 +1,12 @@
 /**
  * Process logger: human-readable lines in standalone mode, JSON otherwise.
- * Both formats include `version` (defaultMeta) so hosted aggregators can filter.
+ * JSON output carries `version` and `component` ('server' | 'controller') in defaultMeta
+ * so hosted aggregators can tell the two processes apart; both are omitted from the
+ * human-readable standalone format to keep local logs terse.
  */
 import winston, { type Logger } from 'winston';
 
-const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'version', 'stack', 'splat']);
+const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'version', 'component', 'stack', 'splat']);
 
 export function shouldColorize(): boolean {
   const noColor = process.env['NO_COLOR'];
@@ -69,11 +71,24 @@ function serverLogFormat(options: { standalone: boolean }): winston.Logform.Form
   return jsonFormat();
 }
 
-export function createServerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+function createLogger(options: {
+  level: string;
+  standalone: boolean;
+  version: string;
+  component: 'server' | 'controller';
+}): Logger {
   return winston.createLogger({
     level: options.level,
-    defaultMeta: { version: options.version },
+    defaultMeta: { version: options.version, component: options.component },
     format: serverLogFormat({ standalone: options.standalone }),
     transports: [new winston.transports.Console()],
   });
+}
+
+export function createServerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+  return createLogger({ ...options, component: 'server' });
+}
+
+export function createControllerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+  return createLogger({ ...options, component: 'controller' });
 }

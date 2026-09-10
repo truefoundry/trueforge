@@ -28,6 +28,7 @@ module.exports = {
   transformIgnorePatterns: [],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@truefoundry/trueforge-sdk$': '<rootDir>/../trueforge-sdk/src/index.ts',
     '^@truefoundry/trueforge-core/agent-session$': '<rootDir>/../trueforge-core/src/agent-session/index.ts',
     '^@truefoundry/trueforge-core/agent-session/(.*)$': '<rootDir>/../trueforge-core/src/agent-session/$1',
     '^@truefoundry/trueforge-core/request-reply$': '<rootDir>/../trueforge-core/src/request-reply/index.ts',

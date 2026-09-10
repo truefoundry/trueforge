@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
+import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSpec, CatalogServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
@@ -40,12 +41,23 @@ vi.mock('@/server/ShellModeContext.js', () => ({
   useOptionalShellMode: () => ({ setSettingsOpen }),
 }));
 
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
+
 function renderSelector({
   onAttach,
   getCapabilities,
   getSkills,
   getMcp,
   catalog = settingsCatalog,
+  compact = false,
 }: {
   onAttach?: () => void;
   getCapabilities?: () => Promise<{
@@ -58,6 +70,7 @@ function renderSelector({
   getSkills?: () => Promise<{ id: string; name: string }[]>;
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
+  compact?: boolean;
 } = {}) {
   const server = createMockAgentUIServer({
     ...(catalog === null ? {} : { catalog }),
@@ -78,13 +91,14 @@ function renderSelector({
         { id: 'slack', name: 'Slack', authenticated: true },
       ]),
   });
-  return render(
+  const selector = (
     <ServerProvider server={server}>
       <DraftCatalogProvider>
         <DraftCompositeSelector onAttach={onAttach} />
       </DraftCatalogProvider>
-    </ServerProvider>,
+    </ServerProvider>
   );
+  return render(compact ? <CompactLayoutProvider>{selector}</CompactLayoutProvider> : selector);
 }
 
 describe('DraftCompositeSelector', () => {
@@ -105,9 +119,14 @@ describe('DraftCompositeSelector', () => {
 
   it('shows one combined Tools count only for a valid model', () => {
     const view = renderSelector();
-    expect(screen.getByRole('button', { name: 'Tools (2)' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    const toolsTrigger = screen.getByRole('button', { name: 'Tools (2)' });
+    expect(toolsTrigger).toHaveTextContent('Tools');
+    expect(toolsTrigger).toHaveTextContent('2');
+    fireEvent.click(toolsTrigger);
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Capabilities/ })).not.toBeInTheDocument();
 
     agentSpec = { ...agentSpec, model: { name: '  ' } };
     view.rerender(
@@ -131,6 +150,20 @@ describe('DraftCompositeSelector', () => {
       'dark:bg-primary-bg',
     );
   });
+
+  it('filters the complete connector catalog client-side', async () => {
+    renderSelector();
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: /Slack/ })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search connectors...'), { target: { value: 'git' } });
+
+    expect(screen.getByRole('menuitemcheckbox', { name: /GitHub/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: /Slack/ })).not.toBeInTheDocument();
+  });
+
   it('shows selected connectors and skills in the Tools tooltip', () => {
     renderSelector();
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tools (2)' }));
@@ -168,6 +201,24 @@ describe('DraftCompositeSelector', () => {
     expect(screen.queryByRole('dialog', { name: 'Add to composer' })).not.toBeInTheDocument();
   });
 
+  it('groups compact tools and attachment actions under a plus menu', () => {
+    const onAttach = vi.fn();
+    renderSelector({ onAttach, compact: true });
+
+    expect(screen.queryByRole('button', { name: 'Tools (2)' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach a file' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('menuitem', { name: 'Tools (2)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Attach a file' }));
+
+    expect(onAttach).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Tools (2)' }));
+    expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
+  });
+
   it('debounces connector changes into one draft update', async () => {
     renderSelector();
     fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
@@ -183,47 +234,6 @@ describe('DraftCompositeSelector', () => {
         { id: 'github', name: 'GitHub' },
       ],
       skills: [{ id: 'research', name: 'Research' }],
-    });
-  });
-
-  it('treats omitted capabilities as enabled and patches only capability branches', async () => {
-    agentSpec = { ...agentSpec, config: {} };
-    renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(screen.getByRole('button', { name: /Capabilities/ }));
-
-    const generativeUi = screen.getByRole('switch', { name: 'Generative UI' });
-    expect(generativeUi).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(generativeUi);
-
-    expect(updateAgentSpec).toHaveBeenCalledWith({
-      config: {
-        generativeUi: { enabled: false },
-        dynamicSubAgents: { enabled: true },
-        askUserQuestions: { enabled: true },
-      },
-    });
-  });
-
-  it('folds dirty connector toggles into a capability update', async () => {
-    renderSelector();
-    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /GitHub/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Capabilities/ }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Generative UI' }));
-
-    expect(updateAgentSpec).toHaveBeenCalledTimes(1);
-    expect(updateAgentSpec).toHaveBeenCalledWith({
-      mcpServers: [
-        { id: 'slack', name: 'Slack' },
-        { id: 'github', name: 'GitHub' },
-      ],
-      skills: [{ id: 'research', name: 'Research' }],
-      config: {
-        generativeUi: { enabled: false },
-        dynamicSubAgents: { enabled: true },
-        askUserQuestions: { enabled: true },
-      },
     });
   });
 

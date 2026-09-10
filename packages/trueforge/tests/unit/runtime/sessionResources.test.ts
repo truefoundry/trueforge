@@ -1,6 +1,5 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
-import { TENANT_ID } from '../../../src/apis/sessions';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -32,7 +31,7 @@ describe('validateAgentSpec', () => {
     await migrateSqliteToLatest(db);
     const modelProviderStore = new SqliteModelProviderStore(db);
     await modelProviderStore.upsertProvider({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'test-provider',
       manifest: {
         // Caller-named, so `custom` is the only type it can be.
@@ -66,7 +65,7 @@ describe('validateAgentSpec', () => {
 
     await expect(
       getModelDetails({
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         name: 'test-provider/test-model',
         store: stores.modelProviderStore,
       }),
@@ -89,7 +88,7 @@ describe('validateAgentSpec', () => {
           model: { name: 'not-a-fqn' },
           instructions: 'test',
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -106,7 +105,7 @@ describe('validateAgentSpec', () => {
           model: { name: 'missing-provider/test-model' },
           instructions: 'test',
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -123,7 +122,7 @@ describe('validateAgentSpec', () => {
           model: { name: 'test-provider/missing-model' },
           instructions: 'test',
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -140,7 +139,7 @@ describe('validateAgentSpec', () => {
           model: { name: 'test-provider/test-model', params: { reasoning_effort: 'medium' } },
           instructions: 'test',
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -158,7 +157,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
           mcp_servers: [{ name: 'missing-mcp' }],
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -176,7 +175,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
           skills: [{ name: 'missing-skill' }],
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -194,7 +193,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
           config: { sandbox: { enabled: true } },
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -206,7 +205,7 @@ describe('validateAgentSpec', () => {
   it('rejects skills when no sandbox provider is configured', async () => {
     const stores = await setup();
     await stores.skillStore.upsertSkill({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       name: 'demo',
       manifest: {
         type: 'git',
@@ -224,7 +223,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
           skills: [{ name: 'demo' }],
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -236,7 +235,7 @@ describe('validateAgentSpec', () => {
   it('admits sandbox.enabled when a sandbox provider row exists', async () => {
     const stores = await setup();
     await stores.sandboxProviderStore.upsertSandboxProvider({
-      tenant_id: TENANT_ID,
+      tenant_id: 'default',
       manifest: {
         type: 'daytona',
         auth: { api_key: 'dtn-test' },
@@ -257,7 +256,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
           config: { sandbox: { enabled: true } },
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -278,10 +277,10 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
           config: { sandbox: { enabled: true } },
         }),
-        tenant_id: TENANT_ID,
+        tenant_id: 'default',
         ...stores,
       }),
     ).resolves.toBeUndefined();
-    expect(await stores.sandboxProviderStore.getSandboxProvider(TENANT_ID)).toBeUndefined();
+    expect(await stores.sandboxProviderStore.getSandboxProvider('default')).toBeUndefined();
   });
 });
