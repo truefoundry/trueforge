@@ -7,6 +7,10 @@ import {
   toModelSelection,
 } from '@/plugins/trueforge-agent-server-adapter/builderServer.js';
 
+function isAgentsCollectionUrl(url: string): boolean {
+  return new URL(url).pathname.endsWith('/api/v1/agents');
+}
+
 describe('harnessBuilderServer', () => {
   it('modelProviderLogosByName maps well-known catalog logos by type', () => {
     const logos = modelProviderLogosByName([
@@ -294,7 +298,7 @@ describe('harnessBuilderServer', () => {
   it('searchAgents maps registry rows to library entries with agentId + agentSpec', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
-      if (url.endsWith('/api/v1/agents')) {
+      if (isAgentsCollectionUrl(url)) {
         return Response.json({
           data: [
             {
@@ -378,7 +382,7 @@ describe('harnessBuilderServer', () => {
     const fetchMock: typeof fetch = async (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
       const method = init?.method ?? 'GET';
-      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+      if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({
           data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
         });
@@ -425,7 +429,7 @@ describe('harnessBuilderServer', () => {
       const url = input instanceof Request ? input.url : String(input);
       const method = init?.method ?? 'GET';
       requests.push({ method, url });
-      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+      if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({
           data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
         });
@@ -451,7 +455,7 @@ describe('harnessBuilderServer', () => {
       const url = input instanceof Request ? input.url : String(input);
       const method = init?.method ?? 'GET';
       requests.push({ method, url });
-      if (url.endsWith('/api/v1/agents') && method === 'GET') {
+      if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({ data: [] });
       }
       return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
