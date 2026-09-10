@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from '@testing-library/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -76,6 +76,7 @@ function SettingsCatalogProvider({
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     }),
+    searchAgents: async req => (req?.query === 'helper' ? [{ name: 'helper', agentId: 'helper-id' }] : []),
   });
   return <ServerProvider server={server}>{children}</ServerProvider>;
 }
@@ -127,8 +128,9 @@ function renderSync(opts: {
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  strict?: boolean;
 }) {
-  return render(
+  const tree = (
     <MemoryRouter initialEntries={opts.initialEntries ?? ['/']}>
       <Harness
         agentConfig={opts.agentConfig}
@@ -139,8 +141,9 @@ function renderSync(opts: {
         includeSessions={opts.includeSessions}
         includeSchedules={opts.includeSchedules}
       />
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+  return render(opts.strict ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 describe('ShellRouteSync', () => {
@@ -150,16 +153,76 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/sessions/abc');
   });
 
-  it('applies an agent deep link on boot', () => {
-    renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibrary' } });
+  it('applies an agent deep link on boot and resolves its history filter id', async () => {
+    renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibrary' }, strict: true });
     expect(shell.mode).toMatchObject({ status: 'active', isMutable: false, agentName: 'helper' });
+    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+    expect(pathname).toBe('/agents/helper');
+    expect(search).toBe('?try_agent_name=helper');
+    expect(shell.historyAgentFilter?.intent).toBe('try-agent');
+  });
+
+  it('restores a filtered history session from its agent-name query', async () => {
+    renderSync({
+      initialEntries: ['/sessions/abc?history_agent_name=helper'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    await waitFor(() => expect(shell.pendingSessionId).toBe('abc'));
+    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+    expect(shell.historyAgentFilter).toEqual({
+      agentId: 'helper-id',
+      agentName: 'helper',
+      intent: 'history',
+    });
+    expect(search).toBe('?history_agent_name=helper');
   });
 
   it('pushes the URL when the shell selects an immutable agent', () => {
     renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibrary' } });
     expect(pathname).toBe('/');
-    act(() => shell.selectLibraryAgent({ isMutable: false, agentName: 'foo' }));
+    act(() => shell.selectLibraryAgent({ isMutable: false, agentId: 'foo-id', agentName: 'foo' }));
     expect(pathname).toBe('/agents/foo');
+    expect(search).toBe('?try_agent_name=foo');
+  });
+
+  it('preserves Try Agent intent when its new chat acquires a session id', async () => {
+    renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+
+    act(() => setRemoteId('session-from-try'));
+
+    expect(pathname).toBe('/sessions/session-from-try');
+    expect(search).toBe('?try_agent_name=helper');
+  });
+
+  it('writes and clears a manual history filter without changing the chat place', () => {
+    renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+
+    act(() =>
+      shell.setHistoryAgentFilter({
+        agentId: 'helper-id',
+        agentName: 'helper',
+        intent: 'history',
+      }),
+    );
+    expect(pathname).toBe('/');
+    expect(search).toBe('?history_agent_name=helper');
+
+    act(() => shell.setHistoryAgentFilter(null));
+    expect(pathname).toBe('/');
+    expect(search).toBe('');
+  });
+
+  it('applies and mirrors the build-agent route', () => {
+    renderSync({ initialEntries: ['/build-agent'] });
+    expect(shell.mode).toMatchObject({ status: 'active', isMutable: true, isCreateAgent: true });
+    expect(pathname).toBe('/build-agent');
+
+    act(() => shell.openDraft());
+    expect(pathname).toBe('/');
+    act(() => shell.openAgentBuilder());
+    expect(pathname).toBe('/build-agent');
   });
 
   it('mirrors settings open/close through history', async () => {

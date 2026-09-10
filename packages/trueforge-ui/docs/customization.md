@@ -96,6 +96,7 @@ router should leave it off (the default).
 Places mirrored to the URL:
 
 - `/` — new chat / library landing (mode-dependent)
+- `/build-agent` — new agent builder
 - `/agents/:agentName` — immutable "Try" of a library agent
 - `/sessions` — all-user Sessions browser (named agents and drafts)
 - `/sessions/:sessionId` — a specific chat session
@@ -113,7 +114,12 @@ to keep that place overlay-only with no URL:
   withRouter
   routes={{
     basename: '/app',
-    paths: { session: '/chats/:sessionId', libraryAgent: '/library/:agentId', settings: false },
+    paths: {
+      buildAgent: '/new-agent',
+      session: '/chats/:sessionId',
+      libraryAgent: '/library/:agentId',
+      settings: false,
+    },
   }}
 />
 ```
@@ -142,6 +148,12 @@ Notes on behaviour:
   so a refresh still finds that row on page 1 without scrolling the list.
 - A `/sessions/:sessionId` link is resolved through `getSession` so the chat
   opens with its own agent binding and mutability rather than as a new draft.
+- `/build-agent` is used for a fresh builder; after its draft session persists,
+  the URL transitions to `/sessions/:sessionId`.
+- Agent-filtered chat history keeps one intent key in the query string:
+  `try_agent_name` hides the filter for a Try Agent flow, while
+  `history_agent_name` shows an explicitly selected filter. Both values are
+  display names; the shell resolves the backend agent id before listing sessions.
 - Unrecognized paths (and malformed escapes) normalize to the root place.
 - `/settings` is registered only while Settings chrome is available (catalog
   present and `capabilities.settings.enabled !== false`). When that gate is

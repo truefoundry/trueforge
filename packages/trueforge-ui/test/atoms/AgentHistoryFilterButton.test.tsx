@@ -41,7 +41,8 @@ function mockServer(partial: Partial<AgentUIServer> = {}): AgentUIServer {
 
 function FilterProbe() {
   const shell = useShellMode();
-  return <span data-testid="filter-value">{shell.historyAgentFilter ?? 'all'}</span>;
+  const filter = shell.historyAgentFilter;
+  return <span data-testid="filter-value">{filter == null ? 'all' : `${filter.agentName}:${filter.intent}`}</span>;
 }
 
 function wrap({
@@ -111,7 +112,7 @@ describe('AgentHistoryFilterButton', () => {
       fireEvent.click(screen.getByRole('menuitem', { name: /From SDK/i }));
     });
 
-    expect(screen.getByTestId('filter-value')).toHaveTextContent('from-sdk');
+    expect(screen.getByTestId('filter-value')).toHaveTextContent('From SDK:history');
     expect(screen.getByTestId('history-filter-active-dot')).toBeInTheDocument();
     expect(searchAgents).toHaveBeenCalled();
   });

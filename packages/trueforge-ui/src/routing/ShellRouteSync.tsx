@@ -12,8 +12,13 @@ import {
   useServerCapabilities,
   useServerCapabilitiesSettled,
 } from '../server/ServerContext.js';
-import { useShellMode } from '../server/ShellModeContext.js';
+import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import { toEffectiveRoutes } from '../server/serverChrome.js';
+import {
+  readHistoryAgentSearch,
+  updateHistoryAgentSearch,
+  type HistoryAgentSearch,
+} from '../utils/historyAgentSearch.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
@@ -74,9 +79,13 @@ export function ShellRouteSync({
   // URL->shell effect does not re-apply it. `prevPlaceRef` powers push/replace.
   const selfNavPathRef = useRef<string | null>(null);
   const prevPlaceRef = useRef<RoutePlace | null>(null);
+  const appliedUrlPlaceRef = useRef<RoutePlace | null>(null);
   const bootedRef = useRef(false);
+  const bootPlaceRef = useRef<RoutePlace | null>(null);
+  const bootHistoryAgentRef = useRef<HistoryAgentSearch | null>(null);
   // Latest session id the URL asked for, so slower lookups cannot bind over it.
   const requestedSessionRef = useRef<string | null>(null);
+  const requestedHistoryAgentRef = useRef<string | null>(null);
   // Boot owns the first URL; the ongoing effects skip their initial commit so
   // they do not fight boot with the stale first-render place.
   const shellSyncStartedRef = useRef(false);
@@ -114,6 +123,51 @@ export function ShellRouteSync({
     [server, shell],
   );
 
+  const applyHistoryAgentSearch = useCallback(
+    (next: HistoryAgentSearch | null) => {
+      if (next == null) {
+        requestedHistoryAgentRef.current = null;
+        shell.setHistoryAgentFilter(null);
+        return;
+      }
+
+      const requestKey = `${next.intent}\0${next.agentName}`;
+      const current = shell.historyAgentFilter;
+      if (current?.intent === next.intent && current.agentName === next.agentName && current.agentId != null) {
+        requestedHistoryAgentRef.current = null;
+        return;
+      }
+
+      requestedHistoryAgentRef.current = requestKey;
+      shell.setHistoryAgentFilter(next);
+      if (server == null) return;
+
+      void server
+        .searchAgents({ query: next.agentName })
+        .then(agents => {
+          if (requestedHistoryAgentRef.current !== requestKey) return;
+          const agent = agents.find(candidate => candidate.name === next.agentName);
+          if (agent == null) return;
+          requestedHistoryAgentRef.current = null;
+          shell.setHistoryAgentFilter({
+            agentId: libraryAgentId(agent),
+            agentName: agent.name,
+            intent: next.intent,
+          });
+        })
+        .catch(() => undefined);
+    },
+    [server, shell],
+  );
+
+  const openAgent = useCallback(
+    (agentName: string) => {
+      shell.selectLibraryAgent({ isMutable: false, agentName });
+      applyHistoryAgentSearch({ intent: 'try-agent', agentName });
+    },
+    [applyHistoryAgentSearch, shell],
+  );
+
   const applyPlace = useCallback(
     (target: RoutePlace) => {
       switch (target.type) {
@@ -132,6 +186,9 @@ export function ShellRouteSync({
         case 'schedules':
           shell.setSchedulesOpen(true);
           return;
+        case 'buildAgent':
+          shell.openAgentBuilder();
+          return;
         case 'session':
           shell.setLibraryOpen(false);
           if (shell.pendingSessionId === target.sessionId || activeRemoteId === target.sessionId) return;
@@ -139,7 +196,7 @@ export function ShellRouteSync({
           return;
         case 'agent':
           shell.setLibraryOpen(false);
-          shell.selectLibraryAgent({ isMutable: false, agentName: target.agentName });
+          openAgent(target.agentName);
           return;
         case 'root':
           shell.setSettingsOpen(false);
@@ -159,7 +216,7 @@ export function ShellRouteSync({
           }
       }
     },
-    [shell, activeRemoteId, openSession],
+    [shell, activeRemoteId, openAgent, openSession],
   );
 
   // Boot: URL wins, except an explicit `initialSettingsOpen` overlay. Boot is the
@@ -179,6 +236,12 @@ export function ShellRouteSync({
       search: location.search,
       routes: effectiveRoutes,
     }) ?? { type: 'root' };
+    const historyAgentSearch: HistoryAgentSearch | null =
+      urlPlace.type === 'agent'
+        ? { intent: 'try-agent', agentName: urlPlace.agentName }
+        : readHistoryAgentSearch(location.search);
+    bootHistoryAgentRef.current = historyAgentSearch;
+    appliedUrlPlaceRef.current = urlPlace;
     const settingsOnBoot = settingsChromeEnabled && (initialSettingsOpen || urlPlace.type === 'settings');
 
     if (urlPlace.type === 'settings') {
@@ -196,10 +259,17 @@ export function ShellRouteSync({
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
       if (settingsOnBoot) shell.setSettingsOpen(true);
     }
+    if (urlPlace.type !== 'agent' && historyAgentSearch != null) {
+      applyHistoryAgentSearch(historyAgentSearch);
+    }
 
     const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
+    bootPlaceRef.current = placesEqual(place, desiredPlace) ? null : desiredPlace;
     const desiredPath = buildPath(desiredPlace, effectiveRoutes);
-    const desiredSearch = sanitizeSearchForPlace(desiredPlace, location.search);
+    const desiredSearch = updateHistoryAgentSearch(
+      sanitizeSearchForPlace(desiredPlace, location.search),
+      historyAgentSearch,
+    );
     prevPlaceRef.current = desiredPlace;
     if (desiredPath != null && (desiredPath !== location.pathname || desiredSearch !== location.search)) {
       selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
@@ -216,6 +286,11 @@ export function ShellRouteSync({
       shellSyncStartedRef.current = true;
       return;
     }
+    const bootPlace = bootPlaceRef.current;
+    if (bootPlace != null) {
+      if (!placesEqual(place, bootPlace)) return;
+      bootPlaceRef.current = null;
+    }
     const target = buildPath(place, effectiveRoutes);
     if (target == null) return; // place has no configured URL (e.g. settings disabled)
     const basename = effectiveRoutes.basename.endsWith('/')
@@ -223,7 +298,15 @@ export function ShellRouteSync({
       : effectiveRoutes.basename;
     const browserPathname = `${basename}${location.pathname}` || '/';
     const latestSearch = window.location.pathname === browserPathname ? window.location.search : location.search;
-    const targetSearch = sanitizeSearchForPlace(place, latestSearch);
+    const historyAgentSearch =
+      shell.historyAgentFilter == null
+        ? bootHistoryAgentRef.current
+        : {
+            intent: shell.historyAgentFilter.intent,
+            agentName: shell.historyAgentFilter.agentName,
+          };
+    if (shell.historyAgentFilter != null) bootHistoryAgentRef.current = null;
+    const targetSearch = updateHistoryAgentSearch(sanitizeSearchForPlace(place, latestSearch), historyAgentSearch);
 
     const prev = prevPlaceRef.current;
     prevPlaceRef.current = place;
@@ -239,7 +322,7 @@ export function ShellRouteSync({
     navigate({ pathname: target, search: targetSearch, hash: location.hash }, { replace });
     // location.pathname intentionally excluded: only react to shell-derived place changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeKey, routeGatesKey]);
+  }, [placeKey, routeGatesKey, shell.historyAgentFilter?.agentName, shell.historyAgentFilter?.intent]);
 
   // URL -> shell: apply on genuine location changes (Back/Forward, manual edits).
   useEffect(() => {
@@ -250,6 +333,7 @@ export function ShellRouteSync({
     }
     if (selfNavPathRef.current === location.pathname) {
       selfNavPathRef.current = null;
+      appliedUrlPlaceRef.current = place;
       return;
     }
     const urlPlace = matchLocation({
@@ -264,25 +348,33 @@ export function ShellRouteSync({
       selfNavPathRef.current = rootPath;
       navigate({ pathname: rootPath, search: rootSearch, hash: location.hash }, { replace: true });
       applyPlace({ type: 'root' });
+      applyHistoryAgentSearch(readHistoryAgentSearch(rootSearch));
       return;
     }
-    if (urlPlace.type !== 'settings' && shell.settingsOpen) {
-      // Leaving settings via Back to a chat place.
-      shell.setSettingsOpen(false);
+    const previousUrlPlace = appliedUrlPlaceRef.current;
+    appliedUrlPlaceRef.current = urlPlace;
+    if (previousUrlPlace == null || !placesEqual(previousUrlPlace, urlPlace)) {
+      if (urlPlace.type !== 'settings' && shell.settingsOpen) {
+        // Leaving settings via Back to a chat place.
+        shell.setSettingsOpen(false);
+      }
+      if (urlPlace.type !== 'library' && urlPlace.type !== 'libraryAgent' && shell.libraryOpen) {
+        shell.setLibraryOpen(false);
+      }
+      if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
+        shell.setSessionsOpen(false);
+      }
+      if (urlPlace.type !== 'schedules' && shell.schedulesOpen) {
+        // Leaving schedules via Back to a chat place.
+        shell.setSchedulesOpen(false);
+      }
+      applyPlace(urlPlace);
     }
-    if (urlPlace.type !== 'library' && urlPlace.type !== 'libraryAgent' && shell.libraryOpen) {
-      shell.setLibraryOpen(false);
+    if (urlPlace.type !== 'agent') {
+      applyHistoryAgentSearch(readHistoryAgentSearch(location.search));
     }
-    if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
-      shell.setSessionsOpen(false);
-    }
-    if (urlPlace.type !== 'schedules' && shell.schedulesOpen) {
-      // Leaving schedules via Back to a chat place.
-      shell.setSchedulesOpen(false);
-    }
-    applyPlace(urlPlace);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   return null;
 }
