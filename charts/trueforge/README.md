@@ -64,6 +64,102 @@ helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --set server.publicBaseUrl=https://trueforge.example.com
 ```
 
+## API keys
+
+`apiKey` (`TRUEFORGE_API_KEY`) authenticates the controller to the server. The
+server always runs peered (`STANDALONE=false`) and the app rejects an empty
+value, so this is **required**: the render fails rather than leaving you with a
+crash-looping pod. Supply it as a string or, preferably, a `valueFrom`:
+
+```yaml
+apiKey:
+  valueFrom:
+    secretKeyRef:
+      name: trueforge-api-key
+      key: TRUEFORGE_API_KEY
+```
+
+This is a different key from `truefoundry.apiKey`, which is the control-plane
+`TFY_API_KEY` used when calling ServiceFoundry.
+
+## Extra environment
+
+`env` is a map of variable name to value, applied to both the server and the
+controller. Values are scalars or `valueFrom` references. A key that matches
+something the chart already sets **replaces** it rather than adding a second
+entry, so it doubles as the override for computed values like `POSTGRES_HOST`
+or `PUBLIC_BASE_URL`.
+
+This is the extension point for running against a hosting platform. The chart
+does not model any particular platform; those settings live in the caller's
+values.
+
+```yaml
+env:
+  SOME_PLATFORM_API_URL:
+    valueFrom:
+      configMapKeyRef: { name: platform-config, key: api-url }
+  SOME_PLATFORM_API_KEY:
+    valueFrom:
+      secretKeyRef: { name: platform-creds, key: api-key }
+```
+
+When the platform also needs files (an outbound mTLS client certificate, say),
+mount them with `extraVolumes` / `extraVolumeMounts`, which apply to both
+deployments. `server.extraEnv` and `controller.extraEnv` remain available for
+per-deployment entries.
+
+## Custom CA
+
+Honoured from `global.customCA`, whether set on this chart or inherited from a
+`truefoundry` parent. Give it a PEM `certificate` and the chart renders its own
+ConfigMap; give it `existingConfigMap.name` (key `ca-certificates.crt`) to reuse
+one. With `overrideCAList: true` the ConfigMap is mounted straight over
+`/etc/ssl/certs`; otherwise an initContainer merges it into the system bundle.
+Either way `NODE_EXTRA_CA_CERTS` is set, since Node ignores the system store.
+
+```yaml
+global:
+  customCA:
+    enabled: true
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+```
+
+## Values inherited from a TrueFoundry parent
+
+`global.labels`, `global.annotations`, `global.podLabels`,
+`global.podAnnotations`, `global.imagePullSecrets`, `global.nodeSelector`,
+`global.affinity`, `global.customCA` and `global.resourceTier` are all applied.
+The chart's own value wins on conflict; `tolerations` append to
+`global.tolerations` rather than replacing them.
+
+## Resource tiers (TrueFoundry parent)
+
+Sizing in this chart is Kubernetes `resources` / `controller.resources` and
+`server.replicaCount`. `resourceTier` is a TrueFoundry control-plane preset, not
+a Kubernetes field, so it is **unset** by default.
+
+When this chart is nested under `truefoundry`, the parent may set
+`global.resourceTier` (`small` / `medium` / `large`). That **replaces** the
+`resources` tables (replica counts stay as set: server `replicaCount`, controller
+always 1). `resourceTierOverride` pins a preset without changing the parent
+global. An unknown tier fails the render.
+
+| Preset | Server requests | Controller requests |
+| --- | --- | --- |
+| `small` | 50m / 128Mi | 50m / 128Mi |
+| `medium` | 100m / 256Mi | 100m / 256Mi |
+| `large` | 500m / 512Mi | 500m / 512Mi |
+
+```yaml
+# Parent truefoundry values (example)
+global:
+  resourceTier: large
+```
+
 ## Postgres
 
 Bundled by default (`postgresql.enabled=true`). The chart ships a **dev**
@@ -110,6 +206,14 @@ externalRedis:
 
 For passworded Redis, prefer an external instance and load `REDIS_URL` via
 `valueFrom`.
+
+### Sentinel
+
+`externalRedis.sentinel` injects `REDIS_SENTINEL_HOSTS`,
+`REDIS_SENTINEL_MASTER_NAME` and `REDIS_SENTINEL_PASSWORD`. The app does not
+read them yet (it only understands `REDIS_URL`), so this exists so a
+Sentinel-backed install can be configured the day support lands, without
+needing a chart change.
 
 ## OIDC
 
@@ -198,7 +302,10 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
+| `resourceTierOverride`| `""`                                | Optional TrueFoundry `small` / `medium` / `large` preset; empty uses `resources`. |
 | `server.replicaCount` | `1`                                 | Number of server replicas.            |
+| `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
+| `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public application URL for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). A pathname is the UI/API public prefix. |
@@ -212,7 +319,7 @@ extraObjects:
 | `podDisruptionBudget.enabled` | `false`                       | Enable a PodDisruptionBudget (`minAvailable` defaults to `1`). |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
-| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Container CPU, memory, and ephemeral-storage requests/limits. |
+| `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
 | `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`TRUEFORGE_MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
 | `mtls.certsDir`       | `/etc/tls`                          | Mount path / `TRUEFORGE_MTLS_CERTS_DIR`. |
