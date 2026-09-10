@@ -18,6 +18,12 @@ export type ChatFileDownloadProps = {
   readOnly?: boolean;
 };
 
+// Artifact paths are model-authored, so a name may carry characters that change what the
+// URL means. Encode per segment so `/` keeps its structural role and the rest stays literal.
+function encodeArtifactPath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
 export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifact, readOnly }: ChatFileDownloadProps) {
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
 
@@ -49,7 +55,7 @@ export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifac
             );
           }
 
-          const href = fileDownloadBaseUrl ? `${fileDownloadBaseUrl}${path}` : undefined;
+          const href = fileDownloadBaseUrl ? `${fileDownloadBaseUrl}${encodeArtifactPath(path)}` : undefined;
           const canDownload = Boolean(onDownloadArtifact || href);
           const isDownloading = downloadingPath === path;
 
