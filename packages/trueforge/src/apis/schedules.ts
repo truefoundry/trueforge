@@ -17,11 +17,12 @@ import {
   type ResolveRequestContext,
 } from '../auth/identity';
 import {
-  executeScheduleRun,
+  loadScheduleDispatchItem,
   ScheduleAgentNotFoundError,
   ScheduleNotFoundError,
   scheduleRunFailureReason,
   ScheduleRunNotFoundError,
+  startScheduleRun,
 } from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
@@ -32,6 +33,7 @@ import {
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   type IScheduleStore,
+  type ScheduleDispatchItem,
   type ScheduleRecord,
   type ScheduleRunRecord,
 } from '../db/scheduleStore';
@@ -83,51 +85,38 @@ export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecution
 }
 
 /**
- * Start a schedule run using Context-based store resolvers. Caller must set
+ * Prepare and start a schedule run using Context-based store resolvers. Caller must set
  * `request_context` (typically via {@link requestContextFromCreatedBySubject})
  * before calling.
  */
 export async function startScheduleRunOnRequest<TTransaction>(params: {
   c: Context;
-  scheduleRunId: string;
+  item: ScheduleDispatchItem;
   deps: ScheduleTurnExecutionDeps<TTransaction>;
 }): Promise<void> {
-  const { c, scheduleRunId, deps } = params;
-  const {
-    scheduleStore,
-    sessions,
-    agentStore,
-    activeTurns,
-    eventSubscriptions,
-    logger,
-    resolveModelProviderStore,
-    resolveMcpServerStore,
-    resolveSkillStore,
-    resolveSandboxProviderStore,
-  } = deps;
-
-  await executeScheduleRun({
-    scheduleRunId,
-    scheduleStore,
-    sessions,
-    agentStore,
-    startTurn: async turn => {
-      await startTurnInProcess({
-        session: turn.session,
-        input: turn.input,
-        previous_turn_id: turn.previous_turn_id,
-        userRef: turn.userRef,
-        deps: {
-          activeTurns,
-          eventSubscriptions,
-          modelProviderStore: resolveModelProviderStore(c, turn.agent),
-          mcpServerStore: resolveMcpServerStore(c, turn.agent),
-          skillStore: resolveSkillStore(c, turn.agent),
-          agentStore,
-          sandboxProviderStore: resolveSandboxProviderStore(c),
-          logger,
-        },
-      });
+  const { c, item, deps } = params;
+  const prepared = await startScheduleRun({
+    item,
+    sessions: deps.sessions,
+    agentStore: deps.agentStore,
+  });
+  if (prepared === undefined) {
+    return;
+  }
+  await startTurnInProcess({
+    session: prepared.session,
+    input: prepared.input,
+    previous_turn_id: prepared.previous_turn_id,
+    userRef: prepared.userRef,
+    deps: {
+      activeTurns: deps.activeTurns,
+      eventSubscriptions: deps.eventSubscriptions,
+      modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
+      mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
+      skillStore: deps.resolveSkillStore(c, prepared.agent),
+      agentStore: deps.agentStore,
+      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      logger: deps.logger,
     },
   });
 }
@@ -200,25 +189,18 @@ export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnEx
   const handler: RouteHandler<typeof executeScheduleRunRoute> = async c => {
     const { schedule_run_id: scheduleRunId } = c.req.valid('json');
     try {
-      const run = await deps.scheduleStore.getRunById({ id: scheduleRunId });
-      if (run === undefined) {
-        throw new ScheduleRunNotFoundError(scheduleRunId);
-      }
-      const schedule = await deps.scheduleStore.getSchedule({
-        tenant_id: run.tenant_id,
-        id: run.schedule_id,
+      const item = await loadScheduleDispatchItem({
+        scheduleRunId,
+        scheduleStore: deps.scheduleStore,
       });
-      if (schedule === undefined) {
-        throw new ScheduleNotFoundError(run.schedule_id);
-      }
       c.set(
         'request_context',
         requestContextFromCreatedBySubject({
-          tenant_id: schedule.tenant_id,
-          created_by_subject: schedule.created_by_subject,
+          tenant_id: item.schedule.tenant_id,
+          created_by_subject: item.schedule.created_by_subject,
         }),
       );
-      await startScheduleRunOnRequest({ c, scheduleRunId, deps });
+      await startScheduleRunOnRequest({ c, item, deps });
     } catch (error) {
       if (
         error instanceof ScheduleRunNotFoundError ||
@@ -362,7 +344,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
           created_by_subject: schedule.created_by_subject,
         }),
       );
-      await startScheduleRunOnRequest({ c, scheduleRunId: run.id, deps });
+      await startScheduleRunOnRequest({ c, item: { run, schedule }, deps });
     } catch (error) {
       await deps.scheduleStore.updateRunStatus({
         tenant_id: requestContext.tenant_id,

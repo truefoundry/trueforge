@@ -443,17 +443,12 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     agentStore,
     mcpOAuthStore,
-    resolveModelProviderStore: resolveModelProviderStoreByRequestContext,
-    resolveMcpServerStore: resolveMcpServerStoreByRequestContext,
-    resolveAgentStore: resolveAgentStoreByRequestContext,
-    resolveSandboxProviderStore: resolveSandboxProviderStoreByRequestContext,
     withTransaction,
     tokenStore,
     scheduleStore,
     destroyDb,
     redis,
     serviceFoundryClient,
-    resolveSkillStore: resolveSkillStoreByRequestContext,
   } = persistence;
 
   const activeTurns = new ActiveTurnRegistry();
@@ -499,36 +494,24 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       })
     : undefined;
 
-  // wrappers that resolve the request context from the Hono context
-  // because handlers receive the Hono context
-  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord) => {
-    const requestContext = resolveRequestContext(c);
-    return resolveModelProviderStoreByRequestContext(requestContext, runAsAgent);
-  };
+  // Hono handlers get Context; persistence resolvers take RequestContext.
+  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord) =>
+    persistence.resolveModelProviderStore(resolveRequestContext(c), runAsAgent);
   const resolveMcpServerStore = (c?: Context, runAsAgent?: AgentRecord) => {
     if (c === undefined) {
       return mcpOAuthStore;
     }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
-    const requestContext = resolveRequestContext(c);
-    return resolveMcpServerStoreByRequestContext(
-      requestContext,
+    return persistence.resolveMcpServerStore(
+      resolveRequestContext(c),
       runAsAgent,
       rawPerServerHeaders === undefined ? undefined : parsePerServerMcpHeaders(rawPerServerHeaders),
     );
   };
-  const resolveAgentStore = (c: Context) => {
-    const requestContext = resolveRequestContext(c);
-    return resolveAgentStoreByRequestContext(requestContext);
-  };
-  const resolveSandboxProviderStore = (c: Context) => {
-    const requestContext = resolveRequestContext(c);
-    return resolveSandboxProviderStoreByRequestContext(requestContext);
-  };
-  const resolveSkillStore = (c: Context, runAsAgent?: AgentRecord) => {
-    const requestContext = resolveRequestContext(c);
-    return resolveSkillStoreByRequestContext(requestContext, runAsAgent);
-  };
+  const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
+  const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
+  const resolveSkillStore = (c: Context, runAsAgent?: AgentRecord) =>
+    persistence.resolveSkillStore(resolveRequestContext(c), runAsAgent);
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),

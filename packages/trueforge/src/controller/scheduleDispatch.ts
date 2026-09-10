@@ -88,29 +88,30 @@ export class ScheduleNotFoundError extends Error {
 
 /**
  * Start a schedule run in-process: get-or-create a session keyed by `run.id`,
- * then create a non-streaming turn with the schedule task when that session has
- * none. Idempotent on retry. Session owner and turn `userRef` are the schedule
- * creator so ownership stays with the schedule even when an admin triggers run-now.
+ * then prepare a non-streaming turn with the schedule task when that session has
+ * none. Idempotent on retry — returns `undefined` when a turn already exists.
+ * Session owner and turn `userRef` are the schedule creator so ownership stays
+ * with the schedule even when an admin triggers run-now.
+ *
+ * Callers start the turn (e.g. via `startTurnInProcess`) with request-scoped stores.
  */
-export type StartScheduleTurn = (params: {
+export type PreparedScheduleTurn = {
   session: SessionHandle;
   input: TurnInputItem[];
   previous_turn_id: string;
   userRef: string;
   agent: AgentRecord;
-}) => Promise<void>;
+};
 
 export async function startScheduleRun(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
-  startTurn: StartScheduleTurn;
-}): Promise<void> {
+}): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
-    startTurn,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
@@ -129,27 +130,24 @@ export async function startScheduleRun(params: {
   // idempotency check
   const { data: turns } = await session.listTurns({ limit: 1 });
   if (turns.length > 0) {
-    return;
+    return undefined;
   }
 
-  await startTurn({
+  return {
     session,
     input: [{ type: 'user.message', content: schedule.manifest.task }],
     previous_turn_id: 'none',
     userRef: schedule.created_by_subject.subject_id,
     agent: named,
-  });
+  };
 }
 
-/** Loads trusted schedule context from a run id, then executes it idempotently. */
-export async function executeScheduleRun<TTransaction>(params: {
+/** Loads trusted schedule context from a run id. */
+export async function loadScheduleDispatchItem<TTransaction>(params: {
   scheduleRunId: string;
   scheduleStore: IScheduleStore<TTransaction>;
-  sessions: Sessions;
-  agentStore: IAgentStore<TTransaction>;
-  startTurn: StartScheduleTurn;
-}): Promise<void> {
-  const { scheduleRunId, scheduleStore, sessions, agentStore, startTurn } = params;
+}): Promise<ScheduleDispatchItem> {
+  const { scheduleRunId, scheduleStore } = params;
   const run = await scheduleStore.getRunById({ id: scheduleRunId });
   if (run === undefined) {
     throw new ScheduleRunNotFoundError(scheduleRunId);
@@ -158,7 +156,7 @@ export async function executeScheduleRun<TTransaction>(params: {
   if (schedule === undefined) {
     throw new ScheduleNotFoundError(run.schedule_id);
   }
-  await startScheduleRun({ item: { run, schedule }, sessions, agentStore, startTurn });
+  return { run, schedule };
 }
 
 /**
