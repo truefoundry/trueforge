@@ -224,6 +224,8 @@ extraObjects:
 | --------------------- | ----------------------------------- | ------------------------------------- |
 | `resourceTierOverride`| `""`                                | Optional TrueFoundry `small` / `medium` / `large` preset; empty uses `resources`. |
 | `server.replicaCount` | `1`                                 | Number of server replicas.            |
+| `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
+| `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public application URL for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). A pathname is the UI/API public prefix. |

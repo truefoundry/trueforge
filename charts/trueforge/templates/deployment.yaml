@@ -4,6 +4,10 @@ metadata:
   name: {{ include "trueforge.fullname" . }}
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
+  {{- with .Values.server.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ include "trueforge.replicas" . }}

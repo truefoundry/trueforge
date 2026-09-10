@@ -43,6 +43,8 @@ service:
 server:
   # Number of server replicas (ignored when autoscaling.enabled is true).
   replicaCount: 1
+  # Annotations on the server Deployment object (for example, Argo CD sync waves).
+  deploymentAnnotations: {}
   # Rolling update strategy for the server Deployment.
   strategy:
     type: RollingUpdate
@@ -68,6 +70,8 @@ server:
 controller:
   # Set false to skip the controller Deployment (schedules will not fire).
   enabled: true
+  # Annotations on the controller Deployment object (for example, Argo CD sync waves).
+  deploymentAnnotations: {}
   # Container command. Runs the controller entry from the published package inside
   # the image (root Dockerfile layout: /app/node_modules/@truefoundry/trueforge).
   command:

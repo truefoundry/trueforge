@@ -5,6 +5,10 @@ metadata:
   name: {{ include "trueforge.fullname" . }}-controller
   labels:
     {{- include "trueforge.controller.labels" . | nindent 4 }}
+  {{- with .Values.controller.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   # The controller MUST run as exactly one replica per database, so it is never
   # scaled or autoscaled. Recreate avoids two controllers overlapping mid-rollout.
