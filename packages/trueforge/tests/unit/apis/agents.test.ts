@@ -257,9 +257,9 @@ describe('agents router', () => {
   });
 
   it('lists agents with pagination envelope and rejects an invalid page_token', async () => {
-    const charlie = await router.request('/', jsonInit('POST', { ...writeBody, name: '00-list-charlie' }));
-    const alpha = await router.request('/', jsonInit('POST', { ...writeBody, name: '00-list-alpha' }));
-    const bravo = await router.request('/', jsonInit('POST', { ...writeBody, name: '00-list-bravo' }));
+    const charlie = await router.request('/', jsonInit('POST', { ...writeBody, name: 'aaa-list-charlie' }));
+    const alpha = await router.request('/', jsonInit('POST', { ...writeBody, name: 'aaa-list-alpha' }));
+    const bravo = await router.request('/', jsonInit('POST', { ...writeBody, name: 'aaa-list-bravo' }));
     expect(charlie.status).toBe(201);
     expect(alpha.status).toBe(201);
     expect(bravo.status).toBe(201);
@@ -267,7 +267,7 @@ describe('agents router', () => {
     const first = await router.request('/?limit=2');
     expect(first.status).toBe(200);
     const firstBody = ListAgentsResponseSchema.parse(await first.json());
-    expect(firstBody.data.map(agent => agent.name)).toEqual(['00-list-alpha', '00-list-bravo']);
+    expect(firstBody.data.map(agent => agent.name)).toEqual(['aaa-list-alpha', 'aaa-list-bravo']);
     expect(firstBody.pagination.limit).toBe(2);
     expect(firstBody.pagination.next_page_token).toEqual(expect.any(String));
 
@@ -276,7 +276,7 @@ describe('agents router', () => {
     );
     expect(second.status).toBe(200);
     const secondBody = ListAgentsResponseSchema.parse(await second.json());
-    expect(secondBody.data[0]?.name).toBe('00-list-charlie');
+    expect(secondBody.data[0]?.name).toBe('aaa-list-charlie');
     expect(secondBody.pagination.previous_page_token).toEqual(expect.any(String));
 
     const badToken = await router.request('/?page_token=not-a-token');
