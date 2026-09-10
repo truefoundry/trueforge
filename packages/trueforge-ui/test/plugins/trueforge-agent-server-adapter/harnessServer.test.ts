@@ -189,6 +189,24 @@ describe('createHarnessChatServer', () => {
     assert.equal(page.data[0]?.isMutable, false);
   });
 
+  it('forwards createdByMe to listSessions as created_by_me', async () => {
+    let listUrl: string | undefined;
+    const fetchNamed: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('/api/v1/sessions?')) {
+        listUrl = url;
+        return Response.json({ data: [], pagination: { limit: 20 } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const server = createHarnessChatServer({ fetch: fetchNamed });
+    await server.listSessions({ createdByMe: true, limit: 10 });
+
+    assert.ok(listUrl !== undefined);
+    assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('created_by_me'), 'true');
+  });
+
   it('listSessions forwards an unknown agentId to the API (empty page from the server)', async () => {
     let listUrl: string | undefined;
     const fetchNamed: typeof fetch = async input => {

@@ -195,6 +195,7 @@ export function createHarnessChatServer(
         ...(request.order === undefined ? {} : { order: request.order }),
         ...(request.pageToken === undefined ? {} : { pageToken: request.pageToken }),
         ...(request.agentId === undefined || request.agentId.length === 0 ? {} : { agentId: request.agentId }),
+        ...(request.createdByMe === undefined ? {} : { createdByMe: request.createdByMe }),
       });
       return toListResult(page, toUiSession);
     },
