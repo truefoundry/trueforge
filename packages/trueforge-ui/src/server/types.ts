@@ -59,6 +59,7 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreatedBySubject,
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,

@@ -25,6 +25,11 @@ function mockClient(
           agentName: 'alpha',
           createdAt: new Date('2024-01-01T00:00:00.000Z'),
           updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+          createdBySubject: {
+            subjectId: 'user-1',
+            subjectType: 'user',
+            subjectDisplayName: 'alice@example.com',
+          },
           manifest: {
             task: 'do thing',
             cron: '0 9 * * *',
@@ -64,6 +69,11 @@ describe('createScheduleServer.listSchedules', () => {
           agentName: 'alpha',
           createdAt: new Date('2024-01-01T00:00:00.000Z'),
           updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+          createdBySubject: {
+            subjectId: 'user-1',
+            subjectType: 'user',
+            subjectDisplayName: 'alice@example.com',
+          },
           manifest: {
             task: 'do thing',
             cron: '0 9 * * *',
@@ -88,6 +98,11 @@ describe('createScheduleServer.listSchedules', () => {
     expect(page.data).toHaveLength(1);
     expect(page.data[0]?.agentId).toBe('a1');
     expect(page.data[0]?.status).toBe('paused');
+    expect(page.data[0]?.createdBySubject).toEqual({
+      subjectId: 'user-1',
+      subjectType: 'user',
+      subjectDisplayName: 'alice@example.com',
+    });
     expect(page.nextPageToken).toBe('tok');
   });
 

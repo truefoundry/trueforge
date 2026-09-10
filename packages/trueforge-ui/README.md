@@ -517,7 +517,7 @@ function MyBubble({ children, error, actionBar, className }: AssistantMessageBub
 />;
 ```
 
-Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, agent metrics (`AgentMetrics`, `AgentMetricsView`, `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, `AgentMetricChart`), and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
+Overridable slots include composer pieces (`ComposerShell`, `ComposerLeftSection`, `ComposerRightSection`, `ComposerSendButton`), messages (`AssistantMessageBubble`, `UserMessageBubble`, `UserMessageEdit`), `Markdown`, `WelcomeScreen`, thread-list atoms, agent metrics (`AgentMetrics`, `AgentMetricsView`, `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, `AgentMetricStatistics`, `AgentMetricChart`), and tool/prompt cards (`ToolCallCard`, `ToolApprovalBar`, `ToolGroupCard`, `SubAgentCard`, `SandboxToolCallCard`, `AgentStepsCard`, `ReasoningCard`, `AskUserPrompt`, `McpAuthPrompt`, and more).
 
 See [docs/customization.md](./docs/customization.md) for the full slot list.
 
