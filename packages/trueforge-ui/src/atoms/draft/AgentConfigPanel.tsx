@@ -7,7 +7,7 @@ import type { AgentSkill, AgentSpec, ModelSelection } from '../../server/types.j
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
-import { DropdownMenu } from '../primitives/DropdownMenu.js';
+import { ResponsiveDropdownMenu } from '../primitives/ResponsiveDropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
 import { initialUserMessagesFromSpec } from './agentConfigMessages.js';
@@ -333,7 +333,7 @@ export function AgentConfigPanel({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Section>
           <div className="flex w-full items-center gap-1">
-            <DropdownMenu
+            <ResponsiveDropdownMenu
               open={modelMenuOpen}
               onOpenChange={open => {
                 setModelMenuOpen(open);
@@ -341,6 +341,7 @@ export function AgentConfigPanel({
               }}
               closeOnClick={false}
               align="start"
+              sheetLabel="Select model"
               containerClassName="flex min-w-0 flex-1"
               className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden p-0"
               trigger={
@@ -383,12 +384,13 @@ export function AgentConfigPanel({
                   setModelQuery('');
                 }}
               />
-            </DropdownMenu>
-            <DropdownMenu
+            </ResponsiveDropdownMenu>
+            <ResponsiveDropdownMenu
               open={modelSettingsMenuOpen}
               onOpenChange={setModelSettingsMenuOpen}
               closeOnClick={false}
               align="start"
+              sheetLabel="Model settings"
               className="w-[min(36rem,calc(100vw-2rem))] overflow-hidden p-0"
               trigger={
                 <button
@@ -406,7 +408,7 @@ export function AgentConfigPanel({
               }
             >
               <AgentModelSettingsContent spec={spec} model={model} onChange={next => onChange?.(next)} />
-            </DropdownMenu>
+            </ResponsiveDropdownMenu>
           </div>
           <dl className="text-text-secondary mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
             {modelParams.length ? (

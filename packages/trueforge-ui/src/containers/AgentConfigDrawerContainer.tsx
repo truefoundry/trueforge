@@ -14,7 +14,7 @@ import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
 import { withInitialUserMessages } from '../atoms/draft/agentConfigMessages.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { shellIsCreateAgent, useShellMode } from '../server/ShellModeContext.js';
-import type { AgentSpec, McpToolSelection } from '../server/types.js';
+import type { AgentSpec, ConnectorState, McpToolSelection } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: boolean }) {
@@ -113,6 +113,12 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
     },
     [server],
   );
+  const loadMcpConnector = useCallback(
+    async (connectorId: string): Promise<ConnectorState | undefined> => {
+      return server?.getMcpConnector?.({ connectorId });
+    },
+    [server],
+  );
 
   if (!isBuilder || agentSpec === null || (showClose && !shell.agentConfigOpen)) {
     return null;
@@ -147,6 +153,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         sandboxAvailable={capabilities?.sandbox.enabled === true}
         instructions={instructionDraft}
         onInstructionsSave={saveInstructions}
+        {...(server?.getMcpConnector === undefined ? {} : { loadMcpConnector })}
         loadMcpTools={loadMcpTools}
         onRefreshConnectors={catalog.refreshConnectors}
         onChange={updateSpec}
