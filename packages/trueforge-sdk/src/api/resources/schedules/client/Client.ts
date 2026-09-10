@@ -45,7 +45,7 @@ export class SchedulesClient {
             async (
                 request: TrueForge.ListSchedulesRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListSchedulesResponse>> => {
-                const { limit = 25, pageToken, agentNames, createdByMe } = request;
+                const { limit = 100, pageToken, agentNames, createdByMe } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
