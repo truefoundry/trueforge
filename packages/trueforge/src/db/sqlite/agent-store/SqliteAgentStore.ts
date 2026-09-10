@@ -79,6 +79,9 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
     if (input.external_ids !== undefined) {
       query = query.where('external_id', 'in', [...input.external_ids]);
     }
+    if (input.agent_name !== undefined) {
+      query = query.where(sql<boolean>`instr(lower(name), lower(${input.agent_name})) > 0`);
+    }
     query = query.orderBy('name');
     if (input.limit === undefined) {
       const rows = await query.execute();

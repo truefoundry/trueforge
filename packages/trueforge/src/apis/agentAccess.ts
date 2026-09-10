@@ -32,6 +32,7 @@ export async function listAccessibleAgents<TTransaction>(input: {
   context: RequestContext;
   authorizer: Authorizer;
   action: AgentAction;
+  agent_name: string | undefined;
   limit: number | undefined;
   page_token: string | undefined;
 }): Promise<{ data: AgentRecord[]; pagination: TokenPagination }> {
@@ -39,6 +40,7 @@ export async function listAccessibleAgents<TTransaction>(input: {
   if (access.kind === 'all') {
     return input.store.listAgents({
       tenant_id: input.context.tenant_id,
+      agent_name: input.agent_name,
       limit: input.limit,
       page_token: input.page_token,
     });
@@ -46,6 +48,7 @@ export async function listAccessibleAgents<TTransaction>(input: {
   return input.store.listAgents({
     tenant_id: input.context.tenant_id,
     external_ids: access.agent_external_ids,
+    agent_name: input.agent_name,
     limit: input.limit,
     page_token: input.page_token,
   });
@@ -68,6 +71,7 @@ export async function resolveManagedAgentIds<TTransaction>(input: {
   const { data } = await store.listAgents({
     tenant_id: context.tenant_id,
     external_ids: access.agent_external_ids,
+    agent_name: undefined,
     limit: undefined,
     page_token: undefined,
   });

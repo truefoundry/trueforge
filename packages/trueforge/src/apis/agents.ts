@@ -81,7 +81,7 @@ async function validateManifest<TTransaction>({
 
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
-    const { limit, page_token: pageToken } = c.req.valid('query');
+    const { limit, page_token: pageToken, agent_name: agentName } = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
     try {
       const { data, pagination } = await listAccessibleAgents({
@@ -89,6 +89,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
         context: requestContext,
         authorizer: deps.authorizer,
         action: 'read',
+        agent_name: agentName,
         limit,
         page_token: pageToken,
       });

@@ -32,6 +32,7 @@ export const ListAgentsQuerySchema = z
       .default(PAGE_LIMIT)
       .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
+    agent_name: z.string().trim().min(1).optional().describe('Case-insensitive substring match on agent name.'),
   })
   .openapi('ListAgentsQuery');
 
@@ -40,7 +41,7 @@ export const listAgentsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.AGENTS],
   summary: 'List agents',
-  description: 'List configured agents for the tenant, ordered by name.',
+  description: 'List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.',
   'x-fern-sdk-group-name': ['agents'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,

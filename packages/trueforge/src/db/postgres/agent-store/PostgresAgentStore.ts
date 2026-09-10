@@ -75,6 +75,9 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
     if (input.external_ids !== undefined) {
       query = query.where('external_id', 'in', [...input.external_ids]);
     }
+    if (input.agent_name !== undefined) {
+      query = query.where(sql<boolean>`position(lower(${input.agent_name}) in lower(name)) > 0`);
+    }
     query = query.orderBy('name');
     if (input.limit === undefined) {
       const rows = await query.execute();
