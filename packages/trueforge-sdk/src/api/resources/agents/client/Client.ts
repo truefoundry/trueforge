@@ -24,7 +24,7 @@ export class AgentsClient {
     }
 
     /**
-     * List configured agents for the tenant, ordered by name.
+     * List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.
      *
      * @param {TrueForge.ListAgentsRequest} request
      * @param {AgentsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -45,10 +45,11 @@ export class AgentsClient {
             async (
                 request: TrueForge.ListAgentsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListAgentsResponse>> => {
-                const { limit = 25, pageToken } = request;
+                const { limit = 25, pageToken, agentName } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,
+                    agent_name: agentName,
                 };
                 const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
                 const _headers: core.Fetcher.Args["headers"] = mergeHeaders(

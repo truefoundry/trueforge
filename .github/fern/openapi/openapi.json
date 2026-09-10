@@ -6043,7 +6043,7 @@
     },
     "/api/v1/agents": {
       "get": {
-        "description": "List configured agents for the tenant, ordered by name.",
+        "description": "List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",
@@ -6065,6 +6065,17 @@
             "required": false,
             "schema": {
               "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive substring match on agent name.",
+            "in": "query",
+            "name": "agent_name",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on agent name.",
+              "minLength": 1,
               "type": "string"
             }
           }

@@ -9,4 +9,6 @@ export interface ListAgentsRequest {
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;
+    /** Case-insensitive substring match on agent name. */
+    agentName?: string;
 }

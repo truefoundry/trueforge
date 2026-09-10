@@ -79,7 +79,7 @@ await client.internal.listPermissions({
 <dl>
 <dd>
 
-List configured agents for the tenant, ordered by name.
+List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.
 </dd>
 </dl>
 </dd>
