@@ -178,6 +178,18 @@ describe('ShellRouteSync', () => {
     expect(search).toBe('?history_agent_name=helper');
   });
 
+  it('clears a restored filter when no exact agent name exists', async () => {
+    renderSync({
+      initialEntries: ['/sessions/abc?history_agent_name=missing'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+
+    await waitFor(() => expect(shell.pendingSessionId).toBe('abc'));
+    await waitFor(() => expect(shell.historyAgentFilter).toBeNull());
+    await waitFor(() => expect(search).toBe(''));
+    expect(shell.listSessionsAgentId).toBeUndefined();
+  });
+
   it('pushes the URL when the shell selects an immutable agent', () => {
     renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibrary' } });
     expect(pathname).toBe('/');

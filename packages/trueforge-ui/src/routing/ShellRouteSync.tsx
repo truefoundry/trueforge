@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
+import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
@@ -23,6 +24,7 @@ import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
 
+// Filter intent follows chat history across chat/session URLs, but must not leak into unrelated surfaces.
 function placeOwnsHistoryAgentSearch(place: RoutePlace): boolean {
   return place.type === 'root' || place.type === 'agent' || place.type === 'session';
 }
@@ -131,6 +133,7 @@ export function ShellRouteSync({
     (next: HistoryAgentSearch | null) => {
       if (next == null) {
         requestedHistoryAgentRef.current = null;
+        bootHistoryAgentRef.current = null;
         shell.setHistoryAgentFilter(null);
         return;
       }
@@ -146,12 +149,15 @@ export function ShellRouteSync({
       shell.setHistoryAgentFilter(next);
       if (server == null) return;
 
-      void server
-        .searchAgents({ query: next.agentName })
-        .then(agents => {
+      void findAgentByName({ server, agentName: next.agentName })
+        .then(agent => {
           if (requestedHistoryAgentRef.current !== requestKey) return;
-          const agent = agents.find(candidate => candidate.name === next.agentName);
-          if (agent == null) return;
+          if (agent == null) {
+            requestedHistoryAgentRef.current = null;
+            bootHistoryAgentRef.current = null;
+            shell.setHistoryAgentFilter(null);
+            return;
+          }
           requestedHistoryAgentRef.current = null;
           shell.setHistoryAgentFilter({
             agentId: libraryAgentId(agent),
@@ -159,7 +165,12 @@ export function ShellRouteSync({
             intent: next.intent,
           });
         })
-        .catch(() => undefined);
+        .catch(() => {
+          if (requestedHistoryAgentRef.current !== requestKey) return;
+          requestedHistoryAgentRef.current = null;
+          bootHistoryAgentRef.current = null;
+          shell.setHistoryAgentFilter(null);
+        });
     },
     [server, shell],
   );

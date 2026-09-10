@@ -79,6 +79,7 @@ export function AgentHistoryFilterButton() {
 
   if (!enabled) return null;
 
+  // Reset the active session so the newly scoped history starts from a clean runtime and first page.
   const pick = (filter: HistoryAgentFilter | null) => {
     if (shell?.isComposerEnabled === true) {
       shell.openDraft();
