@@ -1,4 +1,11 @@
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
+import {
+  AgentSpecSchema,
+  InMemorySessionStore,
+  Sessions,
+  type SessionAgent,
+  type SessionHandle,
+  type SessionMetadata,
+} from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -8,9 +15,136 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
-import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
+import {
+  buildGatewayMetadata,
+  gatewayMetadataHeaders,
+  getModelDetails,
+  localSandboxSessionSegment,
+  TFG_METADATA_PREFIX,
+  validateAgentSpec,
+  withGatewayMetadataHeaders,
+  X_TFY_METADATA,
+} from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
+
+async function createGatewayMetadataSession(input: {
+  agent: SessionAgent;
+  metadata?: SessionMetadata;
+}): Promise<SessionHandle> {
+  const sessions = new Sessions({ sessionStore: new InMemorySessionStore() });
+  return sessions.create({
+    tenant_id: 'tenant-1',
+    session_id: 'sess-1',
+    created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+    agent: input.agent,
+    metadata: input.metadata ?? {},
+    external_id: null,
+  });
+}
+
+describe('buildGatewayMetadata', () => {
+  it('stamps session/turn ids and reference agent fields over session metadata', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
+      metadata: { env: 'dev', [`${TFG_METADATA_PREFIX}.session_id`]: 'caller-override' },
+    });
+
+    expect(buildGatewayMetadata({ session, turnId: 'turn-1' })).toEqual({
+      env: 'dev',
+      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
+      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-1',
+      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
+      [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
+    });
+  });
+
+  it('omits agent_name when the reference name snapshot is null', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: { type: 'reference', id: 'agent-legacy', name: null },
+    });
+
+    expect(buildGatewayMetadata({ session, turnId: 'turn-2' })).toEqual({
+      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
+      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-2',
+      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-legacy',
+    });
+  });
+
+  it('omits agent keys for inline agents', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: {
+        type: 'inline',
+        spec: AgentSpecSchema.parse({ model: { name: 'openai/gpt-4o' } }),
+      },
+      metadata: { ticket: 'T-1' },
+    });
+
+    expect(buildGatewayMetadata({ session, turnId: 'turn-3' })).toEqual({
+      ticket: 'T-1',
+      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
+      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-3',
+    });
+  });
+});
+
+describe('gatewayMetadataHeaders', () => {
+  it('stringifies metadata under x-tfy-metadata', () => {
+    expect(gatewayMetadataHeaders({ a: '1' })).toEqual({
+      [X_TFY_METADATA]: JSON.stringify({ a: '1' }),
+    });
+    expect(gatewayMetadataHeaders({})).toEqual({});
+  });
+});
+
+describe('withGatewayMetadataHeaders', () => {
+  it('merges into static headers', () => {
+    const headers = withGatewayMetadataHeaders({
+      headers: { Authorization: 'Bearer t' },
+      metadataHeaders: { [X_TFY_METADATA]: '{"k":"v"}' },
+    });
+    expect(headers).toEqual({
+      Authorization: 'Bearer t',
+      [X_TFY_METADATA]: '{"k":"v"}',
+    });
+  });
+
+  it('merges into async header resolvers and preserves authRequired', async () => {
+    const withAuth = withGatewayMetadataHeaders({
+      headers: async () => ({ headers: { Authorization: 'Bearer t' } }),
+      metadataHeaders: { [X_TFY_METADATA]: '{"k":"v"}' },
+    });
+    expect(typeof withAuth).toBe('function');
+    if (typeof withAuth !== 'function') {
+      throw new Error('expected async header resolver');
+    }
+    await expect(withAuth()).resolves.toEqual({
+      headers: {
+        Authorization: 'Bearer t',
+        [X_TFY_METADATA]: '{"k":"v"}',
+      },
+    });
+
+    const authRequired = withGatewayMetadataHeaders({
+      headers: async () => ({
+        authRequired: { servers: [{ id: 'mcp', name: 'mcp', auth_url: 'https://auth.example' }] },
+      }),
+      metadataHeaders: { [X_TFY_METADATA]: '{"k":"v"}' },
+    });
+    expect(typeof authRequired).toBe('function');
+    if (typeof authRequired !== 'function') {
+      throw new Error('expected async header resolver');
+    }
+    await expect(authRequired()).resolves.toEqual({
+      authRequired: { servers: [{ id: 'mcp', name: 'mcp', auth_url: 'https://auth.example' }] },
+    });
+  });
+
+  it('returns the original headers when metadata is empty', () => {
+    const staticHeaders = { Authorization: 'Bearer t' };
+    expect(withGatewayMetadataHeaders({ headers: staticHeaders, metadataHeaders: {} })).toBe(staticHeaders);
+  });
+});
 
 describe('localSandboxSessionSegment', () => {
   it('keeps a single-segment session id and rejects missing or unsafe values', () => {
