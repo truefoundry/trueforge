@@ -543,7 +543,13 @@ try {
       )
     : await createServerRuntime(await createDistributedPersistence({ configuration, logger }), logger);
 
-  if (mountFrontend(app, { dir: configuration.FRONTEND_DIR, uiBasePath: getPublicUiBasePath() })) {
+  if (
+    mountFrontend(app, {
+      dir: configuration.FRONTEND_DIR,
+      uiBasePath: getPublicUiBasePath(),
+      authMode: getTrueForgeAuthMode(configuration),
+    })
+  ) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
   } else {
     logger.warn(

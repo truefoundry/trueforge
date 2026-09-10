@@ -15,8 +15,9 @@ const HASHED_ASSET_PREFIX = '/assets/';
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const REVALIDATE_CACHE_CONTROL = 'no-cache';
 
-/** Vite writes this into the production shell; replaced once at process start. Must not appear in JS identifiers. */
+/** Vite writes these into the production shell; replaced once at process start. Must not appear in JS identifiers. */
 const SHELL_BASE_TOKEN = '%%TRUEFORGE_BASE_PATH%%';
+const SHELL_AUTH_MODE_TOKEN = '%%TRUEFORGE_AUTH_MODE%%';
 
 function isServerPath(pathname: string): boolean {
   return SERVER_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -26,8 +27,10 @@ function isAppShellPath(pathname: string): boolean {
   return pathname === '/' || pathname === '/index.html';
 }
 
-function applyPublicUiBase(options: { html: string; uiBasePath: string }): string {
-  return options.html.replaceAll(SHELL_BASE_TOKEN, options.uiBasePath);
+function applyShellTokens(options: { html: string; uiBasePath: string; authMode: string }): string {
+  return options.html
+    .replaceAll(SHELL_BASE_TOKEN, options.uiBasePath)
+    .replaceAll(SHELL_AUTH_MODE_TOKEN, options.authMode);
 }
 
 function createShellResponse(options: { html: string; method: string }): Response {
@@ -46,13 +49,20 @@ function createShellResponse(options: { html: string; method: string }): Respons
  * Must be called after the API routes are registered, so those always win over the static handler.
  * Returns false when `dir` holds no build, leaving the server API-only for UI work behind Vite.
  */
-export function mountFrontend(app: OpenAPIHono, options: { dir: string; uiBasePath: string }): boolean {
+export function mountFrontend(
+  app: OpenAPIHono,
+  options: { dir: string; uiBasePath: string; authMode: string },
+): boolean {
   const indexPath = path.join(options.dir, 'index.html');
   if (!existsSync(indexPath)) {
     return false;
   }
 
-  const shellHtml = applyPublicUiBase({ html: readFileSync(indexPath, 'utf8'), uiBasePath: options.uiBasePath });
+  const shellHtml = applyShellTokens({
+    html: readFileSync(indexPath, 'utf8'),
+    uiBasePath: options.uiBasePath,
+    authMode: options.authMode,
+  });
 
   // serveStatic joins `root` with the request path, so an absolute dir is working-directory proof.
   const serveFile = serveStatic({ root: options.dir, precompressed: true });

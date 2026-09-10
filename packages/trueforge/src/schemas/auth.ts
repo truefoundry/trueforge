@@ -5,7 +5,10 @@ export const AuthLoginQuerySchema = z.object({
   return_to: z
     .string()
     .optional()
-    .describe('Path to return to after login. Same-origin relative path; otherwise the public UI home.'),
+    .describe(
+      'Same-origin relative path. OIDC/standalone: post-login landing. TrueFoundry: platform login path ' +
+        '(e.g. `/signin/external?redirectPath=…`); omitted → platform login with UI home as redirectPath.',
+    ),
 });
 
 export const OAuthCallbackQuerySchema = z.object({

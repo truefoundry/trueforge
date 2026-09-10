@@ -14,6 +14,24 @@ describe('buildLoginHref', () => {
     const href = buildLoginHref('/trueforge/sessions/abc');
     assert.equal(new URL(href, 'http://example.test').searchParams.get('return_to'), '/trueforge/sessions/abc');
   });
+
+  it('wraps return_to as TrueFoundry /signin/external when auth mode is truefoundry', () => {
+    const previous = globalThis.window;
+    (globalThis as { window: Window }).window = {
+      __TRUEFORGE_AUTH_MODE__: 'truefoundry',
+    } as Window;
+    try {
+      const href = buildLoginHref('/trueforge/sessions/abc');
+      const returnTo = new URL(href, 'http://example.test').searchParams.get('return_to');
+      assert.equal(returnTo, '/signin/external?redirectPath=%2Ftrueforge%2Fsessions%2Fabc');
+    } finally {
+      if (previous === undefined) {
+        Reflect.deleteProperty(globalThis, 'window');
+      } else {
+        (globalThis as { window: Window }).window = previous;
+      }
+    }
+  });
 });
 
 describe('createAuthAwareFetch', () => {

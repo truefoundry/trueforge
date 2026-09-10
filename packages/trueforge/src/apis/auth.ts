@@ -11,7 +11,7 @@ import { safeReturnTo } from '../auth/safeReturnTo';
 import { getPublicUiBasePath, isTrueFoundryModeEnabled } from '../config';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { GetMeResponse } from '../schemas/auth';
-import { buildTrueFoundryExternalLoginHref } from '../truefoundry/externalLogin';
+import { buildTrueFoundryExternalLoginHref, resolveTrueFoundryLoginReturnTo } from '../truefoundry/externalLogin';
 
 /** Login / OIDC failures land on the public UI home with `?error=<reason>`. */
 function oauthErrorRedirect(reason: string): string {
@@ -68,7 +68,7 @@ export function createAuthRouter(params: {
 
     if (isTrueFoundryModeEnabled()) {
       try {
-        return c.redirect(buildTrueFoundryExternalLoginHref(safeReturnTo(returnTo)), 302);
+        return c.redirect(buildTrueFoundryExternalLoginHref(resolveTrueFoundryLoginReturnTo(returnTo)), 302);
       } catch (error) {
         params.logger.error('Failed to build TrueFoundry external login URL', extractErrorLogFields(error));
         return c.redirect(oauthErrorRedirect('login_failed'), 302);

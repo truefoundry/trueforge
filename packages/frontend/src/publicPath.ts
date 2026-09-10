@@ -3,10 +3,13 @@
  * `PUBLIC_BASE_URL`'s pathname into the app shell). Always `/` or a path with a
  * trailing slash (e.g. `/custom/proxy/path/`). UI assets, React Router, and API/auth share
  * this prefix; a reverse proxy strips it so the server still sees `/` and `/api/...`.
+ *
+ * Auth mode from `window.__TRUEFORGE_AUTH_MODE__` (substituted at serve time).
  */
 declare global {
   interface Window {
     __TRUEFORGE_BASE_PATH__?: string;
+    __TRUEFORGE_AUTH_MODE__?: string;
     MonacoEnvironment?: {
       globalAPI?: boolean;
       getWorkerUrl?: (moduleId: string, label: string) => string;
@@ -25,6 +28,20 @@ function documentUiBasePath(): string {
     return '/';
   }
   return href.endsWith('/') ? href : `${href}/`;
+}
+
+/** Runtime auth mode injected into the app shell. Unsubstituted / unknown → standalone. */
+export type ShellAuthMode = 'standalone' | 'oidc' | 'truefoundry';
+
+export function documentAuthMode(): ShellAuthMode {
+  if (typeof window === 'undefined') {
+    return 'standalone';
+  }
+  const mode = window.__TRUEFORGE_AUTH_MODE__?.trim();
+  if (mode === 'oidc' || mode === 'truefoundry' || mode === 'standalone') {
+    return mode;
+  }
+  return 'standalone';
 }
 
 export const UI_BASE_PATH = documentUiBasePath();
