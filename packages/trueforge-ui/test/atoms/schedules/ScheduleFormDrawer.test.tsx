@@ -237,7 +237,7 @@ describe('ScheduleFormDrawer', () => {
     expect(screen.getByText('Schedule saved as paused')).toBeInTheDocument();
     expect(screen.getByText('Slack 1234')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Run Test' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Activate Anyway' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activate Schedule' })).toBeInTheDocument();
   });
 
   it('starts a test run from the test screen', async () => {
@@ -359,7 +359,7 @@ describe('ScheduleFormDrawer', () => {
     });
 
     await saveCreateForm();
-    fireEvent.click(await screen.findByRole('button', { name: 'Activate Anyway' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Activate Schedule' }));
 
     await waitFor(() => {
       expect(updateSchedule).toHaveBeenCalledWith(
