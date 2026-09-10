@@ -489,14 +489,16 @@ describe('AgentsLibraryButton', () => {
 
     await waitFor(() => {
       expect(listSchedules).toHaveBeenCalledWith(
-        expect.objectContaining({ agentIds: ['alpha-agent', 'beta-agent'], limit: 25 }),
+        expect.objectContaining({ agentIds: ['alpha-agent', 'beta-agent'], limit: 100 }),
       );
     });
 
-    const badge = await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
-    expect(badge).toHaveTextContent('2');
+    const badge = await screen.findByRole('button', { name: /schedules for alpha-agent/ });
+    expect(badge).toHaveTextContent('1 Active');
+    expect(badge).toHaveTextContent('1 Paused');
+    expect(badge).toHaveAccessibleName('1 active, 1 paused schedules for alpha-agent');
     const addSchedule = screen.getByRole('button', { name: 'Add schedule for beta-agent' });
-    expect(addSchedule).toHaveTextContent('-');
+    expect(addSchedule).toHaveTextContent('Schedule');
 
     fireEvent.click(addSchedule);
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('beta-agent');
@@ -505,7 +507,7 @@ describe('AgentsLibraryButton', () => {
     expect(new URL(window.location.href).searchParams.get('agent')).toBeNull();
     expect(new URL(window.location.href).searchParams.get('isNew')).toBe('true');
 
-    fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
+    fireEvent.click(screen.getByRole('button', { name: /schedules for alpha-agent/ }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('alpha-agent');
     expect(new URL(window.location.href).searchParams.get('agentId')).toBe('alpha-agent');
     expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');

@@ -15,8 +15,8 @@ import type {
 } from '../../../server/types.js';
 import { toListResult } from '../chatServer.js';
 
-/** Matches API PAGE_LIMIT for schedules list. */
-const SCHEDULES_PAGE_LIMIT = 25;
+/** Matches API SCHEDULES_PAGE_LIMIT for schedules list. */
+const SCHEDULES_PAGE_LIMIT = 100;
 
 type AgentIndex = {
   idToName: ReadonlyMap<string, string>;

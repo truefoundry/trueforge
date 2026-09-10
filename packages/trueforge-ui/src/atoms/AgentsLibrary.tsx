@@ -12,7 +12,6 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
-import { cn } from './lib/cn.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { PageHeader } from './PageHeader.js';
@@ -28,7 +27,7 @@ export type AgentsLibraryProps = {
 
 export type AgentScheduleSummary = {
   count: number;
-  hasPaused: boolean;
+  pausedCount: number;
 };
 
 export type AgentLibraryRowProps = {
@@ -52,20 +51,21 @@ function displayModelLabel(modelName: string): string {
 
 function AgentSchedulesEmptyState({ agentName, onOpen }: { agentName: string; onOpen?: () => void }) {
   return (
-    <button
-      type="button"
-      aria-label={`Add schedule for ${agentName}`}
-      className="text-text-secondary hover:text-primary-button-bg cursor-pointer text-sm font-medium"
-      onClick={onOpen}
-    >
-      <span aria-hidden className="md:group-hover:hidden">
+    <>
+      <span aria-hidden className="text-text-secondary text-sm md:group-hover:hidden">
         -
       </span>
-      <span aria-hidden className="hidden items-center gap-1 md:group-hover:inline-flex">
+      <Button.Ghost
+        type="button"
+        size="small"
+        aria-label={`Add schedule for ${agentName}`}
+        className="hidden md:group-hover:inline-flex"
+        onClick={onOpen}
+      >
         <Icon name="plus" className="size-3.5 shrink-0" />
         Schedule
-      </span>
-    </button>
+      </Button.Ghost>
+    </>
   );
 }
 
@@ -78,22 +78,32 @@ function AgentSchedulesBadge({
   agentName: string;
   onOpen?: () => void;
 }) {
-  const warning = summary.hasPaused;
+  const pausedCount = summary.pausedCount;
+  const activeCount = summary.count - pausedCount;
+  const ariaParts = [
+    ...(activeCount > 0 ? [`${activeCount} active`] : []),
+    ...(pausedCount > 0 ? [`${pausedCount} paused`] : []),
+  ];
   return (
     <button
       type="button"
-      aria-label={`${String(summary.count)} schedules for ${agentName}${warning ? ' (has paused)' : ''}`}
-      className={cn(
-        'inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
-        warning
-          ? 'border-amber-600/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
-          : 'border-border bg-secondary-bg text-text-secondary',
-      )}
+      aria-label={`${ariaParts.join(', ')} schedules for ${agentName}`}
+      className="inline-flex cursor-pointer items-center gap-1.5"
       onClick={onOpen}
     >
-      <Icon name="calendar-clock" className="size-3.5 shrink-0" />
-      <span>{summary.count}</span>
-      {warning ? <Icon name="triangle-exclamation" className="size-3.5 shrink-0" /> : null}
+      {activeCount > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300">
+          <Icon name="calendar-clock" className="size-3.5 shrink-0" />
+          <span>{activeCount} Active</span>
+        </span>
+      ) : null}
+      {pausedCount > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-md border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300">
+          {activeCount === 0 ? <Icon name="calendar-clock" className="size-3.5 shrink-0" /> : null}
+          <span>{pausedCount} Paused</span>
+          <Icon name="triangle-exclamation" className="size-3.5 shrink-0" />
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -123,7 +133,6 @@ export function AgentLibraryRow({
   const connectorsTitle = mcpNames.length ? mcpNames.join(', ') : `${mcpCount} connectors`;
   const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
   const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
-
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
 
   return (
@@ -216,10 +225,10 @@ function summarizeSchedulesByAgent(schedules: readonly Schedule[]): Map<string, 
   const map = new Map<string, AgentScheduleSummary>();
   for (const schedule of schedules) {
     const id = schedule.agentId;
-    const prev = map.get(id) ?? { count: 0, hasPaused: false };
+    const prev = map.get(id) ?? { count: 0, pausedCount: 0 };
     const next = {
       count: prev.count + 1,
-      hasPaused: prev.hasPaused || schedule.status === 'paused',
+      pausedCount: prev.pausedCount + (schedule.status === 'paused' ? 1 : 0),
     };
     map.set(id, next);
     if (schedule.agentName != null && schedule.agentName !== '' && schedule.agentName !== id) {
@@ -242,7 +251,7 @@ async function listAllSchedulesForAgents({
   do {
     const page = await listSchedules({
       agentIds,
-      limit: 25,
+      limit: 100,
       ...(pageToken === undefined ? {} : { pageToken }),
     });
     rows.push(...page.data);
@@ -402,7 +411,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Agent name</TableHead>
                       <TableHead>Configuration</TableHead>
-                      {showSchedulesColumn ? <TableHead className="w-[8rem]">Schedules</TableHead> : null}
+                      {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
                       <TableHead className="w-px">
                         <span className="sr-only">Actions</span>
                       </TableHead>
@@ -416,7 +425,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                       const summary = showSchedulesColumn
                         ? (scheduleByAgent?.get(id) ??
                           scheduleByAgent?.get(agent.name) ??
-                          (scheduleByAgent == null ? null : { count: 0, hasPaused: false }))
+                          (scheduleByAgent == null ? null : { count: 0, pausedCount: 0 }))
                         : undefined;
                       return (
                         <SlottedAgentLibraryRow
