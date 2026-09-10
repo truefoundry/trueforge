@@ -125,6 +125,8 @@ export type {
   ThreadRootShellProps,
   ThreadViewportShellProps,
 } from './atoms/ThreadShell.js';
+export { UserAvatar } from './atoms/UserAvatar.js';
+export type { UserAvatarProps } from './atoms/UserAvatar.js';
 export { UserMessageActionBar } from './atoms/UserMessageActionBar.js';
 export type { UserMessageActionBarProps } from './atoms/UserMessageActionBar.js';
 export { UserMessageBubble } from './atoms/UserMessageBubble.js';
@@ -251,6 +253,8 @@ export type { UseResourcePermissionsOptions, UseResourcePermissionsResult } from
 // Curated chrome hooks (same instance as the SDK runtime). Deep primitives: install @assistant-ui/react.
 export { useAui, useAuiState } from './assistant-ui.js';
 export type { AssistantState } from './assistant-ui.js';
+export { useOptionalCurrentUser } from './contexts/CurrentUserContext.js';
+export type { CurrentUser } from './contexts/CurrentUserContext.js';
 export { useTheme } from './theme/useTheme.js';
 
 // Runtime / server — consumer surface.

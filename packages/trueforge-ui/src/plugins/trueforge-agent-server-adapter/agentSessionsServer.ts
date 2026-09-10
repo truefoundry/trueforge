@@ -56,7 +56,8 @@ export function createHarnessAgentSessionsServer(
       };
     },
     async getCodeSnippets({ agentId }) {
-      const absoluteBaseUrl = resolveTrueForgeBaseUrl(options.baseUrl ?? '/');
+      // Snippet SDK `baseUrl` should not end with `/` (hosts often pass a trailing path slash).
+      const absoluteBaseUrl = resolveTrueForgeBaseUrl(options.baseUrl ?? '/').replace(/\/$/, '');
       const { data } = await client.internal.agents.getCodeSnippets(
         agentId,
         /^https?:\/\//i.test(absoluteBaseUrl) ? { baseUrl: absoluteBaseUrl } : undefined,

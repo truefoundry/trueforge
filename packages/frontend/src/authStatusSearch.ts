@@ -15,9 +15,9 @@ export function shouldShowAuthErrorScreen({
   session,
 }: {
   authError: string | null;
-  session: SessionState | 'checking';
+  session: SessionState | { status: 'checking' };
 }): string | null {
-  if (authError == null || session !== 'unauthenticated') {
+  if (authError == null || session.status !== 'unauthenticated') {
     return null;
   }
   return authError;
