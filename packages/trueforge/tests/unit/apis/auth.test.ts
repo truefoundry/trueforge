@@ -441,6 +441,40 @@ describe('auth router (auth enabled)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
+  it('GET /callback does not reflect the exchange error message into the redirect', async () => {
+    // openid-client throws with the token-endpoint response embedded in the message, which
+    // carries the issuer host and upstream error body. None of that may reach the browser's
+    // address bar, where it lands in history, screenshots and support tickets.
+    const router = createTestAuthRouter({ oidcClient });
+    const loginRes = await router.request('/login?return_to=/', { redirect: 'manual' });
+    const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
+    const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
+    const state = authorizationUrl.searchParams.get('state') ?? '';
+
+    const fetchStub = globalThis.fetch;
+    const failingFetch: typeof fetch = async (input, init) => {
+      if (String(input) === `${ISSUER}/token` && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({ error: 'invalid_grant', error_description: 'code expired at issuer.example.com' }),
+          { status: 400, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return fetchStub(input, init);
+    };
+    globalThis.fetch = failingFetch;
+
+    const res = await router.request(`/callback?code=invalid&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
+      redirect: 'manual',
+      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}` },
+    });
+
+    expect(res.status).toBe(302);
+    const location = res.headers.get('location') ?? '';
+    expect(location).toBe('/?error=login_failed');
+    expect(location).not.toContain(new URL(ISSUER).host);
+    expect(location).not.toContain('invalid_grant');
+  });
+
   it('GET /callback keeps login_failed when exchange fails and the leftover cookie is blocked', async () => {
     const restrictedClient = await initOidc({
       ...configuredOidc,
