@@ -211,6 +211,45 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     ).toEqual({ data: [], pagination: { limit: 0 } });
   });
 
+  it('listAgents paginates with limit and page_token in name order', async () => {
+    const store = getStore();
+    await store.createAgent({
+      tenant_id: TENANT,
+      created_by_subject: CREATED_BY_SUBJECT,
+      name: 'charlie',
+      manifest: manifest(),
+      external_id: null,
+    });
+    await store.createAgent({
+      tenant_id: TENANT,
+      created_by_subject: CREATED_BY_SUBJECT,
+      name: 'alpha',
+      manifest: manifest(),
+      external_id: null,
+    });
+    await store.createAgent({
+      tenant_id: TENANT,
+      created_by_subject: CREATED_BY_SUBJECT,
+      name: 'bravo',
+      manifest: manifest(),
+      external_id: null,
+    });
+
+    const page1 = await store.listAgents({ tenant_id: TENANT, limit: 2, page_token: undefined });
+    expect(page1.data.map(agent => agent.name)).toEqual(['alpha', 'bravo']);
+    expect(page1.pagination.limit).toBe(2);
+    expect(page1.pagination.next_page_token).toEqual(expect.any(String));
+
+    const page2 = await store.listAgents({
+      tenant_id: TENANT,
+      limit: 2,
+      page_token: page1.pagination.next_page_token,
+    });
+    expect(page2.data.map(agent => agent.name)).toEqual(['charlie']);
+    expect(page2.pagination.previous_page_token).toEqual(expect.any(String));
+    expect(page2.pagination.next_page_token).toBeUndefined();
+  });
+
   it('getAgent by id is tenant-scoped', async () => {
     const store = getStore();
     const created = await store.createAgent({
