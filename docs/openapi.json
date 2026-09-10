@@ -2992,57 +2992,13 @@
         "type": "string"
       },
       "ResourcePermission": {
-        "anyOf": [
-          {
-            "description": "Run or invoke the agent.",
-            "enum": [
-              "USE"
-            ],
-            "type": "string"
-          },
-          {
-            "description": "Update and other non-delete mutations.",
-            "enum": [
-              "MANAGE"
-            ],
-            "type": "string"
-          },
-          {
-            "description": "Delete the agent.",
-            "enum": [
-              "DELETE"
-            ],
-            "type": "string"
-          },
-          {
-            "description": "Update and other non-delete mutations.",
-            "enum": [
-              "MANAGE"
-            ],
-            "type": "string"
-          },
-          {
-            "description": "Delete the schedule.",
-            "enum": [
-              "DELETE"
-            ],
-            "type": "string"
-          },
-          {
-            "description": "Update and other non-delete mutations.",
-            "enum": [
-              "MANAGE"
-            ],
-            "type": "string"
-          },
-          {
-            "description": "Delete the session.",
-            "enum": [
-              "DELETE"
-            ],
-            "type": "string"
-          }
-        ]
+        "description": "Granted action on a resource.",
+        "enum": [
+          "USE",
+          "MANAGE",
+          "DELETE"
+        ],
+        "type": "string"
       },
       "ResponseFormat": {
         "discriminator": {
