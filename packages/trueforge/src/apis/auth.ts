@@ -8,9 +8,10 @@ import { resolveRequestContext } from '../auth/identity';
 import { resolveOidcRequestContext } from '../auth/middleware';
 import { buildLoginAuthorization, exchangeAuthorizationCode } from '../auth/oidc';
 import { safeReturnTo } from '../auth/safeReturnTo';
-import { getPublicUiBasePath } from '../config';
+import { getPublicUiBasePath, isTrueFoundryModeEnabled } from '../config';
 import { authLoginRoute, authLogoutRoute, meRoute, oAuthCallbackRoute } from '../routes/authRoutes';
 import type { GetMeResponse } from '../schemas/auth';
+import { buildTrueFoundryExternalLoginHref, resolveTrueFoundryLoginReturnTo } from '../truefoundry/externalLogin';
 
 /** Login / OIDC failures land on the public UI home with `?error=<reason>`. */
 function oauthErrorRedirect(reason: string): string {
@@ -49,22 +50,32 @@ export function createAuthRouter(params: {
   const router = new OpenAPIHono();
 
   router.openapi(authLoginRoute, async c => {
-    // TODO: remove this checks once the middleware is implemented
-    if (!params.oidcClient) {
-      return c.redirect(getPublicUiBasePath(), 302);
+    const returnTo = c.req.valid('query').return_to;
+
+    if (params.oidcClient) {
+      try {
+        const authorizationUrl = await buildLoginAuthorization({
+          context: c,
+          client: params.oidcClient,
+          returnTo,
+        });
+        return c.redirect(authorizationUrl, 302);
+      } catch (error) {
+        params.logger.error('Failed to build login authorization', extractErrorLogFields(error));
+        return c.redirect(oauthErrorRedirect('login_failed'), 302);
+      }
     }
 
-    try {
-      const authorizationUrl = await buildLoginAuthorization({
-        context: c,
-        client: params.oidcClient,
-        returnTo: c.req.valid('query').return_to,
-      });
-      return c.redirect(authorizationUrl, 302);
-    } catch (error) {
-      params.logger.error('Failed to build login authorization', extractErrorLogFields(error));
-      return c.redirect(oauthErrorRedirect('login_failed'), 302);
+    if (isTrueFoundryModeEnabled()) {
+      try {
+        return c.redirect(buildTrueFoundryExternalLoginHref(resolveTrueFoundryLoginReturnTo(returnTo)), 302);
+      } catch (error) {
+        params.logger.error('Failed to build TrueFoundry external login URL', extractErrorLogFields(error));
+        return c.redirect(oauthErrorRedirect('login_failed'), 302);
+      }
     }
+
+    return c.redirect(getPublicUiBasePath(), 302);
   });
 
   router.openapi(oAuthCallbackRoute, async c => {

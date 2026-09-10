@@ -1,5 +1,5 @@
 import { BrandLogo } from '@truefoundry/trueforge-ui';
-import { AUTH_LOGIN_HREF } from './authFetch';
+import { buildLoginHref } from './authFetch';
 import './authScreens.css';
 
 /** OIDC / login failure status. Mirrors the welcome page layout. */
@@ -11,7 +11,7 @@ export function AuthErrorScreen({ reason }: { reason: string }) {
         <BrandLogo className="auth-screen-logo" />
         <h1 className="auth-screen-title">Sign-in failed</h1>
         <p className="auth-screen-message">{message}</p>
-        <a className="auth-screen-button" href={AUTH_LOGIN_HREF}>
+        <a className="auth-screen-button" href={buildLoginHref()}>
           Try again
         </a>
       </div>

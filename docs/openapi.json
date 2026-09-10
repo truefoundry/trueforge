@@ -6442,22 +6442,22 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
+        "description": "Redirects the browser to begin authentication. Optional `return_to` is the same-origin path to land on afterward.",
         "parameters": [
           {
-            "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
+            "description": "Same-origin path to land on after authentication.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
+              "description": "Same-origin path to land on after authentication.",
               "type": "string"
             }
           }
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the IdP authorization endpoint."
+            "description": "Redirect to continue authentication."
           }
         },
         "summary": "Start the login flow",

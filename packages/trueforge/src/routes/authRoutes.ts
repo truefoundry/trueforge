@@ -16,13 +16,12 @@ export const authLoginRoute = createRoute({
   tags: [OpenApiTag.AUTH],
   summary: 'Start the login flow',
   description:
-    'Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight ' +
-    'back into the app — there is nothing to log into.',
+    'Redirects the browser to begin authentication. Optional `return_to` is the same-origin path to land on afterward.',
   'x-fern-ignore': true,
   'x-excluded': true,
   request: { query: AuthLoginQuerySchema },
   responses: {
-    302: { description: 'Redirect to the IdP authorization endpoint.' },
+    302: { description: 'Redirect to continue authentication.' },
   },
 });
 

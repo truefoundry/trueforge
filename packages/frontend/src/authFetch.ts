@@ -1,20 +1,20 @@
 /**
  * Browser auth entry points. Login and logout are not SDK methods (cookie session).
- * On any HTTP 401, redirect to OIDC login (session required).
+ * On any HTTP 401, redirect to login (session required).
  *
  * Auth URLs share the public prefix with the UI (e.g. `/custom/proxy/path/api/v1/auth/...`).
- * A reverse proxy strips that prefix before Harness. Pass `return_to` so post-login
- * lands back under the UI path.
+ * A reverse proxy strips that prefix before Harness. Pass `return_to` as the post-login
+ * app path; the server applies TrueFoundry platform wrapping when needed.
  */
 import { apiPath, UI_BASE_PATH } from './publicPath';
 
-/** Browser entry for OIDC login (not available as an SDK method). */
+/** Browser entry for login (not available as an SDK method). */
 export const AUTH_LOGIN_HREF = apiPath('/api/v1/auth/login');
 
 /** Clears the local session cookie (not available as an SDK method). */
 export const AUTH_LOGOUT_HREF = apiPath('/api/v1/auth/logout');
 
-/** Login URL with a same-origin `return_to` (defaults to the UI home). */
+/** Login URL with a same-origin post-login `return_to` (defaults to the UI home). */
 export function buildLoginHref(returnTo: string = UI_BASE_PATH): string {
   const params = new URLSearchParams({ return_to: returnTo });
   return `${AUTH_LOGIN_HREF}?${params.toString()}`;
