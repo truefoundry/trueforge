@@ -23,7 +23,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
   const PermissionGuard = useSlot('PermissionGuard');
 
   const handleTry = () => {
-    if (!canManage || detail == null) return;
+    if (!canUse || detail == null) return;
     shell.selectLibraryAgent({
       isMutable: false,
       agentId: detail.agentId,
@@ -32,7 +32,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
   };
 
   const handleEdit = () => {
-    if (!canUse || detail == null) return;
+    if (!canManage || detail == null) return;
     shell.selectLibraryAgent({
       isMutable: true,
       isCreateAgent: true,

@@ -6,11 +6,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AgentDetailsPage } from '@/atoms/agent-details/AgentDetailsPage.js';
 import { AgentSessions } from '@/atoms/agent-details/AgentSessions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import { ShellModeProvider } from '@/server/ShellModeContext.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type {
   AgentDetail,
   AgentMetricsServer,
   CodeSnippet,
+  ListPermissionsResponse,
   ScheduleServer,
   Session,
   SessionEventItem,
@@ -59,6 +60,17 @@ const sessionRows: SessionListEntry[] = [
     agentName: 'release-notes-writer',
   },
 ];
+
+function ShellModeProbe() {
+  const shell = useShellMode();
+  return (
+    <output data-testid="shell-mode">
+      {shell.mode.status === 'active'
+        ? `${shell.mode.agentId ?? ''}:${String(shell.mode.isMutable)}`
+        : shell.mode.status}
+    </output>
+  );
+}
 
 function deferred<T>() {
   let settle: ((value: T) => void) | undefined;
@@ -116,6 +128,7 @@ function renderPage({
         <ServerProvider server={server}>
           <ShellModeProvider>
             <AgentDetailsPage agentId="agent-1" />
+            <ShellModeProbe />
           </ShellModeProvider>
         </ServerProvider>
       </SlotsProvider>
@@ -157,6 +170,23 @@ describe('AgentDetailsPage', () => {
     await waitFor(() => {
       expect(deleteAgent).toHaveBeenCalledWith({ agentName: 'release-notes-writer' });
     });
+  });
+
+  it('allows Try with USE while keeping Edit disabled without MANAGE', async () => {
+    renderPage({
+      serverOverrides: {
+        permissions: {
+          listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({ data: { 'agent-1': ['USE'] } })),
+        },
+      },
+    });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Try agent' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Try agent' }));
+    expect(screen.getByTestId('shell-mode')).toHaveTextContent('agent-1:false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for release-notes-writer' }));
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeDisabled();
   });
 
   it('renders tab bodies through SlotProvider overrides', async () => {
