@@ -20,7 +20,44 @@ import type {
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockScheduleServer } from '../server/mockServer.js';
 
+const intersectionObservers: { callback: IntersectionObserverCallback; instance: IntersectionObserver }[] = [];
+
+class IntersectionObserverMock implements IntersectionObserver {
+  readonly root = null;
+  readonly rootMargin = '';
+  readonly thresholds: readonly number[] = [];
+
+  constructor(callback: IntersectionObserverCallback) {
+    intersectionObservers.push({ callback, instance: this });
+  }
+
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+}
+
+/** Report every live sentinel as visible, as scrolling the list to the bottom would. */
+function scrollListToBottom() {
+  const rect = new DOMRect(0, 0, 320, 64);
+  const entry: IntersectionObserverEntry = {
+    boundingClientRect: rect,
+    intersectionRatio: 1,
+    intersectionRect: rect,
+    isIntersecting: true,
+    rootBounds: null,
+    target: document.createElement('div'),
+    time: 0,
+  };
+  act(() => {
+    for (const { callback, instance } of intersectionObservers) callback([entry], instance);
+  });
+}
+
 beforeAll(() => {
+  vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
   HTMLDialogElement.prototype.showModal = function showModal() {
     this.setAttribute('open', '');
   };
@@ -140,6 +177,7 @@ function renderPage({
 describe('AgentDetailsPage', () => {
   afterEach(() => {
     window.history.replaceState(null, '', '/');
+    intersectionObservers.length = 0;
   });
 
   it('loads Overview and renders agent details', async () => {
@@ -343,6 +381,34 @@ describe('AgentDetailsPage', () => {
     expect(screen.queryByText('Release notes draft')).not.toBeInTheDocument();
   });
 
+  it('loads the next page when the list is scrolled to the bottom', async () => {
+    const nextPage = deferred<{ data: SessionListEntry[] }>();
+    const listSessions = vi.fn((request?: { pageToken?: string }) =>
+      request?.pageToken == null
+        ? Promise.resolve({ data: sessionRows, nextPageToken: 'next-page' })
+        : nextPage.promise,
+    );
+    renderPage({ listSessions });
+    await screen.findByText('release-notes-writer');
+    fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+    expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading more sessions' })).not.toBeInTheDocument();
+
+    scrollListToBottom();
+
+    await waitFor(() => expect(listSessions).toHaveBeenCalledTimes(2));
+    expect(listSessions).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'next-page' }));
+    expect(screen.getByRole('status', { name: 'Loading more sessions' })).toBeInTheDocument();
+
+    await act(async () => {
+      nextPage.resolve({
+        data: sessionRows.map(row => ({ ...row, id: 'sess-2', title: 'Second page session' })),
+      });
+    });
+    expect(screen.getByText('Second page session')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading more sessions' })).not.toBeInTheDocument();
+  });
+
   it('keeps loaded rows visible when loading another page fails', async () => {
     const listSessions = vi.fn(async (request?: { pageToken?: string }) => {
       if (request?.pageToken != null) throw new Error('network error');
@@ -353,11 +419,14 @@ describe('AgentDetailsPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    scrollListToBottom();
     await waitFor(() => expect(listSessions).toHaveBeenCalledTimes(2));
     expect(screen.getByText('Release notes draft')).toBeInTheDocument();
     expect(screen.queryByText('Sessions could not be loaded.')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load more' })).toBeEnabled();
+
+    // Still paginating: a later scroll to the bottom retries.
+    scrollListToBottom();
+    await waitFor(() => expect(listSessions).toHaveBeenCalledTimes(3));
   });
 
   it('opens the Sessions tab and selected session from the share URL', async () => {

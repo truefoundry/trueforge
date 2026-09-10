@@ -20,6 +20,8 @@ import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentSessionsProps } from './types.js';
 
+const LOAD_MORE_ROOT_MARGIN = '96px';
+
 function sessionTitle(entry: Pick<SessionListEntry, 'title'>): string {
   const title = entry.title?.trim();
   return title != null && title.length > 0 ? title : 'Untitled session';
@@ -58,6 +60,9 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const [listLoadingMore, setListLoadingMore] = useState(false);
   const [listFailed, setListFailed] = useState(false);
   const listRequestIdRef = useRef(0);
+  const loadMoreInflightRef = useRef(false);
+  const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
+  const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
   const [detailEvents, setDetailEvents] = useState<SessionEventItem[]>();
   const [detailSession, setDetailSession] = useState<Session>();
   const [detailLoading, setDetailLoading] = useState(false);
@@ -103,8 +108,10 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   }, [listRequest, sessionsServer]);
 
   const loadMore = useCallback(async () => {
-    if (nextPageToken == null || listLoadingMore) return;
+    // A ref, not `listLoadingMore`: the observer can fire twice before a re-render.
+    if (nextPageToken == null || loadMoreInflightRef.current) return;
     const requestId = listRequestIdRef.current;
+    loadMoreInflightRef.current = true;
     setListLoadingMore(true);
     try {
       const page = await sessionsServer.listSessions({ ...listRequest, pageToken: nextPageToken });
@@ -112,11 +119,26 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       setEntries(current => [...current, ...page.data]);
       setNextPageToken(page.nextPageToken);
     } catch {
-      // Keep the current page and token visible so the user can retry.
+      // Keep the current page and token so the next scroll to the bottom retries.
     } finally {
+      loadMoreInflightRef.current = false;
       if (listRequestIdRef.current === requestId) setListLoadingMore(false);
     }
-  }, [listLoadingMore, listRequest, nextPageToken, sessionsServer]);
+  }, [listRequest, nextPageToken, sessionsServer]);
+
+  // `entries.length` re-arms the observer: an already-intersecting sentinel emits no new entry.
+  useEffect(() => {
+    if (listLoading || nextPageToken == null || listEl == null || sentinelEl == null) return;
+
+    const observer = new IntersectionObserver(
+      observed => {
+        if (observed.some(entry => entry.isIntersecting)) void loadMore();
+      },
+      { root: listEl, rootMargin: LOAD_MORE_ROOT_MARGIN },
+    );
+    observer.observe(sentinelEl);
+    return () => observer.disconnect();
+  }, [entries.length, listEl, listLoading, loadMore, nextPageToken, sentinelEl]);
 
   useEffect(() => {
     if (selectedSessionId == null || selectedSessionId.length === 0) {
@@ -238,7 +260,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     >
       <Panel id="agent-sessions-list" defaultSize="35%" minSize="20%" maxSize="50%">
         <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
-          <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
+          <div ref={setListEl} className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
             {listLoading ? (
               <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">
                 {['a', 'b', 'c'].map(key => (
@@ -261,20 +283,15 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                 />
               ))
             )}
-          </div>
 
-          {nextPageToken != null && !listLoading ? (
-            <div className="shrink-0 border-t border-border p-3">
-              <button
-                type="button"
-                disabled={listLoadingMore}
-                onClick={() => void loadMore()}
-                className="h-8 w-full rounded-md border border-border text-xs font-medium text-text-primary hover:bg-ghost-button-hover disabled:opacity-60"
-              >
-                {listLoadingMore ? 'Loading…' : 'Load more'}
-              </button>
-            </div>
-          ) : null}
+            {nextPageToken != null && !listLoading && !listFailed ? (
+              <div ref={setSentinelEl} className="px-3 py-2">
+                {listLoadingMore ? (
+                  <Skeleton className="h-16 rounded-md" role="status" aria-label="Loading more sessions" />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </aside>
       </Panel>
 

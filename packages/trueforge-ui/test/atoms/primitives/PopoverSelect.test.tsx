@@ -83,6 +83,30 @@ describe('PopoverSelect', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Timezone' }));
 
-    expect(screen.getByRole('listbox').parentElement).toHaveClass('bottom-full', 'mb-1');
+    const menu = screen.getByRole('listbox').parentElement;
+    expect(menu).toHaveClass('fixed');
+    expect(menu).toHaveStyle({ transform: 'translateY(-100%)' });
+  });
+
+  it('portals the menu so overflow parents do not clip it', () => {
+    render(
+      <div style={{ overflow: 'hidden', height: 40 }}>
+        <PopoverSelect
+          aria-label="Rows per page"
+          options={[
+            { value: '10', label: '10' },
+            { value: '25', label: '25' },
+          ]}
+          value="25"
+          onValueChange={() => undefined}
+        />
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
+
+    const listbox = screen.getByRole('listbox');
+    expect(listbox.parentElement).toHaveClass('fixed');
+    expect(listbox.closest('[style*="overflow"]')).toBeNull();
   });
 });

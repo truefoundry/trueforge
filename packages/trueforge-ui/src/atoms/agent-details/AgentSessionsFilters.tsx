@@ -136,7 +136,7 @@ export function AgentSessionsFilters({
           <Icon name="chevron-down" className="size-4 shrink-0" />
         </button>
         {menuOpen ? (
-          <div className={auiSelectMenuClass('right-0 flex max-h-none overflow-y-visible p-0')}>
+          <div className={auiSelectMenuClass('absolute top-full right-0 mt-1 flex max-h-none overflow-y-visible p-0')}>
             {customPickerOpen ? (
               <div className="flex w-64 min-w-0 flex-col gap-2 border-r border-border p-3">
                 <div className="text-sm font-medium text-text-primary">Select Time Range</div>
