@@ -2,7 +2,12 @@ import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { readSessionIsCreateAgent } from '../../atoms/lib/sessionCreateAgent.js';
 import type { AgentSessionsServer, SessionListEntry } from '../../server/types.js';
 import { toListResult, toUiAgentSpec } from './chatServer.js';
-import { createTrueForgeClient, parseIsoDate, type CreateTrueForgeClientOptions } from './client.js';
+import {
+  createTrueForgeClient,
+  parseIsoDate,
+  resolveTrueForgeBaseUrl,
+  type CreateTrueForgeClientOptions,
+} from './client.js';
 import { toUiEventItem } from './toUiTurnState.js';
 import type { HarnessAgentSpec } from './types.js';
 
@@ -51,7 +56,12 @@ export function createHarnessAgentSessionsServer(
       };
     },
     async getCodeSnippets({ agentId }) {
-      const { data } = await client.internal.agents.getCodeSnippets(agentId);
+      // Snippet SDK `baseUrl` should not end with `/` (hosts often pass a trailing path slash).
+      const absoluteBaseUrl = resolveTrueForgeBaseUrl(options.baseUrl ?? '/').replace(/\/$/, '');
+      const { data } = await client.internal.agents.getCodeSnippets(
+        agentId,
+        /^https?:\/\//i.test(absoluteBaseUrl) ? { baseUrl: absoluteBaseUrl } : undefined,
+      );
       return data.snippets;
     },
     async listSessions(requestParams = {}) {

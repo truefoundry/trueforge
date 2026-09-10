@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -82,6 +84,8 @@ function initialDrawerState(agentId?: string): DrawerState {
 function ScheduleRowActions({
   schedule,
   running,
+  canManage,
+  canDelete,
   onRunNow,
   onEdit,
   onTogglePause,
@@ -89,23 +93,28 @@ function ScheduleRowActions({
 }: {
   schedule: Schedule;
   running: boolean;
+  canManage: boolean;
+  canDelete: boolean;
   onRunNow: () => void;
   onEdit: () => void;
   onTogglePause: () => void;
   onDelete: () => void;
 }) {
+  const PermissionGuard = useSlot('PermissionGuard');
   return (
     <div className="inline-flex items-center justify-end gap-1.5">
-      <Button.Secondary
-        type="button"
-        disabled={running}
-        aria-label={`Run now ${schedule.name}`}
-        size="large"
-        onClick={onRunNow}
-      >
-        <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
-        Run now
-      </Button.Secondary>
+      <PermissionGuard allowed={canManage}>
+        <Button.Secondary
+          type="button"
+          disabled={running}
+          aria-label={`Run now ${schedule.name}`}
+          size="large"
+          onClick={onRunNow}
+        >
+          <Icon name={running ? 'loader' : 'play'} className={cn('size-3.5', running && 'animate-spin')} />
+          Run now
+        </Button.Secondary>
+      </PermissionGuard>
       <DropdownMenu
         align="end"
         trigger={
@@ -118,18 +127,24 @@ function ScheduleRowActions({
           </button>
         }
       >
-        <DropdownMenuItem onClick={onEdit}>
-          <Icon name="pencil" className="size-3.5" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onTogglePause}>
-          <Icon name={schedule.status === 'active' ? 'pause' : 'play'} className="size-3.5" />
-          {schedule.status === 'active' ? 'Pause' : 'Resume'}
-        </DropdownMenuItem>
-        <DropdownMenuItem className="text-failure-bg focus:text-failure-bg" onClick={onDelete}>
-          <Icon name="trash" className="size-3.5" />
-          Delete
-        </DropdownMenuItem>
+        <PermissionGuard allowed={canManage}>
+          <DropdownMenuItem onClick={onEdit}>
+            <Icon name="pencil" className="size-3.5" />
+            Edit
+          </DropdownMenuItem>
+        </PermissionGuard>
+        <PermissionGuard allowed={canManage}>
+          <DropdownMenuItem onClick={onTogglePause}>
+            <Icon name={schedule.status === 'active' ? 'pause' : 'play'} className="size-3.5" />
+            {schedule.status === 'active' ? 'Pause' : 'Resume'}
+          </DropdownMenuItem>
+        </PermissionGuard>
+        <PermissionGuard allowed={canDelete}>
+          <DropdownMenuItem className="text-failure-bg focus:text-failure-bg" onClick={onDelete}>
+            <Icon name="trash" className="size-3.5" />
+            Delete
+          </DropdownMenuItem>
+        </PermissionGuard>
       </DropdownMenu>
     </div>
   );
@@ -141,6 +156,10 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const toaster = useToasterOptional();
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const { allows } = useResourcePermissions({
+    resourceType: 'schedule',
+    resourceIds: schedules.map(schedule => schedule.id),
+  });
   const [runsByScheduleId, setRunsByScheduleId] = useState<Record<string, ScheduleRun[]>>({});
   const [runsLoading, setRunsLoading] = useState(false);
   const [runningScheduleIds, setRunningScheduleIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -154,6 +173,20 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [agentFilter, setAgentFilter] = useState(
     () => agentId ?? filtersFromSearch(window.location.search).agentFilter,
   );
+  const permissionAgentId = agentId ?? (agentFilter === 'all' ? null : agentFilter);
+  const permissionAgentIds = useMemo(
+    () => (permissionAgentId == null ? agentOptions.map(option => option.agentId) : [permissionAgentId]),
+    [agentOptions, permissionAgentId],
+  );
+  const { allows: allowsAgent } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: permissionAgentIds,
+  });
+  const canCreateSchedule =
+    server.permissions == null ||
+    (permissionAgentId == null
+      ? agentOptions.some(option => allowsAgent(option.agentId, 'USE'))
+      : allowsAgent(permissionAgentId, 'USE'));
   const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState(agentId));
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
@@ -316,6 +349,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const hasPageNav = prevTokenStack.length > 0 || nextPageToken != null;
 
   const handleTogglePause = async (schedule: Schedule) => {
+    if (!allows(schedule.id, 'MANAGE')) return;
     const nextStatus: ScheduleStatus = schedule.status === 'active' ? 'paused' : 'active';
     try {
       await scheduleServer.updateSchedule({ ...schedule, status: nextStatus });
@@ -326,6 +360,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   };
 
   const handleRunNow = async (schedule: Schedule) => {
+    if (!allows(schedule.id, 'MANAGE')) return;
     setRunningScheduleIds(prev => new Set(prev).add(schedule.id));
     try {
       await scheduleServer.createScheduleRun({ scheduleId: schedule.id });
@@ -344,6 +379,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   };
 
   const handleDelete = async (schedule: Schedule) => {
+    if (!allows(schedule.id, 'DELETE')) return;
     setPendingDelete(null);
     try {
       await scheduleServer.deleteSchedule({ id: schedule.id });
@@ -401,7 +437,9 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
             ) : null}
             <Button.Primary
               type="button"
+              disabled={!canCreateSchedule}
               onClick={() =>
+                canCreateSchedule &&
                 setDrawer({
                   kind: 'create',
                   agentId: agentFilter !== 'all' ? agentFilter : undefined,
@@ -487,10 +525,16 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                         <ScheduleRowActions
                           schedule={schedule}
                           running={runningScheduleIds.has(schedule.id)}
+                          canManage={allows(schedule.id, 'MANAGE')}
+                          canDelete={allows(schedule.id, 'DELETE')}
                           onRunNow={() => void handleRunNow(schedule)}
-                          onEdit={() => setDrawer({ kind: 'edit', schedule })}
+                          onEdit={() => {
+                            if (allows(schedule.id, 'MANAGE')) setDrawer({ kind: 'edit', schedule });
+                          }}
                           onTogglePause={() => void handleTogglePause(schedule)}
-                          onDelete={() => setPendingDelete(schedule)}
+                          onDelete={() => {
+                            if (allows(schedule.id, 'DELETE')) setPendingDelete(schedule);
+                          }}
                         />
                       </TableCell>
                     </TableRow>
@@ -562,7 +606,11 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
             <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
               Cancel
             </Button.Secondary>
-            <Button.Destructive type="button" onClick={() => void handleDelete(pendingDelete)}>
+            <Button.Destructive
+              type="button"
+              disabled={!allows(pendingDelete.id, 'DELETE')}
+              onClick={() => void handleDelete(pendingDelete)}
+            >
               Delete
             </Button.Destructive>
           </DialogFooter>

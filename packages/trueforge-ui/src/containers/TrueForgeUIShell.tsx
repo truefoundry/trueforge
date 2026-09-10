@@ -9,6 +9,7 @@ import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBri
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
@@ -67,6 +68,8 @@ export type TrueForgeUIProps = {
   withRouter?: boolean;
   /** URL path customization; only honored when `withRouter`. */
   routes?: RoutesConfig;
+  /** Optional identity rendered by the default `UserAvatar` slot. */
+  currentUser?: CurrentUser;
 };
 
 export type TrueForgeUIShellProps = Omit<TrueForgeUIProps, 'withRouter'> & { resolvedRoutes?: ResolvedRoutes };
@@ -267,6 +270,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     server: serverConfig,
     onError,
     customActionRenderers,
+    currentUser,
     resolvedRoutes,
     routes: _routes,
     ...providerRest
@@ -323,15 +327,17 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
 
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
-      <CustomActionRenderersProvider renderers={customActionRenderers}>
-        <ServerProvider server={server}>
-          {resolvedRoutes != null ? (
-            <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
-          ) : (
-            visibilityTree
-          )}
-        </ServerProvider>
-      </CustomActionRenderersProvider>
+      <CurrentUserProvider currentUser={currentUser}>
+        <CustomActionRenderersProvider renderers={customActionRenderers}>
+          <ServerProvider server={server}>
+            {resolvedRoutes != null ? (
+              <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
+            ) : (
+              visibilityTree
+            )}
+          </ServerProvider>
+        </CustomActionRenderersProvider>
+      </CurrentUserProvider>
     </SlotsProvider>
   );
 }

@@ -98,7 +98,7 @@
         "additionalProperties": false,
         "properties": {
           "base_url": {
-            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "description": "Public base URL for the TrueForge SDK `baseUrl`.",
             "format": "uri",
             "type": "string"
           },
@@ -6333,6 +6333,17 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.",
+            "in": "query",
+            "name": "base_url",
+            "required": false,
+            "schema": {
+              "description": "Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.",
+              "format": "uri",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6344,7 +6355,7 @@
                 }
               }
             },
-            "description": "TypeScript SDK samples and the origin to use as `baseUrl`."
+            "description": "TypeScript SDK samples."
           },
           "404": {
             "content": {
