@@ -34,7 +34,6 @@ export const X_TFY_METADATA = 'x-tfy-metadata';
 /** Prefix for harness-owned keys */
 export const TFG_METADATA_PREFIX = 'tfg';
 
-/** Caller session.metadata, then stamp `tfg.*` so harness keys always win on collision. */
 export function buildGatewayMetadata(input: { session: SessionHandle; turnId: string }): Record<string, string> {
   const metadata: Record<string, string> = { ...input.session.metadata };
   metadata[`${TFG_METADATA_PREFIX}.session_id`] = input.session.session_id;
