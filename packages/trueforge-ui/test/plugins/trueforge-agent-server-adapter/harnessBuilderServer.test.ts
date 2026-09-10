@@ -313,6 +313,7 @@ describe('harnessBuilderServer', () => {
             },
             { id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } },
           ],
+          pagination: { limit: 25 },
         });
       }
       return new Response(`Unexpected request: ${url}`, { status: 500 });
@@ -337,6 +338,54 @@ describe('harnessBuilderServer', () => {
       filtered.map(row => row.name),
       ['writer'],
     );
+  });
+
+  it('searchAgents advances offset via page_token on a later API page', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = String(input instanceof Request ? input.url : input);
+      const parsed = new URL(url);
+      if (!parsed.pathname.endsWith('/api/v1/agents')) {
+        return new Response(`Unexpected request: ${url}`, { status: 500 });
+      }
+      const pageToken = parsed.searchParams.get('page_token');
+      if (pageToken == null || pageToken === '') {
+        return Response.json({
+          data: [{ id: 'agt_1', name: 'alpha', manifest: { model: { name: 'test/model' } } }],
+          pagination: { limit: 1, next_page_token: 'tok_2' },
+        });
+      }
+      if (pageToken === 'tok_2') {
+        return Response.json({
+          data: [{ id: 'agt_2', name: 'beta', manifest: { model: { name: 'test/model' } } }],
+          pagination: { limit: 1 },
+        });
+      }
+      return new Response(`Unexpected page_token: ${pageToken}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    const page = await builder.searchAgents({ limit: 1, offset: 1 });
+    assert.deepEqual(
+      page.map(row => row.name),
+      ['beta'],
+    );
+  });
+
+  it('searchAgents caps limit at 25', async () => {
+    const urls: string[] = [];
+    const fetchMock: typeof fetch = async input => {
+      const url = String(input instanceof Request ? input.url : input);
+      urls.push(url);
+      if (isAgentsCollectionUrl(url)) {
+        return Response.json({ data: [], pagination: { limit: 25 } });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    await builder.searchAgents({ limit: 100 });
+    const parsed = new URL(urls[0] ?? '');
+    assert.equal(parsed.searchParams.get('limit'), '25');
   });
 
   it('saveAgent creates when the name is new', async () => {
@@ -385,6 +434,7 @@ describe('harnessBuilderServer', () => {
       if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({
           data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
+          pagination: { limit: 25 },
         });
       }
       if (url.endsWith('/api/v1/agents/agt_1') && method === 'PUT' && typeof init?.body === 'string') {
@@ -432,6 +482,7 @@ describe('harnessBuilderServer', () => {
       if (isAgentsCollectionUrl(url) && method === 'GET') {
         return Response.json({
           data: [{ id: 'agt_1', name: 'writer', manifest: { model: { name: 'test/model' } } }],
+          pagination: { limit: 25 },
         });
       }
       if (url.endsWith('/api/v1/agents/agt_1') && method === 'DELETE') {
@@ -456,7 +507,7 @@ describe('harnessBuilderServer', () => {
       const method = init?.method ?? 'GET';
       requests.push({ method, url });
       if (isAgentsCollectionUrl(url) && method === 'GET') {
-        return Response.json({ data: [] });
+        return Response.json({ data: [], pagination: { limit: 25 } });
       }
       return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
     };

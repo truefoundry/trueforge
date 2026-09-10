@@ -40,7 +40,12 @@ function mockClient(
 
   return {
     agents: {
-      list: vi.fn(async () => ({ data: agents })),
+      list: vi.fn(async () => ({
+        data: agents,
+        response: { pagination: { limit: 25 } },
+        hasNextPage: () => false,
+        getNextPage: async () => undefined,
+      })),
     },
     schedules: {
       list,

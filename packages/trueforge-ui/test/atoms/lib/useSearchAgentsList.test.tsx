@@ -36,7 +36,6 @@ describe('useSearchAgentsList', () => {
       }),
     ).resolves.toEqual({ name: 'helper', agentId: 'helper-id' });
     expect(searchAgents).toHaveBeenLastCalledWith({
-      query: 'helper',
       limit: SEARCH_AGENTS_PAGE_SIZE,
       offset: SEARCH_AGENTS_PAGE_SIZE,
     });
@@ -134,5 +133,38 @@ describe('useSearchAgentsList', () => {
     expect(searchAgents).toHaveBeenCalledTimes(2);
     expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE, offset: 0 });
     expect(result.current.agents).toEqual([{ name: 'alpha', agentId: 'alpha' } satisfies AgentLibraryEntry]);
+  });
+
+  it('paged mode replaces rows and navigates by offset', async () => {
+    const page1 = Array.from({ length: 10 }, (_, i) => ({
+      name: `agent-${i}`,
+      agentId: `agent-${i}`,
+    }));
+    const page2 = [{ name: 'agent-10', agentId: 'agent-10' }];
+    const searchAgents = vi.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce(page2).mockResolvedValueOnce(page1);
+
+    const server = createMockAgentUIServer({ searchAgents });
+    const { result } = renderHook(() => useSearchAgentsList({ enabled: true, query: '', mode: 'paged', limit: 10 }), {
+      wrapper: wrapperFor(server),
+    });
+
+    await waitFor(() => expect(result.current.agents).toHaveLength(10));
+    expect(result.current.canNext).toBe(true);
+    expect(result.current.canPrev).toBe(false);
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, offset: 0 });
+
+    act(() => {
+      result.current.goNext();
+    });
+    await waitFor(() => expect(result.current.agents).toEqual(page2));
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, offset: 10 });
+    expect(result.current.canPrev).toBe(true);
+    expect(result.current.canNext).toBe(false);
+
+    act(() => {
+      result.current.goPrev();
+    });
+    await waitFor(() => expect(result.current.agents).toHaveLength(10));
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
   });
 });

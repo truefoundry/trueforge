@@ -7,9 +7,14 @@ import type { AgentBuilderServer, AgentLibraryEntry } from '../../server/types.j
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useDebouncedValue } from './useDebouncedValue.js';
 
-export const SEARCH_AGENTS_PAGE_SIZE = 50;
+/** Matches API PAGE_LIMIT for agents list. */
+export const SEARCH_AGENTS_PAGE_SIZE = 25;
 const DEFAULT_DEBOUNCE_MS = 300;
 const LOAD_MORE_ROOT_MARGIN = '48px';
+
+function clampPageSize(size: number): number {
+  return Math.min(Math.max(size, 1), SEARCH_AGENTS_PAGE_SIZE);
+}
 
 /** Drain every `searchAgents` page (offset pagination). */
 export async function searchAllAgents(
@@ -21,7 +26,7 @@ export async function searchAllAgents(
   return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
 }
 
-/** Exact-name queries can still span multiple server-filtered pages. */
+/** Exact-name lookup walks unfiltered pages (query is not applied server-side). */
 export async function findAgentByName({
   server,
   agentName,
@@ -31,7 +36,7 @@ export async function findAgentByName({
   agentName: string;
   offset?: number;
 }): Promise<AgentLibraryEntry | undefined> {
-  const rows = await server.searchAgents({ query: agentName, limit: SEARCH_AGENTS_PAGE_SIZE, offset });
+  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
   const match = rows.find(agent => agent.name === agentName);
   if (match != null || rows.length < SEARCH_AGENTS_PAGE_SIZE) return match;
   return findAgentByName({ server, agentName, offset: offset + rows.length });
@@ -43,8 +48,14 @@ export type UseSearchAgentsListOptions = {
   query: string;
   /** Bump to force a replace fetch (e.g. agentsListEpoch). */
   refreshKey?: number;
+  /** Page size for infinite mode, or initial size for paged mode. Capped at 25. */
   limit?: number;
   debounceMs?: number;
+  /**
+   * `infinite` — append via IntersectionObserver sentinel (default).
+   * `paged` — replace rows; navigate with goPrev / goNext.
+   */
+  mode?: 'infinite' | 'paged';
 };
 
 export type UseSearchAgentsListResult = {
@@ -58,18 +69,26 @@ export type UseSearchAgentsListResult = {
   hasMore: boolean;
   listRef: (node: HTMLElement | null) => void;
   sentinelRef: (node: HTMLElement | null) => void;
+  pageSize: number;
+  setPageSize: (pageSize: number) => void;
+  canPrev: boolean;
+  canNext: boolean;
+  goPrev: () => void;
+  goNext: () => void;
 };
 
 /**
- * Debounced `searchAgents` with offset pagination and an IntersectionObserver sentinel.
- * Attach `listRef` to the scroll container and `sentinelRef` to a footer element.
+ * Debounced `searchAgents` with offset pagination.
+ * Infinite mode: attach `listRef` / `sentinelRef` for IntersectionObserver load-more.
+ * Paged mode: use `goPrev` / `goNext` / `setPageSize` (rows replaced each fetch).
  */
 export function useSearchAgentsList({
   enabled,
   query,
   refreshKey = 0,
-  limit = SEARCH_AGENTS_PAGE_SIZE,
+  limit: limitOption = SEARCH_AGENTS_PAGE_SIZE,
   debounceMs = DEFAULT_DEBOUNCE_MS,
+  mode = 'infinite',
 }: UseSearchAgentsListOptions): UseSearchAgentsListResult {
   const server = useOptionalServer();
   // While closed, sync immediately so reopen never fetches a stale query.
@@ -80,6 +99,8 @@ export function useSearchAgentsList({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [pageSize, setPageSizeState] = useState(() => clampPageSize(limitOption));
+  const [offset, setOffset] = useState(0);
 
   const genRef = useRef(0);
   const loadMoreInflightRef = useRef(false);
@@ -89,6 +110,8 @@ export function useSearchAgentsList({
   const sentinelElRef = useRef<HTMLElement | null>(null);
   const [listEl, setListEl] = useState<HTMLElement | null>(null);
   const [sentinelEl, setSentinelEl] = useState<HTMLElement | null>(null);
+
+  const limit = mode === 'paged' ? pageSize : clampPageSize(limitOption);
 
   hasMoreRef.current = hasMore;
   agentsLenRef.current = agents.length;
@@ -105,6 +128,12 @@ export function useSearchAgentsList({
 
   const searchQuery = debouncedQuery.trim() || undefined;
 
+  // Reset to first page when the query or catalog epoch changes.
+  useEffect(() => {
+    if (mode !== 'paged') return;
+    setOffset(0);
+  }, [mode, searchQuery, refreshKey]);
+
   useEffect(() => {
     if (!enabled || server == null) return;
 
@@ -113,8 +142,10 @@ export function useSearchAgentsList({
     setLoading(true);
     setError(null);
 
+    const fetchOffset = mode === 'paged' ? offset : 0;
+
     void server
-      .searchAgents({ query: searchQuery, limit, offset: 0 })
+      .searchAgents({ query: searchQuery, limit, offset: fetchOffset })
       .then(rows => {
         if (gen !== genRef.current) return;
         setAgents(rows);
@@ -133,20 +164,21 @@ export function useSearchAgentsList({
     return () => {
       genRef.current += 1;
     };
-  }, [enabled, server, searchQuery, limit, refreshKey]);
+  }, [enabled, server, searchQuery, limit, refreshKey, mode, offset]);
 
   const loadMore = useCallback(() => {
+    if (mode !== 'infinite') return;
     if (!enabled || server == null || !hasMoreRef.current || loadMoreInflightRef.current || loading) {
       return;
     }
 
     const gen = genRef.current;
-    const offset = agentsLenRef.current;
+    const nextOffset = agentsLenRef.current;
     loadMoreInflightRef.current = true;
     setLoadingMore(true);
 
     void server
-      .searchAgents({ query: searchQuery, limit, offset })
+      .searchAgents({ query: searchQuery, limit, offset: nextOffset })
       .then(rows => {
         if (gen !== genRef.current) return;
         setAgents(prev => [...prev, ...rows]);
@@ -160,10 +192,10 @@ export function useSearchAgentsList({
         loadMoreInflightRef.current = false;
         if (gen === genRef.current) setLoadingMore(false);
       });
-  }, [enabled, server, searchQuery, limit, loading]);
+  }, [enabled, server, searchQuery, limit, loading, mode]);
 
   useEffect(() => {
-    if (!enabled || !hasMore || listEl == null || sentinelEl == null) return;
+    if (mode !== 'infinite' || !enabled || !hasMore || listEl == null || sentinelEl == null) return;
 
     const observer = new IntersectionObserver(
       entries => {
@@ -175,7 +207,22 @@ export function useSearchAgentsList({
     );
     observer.observe(sentinelEl);
     return () => observer.disconnect();
-  }, [enabled, hasMore, listEl, sentinelEl, loadMore, agents.length]);
+  }, [mode, enabled, hasMore, listEl, sentinelEl, loadMore, agents.length]);
+
+  const setPageSize = useCallback((size: number) => {
+    setPageSizeState(clampPageSize(size));
+    setOffset(0);
+  }, []);
+
+  const goNext = useCallback(() => {
+    if (mode !== 'paged' || !hasMoreRef.current || loading) return;
+    setOffset(current => current + pageSize);
+  }, [mode, loading, pageSize]);
+
+  const goPrev = useCallback(() => {
+    if (mode !== 'paged' || loading) return;
+    setOffset(current => Math.max(0, current - pageSize));
+  }, [mode, loading, pageSize]);
 
   return {
     agents,
@@ -186,5 +233,11 @@ export function useSearchAgentsList({
     hasMore,
     listRef,
     sentinelRef,
+    pageSize,
+    setPageSize,
+    canPrev: mode === 'paged' && offset > 0,
+    canNext: mode === 'paged' && hasMore,
+    goPrev,
+    goNext,
   };
 }
