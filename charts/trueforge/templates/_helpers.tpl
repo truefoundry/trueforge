@@ -98,29 +98,14 @@ Controller labels.
 {{- end }}
 
 {{/*
-The controller's SERVER_URL env entry. Accepts a literal or a valueFrom, and
-yields nothing when the `env` map already defines SERVER_URL, so the two cannot
-both emit it.
-*/}}
-{{- define "trueforge.controller.serverUrlEnv" -}}
-{{- if not (hasKey (.Values.env | default dict) "SERVER_URL") -}}
-{{- if .Values.controller.serverUrl -}}
-{{- list (include "trueforge.env.item" (dict "name" "SERVER_URL" "value" .Values.controller.serverUrl) | fromJson) | toYaml -}}
-{{- else -}}
-{{- list (dict "name" "SERVER_URL" "value" (include "trueforge.controller.serverUrl" .)) | toYaml -}}
-{{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 Base URL the controller uses to reach the server API. Defaults to the in-cluster
-server Service when controller.serverUrl is empty.
+server Service when controller.serverUrl is empty (https when mtls is enabled).
 */}}
 {{- define "trueforge.controller.serverUrl" -}}
-{{- if and .Values.controller.serverUrl (kindIs "string" .Values.controller.serverUrl) -}}
+{{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
-{{- printf "http://%s:%v" (include "trueforge.fullname" .) .Values.service.port -}}
+{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.fullname" .) .Values.service.port -}}
 {{- end -}}
 {{- end }}
 
@@ -204,12 +189,12 @@ postgresql subchart (existingSecret override or <release>-postgresql).
 {{- end }}
 
 {{/*
-TrueFoundry size knob. Empty when unset so a standalone install uses `resources`.
-Set by a parent chart's global.resourceTier, or resourceTierOverride.
-Not a Kubernetes concept; do not default it here.
+Resource tier (small | medium | large). Empty when unset so the explicit
+`resources` / `controller.resources` apply. resourceTier wins over a parent
+chart's global.resourceTier.
 */}}
 {{- define "trueforge.resourceTier" -}}
-{{- $override := .Values.resourceTierOverride | default "" | toString | trim -}}
+{{- $override := .Values.resourceTier | default "" | toString | trim -}}
 {{- $fromGlobal := "" -}}
 {{- with .Values.global -}}
 {{- $fromGlobal = .resourceTier | default "" | toString | trim -}}
@@ -294,8 +279,8 @@ limits:
 {{- end }}
 
 {{/*
-Server requests/limits. Default is `.Values.resources`. A TrueFoundry resourceTier
-replaces that table (child-chart resource defaults must not overlay it).
+Server requests/limits. Default is `.Values.resources`. A resourceTier preset
+replaces that table (chart resource defaults must not overlay it).
 */}}
 {{- define "trueforge.resources" -}}
 {{- $tier := include "trueforge.resourceTier" . | trim -}}
@@ -349,7 +334,7 @@ Replica count is always 1, even when a resourceTier is set.
 JSON env entry from a string | { valueFrom: ... } field.
 Expects: name (env var), field (values path for errors), value.
 Literals become env value; valueFrom maps are passed through. The chart does
-not create Secrets — callers who need secretKeyRef must supply valueFrom.
+not create Secrets; callers who need secretKeyRef must supply valueFrom.
 */}}
 {{- define "trueforge.env.fromStringOrValueFrom" -}}
 {{- $name := index . "name" -}}
@@ -515,8 +500,7 @@ mTLS secret volumeMount when mtls.enabled.
 
 {{/*
 Scheduling and pull secrets. A parent chart's global.* is the base; the chart's
-own value wins. Tolerations append rather than replace, matching how the
-truefoundry chart composes global.tolerations with a component's own.
+own value wins. Tolerations append rather than replace.
 */}}
 {{- define "trueforge.imagePullSecrets" -}}
 {{- $secrets := .Values.imagePullSecrets | default (.Values.global.imagePullSecrets | default list) -}}
@@ -548,7 +532,7 @@ truefoundry chart composes global.tolerations with a component's own.
 
 {{/*
 Custom CA. Honours global.customCA whether set on this chart (standalone) or
-inherited from a truefoundry parent. Two modes: mount an operator-supplied full
+inherited from a parent chart. Two modes: mount an operator-supplied full
 bundle straight over /etc/ssl/certs, or merge a CA into the system bundle with
 an initContainer. The chart renders its own ConfigMap when given a certificate,
 so it does not depend on one the parent may or may not have created.

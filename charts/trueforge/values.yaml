@@ -18,8 +18,8 @@ serviceAccount:
   name: ""
 podAnnotations: {}
 podLabels: {}
-# Labels and annotations added to every object this chart renders.
-# Merged over global.labels / global.annotations when running as a subchart.
+# Labels / annotations on every rendered object (merged over global.labels /
+# global.annotations when running as a subchart).
 commonLabels: {}
 commonAnnotations: {}
 podSecurityContext:
@@ -82,7 +82,7 @@ controller:
     - node
     - node_modules/@truefoundry/trueforge/dist/controller-main.js
   # Base URL the controller uses to reach the server (SERVER_URL).
-  # Empty → the in-cluster server Service (http://<fullname>:<service.port>).
+  # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
@@ -95,32 +95,13 @@ controller:
       cpu: 100m
       memory: 256Mi
       ephemeral-storage: 256Mi
-# Controller -> server API key (TRUEFORGE_API_KEY). Required and non-empty
-# whenever the server runs peered (STANDALONE=false), which is always the case
-# for this chart. string, or { valueFrom: { secretKeyRef: { name, key } } }.
-# Prefer valueFrom in production; the chart never creates a Secret for it.
-apiKey: ""
-# --- Extra environment ---------------------------------------------------------
-# Arbitrary env applied to BOTH the server and the controller, as a map of
-# name -> value. Each value is a scalar, or { valueFrom: { secretKeyRef |
-# configMapKeyRef | fieldRef: ... } }. A key here REPLACES the chart's own value
-# for that variable rather than duplicating it, so this is also the way to
-# override something the chart computes (POSTGRES_HOST, PUBLIC_BASE_URL, ...).
-#
-# This is the extension point for running against a hosting platform. The chart
-# stays neutral about who is calling it: platform-specific settings live in the
-# caller's values, not in dedicated fields here.
-#
-# env:
-#   SOME_PLATFORM_API_URL:
-#     valueFrom:
-#       configMapKeyRef: { name: platform-config, key: api-url }
-#   SOME_PLATFORM_API_KEY:
-#     valueFrom:
-#       secretKeyRef: { name: platform-creds, key: api-key }
-#
-# Pair it with extraVolumes / extraVolumeMounts when the platform also needs
-# files mounted, such as client certificates for an outbound mTLS hop.
+# Controller -> server API key (TRUEFORGE_API_KEY). string, or
+# { valueFrom: { secretKeyRef: { name, key } } }. Replace the dev default
+# before any shared deployment; the chart never creates a Secret for it.
+apiKey: "placeholder-value-please-generate-your-own"
+# Extra env for BOTH server and controller: name -> scalar or { valueFrom: ... }.
+# A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
+# ...) replaces it in place. This is the extension point for a parent chart.
 env: {}
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
@@ -156,12 +137,10 @@ configs:
 global:
   security:
     allowInsecureImages: true
-  # Custom CA trust. Honoured whether set here (standalone) or inherited from a
-  # truefoundry parent chart. When `certificate` is given the chart renders its
-  # own ConfigMap; `existingConfigMap.name` reuses one you already have (it must
-  # hold key `ca-certificates.crt`). With overrideCAList the ConfigMap is mounted
-  # straight over /etc/ssl/certs; otherwise an initContainer merges it with the
-  # system bundle. Either way NODE_EXTRA_CA_CERTS is set for the Node runtime.
+  # Custom CA trust, set here or inherited from a parent chart. Give an inline
+  # `certificate` or an `existingConfigMap.name` (key `ca-certificates.crt`);
+  # mounted over /etc/ssl/certs (overrideCAList) or merged with the system
+  # bundle by an initContainer. Sets NODE_EXTRA_CA_CERTS either way.
   customCA:
     enabled: false
     certificate: ""
@@ -186,10 +165,10 @@ global:
     emptyDir:
       sslCerts:
         sizeLimit: 10Mi
-# TrueFoundry size knob. Empty = use `resources` / `controller.resources`.
-# A parent chart (truefoundry) may pass global.resourceTier; this override pins
-# the preset without changing that global.
-resourceTierOverride: ""
+# Resource tier: small | medium | large presets for server and controller.
+# Empty = use `resources` / `controller.resources`. Wins over a parent chart's
+# global.resourceTier.
+resourceTier: ""
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
 # wired to this release automatically. See the Bitnami postgresql chart for the
@@ -254,9 +233,7 @@ externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   url: ""
-  # Redis Sentinel. The app does not read these yet (it only understands
-  # REDIS_URL); the chart injects them so a Sentinel-backed install can be
-  # configured the day the app grows support, without a chart change.
+  # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
   sentinel:
     enabled: false
     # Comma-separated host:port list -> REDIS_SENTINEL_HOSTS.
