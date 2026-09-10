@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -57,6 +58,11 @@ function ScheduleFormDrawerBody({
   const savedFromCreate = view.kind === 'form' ? view.saved : view.schedule;
   const isExternalEdit = mode === 'edit' && view.kind === 'form' && view.saved == null && schedule != null;
   const isCreatedEdit = view.kind === 'form' && view.saved != null;
+  const isInitialCreate = mode === 'create' && view.kind === 'form' && view.saved == null;
+  const { allows: allowsAgent } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: agentId.length === 0 ? [] : [agentId],
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -128,8 +134,14 @@ function ScheduleFormDrawerBody({
 
   const canSubmit = useMemo(() => {
     const cron = valuesToCron(form);
-    return form.name.trim().length > 0 && form.task.trim().length > 0 && cron.length > 0 && agentId.length > 0;
-  }, [form, agentId]);
+    return (
+      form.name.trim().length > 0 &&
+      form.task.trim().length > 0 &&
+      cron.length > 0 &&
+      agentId.length > 0 &&
+      (!isInitialCreate || allowsAgent(agentId, 'USE'))
+    );
+  }, [agentId, allowsAgent, form, isInitialCreate]);
 
   const enterTestView = (saved: Schedule) => {
     setView({ kind: 'test', schedule: saved });

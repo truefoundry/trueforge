@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { ApprovalOption } from '../atoms/ToolApprovalBar.js';
 
 import { parseMcpToolArgs } from '@/utils/toolCallParsing.js';
+import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 export type ToolApprovalOption = {
@@ -32,6 +33,7 @@ export function ToolApprovalContainer({
   onSelectOption,
 }: ToolApprovalContainerProps) {
   const ToolApprovalBar = useSlot('ToolApprovalBar');
+  const canManageSession = useActiveSessionCanManage();
   const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
   const displayToolName = innerToolName && mcpServer ? `${innerToolName} (${mcpServer})` : toolName;
   const [selectedDenyOptionId, setSelectedDenyOptionId] = useState<string | null>(null);
@@ -71,6 +73,7 @@ export function ToolApprovalContainer({
     setShowReasonError(false);
   }, []);
   const onReasonSubmit = useCallback(() => {
+    if (!canManageSession) return;
     const reason = denialReason.trim();
     if (!reason) {
       setShowReasonError(true);
@@ -80,7 +83,7 @@ export function ToolApprovalContainer({
       onSelectOption(selectedDenyOptionId, reason);
       onDenyOptionChange(null);
     }
-  }, [denialReason, onDenyOptionChange, onSelectOption, selectedDenyOptionId]);
+  }, [canManageSession, denialReason, onDenyOptionChange, onSelectOption, selectedDenyOptionId]);
 
   return (
     <ToolApprovalBar
@@ -90,7 +93,15 @@ export function ToolApprovalContainer({
       selectedDenyOption={selectedDenyOption}
       denialReason={denialReason}
       showReasonError={showReasonError}
-      onSelect={onSelectOption}
+      disabled={!canManageSession}
+      onSelect={(optionId, reason) => {
+        if (!canManageSession) return;
+        if (reason === undefined) {
+          onSelectOption(optionId);
+          return;
+        }
+        onSelectOption(optionId, reason);
+      }}
       onDenyOptionChange={onDenyOptionChange}
       onDenialReasonChange={onDenialReasonChange}
       onReasonSubmit={onReasonSubmit}

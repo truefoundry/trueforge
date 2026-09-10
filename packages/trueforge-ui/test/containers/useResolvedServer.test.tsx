@@ -3,9 +3,17 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useResolvedServer } from '@/containers/useResolvedServer.js';
+import type { PermissionsServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
-const mockCreateTrueForgeAgentUIServer = vi.fn((_options?: unknown) =>
+const permissions: PermissionsServer = {
+  listPermissions: vi.fn(async () => ({ data: {} })),
+};
+const defaultHarnessPermissions: PermissionsServer = {
+  listPermissions: vi.fn(async () => ({ data: {} })),
+};
+
+const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: PermissionsServer }) =>
   Promise.resolve(
     createMockAgentUIServer({
       getCapabilities: async () => ({
@@ -15,6 +23,7 @@ const mockCreateTrueForgeAgentUIServer = vi.fn((_options?: unknown) =>
           settings: { enabled: true },
         },
       }),
+      permissions: options?.permissions ?? defaultHarnessPermissions,
     }),
   ),
 );
@@ -39,7 +48,8 @@ vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adap
 }));
 
 vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
-  createTrueForgeAgentUIServer: (options?: unknown) => mockCreateTrueForgeAgentUIServer(options),
+  createTrueForgeAgentUIServer: (options?: Parameters<typeof mockCreateTrueForgeAgentUIServer>[0]) =>
+    mockCreateTrueForgeAgentUIServer(options),
 }));
 
 describe('useResolvedServer', () => {
@@ -73,7 +83,28 @@ describe('useResolvedServer', () => {
       token: 'tok',
       fetch: fetchImpl,
     });
+    expect(result.current.server?.permissions).toBe(defaultHarnessPermissions);
     expect(result.current.server?.getCapabilities).toEqual(expect.any(Function));
+  });
+
+  it('passes an explicit permissions port to the trueforge server', async () => {
+    mockCreateTrueForgeAgentUIServer.mockClear();
+    const { result } = renderHook(() =>
+      useResolvedServer({
+        type: 'trueforge',
+        token: 'tok',
+        permissions,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+    expect(mockCreateTrueForgeAgentUIServer).toHaveBeenCalledWith({
+      token: 'tok',
+      permissions,
+    });
+    expect(result.current.server?.permissions).toBe(permissions);
   });
 
   it('attaches an optional catalog onto the trueforge server when factory returns one', async () => {
@@ -128,6 +159,7 @@ describe('useResolvedServer', () => {
       cpURL: 'https://cp.example',
       gatewayURL: 'https://gw.example',
     });
+    expect(result.current.server?.permissions).toBeUndefined();
     expect(result.current.server?.getCapabilities).toEqual(expect.any(Function));
     await expect(result.current.server?.getCapabilities()).resolves.toEqual({
       data: {
@@ -136,6 +168,22 @@ describe('useResolvedServer', () => {
         settings: { enabled: true },
       },
     });
+  });
+
+  it('attaches an explicit permissions port onto the truefoundry server', async () => {
+    const { result } = renderHook(() =>
+      useResolvedServer({
+        type: 'truefoundry',
+        apiKey: 'k',
+        controlPlaneURL: 'https://cp.example',
+        permissions,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+    expect(result.current.server?.permissions).toBe(permissions);
   });
 
   it('attaches an optional catalog onto the truefoundry server', async () => {

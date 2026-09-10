@@ -1,8 +1,8 @@
-import type { AgentUIServer, CatalogServer } from './types.js';
+import type { AgentUIServer, CatalogServer, PermissionsServer } from './types.js';
 
 /**
  * Built-in backends init inside `<TrueForgeUI />`.
- * Optional `catalog` is attached onto the resolved `AgentUIServer`.
+ * Optional host ports are attached onto the resolved `AgentUIServer`.
  */
 export type TrueForgeBuiltInServerConfig =
   | {
@@ -11,6 +11,7 @@ export type TrueForgeBuiltInServerConfig =
       controlPlaneURL: string;
       gatewayPlaneURL?: string;
       catalog?: CatalogServer;
+      permissions?: PermissionsServer;
     }
   | {
       type: 'trueforge';
@@ -21,6 +22,7 @@ export type TrueForgeBuiltInServerConfig =
       /** Custom fetch (cookie sessions, auth interceptors). */
       fetch?: typeof fetch;
       catalog?: CatalogServer;
+      permissions?: PermissionsServer;
     };
 
 /**

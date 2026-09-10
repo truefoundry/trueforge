@@ -8,6 +8,7 @@ import { IconButton } from './primitives/IconButton.js';
 export type UserMessageActionBarProps = {
   isCopied: boolean;
   editDisabled?: boolean;
+  retryDisabled?: boolean;
   createdAt?: Date | string;
   onCopy: () => void;
   onEdit: () => void;
@@ -20,6 +21,7 @@ const actionBtnClass = 'h-6 w-6 text-text-secondary hover:text-text-primary [&_s
 export function UserMessageActionBar({
   isCopied,
   editDisabled,
+  retryDisabled,
   createdAt,
   onCopy,
   onEdit,
@@ -36,6 +38,7 @@ export function UserMessageActionBar({
         tooltip="Try again"
         variant="ghost"
         className={actionBtnClass}
+        disabled={retryDisabled}
         onClick={onRetry}
       >
         <Icon name="rotate-right" size="0.875em" />
