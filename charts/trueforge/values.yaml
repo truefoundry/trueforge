@@ -4,7 +4,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.2-5632412"
+  tag: "0.2.0-rc.3-1567266"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -242,11 +242,11 @@ externalRedis:
     masterName: ""
     # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
     password: ""
-  # url:
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: my-redis-secret
-  #       key: redis-url
+    # url:
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: my-redis-secret
+    #       key: redis-url
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
