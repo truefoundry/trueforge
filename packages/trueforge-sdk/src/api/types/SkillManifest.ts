@@ -2,15 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface SkillManifest {
-    /** Concise guidance for when the agent should use the skill. */
-    description: string;
-    name: TrueForge.ResourceName;
-    /** Path to the skill directory within the repository. Omit to use the repository root. */
-    path?: string;
-    /** Git ref — branch name, tag, or commit SHA. */
-    ref: string;
-    type: TrueForge.SkillType;
-    /** Full HTTPS URL of a GitHub or GitLab repository. */
-    url: string;
-}
+export type SkillManifest = TrueForge.GitSkill | TrueForge.TrueFoundryRegistrySkill;

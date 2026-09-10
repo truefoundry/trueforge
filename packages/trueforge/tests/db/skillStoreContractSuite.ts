@@ -3,11 +3,11 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { SkillNameConflictError, type ISkillStore } from '../../src/db/skillStore';
-import type { SkillManifest } from '../../src/schemas/skill';
+import type { GitSkill } from '../../src/schemas/skill';
 
 const TENANT = 'default';
 
-function manifest(overrides: Partial<SkillManifest> = {}): SkillManifest {
+function manifest(overrides: Partial<GitSkill> = {}): GitSkill {
   return {
     type: 'git',
     name: 'algorithmic-art',
@@ -36,8 +36,8 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(created.created_at).toMatch(ISO_UTC);
     expect(created.updated_at).toBe(created.created_at);
 
-    const fetched = await store.getSkill({ tenant_id: TENANT, name: 'algorithmic-art' });
-    expect(fetched).toEqual(created);
+    const skills = await store.listSkills({ tenant_id: TENANT, names: undefined });
+    expect(skills).toEqual([created]);
   });
 
   it('createSkill inserts and throws SkillNameConflictError on name clash', async () => {
@@ -52,11 +52,6 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     await expect(
       store.createSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() }),
     ).rejects.toBeInstanceOf(SkillNameConflictError);
-  });
-
-  it('getSkill returns undefined for unknown skills', async () => {
-    const store = getStore();
-    expect(await store.getSkill({ tenant_id: TENANT, name: 'missing' })).toBeUndefined();
   });
 
   it('upsert replaces the whole manifest and preserves created_at', async () => {
@@ -108,6 +103,43 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(skills.every(skill => skill.tenant_id === TENANT)).toBe(true);
   });
 
+  it('validateAgentSkills admits known names and rejects the first missing', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await store.upsertSkill({
+      tenant_id: TENANT,
+      name: 'web-artifacts',
+      manifest: manifest({
+        name: 'web-artifacts',
+        path: 'skills/web-artifacts-builder',
+        description: 'Build web artifacts.',
+      }),
+    });
+
+    await expect(
+      store.validateAgentSkills({
+        tenant_id: TENANT,
+        skills: [
+          { name: 'web-artifacts', preload: false },
+          { name: 'algorithmic-art', preload: false },
+        ],
+      }),
+    ).resolves.toBeUndefined();
+    await expect(store.validateAgentSkills({ tenant_id: TENANT, skills: [] })).resolves.toBeUndefined();
+    await expect(
+      store.validateAgentSkills({
+        tenant_id: TENANT,
+        skills: [
+          { name: 'algorithmic-art', preload: false },
+          { name: 'missing', preload: false },
+        ],
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Unknown skill "missing" — not configured',
+    });
+  });
+
   it('listSkills filters by names and returns empty for an empty name list', async () => {
     const store = getStore();
     await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
@@ -133,5 +165,42 @@ export function runSkillStoreContractSuite(getStore: () => ISkillStore): void {
     expect(filtered.map(skill => skill.name)).toEqual(['demo', 'web-artifacts']);
 
     await expect(store.listSkills({ tenant_id: TENANT, names: [] })).resolves.toEqual([]);
+  });
+
+  it('listSkillVersions returns [] in standalone (no registry versions)', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await expect(store.listSkillVersions({ name: 'algorithmic-art' })).resolves.toEqual([]);
+  });
+
+  it('validateAgentSkills and resolveTurnSkills round-trip git skills', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    const skills = [{ name: 'algorithmic-art', preload: false }];
+    await expect(store.validateAgentSkills({ tenant_id: TENANT, skills })).resolves.toBeUndefined();
+    await expect(store.resolveTurnSkills({ tenant_id: TENANT, skills })).resolves.toEqual([
+      {
+        type: 'git',
+        name: 'algorithmic-art',
+        description: 'Creating algorithmic art using p5.js with seeded randomness.',
+        url: 'https://github.com/anthropics/skills',
+        path: 'skills/algorithmic-art',
+        ref: 'main',
+      },
+    ]);
+  });
+
+  it('validateAgentSkills rejects preload on git skills', async () => {
+    const store = getStore();
+    await store.upsertSkill({ tenant_id: TENANT, name: 'algorithmic-art', manifest: manifest() });
+    await expect(
+      store.validateAgentSkills({
+        tenant_id: TENANT,
+        skills: [{ name: 'algorithmic-art', preload: true }],
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Skill "algorithmic-art": preload is not supported for git skills',
+    });
   });
 }

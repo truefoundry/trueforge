@@ -267,7 +267,7 @@ describe('harnessBuilderServer', () => {
       agentSpec: {
         model: { name: 'test/model' },
         instructions: 'Review carefully.',
-        skills: [{ name: 'review' }],
+        skills: [{ name: 'review', preload: false }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
     });
@@ -312,7 +312,7 @@ describe('harnessBuilderServer', () => {
       name: 'saved-agent',
       manifest: {
         model: { name: 'test/model' },
-        skills: [{ name: 'review' }],
+        skills: [{ name: 'review', preload: false }],
       },
     });
   });
