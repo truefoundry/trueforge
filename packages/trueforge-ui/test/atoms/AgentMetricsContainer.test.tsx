@@ -66,8 +66,16 @@ describe('AgentMetricsContainer', () => {
 
   it('loads the default 24-hour range and reloads a custom range', async () => {
     const getMeters = vi.fn(async (_request: AgentMetricRangeRequest) => [
+      { name: 'total_turns', aggregateValue: 30, description: 'Total turns', unit: 'count' },
+      { name: 'avg_turns_per_session', aggregateValue: 2.5, description: 'Avg turns / session', unit: 'count' },
       { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
-      { name: 'total_cost', aggregateValue: 1.248, description: 'Total cost', unit: '$' },
+      {
+        name: 'cost_per_session_in_usd',
+        aggregateValue: 0.104,
+        description: 'Total cost / total sessions',
+        unit: '$',
+      },
+      { name: 'total_cost_in_usd', aggregateValue: 1.248, description: 'Total cost', unit: '$' },
     ]);
     const getChartData = vi.fn(async (_request: AgentMetricChartDataRequest): Promise<AgentMetricChartData> => ({
       step: '3600',
@@ -93,7 +101,14 @@ describe('AgentMetricsContainer', () => {
       getChartData,
     });
 
-    expect(await screen.findByText('Total sessions')).toBeInTheDocument();
+    expect(await screen.findAllByRole('heading', { level: 3 })).toHaveLength(4);
+    expect(screen.getAllByRole('heading', { level: 3 }).map(heading => heading.textContent)).toEqual([
+      'Total cost',
+      'Total cost / total sessions',
+      'Total sessions',
+      'Avg turns / session',
+    ]);
+    expect(screen.queryByText('Total turns')).not.toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('$1.2480')).toBeInTheDocument();
     expect(await screen.findByText('Sessions: 4')).toBeInTheDocument();

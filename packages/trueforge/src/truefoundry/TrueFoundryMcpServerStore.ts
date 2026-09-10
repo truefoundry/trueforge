@@ -86,37 +86,34 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
-  /** Bearer resolved at connect time plus optional per-server overrides; oauth servers re-check auth first. */
+  /** Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired. */
   resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
     const { record, userRef } = input;
     const headers = async (): Promise<Record<string, string>> => ({
       ...withoutAuthorization(this.#perServerHeaders[record.name]),
       Authorization: `Bearer ${await this.#resolveAccessToken()}`,
     });
-    if (record.manifest.auth?.type === 'dcr') {
-      return async () => {
-        const status = await this.authorize({
-          tenant_id: record.tenant_id,
-          name: record.name,
-          userRef,
-        });
-        if (status.status === 'auth_required') {
-          const authUrl = status.authorization_url;
-          if (authUrl === undefined || authUrl.length === 0) {
-            throw new HTTPException(422, {
-              message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
-            });
-          }
-          return {
-            authRequired: {
-              servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
-            },
-          };
+    return async () => {
+      const status = await this.authorize({
+        tenant_id: record.tenant_id,
+        name: record.name,
+        userRef,
+      });
+      if (status.status === 'auth_required') {
+        const authUrl = status.authorization_url;
+        if (authUrl === undefined || authUrl.length === 0) {
+          throw new HTTPException(422, {
+            message: `MCP server "${record.name}" requires authentication but returned no authorization URL`,
+          });
         }
-        return { headers: await headers() };
-      };
-    }
-    return async () => ({ headers: await headers() });
+        return {
+          authRequired: {
+            servers: [{ id: record.name, name: record.name, auth_url: authUrl }],
+          },
+        };
+      }
+      return { headers: await headers() };
+    };
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
@@ -190,28 +187,25 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     void input.userRef;
     const out = new Map<string, McpAuthStatus>();
 
-    if (input.records.length > 1) {
-      for (const record of input.records) {
-        out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
+    // List responses stay stubbed; single-server GET (e.g. GET /mcp-servers/{name}) hits SFY live status
+    // for every auth mode (oauth2, header/env per-user, …).
+    const [record] = input.records;
+    if (record === undefined || input.records.length !== 1) {
+      for (const item of input.records) {
+        out.set(item.name, resolveMcpAuthStatus({ manifest: item.manifest }));
       }
       return out;
     }
 
-    for (const record of input.records) {
-      if (record.manifest.auth?.type === 'dcr') {
-        out.set(
-          record.name,
-          await this.#client.getMcpAuthStatus({
-            accessToken: await this.#resolveAccessToken(),
-            mcpServerId: record.id,
-            subjectId: this.#subject.id,
-            subjectType: this.#subject.type,
-          }),
-        );
-        continue;
-      }
-      out.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
-    }
+    out.set(
+      record.name,
+      await this.#client.getMcpAuthStatus({
+        accessToken: await this.#resolveAccessToken(),
+        mcpServerId: record.id,
+        subjectId: this.#subject.id,
+        subjectType: this.#subject.type,
+      }),
+    );
     return out;
   }
 

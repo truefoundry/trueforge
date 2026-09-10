@@ -104,6 +104,15 @@ export function AgentMcpEditorContent({
 }: AgentMcpEditorContentProps) {
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Freeze open-time selected MCPs at the top; live picks must not reshuffle the list.
+  const [openSelectedKeys] = useState(() => {
+    const keys = new Set<string>();
+    for (const mount of editableMountsFromSpec(spec.mcpServers)) {
+      keys.add(mount.id);
+      keys.add(mount.name);
+    }
+    return keys;
+  });
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
   const catalogConnectors = connectorsWithSelectedStubs({ connectors, selected: mcpMounts });
   const selectedConnector = catalogConnectors.find(item => item.id === activeConnectorId);
@@ -114,9 +123,13 @@ export function AgentMcpEditorContent({
   const canAddActiveConnector = selectedConnector !== undefined && selectedConnector.authenticated === true;
   const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredConnectors = catalogConnectors.filter(item =>
-    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery),
-  );
+  const filteredConnectors = catalogConnectors
+    .filter(item => `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery))
+    .sort((left, right) => {
+      const leftPinned = openSelectedKeys.has(left.id) || openSelectedKeys.has(left.name);
+      const rightPinned = openSelectedKeys.has(right.id) || openSelectedKeys.has(right.name);
+      return Number(rightPinned) - Number(leftPinned);
+    });
   const normalizedToolQuery = toolQuery.trim().toLowerCase();
   const filteredTools =
     normalizedToolQuery === '' ? tools : tools.filter(tool => tool.name.toLowerCase().includes(normalizedToolQuery));

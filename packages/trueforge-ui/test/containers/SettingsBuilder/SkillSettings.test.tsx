@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import SkillSettings from '@/containers/SettingsBuilder/SkillSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
@@ -182,5 +182,36 @@ describe('SkillSettings', () => {
         },
       ]);
     });
+  });
+
+  it('disables settings writes after TrueFoundry returns 424', async () => {
+    const createSkill = vi.fn(async () => {
+      throw Object.assign(new Error('Failed dependency'), {
+        statusCode: 424,
+        body: { error: { message: 'This resource is managed by TrueFoundry' } },
+      });
+    });
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        skillCatalog: {
+          getSkillCatalog: async () => [catalogEntry],
+          listSkills: async () => [],
+          createSkill,
+        },
+      }),
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <SkillSettings />
+      </ServerProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enable Code Review' }));
+
+    expect(await screen.findByText('This resource is managed by TrueFoundry')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enable Code Review' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Import from GitHub/ })).toBeDisabled();
+    expect(createSkill).toHaveBeenCalledOnce();
   });
 });
