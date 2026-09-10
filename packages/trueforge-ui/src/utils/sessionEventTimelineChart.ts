@@ -189,24 +189,22 @@ function segmentsOverlap(left: SessionEventTimelineSegment, right: SessionEventT
   return left.startMs < right.endMs && right.startMs < left.endMs;
 }
 
-/**
- * Select representative sub-agent tracks for the main event row.
- *
- * Longest-first selection preserves the tracks that explain the most elapsed
- * time; overlapping tracks are still available in dedicated sub-agent lanes.
- */
-export function pickLongestNonOverlappingSegments(
+/** Merge transitively overlapping sub-agent runs into summary bars for the main event row. */
+export function mergeOverlappingSubAgentSegments(
   segments: SessionEventTimelineSegment[],
 ): SessionEventTimelineSegment[] {
-  const selected: SessionEventTimelineSegment[] = [];
-  for (const segment of [...segments].sort((left, right) => {
-    const durationDiff = right.endMs - right.startMs - (left.endMs - left.startMs);
-    return durationDiff !== 0 ? durationDiff : left.startMs - right.startMs;
-  })) {
-    if (selected.some(kept => segmentsOverlap(kept, segment))) continue;
-    selected.push(segment);
+  const merged: SessionEventTimelineSegment[] = [];
+  for (const segment of [...segments].sort(
+    (left, right) => left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
+  )) {
+    const current = merged.at(-1);
+    if (current == null || current.turnIndex !== segment.turnIndex || !segmentsOverlap(current, segment)) {
+      merged.push({ ...segment });
+      continue;
+    }
+    current.endMs = Math.max(current.endMs, segment.endMs);
   }
-  return selected.sort((left, right) => left.startMs - right.startMs);
+  return merged;
 }
 
 /**
@@ -240,8 +238,7 @@ export function groupOverlappingToolCalls(segments: SessionEventTimelineSegment[
   return groups;
 }
 
-// Each visible main-row bar owns a tooltip containing only runs that overlap it.
-// This avoids pulling in distant runs through a chain of transitive overlaps.
+// Each merged main-row bar owns the runs represented by its full interval.
 export function getSubAgentHoverGroups({
   bars,
   subAgentSegments,

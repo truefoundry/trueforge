@@ -58,6 +58,7 @@ import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorCont
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
+import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
@@ -73,6 +74,7 @@ import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SaveAgentForm } from '../atoms/SaveAgentForm.js';
+import type { SchedulesPageProps } from '../atoms/schedules/SchedulesPage.js';
 import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
@@ -111,6 +113,10 @@ const AgentSessions: ComponentType<AgentSessionsProps> = lazy(async () => {
 const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
   () => import('../atoms/agent-details/AgentCodeSnippets.js'),
 );
+const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
+  const mod = await import('../atoms/schedules/SchedulesPage.js');
+  return { default: mod.SchedulesPage };
+});
 const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
   return { default: mod.AgentSessionEventTimeline };
@@ -146,6 +152,7 @@ export const defaultSlots = {
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
   DraftCapabilitiesPanel,
+  DraftComposerActionsMenu,
   AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
@@ -226,6 +233,7 @@ export const defaultSlots = {
   AgentSessions,
   AgentCodeSnippets,
   AgentCodeBlock,
+  SchedulesPage,
   SchedulesButton,
   SaveAgentButton,
   SaveAgentForm,

@@ -8,11 +8,11 @@ import { Icon } from '../../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
+import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { auiInputClass } from '../lib/inputClasses.js';
-import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
@@ -240,18 +240,8 @@ function SectionHeading({ label, count }: { label: string; count: number }) {
 }
 
 export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftCompositeSelectorProps) {
-  const {
-    skills,
-    connectors,
-    connectorLogos,
-    connectorsHasMore,
-    connectorsLoadMoreFailed,
-    connectorsLoadingMore,
-    loading,
-    ensureLoaded,
-    refreshConnectors,
-    loadMoreConnectors,
-  } = useDraftCatalog();
+  const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
+  const { skills, connectors, connectorLogos, loading, ensureLoaded, refreshConnectors } = useDraftCatalog();
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
@@ -371,13 +361,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   }, [open, setOpenAndFlush]);
 
   useEffect(() => () => clearFlushTimer(), [clearFlushTimer]);
-
-  const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
-    enabled: open && tab === 'connectors',
-    hasMore: connectorsHasMore && !connectorsLoadMoreFailed,
-    loading: connectorsLoadingMore || loading,
-    onLoadMore: loadMoreConnectors,
-  });
 
   const catalogConnectors = useMemo(
     () => connectorsWithSelectedStubs({ connectors, selected: selectedMcp }),
@@ -515,10 +498,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             <span className="text-xs leading-none">{skillsDisabledReason}</span>
           </div>
         ) : null}
-        <div
-          ref={tab === 'connectors' ? connectorsListRef : undefined}
-          className="min-h-0 flex-1 overflow-y-auto px-1 pb-2"
-        >
+        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
               {pinnedSelectedConnectors.length > 0 ? (
@@ -572,24 +552,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   onOpenSettings={shell && canConfigureConnectors ? () => openSettings('connectors') : undefined}
                 />
               ) : null}
-              {connectorsHasMore ? (
-                <div
-                  ref={connectorsLoadMoreFailed ? undefined : connectorsSentinelRef}
-                  className="flex h-8 items-center justify-center"
-                >
-                  {connectorsLoadMoreFailed ? (
-                    <button
-                      type="button"
-                      className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                      onClick={loadMoreConnectors}
-                    >
-                      Retry loading connectors
-                    </button>
-                  ) : connectorsLoadingMore ? (
-                    <span className="text-text-secondary text-[0.625rem]">Loading…</span>
-                  ) : null}
-                </div>
-              ) : null}
             </>
           ) : (
             <>
@@ -641,12 +603,34 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       </>
     </>
   );
+  const compactActions = [
+    ...(hasValidModel
+      ? [
+          {
+            id: 'tools',
+            label: `Tools (${toolsCount})`,
+            icon: 'wrench',
+            onSelect: () => openPicker(),
+          },
+        ]
+      : []),
+    ...(onAttach === undefined
+      ? []
+      : [
+          {
+            id: 'attach',
+            label: 'Attach a file',
+            icon: 'paperclip',
+            onSelect: onAttach,
+          },
+        ]),
+  ];
 
-  // Gapless row: now that both triggers are icon-only, their ghost hover targets butt
-  // together as one toolbar cluster rather than reading as separate chips.
   return (
     <div ref={containerRef} className="relative flex flex-wrap items-center">
-      {hasValidModel ? (
+      {compactLayout ? (
+        <DraftComposerActionsMenu actions={compactActions} disabled={disabled || isRunning} />
+      ) : hasValidModel ? (
         <Tooltip content={toolsTooltip} className="max-w-xs whitespace-pre-line text-left" side="top">
           <button
             type="button"
@@ -673,7 +657,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         </Tooltip>
       ) : null}
 
-      {onAttach ? (
+      {!compactLayout && onAttach ? (
         <Tooltip content="Attach a file">
           <button
             type="button"

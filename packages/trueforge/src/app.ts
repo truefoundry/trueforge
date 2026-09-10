@@ -22,7 +22,7 @@ import { createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
-import { createAvailableSkillsRouter } from './apis/skills';
+import { createAvailableSkillsRouter, type ResolveSkillStore } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
@@ -32,14 +32,13 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
-import configuration, { getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
+import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
-import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -146,15 +145,18 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
 /**
  * Single source for both the served document and the one the SDK is built from.
  * When `authEnabled`, advertises required Bearer auth on operations that inherit global security.
+ * `serverUrl` is the public prefix for Try it out (e.g. `/custom/proxy/path`); omit for the SDK spec.
  */
-export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean }) {
+export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean; serverUrl?: string }) {
   const authEnabled = options?.authEnabled ?? false;
   if (authEnabled) {
     registerOpenApiBearerAuth(app);
   }
+  const serverUrl = options?.serverUrl;
   return app.getOpenAPI31Document({
     ...openApiDocConfig,
     ...(authEnabled ? { security: [{ [BEARER_AUTH_SCHEME]: [] }] } : {}),
+    ...(serverUrl !== undefined && serverUrl !== '' ? { servers: [{ url: serverUrl }] } : {}),
   });
 }
 
@@ -177,13 +179,12 @@ export interface ServerDeps<TTransaction> {
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
-   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode
-   * (env + settings-server Daytona).
+   * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
+   * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
@@ -202,6 +203,8 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  /** Per-request store: DB git skills, or SFY registry catalog in TrueFoundry mode. */
+  resolveSkillStore: ResolveSkillStore<TTransaction>;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -290,7 +293,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/skills',
     withAuth(
       createAvailableSkillsRouter({
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
@@ -304,7 +307,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
@@ -325,7 +328,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           eventSubscriptions: deps.eventSubscriptions,
           modelProviderStore: deps.resolveModelProviderStore(c, runAsAgent),
           mcpServerStore: deps.resolveMcpServerStore(c, runAsAgent),
-          skillStore: deps.skillStore,
+          skillStore: deps.resolveSkillStore(c, runAsAgent),
           agentStore: deps.resolveAgentStore(c),
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           logger: deps.logger,
@@ -344,7 +347,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -360,7 +363,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessions: deps.sessions,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         resolveRequestContext,
@@ -403,7 +406,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         redis: deps.redis,
@@ -424,7 +427,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
@@ -436,8 +439,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
 
-  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
-  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app, { authEnabled })));
+  const uiBasePath = getPublicUiBasePath();
+  const openApiSpecPath = `${uiBasePath}api/v1/openapi.json`;
+  const openApiServerUrl = uiBasePath === '/' ? undefined : uiBasePath.replace(/\/$/, '');
+  app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
+  app.get('/api/v1/openapi.json', c =>
+    c.json(
+      buildOpenApiDocument(app, {
+        authEnabled,
+        ...(openApiServerUrl === undefined ? {} : { serverUrl: openApiServerUrl }),
+      }),
+    ),
+  );
 
   app.notFound(routeNotFound);
 

@@ -4,5 +4,5 @@ import type * as TrueForge from "../index.js";
 
 export interface ConfiguredSkill {
     manifest: TrueForge.SkillManifest;
-    name: TrueForge.ResourceName;
+    name: string;
 }

@@ -435,7 +435,7 @@ describe('AgentsLibraryButton', () => {
     expect(searchAgents).not.toHaveBeenCalled();
   });
 
-  it('shows a schedules count badge for visible agents and opens schedules on click', async () => {
+  it('routes schedule actions to the agent Schedules tab', async () => {
     const listSchedules = vi.fn(async () => ({
       data: [
         {
@@ -467,6 +467,12 @@ describe('AgentsLibraryButton', () => {
         { name: 'alpha-agent', agentId: 'alpha-agent' },
         { name: 'beta-agent', agentId: 'beta-agent' },
       ]),
+      sessions: {
+        getAgent: vi.fn(),
+        getCodeSnippets: vi.fn(),
+        listSessions: vi.fn(async () => ({ data: [] })),
+        listSessionEvents: vi.fn(async () => ({ data: [] })),
+      },
       schedules: {
         listSchedules,
         getSchedule: vi.fn(),
@@ -478,17 +484,7 @@ describe('AgentsLibraryButton', () => {
       },
     });
 
-    function SchedulesOpenProbe() {
-      const shell = useShellMode();
-      return <output data-testid="schedules-open">{shell.schedulesOpen ? 'yes' : 'no'}</output>;
-    }
-
-    renderLibrary(
-      <LibraryHarness>
-        <SchedulesOpenProbe />
-      </LibraryHarness>,
-      { server },
-    );
+    renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await waitFor(() => {
@@ -503,15 +499,22 @@ describe('AgentsLibraryButton', () => {
     expect(addSchedule).toHaveTextContent('-');
 
     fireEvent.click(addSchedule);
-    expect(screen.getByTestId('schedules-open')).toHaveTextContent('yes');
-    expect(new URL(window.location.href).searchParams.get('agent')).toBe('beta-agent');
+    expect(screen.getByTestId('library-agent-id')).toHaveTextContent('beta-agent');
+    expect(new URL(window.location.href).searchParams.get('agentId')).toBe('beta-agent');
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');
+    expect(new URL(window.location.href).searchParams.get('agent')).toBeNull();
     expect(new URL(window.location.href).searchParams.get('isNew')).toBe('true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
     fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
-    expect(new URL(window.location.href).searchParams.get('agent')).toBe('alpha-agent');
+    expect(screen.getByTestId('library-agent-id')).toHaveTextContent('alpha-agent');
+    expect(new URL(window.location.href).searchParams.get('agentId')).toBe('alpha-agent');
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');
     expect(new URL(window.location.href).searchParams.get('isNew')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for alpha-agent' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Manage Schedules' }));
+    expect(screen.getByTestId('library-agent-id')).toHaveTextContent('alpha-agent');
+    expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');
   });
 
   it('does not show an empty-schedules action before schedule counts load', async () => {

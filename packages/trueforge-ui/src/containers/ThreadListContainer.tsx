@@ -37,6 +37,8 @@ import { useSlot } from '../theme/SlotsProvider.js';
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
   onThreadOpen?: () => void;
+  /** `recent-history` hides navigation and lists only persisted sessions. */
+  variant?: 'default' | 'recent-history';
 };
 
 const deleteItemClass =
@@ -187,22 +189,39 @@ function ThreadListItemRow({
   );
 }
 
-function useThreadListIndicesByRecency(): number[] {
+function useThreadListIndicesByRecency(variant: NonNullable<ThreadListContainerProps['variant']>): number[] {
   const threadIds = useAuiState(s => s.threads.threadIds);
   const threadItems = useAuiState(s => s.threads.threadItems);
 
-  return useMemo(() => threadListIndicesByRecency({ threadIds, threadItems }), [threadIds, threadItems]);
+  return useMemo(() => {
+    const indices = threadListIndicesByRecency({ threadIds, threadItems });
+    if (variant === 'default') return indices;
+
+    const itemById = new Map<string, (typeof threadItems)[number]>();
+    for (const item of threadItems) {
+      itemById.set(item.id, item);
+      if (item.remoteId != null) itemById.set(item.remoteId, item);
+    }
+
+    return indices.filter(index => {
+      const id = threadIds[index];
+      if (id === undefined) return false;
+      const item = itemById.get(id);
+      return item?.remoteId != null;
+    });
+  }, [threadIds, threadItems, variant]);
 }
 
 function ThreadListItemsByRecency({
+  indices,
   onThreadOpen,
   canDeleteSession,
 }: {
+  indices: number[];
   onThreadOpen?: () => void;
   canDeleteSession: boolean;
 }) {
   // Newest-first: remount/switchToThread can append the active session to threadIds.
-  const indices = useThreadListIndicesByRecency();
   const threadIds = useAuiState(s => s.threads.threadIds);
 
   return (
@@ -223,42 +242,38 @@ const THREAD_LIST_VIEWPORT_SLOT = 'aui_thread-list-viewport';
 /** How close to the bottom (px) before the next sessions page is fetched. */
 const LOAD_MORE_BOTTOM_PX = 80;
 
-function ChatHistorySection({ children, viewportRef }: { children: ReactNode; viewportRef: Ref<HTMLDivElement> }) {
-  const [expanded, setExpanded] = useState(true);
+function RecentChatsSection({
+  children,
+  viewportRef,
+  hideScrollbar,
+  showAgentFilter,
+}: {
+  children: ReactNode;
+  viewportRef: Ref<HTMLDivElement>;
+  hideScrollbar: boolean;
+  showAgentFilter: boolean;
+}) {
   const shell = useOptionalShellMode();
-  const showFilter = shell?.isLibraryEnabled === true;
+  const showFilter = showAgentFilter && shell?.isLibraryEnabled === true;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 px-1 py-1">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-sm font-medium text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary"
-          onClick={() => setExpanded(v => !v)}
-        >
-          <span className="truncate">Chat History</span>
-          <Icon
-            name="chevron-down"
-            className={cn('size-3.5 shrink-0 transition-transform', !expanded && '-rotate-90')}
-          />
-        </button>
+        <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">My History</h2>
         {showFilter ? <AgentHistoryFilterButton /> : null}
       </div>
-      {expanded ? (
-        <div
-          ref={viewportRef}
-          data-slot={THREAD_LIST_VIEWPORT_SLOT}
-          className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto"
-        >
-          {children}
-        </div>
-      ) : null}
+      <div
+        ref={viewportRef}
+        data-slot={THREAD_LIST_VIEWPORT_SLOT}
+        className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto', hideScrollbar && 'aui-scrollbar-hidden')}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
-export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps = {}) {
+export function ThreadListContainer({ onThreadOpen, variant = 'default' }: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
   const isLoading = useAuiState(s => s.threads.isLoading);
@@ -275,6 +290,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
+  const indices = useThreadListIndicesByRecency(variant);
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
@@ -283,6 +299,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
+  const isRecentHistory = variant === 'recent-history';
   const canDeleteSession = typeof server?.deleteSession === 'function';
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
@@ -340,15 +357,15 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
   let listBody: ReactNode;
   if (isIdle) {
-    listBody = <ThreadListEmptyState />;
+    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
   } else if (isLoading) {
     listBody = <ThreadListRowSkeleton />;
-  } else if (threadIds.length === 0) {
-    listBody = <ThreadListEmptyState />;
+  } else if (indices.length === 0) {
+    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
-        <ThreadListItemsByRecency onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
+        <ThreadListItemsByRecency indices={indices} onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
       </ThreadListPrimitive.Root>
     );
   }
@@ -356,18 +373,20 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   return (
     <ThreadListShell
       header={
-        <div className="flex flex-col gap-1">
-          {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-          <AgentsLibraryButton />
-          <SessionsBrowserButton />
-          <SchedulesButton />
-        </div>
+        isRecentHistory ? null : (
+          <div className="flex flex-col gap-1">
+            {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
+            <AgentsLibraryButton />
+            <SessionsBrowserButton />
+            <SchedulesButton />
+          </div>
+        )
       }
     >
-      <ChatHistorySection viewportRef={viewportRef}>
+      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory} showAgentFilter={!isRecentHistory}>
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
-      </ChatHistorySection>
+      </RecentChatsSection>
     </ThreadListShell>
   );
 }

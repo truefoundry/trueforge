@@ -193,10 +193,11 @@
             "$ref": "#/components/schemas/ResponseFormat"
           },
           "skills": {
-            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
+            "description": "Skills used in this agent.",
             "items": {
               "$ref": "#/components/schemas/Skill"
             },
+            "maxItems": 50,
             "type": "array"
           }
         },
@@ -411,8 +412,17 @@
             "minLength": 1,
             "type": "string"
           },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Optional skill metadata.",
+            "type": "object"
+          },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "description": "Skill name.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -656,7 +666,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/SkillType"
+            "$ref": "#/components/schemas/CatalogSkillType"
           },
           "url": {
             "description": "Full HTTPS URL of a GitHub or GitLab repository.",
@@ -673,6 +683,12 @@
           "description"
         ],
         "type": "object"
+      },
+      "CatalogSkillType": {
+        "enum": [
+          "git"
+        ],
+        "type": "string"
       },
       "CatalogWellKnownModelProvider": {
         "additionalProperties": false,
@@ -934,7 +950,8 @@
             "$ref": "#/components/schemas/SkillManifest"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -1335,6 +1352,17 @@
         ],
         "type": "object"
       },
+      "GetAvailableMCPServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AvailableMCPServer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "GetCapabilitiesResponse": {
         "properties": {
           "data": {
@@ -1567,6 +1595,51 @@
         ],
         "type": "object"
       },
+      "GitSkill": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "git"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "ref",
+          "description"
+        ],
+        "type": "object"
+      },
       "GoogleGeminiModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -1678,14 +1751,10 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1740,14 +1809,10 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1882,6 +1947,20 @@
         "required": [
           "data",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "ListSkillVersionsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillVersion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -3903,11 +3982,15 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "Name of a configured skill (also used as the skill directory name in the sandbox).",
-            "maxLength": 64,
+            "description": "Skill name.",
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9._-]+$",
+            "pattern": "^[A-Za-z0-9._\\-/:]+$",
             "type": "string"
+          },
+          "preload": {
+            "default": false,
+            "description": "Inline SKILL.md into the prompt.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3932,6 +4015,23 @@
         "type": "object"
       },
       "SkillManifest": {
+        "discriminator": {
+          "mapping": {
+            "git": "#/components/schemas/GitSkill",
+            "truefoundry": "#/components/schemas/TrueFoundryRegistrySkill"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GitSkill"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryRegistrySkill"
+          }
+        ]
+      },
+      "SkillVersion": {
         "additionalProperties": false,
         "properties": {
           "description": {
@@ -3939,45 +4039,26 @@
             "minLength": 1,
             "type": "string"
           },
+          "display_name": {
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "path": {
-            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9._\\-/]+$",
             "type": "string"
           },
-          "ref": {
-            "description": "Git ref — branch name, tag, or commit SHA.",
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9._\\-/]+$",
-            "type": "string"
-          },
-          "type": {
-            "$ref": "#/components/schemas/SkillType"
-          },
-          "url": {
-            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
-            "minLength": 1,
-            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
-            "type": "string"
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
           }
         },
         "required": [
-          "type",
           "name",
-          "url",
-          "ref",
-          "description"
+          "display_name",
+          "description",
+          "version"
         ],
         "type": "object"
-      },
-      "SkillType": {
-        "enum": [
-          "git"
-        ],
-        "type": "string"
       },
       "TextContent": {
         "properties": {
@@ -4395,6 +4476,48 @@
           "models",
           "type",
           "base_url"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryRegistrySkill": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "display_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "repository_name": {
+            "description": "Repo where the skill is registered.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "display_name",
+          "description",
+          "repository_name",
+          "version"
         ],
         "type": "object"
       },
@@ -5820,12 +5943,12 @@
         "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
         "parameters": [
           {
-            "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+            "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+              "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
               "type": "string"
             }
           }
@@ -6075,32 +6198,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers as a slim name/url list for the composer.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers as a slim name/url list for the composer.",
         "responses": {
           "200": {
             "content": {
@@ -6110,17 +6208,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers (chat projection)."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers (chat projection)."
           },
           "401": {
             "content": {
@@ -6137,11 +6225,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -6248,6 +6331,64 @@
         ],
         "x-excluded": true,
         "x-fern-ignore": true
+      }
+    },
+    "/api/v1/mcp-servers/{name}": {
+      "get": {
+        "description": "A single MCP server as the slim chat projection, with live per-user auth_status.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAvailableMCPServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server (chat projection)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Get an MCP server for chat",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/api/v1/mcp-servers/{name}/authorize": {
@@ -8293,32 +8434,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers with auth_status. Header secrets are redacted.",
         "responses": {
           "200": {
             "content": {
@@ -8328,17 +8444,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers"
           },
           "401": {
             "content": {
@@ -8365,11 +8471,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"
@@ -8905,6 +9006,16 @@
               }
             },
             "description": "A skill with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
           }
         },
         "summary": "Create a skill",
@@ -8949,6 +9060,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
           }
         },
         "summary": "Create or replace a skill",
@@ -8995,6 +9116,54 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/skills/versions": {
+      "get": {
+        "description": "Versions for one skill.",
+        "parameters": [
+          {
+            "description": "Skill name.",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Skill name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillVersionsResponse"
+                }
+              }
+            },
+            "description": "Skill versions."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required."
+          }
+        },
+        "summary": "List skill versions",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list_versions"
       }
     }
   },

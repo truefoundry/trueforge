@@ -120,8 +120,10 @@ shared or public deployment. When enabled, set string `issuerUrl` and
 `clientId`, and `clientSecret` as a string or `valueFrom.secretKeyRef`
 (prefer valueFrom in production).
 
-Also set `server.publicBaseUrl` to the public origin and register
-`{publicBaseUrl}/api/v1/auth/callback` at your IdP.
+Also set `server.publicBaseUrl` to the public application URL (origin plus
+optional pathname) and register `{publicBaseUrl}/api/v1/auth/callback` at your IdP.
+A pathname such as `https://host/custom/proxy/path` is the UI/API public prefix when a reverse
+proxy strips it.
 
 ```yaml
 server:
@@ -199,7 +201,7 @@ extraObjects:
 | `server.replicaCount` | `1`                                 | Number of server replicas.            |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
-| `server.publicBaseUrl`| `""`                                | Public origin for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). |
+| `server.publicBaseUrl`| `""`                                | Public application URL for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). A pathname is the UI/API public prefix. |
 | `configs.oidc.enabled`| `false`                             | Inject `OIDC_*` env for IdP login.    |
 | `postgresql.enabled`  | `true`                              | Bundle the Bitnami Postgres subchart. |
 | `redis.enabled`       | `true`                              | Bundle the Bitnami Redis subchart.    |
@@ -232,7 +234,7 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - **Enable `configs.oidc`** — leaving it off grants shared admin to anyone who can reach the server.
 - **Replace the bundled Postgres password** (`trueforge`) or set `postgresql.auth.existingSecret`.
 - Treat bundled Redis (`redis.auth.enabled: false`) as cluster-internal only, or switch to external passworded Redis via `externalRedis.url`.
-- Set `server.publicBaseUrl` to the real public origin before using MCP OAuth or OIDC.
+- Set `server.publicBaseUrl` to the real public application URL before using MCP OAuth or OIDC (include a pathname when the UI is served under a stripped prefix).
 - Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.
 - If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).

@@ -10,6 +10,8 @@ import {
   CreateSkillRequestSchema,
   GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
+  ListSkillVersionsRequestQuerySchema,
+  ListSkillVersionsResponseSchema,
   ListSkillsResponseSchema,
   UpdateSkillRequestSchema,
 } from '../schemas/skill';
@@ -32,6 +34,30 @@ export const listAvailableSkillsRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+  },
+});
+
+/** Versions for one skill — mounted at /api/v1/skills/versions?name= (FQN or skill name). */
+export const listSkillVersionsRoute = createRoute({
+  method: 'get',
+  path: '/versions',
+  tags: [OpenApiTag.SKILLS],
+  summary: 'List skill versions',
+  description: 'Versions for one skill.',
+  'x-fern-sdk-group-name': ['skills'],
+  'x-fern-sdk-method-name': 'list_versions',
+  request: {
+    query: ListSkillVersionsRequestQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: ListSkillVersionsResponseSchema } },
+      description: 'Skill versions.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Authentication required.',
     },
   },
 });
@@ -87,6 +113,10 @@ export const createSkillRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'A skill with this name already exists.',
     },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported because skills are managed by an external system.',
+    },
   },
 });
 
@@ -112,6 +142,10 @@ export const putSkillRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported because skills are managed by an external system.',
     },
   },
 });

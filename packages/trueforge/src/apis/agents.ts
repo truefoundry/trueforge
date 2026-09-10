@@ -29,12 +29,13 @@ import { validateAgentSpec } from '../runtime/sessionResources';
 import { type Agent, type CreateAgentRequest } from '../schemas/agent';
 import { agentIfAccessible, listAccessibleAgents } from './agentAccess';
 import { buildAgentCodeSnippets } from './agentCodeSnippets';
+import type { ResolveSkillStore } from './skills';
 
 export interface AgentsRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
+  resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
@@ -53,16 +54,16 @@ function toWireAgent(record: AgentRecord): Agent {
 
 async function validateManifest<TTransaction>({
   spec,
-  deps,
   modelProviderStore,
   mcpServerStore,
+  skillStore,
   sandboxProviderStore,
   tenant_id,
 }: {
   spec: AgentSpec;
-  deps: AgentsRouterDeps<TTransaction>;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   tenant_id: string;
 }): Promise<AgentSpec> {
@@ -71,7 +72,7 @@ async function validateManifest<TTransaction>({
     tenant_id,
     modelProviderStore,
     mcpServerStore,
-    skillStore: deps.skillStore,
+    skillStore,
     sandboxProviderStore,
   });
   return spec;
@@ -94,9 +95,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const requestContext = deps.resolveRequestContext(c);
     const manifest = await validateManifest({
       spec: body.manifest,
-      deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       tenant_id: requestContext.tenant_id,
     });
@@ -186,9 +187,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     }
     const manifest = await validateManifest({
       spec: body.manifest,
-      deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       tenant_id: requestContext.tenant_id,
     });
