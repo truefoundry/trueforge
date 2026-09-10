@@ -354,7 +354,7 @@ const ModelSettings = () => {
                                 }
                               }}
                             >
-                              <Icon name="wrench" className="size-3.5" />
+                              <Icon name="pencil" className="size-3.5" />
                               Edit
                             </Button.Secondary>
                             {modelCatalog.deleteModelProvider ? (

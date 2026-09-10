@@ -4,9 +4,9 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SkillType: core.serialization.Schema<serializers.SkillType.Raw, TrueForge.SkillType> =
+export const CatalogSkillType: core.serialization.Schema<serializers.CatalogSkillType.Raw, TrueForge.CatalogSkillType> =
     core.serialization.stringLiteral("git");
 
-export declare namespace SkillType {
+export declare namespace CatalogSkillType {
     export type Raw = "git";
 }

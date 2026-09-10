@@ -33,6 +33,11 @@ describe('createTrueFoundryServer', () => {
     ]);
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
+    const getMcpConnector = vi.fn(async ({ connectorId }: { connectorId: string }) => ({
+      id: connectorId,
+      name: connectorId,
+      authenticated: true,
+    }));
     const getMcpTools = vi.fn(async () => [{ id: 'search', name: 'search', description: 'Search repositories' }]);
     const searchAgents = vi.fn(async () => [{ name: 'ask-ai-agent', agentId: 'ask-ai-agent' }]);
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'agent-1' }));
@@ -49,6 +54,7 @@ describe('createTrueFoundryServer', () => {
       getModels,
       getSkills,
       getMcp,
+      getMcpConnector,
       getMcpTools,
       searchAgents,
       saveAgent,
@@ -62,6 +68,12 @@ describe('createTrueFoundryServer', () => {
 
     await expect(server.getCapabilities()).resolves.toEqual(capabilities);
     await expect(server.getModels()).resolves.toHaveLength(1);
+    await expect(server.getMcpConnector?.({ connectorId: 'github' })).resolves.toEqual({
+      id: 'github',
+      name: 'github',
+      authenticated: true,
+    });
+    expect(getMcpConnector).toHaveBeenCalledWith({ connectorId: 'github' });
     await expect(server.getMcpTools?.({ connectorId: 'github' })).resolves.toEqual([
       { id: 'search', name: 'search', description: 'Search repositories' },
     ]);

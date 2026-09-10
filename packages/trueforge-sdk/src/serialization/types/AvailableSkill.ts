@@ -3,17 +3,18 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ResourceName } from "./ResourceName.js";
 
 export const AvailableSkill: core.serialization.ObjectSchema<serializers.AvailableSkill.Raw, TrueForge.AvailableSkill> =
     core.serialization.object({
         description: core.serialization.string(),
-        name: ResourceName,
+        metadata: core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
+        name: core.serialization.string(),
     });
 
 export declare namespace AvailableSkill {
     export interface Raw {
         description: string;
-        name: ResourceName.Raw;
+        metadata?: Record<string, string> | null;
+        name: string;
     }
 }
