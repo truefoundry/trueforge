@@ -39,15 +39,11 @@ const appTheme: ThemeConfig = {
 
 function Loader() {
   return (
-    <div className="boot-screen">
-      <ThinkingOrb
-        state="connecting"
-        size={64}
-        speed={1}
-        theme="light"
-        paused={false}
-        aria-label="Loading application"
-      />
+    <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
+        <ThinkingOrb state="connecting" speed={1} theme="light" paused={false} aria-hidden style={{
+          width: '72px',
+          height: '72px',
+        }}/>
     </div>
   );
 }

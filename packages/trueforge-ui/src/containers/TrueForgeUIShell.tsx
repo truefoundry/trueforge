@@ -93,7 +93,6 @@ export function ServerInitLoader({ className }: { className?: string }) {
   return (
     <div
       role="status"
-      aria-label="Loading"
       aria-live="polite"
       aria-busy="true"
       className={cn(
@@ -101,7 +100,13 @@ export function ServerInitLoader({ className }: { className?: string }) {
         className,
       )}
     >
-      <ThinkingOrb state="connecting" size={64} speed={1} theme="auto" paused={false} aria-hidden />
+      <div className="flex flex-col items-center gap-3">
+        {/* theme=light: Suspense fallback can render outside ThemeProvider */}
+        <ThinkingOrb state="connecting" speed={1} theme="light" paused={false} aria-hidden style={{
+          width: '72px',
+          height: '72px',
+        }}/>
+      </div>
     </div>
   );
 }
