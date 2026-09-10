@@ -14,17 +14,37 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
   const shell = useOptionalShellMode();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
   const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
+  const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const isBuilder = shell != null && shellIsCreateAgent(shell.mode);
+  const compactActions = [
+    {
+      id: 'agent-config',
+      label: 'Agent config',
+      icon: 'sliders',
+      onSelect: () => shell?.setAgentConfigOpen(true),
+    },
+    ...(onAttach === undefined
+      ? []
+      : [
+          {
+            id: 'attach',
+            label: 'Attach a file',
+            icon: 'paperclip',
+            onSelect: onAttach,
+          },
+        ]),
+  ];
 
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {!isBuilder ? <DraftCompositeSelector disabled={disabled} isRunning={isRunning} onAttach={onAttach} /> : null}
-      {isBuilder && (compact || isMobile) ? (
-        <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} />
+      {isBuilder && compact ? (
+        <DraftComposerActionsMenu actions={compactActions} disabled={disabled || isRunning} />
       ) : null}
-      {isBuilder && onAttach != null ? (
+      {isBuilder && !compact && isMobile ? <DraftAgentConfigTrigger disabled={disabled} isRunning={isRunning} /> : null}
+      {isBuilder && !compact && onAttach != null ? (
         <Tooltip content="Attach a file">
           <button
             type="button"

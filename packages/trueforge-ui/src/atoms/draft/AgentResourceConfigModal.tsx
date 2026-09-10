@@ -14,12 +14,14 @@ export type AgentResourceConfigModalProps = {
   query: string;
   activeConnectorId: string | null;
   tools: McpToolSelection[];
+  connectorLoading: boolean;
+  connectorError: string | null;
   toolsLoading: boolean;
   toolsError: string | null;
   onQueryChange: (query: string) => void;
   onSelectConnector: (connectorId: string) => void;
   onRetryTools: () => void;
-  onRefreshConnectors?: () => Promise<void>;
+  onRefreshConnector?: () => void;
   onChange: (spec: AgentSpec) => void;
   onClose: () => void;
 };
