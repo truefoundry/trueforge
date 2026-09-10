@@ -12,6 +12,7 @@ import { createSandboxProviderCatalog } from './catalogs/sandboxProviderCatalog.
 import { createSkillCatalog } from './catalogs/skillCatalog.js';
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
+import { createHarnessPermissionsServer } from './permissionsServer.js';
 import { createScheduleServer } from './schedules/scheduleServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
@@ -90,6 +91,6 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
-    ...(permissions == null ? {} : { permissions }),
+    permissions: permissions ?? createHarnessPermissionsServer({ client }),
   });
 }

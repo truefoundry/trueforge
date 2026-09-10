@@ -569,10 +569,10 @@ type AgentUIServer = AgentChatServer &
 
 Omit a chrome port such as `catalog` or `schedules` to hide and unregister its routes.
 
-When `permissions` is omitted, actions remain enabled for backward compatibility. When provided, denied mutation
-controls stay visible but disabled with an explanatory tooltip. Both built-in server configs accept an explicit
-`PermissionsServer`; neither enables permission checks by default. Harness hosts can build one with the exported
-`createHarnessPermissionsServer` helper.
+When `permissions` is omitted from a custom or TrueFoundry server, actions remain enabled for backward compatibility.
+When provided, denied mutation controls stay visible but disabled with an explanatory tooltip. The built-in
+`type: "trueforge"` server enables checks automatically through the Harness permissions endpoint; an explicit
+`PermissionsServer` overrides that default.
 
 **Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
 

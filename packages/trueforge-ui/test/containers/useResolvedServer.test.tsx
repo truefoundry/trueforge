@@ -9,6 +9,9 @@ import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer
 const permissions: PermissionsServer = {
   listPermissions: vi.fn(async () => ({ data: {} })),
 };
+const defaultHarnessPermissions: PermissionsServer = {
+  listPermissions: vi.fn(async () => ({ data: {} })),
+};
 
 const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: PermissionsServer }) =>
   Promise.resolve(
@@ -20,7 +23,7 @@ const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: Permis
           settings: { enabled: true },
         },
       }),
-      ...(options?.permissions == null ? {} : { permissions: options.permissions }),
+      permissions: options?.permissions ?? defaultHarnessPermissions,
     }),
   ),
 );
@@ -80,7 +83,7 @@ describe('useResolvedServer', () => {
       token: 'tok',
       fetch: fetchImpl,
     });
-    expect(result.current.server?.permissions).toBeUndefined();
+    expect(result.current.server?.permissions).toBe(defaultHarnessPermissions);
     expect(result.current.server?.getCapabilities).toEqual(expect.any(Function));
   });
 

@@ -26,9 +26,9 @@ describe('createHarnessPermissionsServer', () => {
 });
 
 describe('createTrueForgeAgentUIServer permissions', () => {
-  it('omits permissions by default', () => {
+  it('enables Harness permissions by default', () => {
     const server = createTrueForgeAgentUIServer({ fetch: vi.fn() });
-    expect(server.permissions).toBeUndefined();
+    expect(server.permissions?.listPermissions).toEqual(expect.any(Function));
   });
 
   it('preserves an explicit permissions port', () => {
