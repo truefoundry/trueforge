@@ -246,8 +246,6 @@ async function listAllSchedulesForAgents({
   agentIds: string[];
 }): Promise<Schedule[]> {
   if (agentIds.length === 0) return [];
-  // Cap the Agents library bulk fetch; page size stays within the API max (25).
-  const maxSchedules = 100;
   const rows: Schedule[] = [];
   let pageToken: string | undefined;
   do {
@@ -257,9 +255,6 @@ async function listAllSchedulesForAgents({
       ...(pageToken === undefined ? {} : { pageToken }),
     });
     rows.push(...page.data);
-    if (rows.length >= maxSchedules) {
-      return rows.slice(0, maxSchedules);
-    }
     pageToken = page.nextPageToken;
   } while (pageToken != null && pageToken !== '');
   return rows;
