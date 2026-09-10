@@ -91,6 +91,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
       authorizer: {
         listAgentAccess: input => currentAuthorizer.listAgentAccess(input),
         canAccessAgent: input => currentAuthorizer.canAccessAgent(input),
+        getPermissions: input => currentAuthorizer.getPermissions(input),
       },
     }),
   );
@@ -197,6 +198,7 @@ describe('schedule RBAC', () => {
             : { kind: 'agent_external_ids', agent_external_ids: [] },
         ),
       canAccessAgent: () => Promise.resolve(false),
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     });
     asUser(BOB);
     expect((await app.request(`/${id}`)).status).toBe(200);
@@ -371,6 +373,7 @@ describe('create schedule run', () => {
     const denyAll: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     };
     const { postJson } = await setup(denyAll);
     const res = await postJson('/', 'POST', scheduleBody);
@@ -390,6 +393,7 @@ describe('create schedule run', () => {
     setAuthorizer({
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     });
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
