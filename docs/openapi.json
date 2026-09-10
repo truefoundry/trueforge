@@ -5896,7 +5896,7 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
+        "description": "OIDC: redirect to the IdP. TrueFoundry mode: redirect to platform `/signin/external` (from PUBLIC_BASE_URL). Standalone: redirect to the UI home.",
         "parameters": [
           {
             "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
