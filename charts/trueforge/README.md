@@ -64,6 +64,78 @@ helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --set server.publicBaseUrl=https://trueforge.example.com
 ```
 
+## API keys
+
+`apiKey` (`TRUEFORGE_API_KEY`) authenticates the controller to the server. The
+server always runs peered (`STANDALONE=false`) and the app rejects an empty
+value, so this is **required**: the render fails rather than leaving you with a
+crash-looping pod. Supply it as a string or, preferably, a `valueFrom`:
+
+```yaml
+apiKey:
+  valueFrom:
+    secretKeyRef:
+      name: trueforge-api-key
+      key: TRUEFORGE_API_KEY
+```
+
+This is a different key from `truefoundry.apiKey`, which is the control-plane
+`TFY_API_KEY` used when calling ServiceFoundry.
+
+## Extra environment
+
+`env` is a map of variable name to value, applied to both the server and the
+controller. Values are scalars or `valueFrom` references. A key that matches
+something the chart already sets **replaces** it rather than adding a second
+entry, so it doubles as the override for computed values like `POSTGRES_HOST`
+or `PUBLIC_BASE_URL`.
+
+This is the extension point for running against a hosting platform. The chart
+does not model any particular platform; those settings live in the caller's
+values.
+
+```yaml
+env:
+  SOME_PLATFORM_API_URL:
+    valueFrom:
+      configMapKeyRef: { name: platform-config, key: api-url }
+  SOME_PLATFORM_API_KEY:
+    valueFrom:
+      secretKeyRef: { name: platform-creds, key: api-key }
+```
+
+When the platform also needs files (an outbound mTLS client certificate, say),
+mount them with `extraVolumes` / `extraVolumeMounts`, which apply to both
+deployments. `server.extraEnv` and `controller.extraEnv` remain available for
+per-deployment entries.
+
+## Custom CA
+
+Honoured from `global.customCA`, whether set on this chart or inherited from a
+`truefoundry` parent. Give it a PEM `certificate` and the chart renders its own
+ConfigMap; give it `existingConfigMap.name` (key `ca-certificates.crt`) to reuse
+one. With `overrideCAList: true` the ConfigMap is mounted straight over
+`/etc/ssl/certs`; otherwise an initContainer merges it into the system bundle.
+Either way `NODE_EXTRA_CA_CERTS` is set, since Node ignores the system store.
+
+```yaml
+global:
+  customCA:
+    enabled: true
+    certificate: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+```
+
+## Values inherited from a TrueFoundry parent
+
+`global.labels`, `global.annotations`, `global.podLabels`,
+`global.podAnnotations`, `global.imagePullSecrets`, `global.nodeSelector`,
+`global.affinity`, `global.customCA` and `global.resourceTier` are all applied.
+The chart's own value wins on conflict; `tolerations` append to
+`global.tolerations` rather than replacing them.
+
 ## Resource tiers (TrueFoundry parent)
 
 Sizing in this chart is Kubernetes `resources` / `controller.resources` and
@@ -134,6 +206,14 @@ externalRedis:
 
 For passworded Redis, prefer an external instance and load `REDIS_URL` via
 `valueFrom`.
+
+### Sentinel
+
+`externalRedis.sentinel` injects `REDIS_SENTINEL_HOSTS`,
+`REDIS_SENTINEL_MASTER_NAME` and `REDIS_SENTINEL_PASSWORD`. The app does not
+read them yet (it only understands `REDIS_URL`), so this exists so a
+Sentinel-backed install can be configured the day support lands, without
+needing a chart change.
 
 ## OIDC
 

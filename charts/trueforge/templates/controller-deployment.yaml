@@ -5,7 +5,7 @@ metadata:
   name: {{ include "trueforge.fullname" . }}-controller
   labels:
     {{- include "trueforge.controller.labels" . | nindent 4 }}
-  {{- with .Values.controller.deploymentAnnotations }}
+  {{- with (mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy .Values.controller.deploymentAnnotations)) }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -22,17 +22,17 @@ spec:
     metadata:
       labels:
         {{- include "trueforge.controller.selectorLabels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
+        {{- with (include "trueforge.podLabels" .) }}
+        {{- . | nindent 8 }}
         {{- end }}
-      {{- with .Values.podAnnotations }}
+      {{- with (include "trueforge.podAnnotations" .) }}
       annotations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with (include "trueforge.imagePullSecrets" .) }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "trueforge.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
@@ -44,6 +44,10 @@ spec:
       {{- end }}
       # Above the controller's GRACEFUL_TIMEOUT_SECONDS so SIGKILL does not cut off loop drain.
       terminationGracePeriodSeconds: {{ add .Values.server.gracefulTimeoutSeconds 5 }}
+      {{- with (include "trueforge.customCA.initContainer" .) }}
+      initContainers:
+        {{- . | nindent 8 }}
+      {{- end }}
       containers:
         - name: controller
           image: {{ include "trueforge.image" . | quote }}
@@ -56,8 +60,9 @@ spec:
           {{- end }}
           env:
             {{- include "trueforge.server.env" . | nindent 12 }}
-            - name: SERVER_URL
-              value: {{ include "trueforge.controller.serverUrl" . | quote }}
+            {{- with (include "trueforge.controller.serverUrlEnv" .) }}
+            {{- . | nindent 12 }}
+            {{- end }}
             {{- with .Values.controller.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -67,6 +72,7 @@ spec:
             - name: tmp
               mountPath: /tmp
             {{- include "trueforge.mtlsVolumeMount" . | nindent 12 }}
+            {{- include "trueforge.customCA.volumeMounts" . | nindent 12 }}
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -79,20 +85,21 @@ spec:
           emptyDir: {}
           {{- end }}
         {{- include "trueforge.mtlsVolume" . | nindent 8 }}
+        {{- include "trueforge.customCA.volumes" . | nindent 8 }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with (include "trueforge.nodeSelector" .) }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with (include "trueforge.affinity" .) }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with (include "trueforge.tolerations" .) }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+        {{- . | nindent 8 }}
       {{- end }}
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:

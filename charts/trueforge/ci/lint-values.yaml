@@ -1,7 +1,8 @@
-# Empty overlay so `helm lint` / `helm template` exercise chart defaults
-# (no required values when Postgres and Redis are bundled). Not packaged
+# Minimal overlay so `helm lint` / `helm template` exercise chart defaults.
+# Only `apiKey` is required (the server always runs peered, and the app rejects
+# an empty TRUEFORGE_API_KEY); Postgres and Redis are bundled. Not packaged
 # (see .helmignore).
 #
 # Requires the subchart dependencies to be present first: run `pnpm chart:deps`
 # (pulls the public Bitnami OCI charts, no auth) before linting/templating.
-{}
+apiKey: lint-only-not-a-real-key
