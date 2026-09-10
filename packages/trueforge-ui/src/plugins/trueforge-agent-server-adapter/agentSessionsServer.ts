@@ -59,7 +59,7 @@ export function createHarnessAgentSessionsServer(
       const absoluteBaseUrl = resolveTrueForgeBaseUrl(options.baseUrl ?? '/');
       const { data } = await client.internal.agents.getCodeSnippets(
         agentId,
-        /^https?:\/\//i.test(absoluteBaseUrl) ? { queryParams: { base_url: absoluteBaseUrl } } : undefined,
+        /^https?:\/\//i.test(absoluteBaseUrl) ? { baseUrl: absoluteBaseUrl } : undefined,
       );
       return data.snippets;
     },
