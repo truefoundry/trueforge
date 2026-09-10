@@ -19,7 +19,7 @@ export function getUserInitials(displayName: string): string {
   const last = parts.at(-1);
   const characters =
     parts.length === 1 ? Array.from(first).slice(0, 2) : [Array.from(first)[0], Array.from(last ?? '')[0]];
-    
+
   return characters
     .filter(character => character !== undefined)
     .join('')
