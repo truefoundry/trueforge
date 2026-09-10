@@ -146,11 +146,14 @@ describe('TrueFoundryAgentStore', () => {
       client: mockClient(),
     });
 
-    await expect(store.listAgents({ tenant_id: TENANT, limit: undefined, page_token: undefined }, TXN)).resolves.toBe(
-      listed,
-    );
+    await expect(
+      store.listAgents({ tenant_id: TENANT, agent_name: undefined, limit: undefined, page_token: undefined }, TXN),
+    ).resolves.toBe(listed);
     await expect(store.getAgent({ tenant_id: TENANT, id: 'agent-1' }, TXN)).resolves.toBe(listed.data[0]);
-    expect(listAgents).toHaveBeenCalledWith({ tenant_id: TENANT, limit: undefined, page_token: undefined }, TXN);
+    expect(listAgents).toHaveBeenCalledWith(
+      { tenant_id: TENANT, agent_name: undefined, limit: undefined, page_token: undefined },
+      TXN,
+    );
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'agent-1' }, TXN);
   });
 

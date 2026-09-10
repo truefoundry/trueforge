@@ -282,4 +282,27 @@ describe('agents router', () => {
     const badToken = await router.request('/?page_token=not-a-token');
     expect(badToken.status).toBe(400);
   });
+
+  it('lists agents filtered by agent_name substring case-insensitively', async () => {
+    const alpha = await router.request('/', jsonInit('POST', { ...writeBody, name: 'zzz-filter-alpha-bot' }));
+    const bravo = await router.request('/', jsonInit('POST', { ...writeBody, name: 'zzz-filter-bravo-bot' }));
+    const other = await router.request('/', jsonInit('POST', { ...writeBody, name: 'zzz-filter-unrelated' }));
+    expect(alpha.status).toBe(201);
+    expect(bravo.status).toBe(201);
+    expect(other.status).toBe(201);
+
+    const matched = await router.request('/?agent_name=FILTER-ALPHA');
+    expect(matched.status).toBe(200);
+    const matchedBody = ListAgentsResponseSchema.parse(await matched.json());
+    expect(matchedBody.data.map(agent => agent.name)).toEqual(['zzz-filter-alpha-bot']);
+
+    const both = await router.request('/?agent_name=zzz-filter');
+    expect(both.status).toBe(200);
+    const bothBody = ListAgentsResponseSchema.parse(await both.json());
+    expect(bothBody.data.map(agent => agent.name)).toEqual([
+      'zzz-filter-alpha-bot',
+      'zzz-filter-bravo-bot',
+      'zzz-filter-unrelated',
+    ]);
+  });
 });

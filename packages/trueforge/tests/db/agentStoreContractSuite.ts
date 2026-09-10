@@ -146,7 +146,12 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       external_id: null,
     });
 
-    const agents = await store.listAgents({ tenant_id: TENANT, limit: undefined, page_token: undefined });
+    const agents = await store.listAgents({
+      tenant_id: TENANT,
+      agent_name: undefined,
+      limit: undefined,
+      page_token: undefined,
+    });
     expect(agents.data.map(agent => agent.name)).toEqual(['alpha', 'zeta']);
     expect(agents.data.every(agent => agent.tenant_id === TENANT)).toBe(true);
   });
@@ -179,6 +184,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       await store.listAgents({
         tenant_id: TENANT,
         external_ids: ['sf-agent-1'],
+        agent_name: undefined,
         limit: undefined,
         page_token: undefined,
       }),
@@ -188,6 +194,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         await store.listAgents({
           tenant_id: TENANT,
           external_ids: ['sf-agent-1', 'sf-agent-2'],
+          agent_name: undefined,
           limit: undefined,
           page_token: undefined,
         })
@@ -197,6 +204,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       await store.listAgents({
         tenant_id: TENANT,
         external_ids: ['missing'],
+        agent_name: undefined,
         limit: undefined,
         page_token: undefined,
       }),
@@ -205,10 +213,52 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       await store.listAgents({
         tenant_id: TENANT,
         external_ids: [],
+        agent_name: undefined,
         limit: undefined,
         page_token: undefined,
       }),
     ).toEqual({ data: [], pagination: { limit: 0 } });
+  });
+
+  it('listAgents filters by agent_name substring case-insensitively', async () => {
+    const store = getStore();
+    await store.createAgent({
+      tenant_id: TENANT,
+      created_by_subject: CREATED_BY_SUBJECT,
+      name: 'alpha-bot',
+      manifest: manifest(),
+      external_id: null,
+    });
+    await store.createAgent({
+      tenant_id: TENANT,
+      created_by_subject: CREATED_BY_SUBJECT,
+      name: 'bravo-bot',
+      manifest: manifest(),
+      external_id: null,
+    });
+    await store.createAgent({
+      tenant_id: TENANT,
+      created_by_subject: CREATED_BY_SUBJECT,
+      name: 'unrelated',
+      manifest: manifest(),
+      external_id: null,
+    });
+
+    const matched = await store.listAgents({
+      tenant_id: TENANT,
+      agent_name: 'BOT',
+      limit: undefined,
+      page_token: undefined,
+    });
+    expect(matched.data.map(agent => agent.name)).toEqual(['alpha-bot', 'bravo-bot']);
+
+    const none = await store.listAgents({
+      tenant_id: TENANT,
+      agent_name: 'missing',
+      limit: undefined,
+      page_token: undefined,
+    });
+    expect(none.data).toEqual([]);
   });
 
   it('listAgents paginates with limit and page_token in name order', async () => {
@@ -235,13 +285,19 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       external_id: null,
     });
 
-    const page1 = await store.listAgents({ tenant_id: TENANT, limit: 2, page_token: undefined });
+    const page1 = await store.listAgents({
+      tenant_id: TENANT,
+      agent_name: undefined,
+      limit: 2,
+      page_token: undefined,
+    });
     expect(page1.data.map(agent => agent.name)).toEqual(['alpha', 'bravo']);
     expect(page1.pagination.limit).toBe(2);
     expect(page1.pagination.next_page_token).toEqual(expect.any(String));
 
     const page2 = await store.listAgents({
       tenant_id: TENANT,
+      agent_name: undefined,
       limit: 2,
       page_token: page1.pagination.next_page_token,
     });
