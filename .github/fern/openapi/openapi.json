@@ -1749,7 +1749,6 @@
             "items": {
               "$ref": "#/components/schemas/ImportAgentItem"
             },
-            "minItems": 1,
             "type": "array"
           }
         },
@@ -5688,7 +5687,7 @@
                 }
               }
             },
-            "description": "Invalid body."
+            "description": "Invalid body or non-importable session (e.g. missing agent_id for unresolved named agent)."
           },
           "409": {
             "content": {
