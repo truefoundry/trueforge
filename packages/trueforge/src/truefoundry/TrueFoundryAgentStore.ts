@@ -145,7 +145,10 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       const failures = [asError(error)];
       if (externalId !== undefined) {
         try {
-          await this.#client.deleteRemoteAgent({ accessToken: await this.#resolveAccessToken(), externalId });
+          await this.#client.deleteRemoteAgent({
+            accessToken: await this.#resolveAccessToken(),
+            externalId,
+          });
         } catch (cleanupError) {
           failures.push(asError(cleanupError));
         }
@@ -194,7 +197,10 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
         try {
           await this.#client.putRemoteAgent({
             accessToken: await this.#resolveAccessToken(),
-            ...toPutRemoteAgentPayload({ name: previous.name, manifest: previous.manifest }),
+            ...toPutRemoteAgentPayload({
+              name: previous.name,
+              manifest: previous.manifest,
+            }),
           });
         } catch (restoreError) {
           throw new AggregateError(

@@ -308,7 +308,10 @@ describe('TrueFoundryAgentStore', () => {
         TXN,
       ),
     ).rejects.toThrow('db update failed');
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
+    expect(deleteRemoteAgent).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      externalId: 'sf-1',
+    });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: local.id }, TXN);
   });
 
@@ -580,7 +583,10 @@ describe('TrueFoundryAgentStore', () => {
     });
 
     await store.deleteAgent({ tenant_id: TENANT, id: previous.id });
-    expect(deleteRemoteAgent).toHaveBeenCalledWith({ accessToken: TOKEN, externalId: 'sf-1' });
+    expect(deleteRemoteAgent).toHaveBeenCalledWith({
+      accessToken: TOKEN,
+      externalId: 'sf-1',
+    });
     expect(deleteAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: previous.id }, TXN);
     expect(firstInvocationOrder(deleteRemoteAgent)).toBeLessThan(firstInvocationOrder(deleteAgent));
   });
