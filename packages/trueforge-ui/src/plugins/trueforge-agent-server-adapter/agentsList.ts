@@ -25,7 +25,7 @@ export async function listAgentsPage({
 }): Promise<TrueForgeApi.Agent[]> {
   const pageSize = clampAgentsPageSize(limit);
   const start = Math.max(0, offset);
-  let page = await client.agents.list({ limit: pageSize });
+  const page = await client.agents.list({ limit: pageSize });
   let at = 0;
   while (at < start) {
     if (!page.hasNextPage()) return [];

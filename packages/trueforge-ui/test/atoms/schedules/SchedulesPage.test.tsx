@@ -431,11 +431,11 @@ describe('SchedulesPage', () => {
       agentId: `agent-${String(index + 1)}`,
       name: `Agent ${String(index + 1)}`,
     }));
-    const searchAgents = vi.fn(async ({ limit = 50, offset = 0 } = {}) => agents.slice(offset, offset + limit));
+    const searchAgents = vi.fn(async ({ limit = 25, offset = 0 } = {}) => agents.slice(offset, offset + limit));
     renderPage(sampleSchedules, {}, undefined, searchAgents);
 
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenCalledTimes(2);
+      expect(searchAgents).toHaveBeenCalledTimes(3);
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Filter by agent' }));
     expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument();
