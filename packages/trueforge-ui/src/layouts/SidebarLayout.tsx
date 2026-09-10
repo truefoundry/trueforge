@@ -137,6 +137,7 @@ function SidebarRail({
   const brand = useBrand();
   const chrome = resolveBrandChrome(brand);
   const BrandLogo = useSlot('BrandLogo');
+  const UserAvatar = useSlot('UserAvatar');
 
   return (
     <aside
@@ -160,6 +161,7 @@ function SidebarRail({
       <SidebarNav />
       <footer className="flex shrink-0 flex-col items-center border-border p-2">
         <ShellActions labeled className="flex-col" />
+        <UserAvatar labeled className="mt-1" />
       </footer>
     </aside>
   );

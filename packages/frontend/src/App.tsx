@@ -55,7 +55,7 @@ type BootState =
 
 export function App() {
   const authError = parseAuthErrorReason(window.location.search);
-  const [session, setSession] = useState<SessionState | 'checking'>('checking');
+  const [session, setSession] = useState<SessionState | { status: 'checking' }>({ status: 'checking' });
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
   // Gate boot on a non-redirecting `/me` probe: unauthenticated users see the
@@ -75,7 +75,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (session !== 'authenticated') {
+    if (session.status !== 'authenticated') {
       return;
     }
     if (parseAuthErrorReason(window.location.search) == null) {
@@ -93,7 +93,7 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    if (session !== 'authenticated') {
+    if (session.status !== 'authenticated') {
       return;
     }
     const state = { cancelled: false };
@@ -158,7 +158,7 @@ export function App() {
     );
   }
 
-  if (session === 'checking') {
+  if (session.status === 'checking') {
     return (
       <ThemeProvider theme={appTheme}>
         <Loader />
@@ -166,7 +166,7 @@ export function App() {
     );
   }
 
-  if (session === 'unauthenticated') {
+  if (session.status === 'unauthenticated') {
     return (
       <ThemeProvider theme={appTheme}>
         <GetStartedScreen />
@@ -204,6 +204,7 @@ export function App() {
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         initialSettingsOpen={boot.openSettings}
+        currentUser={{ displayName: session.displayName }}
         overrides={overrides}
         theme={appTheme}
         className="app-assistant"

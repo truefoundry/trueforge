@@ -104,6 +104,8 @@ interface ServerPersistence<TTransaction> {
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  /** Import agents: SF assume-user headers on the client; DB store when TrueFoundry mode is off. */
+  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -117,7 +119,10 @@ interface ServerPersistence<TTransaction> {
 }
 
 /** Shared ServiceFoundry HTTP client when TrueFoundry mode is on; otherwise undefined. */
-function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFoundryServerClient | undefined {
+function createServiceFoundryServerClient(
+  logger: Logger,
+  headers?: Record<string, string>,
+): TrueFoundryServiceFoundryServerClient | undefined {
   if (!isTrueFoundryModeEnabled(configuration)) {
     return undefined;
   }
@@ -134,6 +139,7 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
+    ...(headers !== undefined ? { headers } : {}),
   });
 }
 
@@ -299,6 +305,7 @@ async function createStandalonePersistence(options: {
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveAgentStore: () => agentStore,
+    resolveImportAgentStore: () => agentStore,
     resolveSandboxProviderStore: () => sandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -384,6 +391,25 @@ async function createDistributedPersistence(options: {
     db,
     client: serviceFoundryClient,
   });
+  const resolveImportAgentStore = (
+    serviceFoundryServerHeaders: Record<string, string>,
+  ): IAgentStore<Transaction<PostgresDatabase>> => {
+    const client = createServiceFoundryServerClient(logger, serviceFoundryServerHeaders);
+    if (client === undefined) {
+      return agentStore;
+    }
+    return new TrueFoundryAgentStore({
+      inner: agentStore,
+      client,
+      context: {
+        tenant_id: 'system',
+        subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
+        roles: [],
+        user_credential: client.apiKey,
+      },
+      db,
+    });
+  };
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: new PostgresSandboxProviderStore(db),
   });
@@ -394,6 +420,7 @@ async function createDistributedPersistence(options: {
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -416,6 +443,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
@@ -476,6 +504,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
@@ -537,7 +566,12 @@ try {
       )
     : await createServerRuntime(await createDistributedPersistence({ configuration, logger }), logger);
 
-  if (mountFrontend(app, { dir: configuration.FRONTEND_DIR, uiBasePath: getPublicUiBasePath() })) {
+  if (
+    mountFrontend(app, {
+      dir: configuration.FRONTEND_DIR,
+      uiBasePath: getPublicUiBasePath(),
+    })
+  ) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
   } else {
     logger.warn(

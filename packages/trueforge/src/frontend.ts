@@ -26,7 +26,7 @@ function isAppShellPath(pathname: string): boolean {
   return pathname === '/' || pathname === '/index.html';
 }
 
-function applyPublicUiBase(options: { html: string; uiBasePath: string }): string {
+function applyShellTokens(options: { html: string; uiBasePath: string }): string {
   return options.html.replaceAll(SHELL_BASE_TOKEN, options.uiBasePath);
 }
 
@@ -52,7 +52,10 @@ export function mountFrontend(app: OpenAPIHono, options: { dir: string; uiBasePa
     return false;
   }
 
-  const shellHtml = applyPublicUiBase({ html: readFileSync(indexPath, 'utf8'), uiBasePath: options.uiBasePath });
+  const shellHtml = applyShellTokens({
+    html: readFileSync(indexPath, 'utf8'),
+    uiBasePath: options.uiBasePath,
+  });
 
   // serveStatic joins `root` with the request path, so an absolute dir is working-directory proof.
   const serveFile = serveStatic({ root: options.dir, precompressed: true });

@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface AgentCodeSnippets {
-    /** Origin to pass as the TrueForge SDK `baseUrl`. */
+    /** Public base URL for the TrueForge SDK `baseUrl`. */
     baseUrl: string;
     snippets: TrueForge.AgentCodeSnippet[];
 }
