@@ -16,8 +16,8 @@ export const authLoginRoute = createRoute({
   tags: [OpenApiTag.AUTH],
   summary: 'Start the login flow',
   description:
-    'Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight ' +
-    'back into the app — there is nothing to log into.',
+    'OIDC: redirect to the IdP. TrueFoundry mode: redirect to platform `/signin/external` (from PUBLIC_BASE_URL). ' +
+    'Standalone: redirect to the UI home.',
   'x-fern-ignore': true,
   'x-excluded': true,
   request: { query: AuthLoginQuerySchema },
