@@ -30,7 +30,7 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
   return <McpAuthPrompt servers={servers} onConnect={handleConnect} onContinue={onContinue} readOnly={readOnly} />;
 }
 
-export function McpAuthContainer() {
+export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
   const McpAuthPrompt = useSlot('McpAuthPrompt');
   const { pending, resume } = useTrueFoundryMcpAuth();
   const isRunning = useThreadIsRunning();
@@ -39,7 +39,15 @@ export function McpAuthContainer() {
   if (!pending) return null;
 
   if (catalog) {
-    return <CatalogMcpAuthPrompt servers={pending.mcpServers} onContinue={() => void resume()} readOnly={isRunning} />;
+    return (
+      <CatalogMcpAuthPrompt
+        servers={pending.mcpServers}
+        onContinue={() => {
+          if (!disabled) void resume();
+        }}
+        readOnly={isRunning || disabled}
+      />
+    );
   }
 
   const handleConnect = (serverId: string) => {
@@ -53,8 +61,10 @@ export function McpAuthContainer() {
     <McpAuthPrompt
       servers={pending.mcpServers}
       onConnect={handleConnect}
-      onContinue={() => void resume()}
-      readOnly={isRunning}
+      onContinue={() => {
+        if (!disabled) void resume();
+      }}
+      readOnly={isRunning || disabled}
     />
   );
 }

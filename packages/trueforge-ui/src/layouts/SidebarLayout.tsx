@@ -59,7 +59,11 @@ function SidebarNav(): ReactNode {
     shell?.sessionsOpen === true ||
     shell?.schedulesOpen === true;
   const mode = shell?.mode;
-  const newChatSelected = !overlayOpen && mode?.status === 'active' && mode.isMutable && !mode.isCreateAgent;
+  const newChatSelected =
+    !overlayOpen &&
+    mode?.status === 'active' &&
+    !mode.isCreateAgent &&
+    shell?.historyAgentFilter?.intent !== 'try-agent';
   const newAgentSelected = !overlayOpen && mode != null && shellIsCreateAgent(mode);
 
   const handleNewChat = () => {
@@ -137,6 +141,7 @@ function SidebarRail({
   const brand = useBrand();
   const chrome = resolveBrandChrome(brand);
   const BrandLogo = useSlot('BrandLogo');
+  const UserAvatar = useSlot('UserAvatar');
 
   return (
     <aside
@@ -160,6 +165,7 @@ function SidebarRail({
       <SidebarNav />
       <footer className="flex shrink-0 flex-col items-center border-border p-2">
         <ShellActions labeled className="flex-col" />
+        <UserAvatar labeled className="mt-1" />
       </footer>
     </aside>
   );

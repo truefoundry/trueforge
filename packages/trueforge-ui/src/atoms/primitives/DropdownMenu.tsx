@@ -161,7 +161,7 @@ export function DropdownMenu({
                   .join(' ') || undefined,
             }}
             className={cn(
-              'fixed z-[200] min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
+              'fixed z-[200] flex min-w-[8rem] flex-col rounded-md border border-border bg-card-bg p-1',
               'text-text-primary shadow-md',
               className,
             )}

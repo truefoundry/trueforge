@@ -10,10 +10,19 @@ describe('authStatusSearch', () => {
   });
 
   it('shouldShowAuthErrorScreen only for unauthenticated error landings', () => {
-    assert.equal(shouldShowAuthErrorScreen({ authError: 'login_failed', session: 'unauthenticated' }), 'login_failed');
-    assert.equal(shouldShowAuthErrorScreen({ authError: 'login_failed', session: 'checking' }), null);
-    assert.equal(shouldShowAuthErrorScreen({ authError: 'login_failed', session: 'authenticated' }), null);
-    assert.equal(shouldShowAuthErrorScreen({ authError: null, session: 'unauthenticated' }), null);
+    assert.equal(
+      shouldShowAuthErrorScreen({ authError: 'login_failed', session: { status: 'unauthenticated' } }),
+      'login_failed',
+    );
+    assert.equal(shouldShowAuthErrorScreen({ authError: 'login_failed', session: { status: 'checking' } }), null);
+    assert.equal(
+      shouldShowAuthErrorScreen({
+        authError: 'login_failed',
+        session: { status: 'authenticated', displayName: 'Ada Lovelace' },
+      }),
+      null,
+    );
+    assert.equal(shouldShowAuthErrorScreen({ authError: null, session: { status: 'unauthenticated' } }), null);
   });
 
   it('stripAuthErrorSearch drops error and keeps other query and hash', () => {

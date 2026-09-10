@@ -21,6 +21,22 @@ export async function searchAllAgents(
   return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
 }
 
+/** Exact-name queries can still span multiple server-filtered pages. */
+export async function findAgentByName({
+  server,
+  agentName,
+  offset = 0,
+}: {
+  server: Pick<AgentBuilderServer, 'searchAgents'>;
+  agentName: string;
+  offset?: number;
+}): Promise<AgentLibraryEntry | undefined> {
+  const rows = await server.searchAgents({ query: agentName, limit: SEARCH_AGENTS_PAGE_SIZE, offset });
+  const match = rows.find(agent => agent.name === agentName);
+  if (match != null || rows.length < SEARCH_AGENTS_PAGE_SIZE) return match;
+  return findAgentByName({ server, agentName, offset: offset + rows.length });
+}
+
 export type UseSearchAgentsListOptions = {
   /** When false, no fetches run. */
   enabled: boolean;

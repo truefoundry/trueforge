@@ -98,7 +98,7 @@
         "additionalProperties": false,
         "properties": {
           "base_url": {
-            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "description": "Public base URL for the TrueForge SDK `baseUrl`.",
             "format": "uri",
             "type": "string"
           },
@@ -1686,6 +1686,382 @@
           "auth",
           "models",
           "type"
+        ],
+        "type": "object"
+      },
+      "ImportAgentItem": {
+        "additionalProperties": false,
+        "properties": {
+          "created_by_subject": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreatedBySubject"
+              },
+              {
+                "description": "Original creator to persist on the agent."
+              }
+            ]
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "tenant_id": {
+            "description": "Tenant to create the agent under.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "manifest",
+          "tenant_id",
+          "created_by_subject"
+        ],
+        "type": "object"
+      },
+      "ImportAgentItemResult": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "exists",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "tenant_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "tenant_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "ImportAgentsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "description": "Agents to create; each carries tenant_id and created_by_subject.",
+            "items": {
+              "$ref": "#/components/schemas/ImportAgentItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "agents"
+        ],
+        "type": "object"
+      },
+      "ImportAgentsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportAgentsResult"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ImportAgentsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ImportAgentItemResult"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "ImportSessionEvent": {
+        "additionalProperties": {},
+        "properties": {
+          "created_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ImportSessionRequest": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/ImportSessionSnapshot"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionTurn"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "session",
+          "turns"
+        ],
+        "type": "object"
+      },
+      "ImportSessionResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportSessionResult"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ImportSessionResult": {
+        "properties": {
+          "imported": {
+            "type": "boolean"
+          },
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imported",
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "ImportSessionSnapshot": {
+        "additionalProperties": {},
+        "properties": {
+          "agent_id": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agent_name": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agent_spec": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "created_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "custom": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "last_activity_timestamp_ms": {
+            "type": "number"
+          },
+          "last_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "tenant_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "tenant_id",
+          "created_by_subject",
+          "title",
+          "last_turn_id",
+          "custom",
+          "last_activity_timestamp_ms",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ImportSessionThread": {
+        "additionalProperties": {},
+        "properties": {
+          "agent_info": {},
+          "capability_state": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "completion": {},
+          "context": {
+            "items": {},
+            "type": "array"
+          },
+          "current_context_usage": {},
+          "parent": {},
+          "thread_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id",
+          "context",
+          "capability_state"
+        ],
+        "type": "object"
+      },
+      "ImportSessionTurn": {
+        "additionalProperties": {},
+        "properties": {
+          "ancestor_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "checkpoint": {},
+          "created_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "custom": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionEvent"
+            },
+            "type": "array"
+          },
+          "first_turn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "input": {
+            "items": {},
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {},
+          "threads": {
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionThread"
+            },
+            "type": "array"
+          },
+          "turn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "updated_at": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "first_turn_id",
+          "previous_turn_id",
+          "ancestor_ids",
+          "input",
+          "custom",
+          "created_at",
+          "updated_at",
+          "threads",
+          "events"
+        ],
+        "type": "object"
+      },
+      "ImportSessionsCheckpointResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "properties": {
+              "created_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "created_at"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -5193,10 +5569,169 @@
   "info": {
     "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.2.0-rc.2"
+    "version": "0.2.0-rc.3"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/internal/import/agents": {
+      "post": {
+        "description": "Ops/backfill only. Per-item created | exists | failed.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportAgentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportAgentsResponse"
+                }
+              }
+            },
+            "description": "Per-agent create results."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid body."
+          }
+        },
+        "summary": "Import agents in bulk (create)",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/internal/import/checkpoint": {
+      "get": {
+        "description": "Min created_at among imported sessions for one tenant (metadata.imported=true).",
+        "parameters": [
+          {
+            "description": "Tenant whose imported-session watermark to read.",
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "Tenant whose imported-session watermark to read.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionsCheckpointResponse"
+                }
+              }
+            },
+            "description": "Per-tenant checkpoint watermark."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error."
+          }
+        },
+        "summary": "Session import checkpoint",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/internal/import/sessions": {
+      "post": {
+        "description": "Ops/backfill only. Named sessions link agent_name to a local agent when present; otherwise a dummy agent_id. Drafts use agent_spec (SF name/id stashed in metadata when both present). 409 if session_id exists.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionResponse"
+                }
+              }
+            },
+            "description": "Imported."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid body or non-importable session (e.g. missing agent_id for unresolved named agent)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionResponse"
+                }
+              }
+            },
+            "description": "Session already exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error."
+          }
+        },
+        "summary": "Import one historical session snapshot",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-ignore": true
+      }
+    },
     "/api/internal/list-permissions": {
       "post": {
         "description": "Return granted actions for each requested agent, schedule, or session id.",
@@ -5872,6 +6407,17 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.",
+            "in": "query",
+            "name": "base_url",
+            "required": false,
+            "schema": {
+              "description": "Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.",
+              "format": "uri",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5883,7 +6429,7 @@
                 }
               }
             },
-            "description": "TypeScript SDK samples and the origin to use as `baseUrl`."
+            "description": "TypeScript SDK samples."
           },
           "404": {
             "content": {
@@ -5970,22 +6516,22 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
+        "description": "Redirects the browser to begin authentication. Optional `return_to` is the same-origin path to land on afterward.",
         "parameters": [
           {
-            "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
+            "description": "Same-origin path to land on after authentication.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Same-origin relative path; otherwise the public UI home.",
+              "description": "Same-origin path to land on after authentication.",
               "type": "string"
             }
           }
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the IdP authorization endpoint."
+            "description": "Redirect to continue authentication."
           }
         },
         "summary": "Start the login flow",

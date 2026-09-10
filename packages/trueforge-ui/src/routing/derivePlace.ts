@@ -13,6 +13,10 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
   if (sessionId != null) return { type: 'session', sessionId };
 
   const { mode, agentConfigMode } = snapshot;
+  if (mode.status === 'active' && mode.isMutable && mode.isCreateAgent) {
+    return { type: 'buildAgent' };
+  }
+
   if (mode.status === 'active' && !mode.isMutable && agentConfigMode !== 'SingleAgent') {
     const agentName = mode.agentName ?? mode.agentId;
     if (agentName != null) return { type: 'agent', agentName };

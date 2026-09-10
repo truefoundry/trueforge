@@ -70,6 +70,7 @@ import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
 import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
+import { PermissionGuard } from '../atoms/PermissionGuard.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
@@ -96,6 +97,7 @@ import { ToolApprovalBar } from '../atoms/ToolApprovalBar.js';
 import { ToolCallCard } from '../atoms/ToolCallCard.js';
 import { ToolCallContentBlock } from '../atoms/ToolCallContentBlock.js';
 import { ToolGroupCard } from '../atoms/ToolGroupCard.js';
+import { UserAvatar } from '../atoms/UserAvatar.js';
 import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
 import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
@@ -148,6 +150,7 @@ export const defaultSlots = {
   ComposerLeftSection,
   ComposerRightSection,
   ComposerSendButton,
+  PermissionGuard,
   DraftComposerLeftSection,
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
@@ -251,4 +254,5 @@ export const defaultSlots = {
   Toast,
   ToastStack,
   ShellActionsActionSlot,
+  UserAvatar,
 } satisfies AtomSlots;

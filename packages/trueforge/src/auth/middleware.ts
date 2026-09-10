@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { jwtVerify } from 'jose';
 
+import configuration from '../config';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
 import { hasAdminRole, type RequestContext } from './identity';
@@ -38,6 +39,29 @@ export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
     return next();
   };
 }
+
+/**
+ * Service-to-service API key auth for internal import.
+ * Sets request_context so resolveAgentStore can build TrueFoundryAgentStore
+ * (needs user_credential for ServiceFoundry put/delete). Body supplies tenant_id.
+ */
+export const truefoundryAdminMiddleware: MiddlewareHandler = async (c, next) => {
+  const token = extractRequestToken(c);
+  if (configuration.STANDALONE) {
+    throw new HTTPException(403, { message: 'Service API key required' });
+  }
+  const apiKey = configuration.TRUEFOUNDRY_API_KEY;
+  if (apiKey === undefined || token === undefined || token !== apiKey) {
+    throw new HTTPException(403, { message: 'Service API key required' });
+  }
+  c.set('request_context', {
+    tenant_id: 'system',
+    subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
+    roles: [],
+    user_credential: apiKey,
+  });
+  return next();
+};
 
 /**
  * Soft OIDC probe for login/callback — not request-gate middleware.

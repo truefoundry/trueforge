@@ -9,6 +9,7 @@ import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBri
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
+import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
@@ -67,6 +68,8 @@ export type TrueForgeUIProps = {
   withRouter?: boolean;
   /** URL path customization; only honored when `withRouter`. */
   routes?: RoutesConfig;
+  /** Optional identity rendered by the default `UserAvatar` slot. */
+  currentUser?: CurrentUser;
 };
 
 export type TrueForgeUIShellProps = Omit<TrueForgeUIProps, 'withRouter'> & { resolvedRoutes?: ResolvedRoutes };
@@ -161,7 +164,7 @@ function ChatProviderFromShell({
   /** When routing, reports the active thread's remote id up to `ShellRouteSync`. */
   onRemoteIdChange?: (id: string | undefined) => void;
 } & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
-  const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
+  const { mode, runtimeKey, historyAgentFilter, listSessionsAgentId, pendingSessionId } = useShellMode();
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
 
@@ -186,10 +189,15 @@ function ChatProviderFromShell({
     };
   }, [server, isCreateAgent]);
 
-  const runtimeServer = useMemo(
+  const cachedRuntimeServer = useMemo(
     () => withSessionListCache({ server: serverWithCreateIntent, cache: sessionListCache }),
     [serverWithCreateIntent, sessionListCache],
   );
+  const runtimeServer = useMemo<AgentUIServer>(() => {
+    if (historyAgentFilter == null || historyAgentFilter.agentId != null) return cachedRuntimeServer;
+    // Do not expose an unfiltered page under a filter label while its backend id resolves.
+    return { ...cachedRuntimeServer, listSessions: async () => ({ data: [] }) };
+  }, [cachedRuntimeServer, historyAgentFilter]);
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.
@@ -262,6 +270,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     server: serverConfig,
     onError,
     customActionRenderers,
+    currentUser,
     resolvedRoutes,
     routes: _routes,
     ...providerRest
@@ -318,15 +327,17 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
 
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
-      <CustomActionRenderersProvider renderers={customActionRenderers}>
-        <ServerProvider server={server}>
-          {resolvedRoutes != null ? (
-            <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
-          ) : (
-            visibilityTree
-          )}
-        </ServerProvider>
-      </CustomActionRenderersProvider>
+      <CurrentUserProvider currentUser={currentUser}>
+        <CustomActionRenderersProvider renderers={customActionRenderers}>
+          <ServerProvider server={server}>
+            {resolvedRoutes != null ? (
+              <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
+            ) : (
+              visibilityTree
+            )}
+          </ServerProvider>
+        </CustomActionRenderersProvider>
+      </CurrentUserProvider>
     </SlotsProvider>
   );
 }

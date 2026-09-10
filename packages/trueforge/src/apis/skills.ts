@@ -1,7 +1,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
-import type { AgentRecord } from '../db/agentStore';
 import { SkillNameConflictError, type ISkillStore, type SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import {
@@ -14,10 +13,7 @@ import {
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
 import { parseTrueFoundryRegistrySkill } from '../schemas/skill';
 
-export type ResolveSkillStore<TTransaction = never> = (
-  rc: Context,
-  runAsAgent?: AgentRecord,
-) => ISkillStore<TTransaction>;
+export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
 
 export interface SkillsRouterDeps<TTransaction> {
   resolveSkillStore: ResolveSkillStore<TTransaction>;

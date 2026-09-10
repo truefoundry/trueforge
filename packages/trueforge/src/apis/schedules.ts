@@ -73,7 +73,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   logger: Logger;
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
-  resolveSkillStore: (c: Context, runAsAgent?: AgentRecord) => ISkillStore<TTransaction>;
+  resolveSkillStore: (c: Context) => ISkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
 }
 
@@ -113,7 +113,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       eventSubscriptions: deps.eventSubscriptions,
       modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
       mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
-      skillStore: deps.resolveSkillStore(c, prepared.agent),
+      skillStore: deps.resolveSkillStore(c),
       agentStore: deps.agentStore,
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       logger: deps.logger,

@@ -114,6 +114,8 @@ interface ServerPersistence<TTransaction> {
     perServerHeaders?: PerServerMcpHeaders,
   ) => IMcpServerWithAuthStore<TTransaction>;
   resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
+  /** Import agents: SF assume-user headers on the client; DB store when TrueFoundry mode is off. */
+  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
@@ -123,11 +125,14 @@ interface ServerPersistence<TTransaction> {
   /** One shared client for TrueFoundry store resolvers + auth; undefined when TrueFoundry mode is off. */
   serviceFoundryClient: TrueFoundryServiceFoundryServerClient | undefined;
   /** Per-request store: DB git skills, or SFY registry catalog in TrueFoundry mode. */
-  resolveSkillStore: (rc: RequestContext, runAsAgent?: AgentRecord) => ISkillStore<TTransaction>;
+  resolveSkillStore: (rc: RequestContext) => ISkillStore<TTransaction>;
 }
 
 /** Shared ServiceFoundry HTTP client when TrueFoundry mode is on; otherwise undefined. */
-function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFoundryServerClient | undefined {
+function createServiceFoundryServerClient(
+  logger: Logger,
+  headers?: Record<string, string>,
+): TrueFoundryServiceFoundryServerClient | undefined {
   if (!isTrueFoundryModeEnabled(configuration)) {
     return undefined;
   }
@@ -144,28 +149,24 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
+    ...(headers !== undefined ? { headers } : {}),
   });
 }
 
-/** Per-request SFY skill catalog; otherwise {@link persistenceStore}.
- * `runAsAgent` is set only when a turn should use a saved agent's token.
- */
+/** Per-request SFY skill catalog; otherwise {@link persistenceStore}. Caller JWT for list/validate. */
 function buildResolveSkillStore<TTransaction>(options: {
   persistenceStore: ISkillStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-  logger: Logger;
-}): (rc: RequestContext, runAsAgent?: AgentRecord) => ISkillStore<TTransaction> {
-  const { persistenceStore, client, logger } = options;
-  if (client) {
-    return (rc, runAsAgent) =>
-      new TrueFoundrySkillStore<TTransaction>({
-        client,
-        requestContext: rc,
-        agent: runAsAgent,
-        logger,
-      });
+}): (rc: RequestContext) => ISkillStore<TTransaction> {
+  const { persistenceStore, client } = options;
+  if (client === undefined) {
+    return () => persistenceStore;
   }
-  return () => persistenceStore;
+  return rc =>
+    new TrueFoundrySkillStore<TTransaction>({
+      client,
+      context: rc,
+    });
 }
 
 /**
@@ -316,6 +317,7 @@ async function createStandalonePersistence(options: {
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveAgentStore: () => agentStore,
+    resolveImportAgentStore: () => agentStore,
     resolveSandboxProviderStore: () => sandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     tokenStore,
@@ -408,13 +410,31 @@ async function createDistributedPersistence(options: {
     db,
     client: serviceFoundryClient,
   });
+  const resolveImportAgentStore = (
+    serviceFoundryServerHeaders: Record<string, string>,
+  ): IAgentStore<Transaction<PostgresDatabase>> => {
+    const client = createServiceFoundryServerClient(logger, serviceFoundryServerHeaders);
+    if (client === undefined) {
+      return agentStore;
+    }
+    return new TrueFoundryAgentStore({
+      inner: agentStore,
+      client,
+      context: {
+        tenant_id: 'system',
+        subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
+        roles: [],
+        user_credential: client.apiKey,
+      },
+      db,
+    });
+  };
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,
   });
   const resolveSkillStore = buildResolveSkillStore({
     persistenceStore: skillStore,
     client: serviceFoundryClient,
-    logger,
   });
   return {
     sessionStore: new PostgresSessionStore(db),
@@ -425,6 +445,7 @@ async function createDistributedPersistence(options: {
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     resolveSkillStore,
     withTransaction: callback => db.transaction().execute(callback),
@@ -443,6 +464,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     agentStore,
     mcpOAuthStore,
+    resolveImportAgentStore,
     withTransaction,
     tokenStore,
     scheduleStore,
@@ -510,8 +532,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   };
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
-  const resolveSkillStore = (c: Context, runAsAgent?: AgentRecord) =>
-    persistence.resolveSkillStore(resolveRequestContext(c), runAsAgent);
+  const resolveSkillStore = (c: Context) => persistence.resolveSkillStore(resolveRequestContext(c));
 
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
@@ -521,6 +542,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
+    resolveImportAgentStore,
     resolveSandboxProviderStore,
     withTransaction,
     tokenStore,
@@ -583,7 +605,12 @@ try {
       )
     : await createServerRuntime(await createDistributedPersistence({ configuration, logger }), logger);
 
-  if (mountFrontend(app, { dir: configuration.FRONTEND_DIR, uiBasePath: getPublicUiBasePath() })) {
+  if (
+    mountFrontend(app, {
+      dir: configuration.FRONTEND_DIR,
+      uiBasePath: getPublicUiBasePath(),
+    })
+  ) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
   } else {
     logger.warn(
