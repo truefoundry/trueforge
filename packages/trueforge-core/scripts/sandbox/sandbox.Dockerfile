@@ -28,8 +28,8 @@ RUN apt-get update \
       && helm version \
       && curl -L https://github.com/nats-io/nats-server/releases/download/${NATS_SERVER_VERSION}/nats-server-${NATS_SERVER_VERSION}-linux-amd64.tar.gz -o /tmp/nats-server.tar.gz \
       && tar -xzf /tmp/nats-server.tar.gz -C /tmp \
-      && mv /tmp/nats-server-${NATS_SERVER_VERSION}/nats-server /usr/local/bin/nats-server \
-      && rm -rf /tmp/nats-server.tar.gz /tmp/nats-server-${NATS_SERVER_VERSION} \
+      && mv /tmp/nats-server-${NATS_SERVER_VERSION}-linux-amd64/nats-server /usr/local/bin/nats-server \
+      && rm -rf /tmp/nats-server.tar.gz /tmp/nats-server-${NATS_SERVER_VERSION}-linux-amd64 \
       && mkdir -p /var/lib/nats /var/log/nats \
       && nats-server --version \
       && git config --global user.email "trueforge@example.org" \
