@@ -6,12 +6,7 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentMetricChartProps, AgentMetricsViewProps } from './types.js';
 
-const featuredMetricNames = [
-  'total_cost_in_usd',
-  'cost_per_session_in_usd',
-  'total_sessions',
-  'avg_turns_per_session',
-];
+const featuredMetricNames = ['total_cost_in_usd', 'cost_per_session_in_usd', 'total_sessions', 'avg_turns_per_session'];
 
 export function AgentMetricsView({
   meters,
