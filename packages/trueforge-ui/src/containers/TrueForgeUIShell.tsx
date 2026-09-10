@@ -161,7 +161,7 @@ function ChatProviderFromShell({
   /** When routing, reports the active thread's remote id up to `ShellRouteSync`. */
   onRemoteIdChange?: (id: string | undefined) => void;
 } & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
-  const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
+  const { mode, runtimeKey, historyAgentFilter, listSessionsAgentId, pendingSessionId } = useShellMode();
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
 
@@ -186,10 +186,15 @@ function ChatProviderFromShell({
     };
   }, [server, isCreateAgent]);
 
-  const runtimeServer = useMemo(
+  const cachedRuntimeServer = useMemo(
     () => withSessionListCache({ server: serverWithCreateIntent, cache: sessionListCache }),
     [serverWithCreateIntent, sessionListCache],
   );
+  const runtimeServer = useMemo<AgentUIServer>(() => {
+    if (historyAgentFilter == null || historyAgentFilter.agentId != null) return cachedRuntimeServer;
+    // Do not expose an unfiltered page under a filter label while its backend id resolves.
+    return { ...cachedRuntimeServer, listSessions: async () => ({ data: [] }) };
+  }, [cachedRuntimeServer, historyAgentFilter]);
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.

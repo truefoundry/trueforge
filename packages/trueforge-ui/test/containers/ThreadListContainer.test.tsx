@@ -55,6 +55,55 @@ function ThreadListRowOverride({ title, active, onSelect, actions }: ThreadListR
   );
 }
 
+function TryAgentButton() {
+  const shell = useShellMode();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          shell.selectLibraryAgent({
+            isMutable: false,
+            agentId: 'support-id',
+            agentName: 'Support Agent',
+          })
+        }
+      >
+        Try Support Agent
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          shell.openHistorySession({
+            sessionId: 'support-session',
+            isMutable: false,
+            agentName: 'Support Agent',
+          })
+        }
+      >
+        Open Support Session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          shell.setHistoryAgentFilter({
+            agentId: 'support-id',
+            agentName: 'Support Agent',
+            intent: 'history',
+          });
+          shell.openHistorySession({
+            sessionId: 'filtered-support-session',
+            isMutable: false,
+            agentName: 'Support Agent',
+          });
+        }}
+      >
+        Open Filtered Support Session
+      </button>
+    </>
+  );
+}
+
 function renderThreadList({
   adapter,
   onThreadOpen,
@@ -184,9 +233,42 @@ describe('ThreadListContainer', () => {
     expect(screen.queryByRole('button', { name: 'Unsaved chat' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Start new chat' })).not.toBeInTheDocument();
     expect(screen.queryByText('New Chat')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'My History' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'My History' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chat History' })).not.toBeInTheDocument();
     expect(container.querySelector('[data-slot="aui_thread-list-viewport"]')).toHaveClass('aui-scrollbar-hidden');
+  });
+
+  it('uses filter intent to distinguish Try Agent from a filtered agent session', () => {
+    const server = createMockAgentUIServer({
+      searchAgents: async () => [{ name: 'Support Agent', agentId: 'support-id' }],
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+          <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
+            <ThreadListRuntimeHarness threadList={{ threads: [] }}>
+              <CompactLayoutProvider>
+                <TryAgentButton />
+                <ThreadListContainer variant="recent-history" />
+              </CompactLayoutProvider>
+            </ThreadListRuntimeHarness>
+          </SlotsProvider>
+        </ShellModeProvider>
+      </ServerProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Filter chat history by agent' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try Support Agent' }));
+
+    expect(screen.getByRole('heading', { name: 'Chats for Support Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Filter chat history by agent/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Support Session' }));
+    expect(screen.queryByRole('button', { name: /Filter chat history by agent/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Filtered Support Session' }));
+    expect(screen.getByRole('button', { name: /Filter chat history by agent/ })).toBeInTheDocument();
   });
 
   it('shows the recent-history empty state when only an unsaved session exists', () => {
@@ -244,7 +326,7 @@ describe('ThreadListContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Named chat' }));
 
     await waitFor(() => expect(screen.getByRole('status', { name: 'Active agent' })).toHaveTextContent('named-agent'));
-    expect(screen.getByRole('heading', { name: 'My History' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
   });
 
   it('exposes delete only for remote sessions and delegates deletion to the runtime', async () => {

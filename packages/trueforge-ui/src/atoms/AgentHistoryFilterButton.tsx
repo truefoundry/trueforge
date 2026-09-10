@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
-import { libraryAgentId, useOptionalShellMode } from '../server/ShellModeContext.js';
+import { libraryAgentId, useOptionalShellMode, type HistoryAgentFilter } from '../server/ShellModeContext.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 import { useCompactLayout } from './lib/CompactLayoutContext.js';
@@ -79,8 +79,14 @@ export function AgentHistoryFilterButton() {
 
   if (!enabled) return null;
 
-  const pick = (agentId: string | null) => {
-    shell?.setHistoryAgentFilter(agentId);
+  // Reset the active session so the newly scoped history starts from a clean runtime and first page.
+  const pick = (filter: HistoryAgentFilter | null) => {
+    if (shell?.isComposerEnabled === true) {
+      shell.openDraft();
+    } else {
+      shell?.openLibraryHome();
+    }
+    shell?.setHistoryAgentFilter(filter);
     setOpen(false);
   };
 
@@ -120,7 +126,7 @@ export function AgentHistoryFilterButton() {
           <>
             {agents.map(agent => {
               const id = libraryAgentId(agent);
-              const active = selected === id;
+              const active = selected?.agentId === id;
               return (
                 <DropdownMenuItem
                   key={id}
@@ -128,7 +134,7 @@ export function AgentHistoryFilterButton() {
                     'justify-between gap-2 text-left',
                     active && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
                   )}
-                  onClick={() => pick(id)}
+                  onClick={() => pick({ agentId: id, agentName: agent.name, intent: 'history' })}
                 >
                   <span className="min-w-0 truncate">{agent.name}</span>
                   {active ? <Icon name="check" className="size-3.5 shrink-0" /> : null}
@@ -155,7 +161,9 @@ export function AgentHistoryFilterButton() {
       <button
         ref={buttonRef}
         type="button"
-        aria-label={selected != null ? `Filter chat history by agent (${selected})` : 'Filter chat history by agent'}
+        aria-label={
+          selected != null ? `Filter chat history by agent (${selected.agentName})` : 'Filter chat history by agent'
+        }
         aria-haspopup={useSheet ? 'dialog' : 'menu'}
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}

@@ -443,11 +443,53 @@ describe('ShellModeProvider', () => {
     expect(result.current.listSessionsAgentId).toBeUndefined();
     expect(result.current.historyAgentFilter).toBeNull();
 
-    act(() => result.current.setHistoryAgentFilter('from-sdk'));
-    expect(result.current.historyAgentFilter).toBe('from-sdk');
+    act(() =>
+      result.current.setHistoryAgentFilter({
+        agentId: 'from-sdk',
+        agentName: 'From SDK',
+        intent: 'history',
+      }),
+    );
+    expect(result.current.historyAgentFilter).toEqual({
+      agentId: 'from-sdk',
+      agentName: 'From SDK',
+      intent: 'history',
+    });
     expect(result.current.listSessionsAgentId).toBe('from-sdk');
 
     act(() => result.current.setHistoryAgentFilter(null));
+    expect(result.current.listSessionsAgentId).toBeUndefined();
+  });
+
+  it('filters history to an immutable agent selected from the library', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: false,
+        agentId: 'agent-id',
+        agentName: 'Agent Name',
+      }),
+    );
+
+    expect(result.current.historyAgentFilter).toEqual({
+      agentId: 'agent-id',
+      agentName: 'Agent Name',
+      intent: 'try-agent',
+    });
+    expect(result.current.listSessionsAgentId).toBe('agent-id');
+  });
+
+  it('does not use an agent name as the history agent id', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+
+    act(() => result.current.selectLibraryAgent({ isMutable: false, agentName: 'Agent Name' }));
+
+    expect(result.current.historyAgentFilter).toBeNull();
     expect(result.current.listSessionsAgentId).toBeUndefined();
   });
 
@@ -456,7 +498,13 @@ describe('ShellModeProvider', () => {
       wrapper: wrap({ mode: 'SingleAgent', name: 'locked' }),
     });
     expect(result.current.listSessionsAgentId).toBe('locked');
-    act(() => result.current.setHistoryAgentFilter('ignored'));
+    act(() =>
+      result.current.setHistoryAgentFilter({
+        agentId: 'ignored',
+        agentName: 'Ignored',
+        intent: 'history',
+      }),
+    );
     expect(result.current.listSessionsAgentId).toBe('locked');
   });
 

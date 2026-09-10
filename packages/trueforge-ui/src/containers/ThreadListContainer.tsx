@@ -246,20 +246,29 @@ function RecentChatsSection({
   children,
   viewportRef,
   hideScrollbar,
-  showAgentFilter,
 }: {
   children: ReactNode;
   viewportRef: Ref<HTMLDivElement>;
   hideScrollbar: boolean;
-  showAgentFilter: boolean;
 }) {
   const shell = useOptionalShellMode();
-  const showFilter = showAgentFilter && shell?.isLibraryEnabled === true;
+  const activeRemoteId = useAuiState(s => s.threadListItem.remoteId);
+  const historyFilterIntent = shell?.historyAgentFilter?.intent;
+  const showFilter =
+    shell?.isLibraryEnabled === true &&
+    historyFilterIntent !== 'try-agent' &&
+    (historyFilterIntent === 'history' ||
+      shell.mode.status !== 'active' ||
+      shell.mode.isMutable ||
+      shell.pendingSessionId != null ||
+      activeRemoteId != null);
+  const heading =
+    shell?.historyAgentFilter == null ? 'Chat History' : `Chats for ${shell.historyAgentFilter.agentName}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 px-1 py-1">
-        <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">My History</h2>
+        <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">{heading}</h2>
         {showFilter ? <AgentHistoryFilterButton /> : null}
       </div>
       <div
@@ -383,7 +392,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         )
       }
     >
-      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory} showAgentFilter={!isRecentHistory}>
+      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory}>
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>
