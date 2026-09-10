@@ -337,13 +337,6 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     }
 
     try {
-      c.set(
-        'request_context',
-        requestContextFromCreatedBySubject({
-          tenant_id: schedule.tenant_id,
-          created_by_subject: schedule.created_by_subject,
-        }),
-      );
       await startScheduleRunOnRequest({ c, item: { run, schedule }, deps });
     } catch (error) {
       await deps.scheduleStore.updateRunStatus({
