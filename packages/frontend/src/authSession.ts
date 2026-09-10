@@ -22,7 +22,7 @@ const probeClient = new TrueForgeClient({
 });
 
 /** Result of the pre-boot session probe. */
-export type SessionState = 'authenticated' | 'unauthenticated';
+export type SessionState = { status: 'authenticated'; displayName: string } | { status: 'unauthenticated' };
 
 /** Last successful me() OIDC check — survives remounts of host chrome. */
 let cachedIsOidcConnected: boolean | undefined;
@@ -62,9 +62,9 @@ export async function logout(post: typeof fetch = globalThis.fetch.bind(globalTh
  */
 export async function probeSession(client: TrueForge = probeClient): Promise<SessionState> {
   try {
-    await client.auth.me();
-    return 'authenticated';
+    const { data } = await client.auth.me();
+    return { status: 'authenticated', displayName: data.subject.displayName };
   } catch {
-    return 'unauthenticated';
+    return { status: 'unauthenticated' };
   }
 }

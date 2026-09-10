@@ -56,6 +56,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
 }));
 
 import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
+import type { UserAvatarProps } from '@/atoms/UserAvatar.js';
 import { TrueForgeUI, type ChatLayout } from '@/containers/TrueForgeUI.js';
 import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
@@ -69,6 +70,10 @@ import { RuntimeHarness } from './RuntimeHarness.js';
 
 function mockServer(catalog?: CatalogServer) {
   return createMockAgentUIServer(catalog === undefined ? {} : { catalog });
+}
+
+function CustomUserAvatar({ labeled = false }: UserAvatarProps) {
+  return <div data-testid="custom-user-avatar">{labeled ? 'labeled user' : 'compact user'}</div>;
 }
 
 /** Minimal catalog stub — ShellActions only checks presence. */
@@ -133,6 +138,54 @@ describe('TrueForgeUI', () => {
       }
     });
     expect(container.querySelector('.h-96')).toBeInTheDocument();
+  });
+
+  it.each(layouts)('renders the current user in layout=%s chrome', async layout => {
+    render(
+      <TrueForgeUI
+        server={server}
+        agentConfig={{ mode: 'SingleAgent', name: 'my-agent' }}
+        layout={layout}
+        currentUser={{ displayName: 'Ada Lovelace' }}
+        className="h-96"
+      />,
+    );
+
+    if (layout === 'widget') {
+      fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    }
+
+    const avatar = await screen.findByLabelText('Ada Lovelace');
+    expect(avatar).toHaveTextContent('AL');
+    expect(avatar).toHaveTextContent('Ada Lovelace');
+    if (layout === 'sidebar') {
+      expect(avatar.closest('aside')).not.toBeNull();
+      expect(avatar).toHaveClass('w-14.5');
+    } else if (layout === 'drawer') {
+      expect(avatar.closest('header')).not.toBeNull();
+    } else {
+      expect(avatar.closest('footer')).not.toBeNull();
+    }
+  });
+
+  it.each(layouts)('honors overrides.UserAvatar in layout=%s', async layout => {
+    render(
+      <TrueForgeUI
+        server={server}
+        agentConfig={{ mode: 'SingleAgent', name: 'my-agent' }}
+        layout={layout}
+        overrides={{ UserAvatar: CustomUserAvatar }}
+        className="h-96"
+      />,
+    );
+
+    if (layout === 'widget') {
+      fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    }
+
+    expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent(
+      layout === 'sidebar' ? 'labeled user' : 'compact user',
+    );
   });
 
   it('keeps the widget open across mutable runtime remounts', async () => {

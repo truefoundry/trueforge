@@ -31,6 +31,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
+  const UserAvatar = useSlot('UserAvatar');
   const mainRef = useRef<HTMLDivElement>(null);
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
@@ -104,6 +105,7 @@ export function DrawerLayout({ className }: { className?: string }) {
                 </>
               ) : null}
               <ShellActions key="shell-actions" />
+              <UserAvatar />
               {!overlayOpen ? (
                 <>
                   {showNewActions ? (

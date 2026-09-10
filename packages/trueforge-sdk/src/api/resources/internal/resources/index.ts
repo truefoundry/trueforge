@@ -1,3 +1,4 @@
+export * from "./agents/client/requests/index.js";
 export * as agents from "./agents/index.js";
 export * from "./metrics/client/requests/index.js";
 export * as metrics from "./metrics/index.js";
