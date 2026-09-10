@@ -544,6 +544,11 @@ export function buildProviderOptions({
   } else if (config.provider.type === 'alibaba') {
     const alibaba = alibabaProviderOptions(rawBody);
     return alibaba !== undefined ? { alibaba } : {};
+  } else if (config.provider.type === 'truefoundry') {
+    // Prompt caching defaults on for the TFY gateway. Callers can override.
+    const cache_control = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
+    const compatible = compatibleProviderOptions({ strictJsonSchema, reasoningEffort, rawBody }) ?? {};
+    return { truefoundry: { ...compatible, cache_control } };
   } else {
     // The remaining providers all share the compatible adapter, which reads its options from a key
     // matching the `name` it was built with — the provider type itself.

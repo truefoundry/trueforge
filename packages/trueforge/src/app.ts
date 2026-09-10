@@ -328,7 +328,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
           eventSubscriptions: deps.eventSubscriptions,
           modelProviderStore: deps.resolveModelProviderStore(c, runAsAgent),
           mcpServerStore: deps.resolveMcpServerStore(c, runAsAgent),
-          skillStore: deps.resolveSkillStore(c, runAsAgent),
+          skillStore: deps.resolveSkillStore(c),
           agentStore: deps.resolveAgentStore(c),
           sandboxProviderStore: deps.resolveSandboxProviderStore(c),
           logger: deps.logger,

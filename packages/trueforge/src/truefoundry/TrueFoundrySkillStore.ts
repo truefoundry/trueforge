@@ -1,8 +1,6 @@
 import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
-import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
-import type { AgentRecord } from '../db/agentStore';
 import type {
   AgentSkillsInput,
   CreateSkillInput,
@@ -12,7 +10,7 @@ import type {
   UpsertSkillInput,
 } from '../db/skillStore';
 import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
-import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
+import { callerAccessToken, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
 import {
   mapSfyRegistrySkills,
@@ -24,7 +22,7 @@ import type { TrueFoundryServiceFoundryServerClient } from './TrueFoundryService
 
 export type TrueFoundrySkillApiClient = Pick<
   TrueFoundryServiceFoundryServerClient,
-  'listAgentSkills' | 'listAgentSkillVersions' | 'vendToken' | 'resolveAgentSkillVersions' | 'apiKey'
+  'listAgentSkills' | 'listAgentSkillVersions' | 'resolveAgentSkillVersions' | 'apiKey'
 >;
 
 function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillRecord {
@@ -47,26 +45,15 @@ function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillReco
 }
 
 /** Read-only TrueFoundry registry skill catalog; writes are managed by TrueFoundry.
- * Pass `agent` on turn/cron paths so catalog reads use the same vend token as models and MCP.
- * Save validate uses the caller JWT; turn mounts pass the service API key.
+ * Catalog / save validate use the caller JWT; turn mounts use the service API key.
  */
 export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<TTransaction> {
   readonly #client: TrueFoundrySkillApiClient;
   readonly #resolveAccessToken: ResolveAccessToken;
 
-  constructor(input: {
-    client: TrueFoundrySkillApiClient;
-    context: RequestContext;
-    agent: AgentRecord | undefined;
-    logger: Logger;
-  }) {
+  constructor(input: { client: TrueFoundrySkillApiClient; context: RequestContext }) {
     this.#client = input.client;
-    this.#resolveAccessToken = accessTokenForRequest({
-      client: input.client,
-      context: asTrueFoundryRequestContext(input.context),
-      agent: input.agent,
-      logger: input.logger,
-    });
+    this.#resolveAccessToken = callerAccessToken(input.context);
   }
 
   async listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]> {
