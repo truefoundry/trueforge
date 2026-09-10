@@ -67,7 +67,7 @@ describe('turns', () => {
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          skillStore: new SqliteSkillStore(db),
+          resolveSkillStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -143,7 +143,7 @@ describe('turns', () => {
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
-          skillStore: new SqliteSkillStore(db),
+          resolveSkillStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -157,6 +157,7 @@ describe('turns', () => {
                   : { kind: 'agent_external_ids', agent_external_ids: [] },
               ),
             canAccessAgent: () => Promise.resolve(false),
+            getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
           },
         }),
       );
@@ -271,7 +272,7 @@ describe('turns', () => {
           resolveModelProviderStore: () => modelProviderStore,
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
           resolveAgentStore: () => new SqliteAgentStore(db),
-          skillStore: new SqliteSkillStore(db),
+          resolveSkillStore: () => new SqliteSkillStore(db),
           eventSubscriptions,
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
           logger,
@@ -377,7 +378,7 @@ describe('turns', () => {
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          skillStore: new SqliteSkillStore(db),
+          resolveSkillStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -411,6 +412,7 @@ describe('turns', () => {
     const denyAllAuthorizer: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent: deniedCanAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     };
 
     async function referencedAgentHarness(authorizer: Authorizer) {
@@ -457,7 +459,7 @@ describe('turns', () => {
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
           resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          skillStore: new SqliteSkillStore(db),
+          resolveSkillStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),

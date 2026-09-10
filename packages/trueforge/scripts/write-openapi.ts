@@ -62,6 +62,7 @@ const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const tokenStore = new SqliteOAuthTokenStore(db);
 const agentStore = new SqliteAgentStore(db);
+const skillStore = new SqliteSkillStore(db);
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
@@ -75,7 +76,7 @@ const app = createServerApp({
     }),
   tokenStore,
   skillCatalog: SkillCatalog.load(),
-  skillStore: new SqliteSkillStore(db),
+  resolveSkillStore: () => skillStore,
   sandboxCatalog: SandboxCatalog.load(),
   resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
   resolveAgentStore: () => agentStore,

@@ -48,6 +48,7 @@ describe('TrueFoundryChatProvider', () => {
       expect.objectContaining({
         agentName: 'my-agent',
         initialSessionId: 'session-123',
+        listSessionsCreatedByMe: true,
         adapters: { attachments: defaultAttachmentAdapter },
       }),
     );

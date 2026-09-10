@@ -80,6 +80,7 @@ function ChatRuntimeScope({
     agent,
     agentName,
     listSessionsAgentId,
+    listSessionsCreatedByMe: true,
     initialSessionId,
     onError: resolvedOnError,
     adapters: {
