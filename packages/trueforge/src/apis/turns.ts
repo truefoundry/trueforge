@@ -107,7 +107,7 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  resolveSkillStore: (c: Context, runAsAgent?: AgentRecord) => ISkillStore;
+  resolveSkillStore: (c: Context) => ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -757,7 +757,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
         mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
-        skillStore: deps.resolveSkillStore(c, referencedAgent),
+        skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },

@@ -145,6 +145,39 @@ describe('connectorCatalog mappers', () => {
     assert.deepEqual(toUiTool({}), { id: 'tool', name: 'tool', description: '' });
   });
 
+  it('forwards boolean readOnlyHint and destructiveHint annotations', () => {
+    assert.deepEqual(
+      toUiTool({
+        name: 'list',
+        description: 'List items',
+        annotations: { readOnlyHint: true, destructiveHint: false, title: 'List' },
+      }),
+      {
+        id: 'list',
+        name: 'list',
+        description: 'List items',
+        annotations: { readOnlyHint: true, destructiveHint: false },
+      },
+    );
+    assert.deepEqual(
+      toUiTool({
+        name: 'delete',
+        annotations: { destructiveHint: true },
+      }),
+      {
+        id: 'delete',
+        name: 'delete',
+        description: '',
+        annotations: { destructiveHint: true },
+      },
+    );
+    assert.deepEqual(toUiTool({ name: 'search', annotations: { title: 'Search' } }), {
+      id: 'search',
+      name: 'search',
+      description: '',
+    });
+  });
+
   it('builds upsert manifests from UI create/update requests', () => {
     assert.deepEqual(
       toHarnessManifest({

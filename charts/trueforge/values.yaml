@@ -18,6 +18,10 @@ serviceAccount:
   name: ""
 podAnnotations: {}
 podLabels: {}
+# Labels / annotations on every rendered object (merged over global.labels /
+# global.annotations when running as a subchart).
+commonLabels: {}
+commonAnnotations: {}
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 10001
@@ -43,6 +47,8 @@ service:
 server:
   # Number of server replicas (ignored when autoscaling.enabled is true).
   replicaCount: 1
+  # Annotations on the server Deployment object (for example, Argo CD sync waves).
+  deploymentAnnotations: {}
   # Rolling update strategy for the server Deployment.
   strategy:
     type: RollingUpdate
@@ -68,13 +74,15 @@ server:
 controller:
   # Set false to skip the controller Deployment (schedules will not fire).
   enabled: true
+  # Annotations on the controller Deployment object (for example, Argo CD sync waves).
+  deploymentAnnotations: {}
   # Container command. Runs the controller entry from the published package inside
   # the image (root Dockerfile layout: /app/node_modules/@truefoundry/trueforge).
   command:
     - node
     - node_modules/@truefoundry/trueforge/dist/controller-main.js
   # Base URL the controller uses to reach the server (SERVER_URL).
-  # Empty → the in-cluster server Service (http://<fullname>:<service.port>).
+  # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
@@ -87,6 +95,14 @@ controller:
       cpu: 100m
       memory: 256Mi
       ephemeral-storage: 256Mi
+# Controller -> server API key (TRUEFORGE_API_KEY). string, or
+# { valueFrom: { secretKeyRef: { name, key } } }. Replace the dev default
+# before any shared deployment; the chart never creates a Secret for it.
+apiKey: "placeholder-value-please-generate-your-own"
+# Extra env for BOTH server and controller: name -> scalar or { valueFrom: ... }.
+# A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
+# ...) replaces it in place. This is the extension point for a parent chart.
+env: {}
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
 # { valueFrom: { secretKeyRef: ... } }.
@@ -121,6 +137,38 @@ configs:
 global:
   security:
     allowInsecureImages: true
+  # Custom CA trust, set here or inherited from a parent chart. Give an inline
+  # `certificate` or an `existingConfigMap.name` (key `ca-certificates.crt`);
+  # mounted over /etc/ssl/certs (overrideCAList) or merged with the system
+  # bundle by an initContainer. Sets NODE_EXTRA_CA_CERTS either way.
+  customCA:
+    enabled: false
+    certificate: ""
+    existingConfigMap:
+      name: ""
+      overrideCAList: false
+    image:
+      registry: tfy.jfrog.io
+      repository: tfy-mirror/alpine
+      tag: "3.21"
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    # Extra env for the initContainer only, e.g. SSL_CERT_FILE, REQUESTS_CA_BUNDLE.
+    env: {}
+    emptyDir:
+      sslCerts:
+        sizeLimit: 10Mi
+# Resource tier: small | medium | large presets for server and controller.
+# Empty = use `resources` / `controller.resources`. Wins over a parent chart's
+# global.resourceTier.
+resourceTier: ""
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
 # wired to this release automatically. See the Bitnami postgresql chart for the
@@ -185,6 +233,15 @@ externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   url: ""
+  # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
+  sentinel:
+    enabled: false
+    # Comma-separated host:port list -> REDIS_SENTINEL_HOSTS.
+    hosts: ""
+    # Monitored master name -> REDIS_SENTINEL_MASTER_NAME.
+    masterName: ""
+    # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
+    password: ""
   # url:
   #   valueFrom:
   #     secretKeyRef:

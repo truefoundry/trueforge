@@ -63,6 +63,17 @@ describe('derivePlace', () => {
     });
   });
 
+  it('agent builder moves to the session place after its session persists', () => {
+    expect(
+      deriveChatPlace(
+        snap({
+          activeRemoteId: 'builder-session',
+          mode: { status: 'active', isMutable: true, isCreateAgent: true, locked: false },
+        }),
+      ),
+    ).toEqual({ type: 'session', sessionId: 'builder-session' });
+  });
+
   it('active immutable agent maps to an agent place', () => {
     expect(
       deriveChatPlace(
