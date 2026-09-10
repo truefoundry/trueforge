@@ -146,9 +146,9 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       external_id: null,
     });
 
-    const agents = await store.listAgents({ tenant_id: TENANT });
-    expect(agents.map(agent => agent.name)).toEqual(['alpha', 'zeta']);
-    expect(agents.every(agent => agent.tenant_id === TENANT)).toBe(true);
+    const agents = await store.listAgents({ tenant_id: TENANT, limit: undefined, page_token: undefined });
+    expect(agents.data.map(agent => agent.name)).toEqual(['alpha', 'zeta']);
+    expect(agents.data.every(agent => agent.tenant_id === TENANT)).toBe(true);
   });
 
   it('listAgents can filter by external_ids', async () => {
@@ -175,14 +175,40 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       external_id: 'sf-agent-2',
     });
 
-    expect(await store.listAgents({ tenant_id: TENANT, external_ids: ['sf-agent-1'] })).toEqual([linked]);
     expect(
-      (await store.listAgents({ tenant_id: TENANT, external_ids: ['sf-agent-1', 'sf-agent-2'] })).map(
-        agent => agent.name,
-      ),
+      await store.listAgents({
+        tenant_id: TENANT,
+        external_ids: ['sf-agent-1'],
+        limit: undefined,
+        page_token: undefined,
+      }),
+    ).toEqual({ data: [linked], pagination: { limit: 1 } });
+    expect(
+      (
+        await store.listAgents({
+          tenant_id: TENANT,
+          external_ids: ['sf-agent-1', 'sf-agent-2'],
+          limit: undefined,
+          page_token: undefined,
+        })
+      ).data.map(agent => agent.name),
     ).toEqual(['linked', 'other-linked']);
-    expect(await store.listAgents({ tenant_id: TENANT, external_ids: ['missing'] })).toEqual([]);
-    expect(await store.listAgents({ tenant_id: TENANT, external_ids: [] })).toEqual([]);
+    expect(
+      await store.listAgents({
+        tenant_id: TENANT,
+        external_ids: ['missing'],
+        limit: undefined,
+        page_token: undefined,
+      }),
+    ).toEqual({ data: [], pagination: { limit: 0 } });
+    expect(
+      await store.listAgents({
+        tenant_id: TENANT,
+        external_ids: [],
+        limit: undefined,
+        page_token: undefined,
+      }),
+    ).toEqual({ data: [], pagination: { limit: 0 } });
   });
 
   it('getAgent by id is tenant-scoped', async () => {

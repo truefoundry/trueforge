@@ -40,9 +40,9 @@ export interface ListAgentsInput {
   tenant_id: string;
   /** When set, only agents whose `external_id` is in this list. */
   external_ids?: readonly string[];
-  /** When omitted, return the full matching set (no SQL LIMIT). */
-  limit?: number;
-  page_token?: string;
+  /** When undefined, return the full matching set (no SQL LIMIT). */
+  limit: number | undefined;
+  page_token: string | undefined;
 }
 
 export interface GetOwnedIdsInput {
