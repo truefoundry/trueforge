@@ -448,7 +448,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       />
 
       <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
-        <div ref={listRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4" aria-label="Agents">
+        {/* Not flex-col: overflow-hidden table chrome would clip instead of letting this scroll. */}
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto p-4" aria-label="Agents">
           {isInitialLoading ? (
             <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
               {Array.from({ length: 6 }, (_, i) => (
