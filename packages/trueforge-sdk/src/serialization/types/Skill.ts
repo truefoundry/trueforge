@@ -7,11 +7,13 @@ import type * as serializers from "../index.js";
 export const Skill: core.serialization.ObjectSchema<serializers.Skill.Raw, TrueForge.Skill> = core.serialization.object(
     {
         name: core.serialization.string(),
+        preload: core.serialization.boolean().optional(),
     },
 );
 
 export declare namespace Skill {
     export interface Raw {
         name: string;
+        preload?: boolean | null;
     }
 }

@@ -190,6 +190,34 @@ describe("SkillsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
+    test("create (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/settings/skills")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.skills.create({
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    ref: "x",
+                    type: "git",
+                    url: "x",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
+    });
+
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
@@ -269,5 +297,33 @@ describe("SkillsClient", () => {
                 },
             });
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create_or_update (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { description: "x", name: "xy", ref: "x", type: "git", url: "x" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/settings/skills")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(424)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.settings.skills.createOrUpdate({
+                manifest: {
+                    description: "x",
+                    name: "xy",
+                    ref: "x",
+                    type: "git",
+                    url: "x",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
     });
 });
