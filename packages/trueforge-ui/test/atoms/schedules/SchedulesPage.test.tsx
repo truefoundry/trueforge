@@ -453,9 +453,11 @@ describe('SchedulesPage', () => {
   });
 
   it('shows Created by when schedules include createdBySubject', async () => {
+    const dailyDigest = sampleSchedules[0];
+    if (dailyDigest === undefined) throw new Error('expected sample schedule');
     renderPage([
       {
-        ...sampleSchedules[0]!,
+        ...dailyDigest,
         createdBySubject: {
           subjectId: 'u1',
           subjectType: 'user',
@@ -466,6 +468,33 @@ describe('SchedulesPage', () => {
     expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
     expect(screen.getByText('bob@example.com')).toBeInTheDocument();
     expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('BO');
+  });
+
+  it('keeps Created by when filters hide the row that has createdBySubject', async () => {
+    const dailyDigest = sampleSchedules[0];
+    if (dailyDigest === undefined) throw new Error('expected sample schedule');
+    renderPage([
+      dailyDigest,
+      {
+        ...dailyDigest,
+        id: 's2',
+        name: 'weekly-digest',
+        createdBySubject: {
+          subjectId: 'u1',
+          subjectType: 'user',
+          subjectDisplayName: 'bob@example.com',
+        },
+      },
+    ]);
+    expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search schedules by name'), {
+      target: { value: 'daily' },
+    });
+    expect(screen.getByText('daily-digest')).toBeInTheDocument();
+    expect(screen.queryByText('weekly-digest')).not.toBeInTheDocument();
+    expect(screen.queryByText('bob@example.com')).not.toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
   });
 
   it('hides Created by when no schedule has createdBySubject', async () => {

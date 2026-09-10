@@ -348,7 +348,8 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     });
   }, [schedules, nameQuery, statusFilter]);
 
-  const showCreatedByColumn = hasCreatedBySubject(filtered);
+  // Key off page data, not client filters — filtering must not toggle the column.
+  const showCreatedByColumn = hasCreatedBySubject(schedules);
   const hasPageNav = prevTokenStack.length > 0 || nextPageToken != null;
 
   const handleTogglePause = async (schedule: Schedule) => {
