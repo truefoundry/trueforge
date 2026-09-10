@@ -134,6 +134,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         models={catalog.models}
         modelsLoading={catalog.loading}
         modelsError={catalog.error}
+        skills={catalog.skills}
         skillsAvailable={capabilities?.skill.enabled === true}
         instructions={instructionDraft}
         onOpenEditor={setEditor}

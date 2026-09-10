@@ -16,6 +16,10 @@ const matchesQuery = (query: string, name: string, description: string) =>
 
 const isRegistrySkill = (skill: SkillBase): skill is RegistrySkill => 'catalogId' in skill;
 
+function isManagedSkillError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && Reflect.get(error, 'statusCode') === 424;
+}
+
 const SkillSettings = () => {
   const { skillCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
@@ -27,6 +31,7 @@ const SkillSettings = () => {
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [managedExternally, setManagedExternally] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -69,6 +74,7 @@ const SkillSettings = () => {
       await fn();
       await refresh();
     } catch (err) {
+      if (isManagedSkillError(err)) setManagedExternally(true);
       setMutationError(getErrorMessage(err, 'Request failed'));
       throw err;
     } finally {
@@ -160,7 +166,7 @@ const SkillSettings = () => {
           <Button.Secondary
             type="button"
             className="shrink-0"
-            disabled={busy}
+            disabled={busy || managedExternally}
             onClick={() => {
               setFormError(null);
               setImportOpen(true);
@@ -192,7 +198,7 @@ const SkillSettings = () => {
                       <Button.Secondary
                         size="small"
                         type="button"
-                        disabled={busy}
+                        disabled={busy || managedExternally}
                         aria-label={`Remove ${skill.name}`}
                         onClick={() => {
                           handleRemove(skill);
@@ -225,7 +231,7 @@ const SkillSettings = () => {
                       <Button.Secondary
                         size="small"
                         type="button"
-                        disabled={busy}
+                        disabled={busy || managedExternally}
                         aria-label={`Enable ${entry.name}`}
                         onClick={() => {
                           handleSelect(entry);
@@ -255,7 +261,7 @@ const SkillSettings = () => {
           if (!open) setFormError(null);
         }}
         onImport={handleImport}
-        busy={busy}
+        busy={busy || managedExternally}
         error={formError}
       />
     </>
