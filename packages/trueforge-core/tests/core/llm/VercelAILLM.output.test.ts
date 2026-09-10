@@ -370,6 +370,30 @@ describe('buildProviderOptions', () => {
     });
   });
 
+  describe('truefoundry provider', () => {
+    const config = makeConfig({ provider: 'truefoundry', baseUrl: 'https://gateway.example/v1' });
+
+    it('defaults cache_control to ephemeral when omitted', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: {},
+      });
+      expect(opts).toEqual({ truefoundry: { cache_control: { type: 'ephemeral' } } });
+    });
+
+    it('forwards a caller-supplied cache_control', () => {
+      const opts = buildProviderOptions({
+        config,
+        reasoningEffort: undefined,
+        structuredOutputSpec: textSpec,
+        rawBody: { cache_control: { type: 'ephemeral', ttl: '1h' } },
+      });
+      expect(opts).toEqual({ truefoundry: { cache_control: { type: 'ephemeral', ttl: '1h' } } });
+    });
+  });
+
   describe('moonshot provider', () => {
     const config = makeConfig({ provider: 'moonshot' });
 

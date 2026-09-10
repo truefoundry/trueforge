@@ -155,6 +155,36 @@ describe('harnessBuilderServer', () => {
     ]);
   });
 
+  it('getMcpConnector loads the live per-user auth status', async () => {
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/api/v1/mcp-servers/github%20enterprise')) {
+        return Response.json({
+          data: {
+            name: 'github enterprise',
+            url: 'https://github.example/mcp',
+            auth: { type: 'dcr' },
+            auth_status: { status: 'auth_required' },
+          },
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    if (builder.getMcpConnector === undefined) throw new Error('expected getMcpConnector');
+
+    assert.deepEqual(await builder.getMcpConnector({ connectorId: 'github enterprise' }), {
+      id: 'github enterprise',
+      name: 'github enterprise',
+      description: 'https://github.example/mcp',
+      url: 'https://github.example/mcp',
+      auth: { type: 'dcr' },
+      requiresAuth: true,
+      authenticated: false,
+    });
+  });
+
   it('getMcpTools loads connector tools and normalizes untrusted rows', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
@@ -205,6 +235,62 @@ describe('harnessBuilderServer', () => {
     });
   });
 
+  it('maps registry skill metadata and loads versions on demand', async () => {
+    const urls: string[] = [];
+    const fetchMock: typeof fetch = async input => {
+      const url = input instanceof Request ? input.url : String(input);
+      urls.push(url);
+      if (url.endsWith('/api/v1/skills')) {
+        return Response.json({
+          data: [
+            {
+              name: 'agent-skill:acme/team-a/echo:3',
+              description: 'Echo skill',
+              metadata: {
+                display_name: 'echo',
+                repository_name: 'team-a',
+                version: '3',
+              },
+            },
+          ],
+        });
+      }
+      if (url.includes('/api/v1/skills/versions?')) {
+        return Response.json({
+          data: [
+            {
+              name: 'agent-skill:acme/team-a/echo:1',
+              display_name: 'echo',
+              description: 'v1',
+              version: 1,
+            },
+          ],
+        });
+      }
+      return new Response(`Unexpected request: ${url}`, { status: 500 });
+    };
+
+    const [skill] = await createHarnessBuilderServer({ fetch: fetchMock }).getSkills();
+    if (skill === undefined) throw new Error('expected skill');
+    assert.equal(skill.id, 'agent-skill:acme/team-a/echo:3');
+    assert.equal(skill.name, 'echo');
+    assert.equal(Reflect.get(skill, 'skillRepoName'), 'team-a');
+    assert.equal(Reflect.get(skill, 'version'), 3);
+    assert.equal(urls.length, 1);
+
+    const loadVersions = Reflect.get(skill, 'loadVersions');
+    if (typeof loadVersions !== 'function') throw new Error('expected version loader');
+    assert.deepEqual(await Reflect.apply(loadVersions, skill, []), [
+      {
+        name: 'agent-skill:acme/team-a/echo:1',
+        displayName: 'echo',
+        description: 'v1',
+        version: 1,
+      },
+    ]);
+    assert.equal(urls.length, 2);
+  });
+
   it('searchAgents maps registry rows to library entries with agentId + agentSpec', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
@@ -237,7 +323,7 @@ describe('harnessBuilderServer', () => {
       agentSpec: {
         model: { name: 'test/model' },
         instructions: 'Review carefully.',
-        skills: [{ name: 'review' }],
+        skills: [{ name: 'review', preload: false }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
       },
     });
@@ -282,7 +368,7 @@ describe('harnessBuilderServer', () => {
       name: 'saved-agent',
       manifest: {
         model: { name: 'test/model' },
-        skills: [{ name: 'review' }],
+        skills: [{ name: 'review', preload: false }],
       },
     });
   });
@@ -378,46 +464,7 @@ describe('harnessBuilderServer', () => {
     assert.equal(requests[0]?.method, 'GET');
   });
 
-  it('listMcp maps a page and preserves nextPageToken', async () => {
-    const urls: string[] = [];
-    const fetchMock: typeof fetch = async input => {
-      const url = input instanceof Request ? input.url : String(input);
-      urls.push(url);
-      if (url.includes('/api/v1/mcp-servers')) {
-        return Response.json({
-          data: [
-            {
-              name: 'linear',
-              url: 'https://mcp.linear.app/mcp',
-              auth: { type: 'dcr' },
-              auth_status: { status: 'authenticated' },
-            },
-          ],
-          pagination: { limit: 50, next_page_token: 'tok-2' },
-        });
-      }
-      return new Response(`Unexpected request: ${url}`, { status: 500 });
-    };
-
-    const builder = createHarnessBuilderServer({ fetch: fetchMock });
-    assert.ok(builder.listMcp);
-    const page = await builder.listMcp({ limit: 50 });
-    assert.deepEqual(page.data, [
-      {
-        id: 'linear',
-        name: 'linear',
-        description: 'https://mcp.linear.app/mcp',
-        url: 'https://mcp.linear.app/mcp',
-        auth: { type: 'dcr' },
-        requiresAuth: false,
-        authenticated: true,
-      },
-    ]);
-    assert.equal(page.nextPageToken, 'tok-2');
-    assert.ok(urls[0]?.includes('limit=50'));
-  });
-
-  it('getMcp drains every page', async () => {
+  it('getMcp returns the complete catalog in one request', async () => {
     let calls = 0;
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
@@ -425,27 +472,19 @@ describe('harnessBuilderServer', () => {
         return new Response(`Unexpected request: ${url}`, { status: 500 });
       }
       calls += 1;
-      if (calls === 1) {
-        return Response.json({
-          data: [
-            {
-              name: 'a',
-              url: 'https://a.example/mcp',
-              auth_status: { status: 'authenticated' },
-            },
-          ],
-          pagination: { limit: 100, next_page_token: 'next' },
-        });
-      }
       return Response.json({
         data: [
+          {
+            name: 'a',
+            url: 'https://a.example/mcp',
+            auth_status: { status: 'authenticated' },
+          },
           {
             name: 'b',
             url: 'https://b.example/mcp',
             auth_status: { status: 'authenticated' },
           },
         ],
-        pagination: { limit: 100 },
       });
     };
 
@@ -455,6 +494,6 @@ describe('harnessBuilderServer', () => {
       all.map(row => row.name),
       ['a', 'b'],
     );
-    assert.equal(calls, 2);
+    assert.equal(calls, 1);
   });
 });

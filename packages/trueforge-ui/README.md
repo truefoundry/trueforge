@@ -407,7 +407,7 @@ show the title text (see [Custom layouts](#custom-layouts)).
 
 In library modes, picking an agent from Agents switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
 
-Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. The compact Tools picker contains only Connectors and Skills. The Save Agent dialog keeps a local editable copy of the same configuration and shares the same selector dialogs; cancelling it leaves the active draft unchanged. Model context and output limits render when the server supplies that optional catalog metadata.
+Mutable composers expose **Agent Config** for live model parameters, instructions, runtime behavior, per-connector MCP tools, and skills. Runtime Config opens in a second right-side drawer. The compact Tools picker contains only Connectors and Skills. The Save Agent drawer only edits the agent name while preserving the active draft configuration; cancelling it discards that local edit. Model context and output limits render when the server supplies that optional catalog metadata.
 
 ```tsx
 {
@@ -446,12 +446,12 @@ Mutable composers expose **Agent Config** for live model parameters, instruction
 
 Built-in `layout` values:
 
-| Value     | Description                                              |
-| --------- | -------------------------------------------------------- |
-| `sidebar` | Left session list + main thread (ChatGPT / Claude style) |
-| `drawer`  | Full-bleed thread; sessions open in a slide-over         |
-| `dock`    | Fixed-width right panel; list XOR thread stack           |
-| `widget`  | Same stack as `dock`, opened from a bottom-right FAB     |
+| Value     | Description                                          |
+| --------- | ---------------------------------------------------- |
+| `sidebar` | Icon rail + recent session history + active thread   |
+| `drawer`  | Full-bleed thread; sessions open in a slide-over     |
+| `dock`    | Fixed-width right panel; list XOR thread stack       |
+| `widget`  | Same stack as `dock`, opened from a bottom-right FAB |
 
 ---
 
@@ -535,6 +535,7 @@ type TrueForgeServerConfig =
       apiKey: string;
       controlPlaneURL: string;
       gatewayPlaneURL?: string;
+      permissions?: PermissionsServer;
     }
   | {
       type: 'trueforge';
@@ -542,6 +543,7 @@ type TrueForgeServerConfig =
       token?: string;
       fetch?: typeof fetch;
       catalog?: CatalogServer;
+      permissions?: PermissionsServer;
     }
   | AgentUIServer;
 
@@ -551,6 +553,7 @@ type AgentUIServer = AgentChatServer &
     sessions?: AgentSessionsServer;
     metrics?: AgentMetricsServer;
     schedules?: ScheduleServer;
+    permissions?: PermissionsServer;
   };
 ```
 
@@ -562,9 +565,14 @@ type AgentUIServer = AgentChatServer &
 | `sessions`           | Agent details + sessions browser (`/sessions`, `/library/:agentId`) |
 | `schedules`          | Schedules page (`/schedules`)                                       |
 | `AgentMetricsServer` | Agent meter aggregates, chart definitions, and chart data           |
+| `PermissionsServer`  | Per-resource `USE`, `MANAGE`, and `DELETE` grants                   |
 
-Omit an optional port to hide its chrome and unregister its routes (same gate as the
-Settings button for `catalog`).
+Omit a chrome port such as `catalog` or `schedules` to hide and unregister its routes.
+
+When `permissions` is omitted from a custom or TrueFoundry server, actions remain enabled for backward compatibility.
+When provided, denied mutation controls stay visible but disabled with an explanatory tooltip. The built-in
+`type: "trueforge"` server enables checks automatically through the Harness permissions endpoint; an explicit
+`PermissionsServer` overrides that default.
 
 **Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
 

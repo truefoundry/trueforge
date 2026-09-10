@@ -91,6 +91,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
       authorizer: {
         listAgentAccess: input => currentAuthorizer.listAgentAccess(input),
         canAccessAgent: input => currentAuthorizer.canAccessAgent(input),
+        getPermissions: input => currentAuthorizer.getPermissions(input),
       },
     }),
   );
@@ -142,10 +143,19 @@ describe('schedule RBAC', () => {
     expect(ListSchedulesResponseSchema.parse(await aliceList.json()).data).toHaveLength(1);
     const aliceRuns = await app.request(`/${id}/runs`);
     expect(aliceRuns.status).toBe(200);
-    expect(ListScheduleRunsResponseSchema.parse(await aliceRuns.json()).data).toEqual([
-      expect.objectContaining({ schedule_id: id }),
-    ]);
+    const aliceRunsBody = ListScheduleRunsResponseSchema.parse(await aliceRuns.json());
+    expect(aliceRunsBody.data).toEqual([expect.objectContaining({ schedule_id: id })]);
+    expect(aliceRunsBody.pagination.next_page_token).toBeUndefined();
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
+  });
+
+  it('rejects an invalid page_token when listing runs', async () => {
+    const { app, asUser, postJson } = await setup();
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id } = ((await created.json()) as { data: { id: string } }).data;
+    const res = await app.request(`/${id}/runs?page_token=not-a-token`);
+    expect(res.status).toBe(400);
   });
 
   it('does not leak existence: a missing schedule is 404, not 403', async () => {
@@ -188,6 +198,7 @@ describe('schedule RBAC', () => {
             : { kind: 'agent_external_ids', agent_external_ids: [] },
         ),
       canAccessAgent: () => Promise.resolve(false),
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     });
     asUser(BOB);
     expect((await app.request(`/${id}`)).status).toBe(200);
@@ -312,8 +323,13 @@ describe('create schedule run', () => {
     expect(pendingAfter?.id).toBe(pendingBefore?.id);
     expect(pendingAfter?.status).toBe('scheduled');
 
-    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
-    expect(runs.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(runs.data.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
   });
 
   it('does not let an OIDC settings admin trigger another creator schedule', async () => {
@@ -341,8 +357,13 @@ describe('create schedule run', () => {
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
 
-    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
-    const runNow = runs.find(r => r.name.startsWith('manual-'));
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    const runNow = runs.data.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
     expect(runNow?.reason).toBe('Agent not found: reporter');
   });
@@ -352,6 +373,7 @@ describe('create schedule run', () => {
     const denyAll: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     };
     const { postJson } = await setup(denyAll);
     const res = await postJson('/', 'POST', scheduleBody);
@@ -371,6 +393,7 @@ describe('create schedule run', () => {
     setAuthorizer({
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     });
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
@@ -378,8 +401,13 @@ describe('create schedule run', () => {
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
     expect(mockedStartScheduleRun).not.toHaveBeenCalled();
 
-    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
-    expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(runs.data.some(r => r.name.startsWith('manual-'))).toBe(false);
     expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
   });
 });

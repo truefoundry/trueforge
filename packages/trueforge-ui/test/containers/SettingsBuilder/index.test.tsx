@@ -83,8 +83,8 @@ function TestShell({ server, children }: { server?: AgentUIServer; children?: Re
 }
 
 async function openSettings() {
-  fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
   await waitFor(() => {
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
   });
 }
@@ -119,7 +119,7 @@ describe('TruefoundrySettingsBuilder', () => {
 
     rerender(<TestShell server={createServer({ skills: true, sandbox: true })} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Skills' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skills' }));
     await waitFor(() => {
       expect(screen.getByText('Skill settings content')).toBeInTheDocument();
     });
@@ -184,7 +184,7 @@ describe('TruefoundrySettingsBuilder', () => {
     const getSkills = vi.fn(async () => []);
     const getMcp = vi.fn(async () => []);
     const getCapabilities = vi.fn(async () => ({
-      data: { sandbox: { enabled: true }, skill: { enabled: true } },
+      data: { sandbox: { enabled: true }, skill: { enabled: true }, settings: { enabled: true } },
     }));
     const server = createMockAgentUIServer({
       catalog: createMockCatalog(),

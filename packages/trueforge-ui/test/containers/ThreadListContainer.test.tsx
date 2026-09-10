@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
-import { ThreadListContainer } from '@/containers/ThreadListContainer.js';
+import { ThreadListContainer, type ThreadListContainerProps } from '@/containers/ThreadListContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -55,20 +55,71 @@ function ThreadListRowOverride({ title, active, onSelect, actions }: ThreadListR
   );
 }
 
+function TryAgentButton() {
+  const shell = useShellMode();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          shell.selectLibraryAgent({
+            isMutable: false,
+            agentId: 'support-id',
+            agentName: 'Support Agent',
+          })
+        }
+      >
+        Try Support Agent
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          shell.openHistorySession({
+            sessionId: 'support-session',
+            isMutable: false,
+            agentName: 'Support Agent',
+          })
+        }
+      >
+        Open Support Session
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          shell.setHistoryAgentFilter({
+            agentId: 'support-id',
+            agentName: 'Support Agent',
+            intent: 'history',
+          });
+          shell.openHistorySession({
+            sessionId: 'filtered-support-session',
+            isMutable: false,
+            agentName: 'Support Agent',
+          });
+        }}
+      >
+        Open Filtered Support Session
+      </button>
+    </>
+  );
+}
+
 function renderThreadList({
   adapter,
   onThreadOpen,
   canDelete = false,
+  variant,
 }: {
   adapter: ExternalStoreThreadListAdapter;
   onThreadOpen?: () => void;
   canDelete?: boolean;
+  variant?: ThreadListContainerProps['variant'];
 }) {
   const list = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
       <ThreadListRuntimeHarness threadList={adapter}>
         <CompactLayoutProvider>
-          <ThreadListContainer onThreadOpen={onThreadOpen} />
+          <ThreadListContainer onThreadOpen={onThreadOpen} variant={variant} />
         </CompactLayoutProvider>
       </ThreadListRuntimeHarness>
     </SlotsProvider>
@@ -145,6 +196,137 @@ describe('ThreadListContainer', () => {
       expect(onSwitchToNewThread).toHaveBeenCalledTimes(1);
     });
     expect(onThreadOpen).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows persisted draft and named sessions in recent-history mode', () => {
+    const { container } = renderThreadList({
+      adapter: {
+        threadId: 'draft-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'draft-1',
+            remoteId: 'session-draft-1',
+            title: 'Draft chat',
+            custom: { isMutable: true },
+          },
+          {
+            status: 'regular',
+            id: 'named-1',
+            remoteId: 'session-named-1',
+            title: 'Named chat',
+            custom: { isMutable: false },
+          },
+          {
+            status: 'regular',
+            id: 'local-draft',
+            title: 'Unsaved chat',
+            custom: { isMutable: true },
+          },
+        ],
+      },
+      variant: 'recent-history',
+    });
+
+    expect(screen.getByRole('button', { name: 'Draft chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Named chat' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unsaved chat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start new chat' })).not.toBeInTheDocument();
+    expect(screen.queryByText('New Chat')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Chat History' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="aui_thread-list-viewport"]')).toHaveClass('aui-scrollbar-hidden');
+  });
+
+  it('uses filter intent to distinguish Try Agent from a filtered agent session', () => {
+    const server = createMockAgentUIServer({
+      searchAgents: async () => [{ name: 'Support Agent', agentId: 'support-id' }],
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+          <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
+            <ThreadListRuntimeHarness threadList={{ threads: [] }}>
+              <CompactLayoutProvider>
+                <TryAgentButton />
+                <ThreadListContainer variant="recent-history" />
+              </CompactLayoutProvider>
+            </ThreadListRuntimeHarness>
+          </SlotsProvider>
+        </ShellModeProvider>
+      </ServerProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Filter chat history by agent' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try Support Agent' }));
+
+    expect(screen.getByRole('heading', { name: 'Chats for Support Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Filter chat history by agent/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Support Session' }));
+    expect(screen.queryByRole('button', { name: /Filter chat history by agent/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Filtered Support Session' }));
+    expect(screen.getByRole('button', { name: /Filter chat history by agent/ })).toBeInTheDocument();
+  });
+
+  it('shows the recent-history empty state when only an unsaved session exists', () => {
+    renderThreadList({
+      adapter: {
+        threads: [
+          {
+            status: 'regular',
+            id: 'local-draft',
+            title: 'Unsaved chat',
+            custom: { isMutable: true },
+          },
+        ],
+      },
+      variant: 'recent-history',
+    });
+
+    expect(screen.getByText('No recent chats')).toBeInTheDocument();
+  });
+
+  it('loads a named history session without leaving the recent list', async () => {
+    function ActiveMode() {
+      const shell = useShellMode();
+      const name = shell.mode.status === 'active' ? shell.mode.agentName : undefined;
+      return <output aria-label="Active agent">{name ?? 'draft'}</output>;
+    }
+
+    render(
+      <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <ShellModeProvider>
+            <ThreadListRuntimeHarness
+              threadList={{
+                threads: [
+                  {
+                    status: 'regular',
+                    id: 'named-1',
+                    remoteId: 'session-named-1',
+                    title: 'Named chat',
+                    custom: { isMutable: false, agentName: 'named-agent' },
+                  },
+                ],
+              }}
+            >
+              <CompactLayoutProvider>
+                <ActiveMode />
+                <ThreadListContainer variant="recent-history" />
+              </CompactLayoutProvider>
+            </ThreadListRuntimeHarness>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Named chat' }));
+
+    await waitFor(() => expect(screen.getByRole('status', { name: 'Active agent' })).toHaveTextContent('named-agent'));
+    expect(screen.getByRole('heading', { name: 'Chat History' })).toBeInTheDocument();
   });
 
   it('exposes delete only for remote sessions and delegates deletion to the runtime', async () => {

@@ -47,7 +47,7 @@ async function buildApp() {
           tokenStore,
           clientName: 'test-client',
         }),
-      skillStore: new SqliteSkillStore(db),
+      resolveSkillStore: () => new SqliteSkillStore(db),
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
@@ -77,7 +77,7 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
     const { app } = await buildApp();
 
     for (const path of [
-      'report.pdf',
+      '../etc/passwd',
       '/a/../../etc/passwd',
       '/tmp/nul\0.txt',
       `/tmp/${'a'.repeat(300)}`,
@@ -87,6 +87,14 @@ describe('GET /{session_id}/turns/{turn_id}/download-sandbox-file', () => {
 
       expect(response.status).toBe(400);
     }
+  });
+
+  it('accepts a path relative to the sandbox working directory', async () => {
+    const { app } = await buildApp();
+
+    const response = await app.request(downloadUrl({ sessionId: 'missing', path: 'report.pdf' }));
+
+    expect(response.status).toBe(404);
   });
 
   // PATH_MAX counts the terminating NUL, so 4096 is already too long for the kernel and must be

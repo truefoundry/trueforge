@@ -133,6 +133,7 @@ export type {
 
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
+export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
 export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 
@@ -176,4 +177,4 @@ export type { SandboxRefParts } from './sandbox/sandboxRef';
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';
 export { SKILLS_PREAMBLE, SkillMounter, getSkillPath, renderSkillPromptBody } from './sandbox/skills';
-export type { GitSkill, ISkillMounter } from './sandbox/skills';
+export type { GitSkill, ISkillMounter, Skill } from './sandbox/skills';

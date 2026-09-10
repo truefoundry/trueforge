@@ -8,7 +8,7 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('/chat')).toBe('/chat');
   });
 
-  it('falls back to "/" for missing or unsafe values', () => {
+  it('falls back to the public UI home for missing or unsafe values', () => {
     expect(safeReturnTo('https://evil.example.com/')).toBe('/');
     expect(safeReturnTo('//evil.example.com/')).toBe('/');
     expect(safeReturnTo('/api')).toBe('/');

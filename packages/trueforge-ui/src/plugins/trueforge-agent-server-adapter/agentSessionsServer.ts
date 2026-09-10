@@ -13,6 +13,7 @@ export type CreateHarnessAgentSessionsServerOptions = CreateTrueForgeClientOptio
 export type HarnessSessionListEntry = SessionListEntry<HarnessAgentSpec> & {
   isCreateAgent: boolean;
   isMutable: boolean;
+  sourceType?: 'schedule';
 };
 
 function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEntry {
@@ -25,12 +26,13 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     isMutable: session.agent.type === 'inline',
     metrics: {
       totalTurns: session.metrics.totalTurns,
-      totalCostInUsd: session.metrics.totalCostInUsd ?? 0, // TODO: fix this.
+      ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),
       totalDurationMs: session.metrics.totalDurationMs,
     },
     ...(session.title === null ? {} : { title: session.title }),
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
+    ...(session.source?.type === 'schedule' ? { sourceType: session.source.type } : {}),
   };
 }
 
@@ -64,6 +66,7 @@ export function createHarnessAgentSessionsServer(
         ...(requestParams.agentId === undefined || requestParams.agentId.length === 0
           ? {}
           : { agentId: requestParams.agentId }),
+        ...(requestParams.createdByMe === undefined ? {} : { createdByMe: requestParams.createdByMe }),
       });
       return toListResult(page, toSessionListEntry);
     },

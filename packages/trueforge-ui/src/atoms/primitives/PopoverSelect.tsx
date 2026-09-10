@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
@@ -22,10 +22,13 @@ type CommonPopoverSelectProps<T extends string> = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  menuClassName?: string;
   /** Which edge of the trigger the menu opens toward. Default `bottom`. */
   menuPlacement?: 'top' | 'bottom';
   /** When set, renders a labeled chip trigger (label | value chip + chevron). */
   prefix?: string;
+  emptyContent?: ReactNode;
+  footer?: ReactNode;
   'aria-label': string;
 };
 
@@ -166,34 +169,44 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
 
       {open ? (
         <div
-          ref={listboxRef}
-          id={listboxId}
-          role="listbox"
-          aria-label={props['aria-label']}
-          aria-multiselectable={props.multiple || undefined}
           className={cn(
             auiSelectMenuClass('left-0 min-w-full'),
             menuPlacement === 'top' && 'top-auto bottom-full mt-0 mb-1',
+            props.menuClassName,
           )}
         >
-          {props.options.map(option => {
-            const selected = isSelected(option.value);
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                aria-disabled={option.disabled || undefined}
-                disabled={option.disabled}
-                className={auiSelectOptionClass()}
-                onClick={() => select(option)}
-              >
-                <span className="min-w-0 flex-1 whitespace-nowrap">{option.label}</span>
-                <Icon name="check" className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')} />
-              </button>
-            );
-          })}
+          <div
+            ref={listboxRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={props['aria-label']}
+            aria-multiselectable={props.multiple || undefined}
+          >
+            {props.options.length === 0
+              ? props.emptyContent
+              : props.options.map(option => {
+                  const selected = isSelected(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      aria-disabled={option.disabled || undefined}
+                      disabled={option.disabled}
+                      className={auiSelectOptionClass()}
+                      onClick={() => select(option)}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                      <Icon
+                        name="check"
+                        className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+                      />
+                    </button>
+                  );
+                })}
+          </div>
+          {props.footer}
         </div>
       ) : null}
     </div>

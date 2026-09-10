@@ -1,11 +1,42 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
+import { AgentModelSettingsContent } from '@/atoms/draft/AgentModelSettingsContent.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
-import type { AgentSpec } from '@/server/types.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import type { AgentSkill, AgentSpec, ConnectorState } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+
+vi.mock('@/atoms/MonacoEditorCore.js', () => ({
+  MonacoEditorCore: ({ value, onChange }: { value: string; onChange?: (value: string) => void }) => (
+    <textarea aria-label="JSON parameters editor" value={value} onChange={event => onChange?.(event.target.value)} />
+  ),
+}));
+
+const oauthMock = vi.hoisted(() => ({
+  handleAuthorize: vi.fn(),
+  isOAuthLoading: false,
+}));
+
+vi.mock('@/hooks/useMcpAuth.js', () => ({
+  useMCPAuth: () => oauthMock,
+}));
+
+function deferred<T>() {
+  let settle: ((value: T) => void) | undefined;
+  return {
+    promise: new Promise<T>(resolve => {
+      settle = resolve;
+    }),
+    resolve(value: T) {
+      settle?.(value);
+    },
+  };
+}
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -155,7 +186,7 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByText('Context')).toBeInTheDocument();
   });
 
-  it('uses toggles and sliders for model settings', () => {
+  it('uses On and Off controls with sliders for model settings', () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     const onChange = vi.fn();
     render(
@@ -181,14 +212,14 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Enable Maximum Tokens' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Maximum Tokens on' }));
     expect(onChange).toHaveBeenCalledWith({
       ...spec,
       model: { ...spec.model, params: { maxTokens: 8192 } },
     });
-    expect(screen.queryByRole('button', { name: 'JSON' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Enable Temperature' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: 'Parallel tool calls' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'JSON' })).toBeInTheDocument();
+    expect(screen.queryByText('Temperature')).not.toBeInTheDocument();
+    expect(screen.queryByText('Parallel tool calls')).not.toBeInTheDocument();
   });
 
   it('explicitly clears a model parameter when its toggle is disabled', () => {
@@ -222,7 +253,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Enable Maximum Tokens' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Maximum Tokens off' }));
     expect(onChange).toHaveBeenCalledWith({
       ...spec,
       model: {
@@ -232,7 +263,143 @@ describe('AgentConfigEditors', () => {
     });
   });
 
-  it('opens runtime configuration in a dedicated modal', () => {
+  it('edits the complete parameter object in JSON view and rejects invalid JSON', () => {
+    const spec: AgentSpec = {
+      model: {
+        name: 'openai/gpt',
+        params: { maxTokens: 4096 },
+      },
+    };
+    const expectedParams = { maxTokens: 2048, vendor_option: { mode: 'fast' } };
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="model-settings"
+          spec={spec}
+          models={[
+            {
+              id: 'openai/gpt',
+              name: 'openai/gpt',
+              provider: { name: 'OpenAI' },
+              properties: { maxOutputTokens: 8_192 },
+            },
+          ]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'JSON' }));
+    const editor = screen.getByRole('textbox', { name: 'JSON parameters editor' });
+    expect(editor.closest('.aui-code-editor')).toHaveClass('h-80');
+    fireEvent.change(editor, {
+      target: { value: '{"maxTokens":2048,"vendor_option":{"mode":"fast"}}' },
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...spec,
+      model: {
+        ...spec.model,
+        params: expectedParams,
+      },
+    });
+
+    onChange.mockClear();
+    fireEvent.change(editor, { target: { value: '{"maxTokens":' } });
+    expect(screen.getByText('Invalid JSON.')).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('adds typed custom parameters without replacing dedicated controls', () => {
+    const spec: AgentSpec = {
+      model: {
+        name: 'openai/gpt',
+        params: { maxTokens: 4096 },
+      },
+    };
+    const expectedParams = { maxTokens: 4096, vendor_option: 42 };
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="model-settings"
+          spec={spec}
+          models={[
+            {
+              id: 'openai/gpt',
+              name: 'openai/gpt',
+              provider: { name: 'OpenAI' },
+              properties: { maxOutputTokens: 8_192 },
+            },
+          ]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Custom Parameters on' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Custom parameter name' }), {
+      target: { value: 'vendor_option' },
+    });
+
+    const typeSelect = screen.getByRole('button', { name: 'Type for vendor_option' });
+    fireEvent.click(typeSelect);
+    expect(screen.getByRole('menuitem', { name: 'String' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Number' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'JSON' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Number' }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Value for vendor_option' }), {
+      target: { value: '42' },
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...spec,
+      model: {
+        ...spec.model,
+        params: expectedParams,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Type for vendor_option' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'JSON' }));
+    expect(screen.getByRole('textbox', { name: 'JSON parameters editor' }).closest('.aui-code-editor')).toHaveClass(
+      'h-32',
+    );
+    expect(screen.getByRole('button', { name: 'Add parameter' })).toBeInTheDocument();
+  });
+
+  it('preserves prototype-named custom parameters as own properties', () => {
+    const onChange = vi.fn();
+    const params = Object.fromEntries([['__proto__', 'initial']]);
+    render(
+      <SlotsProvider>
+        <AgentModelSettingsContent spec={{ model: { name: 'openai/gpt', params } }} onChange={onChange} />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Custom parameter name' })).toHaveValue('__proto__');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value for __proto__' }), {
+      target: { value: 'updated' },
+    });
+
+    const changedParams = onChange.mock.lastCall?.[0].model.params;
+    expect(Object.hasOwn(changedParams ?? {}, '__proto__')).toBe(true);
+    expect(changedParams?.['__proto__']).toBe('updated');
+  });
+
+  it('opens runtime configuration in a right-side drawer', () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     render(
       <SlotsProvider>
@@ -251,8 +418,34 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Runtime Config' })).toHaveClass('md:ml-auto', 'md:mr-0', 'md:h-dvh');
     expect(screen.getByRole('switch', { name: 'Context compaction' })).toBeInTheDocument();
+  });
+
+  it('changes runtime switches only when the switch is clicked', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="runtime"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          sandboxAvailable
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Context compaction'));
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Context compaction' }));
+    expect(onChange).toHaveBeenCalledOnce();
   });
 
   it('retains nested runtime values while their parent is disabled', () => {
@@ -365,6 +558,33 @@ describe('AgentConfigEditors', () => {
 
     await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('github'));
     expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('shows the API error message when loading MCP tools fails', async () => {
+    const error = Object.assign(new Error('BadGatewayError Status code: 502 Body: <html>…</html>'), {
+      statusCode: 502,
+      body: { error: { message: 'Failed to connect to remote MCP server' } },
+    });
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[{ id: 'broken', name: 'Broken MCP', authenticated: true }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={async () => Promise.reject(error)}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText('Failed to connect to remote MCP server')).toBeInTheDocument();
+    expect(screen.queryByText(/BadGatewayError/)).not.toBeInTheDocument();
   });
 
   it('keeps an off-page selected MCP active via catalog stubs', async () => {
@@ -516,6 +736,216 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('button', { name: 'Connect During Chat' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitemcheckbox', { name: /secret.read/ })).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('loads tools after the connector list marks the selection authenticated', async () => {
+    const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
+    const props = {
+      editor: 'mcp' as const,
+      spec: { model: { name: 'openai/gpt' } } satisfies AgentSpec,
+      models: [],
+      skills: [],
+      loading: false,
+      error: null,
+      loadMcpTools,
+      onChange: vi.fn(),
+      onClose: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <SlotsProvider>
+        <AgentConfigEditors {...props} connectors={[{ id: 'private', name: 'Private', authenticated: false }]} />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpTools).not.toHaveBeenCalled();
+
+    rerender(
+      <SlotsProvider>
+        <AgentConfigEditors {...props} connectors={[{ id: 'private', name: 'Private', authenticated: true }]} />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'secret.read' })).toBeInTheDocument();
+    expect(loadMcpTools).toHaveBeenCalledWith('private');
+  });
+
+  it('loads tools after Connect Now when only connector list refresh is available', async () => {
+    oauthMock.handleAuthorize.mockImplementation(async (_id: string, callback: (isSuccess: boolean) => void) => {
+      callback(true);
+    });
+    const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
+
+    function Harness() {
+      const [connectors, setConnectors] = useState<ConnectorState[]>([
+        { id: 'private', name: 'Private', authenticated: false },
+      ]);
+      return (
+        <SlotsProvider>
+          <AgentConfigEditors
+            editor="mcp"
+            spec={{ model: { name: 'openai/gpt' } }}
+            models={[]}
+            connectors={connectors}
+            skills={[]}
+            loading={false}
+            error={null}
+            loadMcpTools={loadMcpTools}
+            onRefreshConnectors={async () => {
+              setConnectors([{ id: 'private', name: 'Private', authenticated: true }]);
+            }}
+            onChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </SlotsProvider>
+      );
+    }
+
+    render(<Harness />);
+
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpTools).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect Now' }));
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'secret.read' })).toBeInTheDocument();
+    expect(loadMcpTools).toHaveBeenCalledWith('private');
+  });
+
+  it('checks live auth before loading tools and overrides stale listing auth', async () => {
+    const calls: string[] = [];
+    const loadMcpConnector = vi.fn(async () => {
+      calls.push('detail');
+      return { id: 'private', name: 'Private', authenticated: true };
+    });
+    const loadMcpTools = vi.fn(async () => {
+      calls.push('tools');
+      return [{ id: 'secret.read', name: 'secret.read' }];
+    });
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[{ id: 'private', name: 'Private', authenticated: false }]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpConnector={loadMcpConnector}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'secret.read' })).toBeInTheDocument();
+    expect(calls).toEqual(['detail', 'tools']);
+  });
+
+  it('does not load tools when the live detail requires auth', async () => {
+    const loadMcpTools = vi.fn(async () => [{ id: 'secret.read', name: 'secret.read' }]);
+
+    render(
+      <ServerProvider server={createMockAgentUIServer({ catalog: createMockCatalog() })}>
+        <SlotsProvider>
+          <AgentConfigEditors
+            editor="mcp"
+            spec={{ model: { name: 'openai/gpt' } }}
+            models={[]}
+            connectors={[{ id: 'private', name: 'Private', authenticated: true }]}
+            skills={[]}
+            loading={false}
+            error={null}
+            loadMcpConnector={async () => ({ id: 'private', name: 'Private', authenticated: false })}
+            loadMcpTools={loadMcpTools}
+            onChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </SlotsProvider>
+      </ServerProvider>,
+    );
+
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpTools).not.toHaveBeenCalled();
+  });
+
+  it('retries the selected MCP detail after an error', async () => {
+    const loadMcpConnector = vi
+      .fn<(connectorId: string) => Promise<{ id: string; name: string; authenticated: boolean }>>()
+      .mockRejectedValueOnce(new Error('Detail unavailable'))
+      .mockResolvedValue({ id: 'private', name: 'Private', authenticated: false });
+
+    render(
+      <ServerProvider server={createMockAgentUIServer({ catalog: createMockCatalog() })}>
+        <SlotsProvider>
+          <AgentConfigEditors
+            editor="mcp"
+            spec={{ model: { name: 'openai/gpt' } }}
+            models={[]}
+            connectors={[{ id: 'private', name: 'Private', authenticated: true }]}
+            skills={[]}
+            loading={false}
+            error={null}
+            loadMcpConnector={loadMcpConnector}
+            loadMcpTools={vi.fn()}
+            onChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </SlotsProvider>
+      </ServerProvider>,
+    );
+
+    expect(await screen.findByText('Detail unavailable')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText("You're not connected to this MCP Server")).toBeInTheDocument();
+    expect(loadMcpConnector).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores stale MCP detail results after selecting another connector', async () => {
+    const first = deferred<{ id: string; name: string; authenticated: boolean }>();
+    const second = deferred<{ id: string; name: string; authenticated: boolean }>();
+    const loadMcpConnector = vi.fn((connectorId: string) => (connectorId === 'first' ? first.promise : second.promise));
+    const loadMcpTools = vi.fn(async (connectorId: string) => [
+      { id: `${connectorId}.tool`, name: `${connectorId}.tool` },
+    ]);
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[
+            { id: 'first', name: 'First', authenticated: true },
+            { id: 'second', name: 'Second', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpConnector={loadMcpConnector}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => expect(loadMcpConnector).toHaveBeenCalledWith('first'));
+    fireEvent.click(screen.getByRole('button', { name: 'Second' }));
+    await act(async () => {
+      second.resolve({ id: 'second', name: 'Second', authenticated: true });
+    });
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'second.tool' })).toBeInTheDocument();
+    await act(async () => {
+      first.resolve({ id: 'first', name: 'First', authenticated: false });
+    });
+    expect(screen.getByRole('menuitemcheckbox', { name: 'second.tool' })).toBeInTheDocument();
+    expect(loadMcpTools).toHaveBeenCalledTimes(1);
+    expect(loadMcpTools).toHaveBeenCalledWith('second');
   });
 
   it('mounts an unauthenticated connector with Connect During Chat', async () => {
@@ -807,5 +1237,137 @@ describe('AgentConfigEditors', () => {
       skills: [{ id: 'research', name: 'Research' }],
       config: { sandbox: { enabled: true } },
     });
+  });
+
+  it('reorders selected skills only when the skills editor reopens', () => {
+    const availableSkills = [
+      { id: 'alpha', name: 'Alpha' },
+      { id: 'beta', name: 'Beta' },
+    ];
+    const initialSpec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const selectedSpec: AgentSpec = {
+      ...initialSpec,
+      skills: [{ id: 'beta', name: 'Beta' }],
+    };
+    const renderEditors = (spec: AgentSpec) => (
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={availableSkills}
+          loading={false}
+          error={null}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>
+    );
+    const rendered = render(renderEditors(initialSpec));
+
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveTextContent('Alpha');
+    rendered.rerender(renderEditors(selectedSpec));
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveTextContent('Alpha');
+
+    rendered.unmount();
+    render(renderEditors(selectedSpec));
+    expect(screen.getAllByRole('menuitemcheckbox')[0]).toHaveTextContent('Beta');
+  });
+
+  it('loads registry versions lazily and attaches the chosen FQN', async () => {
+    const spec: AgentSpec = { model: { name: 'openai/gpt' } };
+    const onChange = vi.fn();
+    const loadVersions = vi.fn(async () => [
+      {
+        name: 'agent-skill:acme/team-a/echo:1',
+        displayName: 'echo',
+        description: 'v1',
+        version: 1,
+      },
+      {
+        name: 'agent-skill:acme/team-a/echo:3',
+        displayName: 'echo',
+        description: 'v3',
+        version: 3,
+      },
+    ]);
+    const skill: AgentSkill = Object.assign(
+      {
+        id: 'agent-skill:acme/team-a/echo:3',
+        name: 'echo',
+        description: 'Echo skill',
+      },
+      { skillRepoName: 'team-a', version: 3, loadVersions },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByText('team-a')).toBeInTheDocument();
+    expect(loadVersions).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select version for echo' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'v1' }));
+    expect(loadVersions).toHaveBeenCalledOnce();
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select echo' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      skills: [{ id: 'agent-skill:acme/team-a/echo:1', name: 'echo' }],
+      config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('shows a concise version error and copies its details', async () => {
+    const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const errorMessage =
+      'HTTP Error: Not Found <Error><Message>BucketName contains sensitive details</Message></Error>';
+    const skill: AgentSkill = Object.assign(
+      { id: 'agent-skill:acme/team-a/echo:3', name: 'echo' },
+      { version: 3, loadVersions: vi.fn().mockRejectedValue(new Error(errorMessage)) },
+    );
+
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="skills"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[skill]}
+          loading={false}
+          error={null}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select version for echo' }));
+    expect(await screen.findByText('Failed to load versions.')).toBeInTheDocument();
+    expect(screen.queryByText(errorMessage, { exact: false })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy error' }));
+    expect(writeText).toHaveBeenCalledWith(errorMessage);
+
+    if (clipboardDescriptor === undefined) Reflect.deleteProperty(navigator, 'clipboard');
+    else Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
   });
 });

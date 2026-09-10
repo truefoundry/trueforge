@@ -57,6 +57,11 @@ function BuilderMode({ children }: { children: ReactNode }) {
   return children;
 }
 
+function AgentConfigState() {
+  const { agentConfigOpen } = useShellMode();
+  return <span>{agentConfigOpen ? 'Config open' : 'Config closed'}</span>;
+}
+
 describe('draft composer sections', () => {
   beforeEach(() => {
     agentSpec = {
@@ -89,7 +94,21 @@ describe('draft composer sections', () => {
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
   });
 
+  it('keeps only the reasoning selector in the builder composer', async () => {
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <BuilderMode>
+          <DraftSections />
+        </BuilderMode>
+      </ShellModeProvider>,
+    );
+
+    expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
+    expect(screen.queryByTitle('Select model')).not.toBeInTheDocument();
+  });
+
   it('shows the Agent config trigger only in compact builder layouts', () => {
+    const onAttach = vi.fn();
     const { rerender } = render(
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
         <BuilderMode>
@@ -104,13 +123,24 @@ describe('draft composer sections', () => {
       <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
         <BuilderMode>
           <CompactLayoutProvider>
-            <DraftSections />
+            <DraftSections onAttach={onAttach} />
+            <AgentConfigState />
           </CompactLayoutProvider>
         </BuilderMode>
       </ShellModeProvider>,
     );
 
-    expect(screen.getByRole('button', { name: 'Agent config' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Attach a file' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(screen.getByRole('menuitem', { name: 'Agent config' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Attach a file' }));
+    expect(onAttach).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Agent config' }));
+    expect(screen.getByText('Config open')).toBeInTheDocument();
   });
 
   it('propagates disabled and running state to composed controls', async () => {

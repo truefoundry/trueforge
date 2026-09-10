@@ -1,30 +1,19 @@
 import { createRoute, z } from '@hono/zod-openapi';
-import { MCP_SERVERS_PAGE_LIMIT, MCP_SERVERS_PAGE_LIMIT_MAX } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateMcpServerRequestSchema,
+  GetAvailableMcpServerResponseSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
   ListMcpServersResponseSchema,
   McpAuthStatusSchema,
   UpdateMcpServerRequestSchema,
 } from '../schemas/mcpServer';
-import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
-export const ListMcpServersQuerySchema = z
-  .object({
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(MCP_SERVERS_PAGE_LIMIT_MAX)
-      .optional()
-      .default(MCP_SERVERS_PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(MCP_SERVERS_PAGE_LIMIT)}, max ${String(MCP_SERVERS_PAGE_LIMIT_MAX)}.`),
-    page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
-  })
-  .openapi('ListMCPServersQuery');
+const McpServerNameParamsSchema = z.object({
+  name: z.string().min(1).describe('MCP server name.'),
+});
 
 /** Chat/composer MCP list (not under settings). */
 export const listAvailableMcpServersRoute = createRoute({
@@ -32,25 +21,45 @@ export const listAvailableMcpServersRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers for chat',
-  description: 'Paginated MCP servers as a slim name/url list for the composer.',
+  description: 'Configured MCP servers as a slim name/url list for the composer.',
   'x-fern-sdk-group-name': ['mcpServers'],
   'x-fern-sdk-method-name': 'list',
-  'x-fern-pagination': TOKEN_PAGINATION,
-  request: {
-    query: ListMcpServersQuerySchema,
-  },
   responses: {
     200: {
       content: { 'application/json': { schema: ListAvailableMcpServersResponseSchema } },
-      description: 'Paginated MCP servers (chat projection).',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid query parameters or page token.',
+      description: 'All configured MCP servers (chat projection).',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+  },
+});
+
+/** Chat/composer single-server read (not under settings). */
+export const getAvailableMcpServerRoute = createRoute({
+  method: 'get',
+  path: '/{name}',
+  tags: [OpenApiTag.MCP_SERVERS],
+  summary: 'Get an MCP server for chat',
+  description: 'A single MCP server as the slim chat projection, with live per-user auth_status.',
+  'x-fern-sdk-group-name': ['mcpServers'],
+  'x-fern-sdk-method-name': 'get',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetAvailableMcpServerResponseSchema } },
+      description: 'The MCP server (chat projection).',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
     },
   },
 });
@@ -60,21 +69,13 @@ export const listMcpServersRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.MCP_SERVERS],
   summary: 'List MCP servers',
-  description: 'Paginated MCP servers with auth_status. Header secrets are redacted.',
+  description: 'Configured MCP servers with auth_status. Header secrets are redacted.',
   'x-fern-sdk-group-name': ['settings', 'mcpServers'],
   'x-fern-sdk-method-name': 'list',
-  'x-fern-pagination': TOKEN_PAGINATION,
-  request: {
-    query: ListMcpServersQuerySchema,
-  },
   responses: {
     200: {
       content: { 'application/json': { schema: ListMcpServersResponseSchema } },
-      description: 'Paginated MCP servers',
-    },
-    400: {
-      content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid query parameters or page token.',
+      description: 'All configured MCP servers',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -85,10 +86,6 @@ export const listMcpServersRoute = createRoute({
       description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
   },
-});
-
-const McpServerNameParamsSchema = z.object({
-  name: z.string().min(1).describe('MCP server name.'),
 });
 
 export const getMcpServerRoute = createRoute({

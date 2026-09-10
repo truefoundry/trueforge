@@ -137,7 +137,7 @@ export function AgentRuntimeConfigFields({
       content={field.disabledTooltip ?? ''}
       triggerClassName={cn('flex w-full min-w-0', wrapperClassName)}
     >
-      <label className={cn('flex w-full', className ?? 'items-center justify-between gap-3 py-1.5')}>
+      <div className={cn('flex w-full', className ?? 'items-center justify-between gap-3 py-1.5')}>
         <span className="min-w-0">
           <span className={cn('text-text-primary text-xs', layout === 'detailed' && 'block font-medium')}>
             {field.label}
@@ -152,7 +152,7 @@ export function AgentRuntimeConfigFields({
           onCheckedChange={enabled => onChange(field.update(enabled))}
           aria-label={field.label}
         />
-      </label>
+      </div>
     </Tooltip>
   );
 
@@ -160,8 +160,8 @@ export function AgentRuntimeConfigFields({
     return (
       <div className="space-y-5">
         {showCapabilities ? (
-          // Stacked below `md` so the bottom-sheet modal does not cram three labeled switches into one row.
-          <div className="flex flex-col gap-3 md:flex-row">
+          // Stack below `md` so narrow bottom sheets retain usable control widths.
+          <div className="flex flex-col gap-3 border-b border-border pb-5 md:flex-row">
             {capabilityFields.map((field, index) =>
               switchField({
                 field,

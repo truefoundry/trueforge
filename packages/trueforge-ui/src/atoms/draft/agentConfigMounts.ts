@@ -9,9 +9,9 @@ export function editableMountsFromSpec(value: unknown): EditableMount[] {
   const mounts: EditableMount[] = [];
   for (const item of value) {
     if (typeof item !== 'object' || item === null) continue;
+    const displayNameRaw = Reflect.get(item, 'display_name');
     const name = Reflect.get(item, 'name');
-    const fqn = Reflect.get(item, 'fqn');
-    const displayName = typeof name === 'string' ? name : typeof fqn === 'string' ? fqn : null;
+    const displayName = typeof displayNameRaw === 'string' ? displayNameRaw : typeof name === 'string' ? name : null;
     if (displayName === null) continue;
     const id = Reflect.get(item, 'id');
     mounts.push({ id: typeof id === 'string' ? id : displayName, name: displayName, value: item });

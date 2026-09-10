@@ -9,9 +9,8 @@ import type {
   AgentSpec,
   CatalogServer,
   ConnectorState,
-  ListResult,
   ModelSelection,
-  PageParams,
+  PermissionsServer,
   SaveAgentRequest,
   SaveAgentResult,
   ScheduleServer,
@@ -30,6 +29,7 @@ export type CreateTrueFoundryServerOptions<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TPermissions extends PermissionsServer = PermissionsServer,
 > = {
   /** Chat port — e.g. from `@truefoundry/agent-server-adapter`. */
   chatServer: AgentChatServer<TSpec>;
@@ -37,7 +37,7 @@ export type CreateTrueFoundryServerOptions<
   getModels: () => Promise<TModel[]>;
   getSkills: () => Promise<TSkill[]>;
   getMcp: () => Promise<TMcp[]>;
-  listMcp?: (req?: PageParams) => Promise<ListResult<TMcp>>;
+  getMcpConnector?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpConnector'];
   getMcpTools?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpTools'];
   searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
   saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
@@ -50,6 +50,8 @@ export type CreateTrueFoundryServerOptions<
   metrics?: TMetrics;
   /** Schedules listing + CRUD. Optional. */
   schedules?: TSchedules;
+  /** Per-resource grants. Omit to leave actions enabled. */
+  permissions?: TPermissions;
 };
 
 export type TrueFoundryServer<
@@ -64,12 +66,14 @@ export type TrueFoundryServer<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TPermissions extends PermissionsServer = PermissionsServer,
 > = AgentChatServer<TSpec> &
   AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
     catalog?: TCatalog;
     sessions?: TSessions;
     metrics?: TMetrics;
     schedules?: TSchedules;
+    permissions?: TPermissions;
   };
 
 /**
@@ -89,6 +93,7 @@ export function createTrueFoundryServer<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TPermissions extends PermissionsServer = PermissionsServer,
 >(
   opts: CreateTrueFoundryServerOptions<
     TSpec,
@@ -101,7 +106,8 @@ export function createTrueFoundryServer<
     TCapabilities,
     TSessions,
     TMetrics,
-    TSchedules
+    TSchedules,
+    TPermissions
   >,
 ): TrueFoundryServer<
   TSpec,
@@ -114,14 +120,15 @@ export function createTrueFoundryServer<
   TCapabilities,
   TSessions,
   TMetrics,
-  TSchedules
+  TSchedules,
+  TPermissions
 > {
   const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> = {
     getCapabilities: opts.getCapabilities,
     getModels: opts.getModels,
     getSkills: opts.getSkills,
     getMcp: opts.getMcp,
-    ...(opts.listMcp === undefined ? {} : { listMcp: opts.listMcp }),
+    ...(opts.getMcpConnector === undefined ? {} : { getMcpConnector: opts.getMcpConnector }),
     ...(opts.getMcpTools === undefined ? {} : { getMcpTools: opts.getMcpTools }),
     searchAgents: opts.searchAgents,
     saveAgent: opts.saveAgent,
@@ -145,7 +152,8 @@ export function createTrueFoundryServer<
     TCapabilities,
     TSessions,
     TMetrics,
-    TSchedules
+    TSchedules,
+    TPermissions
   > = {
     ...opts.chatServer,
     ...builder,
@@ -153,6 +161,7 @@ export function createTrueFoundryServer<
     ...(opts.sessions != null ? { sessions: opts.sessions } : {}),
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
+    ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
   };
   return server;
 }

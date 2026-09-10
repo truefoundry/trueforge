@@ -1,4 +1,3 @@
-import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
@@ -29,8 +28,6 @@ export interface ListMcpServersInput {
   tenant_id: string;
   /** `undefined` lists all; empty yields no rows without querying. */
   names: readonly string[] | undefined;
-  limit: number;
-  page_token: string | undefined;
 }
 
 export interface CreateMcpServerInput {
@@ -87,10 +84,7 @@ export interface DeleteMcpAuthorizationInput {
 
 /** Row persistence + DCR client columns — no authorize/status/revoke. */
 export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
-  listServers(
-    input: ListMcpServersInput,
-    transaction?: TTransaction,
-  ): Promise<{ data: McpServerRecord[]; pagination: TokenPagination }>;
+  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
   /**
    * Load one server while holding a row lock for the lifetime of `transaction`.

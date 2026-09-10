@@ -6,17 +6,22 @@ import { z } from 'zod';
 
 import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
+import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
 import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
 const MCP_SERVERS_PATH = 'v1/mcp';
 const TFG_AGENTS_PATH = 'internal/tfg/agents';
+const TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH = 'internal/tfg/agent-skill-versions/resolve';
+const AGENT_SKILLS_PATH = 'v1/agent-skills';
+const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
-/** In-cluster ServiceFoundry path; public gateway is `/api/svc/v1/x/vend-token`. */
-const VEND_TOKEN_PATH = 'v1/x/vend-token';
-const INTEGRATIONS_PAGE_SIZE = 1000;
+const VEND_TOKEN_PATH = 'internal/vend-token';
+const AGENT_SKILLS_PAGE_SIZE = 100;
+/** SFY resolve `@ArrayMaxSize(50)` — chunk larger AgentSpec skill lists. */
+const AGENT_SKILL_RESOLVE_CHUNK_SIZE = 50;
 
 /**
  * Fields required to build RequestContext from ServiceFoundry `GET /v1/session`.
@@ -131,7 +136,7 @@ export class TrueFoundryServiceFoundryServerClient {
     tls: InternalTlsOptions;
     httpTimeoutMs: number;
     httpAgentTimeoutMs: number;
-    /** Service API key for `vend-token` only; user calls still pass a bearer `accessToken`. */
+    /** Service API key for vend-token and other privileged SFY calls. */
     apiKey: string;
   }) {
     const tls = input.tls;
@@ -146,29 +151,33 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#apiKey = input.apiKey;
   }
 
-  async listProviderIntegrations(accessToken: string): Promise<unknown[]> {
-    const items: unknown[] = [];
-    let offset = 0;
-    for (;;) {
-      const payload = await this.#requestJson({
-        url: this.#url(INTEGRATIONS_PATH, {
-          type: 'model',
-          offset: String(offset),
-          limit: String(INTEGRATIONS_PAGE_SIZE),
-        }),
-        accessToken,
-        method: 'GET',
-      });
-      const response = this.#parseListResponse(payload);
-      const page = listPage(response);
-      const total = listPaginationTotal(response);
-      items.push(...page);
-      if (total === undefined || items.length >= total || page.length === 0) {
-        break;
-      }
-      offset = items.length;
-    }
-    return items;
+  /** Service API key (`TRUEFOUNDRY_API_KEY`); callers pass it explicitly when needed. */
+  get apiKey(): string {
+    return this.#apiKey;
+  }
+
+  /**
+   * Model integrations. No limit/offset → full match set in one response.
+   * Pass `filter` (account + model name together) for a point lookup.
+   */
+  async listProviderIntegrations(input: {
+    accessToken: string;
+    filter?: { provider_account_name: string; name: string };
+  }): Promise<unknown[]> {
+    const filterQuery =
+      input.filter === undefined
+        ? {}
+        : {
+            provider_account_name: input.filter.provider_account_name,
+            name: input.filter.name,
+          };
+    const query: Record<string, string> = { type: 'model', ...filterQuery };
+    const payload = await this.#requestJson({
+      url: this.#url(INTEGRATIONS_PATH, query),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    return listPage(this.#parseListResponse(payload));
   }
 
   listGatewayInstallations(accessToken: string): Promise<unknown> {
@@ -179,25 +188,16 @@ export class TrueFoundryServiceFoundryServerClient {
     });
   }
 
-  /** One page of MCP servers; optional `names` filters with `name IN (…)`. */
-  async listMcpServers(input: {
-    accessToken: string;
-    limit: number;
-    offset: number;
-    names?: readonly string[];
-  }): Promise<unknown[]> {
-    const query: Record<string, string> = {
-      offset: String(input.offset),
-      limit: String(input.limit),
-      ...(input.names !== undefined
-        ? {
+  async listMcpServers(input: { accessToken: string; names?: readonly string[] }): Promise<unknown[]> {
+    const query: Record<string, string> =
+      input.names === undefined
+        ? {}
+        : {
             filter: JSON.stringify({
               op: 'and',
               values: [{ field: 'name', op: 'IN', values: [...input.names] }],
             }),
-          }
-        : {}),
-    };
+          };
     const payload = await this.#requestJson({
       url: this.#url(MCP_SERVERS_PATH, query),
       accessToken: input.accessToken,
@@ -263,6 +263,111 @@ export class TrueFoundryServiceFoundryServerClient {
       timeoutMs: this.#httpAgentTimeoutMs,
       notFoundOk: true,
     });
+  }
+
+  /** `GET /v1/agent-skills` with empty skills excluded. */
+  async listAgentSkills(input: { accessToken: string }): Promise<unknown[]> {
+    return this.#listAllPages({
+      path: AGENT_SKILLS_PATH,
+      accessToken: input.accessToken,
+      query: { include_empty_agent_skills: 'false' },
+      limit: AGENT_SKILLS_PAGE_SIZE,
+    });
+  }
+
+  /** `GET /v1/agent-skill-versions?fqn=` (one row) or `?agent_skill_id=` (all versions). */
+  async listAgentSkillVersions(input: {
+    accessToken: string;
+    fqn?: string;
+    agent_skill_id?: string;
+  }): Promise<unknown[]> {
+    const query: Record<string, string> = {};
+    if (input.fqn !== undefined) {
+      query['fqn'] = input.fqn;
+    }
+    if (input.agent_skill_id !== undefined) {
+      query['agent_skill_id'] = input.agent_skill_id;
+    }
+    return this.#listAllPages({
+      path: AGENT_SKILL_VERSIONS_PATH,
+      accessToken: input.accessToken,
+      query,
+      limit: AGENT_SKILLS_PAGE_SIZE,
+    });
+  }
+
+  /**
+   * `POST /internal/tfg/agent-skill-versions/resolve`. Chunks to 50 FQNs.
+   * Caller supplies the token (caller JWT on save validate; service API key on turns).
+   * Failures: SFY HTTP errors from `#requestJson` (401/403/424/500); unexpected body → 500.
+   */
+  async resolveAgentSkillVersions(input: {
+    accessToken: string;
+    skills: readonly {
+      fqn: string;
+      include_skill_md_content?: boolean;
+      include_presigned_url?: boolean;
+    }[];
+  }): Promise<ResolvedAgentSkillVersion[]> {
+    if (input.skills.length === 0) {
+      return [];
+    }
+    const resolved: ResolvedAgentSkillVersion[] = [];
+    for (let i = 0; i < input.skills.length; i += AGENT_SKILL_RESOLVE_CHUNK_SIZE) {
+      const chunk = input.skills.slice(i, i + AGENT_SKILL_RESOLVE_CHUNK_SIZE);
+      const payload = await this.#requestJson({
+        url: this.#url(TFG_AGENT_SKILL_VERSIONS_RESOLVE_PATH),
+        accessToken: input.accessToken,
+        method: 'POST',
+        body: {
+          skills: chunk.map(({ fqn, include_skill_md_content = false, include_presigned_url = false }) => ({
+            fqn,
+            include_skill_md_content,
+            include_presigned_url,
+          })),
+        },
+      });
+      try {
+        resolved.push(...mapResolvedAgentSkillVersions(payload));
+      } catch (error) {
+        this.#logger.error('TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response', {
+          ...extractErrorLogFields(error),
+        });
+        throw new HTTPException(500, {
+          message: 'TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response',
+          cause: error,
+        });
+      }
+    }
+    return resolved;
+  }
+
+  /** Offset/limit list until empty page or `pagination.total`. */
+  async #listAllPages(input: {
+    path: string;
+    accessToken: string;
+    query?: Record<string, string>;
+    limit: number;
+  }): Promise<unknown[]> {
+    const items: unknown[] = [];
+    for (;;) {
+      const payload = await this.#requestJson({
+        url: this.#url(input.path, {
+          ...input.query,
+          offset: String(items.length),
+          limit: String(input.limit),
+        }),
+        accessToken: input.accessToken,
+        method: 'GET',
+      });
+      const response = this.#parseListResponse(payload);
+      const page = listPage(response);
+      items.push(...page);
+      const total = listPaginationTotal(response);
+      if (page.length === 0 || (total !== undefined && items.length >= total)) {
+        return items;
+      }
+    }
   }
 
   /** Per-subject authorize; includes a consent URL when auth is required. */

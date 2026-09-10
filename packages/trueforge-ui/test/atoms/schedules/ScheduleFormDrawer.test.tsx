@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ScheduleFormDrawer } from '@/atoms/schedules/ScheduleFormDrawer.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentUIServer, ConnectorBase, Schedule, ScheduleServer } from '@/server/types.js';
+import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { AgentUIServer, ConnectorBase, PermissionsServer, Schedule, ScheduleServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
@@ -74,13 +75,22 @@ function mockScheduleServer(overrides: Partial<ScheduleServer> = {}): ScheduleSe
   };
 }
 
+function AgentBuilderProbe() {
+  const { mode } = useShellMode();
+  return mode.status === 'active' && mode.isCreateAgent ? <span>Agent builder open</span> : null;
+}
+
 function renderDrawer({
   server,
   scheduleServer,
+  permissions,
+  withShell = false,
   ...props
 }: Partial<ComponentProps<typeof ScheduleFormDrawer>> & {
   server?: AgentUIServer;
   scheduleServer?: ScheduleServer;
+  permissions?: PermissionsServer;
+  withShell?: boolean;
 }) {
   const agentServer =
     server ??
@@ -110,13 +120,21 @@ function renderDrawer({
       }),
     });
   const schedules = scheduleServer ?? mockScheduleServer();
+  const drawer = <ScheduleFormDrawer open mode="create" onOpenChange={() => undefined} {...props} />;
   return {
     schedules,
     ...render(
       <SlotsProvider>
         <ToasterProvider>
-          <ServerProvider server={{ ...agentServer, schedules }}>
-            <ScheduleFormDrawer open mode="create" onOpenChange={() => undefined} {...props} />
+          <ServerProvider server={{ ...agentServer, schedules, ...(permissions == null ? {} : { permissions }) }}>
+            {withShell ? (
+              <ShellModeProvider>
+                {drawer}
+                <AgentBuilderProbe />
+              </ShellModeProvider>
+            ) : (
+              drawer
+            )}
           </ServerProvider>
         </ToasterProvider>
       </SlotsProvider>,
@@ -142,20 +160,46 @@ describe('ScheduleFormDrawer', () => {
     });
   });
 
+  it('offers to build an agent when none have been created', async () => {
+    const onOpenChange = vi.fn();
+    renderDrawer({
+      server: createMockAgentUIServer({ searchAgents: vi.fn(async () => []) }),
+      onOpenChange,
+      withShell: true,
+    });
+
+    fireEvent.click(await screen.findByLabelText('Agent'));
+
+    expect(await screen.findByText('No Agents created yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Build Agent' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(screen.getByText('Agent builder open')).toBeInTheDocument();
+  });
+
   it('disables agent picker on edit', async () => {
     renderDrawer({ mode: 'edit', schedule: pausedSchedule({ status: 'active' }) });
     expect(await screen.findByLabelText('Agent')).toBeDisabled();
   });
 
-  it('offers only standard recurrence modes and labels the preview as Frequency', async () => {
+  it('groups standard recurrence controls with a schedule summary', async () => {
     renderDrawer({});
 
-    expect(await screen.findByRole('button', { name: 'Hourly' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
-    expect(screen.getByText('Frequency')).toBeInTheDocument();
+    const recurrence = within(await screen.findByRole('group', { name: 'Frequency' }));
+    expect(recurrence.getByRole('button', { name: 'Hourly' })).toBeInTheDocument();
+    expect(recurrence.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
+    expect(recurrence.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
+    expect(recurrence.getByLabelText('Timezone')).toBeInTheDocument();
+    expect(recurrence.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
+    expect(recurrence.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+    expect(recurrence.getByText('Schedule')).toBeInTheDocument();
+    expect(recurrence.getByText(/^Daily 9:00 AM/)).toBeInTheDocument();
+
+    fireEvent.click(recurrence.getByRole('button', { name: 'Weekly' }));
+    expect(
+      recurrence.getByText('Days').compareDocumentPosition(recurrence.getByText('Hour')) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('keeps a legacy custom cron read-only until its recurrence is replaced', async () => {
@@ -167,6 +211,26 @@ describe('ScheduleFormDrawer', () => {
     expect(await screen.findByText('Existing custom schedule')).toBeInTheDocument();
     expect(screen.getAllByText('0 9 1 * *')).not.toHaveLength(0);
     expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+  });
+
+  it('blocks create when the selected agent lacks USE', async () => {
+    const createSchedule = vi.fn(async () => pausedSchedule());
+    renderDrawer({
+      scheduleServer: mockScheduleServer({ createSchedule }),
+      permissions: {
+        listPermissions: vi.fn(async () => ({ data: { 'demo-agent': [] } })),
+      },
+      initialAgentId: 'demo-agent',
+    });
+
+    fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'digest' } });
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'summarize' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+    const form = screen.getByLabelText('Name').closest('form');
+    if (form == null) throw new Error('Expected schedule form');
+    fireEvent.submit(form);
+
+    expect(createSchedule).not.toHaveBeenCalled();
   });
 
   it('creates a paused schedule, stays open on the test screen, and toasts', async () => {
@@ -195,7 +259,7 @@ describe('ScheduleFormDrawer', () => {
     expect(screen.getByText('Schedule saved as paused')).toBeInTheDocument();
     expect(screen.getByText('Slack 1234')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Run Test' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Activate Anyway' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activate Schedule' })).toBeInTheDocument();
   });
 
   it('starts a test run from the test screen', async () => {
@@ -317,7 +381,7 @@ describe('ScheduleFormDrawer', () => {
     });
 
     await saveCreateForm();
-    fireEvent.click(await screen.findByRole('button', { name: 'Activate Anyway' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Activate Schedule' }));
 
     await waitFor(() => {
       expect(updateSchedule).toHaveBeenCalledWith(

@@ -4,6 +4,7 @@ import {
   flattenProviderModels,
   ModelProviderNameConflictError,
   type CreateModelProviderInput,
+  type GetModelProviderForUpdateInput,
   type GetModelProviderInput,
   type IModelProviderStore,
   type ListModelProvidersInput,
@@ -49,6 +50,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
     input: GetModelProviderInput,
     transaction?: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
+    void input.model_name;
     const db = transaction ?? this.#db;
     const row = await db
       .selectFrom('model_provider')
@@ -60,7 +62,7 @@ export class PostgresModelProviderStore implements IModelProviderStore<Transacti
   }
 
   async getProviderForUpdate(
-    input: GetModelProviderInput,
+    input: GetModelProviderForUpdateInput,
     transaction: Transaction<Database>,
   ): Promise<ModelProviderRecord | undefined> {
     const row = await transaction

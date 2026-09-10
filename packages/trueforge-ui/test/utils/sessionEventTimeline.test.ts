@@ -14,7 +14,7 @@ import {
   getSubAgentLanes,
   groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
-  pickLongestNonOverlappingSegments,
+  mergeOverlappingSubAgentSegments,
 } from '@/utils/sessionEventTimelineChart.js';
 import { buildSessionTurnViews } from '@/utils/sessionTurnViews.js';
 
@@ -186,6 +186,69 @@ describe('buildSessionTimelineSegments', () => {
     assert.equal(groups.length, 1);
     assert.equal(groups[0]?.segments.length, 2);
   });
+
+  it('waits only for the first sub-agent in a concurrent batch', () => {
+    const subAgentEvents: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-sub-agents',
+          threadId: 'main',
+          content: '',
+          createdAt: '2026-01-01T00:00:00.005Z',
+          toolCalls: ['a', 'b', 'c'].map(id => ({
+            id: `call-${id}`,
+            type: 'function',
+            function: { name: 'create_sub_agent', arguments: '{}' },
+          })),
+        },
+      },
+      ...['a', 'b', 'c'].map((id, index): SessionEventItem => ({
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: `thread-${id}`,
+          threadId: `child-${id}`,
+          title: `Agent ${id}`,
+          createdAt: `2026-01-01T00:00:00.0${10 + index * 5}Z`,
+          agentInfo: { type: 'dynamic', name: `agent-${id}`, input: id },
+          parent: { threadId: 'main', toolCallId: `call-${id}` },
+        },
+      })),
+      ...['a', 'b', 'c'].map((id, index): SessionEventItem => ({
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: `thread-${id}-done`,
+          threadId: `child-${id}`,
+          title: `Agent ${id}`,
+          createdAt: `2026-01-01T00:00:00.0${40 + index * 10}Z`,
+          state: { status: 'completed' },
+        },
+      })),
+    ];
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      ...subAgentEvents,
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:00.070Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    assert.deepEqual(
+      segments
+        .filter(segment => segment.title === 'system.waiting_for_sub_agent')
+        .map(segment => [segment.startMs, segment.endMs]),
+      [[5, 10]],
+    );
+    assert.deepEqual(
+      mergeOverlappingSubAgentSegments(segments.filter(segment => segment.type === 'sub_agent')).map(segment => [
+        segment.startMs,
+        segment.endMs,
+      ]),
+      [[10, 60]],
+    );
+  });
 });
 
 describe('sessionEventTimelineChart helpers', () => {
@@ -216,21 +279,21 @@ describe('sessionEventTimelineChart helpers', () => {
     isMarker: true,
   });
 
-  it('picks the longest non-overlapping sub-agent bars', () => {
-    const selected = pickLongestNonOverlappingSegments(
+  it('merges overlapping sub-agent bars from the first start through the last end', () => {
+    const selected = mergeOverlappingSubAgentSegments(
       bars([
-        [0, 10, 0],
-        [2, 4, 0],
-        [12, 20, 0],
+        [10, 40, 0],
+        [15, 50, 0],
+        [20, 60, 0],
       ]),
     );
     assert.deepEqual(
-      selected.map(segment => segment.id),
-      ['s0', 's2'],
+      selected.map(segment => ({ id: segment.id, startMs: segment.startMs, endMs: segment.endMs })),
+      [{ id: 's0', startMs: 10, endMs: 60 }],
     );
   });
 
-  it('scopes each sub-agent tooltip to runs directly overlapping its visible bar', () => {
+  it('scopes each sub-agent tooltip to its merged visible bar', () => {
     const subAgents = bars([
       [0, 10, 0],
       [9, 11, 0],
@@ -240,7 +303,7 @@ describe('sessionEventTimelineChart helpers', () => {
       type: 'sub_agent',
       threadId: `child-${index}`,
     }));
-    const visibleBars = pickLongestNonOverlappingSegments(subAgents);
+    const visibleBars = mergeOverlappingSubAgentSegments(subAgents);
     const groups = getSubAgentHoverGroups({
       bars: visibleBars,
       subAgentSegments: subAgents,
@@ -248,7 +311,7 @@ describe('sessionEventTimelineChart helpers', () => {
 
     assert.deepEqual(
       visibleBars.map(segment => segment.id),
-      ['s0', 's2'],
+      ['s0'],
     );
     assert.deepEqual(
       groups.map(group => ({
@@ -257,10 +320,7 @@ describe('sessionEventTimelineChart helpers', () => {
         endMs: group.endMs,
         segments: group.segments.map(segment => segment.id),
       })),
-      [
-        { barId: 's0', startMs: 0, endMs: 10, segments: ['s0', 's1'] },
-        { barId: 's2', startMs: 10.5, endMs: 20, segments: ['s1', 's2'] },
-      ],
+      [{ barId: 's0', startMs: 0, endMs: 20, segments: ['s0', 's1', 's2'] }],
     );
   });
 

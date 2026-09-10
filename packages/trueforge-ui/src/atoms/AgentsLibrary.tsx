@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
 import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
@@ -9,10 +10,9 @@ import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../se
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { writeOpenSchedulesForAgentSearch } from '../utils/scheduleShareUrl.js';
+import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
-import { cn } from './lib/cn.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { PageHeader } from './PageHeader.js';
@@ -28,12 +28,15 @@ export type AgentsLibraryProps = {
 
 export type AgentScheduleSummary = {
   count: number;
-  hasPaused: boolean;
+  pausedCount: number;
 };
 
 export type AgentLibraryRowProps = {
   agent: AgentLibraryEntry;
   canMutate: boolean;
+  canUseAgent?: boolean;
+  canManageAgent?: boolean;
+  canDeleteAgent?: boolean;
   canManageSchedules: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
@@ -50,22 +53,32 @@ function displayModelLabel(modelName: string): string {
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
-function AgentSchedulesEmptyState({ agentName, onOpen }: { agentName: string; onOpen?: () => void }) {
+function AgentSchedulesEmptyState({
+  agentName,
+  onOpen,
+  disabled,
+}: {
+  agentName: string;
+  onOpen?: () => void;
+  disabled: boolean;
+}) {
   return (
-    <button
-      type="button"
-      aria-label={`Add schedule for ${agentName}`}
-      className="text-text-secondary hover:text-primary-button-bg cursor-pointer text-sm font-medium"
-      onClick={onOpen}
-    >
-      <span aria-hidden className="md:group-hover:hidden">
+    <>
+      <span aria-hidden className="text-text-secondary text-sm md:group-hover:hidden">
         -
       </span>
-      <span aria-hidden className="hidden items-center gap-1 md:group-hover:inline-flex">
+      <Button.Ghost
+        type="button"
+        size="small"
+        disabled={disabled}
+        aria-label={`Add schedule for ${agentName}`}
+        className="hidden md:group-hover:inline-flex"
+        onClick={onOpen}
+      >
         <Icon name="plus" className="size-3.5 shrink-0" />
         Schedule
-      </span>
-    </button>
+      </Button.Ghost>
+    </>
   );
 }
 
@@ -73,27 +86,40 @@ function AgentSchedulesBadge({
   summary,
   agentName,
   onOpen,
+  disabled,
 }: {
   summary: AgentScheduleSummary;
   agentName: string;
   onOpen?: () => void;
+  disabled: boolean;
 }) {
-  const warning = summary.hasPaused;
+  const pausedCount = summary.pausedCount;
+  const activeCount = summary.count - pausedCount;
+  const ariaParts = [
+    ...(activeCount > 0 ? [`${activeCount} active`] : []),
+    ...(pausedCount > 0 ? [`${pausedCount} paused`] : []),
+  ];
   return (
     <button
       type="button"
-      aria-label={`${String(summary.count)} schedules for ${agentName}${warning ? ' (has paused)' : ''}`}
-      className={cn(
-        'inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium',
-        warning
-          ? 'border-amber-600/30 bg-amber-500/10 text-amber-800 dark:text-amber-300'
-          : 'border-border bg-secondary-bg text-text-secondary',
-      )}
+      disabled={disabled}
+      aria-label={`${ariaParts.join(', ')} schedules for ${agentName}`}
+      className="inline-flex cursor-pointer items-center gap-1.5"
       onClick={onOpen}
     >
-      <Icon name="calendar-clock" className="size-3.5 shrink-0" />
-      <span>{summary.count}</span>
-      {warning ? <Icon name="triangle-exclamation" className="size-3.5 shrink-0" /> : null}
+      {activeCount > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300">
+          <Icon name="calendar-clock" className="size-3.5 shrink-0" />
+          <span>{activeCount} Active</span>
+        </span>
+      ) : null}
+      {pausedCount > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-md border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300">
+          {activeCount === 0 ? <Icon name="calendar-clock" className="size-3.5 shrink-0" /> : null}
+          <span>{pausedCount} Paused</span>
+          <Icon name="triangle-exclamation" className="size-3.5 shrink-0" />
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -101,6 +127,9 @@ function AgentSchedulesBadge({
 export function AgentLibraryRow({
   agent,
   canMutate,
+  canUseAgent = true,
+  canManageAgent = true,
+  canDeleteAgent = true,
   canManageSchedules,
   scheduleSummary,
   onOpenSchedules,
@@ -110,6 +139,7 @@ export function AgentLibraryRow({
   onEdit,
   onManageSchedules,
 }: AgentLibraryRowProps) {
+  const PermissionGuard = useSlot('PermissionGuard');
   const spec = agent.agentSpec;
   const modelName = spec?.model.name;
   const skillsCount = spec?.skills?.length ?? 0;
@@ -123,31 +153,23 @@ export function AgentLibraryRow({
   const connectorsTitle = mcpNames.length ? mcpNames.join(', ') : `${mcpCount} connectors`;
   const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
   const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
-
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
 
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
       <TableCell className="text-text-primary font-medium">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="bg-primary-bg text-text-secondary inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border">
-            <Icon name="agent-2" className="size-4" />
-          </span>
-          <div className="min-w-0">
-            {onOpen == null ? (
-              <span className="block truncate">{agent.name}</span>
-            ) : (
-              <button
-                type="button"
-                className="block max-w-full cursor-pointer text-left"
-                aria-label={`Open ${agent.name}`}
-                onClick={onOpen}
-              >
-                <span className="block truncate">{agent.name}</span>
-              </button>
-            )}
-          </div>
-        </div>
+        {onOpen == null ? (
+          <span className="block truncate">{agent.name}</span>
+        ) : (
+          <button
+            type="button"
+            className="block max-w-full cursor-pointer text-left"
+            aria-label={`Open ${agent.name}`}
+            onClick={onOpen}
+          >
+            <span className="block truncate">{agent.name}</span>
+          </button>
+        )}
       </TableCell>
       <TableCell>
         {hasConfiguration ? (
@@ -189,9 +211,14 @@ export function AgentLibraryRow({
       {scheduleSummary !== undefined ? (
         <TableCell>
           {scheduleSummary != null && scheduleSummary.count > 0 ? (
-            <AgentSchedulesBadge summary={scheduleSummary} agentName={agent.name} onOpen={onOpenSchedules} />
+            <AgentSchedulesBadge
+              summary={scheduleSummary}
+              agentName={agent.name}
+              onOpen={onOpenSchedules}
+              disabled={!canUseAgent}
+            />
           ) : scheduleSummary != null ? (
-            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onCreateSchedule} />
+            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onCreateSchedule} disabled={!canUseAgent} />
           ) : (
             <span className="text-text-secondary text-sm" aria-label={`Schedule count unavailable for ${agent.name}`}>
               —
@@ -201,14 +228,19 @@ export function AgentLibraryRow({
       ) : null}
       <TableCell className="w-px">
         <div className="flex items-center justify-end gap-1.5">
-          <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
-            <Icon name="play" className="size-3.5" />
-            Try
-          </Button.Secondary>
+          <PermissionGuard allowed={canUseAgent}>
+            <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
+              <Icon name="play" className="size-3.5" />
+              Try
+            </Button.Secondary>
+          </PermissionGuard>
           <AgentOverflowMenu
             agentName={agent.name}
             {...(spec != null ? { agentSpec: spec } : {})}
             canMutate={canMutate}
+            canUse={canUseAgent}
+            canManage={canManageAgent}
+            canDelete={canDeleteAgent}
             canManageSchedules={canManageSchedules}
             onEdit={onEdit}
             {...(onManageSchedules != null ? { onManageSchedules } : {})}
@@ -223,10 +255,10 @@ function summarizeSchedulesByAgent(schedules: readonly Schedule[]): Map<string, 
   const map = new Map<string, AgentScheduleSummary>();
   for (const schedule of schedules) {
     const id = schedule.agentId;
-    const prev = map.get(id) ?? { count: 0, hasPaused: false };
+    const prev = map.get(id) ?? { count: 0, pausedCount: 0 };
     const next = {
       count: prev.count + 1,
-      hasPaused: prev.hasPaused || schedule.status === 'paused',
+      pausedCount: prev.pausedCount + (schedule.status === 'paused' ? 1 : 0),
     };
     map.set(id, next);
     if (schedule.agentName != null && schedule.agentName !== '' && schedule.agentName !== id) {
@@ -271,8 +303,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const canMutate = shell.isComposerEnabled === true;
   const agentsListEpoch = shell.agentsListEpoch;
   const showSchedulesColumn = isSchedulesChromeEnabled({ schedules: scheduleServer });
-  const canManageSchedules = showSchedulesColumn;
   const canOpenAgentDetails = isSessionsChromeEnabled({ sessions: sessionsServer });
+  const canOpenAgentSchedules = showSchedulesColumn && canOpenAgentDetails;
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -300,6 +332,11 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       query,
       refreshKey: agentsListEpoch,
     });
+  const permissionAgentIds = open ? agents.map(libraryAgentId) : [];
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: permissionAgentIds,
+  });
 
   useEffect(() => {
     if (!open || scheduleServer == null || agents.length === 0) {
@@ -322,8 +359,20 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   }, [agents, open, scheduleServer, agentsListEpoch]);
 
   const openSchedulesForAgent = ({ agentId, isNew }: { agentId: string; isNew?: boolean }) => {
-    writeOpenSchedulesForAgentSearch({ agentId, ...(isNew === true ? { isNew: true } : {}) });
-    shell.setSchedulesOpen(true);
+    replaceScheduleShareSearch({
+      agent: null,
+      status: null,
+      q: null,
+      isNew: isNew === true ? true : null,
+    });
+    updateShareSearch({
+      agentId,
+      tab: 'schedules',
+      sessionId: null,
+      view: null,
+      timeRange: null,
+    });
+    shell.openLibraryAgent(agentId);
   };
 
   const handleTry = (agent: AgentLibraryEntry) => {
@@ -397,7 +446,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Agent name</TableHead>
                       <TableHead>Configuration</TableHead>
-                      {showSchedulesColumn ? <TableHead className="w-[8rem]">Schedules</TableHead> : null}
+                      {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
                       <TableHead className="w-px">
                         <span className="sr-only">Actions</span>
                       </TableHead>
@@ -411,20 +460,23 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                       const summary = showSchedulesColumn
                         ? (scheduleByAgent?.get(id) ??
                           scheduleByAgent?.get(agent.name) ??
-                          (scheduleByAgent == null ? null : { count: 0, hasPaused: false }))
+                          (scheduleByAgent == null ? null : { count: 0, pausedCount: 0 }))
                         : undefined;
                       return (
                         <SlottedAgentLibraryRow
                           key={id}
                           agent={agent}
                           canMutate={canMutate}
-                          canManageSchedules={canManageSchedules}
+                          canUseAgent={allows(id, 'USE')}
+                          canManageAgent={allows(id, 'MANAGE')}
+                          canDeleteAgent={allows(id, 'DELETE')}
+                          canManageSchedules={canOpenAgentSchedules}
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
-                          {...(showSchedulesColumn
+                          {...(canOpenAgentSchedules && agentId != null
                             ? {
-                                onOpenSchedules: () => openSchedulesForAgent({ agentId: id }),
-                                onCreateSchedule: () => openSchedulesForAgent({ agentId: id, isNew: true }),
-                                onManageSchedules: () => openSchedulesForAgent({ agentId: id }),
+                                onOpenSchedules: () => openSchedulesForAgent({ agentId }),
+                                onCreateSchedule: () => openSchedulesForAgent({ agentId, isNew: true }),
+                                onManageSchedules: () => openSchedulesForAgent({ agentId }),
                               }
                             : {})}
                           {...(canOpenAgentDetails && agentId != null
@@ -441,9 +493,11 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                                 },
                               }
                             : {})}
-                          onTry={() => handleTry(agent)}
+                          onTry={() => {
+                            if (allows(id, 'USE')) handleTry(agent);
+                          }}
                           onEdit={() => {
-                            if (agentSpec != null) handleEdit(agent, agentSpec);
+                            if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
                           }}
                         />
                       );

@@ -69,6 +69,11 @@ describe('createHarnessAgentSessionsServer', () => {
             totalCostInUsd: 0.25,
             totalDurationMs: 29_711,
           },
+          source: {
+            type: 'schedule',
+            id: 'schedule-1',
+            runId: 'run-1',
+          },
         },
       ],
       response: { pagination: { nextPageToken: 'next-1' } },
@@ -101,6 +106,7 @@ describe('createHarnessAgentSessionsServer', () => {
           isMutable: false,
           metrics: { totalTurns: 3, totalCostInUsd: 0.25, totalDurationMs: 29_711 },
           agentName: 'writer',
+          sourceType: 'schedule',
         },
       ],
       nextPageToken: 'next-1',
@@ -112,5 +118,31 @@ describe('createHarnessAgentSessionsServer', () => {
       () => server.listSessions({ startTimestamp: 'not-a-timestamp' }),
       /Invalid ISO timestamp: not-a-timestamp/,
     );
+  });
+
+  it('preserves an unavailable session cost', async () => {
+    const server = createHarnessAgentSessionsServer({
+      client: {
+        sessions: {
+          list: vi.fn(async () => ({
+            data: [
+              {
+                id: 'sess-without-cost',
+                title: 'hello',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-02T00:00:00.000Z',
+                agent: { type: 'inline', spec: { model: { name: 'openai/gpt-5' } } },
+                createdBy: 'user-1',
+                metrics: { totalTurns: 2, totalDurationMs: 96_201 },
+              },
+            ],
+            response: { pagination: {} },
+          })),
+        },
+      } as unknown as TrueForge,
+    });
+
+    const result = await server.listSessions();
+    assert.deepEqual(result.data[0]?.metrics, { totalTurns: 2, totalDurationMs: 96_201 });
   });
 });
