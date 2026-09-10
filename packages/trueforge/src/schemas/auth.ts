@@ -2,13 +2,7 @@
 import { z } from '@hono/zod-openapi';
 
 export const AuthLoginQuerySchema = z.object({
-  return_to: z
-    .string()
-    .optional()
-    .describe(
-      'Same-origin relative path. OIDC/standalone: post-login landing. TrueFoundry: platform login path ' +
-        '(e.g. `/signin/external?redirectPath=…`); omitted → platform login with UI home as redirectPath.',
-    ),
+  return_to: z.string().optional().describe('Same-origin path to land on after authentication.'),
 });
 
 export const OAuthCallbackQuerySchema = z.object({

@@ -138,19 +138,7 @@ describe('auth router (TrueFoundry mode)', () => {
     expect(res.headers.get('location')).toBe('https://app.example.com/signin/external?redirectPath=%2Ftrueforge%2F');
   });
 
-  it('GET /auth/login uses return_to as the platform login path', async () => {
-    const router = createTestAuthRouter({ oidcClient: undefined });
-
-    const returnTo = '/signin/external?redirectPath=%2Ftrueforge%2Fsessions%2Fabc';
-    const res = await router.request(`/login?return_to=${encodeURIComponent(returnTo)}`, {
-      redirect: 'manual',
-    });
-
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe(`https://app.example.com${returnTo}`);
-  });
-
-  it('GET /auth/login wraps a plain app return_to as redirectPath', async () => {
+  it('GET /auth/login wraps return_to as platform redirectPath', async () => {
     const router = createTestAuthRouter({ oidcClient: undefined });
 
     const res = await router.request('/login?return_to=/trueforge/sessions/abc', { redirect: 'manual' });

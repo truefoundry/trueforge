@@ -16,13 +16,12 @@ export const authLoginRoute = createRoute({
   tags: [OpenApiTag.AUTH],
   summary: 'Start the login flow',
   description:
-    'OIDC: redirect to the IdP. TrueFoundry mode: redirect to PUBLIC_BASE_URL origin + `return_to` ' +
-    '(callers pass `/signin/external?redirectPath=…`). Standalone: redirect to the UI home.',
+    'Redirects the browser to begin authentication. Optional `return_to` is the same-origin path to land on afterward.',
   'x-fern-ignore': true,
   'x-excluded': true,
   request: { query: AuthLoginQuerySchema },
   responses: {
-    302: { description: 'Redirect to the IdP, TrueFoundry platform login, or UI home.' },
+    302: { description: 'Redirect to continue authentication.' },
   },
 });
 

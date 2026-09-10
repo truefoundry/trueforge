@@ -28,9 +28,10 @@ describe('buildTrueFoundryExternalLoginHref', () => {
 });
 
 describe('resolveTrueFoundryLoginReturnTo', () => {
-  it('keeps a caller-supplied platform login path', () => {
-    const returnTo = `${TRUEFOUNDRY_EXTERNAL_SIGNIN_PATH}?redirectPath=%2Ftrueforge%2Fsessions%2Fabc`;
-    expect(resolveTrueFoundryLoginReturnTo(returnTo)).toBe(returnTo);
+  it('wraps a safe app path as redirectPath', () => {
+    expect(resolveTrueFoundryLoginReturnTo('/trueforge/sessions/abc')).toBe(
+      `${TRUEFOUNDRY_EXTERNAL_SIGNIN_PATH}?redirectPath=%2Ftrueforge%2Fsessions%2Fabc`,
+    );
   });
 
   it('defaults to platform login with UI home when return_to is missing', () => {
@@ -42,12 +43,6 @@ describe('resolveTrueFoundryLoginReturnTo', () => {
   it('defaults when return_to is unsafe', () => {
     expect(resolveTrueFoundryLoginReturnTo('//evil.example')).toBe(
       `${TRUEFOUNDRY_EXTERNAL_SIGNIN_PATH}?redirectPath=%2Ftrueforge%2F`,
-    );
-  });
-
-  it('wraps a plain app path as redirectPath', () => {
-    expect(resolveTrueFoundryLoginReturnTo('/trueforge/sessions/abc')).toBe(
-      `${TRUEFOUNDRY_EXTERNAL_SIGNIN_PATH}?redirectPath=%2Ftrueforge%2Fsessions%2Fabc`,
     );
   });
 });
