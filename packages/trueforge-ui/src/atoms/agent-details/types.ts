@@ -120,6 +120,10 @@ export type AgentMetricsViewProps = {
   onTimeRangeChange: (range: SessionTimeRange) => void;
 };
 
+export type AgentMetricStatisticsProps = {
+  meters: AgentMetricMeter[];
+};
+
 export type AgentMetricsTimeRangeFilterProps = {
   timeRange: SessionTimeRange;
   onTimeRangeChange: (range: SessionTimeRange) => void;
