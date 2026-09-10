@@ -67,7 +67,7 @@ import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
-import { createInProcessController } from './controller';
+import { createController } from './controller';
 import { executeScheduleRun, type ScheduleRunExecutor } from './controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
@@ -550,13 +550,16 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     authorizer = new TrueForgeAuthorizer();
   }
 
-  // Standalone is one process, so it owns the control loops too.
+  // Standalone owns the control loops in-process; they hand off via HTTP loopback
+  // (same transport as the dedicated controller in distributed mode).
   const controller = configuration.STANDALONE
-    ? createInProcessController({
+    ? createController({
         scheduleStore,
         withTransaction,
         logger,
-        executeRun,
+        baseUrl: configuration.SERVER_URL,
+        apiKey: configuration.TRUEFORGE_API_KEY,
+        tls: { enabled: false, dir: '' },
       })
     : undefined;
 

@@ -4,8 +4,8 @@
  * Runs the periodic control loops (schedule dispatch, …) as a dedicated,
  * single-replica process for distributed mode (`STANDALONE=false`). The controller
  * must run in exactly ONE process per database (see `controller/Controller.ts`);
- * in standalone mode the server process already owns it, so this entry refuses to
- * start there.
+ * in standalone mode the server process already owns it (HTTP loopback to itself), so this
+ * entry refuses to start there.
  *
  * Migrations are owned by the server (`main.ts`). This process only connects to the
  * already-migrated database; the loops have per-pass error boundaries, so they retry

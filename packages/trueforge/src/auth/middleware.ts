@@ -29,10 +29,10 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
 }
 
 /** Bearer API-key gate for service-only routes. */
-export function createApiKeyAuthMiddleware(apiKey: string | undefined): MiddlewareHandler {
+export function createApiKeyAuthMiddleware(apiKey: string): MiddlewareHandler {
   return async (c, next) => {
     const token = readBearerToken(c);
-    if (apiKey === undefined || token === undefined || token !== apiKey) {
+    if (token === undefined || token !== apiKey) {
       throw new HTTPException(401, { message: 'Invalid service credential' });
     }
     return next();

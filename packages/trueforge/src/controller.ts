@@ -6,7 +6,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { WithTransaction } from './db/transaction';
 import { createTlsFetch, normalizeTlsUrl, type TlsOptions } from './http/tls';
 
-/** HTTP transport used by the dedicated controller process. */
+/** HTTP transport for schedule dispatch (dedicated controller or standalone loopback). */
 export function createHttpScheduleRunExecutor(params: {
   baseUrl: string;
   apiKey: string;
@@ -22,27 +22,11 @@ export function createHttpScheduleRunExecutor(params: {
   return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
 }
 
-function createControllerWithExecutor<TTransaction>(params: {
-  scheduleStore: IScheduleStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
-  logger: Logger;
-  executeRun: ScheduleRunExecutor;
-}): Controller {
-  const { scheduleStore, withTransaction, logger, executeRun } = params;
-  return new Controller({
-    loops: [
-      scheduleDispatchLoop({
-        scheduleStore,
-        executeRun,
-        withTransaction,
-        logger,
-      }),
-    ],
-    logger,
-  });
-}
-
-/** Controller for the dedicated process; schedule execution is handed to the server over HTTP. */
+/**
+ * Controller whose schedule loop hands runs to the server over HTTP
+ * (`SERVER_URL` + `TRUEFORGE_API_KEY`). Standalone uses loopback; distributed uses
+ * the dedicated controller process against the server Service.
+ */
 export function createController<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -51,22 +35,17 @@ export function createController<TTransaction>(params: {
   apiKey: string;
   tls: TlsOptions;
 }): Controller {
-  return createControllerWithExecutor({
-    scheduleStore: params.scheduleStore,
-    withTransaction: params.withTransaction,
+  return new Controller({
+    loops: [
+      scheduleDispatchLoop({
+        scheduleStore: params.scheduleStore,
+        executeRun: createHttpScheduleRunExecutor(params),
+        withTransaction: params.withTransaction,
+        logger: params.logger,
+      }),
+    ],
     logger: params.logger,
-    executeRun: createHttpScheduleRunExecutor(params),
   });
-}
-
-/** Controller colocated with the standalone server; schedule execution stays in-process. */
-export function createInProcessController<TTransaction>(params: {
-  scheduleStore: IScheduleStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
-  logger: Logger;
-  executeRun: ScheduleRunExecutor;
-}): Controller {
-  return createControllerWithExecutor(params);
 }
 
 /**

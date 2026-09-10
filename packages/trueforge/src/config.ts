@@ -38,6 +38,11 @@ const DEFAULT_POSTGRES_DB = 'trueforge';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+/**
+ * Fixed local service credential when `STANDALONE=true` and `TRUEFORGE_API_KEY` is unset.
+ * Local testing only — not for distributed deployments.
+ */
+export const STANDALONE_TRUEFORGE_API_KEY = 'trueforge-standalone';
 
 const DEFAULT_OIDC_USER_REFERENCE_CLAIM = 'sub';
 const DEFAULT_OIDC_USER_DISPLAY_NAME_CLAIM = 'name';
@@ -515,17 +520,20 @@ export interface SharedServerConfiguration {
    */
   PUBLIC_BASE_URL: string;
   /**
-   * Base URL the controller uses to reach the server's HTTP API when it runs as its
-   * own process (`STANDALONE=false`, `dist/controller-main.js`). The control loops call
-   * the server over HTTP(S); when `TRUEFORGE_MTLS_ENABLED` is true the controller upgrades an
-   * `http://` URL to `https://` and presents the client cert. Env: `SERVER_URL`.
-   * Default: `http://localhost:$PORT`, so in-cluster deployments MUST point this at
-   * the server Service. Unused in standalone mode, where the server process owns the
-   * controller and targets itself on localhost.
+   * Base URL the controller uses to reach the server's HTTP API. Dedicated controller
+   * (`STANDALONE=false`, `dist/controller-main.js`) and the in-process standalone controller
+   * both call the server over HTTP(S) at this URL (loopback in standalone). When
+   * `TRUEFORGE_MTLS_ENABLED` is true the controller upgrades an `http://` URL to `https://`
+   * and presents the client cert. Env: `SERVER_URL`.
+   * Default: `http://localhost:$PORT`; in-cluster deployments MUST point this at the server Service.
    */
   SERVER_URL: string;
-  /** Internal controller credential; undefined when schedule execution stays in-process. */
-  TRUEFORGE_API_KEY: string | undefined;
+  /**
+   * Service credential for controller calls.
+   * Env: `TRUEFORGE_API_KEY`. Required and non-empty when `STANDALONE=false`.
+   * Standalone defaults to {@link STANDALONE_TRUEFORGE_API_KEY} (local testing only).
+   */
+  TRUEFORGE_API_KEY: string;
   /**
    * Mutual TLS for this process's HTTPS listener and controller→server. When true, serves HTTPS
    * with client-cert enforcement (except `/healthz`) and the controller presents a client cert.
@@ -588,8 +596,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
-  /** Service credential for controller calls to internal TrueForge routes. Env: `TRUEFORGE_API_KEY`. */
-  TRUEFORGE_API_KEY: string;
   /**
    * OIDC configuration for server authentication.
    * Undefined means browser login is disabled.
@@ -753,7 +759,9 @@ const shared: SharedServerConfiguration = {
   PUBLIC_BASE_URL: parsePublicBaseUrl(getEnv('PUBLIC_BASE_URL', { defaultValue: '' })),
   SERVER_URL:
     getEnv('SERVER_URL', { defaultValue: `http://localhost:${String(port)}` }) ?? `http://localhost:${String(port)}`,
-  TRUEFORGE_API_KEY: undefined,
+  TRUEFORGE_API_KEY: standalone
+    ? (getEnv('TRUEFORGE_API_KEY', { defaultValue: STANDALONE_TRUEFORGE_API_KEY }) ?? STANDALONE_TRUEFORGE_API_KEY)
+    : (getEnv('TRUEFORGE_API_KEY', { required: true }) ?? ''),
   TRUEFORGE_MTLS_ENABLED: parseBoolean({
     envKey: 'TRUEFORGE_MTLS_ENABLED',
     raw: getEnv('TRUEFORGE_MTLS_ENABLED'),
@@ -790,7 +798,6 @@ const configuration: ServerConfiguration = standalone
         defaultValue: 60_000,
       }),
       REDIS_URL: resolveRedisUrl(),
-      TRUEFORGE_API_KEY: getEnv('TRUEFORGE_API_KEY', { required: true }) ?? '',
       OIDC: resolveOIDCConfig(),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
