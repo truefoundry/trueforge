@@ -41,23 +41,15 @@ try {
     idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
   });
 
-  const mtls = {
-    enabled: configuration.TRUEFORGE_MTLS_ENABLED,
-    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
-  };
-
   logger.info('Controller starting', {
     serverUrl: configuration.SERVER_URL,
-    mTlsEnabled: mtls.enabled,
+    mTlsEnabled: configuration.TRUEFORGE_MTLS_ENABLED,
   });
 
   runController({
     scheduleStore: new PostgresScheduleStore(db),
     withTransaction: callback => db.transaction().execute(callback),
     logger,
-    baseUrl: configuration.SERVER_URL,
-    apiKey: configuration.TRUEFORGE_API_KEY,
-    tls: mtls,
     gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS,
     onStopped: () => db.destroy(),
   });

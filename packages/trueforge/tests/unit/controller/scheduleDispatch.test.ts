@@ -1,5 +1,6 @@
-import { createHttpScheduleRunExecutor } from '../../../src/controller';
+import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
 import {
+  createHttpScheduleRunExecutor,
   executeScheduleRun,
   ScheduleAgentNotFoundError,
   scheduleDispatchLoop,
@@ -71,13 +72,12 @@ function fakeStore(dispatchItem: ScheduleDispatchItem) {
   };
 }
 
-async function tickDispatch(executeRun: jest.Mock) {
+async function tickDispatch() {
   const dispatchItem = item();
   const store = fakeStore(dispatchItem);
   const logger = fakeLogger();
   const loop = scheduleDispatchLoop({
     scheduleStore: store as never,
-    executeRun,
     logger: logger as never,
     withTransaction: async callback => callback({} as never),
   });
@@ -92,34 +92,39 @@ describe('schedule execution HTTP transport', () => {
 
   it('sends one API-key authenticated request with the run id', async () => {
     const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
-    const executeRun = createHttpScheduleRunExecutor({
-      baseUrl: 'http://trueforge.internal:8790',
-      apiKey: 'service-key',
-      tls: { enabled: false, dir: '' },
-    });
+    const executeRun = createHttpScheduleRunExecutor();
 
     await executeRun('run-1');
 
     expect(request).toHaveBeenCalledTimes(1);
     const [url, init] = request.mock.calls[0] ?? [];
-    expect(String(url)).toBe('http://trueforge.internal:8790/api/internal/schedules/runs/execute');
+    expect(String(url)).toBe(`${configuration.SERVER_URL}/api/internal/schedules/runs/execute`);
     expect(init?.method).toBe('POST');
-    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer service-key');
+    expect(new Headers(init?.headers).get('authorization')).toBe(`Bearer ${STANDALONE_TRUEFORGE_API_KEY}`);
     expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
   });
 });
 
 describe('scheduleDispatchLoop', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('hands the persisted run id to the execution endpoint', async () => {
-    const executeRun = jest.fn().mockResolvedValue(undefined);
+    const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
 
-    await tickDispatch(executeRun);
+    await tickDispatch();
 
-    expect(executeRun).toHaveBeenCalledWith('run-1');
+    expect(request).toHaveBeenCalledTimes(1);
+    const [url, init] = request.mock.calls[0] ?? [];
+    expect(String(url)).toBe(`${configuration.SERVER_URL}/api/internal/schedules/runs/execute`);
+    expect(init?.body).toBe(JSON.stringify({ schedule_run_id: 'run-1' }));
   });
 
   it('marks HTTP execution failures as failed', async () => {
-    const { logger } = await tickDispatch(jest.fn().mockRejectedValue(new Error('request failed')));
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('request failed', { status: 500 }));
+
+    const { logger } = await tickDispatch();
 
     expect(logger.error).toHaveBeenCalledWith(
       'Failed to hand off triggered run',

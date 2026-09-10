@@ -557,9 +557,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         scheduleStore,
         withTransaction,
         logger,
-        baseUrl: configuration.SERVER_URL,
-        apiKey: configuration.TRUEFORGE_API_KEY,
-        tls: { enabled: false, dir: '' },
       })
     : undefined;
 
