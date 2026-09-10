@@ -14,7 +14,7 @@ import { AgentDetailsTabs } from '../atoms/agent-details/AgentDetailsTabs.js';
 import { AgentDetailsUnavailable } from '../atoms/agent-details/AgentDetailsUnavailable.js';
 import { AgentMetricCard } from '../atoms/agent-details/AgentMetricCard.js';
 import { AgentMetricsTimeRangeFilter } from '../atoms/agent-details/AgentMetricsTimeRangeFilter.js';
-import { AgentMetricsView } from '../atoms/agent-details/AgentMetricsView.js';
+import { AgentMetricStatistics, AgentMetricsView } from '../atoms/agent-details/AgentMetricsView.js';
 import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
 import { AgentSessionDetailHeader } from '../atoms/agent-details/AgentSessionDetailHeader.js';
 import { AgentSessionListRow } from '../atoms/agent-details/AgentSessionListRow.js';
@@ -223,6 +223,7 @@ export const defaultSlots = {
   AgentMetricsView,
   AgentMetricsTimeRangeFilter,
   AgentMetricCard,
+  AgentMetricStatistics,
   AgentMetricChart,
   AgentSessionDetailHeader,
   AgentSessionsFilters,

@@ -58,6 +58,7 @@ function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
     name: agent.name,
     agentId: agent.id,
     agentSpec: toUiAgentSpec(agent.manifest),
+    createdBySubject: agent.createdBySubject,
   };
 }
 

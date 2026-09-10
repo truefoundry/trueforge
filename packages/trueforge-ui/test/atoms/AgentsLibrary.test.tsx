@@ -41,6 +41,11 @@ function mockServer(
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
+    createdBySubject?: {
+      subjectId: string;
+      subjectType: string;
+      subjectDisplayName: string;
+    };
   }> = [{ name: 'alpha-agent', agentId: 'alpha-agent' }],
 ): AgentUIServer {
   return createMockAgentUIServer({
@@ -536,6 +541,15 @@ describe('AgentsLibraryButton', () => {
     expect(badge).toHaveTextContent('1 Active');
     expect(badge).toHaveTextContent('1 Paused');
     expect(badge).toHaveAccessibleName('1 active, 1 paused schedules for alpha-agent');
+
+    fireEvent.mouseEnter(screen.getByText('1 Active').parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('job-b');
+    fireEvent.mouseLeave(screen.getByText('1 Active').parentElement!);
+
+    fireEvent.mouseEnter(screen.getByText('1 Paused').parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('job-a');
+    fireEvent.mouseLeave(screen.getByText('1 Paused').parentElement!);
+
     const addSchedule = screen.getByRole('button', { name: 'Add schedule for beta-agent' });
     expect(addSchedule).toHaveTextContent('Schedule');
 
@@ -642,5 +656,32 @@ describe('AgentsLibraryButton', () => {
     await waitFor(() => {
       expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25, offset: 0 });
     });
+  });
+
+  it('shows Created by when agents include createdBySubject', async () => {
+    const server = mockServer([
+      {
+        name: 'alpha-agent',
+        agentId: 'alpha-agent',
+        createdBySubject: {
+          subjectId: 'u1',
+          subjectType: 'user',
+          subjectDisplayName: 'alice@example.com',
+        },
+      },
+    ]);
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('AL');
+  });
+
+  it('hides Created by when no agent has createdBySubject', async () => {
+    renderLibrary(<LibraryHarness />, { server: mockServer() });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+    await screen.findByRole('button', { name: 'Try agent alpha-agent' });
+    expect(screen.queryByRole('columnheader', { name: 'Created by' })).not.toBeInTheDocument();
   });
 });

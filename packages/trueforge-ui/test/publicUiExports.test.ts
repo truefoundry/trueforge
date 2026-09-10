@@ -19,6 +19,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'AgentMcpEditorContent',
   'AgentMetricCard',
   'AgentMetricChart',
+  'AgentMetricStatistics',
   'AgentMetricsContainer',
   'AgentMetricsTimeRangeFilter',
   'AgentMetricsView',
