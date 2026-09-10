@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { cn } from '../lib/cn.js';
@@ -10,11 +10,34 @@ export type DropdownMenuProps = {
   trigger: React.ReactNode;
   children: React.ReactNode;
   align?: 'start' | 'end';
+  side?: 'top' | 'bottom';
   className?: string;
+  containerClassName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  closeOnClick?: boolean;
 };
 
-export function DropdownMenu({ trigger, children, align = 'end', className }: DropdownMenuProps) {
-  const [open, setOpen] = useState(false);
+export function DropdownMenu({
+  trigger,
+  children,
+  align = 'end',
+  side = 'bottom',
+  className,
+  containerClassName,
+  open: controlledOpen,
+  onOpenChange,
+  closeOnClick = true,
+}: DropdownMenuProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (controlledOpen === undefined) setInternalOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [controlledOpen, onOpenChange],
+  );
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -32,7 +55,7 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
       if (!el) return;
       const rect = el.getBoundingClientRect();
       setPos({
-        top: rect.bottom + 4,
+        top: side === 'top' ? rect.top - 4 : rect.bottom + 4,
         left: align === 'end' ? rect.right : rect.left,
       });
     };
@@ -44,7 +67,7 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [open, align]);
+  }, [open, align, side]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,6 +99,7 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         setOpen(false);
         const triggerBtn = containerRef.current?.querySelector<HTMLElement>("[aria-haspopup='menu']");
         triggerBtn?.focus();
@@ -131,14 +155,18 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
             style={{
               top: pos.top,
               left: pos.left,
-              transform: align === 'end' ? 'translateX(-100%)' : undefined,
+              transform:
+                [align === 'end' ? 'translateX(-100%)' : null, side === 'top' ? 'translateY(-100%)' : null]
+                  .filter(value => value !== null)
+                  .join(' ') || undefined,
             }}
             className={cn(
-              'fixed z-[200] min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
+              'fixed z-[200] flex min-w-[8rem] flex-col rounded-md border border-border bg-card-bg p-1',
               'text-text-primary shadow-md',
               className,
             )}
-            onClick={() => setOpen(false)}
+            onMouseDown={event => event.stopPropagation()}
+            onClick={closeOnClick ? () => setOpen(false) : undefined}
           >
             {children}
           </div>,
@@ -147,8 +175,10 @@ export function DropdownMenu({ trigger, children, align = 'end', className }: Dr
       : null;
 
   return (
-    <div ref={containerRef} className="relative inline-flex">
-      <div onClick={() => setOpen(v => !v)}>{triggerEl}</div>
+    <div ref={containerRef} className={cn('relative inline-flex', containerClassName)}>
+      <div className="contents" onClick={() => setOpen(!open)}>
+        {triggerEl}
+      </div>
       {menu}
     </div>
   );

@@ -25,7 +25,11 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
-import type { SandboxBuildMetadata, SandboxBuildStatus, SandboxProviderManifest } from '../../schemas/sandboxProvider';
+import type {
+  SandboxBuildMetadata,
+  SandboxBuildStatus,
+  StoredSandboxProviderManifest,
+} from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -357,8 +361,8 @@ export interface SkillTable {
 export interface SandboxProviderTable {
   /** key */
   tenant_id: string;
-  /** SandboxProviderManifest document; replaced whole on every upsert */
-  manifest: JSONColumnType<SandboxProviderManifest, SandboxProviderManifest, SandboxProviderManifest>;
+  /** StoredSandboxProviderManifest document; replaced whole on every upsert */
+  manifest: JSONColumnType<StoredSandboxProviderManifest, StoredSandboxProviderManifest, StoredSandboxProviderManifest>;
   /** Last persisted build status of the release sandbox image. */
   status: SandboxBuildStatus;
   /** Human-readable detail for `status`; null when ready. */
@@ -430,6 +434,7 @@ export interface ScheduleRunTable {
   status: ScheduleRunStatus;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   triggered_at: Date | null;
+  reason: string | null;
   created_at: Date;
   updated_at: Date;
 }

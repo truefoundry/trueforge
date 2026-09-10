@@ -23,6 +23,7 @@ export type AgentSessionsProps = {
 export type AgentSessionListRowProps = {
   title: string;
   agentName?: string;
+  sourceType?: 'schedule';
   lastActivityAt: string;
   metrics: {
     totalTurns: number;
@@ -49,6 +50,8 @@ export type AgentSessionDetailHeaderProps = {
   onResume?: () => void;
   /** Label for the resume action. */
   resumeLabel?: string;
+  /** Whether the current user may resume this session. */
+  canResume?: boolean;
 };
 
 export type AgentSessionTurnHeaderProps = {
@@ -94,6 +97,7 @@ export type AgentDetailsTabsProps = {
   activeTab: AgentDetailsTab;
   onTabChange: (tab: AgentDetailsTab) => void;
   showMetrics?: boolean;
+  showSchedules?: boolean;
 };
 
 export type AgentMetricsProps = {
@@ -129,6 +133,7 @@ export type AgentMetricChartProps = {
   graph?: AgentMetricGraph;
   definition: AgentMetricChartDefinition;
   error?: string;
+  colorIndex?: number;
 };
 
 export type AgentOverviewProps = {

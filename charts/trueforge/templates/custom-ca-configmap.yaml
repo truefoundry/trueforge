@@ -1,0 +1,19 @@
+{{- /* Rendered only when a certificate is supplied inline. An operator-provided
+       existingConfigMap is used as-is. Kept in this chart rather than relying on
+       one a parent may have created, so a standalone install works too. */}}
+{{- $ca := include "trueforge.customCA" . | fromYaml }}
+{{- if and $ca.enabled $ca.certificate (not ($ca.existingConfigMap | default dict).name) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-custom-ca" (include "trueforge.fullname" .) }}
+  labels:
+    {{- include "trueforge.labels" . | nindent 4 }}
+  {{- with (include "trueforge.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+data:
+  ca-certificates.crt: |
+    {{- $ca.certificate | nindent 4 }}
+{{- end }}

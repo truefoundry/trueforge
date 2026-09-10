@@ -23,7 +23,7 @@ import { API_BASE_URL, uiRouterBasename } from './publicPath';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
-// UI + API share `VITE_BASE_PATH` / `BASE_URL`; Caddy strips it before Harness.
+// UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();
 
@@ -96,7 +96,7 @@ export function App() {
         if (first === undefined) {
           setBoot({
             status: 'ready',
-            openSettings: true,
+            openSettings: capabilities.settings.enabled,
             defaultAgentSpec: {
               model: { name: '' },
               config: sandboxConfig,
@@ -149,7 +149,10 @@ export function App() {
   if (session.status === 'checking') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
+          <span className="boot-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </div>
       </ThemeProvider>
     );
   }
@@ -175,7 +178,10 @@ export function App() {
   if (boot.status === 'loading') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
+          <span className="boot-spinner" aria-hidden="true" />
+          <span className="sr-only">Loading</span>
+        </div>
       </ThemeProvider>
     );
   }

@@ -7,8 +7,10 @@ import { useRef } from 'react';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
+import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
+import { ApprovalNavContainer } from './ApprovalNavContainer.js';
 import { AskUserContainer } from './AskUserContainer.js';
 import { ComposerAttachmentsContainer } from './AttachmentsContainer.js';
 import { CustomActionContainer } from './CustomActionContainer.js';
@@ -18,19 +20,47 @@ export type ComposerContainerProps = {
   placeholder?: string;
 };
 
-function ComposerBody({ placeholder }: { placeholder: string }) {
+export function canSubmitComposer({
+  disabled,
+  hasText,
+  hasAttachments,
+  requiresModel,
+  hasModel,
+}: {
+  disabled: boolean;
+  hasText: boolean;
+  hasAttachments: boolean;
+  requiresModel: boolean;
+  hasModel: boolean;
+}): boolean {
+  return !disabled && (hasText || hasAttachments) && (!requiresModel || hasModel);
+}
+
+function ComposerBody({
+  placeholder,
+  forceDisabled = false,
+  connectedToBanner = false,
+}: {
+  placeholder: string;
+  forceDisabled?: boolean;
+  /** Flatten top radius/border so the approval banner sits flush above. */
+  connectedToBanner?: boolean;
+}) {
   const ComposerShell = useSlot('ComposerShell');
   const aui = useAui();
   const shell = useOptionalShellMode();
   const hasText = useAuiState(s => s.composer.text.trim().length > 0);
+  const hasAttachments = useAuiState(s => s.composer.attachments.length > 0);
   const { agentSpec } = useTrueFoundryAgentSpec();
   // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
+  const canManageSession = useActiveSessionCanManage();
   const cancel = useTrueFoundryCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const canSubmit = !isBusy && hasText && (!requiresModel || hasModel);
+  const disabled = isBusy || forceDisabled || !canManageSession;
+  const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
   const submit = () => {
     if (!canSubmit) return;
     send(() => aui.composer().send());
@@ -54,7 +84,7 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
         }}
       />
       <ComposerPrimitive.AttachmentDropzone
-        disabled={isBusy}
+        disabled={disabled}
         data-slot="aui_composer-attachment-dropzone"
         className="w-full rounded-[0.75rem] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
       >
@@ -68,26 +98,36 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
           }}
         >
           <ComposerShell
+            className={
+              connectedToBanner
+                ? // Banner owns the top accent; composer keeps its normal chrome without a shared blue frame.
+                  'rounded-t-none border-t-0 focus-within:ring-0'
+                : undefined
+            }
             attachments={<ComposerAttachmentsContainer />}
             input={
               <ComposerPrimitive.Input
                 data-slot="aui_composer-input"
                 placeholder={placeholder}
-                disabled={isBusy}
+                disabled={disabled}
                 submitMode="enter"
                 aria-label="Message input"
                 className="text-text-primary placeholder:text-text-secondary/80 max-h-[10lh] min-h-10 w-full resize-none overflow-y-auto rounded-lg border-none bg-transparent px-1 py-1 text-base leading-normal shadow-none outline-none disabled:cursor-not-allowed"
               />
             }
-            disabled={isBusy}
+            disabled={disabled}
             canSubmit={canSubmit}
-            isRunning={isBusy}
+            isRunning={isBusy && !forceDisabled}
             onSubmit={submit}
-            onCancel={() => {
-              resetBusy();
-              void cancel();
-            }}
-            onAttach={() => fileInputRef.current?.click()}
+            onCancel={
+              canManageSession
+                ? () => {
+                    resetBusy();
+                    void cancel();
+                  }
+                : undefined
+            }
+            onAttach={canManageSession ? () => fileInputRef.current?.click() : undefined}
           />
         </ComposerPrimitive.Root>
       </ComposerPrimitive.AttachmentDropzone>
@@ -95,10 +135,15 @@ function ComposerBody({ placeholder }: { placeholder: string }) {
   );
 }
 
-export function ComposerContainer({
-  placeholder = 'Ask anything... (Shift+Enter for new line)',
-}: ComposerContainerProps) {
-  const pauseView = useComposerPauseView();
+function ComposerWithOptionalDraft({
+  placeholder,
+  forceDisabled = false,
+  connectedToBanner = false,
+}: {
+  placeholder: string;
+  forceDisabled?: boolean;
+  connectedToBanner?: boolean;
+}) {
   const shell = useOptionalShellMode();
   const parentLeftSection = useSlot('ComposerLeftSection');
   const parentRightSection = useSlot('ComposerRightSection');
@@ -107,16 +152,6 @@ export function ComposerContainer({
   const DraftComposerLeftSection = useSlot('DraftComposerLeftSection');
   const DraftComposerRightSection = useSlot('DraftComposerRightSection');
   const canMutateSpec = shell?.mode.status === 'active' && shell.mode.isMutable;
-
-  if (pauseView.kind === 'mcp') {
-    return <McpAuthContainer />;
-  }
-  if (pauseView.kind === 'custom') {
-    return <CustomActionContainer />;
-  }
-  if (pauseView.kind === 'ask-user') {
-    return <AskUserContainer />;
-  }
 
   if (canMutateSpec) {
     return (
@@ -127,11 +162,38 @@ export function ComposerContainer({
             ComposerRightSection: usesDefaultRightSection ? DraftComposerRightSection : parentRightSection,
           }}
         >
-          <ComposerBody placeholder={placeholder} />
+          <ComposerBody placeholder={placeholder} forceDisabled={forceDisabled} connectedToBanner={connectedToBanner} />
         </SlotsProvider>
       </DraftCatalogProvider>
     );
   }
 
-  return <ComposerBody placeholder={placeholder} />;
+  return <ComposerBody placeholder={placeholder} forceDisabled={forceDisabled} connectedToBanner={connectedToBanner} />;
+}
+
+export function ComposerContainer({
+  placeholder = 'Ask anything... (Shift+Enter for new line)',
+}: ComposerContainerProps) {
+  const pauseView = useComposerPauseView();
+  const canManageSession = useActiveSessionCanManage();
+
+  if (pauseView.kind === 'mcp') {
+    return <McpAuthContainer disabled={!canManageSession} />;
+  }
+  if (pauseView.kind === 'custom') {
+    return <CustomActionContainer disabled={!canManageSession} />;
+  }
+  if (pauseView.kind === 'ask-user') {
+    return <AskUserContainer disabled={!canManageSession} />;
+  }
+  if (pauseView.kind === 'approval') {
+    return (
+      <div data-slot="aui_composer-approval-pause" className="flex w-full flex-col">
+        <ApprovalNavContainer />
+        <ComposerWithOptionalDraft placeholder={placeholder} forceDisabled connectedToBanner />
+      </div>
+    );
+  }
+
+  return <ComposerWithOptionalDraft placeholder={placeholder} />;
 }

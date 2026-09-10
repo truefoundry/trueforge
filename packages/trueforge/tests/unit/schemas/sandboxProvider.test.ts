@@ -1,4 +1,9 @@
-import { toDaytonaSandboxProviderInput, type SandboxProviderManifest } from '../../../src/schemas/sandboxProvider';
+import {
+  StoredSandboxProviderManifestSchema,
+  UpdateSandboxProviderRequestSchema,
+  toDaytonaSandboxProviderInput,
+  type SandboxProviderManifest,
+} from '../../../src/schemas/sandboxProvider';
 
 describe('toDaytonaSandboxProviderInput', () => {
   it('maps a Daytona wire/DB manifest to apiKey plus provider settings', () => {
@@ -18,5 +23,38 @@ describe('toDaytonaSandboxProviderInput', () => {
       autoArchiveIntervalInMinutes: 60,
       autoDeleteIntervalInMinutes: 7200,
     });
+  });
+});
+
+describe('StoredSandboxProviderManifestSchema', () => {
+  it('parses a truefoundry manifest for internal store use', () => {
+    expect(
+      StoredSandboxProviderManifestSchema.parse({
+        type: 'truefoundry',
+        server_url: 'http://sandbox-server',
+        nats_bridge_url: 'ws://nats-bridge',
+        exec_timeout_ms: 60_000,
+      }),
+    ).toEqual({
+      type: 'truefoundry',
+      server_url: 'http://sandbox-server',
+      nats_bridge_url: 'ws://nats-bridge',
+      exec_timeout_ms: 60_000,
+    });
+  });
+});
+
+describe('UpdateSandboxProviderRequestSchema', () => {
+  it('rejects a truefoundry manifest (settings PUT is Daytona-only)', () => {
+    expect(() =>
+      UpdateSandboxProviderRequestSchema.parse({
+        manifest: {
+          type: 'truefoundry',
+          server_url: 'http://sandbox-server',
+          nats_bridge_url: 'ws://nats-bridge',
+          exec_timeout_ms: 60_000,
+        },
+      }),
+    ).toThrow();
   });
 });

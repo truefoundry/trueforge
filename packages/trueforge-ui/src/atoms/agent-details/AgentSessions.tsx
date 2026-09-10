@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
@@ -31,12 +32,21 @@ function entryIsMutable(entry: SessionListEntry): boolean {
   return entry.agentName == null;
 }
 
+function entrySourceType(entry: SessionListEntry): 'schedule' | undefined {
+  return 'sourceType' in entry && Reflect.get(entry, 'sourceType') === 'schedule' ? 'schedule' : undefined;
+}
+
 export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const shell = useOptionalShellMode();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
+  const { allows } = useResourcePermissions({
+    resourceType: 'session',
+    resourceIds: selectedSessionId == null ? [] : [selectedSessionId],
+  });
+  const canResume = allows(selectedSessionId, 'MANAGE');
 
   const AgentSessionListRow = useSlot('AgentSessionListRow');
   const AgentSessionDetailHeader = useSlot('AgentSessionDetailHeader');
@@ -189,7 +199,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       : null;
 
   const handleResume = () => {
-    if (selectedSessionId == null || shell == null) return;
+    if (!canResume || selectedSessionId == null || shell == null) return;
     const agentName = detailSession?.agentName ?? selectedEntry?.agentName;
     shell.openHistorySession({
       sessionId: selectedSessionId,
@@ -243,6 +253,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                   key={entry.id}
                   title={sessionTitle(entry)}
                   agentName={entry.agentName ?? undefined}
+                  sourceType={entrySourceType(entry)}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
                   active={entry.id === selectedSessionId}
@@ -307,6 +318,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                 createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
                 view={shareView}
                 onClose={clearSelectedSession}
+                canResume={canResume}
                 {...resumeProps}
               />
               {detailLoading || detailEvents === undefined ? (

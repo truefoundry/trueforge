@@ -48,8 +48,24 @@ export interface SandboxExecParams {
   timeoutSeconds?: number | undefined;
 }
 
-// An init command a producer (e.g. a skill mounter) hands to the Sandbox, which supplies `sandboxId`.
-export type SandboxInit = Omit<SandboxExecParams, 'sandboxId'>;
+/** File uploaded before a sandbox init command runs. */
+export interface SandboxInitUpload {
+  remotePath: string;
+  content: Buffer;
+}
+
+/**
+ * Init step from a producer (e.g. skill mounter).
+ * Sandbox supplies `sandboxId` when it runs the command.
+ */
+export interface SandboxInit {
+  command: string;
+  env?: Record<string, string> | undefined;
+  /** Exec timeout for this init command (seconds). Skill downloads use a long value. */
+  timeoutSeconds: number;
+  /** Files to upload before the init command runs (e.g. requested skills JSON). */
+  uploads: readonly SandboxInitUpload[];
+}
 
 export type SandboxBuildStatus = 'pending' | 'ready' | 'failed';
 
@@ -89,10 +105,10 @@ export interface SandboxProvider {
   getGitCredentialsPath(sandboxId: string): string;
   /** Directory for user-uploaded files (absolute, or cwd-relative when the provider has no global FS). */
   getFileUploadsDir(sandboxId: string): string;
-  /** Directory where git skills are materialized. */
+  /** Directory where skill mounts are materialized. */
   getSkillsDir(sandboxId: string): string;
-  /** Path the git skill downloader script is written to before it runs. */
-  getGitDownloaderPath(sandboxId: string): string;
+  /** Path the skill downloader script is written to before it runs. */
+  getSkillDownloaderPath(sandboxId: string): string;
   /** Downloads a file from the sandbox as a Buffer. Throws SandboxFileNotFoundError / SandboxNotAvailableError / SandboxPathIsDirectoryError / SandboxFileTooLargeError. */
   downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer>;
   /** Uploads a file to the sandbox. */

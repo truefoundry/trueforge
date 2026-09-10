@@ -10,7 +10,7 @@ export const SESSION_TIME_BUFFER_MS = 5 * 60 * 1000;
 export const SESSION_CUSTOM_RANGE_MAX_DAYS = 70;
 export const DEFAULT_SESSION_TIME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
-export type LibraryAgentTab = 'overview' | 'sessions' | 'code' | 'metrics';
+export type LibraryAgentTab = 'overview' | 'sessions' | 'schedules' | 'code' | 'metrics';
 
 export type SessionTimeRange = {
   startTs: number;
@@ -35,7 +35,15 @@ export type SessionShareWrite = {
 };
 
 function parseLibraryAgentTab(value: string | null): LibraryAgentTab | null {
-  if (value === 'overview' || value === 'sessions' || value === 'code' || value === 'metrics') return value;
+  if (
+    value === 'overview' ||
+    value === 'sessions' ||
+    value === 'schedules' ||
+    value === 'code' ||
+    value === 'metrics'
+  ) {
+    return value;
+  }
   return null;
 }
 
@@ -79,6 +87,7 @@ export function readSessionShareSearch(search: string): SessionShareSearch {
   const endTs = parseMs(params.get(SESSION_END_TIME_QUERY));
   const timeWindowMs = parseMs(params.get(SESSION_TIME_WINDOW_QUERY));
   const view = params.get(SESSIONS_VIEW_QUERY);
+  const now = Date.now();
   return {
     sessionId: nonEmpty(params.get(SESSION_ID_QUERY)),
     agentId: nonEmpty(params.get(AGENT_ID_QUERY)),
@@ -88,7 +97,7 @@ export function readSessionShareSearch(search: string): SessionShareSearch {
       startTs != null && endTs != null
         ? { startTs, endTs }
         : timeWindowMs != null
-          ? { startTs: Date.now() - timeWindowMs, endTs: Date.now(), timeWindowMs }
+          ? { startTs: now - timeWindowMs, endTs: now, timeWindowMs }
           : null,
   };
 }

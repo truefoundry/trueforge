@@ -2,6 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './index.css';
+import { installMonacoWorkerPublicPath } from './publicPath';
+
+installMonacoWorkerPublicPath();
 
 const root = document.getElementById('root');
 if (!root) {

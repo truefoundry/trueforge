@@ -42,7 +42,7 @@ export type RequestReplyErrorHandler = (err: Error, context: { executorId: strin
  */
 export class RequestReplyExecutor {
   readonly executorId: string;
-  /** `rr:req:<executorId>` — the channel this executor subscribes to. */
+  /** `tfg:rr:req:<executorId>` — the channel this executor subscribes to. */
   readonly channel: string;
   private readonly redis: RedisClientType;
   private readonly subscriberClient: RedisClientType;

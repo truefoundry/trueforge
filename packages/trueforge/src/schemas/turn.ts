@@ -95,7 +95,7 @@ export const DownloadSandboxFileRequestQuerySchema = z
       .string()
       .min(1)
       .describe(
-        "Absolute path of the file inside the sandbox, as listed in the assistant's `sandbox_artifacts` block.",
+        "Absolute or sandbox-working-directory-relative file path, as listed in the assistant's `sandbox_artifacts` block.",
       ),
   })
   .openapi('DownloadSandboxFileRequestQuery');

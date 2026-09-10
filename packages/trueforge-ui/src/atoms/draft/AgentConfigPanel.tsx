@@ -1,12 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
-import type { AgentSpec, ModelSelection } from '../../server/types.js';
+import type { AgentSkill, AgentSpec, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { ResponsiveDropdownMenu } from '../primitives/ResponsiveDropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
 import { initialUserMessagesFromSpec } from './agentConfigMessages.js';
@@ -20,15 +21,24 @@ import {
 import { displayModelLabel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelParamSummary } from './modelParamsSummary.js';
 import { runtimeConfigSummary, runtimeConfigValueClassName } from './runtimeConfigSummary.js';
+import { skillFamilyId, skillVersion } from './SkillVersionSelector.js';
+
+const DEFAULT_INSTRUCTIONS =
+  'Enter detailed instructions for your agent. E.g. You are a helpful assistant that helps users plan trips. Always ask clarifying questions before making suggestions...';
 
 export type AgentConfigPanelProps = {
   spec: AgentSpec;
   model?: ModelSelection;
+  models: ModelSelection[];
+  modelsLoading: boolean;
+  modelsError: string | null;
+  skills?: AgentSkill[];
   skillsAvailable: boolean;
   instructions: string;
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
   onClose?: () => void;
+  disabled?: boolean;
 };
 
 function formatTokens(value: number): string {
@@ -92,6 +102,84 @@ function McpServerChip({
       ) : null}
       <span className="py-1 pl-2">{item.name}</span>
       <span className="text-text-secondary ml-1 py-1">{toolsLabel}</span>
+      {onRemove ? (
+        <button
+          type="button"
+          aria-label={`Remove ${item.name}`}
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'icon',
+            className: 'mx-1 size-5',
+          })}
+          onClick={event => {
+            event.stopPropagation();
+            onRemove();
+          }}
+        >
+          <Icon name="xmark" className="size-3" />
+        </button>
+      ) : (
+        <span className="pr-2" />
+      )}
+    </span>
+  );
+}
+
+function SkillChip({
+  item,
+  preloadAvailable,
+  onRemove,
+  onTogglePreload,
+}: {
+  item: EditableMount;
+  preloadAvailable: boolean;
+  onRemove?: () => void;
+  onTogglePreload?: () => void;
+}) {
+  const preload = preloadFromMount(item.value);
+
+  return (
+    <span className="flex items-center overflow-hidden rounded-md border border-border text-xs">
+      {preloadAvailable && onTogglePreload ? (
+        <Tooltip
+          side="bottom"
+          dismissOnClick={false}
+          triggerClassName="self-stretch"
+          className="w-64 whitespace-normal p-3 text-left shadow-lg"
+          content={
+            <span className="flex flex-col gap-1.5">
+              <span className="flex items-center justify-between gap-3">
+                <span className="font-semibold">Preload skill</span>
+                <span className="text-primary-button-bg text-[0.625rem] font-semibold tracking-wide uppercase">
+                  {preload ? 'ON' : 'OFF'}
+                </span>
+              </span>
+              <span className="text-text-secondary text-xs leading-snug">
+                Inline SKILL.md in the agent context upfront. When off, the agent loads the skill dynamically.
+              </span>
+            </span>
+          }
+        >
+          <button
+            type="button"
+            aria-pressed={preload}
+            aria-label={`Preload skill ${item.name}`}
+            className={cn(
+              'flex h-full items-center justify-center border-r border-border px-1.5 transition-colors',
+              preload
+                ? 'bg-primary-button-bg text-primary-button-text'
+                : 'text-text-secondary hover:bg-ghost-button-hover',
+            )}
+            onClick={event => {
+              event.stopPropagation();
+              onTogglePreload();
+            }}
+          >
+            <Icon name="book-open" className="size-3.5" />
+          </button>
+        </Tooltip>
+      ) : null}
+      <span className="py-1 pl-2">{item.name}</span>
       {onRemove ? (
         <button
           type="button"
@@ -190,15 +278,25 @@ export function AgentConfigSection({
 export function AgentConfigPanel({
   spec,
   model,
+  models,
+  modelsLoading,
+  modelsError,
+  skills: catalogSkills = [],
   skillsAvailable,
   instructions,
   onOpenEditor,
   onChange,
   onClose,
+  disabled = false,
 }: AgentConfigPanelProps) {
   const Section = useSlot('AgentConfigSection');
+  const AgentModelEditorContent = useSlot('AgentModelEditorContent');
+  const AgentModelSettingsContent = useSlot('AgentModelSettingsContent');
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelSettingsMenuOpen, setModelSettingsMenuOpen] = useState(false);
+  const [modelQuery, setModelQuery] = useState('');
   const mcp = editableMountsFromSpec(spec.mcpServers);
-  const skills = editableMountsFromSpec(spec.skills);
+  const skillMounts = editableMountsFromSpec(spec.skills);
   const modelParams = modelParamSummary(spec.model.params);
   const runtimeConfig = runtimeConfigSummary(spec.config);
   const instructionPreview = instructions.trim();
@@ -219,7 +317,7 @@ export function AgentConfigPanel({
 
   return (
     <div className="bg-card-bg text-text-primary flex h-full min-h-0 flex-col">
-      <header className="flex min-h-14 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-2 py-1.5">
+      <header className="flex min-h-14 shrink-0 items-center gap-1 border-b border-border bg-topbar-bg px-3 py-1.5">
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
@@ -236,61 +334,105 @@ export function AgentConfigPanel({
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <Section>
-          <div className="flex items-center gap-2">
-            <ProviderMark
-              logo={model?.provider.logo}
-              label={model?.provider.name ?? spec.model.name}
-              className="size-4 text-[0.5rem]"
-            />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{displayModelLabel(spec.model.name)}</span>
-            {modelInfo.length ? (
-              <span title={modelInfoTitle} className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]">
-                {modelInfo.join(' · ')}
-              </span>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Edit Model"
-              title="Edit Model"
-              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7' })}
-              onClick={() => onOpenEditor('model')}
+          <div className="flex w-full items-center gap-1">
+            <ResponsiveDropdownMenu
+              open={modelMenuOpen}
+              onOpenChange={open => {
+                setModelMenuOpen(open);
+                if (!open) setModelQuery('');
+              }}
+              closeOnClick={false}
+              align="start"
+              sheetLabel="Select model"
+              containerClassName="flex min-w-0 flex-1"
+              className="w-[min(44rem,calc(100vw-2rem))] overflow-hidden p-0"
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Edit Model"
+                  title="Edit Model"
+                  disabled={disabled}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-md py-1 text-left transition-colors"
+                >
+                  <ProviderMark
+                    logo={model?.provider.logo}
+                    label={model?.provider.name ?? spec.model.name}
+                    className="size-4 text-[0.5rem]"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {displayModelLabel(spec.model.name)}
+                  </span>
+                  {modelInfo.length ? (
+                    <span
+                      title={modelInfoTitle}
+                      className="text-text-secondary shrink-0 whitespace-nowrap text-[0.6875rem]"
+                    >
+                      {modelInfo.join(' · ')}
+                    </span>
+                  ) : null}
+                  <Icon name="chevrons-up-down" className="text-text-secondary size-3.5 shrink-0" />
+                </button>
+              }
             >
-              <Icon name="pencil" className="size-3.5" />
-            </button>
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <dl className="text-text-secondary flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-1 text-xs">
-              {modelParams.length ? (
-                modelParams.map(entry => (
-                  <div key={entry.label} className="flex gap-1">
-                    <dt>{entry.label}:</dt>
-                    <dd className="text-text-primary font-medium">{entry.value}</dd>
-                  </div>
-                ))
-              ) : (
-                <div>model settings: defaults</div>
-              )}
-            </dl>
-            <button
-              type="button"
-              aria-label="Model settings"
-              title="Model settings"
-              className={auiButtonClass({
-                variant: 'ghost',
-                size: 'icon',
-                className: 'size-7 shrink-0 self-start',
-              })}
-              onClick={() => onOpenEditor('model-settings')}
+              <AgentModelEditorContent
+                spec={spec}
+                models={models}
+                loading={modelsLoading}
+                error={modelsError}
+                query={modelQuery}
+                onQueryChange={setModelQuery}
+                onChange={next => {
+                  onChange?.(next);
+                  setModelMenuOpen(false);
+                  setModelQuery('');
+                }}
+              />
+            </ResponsiveDropdownMenu>
+            <ResponsiveDropdownMenu
+              open={modelSettingsMenuOpen}
+              onOpenChange={setModelSettingsMenuOpen}
+              closeOnClick={false}
+              align="start"
+              sheetLabel="Model settings"
+              className="w-[min(36rem,calc(100vw-2rem))] overflow-hidden p-0"
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Model settings"
+                  title="Model settings"
+                  disabled={disabled}
+                  className={auiButtonClass({
+                    variant: 'ghost',
+                    size: 'icon',
+                    className: 'size-7 shrink-0',
+                  })}
+                >
+                  <Icon name="sliders" className="size-3.5" />
+                </button>
+              }
             >
-              <Icon name="sliders" className="size-3.5" />
-            </button>
+              <AgentModelSettingsContent spec={spec} model={model} onChange={next => onChange?.(next)} />
+            </ResponsiveDropdownMenu>
           </div>
+          <dl className="text-text-secondary mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+            {modelParams.length ? (
+              modelParams.map(entry => (
+                <div key={entry.label} className="flex gap-1">
+                  <dt>{entry.label}:</dt>
+                  <dd className="text-text-primary font-medium">{entry.value}</dd>
+                </div>
+              ))
+            ) : (
+              <div>model settings: defaults</div>
+            )}
+          </dl>
         </Section>
 
         <Section title="Instructions" description="Define the agent's role, goals, and behavior.">
           <button
             type="button"
             aria-label="Edit Instructions"
+            disabled={disabled}
             className="border-border hover:bg-ghost-button-hover flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
             onClick={() => onOpenEditor('instructions')}
           >
@@ -301,11 +443,13 @@ export function AgentConfigPanel({
                   instructionPreview ? 'text-text-primary' : 'text-text-secondary',
                 )}
               >
-                {instructionPreview || 'No instructions added.'}
+                {instructionPreview || DEFAULT_INSTRUCTIONS}
               </p>
-              <p className="text-text-secondary mt-2 text-xs">
-                {userMessageCount} user {userMessageCount === 1 ? 'message' : 'messages'}
-              </p>
+              {userMessageCount > 0 ? (
+                <p className="text-text-secondary mt-2 text-xs">
+                  {userMessageCount} user {userMessageCount === 1 ? 'message' : 'messages'}
+                </p>
+              ) : null}
             </div>
             <Icon name="chevron-right" className="text-text-secondary size-4 shrink-0" />
           </button>
@@ -315,7 +459,7 @@ export function AgentConfigPanel({
           title="Runtime Config"
           description="Control execution and context behavior."
           actionIcon="sliders"
-          onEdit={() => onOpenEditor('runtime')}
+          onEdit={disabled ? undefined : () => onOpenEditor('runtime')}
         >
           <dl className="text-text-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed">
             {runtimeConfig.map(entry => (
@@ -332,7 +476,7 @@ export function AgentConfigPanel({
           icon="mcp-server"
           actionIcon="plus"
           actionLabel="Add MCP server"
-          onEdit={() => onOpenEditor('mcp')}
+          onEdit={disabled ? undefined : () => onOpenEditor('mcp')}
         >
           {mcp.length ? (
             <div className="flex flex-wrap gap-1.5">
@@ -341,7 +485,7 @@ export function AgentConfigPanel({
                   key={item.id}
                   item={item}
                   onRemove={
-                    onChange
+                    onChange && !disabled
                       ? () =>
                           onChange({
                             ...spec,
@@ -350,7 +494,7 @@ export function AgentConfigPanel({
                       : undefined
                   }
                   onTogglePreload={
-                    onChange
+                    onChange && !disabled
                       ? () =>
                           onChange({
                             ...spec,
@@ -368,16 +512,50 @@ export function AgentConfigPanel({
           ) : null}
         </Section>
 
-        <Section title="Skills" actionIcon="plus" actionLabel="Add skill" onEdit={() => onOpenEditor('skills')}>
+        <Section
+          title="Skills"
+          actionIcon="plus"
+          actionLabel="Add skill"
+          onEdit={disabled ? undefined : () => onOpenEditor('skills')}
+        >
           {!skillsAvailable ? (
             <p className="text-text-secondary text-xs">Skills require an available sandbox.</p>
-          ) : skills.length ? (
+          ) : skillMounts.length ? (
             <div className="flex flex-wrap gap-1.5">
-              {skills.map(item => (
-                <span key={item.id} className="rounded-md border border-border px-2 py-1 text-xs">
-                  {item.name}
-                </span>
-              ))}
+              {skillMounts.map(item => {
+                const preloadAvailable = catalogSkills.some(
+                  skill => skillVersion(skill) !== undefined && skillFamilyId(skill.id) === skillFamilyId(item.id),
+                );
+                return (
+                  <SkillChip
+                    key={item.id}
+                    item={item}
+                    preloadAvailable={preloadAvailable}
+                    onRemove={
+                      onChange && !disabled
+                        ? () =>
+                            onChange({
+                              ...spec,
+                              skills: skillMounts.filter(mount => mount.id !== item.id).map(mount => mount.value),
+                            })
+                        : undefined
+                    }
+                    onTogglePreload={
+                      preloadAvailable && onChange && !disabled
+                        ? () =>
+                            onChange({
+                              ...spec,
+                              skills: skillMounts.map(mount =>
+                                mount.id === item.id
+                                  ? withPreload(mount.value, !preloadFromMount(mount.value))
+                                  : mount.value,
+                              ),
+                            })
+                        : undefined
+                    }
+                  />
+                );
+              })}
             </div>
           ) : (
             <p className="text-text-secondary text-xs">No skills selected.</p>

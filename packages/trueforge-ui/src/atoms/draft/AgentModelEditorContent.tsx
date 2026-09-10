@@ -1,15 +1,18 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 
+import { Icon } from '@/icons/Icon.js';
 import type { AgentSpec, ModelSelection } from '../../server/types.js';
-import { useSlot } from '../../theme/SlotsProvider.js';
+import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
-import { DraftModelCatalogPanel } from './DraftModelCatalogPanel.js';
+import { useCompactLayout } from '../lib/CompactLayoutContext.js';
+import { auiInputClass } from '../lib/inputClasses.js';
+import { DraftModelCatalogPanel, ProviderMark } from './DraftModelCatalogPanel.js';
+import { modelMatchesQuery, normalizeModelSearchText, providerMatchesQuery } from './modelSearch.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
 
 export type AgentModelEditorContentProps = {
-  editor: 'model' | 'model-settings';
   spec: AgentSpec;
   models: ModelSelection[];
   loading: boolean;
@@ -33,7 +36,6 @@ function modelForSelection(spec: AgentSpec, model: ModelSelection): AgentSpec['m
 }
 
 export function AgentModelEditorContent({
-  editor,
   spec,
   models,
   loading,
@@ -43,26 +45,155 @@ export function AgentModelEditorContent({
   onChange,
 }: AgentModelEditorContentProps) {
   const listboxId = useId();
-  const AgentModelSettingsContent = useSlot('AgentModelSettingsContent');
-  const selectedModel = models.find(model => model.name === spec.model.name);
-  const providers = Array.from(new Set(models.map(model => model.provider.name)));
+  const compact = useCompactLayout();
+  const selectedModel = useMemo(() => models.find(model => model.name === spec.model.name), [models, spec.model.name]);
+  const providers = useMemo(() => Array.from(new Set(models.map(model => model.provider.name))), [models]);
   const [provider, setProvider] = useState(selectedModel?.provider.name ?? providers[0] ?? '');
-  const effectiveProvider = providers.includes(provider)
-    ? provider
-    : (selectedModel?.provider.name ?? providers[0] ?? '');
+  const [compactProvider, setCompactProvider] = useState<string | null>(null);
+  const needle = normalizeModelSearchText(query);
+  const matchingProviders = useMemo(
+    () =>
+      providers
+        .map(name => {
+          const providerModels = models.filter(model => model.provider.name === name);
+          return {
+            name,
+            models: providerMatchesQuery({ providerName: name, needle })
+              ? providerModels
+              : providerModels.filter(model => modelMatchesQuery({ model, needle })),
+          };
+        })
+        .filter(item => item.models.length > 0),
+    [models, needle, providers],
+  );
+  const visibleProviders = useMemo(() => matchingProviders.map(item => item.name), [matchingProviders]);
+  const effectiveProvider = useMemo(
+    () =>
+      visibleProviders.includes(provider)
+        ? provider
+        : selectedModel && visibleProviders.includes(selectedModel.provider.name)
+          ? selectedModel.provider.name
+          : (visibleProviders[0] ?? ''),
+    [provider, selectedModel, visibleProviders],
+  );
+  const visibleModels = useMemo(
+    () => matchingProviders.find(item => item.name === effectiveProvider)?.models ?? [],
+    [effectiveProvider, matchingProviders],
+  );
+  const compactModels = useMemo(() => {
+    if (compactProvider === null) return [];
+    const providerModels = models.filter(model => model.provider.name === compactProvider);
+    return needle ? providerModels.filter(model => modelMatchesQuery({ model, needle })) : providerModels;
+  }, [compactProvider, models, needle]);
 
-  if (editor === 'model') {
+  const handleBackToProviders = useCallback(() => {
+    onQueryChange('');
+    setCompactProvider(null);
+  }, [onQueryChange]);
+
+  const search = (
+    <label className="relative block">
+      <Icon
+        name="search"
+        className="text-text-secondary pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2"
+      />
+      <input
+        type="search"
+        value={query}
+        onChange={event => onQueryChange(event.target.value)}
+        placeholder="Search"
+        className={auiInputClass('h-8 py-1 pr-2 pl-7')}
+        autoFocus
+      />
+    </label>
+  );
+
+  if (compact) {
+    if (compactProvider === null) {
+      return (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 border-b border-border px-3 py-2">
+            <p className="text-text-primary mb-2 text-base font-medium">Select provider</p>
+            {search}
+          </div>
+          {error ? <p className="text-failure-bg px-3 pt-3 text-sm">{error}</p> : null}
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {visibleProviders.length === 0 ? (
+              <p className="text-text-secondary px-2 py-6 text-center text-sm" role="status">
+                {loading ? 'Loading…' : 'No providers'}
+              </p>
+            ) : (
+              visibleProviders.map(name => {
+                const providerModel = models.find(model => model.provider.name === name);
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    className="hover:bg-ghost-button-hover flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left text-sm"
+                    onClick={() => setCompactProvider(name)}
+                  >
+                    <ProviderMark logo={providerModel?.provider.logo} label={name} className="size-5 text-xs" />
+                    <span className="min-w-0 flex-1 truncate">{name}</span>
+                    <Icon name="chevron-right" className="text-text-secondary size-4 shrink-0" />
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="grid h-[min(32rem,calc(100dvh-8rem))] w-full min-w-0 grid-cols-[13rem_minmax(0,1fr)] overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border px-3 py-2">
+          <div className="mb-2 flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Back to providers"
+              title="Back to providers"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-7 shrink-0' })}
+              onClick={handleBackToProviders}
+            >
+              <Icon name="arrow-left" className="size-4" />
+            </button>
+            <p className="text-text-primary min-w-0 flex-1 truncate text-base font-medium">Select Model</p>
+          </div>
+          {search}
+        </div>
         {error ? <p className="text-failure-bg px-3 pt-3 text-sm">{error}</p> : null}
+        <DraftModelCatalogPanel
+          models={compactModels}
+          loading={loading}
+          selectedName={spec.model.name}
+          query=""
+          onQueryChange={onQueryChange}
+          listboxId={listboxId}
+          showHeading={false}
+          showSearch={false}
+          onSelect={model => onChange({ ...spec, model: modelForSelection(spec, model) })}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="border-b border-border px-3 py-2">
+        <p className="text-text-primary mb-2 text-base font-medium">Select model</p>
+        {search}
+      </div>
+      {error ? <p className="text-failure-bg px-3 pt-3 text-sm">{error}</p> : null}
+      <div className="grid h-[min(22rem,calc(100dvh-8rem))] w-full min-w-0 grid-cols-[13rem_minmax(0,1fr)] overflow-hidden">
         <div className="min-h-0 overflow-y-auto border-r border-border p-2">
-          {providers.map(name => (
+          {visibleProviders.map(name => (
             <button
               key={name}
               type="button"
               className={cn(
                 'text-text-secondary mb-1 w-full truncate rounded-md px-2 py-2 text-left text-xs',
-                effectiveProvider === name && 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text',
+                effectiveProvider === name &&
+                  'bg-primary-button-bg/10 border border-primary-button-bg font-medium text-primary-button-bg',
               )}
               onClick={() => setProvider(name)}
             >
@@ -72,21 +203,20 @@ export function AgentModelEditorContent({
         </div>
         <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <DraftModelCatalogPanel
-            models={models.filter(model => model.provider.name === effectiveProvider)}
+            models={visibleModels}
             loading={loading}
             selectedName={spec.model.name}
             query={query}
             onQueryChange={onQueryChange}
             listboxId={listboxId}
             showHeading={false}
+            showSearch={false}
             onSelect={model => onChange({ ...spec, model: modelForSelection(spec, model) })}
           />
         </div>
       </div>
-    );
-  }
-
-  return <AgentModelSettingsContent spec={spec} model={selectedModel} onChange={onChange} />;
+    </div>
+  );
 }
 
 declare module '../../theme/SlotsProvider.js' {

@@ -249,6 +249,7 @@ describe("SchedulesClient", () => {
                 },
                 id: "id",
                 name: "name",
+                reason: "reason",
                 schedule_id: "schedule_id",
                 scheduled_for: "2024-01-15T09:30:00Z",
                 status: "scheduled",
@@ -279,6 +280,7 @@ describe("SchedulesClient", () => {
                 },
                 id: "id",
                 name: "name",
+                reason: "reason",
                 scheduleId: "schedule_id",
                 scheduledFor: new Date("2024-01-15T09:30:00.000Z"),
                 status: "scheduled",
@@ -720,6 +722,7 @@ describe("SchedulesClient", () => {
                     },
                     id: "id",
                     name: "name",
+                    reason: "reason",
                     schedule_id: "schedule_id",
                     scheduled_for: "2024-01-15T09:30:00Z",
                     status: "scheduled",
@@ -727,18 +730,18 @@ describe("SchedulesClient", () => {
                     updated_at: "2024-01-15T09:30:00Z",
                 },
             ],
+            pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
         };
 
         server
-            .mockEndpoint()
+            .mockEndpoint({ once: false })
             .get("/api/v1/schedules/schedule_id/runs")
             .respondWith()
             .statusCode(200)
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.schedules.listRuns("schedule_id");
-        expect(response).toEqual({
+        const expected = {
             data: [
                 {
                     createdAt: new Date("2024-01-15T09:30:00.000Z"),
@@ -749,6 +752,7 @@ describe("SchedulesClient", () => {
                     },
                     id: "id",
                     name: "name",
+                    reason: "reason",
                     scheduleId: "schedule_id",
                     scheduledFor: new Date("2024-01-15T09:30:00.000Z"),
                     status: "scheduled",
@@ -756,10 +760,40 @@ describe("SchedulesClient", () => {
                     updatedAt: new Date("2024-01-15T09:30:00.000Z"),
                 },
             ],
-        });
+            pagination: {
+                limit: 1,
+                nextPageToken: "next_page_token",
+                previousPageToken: "previous_page_token",
+            },
+        };
+        const page = await client.schedules.listRuns("schedule_id");
+
+        expect(expected.data).toEqual(page.data);
+        expect(page.hasNextPage()).toBe(true);
+        const nextPage = await page.getNextPage();
+        expect(expected.data).toEqual(nextPage.data);
     });
 
     test("list_runs (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/schedules/schedule_id/runs")
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.schedules.listRuns("schedule_id");
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("list_runs (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -778,7 +812,7 @@ describe("SchedulesClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
-    test("list_runs (3)", async () => {
+    test("list_runs (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 

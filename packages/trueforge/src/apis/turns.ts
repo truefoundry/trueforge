@@ -22,6 +22,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   rawSandboxId,
+  redisKey,
   SandboxError,
   VercelAILLM,
 } from '@truefoundry/trueforge-core/core';
@@ -53,7 +54,6 @@ import {
   buildTurnSandbox,
   getMcpConnection,
   getModelDetails,
-  resolveGitSkills,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
@@ -107,7 +107,7 @@ export interface TurnsRouterDeps {
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  skillStore: ISkillStore;
+  resolveSkillStore: (c: Context) => ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -119,14 +119,11 @@ export interface TurnsRouterDeps {
 
 /**
  * Deps needed to create a turn and drain events in-process (no HTTP). Carries already-resolved
- * `modelProviderStore` / `mcpServerStore` / `agentStore` / `sandboxProviderStore`; callers must
- * resolve them from the request context (e.g. schedule `resolveTurnDeps(c)`) so TrueFoundry mode
- * stays token-bound.
+ * stores; callers must resolve them from the request context (e.g. schedule `resolveTurnDeps(c, agent)`)
+ * so TrueFoundry mode stays token-bound for models, MCP, and skills.
  */
-export type BeginTurnExecutionDeps = Pick<
-  TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'skillStore' | 'logger'
-> & {
+export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'eventSubscriptions' | 'logger'> & {
+  skillStore: ISkillStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   agentStore: IAgentStore;
@@ -224,15 +221,18 @@ function createTurnResolver(deps: {
           });
         }
       }
-      const gitSkills = await resolveGitSkills({
-        tenant_id,
-        skills: spec.skills ?? [],
-        store: skillStore,
-      });
+      const skills = spec.skills ?? [];
+      const mountSkills =
+        skills.length === 0
+          ? []
+          : await skillStore.resolveTurnSkills({
+              tenant_id,
+              skills,
+            });
       return buildTurnSandbox({
         provider,
         logger,
-        gitSkills,
+        skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
@@ -305,7 +305,7 @@ export function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefin
 
 /** Redis/in-memory key for one turn's resumable event stream. */
 export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
-  return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
+  return redisKey('agent', 'turn', tenantId, sessionId, turnId, 'stream');
 }
 
 /**
@@ -757,6 +757,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
         mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
+        skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       },

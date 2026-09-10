@@ -146,6 +146,7 @@ export const ScheduleRunSchema = z
     status: ScheduleRunStatusSchema,
     created_by_subject: CreatedBySubjectSchema,
     triggered_at: NullableIsoTimestamp,
+    reason: z.string().nullable(),
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,
   })
@@ -153,7 +154,10 @@ export const ScheduleRunSchema = z
   .openapi('ScheduleRun');
 
 export const ListScheduleRunsResponseSchema = z
-  .object({ data: z.array(ScheduleRunSchema) })
+  .object({
+    data: z.array(ScheduleRunSchema),
+    pagination: TokenPaginationSchema,
+  })
   .openapi('ListScheduleRunsResponse');
 
 /**

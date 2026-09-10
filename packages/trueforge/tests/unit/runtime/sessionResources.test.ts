@@ -1,6 +1,8 @@
 import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
+import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
@@ -282,5 +284,124 @@ describe('validateAgentSpec', () => {
       }),
     ).resolves.toBeUndefined();
     expect(await stores.sandboxProviderStore.getSandboxProvider('default')).toBeUndefined();
+  });
+
+  it('rejects registry catalog rows as git mounts (standalone)', async () => {
+    const stores = await setup();
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    const fqn = 'agent-skill:acme/team-a/echo:1';
+    const now = '2026-01-01T00:00:00.000Z';
+    const skillStore: ISkillStore = {
+      listSkills: async () => [
+        {
+          tenant_id: 'default',
+          name: fqn,
+          manifest: {
+            type: 'truefoundry' as const,
+            name: fqn,
+            display_name: 'echo',
+            description: 'Echo',
+            repository_name: 'team-a',
+            version: 1,
+          },
+          created_at: now,
+          updated_at: now,
+        },
+      ],
+      createSkill: async () => {
+        throw new Error('unused');
+      },
+      upsertSkill: async () => {
+        throw new Error('unused');
+      },
+      listSkillVersions: async () => [],
+      async validateAgentSkills(input) {
+        return validateGitAgentSkills(this, input);
+      },
+      resolveTurnSkills: async () => {
+        throw new Error('unused');
+      },
+    };
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          skills: [{ name: fqn }],
+        }),
+        tenant_id: 'default',
+        ...stores,
+        skillStore,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: `Skill "${fqn}" is not a git skill`,
+    });
+  });
+
+  it('validates skills via skillStore.validateAgentSkills', async () => {
+    const stores = await setup();
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    const validateAgentSkills = jest.spyOn(stores.skillStore, 'validateAgentSkills').mockResolvedValue(undefined);
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+    expect(validateAgentSkills).toHaveBeenCalledWith({
+      tenant_id: 'default',
+      skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
+    });
+  });
+
+  it('rejects preload on git skills', async () => {
+    const stores = await setup();
+    setCachedLocalSandboxSupport({
+      supported: true,
+      platform: 'darwin',
+      shell: '/bin/bash',
+      python: '/usr/bin/python3',
+    });
+    await stores.skillStore.upsertSkill({
+      tenant_id: 'default',
+      name: 'echo',
+      manifest: {
+        type: 'git',
+        name: 'echo',
+        description: 'Echo',
+        url: 'https://github.com/acme/skills',
+        ref: 'main',
+      },
+    });
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          skills: [{ name: 'echo', preload: true }],
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: 'Skill "echo": preload is not supported for git skills',
+    });
   });
 });

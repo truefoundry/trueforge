@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Button, type ButtonProps } from './Button.js';
+import { Tooltip } from './Tooltip.js';
 
 export type IconButtonProps = Omit<ButtonProps, 'size' | 'children'> & {
   'aria-label': string;
@@ -11,9 +12,11 @@ export type IconButtonProps = Omit<ButtonProps, 'size' | 'children'> & {
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
   ({ tooltip, children, ...props }, ref) => {
     return (
-      <Button ref={ref} size="icon" title={tooltip} {...props}>
-        {children}
-      </Button>
+      <Tooltip content={tooltip} side="bottom">
+        <Button ref={ref} size="icon" {...props}>
+          {children}
+        </Button>
+      </Tooltip>
     );
   },
 );

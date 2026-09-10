@@ -11,12 +11,14 @@ import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../ato
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
+import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
+import { createSessionListCache, withSessionListCache } from '../server/sessionListCache.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
 import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
@@ -162,9 +164,12 @@ function ChatProviderFromShell({
   /** When routing, reports the active thread's remote id up to `ShellRouteSync`. */
   onRemoteIdChange?: (id: string | undefined) => void;
 } & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
-  const { mode, runtimeKey, listSessionsAgentId, pendingSessionId } = useShellMode();
+  const { mode, runtimeKey, historyAgentFilter, listSessionsAgentId, pendingSessionId } = useShellMode();
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
+
+  // Keep one isolated cache per shell, preserved across chat runtime remounts.
+  const [sessionListCache] = useState(createSessionListCache);
 
   const serverWithCreateIntent = useMemo((): AgentUIServer => {
     return {
@@ -183,6 +188,16 @@ function ChatProviderFromShell({
       },
     };
   }, [server, isCreateAgent]);
+
+  const cachedRuntimeServer = useMemo(
+    () => withSessionListCache({ server: serverWithCreateIntent, cache: sessionListCache }),
+    [serverWithCreateIntent, sessionListCache],
+  );
+  const runtimeServer = useMemo<AgentUIServer>(() => {
+    if (historyAgentFilter == null || historyAgentFilter.agentId != null) return cachedRuntimeServer;
+    // Do not expose an unfiltered page under a filter label while its backend id resolves.
+    return { ...cachedRuntimeServer, listSessions: async () => ({ data: [] }) };
+  }, [cachedRuntimeServer, historyAgentFilter]);
 
   // Freeze draft seed for the life of this runtimeKey so bindMutableAgent (identity /
   // instructions on shell) does not push a new defaultAgentSpec into the runtime.
@@ -223,22 +238,23 @@ function ChatProviderFromShell({
   }, [mode, draftDefaultAgentSpec, pendingSessionId]);
 
   return (
-    <TrueFoundryChatProvider
-      key={runtimeKey}
-      {...providerRest}
-      server={serverWithCreateIntent}
-      agent={agent}
-      listSessionsAgentId={listSessionsAgentId}
-      initialSessionId={pendingSessionId ?? hostInitialSessionId}
-    >
-      <DraftCatalogProvider>
+    <DraftCatalogProvider>
+      <TrueFoundryChatProvider
+        key={runtimeKey}
+        {...providerRest}
+        server={runtimeServer}
+        agent={agent}
+        listSessionsAgentId={listSessionsAgentId}
+        initialSessionId={pendingSessionId ?? hostInitialSessionId}
+      >
         <AgentConfigInstructionsProvider>
           <DraftSpecPreferenceBridge />
+          <HistorySessionSwitchBridge />
           {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
           {children}
         </AgentConfigInstructionsProvider>
-      </DraftCatalogProvider>
-    </TrueFoundryChatProvider>
+      </TrueFoundryChatProvider>
+    </DraftCatalogProvider>
   );
 }
 

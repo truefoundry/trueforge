@@ -38,3 +38,5 @@ service-account*.json
 # Local Cursor scratch (committed rules under .cursor/rules/ stay tracked)
 .cursor/notes/
 .cursor/plans/
+
+.vscode

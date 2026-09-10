@@ -30,6 +30,8 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { PermissionGuard } from './atoms/PermissionGuard.js';
+export type { PermissionGuardProps } from './atoms/PermissionGuard.js';
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
 export { Button } from './atoms/primitives/Button.js';
@@ -39,6 +41,8 @@ export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
 export { PopoverSelect } from './atoms/primitives/PopoverSelect.js';
 export type { PopoverSelectOption, PopoverSelectProps } from './atoms/primitives/PopoverSelect.js';
+export { ResponsiveDropdownMenu } from './atoms/primitives/ResponsiveDropdownMenu.js';
+export type { ResponsiveDropdownMenuProps } from './atoms/primitives/ResponsiveDropdownMenu.js';
 export { SideDrawer } from './atoms/primitives/SideDrawer.js';
 export type { SideDrawerAnchor, SideDrawerProps, SideDrawerSize } from './atoms/primitives/SideDrawer.js';
 export { Switch } from './atoms/primitives/Switch.js';
@@ -72,6 +76,7 @@ export type { ScheduleFormFieldsProps } from './atoms/schedules/ScheduleFormFiel
 export { ScheduleLastRunsCell } from './atoms/schedules/ScheduleLastRunsCell.js';
 export { ScheduleRunChip } from './atoms/schedules/ScheduleRunChip.js';
 export { SchedulesPage } from './atoms/schedules/SchedulesPage.js';
+export type { SchedulesPageProps } from './atoms/schedules/SchedulesPage.js';
 export { ScheduleStatusBadge } from './atoms/schedules/ScheduleStatusBadge.js';
 export { TestScheduleScreen } from './atoms/schedules/TestScheduleScreen.js';
 export type { ScheduleMcpMount, TestScheduleScreenProps } from './atoms/schedules/TestScheduleScreen.js';
@@ -192,6 +197,7 @@ export { ToolGroupCard } from './atoms/ToolGroupCard.js';
 export type { ToolGroupCardProps } from './atoms/ToolGroupCard.js';
 export { AgentStepsContainer } from './containers/AgentStepsContainer.js';
 export type { AgentStepsContainerProps } from './containers/AgentStepsContainer.js';
+export { ApprovalNavContainer } from './containers/ApprovalNavContainer.js';
 export { AskUserContainer } from './containers/AskUserContainer.js';
 export { AssistantMessageContainer } from './containers/AssistantMessageContainer.js';
 export { AssistantTextContainer } from './containers/AssistantTextContainer.js';
@@ -233,12 +239,16 @@ export { TrueFoundryChatProvider } from './containers/TrueFoundryChatProvider.js
 export type { TrueFoundryChatProviderProps } from './containers/TrueFoundryChatProvider.js';
 export { UserEditComposerContainer } from './containers/UserEditComposerContainer.js';
 export { UserMessageContainer } from './containers/UserMessageContainer.js';
+export { useApprovalNav } from './hooks/useApprovalNav.js';
+export type { ApprovalNavState } from './hooks/useApprovalNav.js';
 export { ComposerBusyProvider, useComposerBusyState } from './hooks/useComposerBusyState.js';
 export type { ComposerBusyState } from './hooks/useComposerBusyState.js';
 export { threadHasPendingMcpAuth, useComposerPauseView } from './hooks/useComposerPauseView.js';
 export type { ComposerPauseView, ThreadPauseState } from './hooks/useComposerPauseView.js';
 export { MCP_AUTH_POPUP_CHANNEL, useMCPAuth } from './hooks/useMcpAuth.js';
 export type { McpAuthCallback, McpAuthPopupMessage, UseMCPAuthOptions } from './hooks/useMcpAuth.js';
+export { useResourcePermissions } from './hooks/useResourcePermissions.js';
+export type { UseResourcePermissionsOptions, UseResourcePermissionsResult } from './hooks/useResourcePermissions.js';
 
 // Curated chrome hooks (same instance as the SDK runtime). Deep primitives: install @assistant-ui/react.
 export { useAui, useAuiState } from './assistant-ui.js';
@@ -253,6 +263,7 @@ export {
   trueFoundryAttachmentAdapter,
   useTrueFoundryAgentRuntime,
   useTrueFoundryAgentSpec,
+  useTrueFoundryApprovals,
   useTrueFoundryCancel,
   useTrueFoundryDownloadSandboxFile,
   useTrueFoundryHistoryPagination,
@@ -294,6 +305,7 @@ export {
   useOptionalAgentMetricsServer,
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalPermissionsServer,
   useOptionalScheduleServer,
   useOptionalServer,
   useScheduleServer,
@@ -359,6 +371,8 @@ export type {
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
+  ListPermissionsRequest,
+  ListPermissionsResponse,
   ListResult,
   ListSessionEventsParams,
   ListSessionsOrder,
@@ -375,10 +389,13 @@ export type {
   ModelSelection,
   ModelSelectorEntry,
   PageParams,
+  PermissionResourceType,
+  PermissionsServer,
   PreviousTurnIdInput,
   ProviderEntry,
   ProviderType,
   RegistrySkill,
+  ResourcePermission,
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
@@ -456,6 +473,7 @@ export type { SessionTurnView } from './utils/sessionTurnViews.js';
 // Utils
 export { computeAgentStepsSplit } from './utils/computeAgentStepsSplit.js';
 export type { AgentStepPart, AgentStepsSplitResult } from './utils/computeAgentStepsSplit.js';
+export { findSubAgentAncestorsForApproval } from './utils/findApprovalAncestors.js';
 export { getErrorMessage } from './utils/getErrorMessage.js';
 
 export { AgentSessionsFilters } from './atoms/agent-details/AgentSessionsFilters.js';
@@ -465,10 +483,14 @@ export { AgentsLibrary } from './atoms/AgentsLibrary.js';
 export type { AgentsLibraryProps } from './atoms/AgentsLibrary.js';
 export { AgentsLibraryButton } from './atoms/AgentsLibraryButton.js';
 export type { AgentsLibraryButtonProps } from './atoms/AgentsLibraryButton.js';
+export { ApprovalNavBanner } from './atoms/ApprovalNavBanner.js';
+export type { ApprovalNavBannerProps } from './atoms/ApprovalNavBanner.js';
 export { AgentConfigEditors } from './atoms/draft/AgentConfigEditors.js';
 export type { AgentConfigEditor, AgentConfigEditorsProps } from './atoms/draft/AgentConfigEditors.js';
 export { AgentConfigPanel, AgentConfigSection } from './atoms/draft/AgentConfigPanel.js';
 export type { AgentConfigPanelProps } from './atoms/draft/AgentConfigPanel.js';
+export { AgentCustomParametersEditor } from './atoms/draft/AgentCustomParametersEditor.js';
+export type { AgentCustomParametersEditorProps } from './atoms/draft/AgentCustomParametersEditor.js';
 export { AgentInstructionsDrawer } from './atoms/draft/AgentInstructionsDrawer.js';
 export type { AgentInstructionsDrawerProps } from './atoms/draft/AgentInstructionsDrawer.js';
 export { AgentMcpEditorContent } from './atoms/draft/AgentMcpEditorContent.js';
@@ -483,10 +505,10 @@ export { AgentResourceConfigModal } from './atoms/draft/AgentResourceConfigModal
 export type { AgentResourceConfigModalProps } from './atoms/draft/AgentResourceConfigModal.js';
 export { AgentResourceEditorContent } from './atoms/draft/AgentResourceEditorContent.js';
 export type { AgentResourceEditorContentProps } from './atoms/draft/AgentResourceEditorContent.js';
+export { AgentRuntimeConfigDrawer } from './atoms/draft/AgentRuntimeConfigDrawer.js';
+export type { AgentRuntimeConfigDrawerProps } from './atoms/draft/AgentRuntimeConfigDrawer.js';
 export { AgentRuntimeConfigFields } from './atoms/draft/AgentRuntimeConfigFields.js';
 export type { AgentRuntimeConfigFieldsProps } from './atoms/draft/AgentRuntimeConfigFields.js';
-export { AgentRuntimeConfigModal } from './atoms/draft/AgentRuntimeConfigModal.js';
-export type { AgentRuntimeConfigModalProps } from './atoms/draft/AgentRuntimeConfigModal.js';
 export { AgentRuntimeEditorContent } from './atoms/draft/AgentRuntimeEditorContent.js';
 export type { AgentRuntimeEditorContentProps } from './atoms/draft/AgentRuntimeEditorContent.js';
 export { AgentSkillsEditorContent } from './atoms/draft/AgentSkillsEditorContent.js';
@@ -495,6 +517,8 @@ export { DraftAgentConfigTrigger } from './atoms/draft/DraftAgentConfigTrigger.j
 export type { DraftAgentConfigTriggerProps } from './atoms/draft/DraftAgentConfigTrigger.js';
 export { DraftCapabilitiesPanel } from './atoms/draft/DraftCapabilitiesPanel.js';
 export { DraftCatalogProvider, useDraftCatalog } from './atoms/draft/DraftCatalogProvider.js';
+export { DraftComposerActionsMenu } from './atoms/draft/DraftComposerActionsMenu.js';
+export type { DraftComposerAction, DraftComposerActionsMenuProps } from './atoms/draft/DraftComposerActionsMenu.js';
 export { DraftComposerLeftSection, DraftComposerRightSection } from './atoms/draft/DraftComposerSections.js';
 export { DraftCompositeSelector } from './atoms/draft/DraftCompositeSelector.js';
 export type { DraftCompositeSelectorProps } from './atoms/draft/DraftCompositeSelector.js';
@@ -504,7 +528,5 @@ export { SaveAgentButton } from './atoms/SaveAgentButton.js';
 export type { SaveAgentButtonProps } from './atoms/SaveAgentButton.js';
 export { SaveAgentForm } from './atoms/SaveAgentForm.js';
 export type { SaveAgentFormProps } from './atoms/SaveAgentForm.js';
-export { SaveAgentFormFields } from './atoms/SaveAgentFormFields.js';
-export type { SaveAgentFormFieldsProps } from './atoms/SaveAgentFormFields.js';
 export { SessionsBrowserButton } from './atoms/SessionsBrowserButton.js';
 export type { SessionsBrowserButtonProps } from './atoms/SessionsBrowserButton.js';

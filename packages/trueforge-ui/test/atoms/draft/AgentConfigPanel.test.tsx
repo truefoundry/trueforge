@@ -1,11 +1,22 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigPanel } from '@/atoms/draft/AgentConfigPanel.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
+import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import type { AgentSpec, ModelSelection } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.removeAttribute('open');
+    this.dispatchEvent(new Event('close'));
+  };
+});
 
 const model: ModelSelection = {
   id: 'claude',
@@ -15,6 +26,23 @@ const model: ModelSelection = {
     contextLength: 200_000,
     maxOutputTokens: 8_192,
   },
+};
+
+const secondModel: ModelSelection = {
+  id: 'claude-sonnet',
+  name: 'anthropic/claude-sonnet',
+  provider: { name: 'Anthropic' },
+  properties: {
+    contextLength: 200_000,
+    maxOutputTokens: 32_000,
+  },
+};
+
+const catalogProps = {
+  models: [model, secondModel],
+  modelsLoading: false,
+  modelsError: null,
+  skills: [{ id: 'agent-skill:acme/team-a/echo:3', name: 'Echo', version: 3 }],
 };
 
 const spec: AgentSpec = {
@@ -42,6 +70,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -72,7 +101,7 @@ describe('AgentConfigPanel', () => {
       'min-h-14',
       'border-b',
       'bg-topbar-bg',
-      'px-2',
+      'px-3',
       'py-1.5',
     );
   });
@@ -84,6 +113,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={onOpenEditor}
@@ -92,13 +122,116 @@ describe('AgentConfigPanel', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Model settings' }));
-    expect(onOpenEditor).toHaveBeenCalledWith('model-settings');
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Parameters' })).toBeInTheDocument();
+    expect(onOpenEditor).not.toHaveBeenCalledWith('model-settings');
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Runtime Config' }));
     expect(onOpenEditor).toHaveBeenCalledWith('runtime');
 
     fireEvent.click(screen.getByRole('button', { name: 'Edit Instructions' }));
     expect(onOpenEditor).toHaveBeenCalledWith('instructions');
+  });
+
+  it('opens the model catalog as a dropdown and selects a model', () => {
+    const onChange = vi.fn();
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={onOpenEditor}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Model' }));
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByText('Context')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('option', { name: /claude-sonnet/ }));
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      model: {
+        name: secondModel.name,
+        params: { ...spec.model.params, reasoningEffort: undefined },
+      },
+    });
+    expect(onOpenEditor).not.toHaveBeenCalledWith('model');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('places model settings beside the model selector and opens it independently', () => {
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={onOpenEditor}
+          onChange={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    const modelTrigger = screen.getByRole('button', { name: 'Edit Model' });
+    const settingsTrigger = screen.getByRole('button', { name: 'Model settings' });
+    const modelDropdown = modelTrigger.parentElement?.parentElement;
+    const settingsDropdown = settingsTrigger.parentElement?.parentElement;
+
+    expect(modelDropdown?.parentElement).toBe(settingsDropdown?.parentElement);
+
+    fireEvent.click(settingsTrigger);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.queryByText('Select model')).not.toBeInTheDocument();
+    expect(onOpenEditor).not.toHaveBeenCalled();
+  });
+
+  it('uses bottom sheets for compact model selection and settings', () => {
+    const onChange = vi.fn();
+    render(
+      <CompactLayoutProvider>
+        <SlotsProvider>
+          <AgentConfigPanel
+            spec={spec}
+            model={model}
+            {...catalogProps}
+            skillsAvailable
+            instructions={spec.instructions ?? ''}
+            onOpenEditor={vi.fn()}
+            onChange={onChange}
+          />
+        </SlotsProvider>
+      </CompactLayoutProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Model' }));
+
+    expect(screen.getByRole('dialog', { name: 'Select model' })).toBeInTheDocument();
+    expect(screen.getByText('Select provider')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Anthropic' }));
+    expect(screen.getByRole('button', { name: 'Back to providers' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: /claude-sonnet/ }));
+
+    expect(onChange).toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Select model' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Model settings' }));
+
+    expect(screen.getByRole('dialog', { name: 'Model settings' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Parameters' })).toBeInTheDocument();
+    expect(screen.queryByText('Select provider')).not.toBeInTheDocument();
   });
 
   it('previews instructions and summarizes initial user messages', () => {
@@ -115,6 +248,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={specWithMessages}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions="Use the configured tools carefully."
           onOpenEditor={vi.fn()}
@@ -133,6 +267,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -152,6 +287,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -167,6 +303,54 @@ describe('AgentConfigPanel', () => {
     });
   });
 
+  it('removes a skill directly from its config chip without offering preload for a git skill', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Preload skill Research' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Research' }));
+    expect(onChange).toHaveBeenCalledWith({ ...spec, skills: [] });
+  });
+
+  it('toggles preload for an older version of a TrueFoundry skill', () => {
+    const onChange = vi.fn();
+    const registrySpec = {
+      ...spec,
+      skills: [{ id: 'agent-skill:acme/team-a/echo:2', name: 'Echo' }],
+    };
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={registrySpec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={registrySpec.instructions ?? ''}
+          onOpenEditor={vi.fn()}
+          onChange={onChange}
+        />
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preload skill Echo' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...registrySpec,
+      skills: [{ id: 'agent-skill:acme/team-a/echo:2', name: 'Echo', preload: true }],
+    });
+  });
+
   it('leaves keyboard activation of chip controls to the chip', () => {
     const onOpenEditor = vi.fn();
     render(
@@ -174,6 +358,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={onOpenEditor}
@@ -195,6 +380,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={onOpenEditor}
@@ -213,6 +399,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={{ ...spec, mcpServers: [] }}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
@@ -232,6 +419,7 @@ describe('AgentConfigPanel', () => {
         <AgentConfigPanel
           spec={spec}
           model={model}
+          {...catalogProps}
           skillsAvailable
           instructions={spec.instructions ?? ''}
           onOpenEditor={vi.fn()}
