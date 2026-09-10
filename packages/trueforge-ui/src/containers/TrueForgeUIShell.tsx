@@ -22,7 +22,7 @@ import { createSessionListCache, withSessionListCache } from '../server/sessionL
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
 import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
-import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
+import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { TrueFoundryChatProvider, type TrueFoundryChatProviderProps } from './TrueFoundryChatProvider.js';
@@ -93,9 +93,12 @@ function LayoutFallback({ className }: { className?: string }) {
 
 /** Shown while `type: "truefoundry"` resolves the agent UI server. */
 export function ServerInitLoader({ className }: { className?: string }) {
+  // Outside ThemeProvider (Suspense), useThemeMode falls back to light.
+  const themeMode = useThemeMode();
   return (
     <div
       role="status"
+      aria-label="Loading"
       aria-live="polite"
       aria-busy="true"
       className={cn(
@@ -103,13 +106,15 @@ export function ServerInitLoader({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex flex-col items-center gap-3">
-        {/* theme=light: Suspense fallback can render outside ThemeProvider */}
-        <ThinkingOrb state="connecting" speed={1} theme="light" paused={false} aria-hidden style={{
-          width: '72px',
-          height: '72px',
-        }}/>
-      </div>
+      <ThinkingOrb
+        state="connecting"
+        speed={1}
+        theme={themeMode}
+        paused={false}
+        aria-hidden
+        size={64}
+        style={{ width: '4.5rem', height: '4.5rem' }}
+      />
     </div>
   );
 }

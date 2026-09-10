@@ -2,6 +2,7 @@ import {
   getErrorMessage,
   ThemeProvider,
   TrueForgeUI,
+  useTheme,
   type SlotOverrides,
   type ThemeConfig,
 } from '@truefoundry/trueforge-ui';
@@ -38,12 +39,18 @@ const appTheme: ThemeConfig = {
 };
 
 function Loader() {
+  const { mode } = useTheme();
   return (
-    <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
-        <ThinkingOrb state="connecting" speed={1} theme="light" paused={false} aria-hidden style={{
-          width: '72px',
-          height: '72px',
-        }}/>
+    <div className="boot-screen" role="status" aria-label="Loading" aria-live="polite" aria-busy="true">
+      <ThinkingOrb
+        state="connecting"
+        speed={1}
+        theme={mode}
+        paused={false}
+        aria-hidden
+        size={64}
+        style={{ width: '4.5rem', height: '4.5rem' }}
+      />
     </div>
   );
 }
