@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
 import { isSchedulesChromeEnabled, isSessionsChromeEnabled } from '../server/serverChrome.js';
@@ -33,6 +34,9 @@ export type AgentScheduleSummary = {
 export type AgentLibraryRowProps = {
   agent: AgentLibraryEntry;
   canMutate: boolean;
+  canUseAgent?: boolean;
+  canManageAgent?: boolean;
+  canDeleteAgent?: boolean;
   canManageSchedules: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
@@ -49,7 +53,15 @@ function displayModelLabel(modelName: string): string {
   return slash >= 0 ? modelName.slice(slash + 1) : modelName;
 }
 
-function AgentSchedulesEmptyState({ agentName, onOpen }: { agentName: string; onOpen?: () => void }) {
+function AgentSchedulesEmptyState({
+  agentName,
+  onOpen,
+  disabled,
+}: {
+  agentName: string;
+  onOpen?: () => void;
+  disabled: boolean;
+}) {
   return (
     <>
       <span aria-hidden className="text-text-secondary text-sm md:group-hover:hidden">
@@ -58,6 +70,7 @@ function AgentSchedulesEmptyState({ agentName, onOpen }: { agentName: string; on
       <Button.Ghost
         type="button"
         size="small"
+        disabled={disabled}
         aria-label={`Add schedule for ${agentName}`}
         className="hidden md:group-hover:inline-flex"
         onClick={onOpen}
@@ -73,10 +86,12 @@ function AgentSchedulesBadge({
   summary,
   agentName,
   onOpen,
+  disabled,
 }: {
   summary: AgentScheduleSummary;
   agentName: string;
   onOpen?: () => void;
+  disabled: boolean;
 }) {
   const pausedCount = summary.pausedCount;
   const activeCount = summary.count - pausedCount;
@@ -87,6 +102,7 @@ function AgentSchedulesBadge({
   return (
     <button
       type="button"
+      disabled={disabled}
       aria-label={`${ariaParts.join(', ')} schedules for ${agentName}`}
       className="inline-flex cursor-pointer items-center gap-1.5"
       onClick={onOpen}
@@ -111,6 +127,9 @@ function AgentSchedulesBadge({
 export function AgentLibraryRow({
   agent,
   canMutate,
+  canUseAgent = true,
+  canManageAgent = true,
+  canDeleteAgent = true,
   canManageSchedules,
   scheduleSummary,
   onOpenSchedules,
@@ -120,6 +139,7 @@ export function AgentLibraryRow({
   onEdit,
   onManageSchedules,
 }: AgentLibraryRowProps) {
+  const PermissionGuard = useSlot('PermissionGuard');
   const spec = agent.agentSpec;
   const modelName = spec?.model.name;
   const skillsCount = spec?.skills?.length ?? 0;
@@ -191,9 +211,14 @@ export function AgentLibraryRow({
       {scheduleSummary !== undefined ? (
         <TableCell>
           {scheduleSummary != null && scheduleSummary.count > 0 ? (
-            <AgentSchedulesBadge summary={scheduleSummary} agentName={agent.name} onOpen={onOpenSchedules} />
+            <AgentSchedulesBadge
+              summary={scheduleSummary}
+              agentName={agent.name}
+              onOpen={onOpenSchedules}
+              disabled={!canUseAgent}
+            />
           ) : scheduleSummary != null ? (
-            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onCreateSchedule} />
+            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onCreateSchedule} disabled={!canUseAgent} />
           ) : (
             <span className="text-text-secondary text-sm" aria-label={`Schedule count unavailable for ${agent.name}`}>
               —
@@ -203,14 +228,19 @@ export function AgentLibraryRow({
       ) : null}
       <TableCell className="w-px">
         <div className="flex items-center justify-end gap-1.5">
-          <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
-            <Icon name="play" className="size-3.5" />
-            Try
-          </Button.Secondary>
+          <PermissionGuard allowed={canUseAgent}>
+            <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
+              <Icon name="play" className="size-3.5" />
+              Try
+            </Button.Secondary>
+          </PermissionGuard>
           <AgentOverflowMenu
             agentName={agent.name}
             {...(spec != null ? { agentSpec: spec } : {})}
             canMutate={canMutate}
+            canUse={canUseAgent}
+            canManage={canManageAgent}
+            canDelete={canDeleteAgent}
             canManageSchedules={canManageSchedules}
             onEdit={onEdit}
             {...(onManageSchedules != null ? { onManageSchedules } : {})}
@@ -302,6 +332,11 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       query,
       refreshKey: agentsListEpoch,
     });
+  const permissionAgentIds = open ? agents.map(libraryAgentId) : [];
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: permissionAgentIds,
+  });
 
   useEffect(() => {
     if (!open || scheduleServer == null || agents.length === 0) {
@@ -432,6 +467,9 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                           key={id}
                           agent={agent}
                           canMutate={canMutate}
+                          canUseAgent={allows(id, 'USE')}
+                          canManageAgent={allows(id, 'MANAGE')}
+                          canDeleteAgent={allows(id, 'DELETE')}
                           canManageSchedules={canOpenAgentSchedules}
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
                           {...(canOpenAgentSchedules && agentId != null
@@ -455,9 +493,11 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                                 },
                               }
                             : {})}
-                          onTry={() => handleTry(agent)}
+                          onTry={() => {
+                            if (allows(id, 'USE')) handleTry(agent);
+                          }}
                           onEdit={() => {
-                            if (agentSpec != null) handleEdit(agent, agentSpec);
+                            if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
                           }}
                         />
                       );

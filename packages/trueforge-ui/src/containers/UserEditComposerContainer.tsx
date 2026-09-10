@@ -4,6 +4,7 @@ import { useComposerCancel, useComposerSend, useThreadIsRunning } from '@assista
 import { ComposerPrimitive, MessagePrimitive, useAuiState } from '@assistant-ui/react';
 
 import { Button } from '../atoms/primitives/Button.js';
+import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { MessageAttachmentsContainer } from './AttachmentsContainer.js';
 
@@ -23,6 +24,7 @@ export function UserEditComposerContainer() {
   const UserMessageEdit = useSlot('UserMessageEdit');
   const MessageTimestamp = useSlot('MessageTimestamp');
   const isRunning = useThreadIsRunning();
+  const canManageSession = useActiveSessionCanManage();
   const createdAt = useAuiState(s => s.message.createdAt);
   const { cancel, disabled: cancelDisabled } = useComposerCancel();
   const { disabled: sendDisabled } = useComposerSend();
@@ -40,7 +42,7 @@ export function UserEditComposerContainer() {
             <div className="mt-1 rounded border border-border bg-secondary-bg p-2 text-text-primary">
               <ComposerPrimitive.Input
                 data-slot="aui_user-edit-input"
-                disabled={isRunning}
+                disabled={isRunning || !canManageSession}
                 submitMode="enter"
                 aria-label="Edit message"
                 className="max-h-32 min-h-10 w-full resize-none border-none bg-transparent p-0 text-base leading-[1.34] outline-none focus:shadow-none"
@@ -53,7 +55,7 @@ export function UserEditComposerContainer() {
                 Cancel
               </Button.Secondary>
               <ComposerPrimitive.Send asChild>
-                <Button.Primary type="submit" disabled={sendDisabled || isRunning}>
+                <Button.Primary type="submit" disabled={sendDisabled || isRunning || !canManageSession}>
                   Save &amp; Rerun
                 </Button.Primary>
               </ComposerPrimitive.Send>

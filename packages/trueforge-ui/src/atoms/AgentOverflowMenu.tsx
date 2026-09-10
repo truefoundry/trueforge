@@ -7,6 +7,7 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec } from '../server/types.js';
+import { useSlot } from '../theme/SlotsProvider.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { Button } from './primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './primitives/Dialog.js';
@@ -22,6 +23,9 @@ export type AgentOverflowMenuProps = {
   agentSpec?: AgentSpec;
   /** Edit / Clone / Delete when composer is enabled. */
   canMutate: boolean;
+  canUse?: boolean;
+  canManage?: boolean;
+  canDelete?: boolean;
   canManageSchedules: boolean;
   onEdit: () => void;
   onManageSchedules?: () => void;
@@ -35,6 +39,9 @@ export function AgentOverflowMenu({
   agentName,
   agentSpec,
   canMutate,
+  canUse = true,
+  canManage = true,
+  canDelete = true,
   canManageSchedules,
   onEdit,
   onManageSchedules,
@@ -43,6 +50,7 @@ export function AgentOverflowMenu({
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
+  const PermissionGuard = useSlot('PermissionGuard');
   const [pending, setPending] = useState<PendingAction>(null);
   const [busy, setBusy] = useState(false);
 
@@ -59,7 +67,7 @@ export function AgentOverflowMenu({
   };
 
   const handleClone = async () => {
-    if (builder == null || agentSpec == null) return;
+    if (!canUse || builder == null || agentSpec == null) return;
     setBusy(true);
     try {
       await builder.saveAgent({
@@ -81,7 +89,7 @@ export function AgentOverflowMenu({
   };
 
   const handleDelete = async () => {
-    if (builder == null || typeof builder.deleteAgent !== 'function') return;
+    if (!canDelete || builder == null || typeof builder.deleteAgent !== 'function') return;
     setBusy(true);
     try {
       await builder.deleteAgent({ agentName });
@@ -115,33 +123,58 @@ export function AgentOverflowMenu({
         }
       >
         {canEditOrClone ? (
-          <DropdownMenuItem className="whitespace-nowrap" onClick={onEdit}>
-            <Icon name="pencil" className="size-3.5" />
-            Edit
-          </DropdownMenuItem>
+          <PermissionGuard allowed={canManage}>
+            <DropdownMenuItem
+              className="whitespace-nowrap"
+              onClick={() => {
+                if (canManage) onEdit();
+              }}
+            >
+              <Icon name="pencil" className="size-3.5" />
+              Edit
+            </DropdownMenuItem>
+          </PermissionGuard>
         ) : null}
         {canEditOrClone ? (
-          <DropdownMenuItem className="whitespace-nowrap" onClick={() => setPending('clone')}>
-            <Icon name="clone" className="size-3.5" />
-            Clone
-          </DropdownMenuItem>
+          <PermissionGuard allowed={canUse}>
+            <DropdownMenuItem
+              className="whitespace-nowrap"
+              onClick={() => {
+                if (canUse) setPending('clone');
+              }}
+            >
+              <Icon name="clone" className="size-3.5" />
+              Clone
+            </DropdownMenuItem>
+          </PermissionGuard>
         ) : null}
         {showManageSchedules ? (
-          <DropdownMenuItem className="whitespace-nowrap" onClick={onManageSchedules}>
-            <Icon name="calendar-clock" className="size-3.5" />
-            Manage Schedules
-          </DropdownMenuItem>
+          <PermissionGuard allowed={canUse}>
+            <DropdownMenuItem
+              className="whitespace-nowrap"
+              onClick={() => {
+                if (canUse) onManageSchedules?.();
+              }}
+            >
+              <Icon name="calendar-clock" className="size-3.5" />
+              Manage Schedules
+            </DropdownMenuItem>
+          </PermissionGuard>
         ) : null}
         {canMutate ? (
           <>
             {canEditOrClone || showManageSchedules ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem
-              className="whitespace-nowrap text-failure-bg focus-visible:text-failure-bg"
-              onClick={() => setPending('delete')}
-            >
-              <Icon name="trash" className="size-3.5" />
-              Delete
-            </DropdownMenuItem>
+            <PermissionGuard allowed={canDelete}>
+              <DropdownMenuItem
+                className="whitespace-nowrap text-failure-bg focus-visible:text-failure-bg"
+                onClick={() => {
+                  if (canDelete) setPending('delete');
+                }}
+              >
+                <Icon name="trash" className="size-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </PermissionGuard>
           </>
         ) : null}
       </DropdownMenu>
@@ -160,7 +193,11 @@ export function AgentOverflowMenu({
             <Button.Secondary type="button" disabled={busy} onClick={closePending}>
               Cancel
             </Button.Secondary>
-            <Button.Primary type="button" disabled={busy || builder == null} onClick={() => void handleClone()}>
+            <Button.Primary
+              type="button"
+              disabled={busy || !canUse || builder == null}
+              onClick={() => void handleClone()}
+            >
               Clone
             </Button.Primary>
           </DialogFooter>
@@ -183,7 +220,7 @@ export function AgentOverflowMenu({
             </Button.Secondary>
             <Button.Destructive
               type="button"
-              disabled={busy || builder == null || typeof builder.deleteAgent !== 'function'}
+              disabled={busy || !canDelete || builder == null || typeof builder.deleteAgent !== 'function'}
               onClick={() => void handleDelete()}
             >
               Delete

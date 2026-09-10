@@ -51,6 +51,12 @@ agent-detail Metrics tab. Custom servers can provide `metrics` with
 surface is split across the `AgentMetrics`, `AgentMetricsView`,
 `AgentMetricsTimeRangeFilter`, `AgentMetricCard`, and `AgentMetricChart` slots.
 
+Both built-in configs accept an explicit optional `PermissionsServer`; neither
+enables checks by default. Use `createHarnessPermissionsServer` for a Harness
+backend, or pass a custom implementation for TrueFoundry. `useResourcePermissions`
+reads `USE`, `MANAGE`, and `DELETE` grants, while `PermissionGuard` keeps denied
+actions visible and explained.
+
 ## Compose
 
 | Export                                                        | Notes                           |

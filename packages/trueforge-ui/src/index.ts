@@ -30,6 +30,8 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { PermissionGuard } from './atoms/PermissionGuard.js';
+export type { PermissionGuardProps } from './atoms/PermissionGuard.js';
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
 export { Button } from './atoms/primitives/Button.js';
@@ -243,6 +245,8 @@ export { threadHasPendingMcpAuth, useComposerPauseView } from './hooks/useCompos
 export type { ComposerPauseView, ThreadPauseState } from './hooks/useComposerPauseView.js';
 export { MCP_AUTH_POPUP_CHANNEL, useMCPAuth } from './hooks/useMcpAuth.js';
 export type { McpAuthCallback, McpAuthPopupMessage, UseMCPAuthOptions } from './hooks/useMcpAuth.js';
+export { useResourcePermissions } from './hooks/useResourcePermissions.js';
+export type { UseResourcePermissionsOptions, UseResourcePermissionsResult } from './hooks/useResourcePermissions.js';
 
 // Curated chrome hooks (same instance as the SDK runtime). Deep primitives: install @assistant-ui/react.
 export { useAui, useAuiState } from './assistant-ui.js';
@@ -297,6 +301,7 @@ export {
   useOptionalAgentMetricsServer,
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalPermissionsServer,
   useOptionalScheduleServer,
   useOptionalServer,
   useScheduleServer,
@@ -362,6 +367,8 @@ export type {
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
+  ListPermissionsRequest,
+  ListPermissionsResponse,
   ListResult,
   ListSessionEventsParams,
   ListSessionsOrder,
@@ -378,10 +385,13 @@ export type {
   ModelSelection,
   ModelSelectorEntry,
   PageParams,
+  PermissionResourceType,
+  PermissionsServer,
   PreviousTurnIdInput,
   ProviderEntry,
   ProviderType,
   RegistrySkill,
+  ResourcePermission,
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,

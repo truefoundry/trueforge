@@ -535,6 +535,7 @@ type TrueForgeServerConfig =
       apiKey: string;
       controlPlaneURL: string;
       gatewayPlaneURL?: string;
+      permissions?: PermissionsServer;
     }
   | {
       type: 'trueforge';
@@ -542,6 +543,7 @@ type TrueForgeServerConfig =
       token?: string;
       fetch?: typeof fetch;
       catalog?: CatalogServer;
+      permissions?: PermissionsServer;
     }
   | AgentUIServer;
 
@@ -551,6 +553,7 @@ type AgentUIServer = AgentChatServer &
     sessions?: AgentSessionsServer;
     metrics?: AgentMetricsServer;
     schedules?: ScheduleServer;
+    permissions?: PermissionsServer;
   };
 ```
 
@@ -562,9 +565,14 @@ type AgentUIServer = AgentChatServer &
 | `sessions`           | Agent details + sessions browser (`/sessions`, `/library/:agentId`) |
 | `schedules`          | Schedules page (`/schedules`)                                       |
 | `AgentMetricsServer` | Agent meter aggregates, chart definitions, and chart data           |
+| `PermissionsServer`  | Per-resource `USE`, `MANAGE`, and `DELETE` grants                   |
 
-Omit an optional port to hide its chrome and unregister its routes (same gate as the
-Settings button for `catalog`).
+Omit a chrome port such as `catalog` or `schedules` to hide and unregister its routes.
+
+When `permissions` is omitted, actions remain enabled for backward compatibility. When provided, denied mutation
+controls stay visible but disabled with an explanatory tooltip. Both built-in server configs accept an explicit
+`PermissionsServer`; neither enables permission checks by default. Harness hosts can build one with the exported
+`createHarnessPermissionsServer` helper.
 
 **Zero-config TrueFoundry** — see [Getting started](#getting-started). The SDK calls `createTrueFoundryAgentUIServer` for you.
 
