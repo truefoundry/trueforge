@@ -245,7 +245,7 @@ function ScheduleFormDrawerBody({
       <div className="flex flex-col gap-2">
         {error != null ? <p className="text-failure-bg text-sm">{error}</p> : null}
         <Button.Secondary type="button" className="w-full" disabled={activating} onClick={() => void handleActivate()}>
-          Activate Anyway
+          Activate Schedule
         </Button.Secondary>
       </div>
     );

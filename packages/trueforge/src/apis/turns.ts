@@ -22,6 +22,7 @@ import {
   isFileContentPart,
   McpConnectionError,
   rawSandboxId,
+  redisKey,
   SandboxError,
   VercelAILLM,
 } from '@truefoundry/trueforge-core/core';
@@ -304,7 +305,7 @@ export function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefin
 
 /** Redis/in-memory key for one turn's resumable event stream. */
 export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
-  return `agent:turn:${tenantId}:${sessionId}:${turnId}:stream`;
+  return redisKey('agent', 'turn', tenantId, sessionId, turnId, 'stream');
 }
 
 /**
