@@ -479,6 +479,7 @@ export function ShellModeProvider({
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
+    setHistoryAgentFilter(null);
     selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: chatSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 

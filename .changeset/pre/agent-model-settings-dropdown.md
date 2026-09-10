@@ -1,5 +1,5 @@
 ---
-'@truefoundry/trueforge-ui': patch
+"@truefoundry/trueforge-ui": minor
 ---
 
-Open model settings beside the Agent Config model selector, add UI and editable JSON parameter views, and support typed custom model parameters.
+Open agent model settings inline and support typed custom model parameters.

@@ -208,6 +208,18 @@ describe('ShellRouteSync', () => {
     expect(search).toBe('?try_agent_name=helper');
   });
 
+  it('clears Try Agent URL and history filter when New Chat opens', async () => {
+    renderSync({ initialEntries: ['/agents/helper'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
+    await waitFor(() => expect(shell.listSessionsAgentId).toBe('helper-id'));
+
+    act(() => shell.openDraft());
+
+    expect(pathname).toBe('/');
+    expect(search).toBe('');
+    expect(shell.historyAgentFilter).toBeNull();
+    expect(shell.listSessionsAgentId).toBeUndefined();
+  });
+
   it('writes and clears a manual history filter without changing the chat place', () => {
     renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibraryWithComposer' } });
 
