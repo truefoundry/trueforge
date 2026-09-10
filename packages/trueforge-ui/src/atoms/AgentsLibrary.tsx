@@ -10,8 +10,10 @@ import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../se
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { hasCreatedBySubject } from '../utils/createdBySubject.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
+import { CreatedByCell } from './CreatedByCell.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
@@ -29,6 +31,8 @@ export type AgentsLibraryProps = {
 export type AgentScheduleSummary = {
   count: number;
   pausedCount: number;
+  activeNames: string[];
+  pausedNames: string[];
 };
 
 export type AgentLibraryRowProps = {
@@ -38,6 +42,7 @@ export type AgentLibraryRowProps = {
   canManageAgent?: boolean;
   canDeleteAgent?: boolean;
   canManageSchedules: boolean;
+  showCreatedBy?: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
   onCreateSchedule?: () => void;
@@ -82,6 +87,19 @@ function AgentSchedulesEmptyState({
   );
 }
 
+function scheduleNamesTooltip(names: readonly string[]) {
+  return (
+    <span className="flex flex-col text-left">
+      {names.map((name, index) => (
+        <span key={name}>
+          {name}
+          {index < names.length - 1 ? ',' : ''}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function AgentSchedulesBadge({
   summary,
   agentName,
@@ -108,17 +126,21 @@ function AgentSchedulesBadge({
       onClick={onOpen}
     >
       {activeCount > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300">
-          <Icon name="calendar-clock" className="size-3.5 shrink-0" />
-          <span>{activeCount} Active</span>
-        </span>
+        <Tooltip content={scheduleNamesTooltip(summary.activeNames)} className="whitespace-normal">
+          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <Icon name="calendar-clock" className="size-3.5 shrink-0" />
+            <span>{activeCount} Active</span>
+          </span>
+        </Tooltip>
       ) : null}
       {pausedCount > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-md border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300">
-          {activeCount === 0 ? <Icon name="calendar-clock" className="size-3.5 shrink-0" /> : null}
-          <span>{pausedCount} Paused</span>
-          <Icon name="triangle-exclamation" className="size-3.5 shrink-0" />
-        </span>
+        <Tooltip content={scheduleNamesTooltip(summary.pausedNames)} className="whitespace-normal">
+          <span className="inline-flex items-center gap-1 rounded-md border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300">
+            {activeCount === 0 ? <Icon name="calendar-clock" className="size-3.5 shrink-0" /> : null}
+            <span>{pausedCount} Paused</span>
+            <Icon name="triangle-exclamation" className="size-3.5 shrink-0" />
+          </span>
+        </Tooltip>
       ) : null}
     </button>
   );
@@ -131,6 +153,7 @@ export function AgentLibraryRow({
   canManageAgent = true,
   canDeleteAgent = true,
   canManageSchedules,
+  showCreatedBy = false,
   scheduleSummary,
   onOpenSchedules,
   onCreateSchedule,
@@ -208,6 +231,11 @@ export function AgentLibraryRow({
           </span>
         )}
       </TableCell>
+      {showCreatedBy ? (
+        <TableCell>
+          <CreatedByCell subject={agent.createdBySubject} />
+        </TableCell>
+      ) : null}
       {scheduleSummary !== undefined ? (
         <TableCell>
           {scheduleSummary != null && scheduleSummary.count > 0 ? (
@@ -255,10 +283,13 @@ function summarizeSchedulesByAgent(schedules: readonly Schedule[]): Map<string, 
   const map = new Map<string, AgentScheduleSummary>();
   for (const schedule of schedules) {
     const id = schedule.agentId;
-    const prev = map.get(id) ?? { count: 0, pausedCount: 0 };
-    const next = {
+    const prev = map.get(id) ?? { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] };
+    const isPaused = schedule.status === 'paused';
+    const next: AgentScheduleSummary = {
       count: prev.count + 1,
-      pausedCount: prev.pausedCount + (schedule.status === 'paused' ? 1 : 0),
+      pausedCount: prev.pausedCount + (isPaused ? 1 : 0),
+      activeNames: isPaused ? prev.activeNames : [...prev.activeNames, schedule.name],
+      pausedNames: isPaused ? [...prev.pausedNames, schedule.name] : prev.pausedNames,
     };
     map.set(id, next);
     if (schedule.agentName != null && schedule.agentName !== '' && schedule.agentName !== id) {
@@ -332,6 +363,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       query,
       refreshKey: agentsListEpoch,
     });
+  const showCreatedByColumn = hasCreatedBySubject(agents);
   const permissionAgentIds = open ? agents.map(libraryAgentId) : [];
   const { allows } = useResourcePermissions({
     resourceType: 'agent',
@@ -446,6 +478,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     <TableRow className="hover:bg-transparent">
                       <TableHead>Agent name</TableHead>
                       <TableHead>Configuration</TableHead>
+                      {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
                       {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
                       <TableHead className="w-px">
                         <span className="sr-only">Actions</span>
@@ -460,7 +493,9 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                       const summary = showSchedulesColumn
                         ? (scheduleByAgent?.get(id) ??
                           scheduleByAgent?.get(agent.name) ??
-                          (scheduleByAgent == null ? null : { count: 0, pausedCount: 0 }))
+                          (scheduleByAgent == null
+                            ? null
+                            : { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] }))
                         : undefined;
                       return (
                         <SlottedAgentLibraryRow
@@ -471,6 +506,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                           canManageAgent={allows(id, 'MANAGE')}
                           canDeleteAgent={allows(id, 'DELETE')}
                           canManageSchedules={canOpenAgentSchedules}
+                          showCreatedBy={showCreatedByColumn}
                           {...(summary !== undefined ? { scheduleSummary: summary } : {})}
                           {...(canOpenAgentSchedules && agentId != null
                             ? {

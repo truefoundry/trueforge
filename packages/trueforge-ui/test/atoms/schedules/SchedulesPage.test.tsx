@@ -451,4 +451,26 @@ describe('SchedulesPage', () => {
     });
     expect(new URL(window.location.href).searchParams.get('agent')).toBe('demo-agent');
   });
+
+  it('shows Created by when schedules include createdBySubject', async () => {
+    renderPage([
+      {
+        ...sampleSchedules[0]!,
+        createdBySubject: {
+          subjectId: 'u1',
+          subjectType: 'user',
+          subjectDisplayName: 'bob@example.com',
+        },
+      },
+    ]);
+    expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
+    expect(screen.getByText('bob@example.com')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('BO');
+  });
+
+  it('hides Created by when no schedule has createdBySubject', async () => {
+    renderPage();
+    await screen.findByText('daily-digest');
+    expect(screen.queryByRole('columnheader', { name: 'Created by' })).not.toBeInTheDocument();
+  });
 });
