@@ -67,7 +67,7 @@ await client.internal.listPermissions({
 </details>
 
 ## Agents
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">list</a>() -> TrueForge.ListAgentsResponse</code></summary>
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Agent, TrueForge.ListAgentsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -79,7 +79,7 @@ await client.internal.listPermissions({
 <dl>
 <dd>
 
-All configured agents for the tenant.
+List configured agents for the tenant, ordered by name.
 </dd>
 </dl>
 </dd>
@@ -106,6 +106,14 @@ await client.agents.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListAgentsRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
