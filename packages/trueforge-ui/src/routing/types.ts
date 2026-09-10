@@ -12,7 +12,8 @@ export type RoutePlace =
   | { type: 'library' }
   | { type: 'libraryAgent'; agentId: string }
   | { type: 'sessionsBrowser' }
-  | { type: 'schedules' };
+  | { type: 'schedules' }
+  | { type: 'buildAgent' };
 
 /**
  * Host-facing route path customization. Only honored when `withRouter`.
@@ -33,6 +34,8 @@ export type RoutesConfig = {
     libraryAgent?: string | false;
     /** Schedules page. `false` keeps schedules overlay-only (no URL). Default `'/schedules'`. */
     schedules?: string | false;
+    /** Agent builder. `false` disables its dedicated URL. Default `'/build-agent'`. */
+    buildAgent?: string | false;
     /** Immutable "Try" agent. `false` disables. Default `'/agents/:agentName'`. */
     agent?: string | false;
     /** Session deep link. `false` disables. Default `'/sessions/:sessionId'`. */
@@ -50,6 +53,7 @@ export type ResolvedRoutes = {
   library: string | null;
   libraryAgent: string | null;
   schedules: string | null;
+  buildAgent: string | null;
   agent: string | null;
   session: string | null;
   sessionsBrowser: string | null;

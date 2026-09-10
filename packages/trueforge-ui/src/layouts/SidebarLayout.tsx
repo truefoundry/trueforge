@@ -59,7 +59,7 @@ function SidebarNav(): ReactNode {
     shell?.sessionsOpen === true ||
     shell?.schedulesOpen === true;
   const mode = shell?.mode;
-  const newChatSelected = !overlayOpen && mode?.status === 'active' && mode.isMutable && !mode.isCreateAgent;
+  const newChatSelected = !overlayOpen && mode?.status === 'active' && !mode.isCreateAgent;
   const newAgentSelected = !overlayOpen && mode != null && shellIsCreateAgent(mode);
 
   const handleNewChat = () => {
