@@ -81,6 +81,7 @@ const app = createServerApp({
   resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
   resolveAgentStore: () => agentStore,
   scheduleStore: new SqliteScheduleStore(db),
+  agentStore,
   sessionStore,
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
   sessions: new Sessions({ sessionStore }),
@@ -91,7 +92,6 @@ const app = createServerApp({
   oidcClient: undefined,
   authenticator: new StandaloneAuthenticator(),
   authorizer: new TrueForgeAuthorizer(),
-  executeScheduleRun: () => Promise.resolve(),
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed

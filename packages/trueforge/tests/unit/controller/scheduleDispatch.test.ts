@@ -226,9 +226,8 @@ describe('executeScheduleRun', () => {
     expect(scheduleStore.getSchedule).toHaveBeenCalledWith({ tenant_id: 'default', id: 'sched-1' });
     expect(startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenant_id: 'default',
-        created_by_subject: dispatchItem.schedule.created_by_subject,
         agent: { id: 'agent-1', name: 'reporter' },
+        userRef: 'tester',
       }),
     );
   });

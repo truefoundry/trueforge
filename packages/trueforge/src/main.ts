@@ -56,11 +56,10 @@ import type { Kysely, Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
-import { startTurnInProcess } from './apis/turns';
 import { createServerApp } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import { requestSubjectFromCreatedBySubject, resolveRequestContext, type RequestContext } from './auth/identity';
+import { resolveRequestContext, type RequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -68,7 +67,6 @@ import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
-import { executeScheduleRun, type ScheduleRunExecutor } from './controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -89,7 +87,6 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
-import { createTrueFoundryRequestContext } from './truefoundry/accessToken';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -259,58 +256,6 @@ function buildResolveSandboxProviderStore<TTransaction>(options: {
     return () => new TrueFoundrySandboxProviderStore<TTransaction>();
   }
   return () => persistenceStore;
-}
-
-/** Executes a persisted schedule run in this process, as the schedule's creator and agent. */
-function buildExecuteScheduleRun<TTransaction>(options: {
-  persistence: ServerPersistence<TTransaction>;
-  sessions: Sessions;
-  activeTurns: ActiveTurnRegistry;
-  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  logger: Logger;
-}): ScheduleRunExecutor {
-  const { persistence, sessions, activeTurns, eventSubscriptions, logger } = options;
-  return scheduleRunId =>
-    executeScheduleRun({
-      scheduleRunId,
-      scheduleStore: persistence.scheduleStore,
-      sessions,
-      agentStore: persistence.agentStore,
-      startTurn: async turn => {
-        let rc: RequestContext;
-        if (isTrueFoundryModeEnabled(configuration)) {
-          rc = createTrueFoundryRequestContext({
-            tenant_id: turn.tenant_id,
-            subject: requestSubjectFromCreatedBySubject(turn.created_by_subject),
-            roles: [],
-            user_credential: null,
-          });
-        } else {
-          rc = {
-            tenant_id: turn.tenant_id,
-            subject: requestSubjectFromCreatedBySubject(turn.created_by_subject),
-            roles: [],
-            user_credential: null,
-          };
-        }
-        await startTurnInProcess({
-          session: turn.session,
-          input: turn.input,
-          previous_turn_id: turn.previous_turn_id,
-          userRef: turn.userRef,
-          deps: {
-            activeTurns,
-            eventSubscriptions,
-            modelProviderStore: persistence.resolveModelProviderStore(rc, turn.agent),
-            mcpServerStore: persistence.resolveMcpServerStore(rc, turn.agent),
-            skillStore: persistence.resolveSkillStore(rc, turn.agent),
-            agentStore: persistence.agentStore,
-            sandboxProviderStore: persistence.sandboxProviderStore,
-            logger,
-          },
-        });
-      },
-    });
 }
 
 /** SQLite stores; Redis unused (executor peering disabled). */
@@ -496,6 +441,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const {
     sessionStore,
     sessionMetricsStore,
+    agentStore,
     mcpOAuthStore,
     resolveModelProviderStore: resolveModelProviderStoreByRequestContext,
     resolveMcpServerStore: resolveMcpServerStoreByRequestContext,
@@ -514,13 +460,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
   const sessions = new Sessions({ sessionStore });
-  const executeRun = buildExecuteScheduleRun({
-    persistence,
-    sessions,
-    activeTurns,
-    eventSubscriptions,
-    logger,
-  });
 
   const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
   if (oidc) {
@@ -603,6 +542,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     withTransaction,
     tokenStore,
     scheduleStore,
+    agentStore,
     sessionStore,
     sessionMetricsStore,
     sessions,
@@ -614,7 +554,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
-    executeScheduleRun: executeRun,
     resolveSkillStore,
   });
 

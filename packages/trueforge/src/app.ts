@@ -186,6 +186,8 @@ export interface ServerDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
+  /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
+  agentStore: IAgentStore<TTransaction>;
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
   sessions: Sessions;
@@ -203,8 +205,6 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
-  /** Executes a persisted schedule run without caller-derived identity. */
-  executeScheduleRun: (scheduleRunId: string) => Promise<void>;
   /** Per-request store: DB git skills, or SFY registry catalog in TrueFoundry mode. */
   resolveSkillStore: ResolveSkillStore<TTransaction>;
 }
@@ -215,6 +215,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
   const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
+  const scheduleTurnDeps = {
+    scheduleStore: deps.scheduleStore,
+    sessions: deps.sessions,
+    agentStore: deps.agentStore,
+    activeTurns: deps.activeTurns,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveSkillStore: deps.resolveSkillStore,
+    resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+  };
 
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
@@ -321,20 +333,14 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   );
   app.route(
     '/api/internal/schedules',
-    withAuth(
-      createScheduleExecutionRouter({
-        executeScheduleRun: deps.executeScheduleRun,
-      }),
-      scheduleExecutionAuthMiddleware,
-    ),
+    withAuth(createScheduleExecutionRouter(scheduleTurnDeps), scheduleExecutionAuthMiddleware),
   );
   app.route(
     '/api/v1/schedules',
     withAuth(
       createSchedulesRouter({
-        scheduleStore: deps.scheduleStore,
+        ...scheduleTurnDeps,
         resolveAgentStore: deps.resolveAgentStore,
-        executeScheduleRun: deps.executeScheduleRun,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,

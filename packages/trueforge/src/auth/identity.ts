@@ -1,7 +1,13 @@
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 
-import configuration, { getTrueForgeAuthMode, isOidcConfigured, TrueForgeAuthMode } from '../config';
+import configuration, {
+  getTrueForgeAuthMode,
+  isOidcConfigured,
+  isTrueFoundryModeEnabled,
+  TrueForgeAuthMode,
+} from '../config';
+import { createTrueFoundryRequestContext } from '../truefoundry/accessToken';
 
 /** Standalone / default TrueForge admin role string. */
 export const STANDALONE_ADMIN_ROLE = 'admin';
@@ -78,6 +84,23 @@ export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): R
     type: subject.subject_type,
     display_name: subject.subject_display_name,
   };
+}
+
+/**
+ * Request identity for store resolvers and other work that runs as a persisted creator
+ * (schedule dispatch, etc.), not as the live HTTP caller.
+ */
+export function requestContextFromCreatedBySubject(params: {
+  tenant_id: string;
+  created_by_subject: CreatedBySubject;
+}): RequestContext {
+  const base: RequestContext = {
+    tenant_id: params.tenant_id,
+    subject: requestSubjectFromCreatedBySubject(params.created_by_subject),
+    roles: [],
+    user_credential: null,
+  };
+  return isTrueFoundryModeEnabled(configuration) ? createTrueFoundryRequestContext(base) : base;
 }
 
 /** Persistable creator snapshot derived from the authenticated request. */

@@ -92,17 +92,19 @@ export class ScheduleNotFoundError extends Error {
  * none. Idempotent on retry. Session owner and turn `userRef` are the schedule
  * creator so ownership stays with the schedule even when an admin triggers run-now.
  */
+export type StartScheduleTurn = (params: {
+  session: SessionHandle;
+  input: TurnInputItem[];
+  previous_turn_id: string;
+  userRef: string;
+  agent: AgentRecord;
+}) => Promise<void>;
+
 export async function startScheduleRun(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
-  startTurn: (params: {
-    session: SessionHandle;
-    input: TurnInputItem[];
-    previous_turn_id: string;
-    userRef: string;
-    agent: AgentRecord;
-  }) => Promise<void>;
+  startTurn: StartScheduleTurn;
 }): Promise<void> {
   const {
     item: { run, schedule },
@@ -145,15 +147,7 @@ export async function executeScheduleRun<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
   sessions: Sessions;
   agentStore: IAgentStore<TTransaction>;
-  startTurn: (params: {
-    session: SessionHandle;
-    input: TurnInputItem[];
-    previous_turn_id: string;
-    userRef: string;
-    agent: AgentRecord;
-    tenant_id: string;
-    created_by_subject: ScheduleRunRecord['created_by_subject'];
-  }) => Promise<void>;
+  startTurn: StartScheduleTurn;
 }): Promise<void> {
   const { scheduleRunId, scheduleStore, sessions, agentStore, startTurn } = params;
   const run = await scheduleStore.getRunById({ id: scheduleRunId });
@@ -164,17 +158,7 @@ export async function executeScheduleRun<TTransaction>(params: {
   if (schedule === undefined) {
     throw new ScheduleNotFoundError(run.schedule_id);
   }
-  await startScheduleRun({
-    item: { run, schedule },
-    sessions,
-    agentStore,
-    startTurn: turn =>
-      startTurn({
-        ...turn,
-        tenant_id: schedule.tenant_id,
-        created_by_subject: schedule.created_by_subject,
-      }),
-  });
+  await startScheduleRun({ item: { run, schedule }, sessions, agentStore, startTurn });
 }
 
 /**
