@@ -101,6 +101,30 @@ describe('TrueFoundryChatProvider', () => {
     expect(result.nextPageToken).toBe('next-page');
   });
 
+  it('wraps session creation used for local ownership tracking', async () => {
+    const createSession = vi.fn(async () => ({
+      id: 'new-session',
+      isMutable: false,
+      createdAt: '2026-09-10T00:00:00.000Z',
+      updatedAt: '2026-09-10T00:00:00.000Z',
+    }));
+    render(
+      <TrueFoundryChatProvider server={createMockAgentUIServer({ createSession })} agentName="my-agent">
+        <div>chat-child</div>
+      </TrueFoundryChatProvider>,
+    );
+    const runtimeServer = runtimeSpy.mock.calls[0]?.[0]?.server;
+    if (runtimeServer === undefined) throw new Error('Expected runtime server');
+
+    await expect(runtimeServer.createSession({ agentName: 'my-agent' })).resolves.toEqual({
+      id: 'new-session',
+      isMutable: false,
+      createdAt: '2026-09-10T00:00:00.000Z',
+      updatedAt: '2026-09-10T00:00:00.000Z',
+    });
+    expect(createSession).toHaveBeenCalledWith({ agentName: 'my-agent' });
+  });
+
   it('forwards a discriminated agent configuration', () => {
     const agent: TrueFoundryAgentConfig = {
       mode: 'named',

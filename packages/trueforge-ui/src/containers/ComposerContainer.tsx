@@ -7,6 +7,7 @@ import { useRef } from 'react';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
+import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { SlotsProvider, useSlot, useSlotIsDefault } from '../theme/SlotsProvider.js';
 import { ApprovalNavContainer } from './ApprovalNavContainer.js';
@@ -55,9 +56,10 @@ function ComposerBody({
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
+  const canManageSession = useActiveSessionCanManage();
   const cancel = useTrueFoundryCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const disabled = isBusy || forceDisabled;
+  const disabled = isBusy || forceDisabled || !canManageSession;
   const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
   const submit = () => {
     if (!canSubmit) return;
@@ -117,11 +119,15 @@ function ComposerBody({
             canSubmit={canSubmit}
             isRunning={isBusy && !forceDisabled}
             onSubmit={submit}
-            onCancel={() => {
-              resetBusy();
-              void cancel();
-            }}
-            onAttach={() => fileInputRef.current?.click()}
+            onCancel={
+              canManageSession
+                ? () => {
+                    resetBusy();
+                    void cancel();
+                  }
+                : undefined
+            }
+            onAttach={canManageSession ? () => fileInputRef.current?.click() : undefined}
           />
         </ComposerPrimitive.Root>
       </ComposerPrimitive.AttachmentDropzone>
@@ -169,15 +175,16 @@ export function ComposerContainer({
   placeholder = 'Ask anything... (Shift+Enter for new line)',
 }: ComposerContainerProps) {
   const pauseView = useComposerPauseView();
+  const canManageSession = useActiveSessionCanManage();
 
   if (pauseView.kind === 'mcp') {
-    return <McpAuthContainer />;
+    return <McpAuthContainer disabled={!canManageSession} />;
   }
   if (pauseView.kind === 'custom') {
-    return <CustomActionContainer />;
+    return <CustomActionContainer disabled={!canManageSession} />;
   }
   if (pauseView.kind === 'ask-user') {
-    return <AskUserContainer />;
+    return <AskUserContainer disabled={!canManageSession} />;
   }
   if (pauseView.kind === 'approval') {
     return (

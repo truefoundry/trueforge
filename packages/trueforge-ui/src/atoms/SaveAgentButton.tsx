@@ -8,6 +8,7 @@ import {
 import { useRef, useState } from 'react';
 
 import { useSaveAgentVisible } from '../hooks/useChatChromeActionsVisible.js';
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -72,8 +73,15 @@ function SaveAgentButtonContent({
   const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
+  const agentId = shell?.mode.status === 'active' ? shell.mode.agentId : undefined;
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: agentId == null ? [] : [agentId],
+  });
+  const canManageAgent = allows(agentId, 'MANAGE');
   const configInstructions = useOptionalAgentConfigInstructions();
   const SaveAgentForm = useSlot('SaveAgentForm');
+  const PermissionGuard = useSlot('PermissionGuard');
   const visible = useSaveAgentVisible();
   const [open, setOpen] = useState(false);
   const [intent, setIntent] = useState<SaveIntent>('create');
@@ -91,6 +99,7 @@ function SaveAgentButtonContent({
 
   const show = async () => {
     if (agentSpecRef.current === null || builder === null) return;
+    if (agentId != null && !canManageAgent) return;
     setError(null);
     configInstructions?.flush();
     await flushAgentSpec();
@@ -108,6 +117,7 @@ function SaveAgentButtonContent({
 
   const save = async () => {
     if (builder === null || draftSpec === null) return;
+    if (intent === 'update' && !canManageAgent) return;
     const normalizedName = name.trim();
     if (!normalizedName || !draftSpec.model.name.trim()) return;
     setSaving(true);
@@ -145,16 +155,18 @@ function SaveAgentButtonContent({
 
   return (
     <>
-      <Button.Primary
-        type="button"
-        size="large"
-        disabled={disabled || builder === null || agentSpec === null}
-        className={className}
-        onClick={() => void show()}
-      >
-        <Icon name="save" className="size-3.5" />
-        {triggerLabel}
-      </Button.Primary>
+      <PermissionGuard allowed={canManageAgent}>
+        <Button.Primary
+          type="button"
+          size="large"
+          disabled={disabled || builder === null || agentSpec === null}
+          className={className}
+          onClick={() => void show()}
+        >
+          <Icon name="save" className="size-3.5" />
+          {triggerLabel}
+        </Button.Primary>
+      </PermissionGuard>
 
       <SideDrawer
         open={open}

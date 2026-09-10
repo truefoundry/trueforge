@@ -38,6 +38,7 @@ export type AgentConfigPanelProps = {
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
   onClose?: () => void;
+  disabled?: boolean;
 };
 
 function formatTokens(value: number): string {
@@ -286,6 +287,7 @@ export function AgentConfigPanel({
   onOpenEditor,
   onChange,
   onClose,
+  disabled = false,
 }: AgentConfigPanelProps) {
   const Section = useSlot('AgentConfigSection');
   const AgentModelEditorContent = useSlot('AgentModelEditorContent');
@@ -349,6 +351,7 @@ export function AgentConfigPanel({
                   type="button"
                   aria-label="Edit Model"
                   title="Edit Model"
+                  disabled={disabled}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-md py-1 text-left transition-colors"
                 >
                   <ProviderMark
@@ -397,6 +400,7 @@ export function AgentConfigPanel({
                   type="button"
                   aria-label="Model settings"
                   title="Model settings"
+                  disabled={disabled}
                   className={auiButtonClass({
                     variant: 'ghost',
                     size: 'icon',
@@ -428,6 +432,7 @@ export function AgentConfigPanel({
           <button
             type="button"
             aria-label="Edit Instructions"
+            disabled={disabled}
             className="border-border hover:bg-ghost-button-hover flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
             onClick={() => onOpenEditor('instructions')}
           >
@@ -454,7 +459,7 @@ export function AgentConfigPanel({
           title="Runtime Config"
           description="Control execution and context behavior."
           actionIcon="sliders"
-          onEdit={() => onOpenEditor('runtime')}
+          onEdit={disabled ? undefined : () => onOpenEditor('runtime')}
         >
           <dl className="text-text-secondary flex flex-wrap gap-x-3 gap-y-1 text-xs leading-relaxed">
             {runtimeConfig.map(entry => (
@@ -471,7 +476,7 @@ export function AgentConfigPanel({
           icon="mcp-server"
           actionIcon="plus"
           actionLabel="Add MCP server"
-          onEdit={() => onOpenEditor('mcp')}
+          onEdit={disabled ? undefined : () => onOpenEditor('mcp')}
         >
           {mcp.length ? (
             <div className="flex flex-wrap gap-1.5">
@@ -480,7 +485,7 @@ export function AgentConfigPanel({
                   key={item.id}
                   item={item}
                   onRemove={
-                    onChange
+                    onChange && !disabled
                       ? () =>
                           onChange({
                             ...spec,
@@ -489,7 +494,7 @@ export function AgentConfigPanel({
                       : undefined
                   }
                   onTogglePreload={
-                    onChange
+                    onChange && !disabled
                       ? () =>
                           onChange({
                             ...spec,
@@ -507,7 +512,12 @@ export function AgentConfigPanel({
           ) : null}
         </Section>
 
-        <Section title="Skills" actionIcon="plus" actionLabel="Add skill" onEdit={() => onOpenEditor('skills')}>
+        <Section
+          title="Skills"
+          actionIcon="plus"
+          actionLabel="Add skill"
+          onEdit={disabled ? undefined : () => onOpenEditor('skills')}
+        >
           {!skillsAvailable ? (
             <p className="text-text-secondary text-xs">Skills require an available sandbox.</p>
           ) : skillMounts.length ? (
@@ -522,7 +532,7 @@ export function AgentConfigPanel({
                     item={item}
                     preloadAvailable={preloadAvailable}
                     onRemove={
-                      onChange
+                      onChange && !disabled
                         ? () =>
                             onChange({
                               ...spec,
@@ -531,7 +541,7 @@ export function AgentConfigPanel({
                         : undefined
                     }
                     onTogglePreload={
-                      preloadAvailable && onChange
+                      preloadAvailable && onChange && !disabled
                         ? () =>
                             onChange({
                               ...spec,
