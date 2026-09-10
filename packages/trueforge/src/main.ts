@@ -157,15 +157,15 @@ function createServiceFoundryServerClient(
 function buildResolveSkillStore<TTransaction>(options: {
   persistenceStore: ISkillStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (rc: RequestContext) => ISkillStore<TTransaction> {
+}): (requestContext: RequestContext) => ISkillStore<TTransaction> {
   const { persistenceStore, client } = options;
   if (client === undefined) {
     return () => persistenceStore;
   }
-  return rc =>
+  return requestContext =>
     new TrueFoundrySkillStore<TTransaction>({
       client,
-      context: rc,
+      context: requestContext,
     });
 }
 
