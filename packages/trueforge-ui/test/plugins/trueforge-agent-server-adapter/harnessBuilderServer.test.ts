@@ -300,6 +300,11 @@ describe('harnessBuilderServer', () => {
             {
               id: 'agt_1',
               name: 'reviewer',
+              created_by_subject: {
+                subject_id: 'user-1',
+                subject_type: 'user',
+                subject_display_name: 'Alice',
+              },
               manifest: {
                 model: { name: 'test/model' },
                 instructions: 'Review carefully.',
@@ -320,6 +325,11 @@ describe('harnessBuilderServer', () => {
     assert.deepEqual(all[0], {
       name: 'reviewer',
       agentId: 'agt_1',
+      createdBySubject: {
+        subjectId: 'user-1',
+        subjectType: 'user',
+        subjectDisplayName: 'Alice',
+      },
       agentSpec: {
         model: { name: 'test/model' },
         instructions: 'Review carefully.',

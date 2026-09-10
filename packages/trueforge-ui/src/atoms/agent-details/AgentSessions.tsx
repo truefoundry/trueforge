@@ -58,6 +58,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [listLoading, setListLoading] = useState(true);
   const [listLoadingMore, setListLoadingMore] = useState(false);
+  const [listLoadMoreFailed, setListLoadMoreFailed] = useState(false);
   const [listFailed, setListFailed] = useState(false);
   const listRequestIdRef = useRef(0);
   const loadMoreInflightRef = useRef(false);
@@ -82,8 +83,11 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   useEffect(() => {
     const requestId = ++listRequestIdRef.current;
     let cancelled = false;
+    loadMoreInflightRef.current = false;
+    setNextPageToken(undefined);
     setListLoading(true);
     setListLoadingMore(false);
+    setListLoadMoreFailed(false);
     setListFailed(false);
     void sessionsServer
       .listSessions(listRequest)
@@ -109,22 +113,25 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
 
   const loadMore = useCallback(async () => {
     // A ref, not `listLoadingMore`: the observer can fire twice before a re-render.
-    if (nextPageToken == null || loadMoreInflightRef.current) return;
+    if (listLoading || nextPageToken == null || loadMoreInflightRef.current) return;
     const requestId = listRequestIdRef.current;
     loadMoreInflightRef.current = true;
     setListLoadingMore(true);
+    setListLoadMoreFailed(false);
     try {
       const page = await sessionsServer.listSessions({ ...listRequest, pageToken: nextPageToken });
       if (listRequestIdRef.current !== requestId) return;
       setEntries(current => [...current, ...page.data]);
       setNextPageToken(page.nextPageToken);
     } catch {
-      // Keep the current page and token so the next scroll to the bottom retries.
+      if (listRequestIdRef.current === requestId) setListLoadMoreFailed(true);
     } finally {
-      loadMoreInflightRef.current = false;
-      if (listRequestIdRef.current === requestId) setListLoadingMore(false);
+      if (listRequestIdRef.current === requestId) {
+        loadMoreInflightRef.current = false;
+        setListLoadingMore(false);
+      }
     }
-  }, [listRequest, nextPageToken, sessionsServer]);
+  }, [listLoading, listRequest, nextPageToken, sessionsServer]);
 
   // `entries.length` re-arms the observer: an already-intersecting sentinel emits no new entry.
   useEffect(() => {
@@ -288,6 +295,14 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
               <div ref={setSentinelEl} className="px-3 py-2">
                 {listLoadingMore ? (
                   <Skeleton className="h-16 rounded-md" role="status" aria-label="Loading more sessions" />
+                ) : listLoadMoreFailed ? (
+                  <button
+                    type="button"
+                    className="h-8 w-full rounded-md border border-border text-xs font-medium text-text-primary hover:bg-ghost-button-hover"
+                    onClick={() => void loadMore()}
+                  >
+                    Retry loading sessions
+                  </button>
                 ) : null}
               </div>
             ) : null}

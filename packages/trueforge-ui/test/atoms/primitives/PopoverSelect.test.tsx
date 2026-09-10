@@ -109,4 +109,23 @@ describe('PopoverSelect', () => {
     expect(listbox.parentElement).toHaveClass('fixed');
     expect(listbox.closest('[style*="overflow"]')).toBeNull();
   });
+
+  it('keeps a portaled full-width menu matched to its trigger', () => {
+    render(
+      <PopoverSelect
+        aria-label="Timezone"
+        className="w-full"
+        menuClassName="w-full min-w-0"
+        options={[{ value: 'UTC', label: 'UTC' }]}
+        value="UTC"
+        onValueChange={() => undefined}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Timezone' });
+    trigger.getBoundingClientRect = () => new DOMRect(12, 20, 240, 32);
+
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('listbox').parentElement).toHaveStyle({ width: '240px' });
+  });
 });

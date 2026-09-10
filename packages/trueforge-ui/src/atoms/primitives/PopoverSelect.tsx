@@ -50,7 +50,7 @@ export type PopoverSelectProps<T extends string> = CommonPopoverSelectProps<T> &
 
 export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -72,7 +72,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
       setPos({
         top: menuPlacement === 'top' ? rect.top - 4 : rect.bottom + 4,
         left: rect.left,
-        minWidth: rect.width,
+        width: rect.width,
       });
     };
 
@@ -177,7 +177,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
             style={{
               top: pos.top,
               left: pos.left,
-              minWidth: pos.minWidth,
+              width: pos.width,
               transform: menuPlacement === 'top' ? 'translateY(-100%)' : undefined,
             }}
             onMouseDown={event => event.stopPropagation()}

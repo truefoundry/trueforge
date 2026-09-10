@@ -20,20 +20,27 @@ import type {
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockScheduleServer } from '../server/mockServer.js';
 
-const intersectionObservers: { callback: IntersectionObserverCallback; instance: IntersectionObserver }[] = [];
+const intersectionObservers: IntersectionObserverMock[] = [];
 
 class IntersectionObserverMock implements IntersectionObserver {
   readonly root = null;
   readonly rootMargin = '';
   readonly thresholds: readonly number[] = [];
+  active = false;
 
-  constructor(callback: IntersectionObserverCallback) {
-    intersectionObservers.push({ callback, instance: this });
+  constructor(readonly callback: IntersectionObserverCallback) {
+    intersectionObservers.push(this);
   }
 
-  observe(): void {}
-  unobserve(): void {}
-  disconnect(): void {}
+  observe(): void {
+    this.active = true;
+  }
+  unobserve(): void {
+    this.active = false;
+  }
+  disconnect(): void {
+    this.active = false;
+  }
   takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
@@ -52,7 +59,9 @@ function scrollListToBottom() {
     time: 0,
   };
   act(() => {
-    for (const { callback, instance } of intersectionObservers) callback([entry], instance);
+    for (const observer of intersectionObservers) {
+      if (observer.active) observer.callback([entry], observer);
+    }
   });
 }
 
@@ -381,6 +390,44 @@ describe('AgentDetailsPage', () => {
     expect(screen.queryByText('Release notes draft')).not.toBeInTheDocument();
   });
 
+  it('does not paginate with the previous filter page token', async () => {
+    const second = deferred<{ data: SessionListEntry[] }>();
+    const listSessions = vi.fn((request?: { agentId?: string; pageToken?: string }) =>
+      request?.agentId === 'agent-1'
+        ? Promise.resolve({ data: sessionRows, nextPageToken: 'agent-1-next' })
+        : second.promise,
+    );
+    const server = createMockAgentUIServer({
+      sessions: {
+        getAgent: vi.fn(async () => detail),
+        getCodeSnippets: vi.fn(async () => snippets),
+        listSessions,
+        listSessionEvents: vi.fn(async () => ({ data: [] })),
+      },
+    });
+    const ui = (agentId: string) => (
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <AgentSessions agentId={agentId} />
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>
+    );
+    const view = render(ui('agent-1'));
+    expect(await screen.findByText('Release notes draft')).toBeInTheDocument();
+
+    view.rerender(ui('agent-2'));
+    scrollListToBottom();
+
+    expect(listSessions).toHaveBeenCalledTimes(2);
+    expect(listSessions).not.toHaveBeenCalledWith(expect.objectContaining({ pageToken: 'agent-1-next' }));
+
+    await act(async () => {
+      second.resolve({ data: [] });
+    });
+  });
+
   it('loads the next page when the list is scrolled to the bottom', async () => {
     const nextPage = deferred<{ data: SessionListEntry[] }>();
     const listSessions = vi.fn((request?: { pageToken?: string }) =>
@@ -424,8 +471,7 @@ describe('AgentDetailsPage', () => {
     expect(screen.getByText('Release notes draft')).toBeInTheDocument();
     expect(screen.queryByText('Sessions could not be loaded.')).not.toBeInTheDocument();
 
-    // Still paginating: a later scroll to the bottom retries.
-    scrollListToBottom();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry loading sessions' }));
     await waitFor(() => expect(listSessions).toHaveBeenCalledTimes(3));
   });
 
