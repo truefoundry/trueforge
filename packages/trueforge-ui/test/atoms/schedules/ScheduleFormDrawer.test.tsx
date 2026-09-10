@@ -7,7 +7,7 @@ import { ScheduleFormDrawer } from '@/atoms/schedules/ScheduleFormDrawer.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentUIServer, ConnectorBase, Schedule, ScheduleServer } from '@/server/types.js';
+import type { AgentUIServer, ConnectorBase, PermissionsServer, Schedule, ScheduleServer } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
@@ -83,11 +83,13 @@ function AgentBuilderProbe() {
 function renderDrawer({
   server,
   scheduleServer,
+  permissions,
   withShell = false,
   ...props
 }: Partial<ComponentProps<typeof ScheduleFormDrawer>> & {
   server?: AgentUIServer;
   scheduleServer?: ScheduleServer;
+  permissions?: PermissionsServer;
   withShell?: boolean;
 }) {
   const agentServer =
@@ -124,7 +126,7 @@ function renderDrawer({
     ...render(
       <SlotsProvider>
         <ToasterProvider>
-          <ServerProvider server={{ ...agentServer, schedules }}>
+          <ServerProvider server={{ ...agentServer, schedules, ...(permissions == null ? {} : { permissions }) }}>
             {withShell ? (
               <ShellModeProvider>
                 {drawer}
@@ -211,6 +213,26 @@ describe('ScheduleFormDrawer', () => {
     expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
   });
 
+  it('blocks create when the selected agent lacks USE', async () => {
+    const createSchedule = vi.fn(async () => pausedSchedule());
+    renderDrawer({
+      scheduleServer: mockScheduleServer({ createSchedule }),
+      permissions: {
+        listPermissions: vi.fn(async () => ({ data: { 'demo-agent': [] } })),
+      },
+      initialAgentId: 'demo-agent',
+    });
+
+    fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'digest' } });
+    fireEvent.change(screen.getByLabelText('Task'), { target: { value: 'summarize' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
+    const form = screen.getByLabelText('Name').closest('form');
+    if (form == null) throw new Error('Expected schedule form');
+    fireEvent.submit(form);
+
+    expect(createSchedule).not.toHaveBeenCalled();
+  });
+
   it('creates a paused schedule, stays open on the test screen, and toasts', async () => {
     const createSchedule = vi.fn(async () => pausedSchedule());
     const onOpenChange = vi.fn();
@@ -237,7 +259,7 @@ describe('ScheduleFormDrawer', () => {
     expect(screen.getByText('Schedule saved as paused')).toBeInTheDocument();
     expect(screen.getByText('Slack 1234')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Run Test' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Activate Anyway' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activate Schedule' })).toBeInTheDocument();
   });
 
   it('starts a test run from the test screen', async () => {
@@ -359,7 +381,7 @@ describe('ScheduleFormDrawer', () => {
     });
 
     await saveCreateForm();
-    fireEvent.click(await screen.findByRole('button', { name: 'Activate Anyway' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Activate Schedule' }));
 
     await waitFor(() => {
       expect(updateSchedule).toHaveBeenCalledWith(

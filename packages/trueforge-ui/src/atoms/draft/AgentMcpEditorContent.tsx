@@ -15,6 +15,7 @@ import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { editableMountsFromSpec, enabledToolsFromMount, withEnabledTools } from './agentConfigMounts.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
+import { MCP_TOOL_SECTION_LABELS, MCP_TOOL_SECTION_ORDER, partitionMcpToolsBySection } from './mcpToolSections.js';
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -104,6 +105,15 @@ export function AgentMcpEditorContent({
 }: AgentMcpEditorContentProps) {
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Freeze open-time selected MCPs at the top; live picks must not reshuffle the list.
+  const [openSelectedKeys] = useState(() => {
+    const keys = new Set<string>();
+    for (const mount of editableMountsFromSpec(spec.mcpServers)) {
+      keys.add(mount.id);
+      keys.add(mount.name);
+    }
+    return keys;
+  });
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
   const catalogConnectors = connectorsWithSelectedStubs({ connectors, selected: mcpMounts });
   const selectedConnector = catalogConnectors.find(item => item.id === activeConnectorId);
@@ -114,12 +124,21 @@ export function AgentMcpEditorContent({
   const canAddActiveConnector = selectedConnector !== undefined && selectedConnector.authenticated === true;
   const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredConnectors = catalogConnectors.filter(item =>
-    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery),
-  );
+  const filteredConnectors = catalogConnectors
+    .filter(item => `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery))
+    .sort((left, right) => {
+      const leftPinned = openSelectedKeys.has(left.id) || openSelectedKeys.has(left.name);
+      const rightPinned = openSelectedKeys.has(right.id) || openSelectedKeys.has(right.name);
+      return Number(rightPinned) - Number(leftPinned);
+    });
   const normalizedToolQuery = toolQuery.trim().toLowerCase();
   const filteredTools =
     normalizedToolQuery === '' ? tools : tools.filter(tool => tool.name.toLowerCase().includes(normalizedToolQuery));
+  const toolSections = partitionMcpToolsBySection(filteredTools);
+  const readOnlyTools = partitionMcpToolsBySection(tools)['read-only'];
+  const readOnlyNames = readOnlyTools.map(tool => tool.name);
+  const allReadOnlyEnabled =
+    readOnlyNames.length > 0 && (enabledTools === 'all' || readOnlyNames.every(name => enabledTools.includes(name)));
 
   const updateMount = (mountId: string, value: object) => {
     onChange({
@@ -140,6 +159,26 @@ export function AgentMcpEditorContent({
     onSelectConnector(match?.id ?? mount.id);
   };
 
+  const setEnabledToolNames = (next: string[]) => {
+    if (!selectedConnector) return;
+    if (next.length === 0) {
+      if (activeMount) removeMount(activeMount.id);
+      return;
+    }
+    if (activeMount) {
+      updateMount(activeMount.id, withEnabledTools(activeMount.value, next));
+      return;
+    }
+    if (!canAddActiveConnector) return;
+    onChange({
+      ...spec,
+      mcpServers: [
+        ...(spec.mcpServers ?? []),
+        withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, next),
+      ],
+    });
+  };
+
   const toggleTool = (toolName: string) => {
     if (!selectedConnector) return;
     if (!activeMount) {
@@ -156,11 +195,26 @@ export function AgentMcpEditorContent({
     const current = enabledTools === 'all' ? tools.map(tool => tool.name) : enabledTools;
     const checked = current.includes(toolName);
     const next = checked ? current.filter(name => name !== toolName) : [...current, toolName];
-    if (next.length === 0) {
-      removeMount(activeMount.id);
-    } else {
-      updateMount(activeMount.id, withEnabledTools(activeMount.value, next));
+    setEnabledToolNames(next);
+  };
+
+  const setAllReadOnlyTools = (enabled: boolean) => {
+    if (!selectedConnector || readOnlyNames.length === 0) return;
+    if (enabled) {
+      if (enabledTools === 'all') return;
+      const current = activeMount ? enabledTools : [];
+      const merged = [...current];
+      for (const name of readOnlyNames) {
+        if (!merged.includes(name)) merged.push(name);
+      }
+      setEnabledToolNames(merged);
+      return;
     }
+    if (enabledTools === 'all') {
+      setEnabledToolNames(tools.map(tool => tool.name).filter(name => !readOnlyNames.includes(name)));
+      return;
+    }
+    setEnabledToolNames(enabledTools.filter(name => !readOnlyNames.includes(name)));
   };
 
   const connectDuringChat = () => {
@@ -308,27 +362,63 @@ export function AgentMcpEditorContent({
                   </div>
                 ) : null}
                 {!toolsLoading
-                  ? filteredTools.map(tool => {
-                      const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
+                  ? MCP_TOOL_SECTION_ORDER.map(sectionId => {
+                      const sectionTools = toolSections[sectionId];
+                      if (sectionTools.length === 0) return null;
+                      const onlyOthers =
+                        toolSections['read-only'].length === 0 && toolSections.destructive.length === 0;
+                      const showSectionHeader = sectionId !== 'others' || !onlyOthers;
                       return (
-                        <button
-                          key={tool.id}
-                          type="button"
-                          role="menuitemcheckbox"
-                          aria-checked={checked}
-                          aria-label={tool.name}
-                          disabled={!canAddActiveConnector && activeMount === undefined}
-                          className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                          onClick={() => toggleTool(tool.name)}
-                        >
-                          <ToolCheckbox checked={checked} />
-                          <span className="min-w-0 flex-1">
-                            <span className="text-text-primary block truncate text-sm font-medium">{tool.name}</span>
-                            {tool.description ? (
-                              <span className="text-text-secondary line-clamp-1 text-xs">{tool.description}</span>
-                            ) : null}
-                          </span>
-                        </button>
+                        <div key={sectionId} className="mb-3">
+                          {showSectionHeader ? (
+                            <div className="flex items-center justify-between gap-3 px-2 py-2">
+                              <p
+                                className={cn(
+                                  'min-w-0 truncate text-sm font-semibold',
+                                  sectionId === 'destructive' ? 'text-failure-bg' : 'text-text-primary',
+                                )}
+                              >
+                                {MCP_TOOL_SECTION_LABELS[sectionId]}
+                              </p>
+                              {sectionId === 'read-only' ? (
+                                <label className="text-text-secondary flex shrink-0 cursor-pointer items-center gap-2 text-xs has-[:disabled]:cursor-not-allowed">
+                                  Enable All Read-only Tools
+                                  <Switch
+                                    checked={allReadOnlyEnabled}
+                                    disabled={!canAddActiveConnector && activeMount === undefined}
+                                    onCheckedChange={setAllReadOnlyTools}
+                                    aria-label="Enable all read-only tools"
+                                  />
+                                </label>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {sectionTools.map(tool => {
+                            const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
+                            return (
+                              <button
+                                key={tool.id}
+                                type="button"
+                                role="menuitemcheckbox"
+                                aria-checked={checked}
+                                aria-label={tool.name}
+                                disabled={!canAddActiveConnector && activeMount === undefined}
+                                className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                                onClick={() => toggleTool(tool.name)}
+                              >
+                                <ToolCheckbox checked={checked} />
+                                <span className="min-w-0 flex-1">
+                                  <span className="text-text-primary block truncate text-sm font-medium">
+                                    {tool.name}
+                                  </span>
+                                  {tool.description ? (
+                                    <span className="text-text-secondary line-clamp-1 text-xs">{tool.description}</span>
+                                  ) : null}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       );
                     })
                   : null}

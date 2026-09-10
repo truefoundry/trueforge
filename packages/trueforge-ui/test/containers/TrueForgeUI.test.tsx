@@ -551,12 +551,22 @@ describe('SidebarLayout', () => {
   });
 
   it('highlights New Chat, New Agent, and Settings when selected', async () => {
+    function TryAgentButton() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'support' })}>
+          Try support
+        </button>
+      );
+    }
+
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
           <ShellModeProvider>
             <AgentConfigInstructionsProvider>
               <RuntimeHarness messages={[]}>
+                <TryAgentButton />
                 <div className="h-96">
                   <SidebarLayout />
                 </div>
@@ -569,6 +579,10 @@ describe('SidebarLayout', () => {
 
     const newChat = screen.getByRole('button', { name: 'Start new chat' });
     const newAgent = screen.getByRole('button', { name: 'Start new agent' });
+    expect(newChat).toHaveAttribute('aria-current', 'page');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try support' }));
     expect(newChat).toHaveAttribute('aria-current', 'page');
     expect(newAgent).not.toHaveAttribute('aria-current');
 

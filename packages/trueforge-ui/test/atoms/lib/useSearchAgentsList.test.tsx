@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SEARCH_AGENTS_PAGE_SIZE, useSearchAgentsList } from '@/atoms/lib/useSearchAgentsList.js';
+import { findAgentByName, SEARCH_AGENTS_PAGE_SIZE, useSearchAgentsList } from '@/atoms/lib/useSearchAgentsList.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentLibraryEntry, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -17,6 +17,29 @@ function wrapperFor(server: AgentUIServer) {
 describe('useSearchAgentsList', () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('finds an exact name on a later filtered search page', async () => {
+    const firstPage = Array.from({ length: SEARCH_AGENTS_PAGE_SIZE }, (_, index) => ({
+      name: `helper-copy-${index}`,
+      agentId: `copy-${index}`,
+    }));
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce([{ name: 'helper', agentId: 'helper-id' }]);
+
+    await expect(
+      findAgentByName({
+        server: createMockAgentUIServer({ searchAgents }),
+        agentName: 'helper',
+      }),
+    ).resolves.toEqual({ name: 'helper', agentId: 'helper-id' });
+    expect(searchAgents).toHaveBeenLastCalledWith({
+      query: 'helper',
+      limit: SEARCH_AGENTS_PAGE_SIZE,
+      offset: SEARCH_AGENTS_PAGE_SIZE,
+    });
   });
 
   it('fetches the first page when enabled and paginates via loadMore sentinel', async () => {

@@ -12,6 +12,7 @@ import { useAgentConfigInstructions } from '../atoms/draft/AgentConfigInstructio
 import type { AgentInstructionsDraft } from '../atoms/draft/AgentInstructionsDrawer.js';
 import { useDraftCatalog } from '../atoms/draft/DraftCatalogProvider.js';
 import { withInitialUserMessages } from '../atoms/draft/agentConfigMessages.js';
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useOptionalServer, useServerCapabilities } from '../server/ServerContext.js';
 import { shellIsCreateAgent, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentSpec, ConnectorState, McpToolSelection } from '../server/types.js';
@@ -22,6 +23,12 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
   const flushAgentSpec = useTrueFoundryFlushAgentSpec();
   const shell = useShellMode();
+  const agentId = shell.mode.status === 'active' ? shell.mode.agentId : undefined;
+  const { allows } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: agentId == null ? [] : [agentId],
+  });
+  const canManageAgent = allows(agentId, 'MANAGE');
   const server = useOptionalServer();
   const capabilities = useServerCapabilities();
   const catalog = useDraftCatalog();
@@ -39,6 +46,10 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
   useEffect(() => {
     if (isBuilder) catalog.ensureLoaded();
   }, [catalog, isBuilder]);
+
+  useEffect(() => {
+    if (!canManageAgent) setEditor(null);
+  }, [canManageAgent]);
 
   useEffect(() => {
     if (!showClose || !shell.agentConfigOpen) return;
@@ -72,6 +83,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
 
   const commitSpec = useCallback(
     ({ next, instructions }: { next: AgentSpec; instructions: string }) => {
+      if (!canManageAgent) return;
       if (next.skills && next.skills.length > 0 && capabilities?.sandbox.enabled === true) {
         updateAgentSpec?.({
           ...next,
@@ -85,7 +97,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
       }
       updateAgentSpec?.({ ...next, instructions: instructions || undefined });
     },
-    [capabilities?.sandbox.enabled, updateAgentSpec],
+    [canManageAgent, capabilities?.sandbox.enabled, updateAgentSpec],
   );
 
   const updateSpec = useCallback(
@@ -134,10 +146,14 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         models={catalog.models}
         modelsLoading={catalog.loading}
         modelsError={catalog.error}
+        skills={catalog.skills}
         skillsAvailable={capabilities?.skill.enabled === true}
         instructions={instructionDraft}
-        onOpenEditor={setEditor}
+        onOpenEditor={nextEditor => {
+          if (canManageAgent) setEditor(nextEditor);
+        }}
         onChange={updateSpec}
+        disabled={!canManageAgent}
         onClose={showClose ? closeDrawer : undefined}
       />
       <AgentConfigEditors

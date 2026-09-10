@@ -73,6 +73,7 @@ export type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetOwnedIdsInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,

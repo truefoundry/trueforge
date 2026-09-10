@@ -3,6 +3,7 @@
 import { useActionBarCopy, useActionBarEdit, useThreadIsRunning } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAui, useAuiState } from '@assistant-ui/react';
 
+import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { MessageAttachmentsContainer } from './AttachmentsContainer.js';
 
@@ -10,6 +11,7 @@ export function UserMessageContainer() {
   const UserMessageBubble = useSlot('UserMessageBubble');
   const UserMessageActionBar = useSlot('UserMessageActionBar');
   const isRunning = useThreadIsRunning();
+  const canManageSession = useActiveSessionCanManage();
   const aui = useAui();
   const createdAt = useAuiState(s => s.message.createdAt);
   const text = useAuiState(s =>
@@ -32,11 +34,13 @@ export function UserMessageContainer() {
           !isRunning ? (
             <UserMessageActionBar
               isCopied={isCopied}
-              editDisabled={editDisabled}
+              editDisabled={editDisabled || !canManageSession}
+              retryDisabled={!canManageSession}
               createdAt={createdAt}
               onCopy={copy}
               onEdit={edit}
               onRetry={() => {
+                if (!canManageSession) return;
                 aui.message().composer().beginEdit();
                 aui.message().composer().send({ startRun: true });
               }}

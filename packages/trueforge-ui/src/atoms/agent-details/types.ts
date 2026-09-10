@@ -50,6 +50,8 @@ export type AgentSessionDetailHeaderProps = {
   onResume?: () => void;
   /** Label for the resume action. */
   resumeLabel?: string;
+  /** Whether the current user may resume this session. */
+  canResume?: boolean;
 };
 
 export type AgentSessionTurnHeaderProps = {

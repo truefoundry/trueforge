@@ -8,9 +8,13 @@ import { AgentsLibraryButton } from '@/atoms/AgentsLibraryButton.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentUIServer } from '@/server/types.js';
+import type { AgentUIServer, ListPermissionsResponse } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
-import { createMockAgentUIServer } from '../server/mockServer.js';
+import {
+  createMockAgentSessionsServer,
+  createMockAgentUIServer,
+  createMockScheduleServer,
+} from '../server/mockServer.js';
 
 beforeAll(() => {
   // jsdom does not implement HTMLDialogElement showModal/close.
@@ -187,6 +191,41 @@ describe('AgentsLibrary', () => {
     expect(screen.queryByRole('menuitem', { name: 'Clone' })).not.toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try agent try-only' })).toBeInTheDocument();
+  });
+
+  it('keeps Try and Clone available with USE while disabling Edit and Delete', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'shared-agent',
+          agentId: 'shared-id',
+          agentSpec: { model: { name: 'openai/gpt-5' } },
+        },
+      ]),
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({ data: { 'shared-id': ['USE'] } })),
+      },
+      sessions: createMockAgentSessionsServer(),
+      schedules: createMockScheduleServer(),
+    });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Try agent shared-agent' })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for shared-agent' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeDisabled();
+      expect(screen.getByRole('menuitem', { name: 'Manage Schedules' })).toBeEnabled();
+      expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+    });
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for shared-agent' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add schedule for shared-agent' })).toBeEnabled();
+    });
   });
 
   it('clones an agent after confirm and stays on the library', async () => {
@@ -493,10 +532,12 @@ describe('AgentsLibraryButton', () => {
       );
     });
 
-    const badge = await screen.findByRole('button', { name: /2 schedules for alpha-agent/ });
-    expect(badge).toHaveTextContent('2');
+    const badge = await screen.findByRole('button', { name: /schedules for alpha-agent/ });
+    expect(badge).toHaveTextContent('1 Active');
+    expect(badge).toHaveTextContent('1 Paused');
+    expect(badge).toHaveAccessibleName('1 active, 1 paused schedules for alpha-agent');
     const addSchedule = screen.getByRole('button', { name: 'Add schedule for beta-agent' });
-    expect(addSchedule).toHaveTextContent('-');
+    expect(addSchedule).toHaveTextContent('Schedule');
 
     fireEvent.click(addSchedule);
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('beta-agent');
@@ -505,7 +546,7 @@ describe('AgentsLibraryButton', () => {
     expect(new URL(window.location.href).searchParams.get('agent')).toBeNull();
     expect(new URL(window.location.href).searchParams.get('isNew')).toBe('true');
 
-    fireEvent.click(screen.getByRole('button', { name: /2 schedules for alpha-agent/ }));
+    fireEvent.click(screen.getByRole('button', { name: /schedules for alpha-agent/ }));
     expect(screen.getByTestId('library-agent-id')).toHaveTextContent('alpha-agent');
     expect(new URL(window.location.href).searchParams.get('agentId')).toBe('alpha-agent');
     expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');

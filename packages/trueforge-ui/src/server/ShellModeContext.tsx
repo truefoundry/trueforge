@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
   readDraftSpecPreferences,
@@ -68,6 +69,12 @@ export type SelectLibraryAgentRequest = {
 
 export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox';
 
+export type HistoryAgentFilter = {
+  agentId?: string;
+  agentName: string;
+  intent: HistoryAgentIntent;
+};
+
 type ShellModeContextValue = {
   mode: ShellMode;
   /** Host agentConfig mode (capabilities source). */
@@ -133,8 +140,8 @@ type ShellModeContextValue = {
    * History list filter forwarded as `listSessions({ agentId })`.
    * `null` = All chats. Only meaningful when `isLibraryEnabled`.
    */
-  historyAgentFilter: string | null;
-  setHistoryAgentFilter: (agentId: string | null) => void;
+  historyAgentFilter: HistoryAgentFilter | null;
+  setHistoryAgentFilter: (filter: HistoryAgentFilter | null) => void;
   /** Effective `listSessionsAgentId` for the runtime (SingleAgent locks to name). */
   listSessionsAgentId: string | undefined;
   /** Session selected from history. */
@@ -234,7 +241,7 @@ export function ShellModeProvider({
   const [sessionsOpenState, setSessionsOpenState] = useState(false);
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
-  const [historyAgentFilter, setHistoryAgentFilter] = useState<string | null>(null);
+  const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
   const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
@@ -378,7 +385,7 @@ export function ShellModeProvider({
   const listSessionsAgentId = useMemo(() => {
     if (locked) return lockedAgentName;
     if (!isLibraryEnabled) return undefined;
-    return historyAgentFilter ?? undefined;
+    return historyAgentFilter?.agentId;
   }, [locked, lockedAgentName, isLibraryEnabled, historyAgentFilter]);
 
   const bumpEpoch = useCallback((isMutable: boolean) => {
@@ -429,6 +436,15 @@ export function ShellModeProvider({
         agentName,
         locked: false,
       });
+      if (req.agentId != null) {
+        setHistoryAgentFilter({
+          agentId: req.agentId,
+          agentName,
+          intent: 'try-agent',
+        });
+      } else {
+        setHistoryAgentFilter(null);
+      }
       bumpEpoch(false);
     },
     [isComposerEnabled, isLibraryEnabled, bumpEpoch, setSettingsOpen, setSessionsOpen, setSchedulesOpen],

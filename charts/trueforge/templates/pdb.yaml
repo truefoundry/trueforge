@@ -14,6 +14,10 @@ metadata:
   name: {{ include "trueforge.fullname" . }}
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
+  {{- with (include "trueforge.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if ne $min "" }}
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
