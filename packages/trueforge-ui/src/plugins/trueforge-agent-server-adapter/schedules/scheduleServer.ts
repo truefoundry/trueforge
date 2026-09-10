@@ -68,6 +68,7 @@ function toUiSchedule(wire: TrueForgeApi.Schedule, index: AgentIndex): Schedule 
     timezone: wire.manifest.timezone ?? 'UTC',
     status: wireStatus(wire.manifest),
     lastRunAt: null,
+    createdBySubject: wire.createdBySubject,
   };
 }
 
