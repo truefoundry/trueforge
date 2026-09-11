@@ -2,7 +2,7 @@ export const typescriptStreamTemplate = `// npm install @truefoundry/trueforge-s
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({
-  baseUrl: {{baseUrl}},
+  baseUrl: {{baseUrl}},{{tokenLine}}
 });
 
 const { data: session } = await client.sessions.create({
@@ -30,7 +30,7 @@ export const typescriptNonStreamTemplate = `// npm install @truefoundry/trueforg
 import { TrueForge } from "@truefoundry/trueforge-sdk";
 
 const client = new TrueForge({
-  baseUrl: {{baseUrl}},
+  baseUrl: {{baseUrl}},{{tokenLine}}
 });
 
 const { data: session } = await client.sessions.create({

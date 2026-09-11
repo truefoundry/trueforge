@@ -21,6 +21,14 @@ admin (trueforge-default). Enable configs.oidc before exposing this release
 beyond a trusted network.
 {{- end }}
 
+{{- if and (kindIs "string" .Values.apiKey) (eq .Values.apiKey "placeholder-value-please-generate-your-own") }}
+
+WARNING: apiKey is still the chart's well-known placeholder. Create a Secret
+(e.g. kubectl create secret generic trueforge-api-key
+--from-literal=TRUEFORGE_API_KEY="$(openssl rand -hex 32)") and set
+apiKey.valueFrom.secretKeyRef before any shared / public deploy.
+{{- end }}
+
 {{- if and .Values.postgresql.enabled (eq (default "" .Values.postgresql.auth.existingSecret) "") (eq (default "" .Values.postgresql.auth.password) "trueforge") }}
 
 WARNING: Bundled Postgres is using the chart's well-known dev password

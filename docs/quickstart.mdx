@@ -45,14 +45,34 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
 
   </Tab>
   <Tab title="Kubernetes (Hosted)">
-    The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own):
+    The Helm chart deploys the server in hosted mode with bundled Postgres and Redis (or point it at your own).
+
+    Create a Secret for the controller↔server API key, then point `apiKey` at it. The chart ships a
+    well-known placeholder (`placeholder-value-please-generate-your-own`) — strongly recommended to
+    replace with a Secret before any shared deploy (the chart does not create one):
+
+    ```bash
+    kubectl create secret generic trueforge-api-key \
+      --from-literal=TRUEFORGE_API_KEY="$(openssl rand -hex 32)"
+    ```
+
+    ```yaml
+    # values.yaml (snippet)
+    apiKey:
+      valueFrom:
+        secretKeyRef:
+          name: trueforge-api-key
+          key: TRUEFORGE_API_KEY
+    ```
 
     ```bash
     helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
-      --version <x.y.z>
+      --version <x.y.z> \
+      --values values.yaml
     ```
 
     Find the version you want to install in the [published Helm charts](https://tfy.jfrog.io/ui/packages/oci:%2F%2Ftrueforge).
+    See the [chart README](https://github.com/truefoundry/trueforge/blob/main/charts/trueforge/README.md#api-key) for full `apiKey` details.
 
     To expose TrueForge through an Istio gateway, save this `VirtualService` in
     `values.yaml` under `extraObjects`. Replace the host and gateway with your
@@ -77,16 +97,17 @@ TrueForge runs in [two modes](/introduction#two-ways-to-run-it): **local mode** 
                       name: http
     ```
 
-    Then install the chart with the values file:
+    Then install (or upgrade) with the values file that includes both `apiKey` and `extraObjects`:
 
     ```bash
-    helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
+    helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
       --version <x.y.z> \
       --values values.yaml
     ```
 
     | Value                  | Default | Description                                                             |
     | ---------------------- | ------- | ------------------------------------------------------------------------ |
+    | `apiKey`               | placeholder string | Controller↔server key (`TRUEFORGE_API_KEY`). Prefer `valueFrom.secretKeyRef`. |
     | `replicaCount`         | `1`     | Number of server replicas (peered over Redis).                           |
     | `postgresql.enabled`   | `true`  | Bundle Postgres; set `false` + `externalPostgres.*` to bring your own.   |
     | `redis.enabled`        | `true`  | Bundle Redis; set `false` + `externalRedis.url` (string or `valueFrom`). |
