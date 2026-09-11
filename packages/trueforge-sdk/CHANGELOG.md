@@ -1,4 +1,14 @@
+## [0.2.0-rc.5] - 2026-09-11
+
 ## [0.2.0-rc.4] - 2026-09-11
+
+## 0.2.0-rc.5
+
+### Patch Changes
+
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 9501536: Make MCPServerManifest a type-discriminated oneOf of RemoteMCPServerManifest and TrueFoundryMCPServerManifest.
+- dc2151f: Paginate `GET /api/v1/agents` with `limit` / `page_token` and a `pagination` envelope; optional `agent_name` filters by case-insensitive substring. Agents library uses rows-per-page and prev/next against the token-paginated API. Schedule create and the schedules listing agent filter use a searchable agent combobox backed by the same filtered list API.
 
 ## [0.2.0-rc.3] - 2026-09-10
 
