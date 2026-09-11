@@ -1,9 +1,10 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
+import type { AgentLibraryEntry } from '../../server/types.js';
+import { AgentSearchPicker } from '../AgentSearchPicker.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
-import { Button } from '../primitives/Button.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import {
   WEEKDAY_OPTIONS,
@@ -33,9 +34,9 @@ export type ScheduleFormFieldsProps = {
   values: ScheduleFormValues;
   onChange: (next: ScheduleFormValues) => void;
   agentId: string;
+  agentLabel: string;
   onAgentIdChange?: (agentId: string) => void;
-  agentOptions: Array<{ agentId: string; name: string }>;
-  agentOptionsLoaded?: boolean;
+  onAgentPicked?: (agent: AgentLibraryEntry) => void;
   agentPickerDisabled?: boolean;
   onBuildAgent?: () => void;
 };
@@ -44,9 +45,9 @@ export function ScheduleFormFields({
   values,
   onChange,
   agentId,
+  agentLabel,
   onAgentIdChange,
-  agentOptions,
-  agentOptionsLoaded = true,
+  onAgentPicked,
   agentPickerDisabled = false,
   onBuildAgent,
 }: ScheduleFormFieldsProps) {
@@ -68,28 +69,15 @@ export function ScheduleFormFields({
     <div className="flex flex-col gap-4 px-5 py-4">
       <div className="block">
         <span className="mb-1.5 block text-sm font-medium">Agent</span>
-        <PopoverSelect
+        <AgentSearchPicker
           aria-label="Agent"
-          placeholder="Select an agent"
+          placeholder="Search agent"
           value={agentId}
-          options={agentOptions.map(agent => ({ value: agent.agentId, label: agent.name }))}
+          selectedLabel={agentLabel}
           onValueChange={value => onAgentIdChange?.(value)}
+          onAgentPicked={onAgentPicked}
           disabled={agentPickerDisabled || onAgentIdChange == null}
-          emptyContent={
-            agentOptionsLoaded ? (
-              <p className="text-text-secondary px-3 py-5 text-center text-sm">No Agents created yet</p>
-            ) : null
-          }
-          footer={
-            agentOptionsLoaded && agentOptions.length === 0 && onBuildAgent != null ? (
-              <div className="flex justify-end border-t border-border px-2 pt-2">
-                <Button.Ghost type="button" onClick={onBuildAgent}>
-                  <Icon name="plus" className="size-3.5" />
-                  Build Agent
-                </Button.Ghost>
-              </div>
-            ) : null
-          }
+          onBuildAgent={onBuildAgent}
         />
       </div>
 

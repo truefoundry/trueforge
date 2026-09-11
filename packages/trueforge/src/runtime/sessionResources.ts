@@ -1,4 +1,4 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, SessionHandle } from '@truefoundry/trueforge-core/agent-session';
 import {
   Sandbox,
   SkillMounter,
@@ -26,6 +26,59 @@ import type { ReasoningEffort } from '../schemas/modelProvider';
 export interface McpConnection {
   url: string;
   headers: RemoteMcpHeaders;
+}
+
+/** Gateway header carrying stringified JSON metadata. */
+export const X_TFY_METADATA = 'x-tfy-metadata';
+
+/** Prefix for harness-owned keys */
+export const TFG_METADATA_PREFIX = 'tfg';
+
+export function buildGatewayMetadata(input: { session: SessionHandle; turnId: string }): Record<string, string> {
+  // Session.metadata is intentionally omitted for now (Unicode-in-header risk); re-add later.
+  const metadata: Record<string, string> = {
+    [`${TFG_METADATA_PREFIX}.session_id`]: input.session.session_id,
+    [`${TFG_METADATA_PREFIX}.turn_id`]: input.turnId,
+  };
+  const { agent } = input.session;
+  if (agent.type === 'reference') {
+    metadata[`${TFG_METADATA_PREFIX}.agent_id`] = agent.id;
+    if (agent.name !== null) {
+      metadata[`${TFG_METADATA_PREFIX}.agent_name`] = agent.name;
+    }
+  }
+  return metadata;
+}
+
+export function gatewayMetadataHeaders(metadata: Record<string, string>): Record<string, string> {
+  if (Object.keys(metadata).length === 0) {
+    return {};
+  }
+  return { [X_TFY_METADATA]: JSON.stringify(metadata) };
+}
+
+/**
+ * Merge gateway metadata into MCP invoke headers. Preserves authRequired;
+ * metadata is applied after auth/per-server headers.
+ */
+export function withGatewayMetadataHeaders(input: {
+  headers: RemoteMcpHeaders;
+  metadataHeaders: Record<string, string>;
+}): RemoteMcpHeaders {
+  const { headers, metadataHeaders } = input;
+  if (Object.keys(metadataHeaders).length === 0) {
+    return headers;
+  }
+  if (typeof headers !== 'function') {
+    return { ...headers, ...metadataHeaders };
+  }
+  return async () => {
+    const result = await headers();
+    if ('authRequired' in result) {
+      return result;
+    }
+    return { headers: { ...result.headers, ...metadataHeaders } };
+  };
 }
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */

@@ -3,7 +3,12 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { findAgentByName, SEARCH_AGENTS_PAGE_SIZE, useSearchAgentsList } from '@/atoms/lib/useSearchAgentsList.js';
+import {
+  findAgentByName,
+  findLibraryAgent,
+  SEARCH_AGENTS_PAGE_SIZE,
+  useSearchAgentsList,
+} from '@/atoms/lib/useSearchAgentsList.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentLibraryEntry, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -37,6 +42,28 @@ describe('useSearchAgentsList', () => {
     ).resolves.toEqual({ name: 'helper', agentId: 'helper-id' });
     expect(searchAgents).toHaveBeenLastCalledWith({
       query: 'helper',
+      limit: SEARCH_AGENTS_PAGE_SIZE,
+      offset: SEARCH_AGENTS_PAGE_SIZE,
+    });
+  });
+
+  it('finds an agent by id when name search would miss', async () => {
+    const firstPage = Array.from({ length: SEARCH_AGENTS_PAGE_SIZE }, (_, index) => ({
+      name: `other-${index}`,
+      agentId: `id-${index}`,
+    }));
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce([{ name: 'Demo Bot', agentId: 'agt_demo' }]);
+
+    await expect(
+      findLibraryAgent({
+        server: createMockAgentUIServer({ searchAgents }),
+        agentKey: 'agt_demo',
+      }),
+    ).resolves.toEqual({ name: 'Demo Bot', agentId: 'agt_demo' });
+    expect(searchAgents).toHaveBeenLastCalledWith({
       limit: SEARCH_AGENTS_PAGE_SIZE,
       offset: SEARCH_AGENTS_PAGE_SIZE,
     });
@@ -134,5 +161,38 @@ describe('useSearchAgentsList', () => {
     expect(searchAgents).toHaveBeenCalledTimes(2);
     expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE, offset: 0 });
     expect(result.current.agents).toEqual([{ name: 'alpha', agentId: 'alpha' } satisfies AgentLibraryEntry]);
+  });
+
+  it('paged mode replaces rows and navigates by offset', async () => {
+    const page1 = Array.from({ length: 10 }, (_, i) => ({
+      name: `agent-${i}`,
+      agentId: `agent-${i}`,
+    }));
+    const page2 = [{ name: 'agent-10', agentId: 'agent-10' }];
+    const searchAgents = vi.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce(page2).mockResolvedValueOnce(page1);
+
+    const server = createMockAgentUIServer({ searchAgents });
+    const { result } = renderHook(() => useSearchAgentsList({ enabled: true, query: '', mode: 'paged', limit: 10 }), {
+      wrapper: wrapperFor(server),
+    });
+
+    await waitFor(() => expect(result.current.agents).toHaveLength(10));
+    expect(result.current.canNext).toBe(true);
+    expect(result.current.canPrev).toBe(false);
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, offset: 0 });
+
+    act(() => {
+      result.current.goNext();
+    });
+    await waitFor(() => expect(result.current.agents).toEqual(page2));
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, offset: 10 });
+    expect(result.current.canPrev).toBe(true);
+    expect(result.current.canNext).toBe(false);
+
+    act(() => {
+      result.current.goPrev();
+    });
+    await waitFor(() => expect(result.current.agents).toHaveLength(10));
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
   });
 });
