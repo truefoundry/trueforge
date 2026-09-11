@@ -305,11 +305,19 @@ describe('harnessBuilderServer', () => {
         return Response.json({
           data:
             agentName === 'write'
-              ? [{ id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } }]
+              ? [
+                  {
+                    id: 'agt_2',
+                    name: 'writer',
+                    description: 'Writes docs.',
+                    manifest: { model: { name: 'test/model' } },
+                  },
+                ]
               : [
                   {
                     id: 'agt_1',
                     name: 'reviewer',
+                    description: 'Reviews pull requests.',
                     created_by_subject: {
                       subject_id: 'user-1',
                       subject_type: 'user',
@@ -322,7 +330,12 @@ describe('harnessBuilderServer', () => {
                       mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
                     },
                   },
-                  { id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } },
+                  {
+                    id: 'agt_2',
+                    name: 'writer',
+                    description: 'Writes docs.',
+                    manifest: { model: { name: 'test/model' } },
+                  },
                 ],
           pagination: { limit: 25 },
         });
@@ -341,6 +354,7 @@ describe('harnessBuilderServer', () => {
         subjectType: 'user',
         subjectDisplayName: 'Alice',
       },
+      description: 'Reviews pull requests.',
       agentSpec: {
         model: { name: 'test/model' },
         instructions: 'Review carefully.',
@@ -440,6 +454,47 @@ describe('harnessBuilderServer', () => {
     assert.deepEqual(result, { agentId: 'agt_new' });
     assert.deepEqual(requests.at(-1)?.body, {
       name: 'saved-agent',
+      description: 'saved-agent',
+      manifest: {
+        model: { name: 'test/model' },
+        skills: [{ name: 'review', preload: false }],
+      },
+    });
+  });
+
+  it('saveAgent create sends top-level description and strips it from the manifest', async () => {
+    const requests: { method: string; url: string; body?: unknown }[] = [];
+    const fetchMock: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? 'GET';
+      if (url.endsWith('/api/v1/agents') && method === 'POST' && typeof init?.body === 'string') {
+        requests.push({ method, url, body: JSON.parse(init.body) });
+        return Response.json({
+          data: {
+            id: 'agt_desc',
+            name: 'described-agent',
+            description: 'Helps with reviews.',
+            manifest: { model: { name: 'test/model' } },
+          },
+        });
+      }
+      return new Response(`Unexpected request: ${method} ${url}`, { status: 500 });
+    };
+
+    const builder = createHarnessBuilderServer({ fetch: fetchMock });
+    await builder.saveAgent({
+      agentName: 'described-agent',
+      description: 'Helps with reviews.',
+      agentSpec: {
+        model: { name: 'test/model' },
+        skills: [{ name: 'review' }],
+      },
+      intent: 'create',
+    });
+
+    assert.deepEqual(requests.at(-1)?.body, {
+      name: 'described-agent',
+      description: 'Helps with reviews.',
       manifest: {
         model: { name: 'test/model' },
         skills: [{ name: 'review', preload: false }],

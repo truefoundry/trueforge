@@ -39,10 +39,12 @@ const manifest = {
 
 const writeBody = {
   name: 'research',
+  description: 'Research helper.',
   manifest,
 };
 
 const updateBody = {
+  description: 'Updated research agent.',
   manifest: {
     model: { name: 'anthropic/claude-sonnet-4-6' },
     instructions: 'Updated instructions.',
@@ -52,6 +54,7 @@ const updateBody = {
 type WireAgent = {
   id: string;
   name: string;
+  description: string;
   manifest: {
     model: { name: string };
     instructions?: string;
@@ -115,12 +118,13 @@ describe('agents router', () => {
   });
 
   it('POST returns a wrapped Agent; PUT by immutable id keeps the same id', async () => {
-    const created = await router.request('/', jsonInit('POST', writeBody));
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, description: '  Research helper.  ' }));
     expect(created.status).toBe(201);
     const createdJson = (await created.json()) as { data: WireAgent };
     expect(createdJson.data.id.length).toBeGreaterThan(0);
     expect(createdJson.data).toMatchObject({
       name: 'research',
+      description: 'Research helper.',
       manifest: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
@@ -141,8 +145,24 @@ describe('agents router', () => {
     const updatedJson = (await updated.json()) as { data: WireAgent };
     expect(updatedJson.data.id).toBe(createdJson.data.id);
     expect(updatedJson.data.name).toBe('research');
+    expect(updatedJson.data.description).toBe('Updated research agent.');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
     expect(updatedJson.data).not.toHaveProperty('metadata');
+  });
+
+  it('PUT with only manifest keeps the stored description', async () => {
+    const created = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'keep-desc', description: 'Keep me.' }),
+    );
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', { manifest: updateBody.manifest }));
+    expect(updated.status).toBe(200);
+    const updatedJson = (await updated.json()) as { data: WireAgent };
+    expect(updatedJson.data.description).toBe('Keep me.');
+    expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
   it('PUT rejects metadata in the request body', async () => {
@@ -229,10 +249,20 @@ describe('agents router', () => {
       '/',
       jsonInit('POST', {
         name: 'other',
+        description: 'Other agent.',
         manifest: { ...manifest, model: { name: 'missing/model' } },
       }),
     );
     expect(unknownModel.status).toBe(422);
+
+    const blankDescription = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'blank-desc', description: '   ' }),
+    );
+    expect(blankDescription.status).toBe(400);
+
+    const missingDescription = await router.request('/', jsonInit('POST', { name: 'no-desc', manifest }));
+    expect(missingDescription.status).toBe(400);
 
     const first = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(first.status).toBe(201);

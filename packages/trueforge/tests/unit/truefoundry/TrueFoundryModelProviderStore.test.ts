@@ -13,6 +13,7 @@ const AGENT: AgentRecord = {
   id: 'agent-1',
   tenant_id: TENANT,
   name: 'named',
+  description: 'Test agent.',
   manifest: AgentSpecSchema.parse({ model: { name: 'p/m' } }),
   external_id: 'ext-agent',
   created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User' },

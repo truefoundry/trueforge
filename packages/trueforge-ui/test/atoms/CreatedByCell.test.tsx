@@ -21,6 +21,6 @@ describe('CreatedByCell', () => {
     );
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(container.querySelector('[data-slot="avatar"]')).toBeInTheDocument();
-    expect(container.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('AL');
+    expect(container.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('A');
   });
 });
