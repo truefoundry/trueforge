@@ -300,7 +300,7 @@ describe('TrueForgeUI', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Save Agent' }));
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
     expect(within(saveDialog).getByLabelText('Agent name')).toBeInTheDocument();
-    expect(within(saveDialog).queryByLabelText('Description')).not.toBeInTheDocument();
+    expect(within(saveDialog).getByLabelText('Description')).toBeInTheDocument();
     expect(within(saveDialog).queryByRole('button', { name: 'Edit Model' })).not.toBeInTheDocument();
     expect(within(saveDialog).queryByRole('button', { name: 'Edit Connectors' })).not.toBeInTheDocument();
     expect(getModels).toHaveBeenCalled();
