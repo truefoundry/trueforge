@@ -3889,7 +3889,7 @@ Creates an MCP server by `name`. Fails if `name` is already taken. Runs DCR regi
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, McpServerManifest, McpServerType
+from trueforge_sdk import TrueForge, RemoteMcpServerManifest
 
 client = TrueForge(
     token="<token>",
@@ -3897,10 +3897,10 @@ client = TrueForge(
 )
 
 client.settings.mcp_servers.create(
-    manifest=McpServerManifest(
+    manifest=RemoteMcpServerManifest(
         description="description",
         name="name",
-        type=McpServerType.REMOTE,
+        type="remote",
         url="url",
     ),
 )
@@ -3966,7 +3966,7 @@ Create or replace by `name`. Header secrets: real value sets/rotates; redacted k
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, McpServerManifest, McpServerType
+from trueforge_sdk import TrueForge, RemoteMcpServerManifest
 
 client = TrueForge(
     token="<token>",
@@ -3974,10 +3974,10 @@ client = TrueForge(
 )
 
 client.settings.mcp_servers.create_or_update(
-    manifest=McpServerManifest(
+    manifest=RemoteMcpServerManifest(
         description="description",
         name="name",
-        type=McpServerType.REMOTE,
+        type="remote",
         url="url",
     ),
 )

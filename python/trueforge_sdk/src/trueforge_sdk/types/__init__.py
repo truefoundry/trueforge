@@ -125,7 +125,6 @@ if typing.TYPE_CHECKING:
     from .mcp_server_manifest import McpServerManifest
     from .mcp_server_manifest_auth import McpServerManifestAuth
     from .mcp_server_tool_selector import McpServerToolSelector
-    from .mcp_server_type import McpServerType
     from .mcp_tool_info import McpToolInfo
     from .me import Me
     from .me_session_type import MeSessionType
@@ -147,6 +146,7 @@ if typing.TYPE_CHECKING:
     from .previous_turn_id_input import PreviousTurnIdInput
     from .raw_tool_call import RawToolCall
     from .reasoning_effort import ReasoningEffort
+    from .remote_mcp_server_manifest import RemoteMcpServerManifest
     from .request_error_response import RequestErrorResponse
     from .request_error_response_error import RequestErrorResponseError
     from .resource_name import ResourceName
@@ -210,6 +210,7 @@ if typing.TYPE_CHECKING:
     from .tool_info import ToolInfo
     from .tool_response_event import ToolResponseEvent
     from .tool_response_required_event import ToolResponseRequiredEvent
+    from .true_foundry_mcp_server_manifest import TrueFoundryMcpServerManifest
     from .true_foundry_model_provider import TrueFoundryModelProvider
     from .true_foundry_registry_skill import TrueFoundryRegistrySkill
     from .true_foundry_system_tool_info import TrueFoundrySystemToolInfo
@@ -354,7 +355,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "McpServerManifest": ".mcp_server_manifest",
     "McpServerManifestAuth": ".mcp_server_manifest_auth",
     "McpServerToolSelector": ".mcp_server_tool_selector",
-    "McpServerType": ".mcp_server_type",
     "McpToolInfo": ".mcp_tool_info",
     "Me": ".me",
     "MeSessionType": ".me_session_type",
@@ -376,6 +376,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PreviousTurnIdInput": ".previous_turn_id_input",
     "RawToolCall": ".raw_tool_call",
     "ReasoningEffort": ".reasoning_effort",
+    "RemoteMcpServerManifest": ".remote_mcp_server_manifest",
     "RequestErrorResponse": ".request_error_response",
     "RequestErrorResponseError": ".request_error_response_error",
     "ResourceName": ".resource_name",
@@ -439,6 +440,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ToolInfo": ".tool_info",
     "ToolResponseEvent": ".tool_response_event",
     "ToolResponseRequiredEvent": ".tool_response_required_event",
+    "TrueFoundryMcpServerManifest": ".true_foundry_mcp_server_manifest",
     "TrueFoundryModelProvider": ".true_foundry_model_provider",
     "TrueFoundryRegistrySkill": ".true_foundry_registry_skill",
     "TrueFoundrySystemToolInfo": ".true_foundry_system_tool_info",
@@ -607,7 +609,6 @@ __all__ = [
     "McpServerManifest",
     "McpServerManifestAuth",
     "McpServerToolSelector",
-    "McpServerType",
     "McpToolInfo",
     "Me",
     "MeSessionType",
@@ -629,6 +630,7 @@ __all__ = [
     "PreviousTurnIdInput",
     "RawToolCall",
     "ReasoningEffort",
+    "RemoteMcpServerManifest",
     "RequestErrorResponse",
     "RequestErrorResponseError",
     "ResourceName",
@@ -692,6 +694,7 @@ __all__ = [
     "ToolInfo",
     "ToolResponseEvent",
     "ToolResponseRequiredEvent",
+    "TrueFoundryMcpServerManifest",
     "TrueFoundryModelProvider",
     "TrueFoundryRegistrySkill",
     "TrueFoundrySystemToolInfo",
