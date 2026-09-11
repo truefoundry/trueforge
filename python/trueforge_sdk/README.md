@@ -7,6 +7,7 @@ TypeScript client for the TrueForge Agent Harness Server: a self-hosted runtime 
 
 When auth is enabled on the server, pass an ID token via the optional `token` client option (`Authorization: Bearer`).
 
+
 ## Table of Contents
 
 - [Documentation](#documentation)
@@ -160,14 +161,12 @@ retry limit (default: 2).
 Which status codes are retried depends on the `retryStatusCodes` generator configuration:
 
 **`legacy`** (current default): retries on
-
 - [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
 - [409](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409) (Conflict)
 - [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
 - [5XX](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses) (All server errors, including 500)
 
 **`recommended`**: retries on
-
 - [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
 - [409](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409) (Conflict)
 - [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
