@@ -52,8 +52,8 @@ export function createHarnessAgentSessionsServer(
       return {
         agentId: data.id,
         name: data.name,
-        // Description is a top-level Agent field; fold into UI agentSpec for overview/edit/clone.
-        agentSpec: { ...toUiAgentSpec(data.manifest), description: data.description },
+        description: data.description,
+        agentSpec: toUiAgentSpec(data.manifest),
       };
     },
     async getCodeSnippets({ agentId }) {

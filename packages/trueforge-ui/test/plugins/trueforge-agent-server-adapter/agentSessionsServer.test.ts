@@ -38,10 +38,10 @@ describe('createHarnessAgentSessionsServer', () => {
     assert.deepEqual(await server.getAgent({ agentId: 'agent-1' }), {
       agentId: 'agent-1',
       name: 'writer',
+      description: 'Writes docs.',
       agentSpec: {
         model: { name: 'openai/gpt-5' },
         instructions: 'Write.',
-        description: 'Writes docs.',
       },
     });
     assert.deepEqual(await server.getCodeSnippets({ agentId: 'agent-1' }), [

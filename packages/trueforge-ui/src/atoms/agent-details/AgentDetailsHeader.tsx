@@ -38,6 +38,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
       isCreateAgent: true,
       agentId: detail.agentId,
       agentName: detail.name,
+      ...(detail.description === undefined ? {} : { description: detail.description }),
       agentSpec: detail.agentSpec,
     });
   };
@@ -82,6 +83,7 @@ export function AgentDetailsHeader({ agentId, detail, onBack }: AgentDetailsHead
           {detail != null ? (
             <AgentOverflowMenu
               agentName={detail.name}
+              {...(detail.description === undefined ? {} : { description: detail.description })}
               agentSpec={detail.agentSpec}
               canMutate={canMutate}
               canUse={canUse}

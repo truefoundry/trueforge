@@ -336,9 +336,9 @@ describe('harnessBuilderServer', () => {
         subjectType: 'user',
         subjectDisplayName: 'Alice',
       },
+      description: 'Reviews pull requests.',
       agentSpec: {
         model: { name: 'test/model' },
-        description: 'Reviews pull requests.',
         instructions: 'Review carefully.',
         skills: [{ name: 'review', preload: false }],
         mcpServers: [{ name: 'github', enableTools: ['@all'] }],
@@ -413,9 +413,9 @@ describe('harnessBuilderServer', () => {
     const builder = createHarnessBuilderServer({ fetch: fetchMock });
     await builder.saveAgent({
       agentName: 'described-agent',
+      description: 'Helps with reviews.',
       agentSpec: {
         model: { name: 'test/model' },
-        description: 'Helps with reviews.',
         skills: [{ name: 'review' }],
       },
       intent: 'create',

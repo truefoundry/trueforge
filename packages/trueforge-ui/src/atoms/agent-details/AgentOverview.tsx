@@ -52,7 +52,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
   const config = isRecord(spec.config) ? spec.config : null;
   const sandbox = isRecord(config?.sandbox) ? config.sandbox : null;
   const instructions = spec.instructions?.trim() ? spec.instructions : null;
-  const description = spec.description?.trim() ? spec.description : null;
+  const description = detail.description?.trim() ? detail.description : null;
   const execution = [
     ['Sandbox', typeof sandbox?.enabled === 'boolean' ? (sandbox.enabled ? 'Enabled' : 'Disabled') : undefined],
     ['Iteration limit', readRecordValue(config, 'iterationLimit', 'iteration_limit')],

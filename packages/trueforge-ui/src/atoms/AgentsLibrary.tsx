@@ -177,7 +177,7 @@ export function AgentLibraryRow({
   const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
   const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
-  const description = spec?.description?.trim() ? spec.description : null;
+  const description = agent.description?.trim() ? agent.description : null;
 
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
@@ -276,6 +276,7 @@ export function AgentLibraryRow({
           </PermissionGuard>
           <AgentOverflowMenu
             agentName={agent.name}
+            {...(description != null ? { description } : {})}
             {...(spec != null ? { agentSpec: spec } : {})}
             canMutate={canMutate}
             canUse={canUseAgent}
@@ -437,6 +438,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       isCreateAgent: true,
       agentId: libraryAgentId(agent),
       agentName: agent.name,
+      ...(agent.description === undefined ? {} : { description: agent.description }),
       agentSpec,
     });
   };

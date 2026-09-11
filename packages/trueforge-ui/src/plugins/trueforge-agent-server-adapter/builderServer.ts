@@ -56,8 +56,8 @@ function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
   return {
     name: agent.name,
     agentId: agent.id,
-    // Description is a top-level Agent field; fold into UI agentSpec for edit/clone/display.
-    agentSpec: { ...toUiAgentSpec(agent.manifest), description: agent.description },
+    description: agent.description,
+    agentSpec: toUiAgentSpec(agent.manifest),
     createdBySubject: agent.createdBySubject,
   };
 }
@@ -130,9 +130,9 @@ export function createHarnessBuilderServer(
       return filtered.slice(offset, offset + limit).map(toLibraryEntry);
     },
 
-    async saveAgent({ agentName, agentSpec, intent }) {
+    async saveAgent({ agentName, description: descriptionRaw, agentSpec, intent }) {
       const manifest = toHarnessAgentSpec(agentSpec);
-      const description = agentSpec.description?.trim();
+      const description = descriptionRaw?.trim();
       if (intent === 'update') {
         const { data } = await client.agents.list();
         const existing = data.find(agent => agent.name === agentName);

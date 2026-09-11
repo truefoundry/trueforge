@@ -86,6 +86,7 @@ function SaveAgentButtonContent({
   const [open, setOpen] = useState(false);
   const [intent, setIntent] = useState<SaveIntent>('create');
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [draftSpec, setDraftSpec] = useState<AgentSpec | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ function SaveAgentButtonContent({
   const close = () => {
     if (saving) return;
     setOpen(false);
+    setDescription('');
     setDraftSpec(null);
     setError(null);
   };
@@ -111,6 +113,7 @@ function SaveAgentButtonContent({
     const currentName = shell?.mode.status === 'active' ? (shell.mode.agentName ?? shell.mode.agentId ?? '') : '';
     setIntent(currentName ? 'update' : 'create');
     setName(currentName);
+    setDescription(currentName && shell?.mode.status === 'active' ? (shell.mode.description ?? '') : '');
     setDraftSpec(cloneAgentSpec(latestAgentSpec));
     setOpen(true);
   };
@@ -120,12 +123,14 @@ function SaveAgentButtonContent({
     if (intent === 'update' && !canManageAgent) return;
     const normalizedName = name.trim();
     if (!normalizedName || !draftSpec.model.name.trim()) return;
-    if (intent === 'create' && !(draftSpec.description?.trim() ?? '')) return;
+    const normalizedDescription = description.trim();
+    if (intent === 'create' && !normalizedDescription) return;
     setSaving(true);
     setError(null);
     try {
       const result = await builder.saveAgent({
         agentName: normalizedName,
+        ...(normalizedDescription ? { description: normalizedDescription } : {}),
         agentSpec: draftSpec,
         intent,
         sessionId: draftSessionId,
@@ -134,10 +139,12 @@ function SaveAgentButtonContent({
       shell?.bindMutableAgent({
         agentId: result.agentId ?? normalizedName,
         agentName: normalizedName,
+        ...(normalizedDescription ? { description: normalizedDescription } : {}),
         agentSpec: draftSpec,
       });
       shell?.invalidateAgentsList();
       setOpen(false);
+      setDescription('');
       setDraftSpec(null);
     } catch (caught) {
       setError(getErrorMessage(caught, 'Could not save agent'));
@@ -181,10 +188,12 @@ function SaveAgentButtonContent({
           <SaveAgentForm
             intent={intent}
             name={name}
+            description={description}
             spec={draftSpec}
             saving={saving}
             error={error}
             onNameChange={setName}
+            onDescriptionChange={setDescription}
             onChange={setDraftSpec}
             onCancel={close}
             onSave={() => void save()}

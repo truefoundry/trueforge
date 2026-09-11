@@ -102,7 +102,15 @@ function renderButton({
   };
 }
 
-function BoundMutableSaveButton({ agentId, agentName }: { agentId: string; agentName?: string }) {
+function BoundMutableSaveButton({
+  agentId,
+  agentName,
+  description,
+}: {
+  agentId: string;
+  agentName?: string;
+  description?: string;
+}) {
   const { selectLibraryAgent } = useShellMode();
   useEffect(() => {
     selectLibraryAgent({
@@ -110,9 +118,10 @@ function BoundMutableSaveButton({ agentId, agentName }: { agentId: string; agent
       isCreateAgent: true,
       agentId,
       agentName,
+      description,
       agentSpec,
     });
-  }, [agentId, agentName, selectLibraryAgent]);
+  }, [agentId, agentName, description, selectLibraryAgent]);
   return <SaveAgentButton />;
 }
 
@@ -371,10 +380,10 @@ describe('SaveAgentButton', () => {
     await waitFor(() => expect(saveAgent).toHaveBeenCalledOnce());
     expect(saveAgent).toHaveBeenCalledWith({
       agentName: 'my-agent',
+      description: 'My agent description.',
       agentSpec: {
         model: { name: 'openai/gpt-4.1', params: undefined },
         instructions: 'Be helpful.',
-        description: 'My agent description.',
         mcpServers: [{ id: 'github', name: 'GitHub' }],
         skills: [{ id: 'research', name: 'Research' }],
         config: undefined,
@@ -489,10 +498,9 @@ describe('SaveAgentButton', () => {
     agentSpec = {
       model: { name: 'openai/gpt-4.1' },
       instructions: 'Be helpful.',
-      description: 'Existing agent summary.',
     };
     renderButton({
-      children: <BoundMutableSaveButton agentId="writer" agentName="writer" />,
+      children: <BoundMutableSaveButton agentId="writer" agentName="writer" description="Existing agent summary." />,
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Update Agent' }));
     const dialog = await screen.findByRole('dialog', { name: 'Update agent' });

@@ -35,9 +35,9 @@ function mockServer(
   agents: Array<{
     name: string;
     agentId: string;
+    description?: string;
     agentSpec?: {
       model: { name: string };
-      description?: string;
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
@@ -149,7 +149,8 @@ describe('AgentsLibrary', () => {
       {
         name: 'alpha-agent',
         agentId: 'alpha-agent',
-        agentSpec: { model: { name: 'openai/gpt-4.1' }, description: 'Alpha handles triage.' },
+        description: 'Alpha handles triage.',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
       },
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
@@ -245,6 +246,7 @@ describe('AgentsLibrary', () => {
         {
           name: 'writer',
           agentId: 'writer-id',
+          description: 'Writes release notes.',
           agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
         },
       ]),
@@ -268,6 +270,7 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(saveAgent).toHaveBeenCalledWith({
         agentName: 'writer-copy',
+        description: 'Writes release notes.',
         agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
         intent: 'create',
       });

@@ -9,10 +9,12 @@ import { Button } from './primitives/Button.js';
 export type SaveAgentFormProps = {
   intent: 'create' | 'update';
   name: string;
+  description: string;
   spec: AgentSpec;
   saving: boolean;
   error: string | null;
   onNameChange: (name: string) => void;
+  onDescriptionChange: (description: string) => void;
   onChange: (spec: AgentSpec) => void;
   onCancel: () => void;
   onSave: () => void;
@@ -21,10 +23,12 @@ export type SaveAgentFormProps = {
 export function SaveAgentForm({
   intent,
   name,
+  description,
   spec,
   saving,
   error,
   onNameChange,
+  onDescriptionChange,
   onChange,
   onCancel,
   onSave,
@@ -38,9 +42,7 @@ export function SaveAgentForm({
   }, [error]);
 
   const canSave =
-    name.trim() !== '' &&
-    spec.model.name.trim() !== '' &&
-    (intent === 'update' || (spec.description?.trim() ?? '') !== '');
+    name.trim() !== '' && spec.model.name.trim() !== '' && (intent === 'update' || description.trim() !== '');
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
@@ -59,9 +61,9 @@ export function SaveAgentForm({
         <label className="mb-3 block">
           <span className="mb-1.5 block text-sm font-medium">Description</span>
           <textarea
-            value={spec.description ?? ''}
+            value={description}
             disabled={saving}
-            onChange={event => onChange({ ...spec, description: event.target.value })}
+            onChange={event => onDescriptionChange(event.target.value)}
             rows={4}
             maxLength={1024}
             placeholder="Describe what this agent does."

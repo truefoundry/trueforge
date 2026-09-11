@@ -54,9 +54,7 @@ function toHarnessSkill(skill: HarnessSkillMount): TrueForgeApi.Skill {
 
 /** Drop UI draft `id` before admission; Harness MCP mounts are name-keyed. */
 export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSpec {
-  // `description` is a top-level Agent field — never embed it in the session/agent manifest.
-  const { skills, mcpServers, description: _description, ...rest } = spec;
-  void _description;
+  const { skills, mcpServers, ...rest } = spec;
   return {
     ...rest,
     ...(mcpServers === undefined
