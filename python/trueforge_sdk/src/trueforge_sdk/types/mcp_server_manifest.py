@@ -2,32 +2,7 @@
 
 import typing
 
-import pydantic
-from ..core.pydantic_utilities import IS_PYDANTIC_V2
-from ..core.unchecked_base_model import UncheckedBaseModel
-from .mcp_server_manifest_auth import McpServerManifestAuth
-from .mcp_server_type import McpServerType
-from .resource_name import ResourceName
+from .remote_mcp_server_manifest import RemoteMcpServerManifest
+from .true_foundry_mcp_server_manifest import TrueFoundryMcpServerManifest
 
-
-class McpServerManifest(UncheckedBaseModel):
-    auth: typing.Optional[McpServerManifestAuth] = None
-    description: str = pydantic.Field()
-    """
-    Concise summary of what this MCP server provides.
-    """
-
-    name: ResourceName
-    type: McpServerType
-    url: str = pydantic.Field()
-    """
-    MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL.
-    """
-
-    if IS_PYDANTIC_V2:
-        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
-    else:
-
-        class Config:
-            smart_union = True
-            extra = pydantic.Extra.allow
+McpServerManifest = typing.Union[RemoteMcpServerManifest, TrueFoundryMcpServerManifest]
