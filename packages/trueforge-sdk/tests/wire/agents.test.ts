@@ -65,7 +65,7 @@ describe("AgentsClient", () => {
     test("create (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "name" } }, name: "name" };
+        const rawRequestBody = { description: "description", manifest: { model: { name: "name" } }, name: "name" };
         const rawResponseBody = {
             data: {
                 created_by_subject: {
@@ -97,6 +97,7 @@ describe("AgentsClient", () => {
             .build();
 
         const response = await client.agents.create({
+            description: "description",
             manifest: {
                 model: {
                     name: "name",
@@ -146,7 +147,7 @@ describe("AgentsClient", () => {
     test("create (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "x" } }, name: "xy" };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -160,6 +161,7 @@ describe("AgentsClient", () => {
 
         await expect(async () => {
             return await client.agents.create({
+                description: "x",
                 manifest: {
                     model: {
                         name: "x",
@@ -173,7 +175,7 @@ describe("AgentsClient", () => {
     test("create (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "x" } }, name: "xy" };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -187,6 +189,7 @@ describe("AgentsClient", () => {
 
         await expect(async () => {
             return await client.agents.create({
+                description: "x",
                 manifest: {
                     model: {
                         name: "x",
@@ -200,7 +203,7 @@ describe("AgentsClient", () => {
     test("create (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { model: { name: "x" } }, name: "xy" };
+        const rawRequestBody = { description: "x", manifest: { model: { name: "x" } }, name: "xy" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -214,6 +217,7 @@ describe("AgentsClient", () => {
 
         await expect(async () => {
             return await client.agents.create({
+                description: "x",
                 manifest: {
                     model: {
                         name: "x",

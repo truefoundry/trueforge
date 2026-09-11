@@ -150,6 +150,7 @@ Creates an agent and allocates an immutable id. Fails if `name` is already taken
 
 ```typescript
 await client.agents.create({
+    description: "description",
     manifest: {
         model: {
             name: "name"
