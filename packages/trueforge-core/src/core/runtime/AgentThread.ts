@@ -239,16 +239,19 @@ function buildModelMessageEvent({
   id: string;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
+  // Derive display `reasoning_content` from thinking text so /events reload matches a folded stream
+  // without storing reasoning on thread context.
   const { role, tool_calls, thinking_blocks, source, content, ...rest } = assistantMessage;
   void role;
-  void thinking_blocks;
   void source;
+  const reasoningContent = reasoningContentFromThinkingBlocks(thinking_blocks);
   const event: ModelMessageEvent = {
     ...rest,
     // Tool-only completions store content: null on context (OpenAI replay) but the
     // SSE placeholder omits the field. Drop null/empty here so listTurnEvents JSON
     // matches a folded stream.
     ...(content && { content }),
+    ...(reasoningContent && { reasoning_content: reasoningContent }),
     tool_calls: tool_calls?.map(toEnrichedToolCall),
     type: EventType.MODEL_MESSAGE,
     id,
@@ -258,6 +261,25 @@ function buildModelMessageEvent({
     ...(usage && { usage }),
   };
   return event;
+}
+
+/** Join non-empty `thinking` blocks for client display; skip redacted / empty blocks. */
+function reasoningContentFromThinkingBlocks(
+  thinking_blocks: InternalEnrichedAssistantMessage['thinking_blocks'],
+): string | undefined {
+  if (!thinking_blocks?.length) {
+    return undefined;
+  }
+  const parts: string[] = [];
+  for (const block of thinking_blocks) {
+    if (block.type === 'thinking' && block.thinking.length > 0) {
+      parts.push(block.thinking);
+    }
+  }
+  if (parts.length === 0) {
+    return undefined;
+  }
+  return parts.join('');
 }
 
 function validateUserMessage(
