@@ -7,17 +7,18 @@ Expand the name of the chart.
 
 {{/*
 Create a default fully qualified app name.
+
+Always `{release}-{name}` (unless fullnameOverride). The usual Helm
+`contains` collapse is skipped so a parent that dials
+`{{ .Release.Name }}-trueforge` keeps working when the release name
+itself contains "trueforge".
 */}}
 {{- define "trueforge.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- $name := default .Chart.Name .Values.nameOverride }}
-{{- if contains $name .Release.Name }}
-{{- .Release.Name | trunc 63 | trimSuffix "-" }}
-{{- else }}
 {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
-{{- end }}
 {{- end }}
 {{- end }}
 

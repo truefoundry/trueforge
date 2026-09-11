@@ -32,7 +32,7 @@ import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -51,10 +51,13 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
+  buildGatewayMetadata,
   buildTurnSandbox,
+  gatewayMetadataHeaders,
   getMcpConnection,
   getModelDetails,
   resolveSandboxProvider,
+  withGatewayMetadataHeaders,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { canReadAgentBoundResource } from './agentAccess';
@@ -142,9 +145,9 @@ function createTurnResolver(deps: {
   modelProviderStore: IModelProviderStore;
   logger: Logger;
   signal: AbortSignal;
-  tenant_id: string;
   userRef: string;
-  sessionId: string;
+  session: SessionHandle;
+  turnId: string;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -154,10 +157,16 @@ function createTurnResolver(deps: {
     modelProviderStore,
     logger,
     signal,
-    tenant_id,
     userRef,
-    sessionId,
+    session,
+    turnId,
   } = deps;
+  const tenant_id = session.tenant_id;
+  const sessionId = session.session_id;
+  const metadataHeaders = isTrueFoundryModeEnabled()
+    ? gatewayMetadataHeaders(buildGatewayMetadata({ session, turnId }))
+    : {};
+
   return new TurnResourceResolver({
     llm: async name => {
       const resolved = await getModelDetails({
@@ -167,7 +176,10 @@ function createTurnResolver(deps: {
       });
       return {
         modelClient: new VercelAILLM({
-          providerConfig: resolved.providerConfig,
+          providerConfig: {
+            ...resolved.providerConfig,
+            headers: { ...resolved.providerConfig.headers, ...metadataHeaders },
+          },
           logger,
           signal,
         }),
@@ -187,7 +199,13 @@ function createTurnResolver(deps: {
           message: `Unknown MCP server "${name}" — not configured`,
         });
       }
-      return connection;
+      return {
+        url: connection.url,
+        headers: withGatewayMetadataHeaders({
+          headers: connection.headers,
+          metadataHeaders,
+        }),
+      };
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
@@ -373,6 +391,7 @@ export async function beginTurnExecution(params: {
 }): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
   const { session, input, previous_turn_id: previousTurnId, userRef, deps } = params;
   const sessionId = session.session_id;
+  const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
 
   const abortController = new AbortController();
   const tenant_id = session.tenant_id;
@@ -384,9 +403,9 @@ export async function beginTurnExecution(params: {
     modelProviderStore: deps.modelProviderStore,
     logger: deps.logger,
     signal: abortController.signal,
-    tenant_id,
     userRef,
-    sessionId,
+    session,
+    turnId,
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -394,7 +413,7 @@ export async function beginTurnExecution(params: {
   const title = session.record.last_turn_id ? undefined : deriveSessionTitle(input);
 
   const turn = await session.createTurn({
-    turn_id: mintPeeredTurnId(configuration.EXECUTOR_ID),
+    turn_id: turnId,
     input,
     previous_turn_id: previousTurnId,
     signal: abortController.signal,

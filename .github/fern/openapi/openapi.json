@@ -2142,10 +2142,14 @@
               "$ref": "#/components/schemas/Agent"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -6133,7 +6137,43 @@
     },
     "/api/v1/agents": {
       "get": {
-        "description": "All configured agents for the tenant.",
+        "description": "List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 50, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Page size. Defaults to 50, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive substring match on agent name.",
+            "in": "query",
+            "name": "agent_name",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on agent name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -6143,7 +6183,17 @@
                 }
               }
             },
-            "description": "All configured agents."
+            "description": "Paginated matching agents."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "401": {
             "content": {
@@ -6160,6 +6210,11 @@
         "tags": [
           "Agents"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "agents"
         ],

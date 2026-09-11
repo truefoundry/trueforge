@@ -76,7 +76,8 @@ function SettingsCatalogProvider({
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-01T00:00:00Z',
     }),
-    searchAgents: async req => (req?.query === 'helper' ? [{ name: 'helper', agentId: 'helper-id' }] : []),
+    // findAgentByName walks unfiltered pages and matches by exact name client-side.
+    searchAgents: async () => [{ name: 'helper', agentId: 'helper-id' }],
   });
   return <ServerProvider server={server}>{children}</ServerProvider>;
 }

@@ -1,4 +1,4 @@
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { RequestContext } from '../auth/identity';
 import {
@@ -89,7 +89,10 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
     this.#db = input.db;
   }
 
-  listAgents(input: ListAgentsInput, transaction?: Transaction<Database>): Promise<AgentRecord[]> {
+  listAgents(
+    input: ListAgentsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<{ data: AgentRecord[]; pagination: TokenPagination }> {
     return this.#inner.listAgents(input, transaction);
   }
 
