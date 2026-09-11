@@ -52,6 +52,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
   const config = isRecord(spec.config) ? spec.config : null;
   const sandbox = isRecord(config?.sandbox) ? config.sandbox : null;
   const instructions = spec.instructions?.trim() ? spec.instructions : null;
+  const description = detail.description?.trim() ? detail.description : null;
   const execution = [
     ['Sandbox', typeof sandbox?.enabled === 'boolean' ? (sandbox.enabled ? 'Enabled' : 'Disabled') : undefined],
     ['Iteration limit', readRecordValue(config, 'iterationLimit', 'iteration_limit')],
@@ -123,6 +124,11 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
         </section>
 
         <aside className="flex min-h-0 min-w-0 flex-col gap-3 md:overflow-auto">
+          {description ? (
+            <AgentOverviewCard title="Description" icon="file">
+              <p className="text-xs text-text-secondary">{description}</p>
+            </AgentOverviewCard>
+          ) : null}
           <AgentOverviewCard title="Model Configuration" icon="cpu">
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
               <dt className="text-text-secondary">Model</dt>
