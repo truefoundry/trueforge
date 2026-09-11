@@ -385,7 +385,9 @@
   }
 }
 
-/* Dialog slide: off-canvas when closed; @starting-style + allow-discrete for enter/exit. */
+/* Dialog slide: off-canvas when closed; @starting-style + allow-discrete for enter/exit.
+   Open state MUST be `none` (not translate(0)) so themePortalRoot fixed popovers/tooltips
+   keep the viewport as containing block and are not clipped by overflow-hidden. */
 @media (prefers-reduced-motion: no-preference) {
   .aui-bottom-sheet,
   .aui-side-drawer {
@@ -398,7 +400,7 @@
 
   .aui-bottom-sheet[open],
   .aui-side-drawer[open] {
-    transform: translateY(0);
+    transform: none;
   }
 
   @starting-style {
@@ -414,7 +416,7 @@
     }
 
     .aui-side-drawer:not([data-compact])[data-anchor='right'][open] {
-      transform: translateX(0);
+      transform: none;
     }
 
     .aui-side-drawer:not([data-compact])[data-anchor='left'] {
@@ -422,7 +424,7 @@
     }
 
     .aui-side-drawer:not([data-compact])[data-anchor='left'][open] {
-      transform: translateX(0);
+      transform: none;
     }
 
     @starting-style {
