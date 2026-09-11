@@ -203,6 +203,7 @@ postgresql:
 redis:
   enabled: true
   architecture: standalone
+  nameOverride: trueforge-redis
   # The redis 24.0.0 subchart floats `latest`; pin a legacy tag mirrored to JFrog
   # for reproducibility (bitnamilegacy has no 8.4.x, so we track 8.2.x here).
   image:
