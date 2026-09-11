@@ -226,6 +226,10 @@ externalRedis:
         key: redis-url
 ```
 
+`redis.nameOverride` defaults to `trueforge-redis` so bundled Redis objects do
+not share names with the LLM gateway Redis (`truefoundry-redis-*`) when this
+chart is a dependency of the truefoundry control-plane chart.
+
 For passworded Redis, prefer an external instance and load `REDIS_URL` via
 `valueFrom`.
 
@@ -328,6 +332,7 @@ extraObjects:
 | `configs.oidc.enabled`| `false`                             | Inject `OIDC_*` env for IdP login.    |
 | `postgresql.enabled`  | `true`                              | Bundle the Bitnami Postgres subchart. |
 | `redis.enabled`       | `true`                              | Bundle the Bitnami Redis subchart.    |
+| `redis.nameOverride`  | `trueforge-redis`                   | Bitnami name prefix; keeps objects distinct from `tfy-llm-gateway` Redis when embedded under truefoundry. |
 | `service.type`        | `ClusterIP`                         | Service type.                         |
 | `service.port`        | `8790`                              | Service port.                         |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
