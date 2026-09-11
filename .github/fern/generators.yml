@@ -109,6 +109,8 @@ groups:
           location: local-file-system
           path: ../../python/trueforge_sdk
         config:
+          # Import package (underscores). PyPI/poetry name trueforge-sdk is set in
+          # scripts/generate-sdk.sh after generate (local-file-system has no package-name).
           package_name: trueforge_sdk
           optional_auth: true
           stream_abstraction: true
