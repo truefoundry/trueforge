@@ -10,7 +10,7 @@ import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeCont
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
 import { mountName } from '../lib/mountName.js';
-import { searchAllAgents } from '../lib/useSearchAgentsList.js';
+import { findAgentByName } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
 import { SideDrawer } from '../primitives/SideDrawer.js';
 import {
@@ -48,8 +48,7 @@ function ScheduleFormDrawerBody({
   const toaster = useToasterOptional();
   const [form, setForm] = useState<ScheduleFormValues>(defaultScheduleFormValues);
   const [agentId, setAgentId] = useState(initialAgentId);
-  const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
-  const [agentsLoaded, setAgentsLoaded] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<AgentLibraryEntry | null>(null);
   const [view, setView] = useState<DrawerView>({ kind: 'form' });
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -65,25 +64,10 @@ function ScheduleFormDrawerBody({
   });
 
   useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setAgentsLoaded(false);
-    void searchAllAgents(server)
-      .then(rows => {
-        if (cancelled) return;
-        setAgents(rows);
-        setAgentsLoaded(true);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [open, server]);
-
-  useEffect(() => {
     if (!open) {
       setForm(defaultScheduleFormValues());
       setAgentId(initialAgentId);
+      setSelectedAgent(null);
       setError(null);
       setView({ kind: 'form' });
       setActivating(false);
@@ -99,30 +83,35 @@ function ScheduleFormDrawerBody({
         }),
       );
       setAgentId(schedule.agentId);
+      setSelectedAgent(null);
       setView({ kind: 'form' });
       return;
     }
     setForm(defaultScheduleFormValues());
     setAgentId(initialAgentId);
+    setSelectedAgent(null);
     setView({ kind: 'form' });
   }, [open, mode, schedule, initialAgentId]);
 
-  const agentOptions = useMemo(
-    () => agents.map(agent => ({ agentId: libraryAgentId(agent), name: agent.name })),
-    [agents],
-  );
-
-  const selectedAgent = useMemo(
-    () => agents.find(agent => libraryAgentId(agent) === agentId) ?? null,
-    [agents, agentId],
-  );
+  // Prefill create with a known agent without draining the full catalog.
+  useEffect(() => {
+    if (!open || mode !== 'create' || initialAgentId.length === 0) return;
+    let cancelled = false;
+    void findAgentByName({ server, agentName: initialAgentId })
+      .then(agent => {
+        if (cancelled || agent == null) return;
+        if (libraryAgentId(agent) !== initialAgentId && agent.name !== initialAgentId) return;
+        setSelectedAgent(agent);
+        setAgentId(libraryAgentId(agent));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, mode, initialAgentId, server]);
 
   const agentLabel =
-    selectedAgent?.name ??
-    savedFromCreate?.agentName ??
-    schedule?.agentName ??
-    agentOptions.find(option => option.agentId === agentId)?.name ??
-    agentId;
+    selectedAgent?.name ?? savedFromCreate?.agentName ?? schedule?.agentName ?? (agentId.length > 0 ? agentId : '');
 
   const mcpMounts = useMemo(() => {
     const mounts = selectedAgent?.agentSpec?.mcpServers ?? [];
@@ -311,9 +300,16 @@ function ScheduleFormDrawerBody({
             values={form}
             onChange={setForm}
             agentId={agentId}
-            onAgentIdChange={isExternalEdit || isCreatedEdit ? undefined : setAgentId}
-            agentOptions={agentOptions}
-            agentOptionsLoaded={agentsLoaded}
+            agentLabel={agentLabel}
+            onAgentIdChange={
+              isExternalEdit || isCreatedEdit
+                ? undefined
+                : nextId => {
+                    setAgentId(nextId);
+                    if (nextId.length === 0) setSelectedAgent(null);
+                  }
+            }
+            onAgentPicked={setSelectedAgent}
             agentPickerDisabled={isExternalEdit || isCreatedEdit}
             onBuildAgent={
               mode === 'create' && shell?.isComposerEnabled === true
