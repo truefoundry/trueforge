@@ -226,9 +226,9 @@ externalRedis:
         key: redis-url
 ```
 
-`redis.nameOverride` defaults to `trueforge-redis` so bundled Redis objects keep
-a distinct name when this chart is embedded under another release (for example
-the truefoundry control-plane chart).
+`redis.nameOverride` defaults to `trueforge-redis` so bundled Redis objects do
+not share names with other Redis chart dependencies when this chart is a
+dependency of some other chart.
 
 For passworded Redis, prefer an external instance and load `REDIS_URL` via
 `valueFrom`.
