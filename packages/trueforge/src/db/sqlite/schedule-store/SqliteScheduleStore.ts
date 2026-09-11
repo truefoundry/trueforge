@@ -21,6 +21,7 @@ import {
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
   type GetOwnedIdsInput,
+  type GetRunByIdInput,
   type GetRunInput,
   type GetScheduledRunForInput,
   type GetScheduleInput,
@@ -338,6 +339,15 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .executeTakeFirst();
+    return row === undefined ? undefined : toRunRecord(row);
+  }
+
+  async getRunById(
+    input: GetRunByIdInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleRunRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db.selectFrom('schedule_run').select(runColumns).where('id', '=', input.id).executeTakeFirst();
     return row === undefined ? undefined : toRunRecord(row);
   }
 

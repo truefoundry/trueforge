@@ -1,6 +1,6 @@
 {
     "name": "@truefoundry/trueforge-sdk",
-    "version": "0.2.0-rc.3",
+    "version": "0.2.0-rc.4",
     "private": false,
     "type": "commonjs",
     "main": "./dist/cjs/index.js",
@@ -197,6 +197,17 @@
                 "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
             },
             "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
+        },
+        "./internal/schedules": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/schedules/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/schedules/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/schedules/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/schedules/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/schedules/exports.js"
         },
         "./internal/sessions": {
             "import": {

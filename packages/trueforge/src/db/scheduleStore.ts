@@ -173,6 +173,11 @@ export interface GetRunInput {
   id: string;
 }
 
+export interface GetRunByIdInput {
+  /** Globally unique immutable run id. */
+  id: string;
+}
+
 export interface GetScheduledRunForInput {
   tenant_id: string;
   schedule_id: string;
@@ -259,6 +264,8 @@ export interface IScheduleStore<TTransaction = never> {
   // --- schedule_run ---
   /** One run by immutable id. */
   getRun(input: GetRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
+  /** Internal execution lookup when the run id is the only trusted input. */
+  getRunById(input: GetRunByIdInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** A schedule's single pending (`scheduled`) run, if it has one. */
   getScheduledRunFor(
     input: GetScheduledRunForInput,
