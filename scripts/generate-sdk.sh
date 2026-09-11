@@ -30,16 +30,30 @@ fern check
 fern generate --group ts-sdk --version "$ts_version" --local --generate-tests --force --log-level debug
 fern generate --group python-sdk --version "$py_version" --local --generate-tests --force --log-level debug
 test -f python/trueforge_sdk/src/trueforge_sdk/client.py
-# local-file-system has no output.package-name; Fern stamps import name into Poetry too.
-# Rewrite dist name to trueforge-sdk (import path stays trueforge_sdk).
+# local-file-system has no output.package-name; Fern stamps import name into Poetry
+# and metadata.version(). Rewrite dist name to trueforge-sdk (import path stays
+# trueforge_sdk) so __version__ / User-Agent resolve after pip install.
 python3 -c '
 from pathlib import Path
-p = Path("python/trueforge_sdk/pyproject.toml")
-t = p.read_text()
-n = t.replace("name = \"trueforge_sdk\"", "name = \"trueforge-sdk\"")
-if n == t:
+root = Path("python/trueforge_sdk")
+pyproject = root / "pyproject.toml"
+before = pyproject.read_text()
+after = before.replace("name = \"trueforge_sdk\"", "name = \"trueforge-sdk\"")
+if after == before:
     raise SystemExit("expected Fern pyproject name = \"trueforge_sdk\"")
-p.write_text(n)
+pyproject.write_text(after)
+for rel, old, new in (
+    ("src/trueforge_sdk/version.py", "metadata.version(\"trueforge_sdk\")", "metadata.version(\"trueforge-sdk\")"),
+    ("README.md", "pip install trueforge_sdk", "pip install trueforge-sdk"),
+    ("README.md", "pypi/trueforge_sdk", "pypi/trueforge-sdk"),
+    ("README.md", "pypi/v/trueforge_sdk", "pypi/v/trueforge-sdk"),
+):
+    path = root / rel
+    if path.is_file():
+        text = path.read_text()
+        updated = text.replace(old, new)
+        if updated != text:
+            path.write_text(updated)
 '
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
 # resolves to this workspace. CI sets frozen-lockfile, so refresh the root
