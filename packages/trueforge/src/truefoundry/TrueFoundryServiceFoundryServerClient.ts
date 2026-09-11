@@ -530,7 +530,7 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /**
    * Exchange a TrueFoundry API key for dual agent-scoped tokens.
-   * `actorToken` is the agent identity (ServiceFoundry); `subjectToken` is user+act (gateway).
+   * Wire `actorToken` is the agent identity (`asAgent`); wire `subjectToken` is the user with agent in `act` (`asUser`).
    * Authenticated with the server API key, not the user bearer.
    */
   async vendToken(input: {

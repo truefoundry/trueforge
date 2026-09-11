@@ -186,6 +186,12 @@ describe('TrueFoundryMcpServerStore', () => {
         authSource: 'oauth',
       });
     });
+
+    it('uses asUser with a saved agent', async () => {
+      const { store, client } = createStore({ agent: AGENT });
+      await store.deleteAuthorization({ tenant_id: TENANT, name: 'github', userRef: 'ignored' });
+      expect(client.deleteMcpAuth).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
+    });
   });
 
   describe('resolveAuthStatuses', () => {
@@ -220,6 +226,12 @@ describe('TrueFoundryMcpServerStore', () => {
         status: 'auth_required',
         authorization_url: 'https://consent.example/authorize',
       });
+    });
+
+    it('uses asUser for live status with a saved agent', async () => {
+      const { store, client } = createStore({ agent: AGENT });
+      await store.resolveAuthStatuses({ records: [dcrRecord()], userRef: 'user-1' });
+      expect(client.getMcpAuthStatus).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
     });
 
     it('calls live status for a single truefoundry record without wire auth', async () => {
@@ -292,12 +304,12 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
-    it('uses actorToken for SFY authorize and subjectToken for gateway Bearer with a saved agent', async () => {
+    it('uses asUser for authorize and gateway Bearer, asAgent for SFY lookups with a saved agent', async () => {
       const { store, client } = createStore({ agent: AGENT });
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
       });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
+      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
       expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
       expect(client.listGatewayInstallations).toHaveBeenCalledWith(ACTOR_TOKEN);
       expect(client.vendToken).toHaveBeenCalledTimes(1);

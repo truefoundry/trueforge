@@ -63,8 +63,8 @@ export function resolveAuthorizeRedirectURL(input: { returnTo?: string }): strin
 /** Read-only MCP registry for TrueFoundry mode (writes managed elsewhere). */
 export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #client: TrueFoundryMcpApiClient;
-  readonly #forServiceFoundry: ResolveAccessToken;
-  readonly #forGateway: ResolveAccessToken;
+  readonly #asAgent: ResolveAccessToken;
+  readonly #asUser: ResolveAccessToken;
   readonly #subject: RequestSubject;
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
@@ -83,8 +83,8 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       agent: input.agent,
       logger: input.logger,
     });
-    this.#forServiceFoundry = tokens.forServiceFoundry;
-    this.#forGateway = tokens.forGateway;
+    this.#asAgent = tokens.asAgent;
+    this.#asUser = tokens.asUser;
     this.#subject = input.requestContext.subject;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
@@ -94,7 +94,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     const { record, userRef } = input;
     const headers = async (): Promise<Record<string, string>> => ({
       ...withoutAuthorization(this.#perServerHeaders[record.name]),
-      Authorization: `Bearer ${await this.#forGateway()}`,
+      Authorization: `Bearer ${await this.#asUser()}`,
     });
     return async () => {
       const status = await this.authorize({
@@ -125,7 +125,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       return [];
     }
 
-    const accessToken = await this.#forServiceFoundry();
+    const accessToken = await this.#asAgent();
     const [rows, gatewayUrl] = await Promise.all([
       this.#client.listMcpServers({
         accessToken,
@@ -138,7 +138,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
     void transaction;
-    const accessToken = await this.#forServiceFoundry();
+    const accessToken = await this.#asAgent();
     const [row, gatewayUrl] = await Promise.all([
       this.#client.getMcpServerByName({ accessToken, name: input.name }),
       this.#resolveGatewayUrl(),
@@ -203,7 +203,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     out.set(
       record.name,
       await this.#client.getMcpAuthStatus({
-        accessToken: await this.#forServiceFoundry(),
+        accessToken: await this.#asUser(),
         mcpServerId: record.id,
         subjectId: this.#subject.id,
         subjectType: this.#subject.type,
@@ -219,7 +219,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       throw new McpServerNotFoundError(input.name);
     }
     return this.#client.getMcpAuthorize({
-      accessToken: await this.#forServiceFoundry(),
+      accessToken: await this.#asUser(),
       mcpServerId: record.id,
       redirectURL: resolveAuthorizeRedirectURL({
         ...(input.returnTo !== undefined ? { returnTo: input.returnTo } : {}),
@@ -234,7 +234,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       throw new McpServerNotFoundError(input.name);
     }
     await this.#client.deleteMcpAuth({
-      accessToken: await this.#forServiceFoundry(),
+      accessToken: await this.#asUser(),
       mcpServerId: record.id,
       subjectId: this.#subject.id,
       subjectType: this.#subject.type,
@@ -244,7 +244,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
 
   async #resolveGatewayUrl(): Promise<string> {
     if (this.#gatewayUrl === undefined) {
-      const installations = await this.#client.listGatewayInstallations(await this.#forServiceFoundry());
+      const installations = await this.#client.listGatewayInstallations(await this.#asAgent());
       this.#gatewayUrl = resolveDefaultGatewayUrl(installations);
     }
     return this.#gatewayUrl;
