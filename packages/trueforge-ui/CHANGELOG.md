@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0-rc.4
+
+### Patch Changes
+
+- 629b6e9: Paginate the Agent Sessions list on scroll instead of a "Load more" button, showing a skeleton row while the next page loads.
+- 629b6e9: Fix Agents library table scrolling when rows exceed the viewport
+- 629b6e9: Show Created by (avatar + name) on Agents and Schedules tables when creator info is present.
+- 629b6e9: Portal PopoverSelect menus so table page-size and other selects are not clipped by overflow parents.
+- ef278dd: Stop highlighting New Chat while trying a named agent, and clear the Try Agent URL and history filter when starting a new chat.
+- ceeb56f: Show turn and duration statistics alongside the featured agent metric cards.
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.4
+
 ## 0.3.0-rc.3
 
 ### Minor Changes

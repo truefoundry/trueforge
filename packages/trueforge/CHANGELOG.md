@@ -1,5 +1,17 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.4
+
+### Minor Changes
+
+- 4b120b8: Schedule runs now execute through one internal API call authenticated with `TRUEFORGE_API_KEY`. The server loads the saved run, schedule, and agent, then uses one agent-scoped token for turn resources in TrueFoundry mode.
+
+### Patch Changes
+
+- 629b6e9: Show Created by (avatar + name) on Agents and Schedules tables when creator info is present.
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.4
+
 ## 0.2.0-rc.3
 
 ### Minor Changes
