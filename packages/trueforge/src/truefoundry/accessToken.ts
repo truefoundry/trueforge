@@ -54,13 +54,6 @@ function destinationTokensFromCaller(context: RequestContext): DestinationTokens
   return { forServiceFoundry: resolve, forGateway: resolve };
 }
 
-function destinationTokensFromVended(resolveVended: () => Promise<VendedTokens>): DestinationTokens {
-  return {
-    forServiceFoundry: async () => (await resolveVended()).actorToken,
-    forGateway: async () => (await resolveVended()).subjectToken,
-  };
-}
-
 /**
  * Dual tokens scoped to a saved agent, for work the agent does on the caller's behalf.
  * Throws 500 up front when the agent was never registered with TrueFoundry.
@@ -75,7 +68,8 @@ export function agentAccessToken(input: {
   const { client, requestContext: context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   let pending: Promise<VendedTokens> | undefined;
-  const resolveVended = (): Promise<VendedTokens> => {
+
+  const vended = (): Promise<VendedTokens> => {
     if (pending === undefined) {
       input.logger.info('Exchanging user context for agent access token', {
         subject: context.subject.id,
@@ -90,7 +84,11 @@ export function agentAccessToken(input: {
     }
     return pending;
   };
-  return destinationTokensFromVended(resolveVended);
+
+  return {
+    forServiceFoundry: async () => (await vended()).actorToken,
+    forGateway: async () => (await vended()).subjectToken,
+  };
 }
 
 /** Token of whoever made the request. */
