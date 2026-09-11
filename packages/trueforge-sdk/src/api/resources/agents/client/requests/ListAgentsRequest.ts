@@ -5,7 +5,7 @@
  *     {}
  */
 export interface ListAgentsRequest {
-    /** Page size. Defaults to 25 */
+    /** Page size. Defaults to 50, max 100. */
     limit?: number;
     /** Opaque token from a previous response `next_page_token`. */
     pageToken?: string;

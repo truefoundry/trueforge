@@ -45,7 +45,7 @@ export class AgentsClient {
             async (
                 request: TrueForge.ListAgentsRequest,
             ): Promise<core.WithRawResponse<TrueForge.ListAgentsResponse>> => {
-                const { limit = 25, pageToken, agentName } = request;
+                const { limit = 50, pageToken, agentName } = request;
                 const _queryParams: Record<string, unknown> = {
                     limit,
                     page_token: pageToken,

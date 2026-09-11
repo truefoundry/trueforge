@@ -6120,14 +6120,14 @@
         "description": "List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 25",
+            "description": "Page size. Defaults to 50, max 100.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 25,
-              "description": "Page size. Defaults to 25",
-              "maximum": 25,
+              "default": 50,
+              "description": "Page size. Defaults to 50, max 100.",
+              "maximum": 100,
               "minimum": 1,
               "type": "integer"
             }
