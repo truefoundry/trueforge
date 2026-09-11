@@ -3,7 +3,12 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { findAgentByName, SEARCH_AGENTS_PAGE_SIZE, useSearchAgentsList } from '@/atoms/lib/useSearchAgentsList.js';
+import {
+  findAgentByName,
+  findLibraryAgent,
+  SEARCH_AGENTS_PAGE_SIZE,
+  useSearchAgentsList,
+} from '@/atoms/lib/useSearchAgentsList.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentLibraryEntry, AgentUIServer } from '@/server/types.js';
 import { createMockAgentUIServer } from '../../server/mockServer.js';
@@ -37,6 +42,28 @@ describe('useSearchAgentsList', () => {
     ).resolves.toEqual({ name: 'helper', agentId: 'helper-id' });
     expect(searchAgents).toHaveBeenLastCalledWith({
       query: 'helper',
+      limit: SEARCH_AGENTS_PAGE_SIZE,
+      offset: SEARCH_AGENTS_PAGE_SIZE,
+    });
+  });
+
+  it('finds an agent by id when name search would miss', async () => {
+    const firstPage = Array.from({ length: SEARCH_AGENTS_PAGE_SIZE }, (_, index) => ({
+      name: `other-${index}`,
+      agentId: `id-${index}`,
+    }));
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce([{ name: 'Demo Bot', agentId: 'agt_demo' }]);
+
+    await expect(
+      findLibraryAgent({
+        server: createMockAgentUIServer({ searchAgents }),
+        agentKey: 'agt_demo',
+      }),
+    ).resolves.toEqual({ name: 'Demo Bot', agentId: 'agt_demo' });
+    expect(searchAgents).toHaveBeenLastCalledWith({
       limit: SEARCH_AGENTS_PAGE_SIZE,
       offset: SEARCH_AGENTS_PAGE_SIZE,
     });

@@ -47,10 +47,11 @@ export function AgentSearchPicker({
   const menuRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
-  const { agents, isInitialLoading, isSearching, loadingMore, hasMore, listRef, sentinelRef } = useSearchAgentsList({
-    enabled: open && !disabled,
-    query,
-  });
+  const { agents, isInitialLoading, isSearching, loadingMore, hasMore, error, listRef, sentinelRef } =
+    useSearchAgentsList({
+      enabled: open && !disabled,
+      query,
+    });
 
   useEffect(() => {
     if (!open) setQuery('');
@@ -106,8 +107,9 @@ export function AgentSearchPicker({
 
   const inputValue = open ? query : selectedLabel;
   const queryTrimmed = query.trim();
-  const showEmptyCatalog = !isInitialLoading && agents.length === 0 && queryTrimmed === '';
-  const showNoMatch = !isInitialLoading && agents.length === 0 && queryTrimmed !== '';
+  const showError = !isInitialLoading && error != null;
+  const showEmptyCatalog = !isInitialLoading && error == null && agents.length === 0 && queryTrimmed === '';
+  const showNoMatch = !isInitialLoading && error == null && agents.length === 0 && queryTrimmed !== '';
 
   const menu =
     open && pos != null && !disabled
@@ -132,6 +134,10 @@ export function AgentSearchPicker({
               {isInitialLoading ? (
                 <p className="text-text-secondary px-3 py-5 text-center text-sm" role="status">
                   Loading…
+                </p>
+              ) : showError ? (
+                <p className="text-failure-bg px-3 py-5 text-center text-sm" role="alert">
+                  {error}
                 </p>
               ) : showEmptyCatalog ? (
                 <p className="text-text-secondary px-3 py-5 text-center text-sm">No Agents created yet</p>

@@ -43,6 +43,22 @@ export async function findAgentByName({
   return findAgentByName({ server, agentName, offset: offset + rows.length });
 }
 
+/** Resolve by agent id or exact name by walking unfiltered pages (ids are not name-searchable). */
+export async function findLibraryAgent({
+  server,
+  agentKey,
+  offset = 0,
+}: {
+  server: Pick<AgentBuilderServer, 'searchAgents'>;
+  agentKey: string;
+  offset?: number;
+}): Promise<AgentLibraryEntry | undefined> {
+  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
+  const match = rows.find(agent => agent.name === agentKey || agent.agentId === agentKey);
+  if (match != null || rows.length < SEARCH_AGENTS_PAGE_SIZE) return match;
+  return findLibraryAgent({ server, agentKey, offset: offset + rows.length });
+}
+
 export type UseSearchAgentsListOptions = {
   /** When false, no fetches run. */
   enabled: boolean;

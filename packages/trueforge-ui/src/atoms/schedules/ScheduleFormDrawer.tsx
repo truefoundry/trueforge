@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
@@ -10,7 +10,7 @@ import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeCont
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
 import { mountName } from '../lib/mountName.js';
-import { findAgentByName } from '../lib/useSearchAgentsList.js';
+import { findLibraryAgent } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
 import { SideDrawer } from '../primitives/SideDrawer.js';
 import {
@@ -53,6 +53,8 @@ function ScheduleFormDrawerBody({
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const agentIdRef = useRef(agentId);
+  agentIdRef.current = agentId;
 
   const savedFromCreate = view.kind === 'form' ? view.saved : view.schedule;
   const isExternalEdit = mode === 'edit' && view.kind === 'form' && view.saved == null && schedule != null;
@@ -93,14 +95,16 @@ function ScheduleFormDrawerBody({
     setView({ kind: 'form' });
   }, [open, mode, schedule, initialAgentId]);
 
-  // Prefill create with a known agent without draining the full catalog.
+  // Prefill create with a known agent id or exact name.
   useEffect(() => {
     if (!open || mode !== 'create' || initialAgentId.length === 0) return;
     let cancelled = false;
-    void findAgentByName({ server, agentName: initialAgentId })
+    const requestedId = initialAgentId;
+    void findLibraryAgent({ server, agentKey: requestedId })
       .then(agent => {
         if (cancelled || agent == null) return;
-        if (libraryAgentId(agent) !== initialAgentId && agent.name !== initialAgentId) return;
+        // Skip if the user already picked a different agent while this was in flight.
+        if (agentIdRef.current !== requestedId) return;
         setSelectedAgent(agent);
         setAgentId(libraryAgentId(agent));
       })

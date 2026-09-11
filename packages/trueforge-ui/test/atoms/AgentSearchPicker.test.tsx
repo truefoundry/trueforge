@@ -60,4 +60,18 @@ describe('AgentSearchPicker', () => {
     expect(onValueChange).toHaveBeenCalledWith('beta-bot');
     expect(onAgentPicked).toHaveBeenCalledWith(expect.objectContaining({ name: 'beta-bot', agentId: 'beta-bot' }));
   });
+
+  it('shows a load error instead of an empty catalog', async () => {
+    const searchAgents = vi.fn(async () => {
+      throw new Error('catalog unavailable');
+    });
+
+    render(<AgentSearchPicker value="" selectedLabel="" onValueChange={() => undefined} />, {
+      wrapper: wrap(createMockAgentUIServer({ searchAgents })),
+    });
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Agent' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('catalog unavailable');
+    expect(screen.queryByText('No Agents created yet')).not.toBeInTheDocument();
+  });
 });
