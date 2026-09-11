@@ -256,6 +256,53 @@ describe('AgentDetailsPage', () => {
     expect(new URL(window.location.href).searchParams.get('tab')).toBe('metrics');
   });
 
+  it('shows the metrics time range at the end of the active tab row and reloads metrics', async () => {
+    const getMeters = vi.fn(async () => []);
+    renderPage({
+      metrics: {
+        getCharts: vi.fn(async () => []),
+        getMeters,
+        getChartData: vi.fn(async () => ({ step: '3600', graphs: [] })),
+      },
+      overrides: {
+        AgentMetricsTimeRangeFilter: ({ onTimeRangeChange }) => (
+          <button
+            type="button"
+            onClick={() =>
+              onTimeRangeChange({
+                startTs: Date.parse('2026-08-20T00:00:00.000Z'),
+                endTs: Date.parse('2026-08-21T00:00:00.000Z'),
+              })
+            }
+          >
+            Set metrics range
+          </button>
+        ),
+      },
+    });
+
+    expect(screen.queryByRole('button', { name: 'Set metrics range' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Metrics' }));
+
+    const filter = screen.getByRole('button', { name: 'Set metrics range' });
+    const tablist = screen.getByRole('tablist', { name: 'Agent details' });
+    expect(tablist).not.toContainElement(filter);
+    expect(tablist.parentElement).toContainElement(filter);
+    expect(filter.parentElement).toHaveClass('ml-auto');
+
+    fireEvent.click(filter);
+    await waitFor(() =>
+      expect(getMeters).toHaveBeenLastCalledWith({
+        agentId: 'agent-1',
+        startTimestamp: '2026-08-20T00:00:00.000Z',
+        endTimestamp: '2026-08-21T00:00:00.000Z',
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
+    expect(screen.queryByRole('button', { name: 'Set metrics range' })).not.toBeInTheDocument();
+  });
+
   it('honors tab=metrics when the metrics port is available', async () => {
     window.history.replaceState(null, '', '/library/agent-1?tab=metrics');
     renderPage({
