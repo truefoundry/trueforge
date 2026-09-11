@@ -114,13 +114,20 @@ class RawAgentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
-        self, *, manifest: AgentSpec, name: ResourceName, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        description: str,
+        manifest: AgentSpec,
+        name: ResourceName,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetAgentResponse]:
         """
         Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
 
         Parameters
         ----------
+        description : str
+
         manifest : AgentSpec
 
         name : ResourceName
@@ -137,6 +144,7 @@ class RawAgentsClient:
             "api/v1/agents",
             method="POST",
             json={
+                "description": description,
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=AgentSpec, direction="write"
                 ),
@@ -255,10 +263,15 @@ class RawAgentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def update(
-        self, *, agent_id: str, manifest: AgentSpec, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        agent_id: str,
+        manifest: AgentSpec,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetAgentResponse]:
         """
-        Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+        Update an existing agent by immutable id.
 
         Parameters
         ----------
@@ -266,6 +279,8 @@ class RawAgentsClient:
             Immutable agent identifier.
 
         manifest : AgentSpec
+
+        description : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -279,6 +294,7 @@ class RawAgentsClient:
             f"api/v1/agents/{encode_path_param(agent_id)}",
             method="PUT",
             json={
+                "description": description,
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=AgentSpec, direction="write"
                 ),
@@ -493,13 +509,20 @@ class AsyncRawAgentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create(
-        self, *, manifest: AgentSpec, name: ResourceName, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        description: str,
+        manifest: AgentSpec,
+        name: ResourceName,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetAgentResponse]:
         """
         Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
 
         Parameters
         ----------
+        description : str
+
         manifest : AgentSpec
 
         name : ResourceName
@@ -516,6 +539,7 @@ class AsyncRawAgentsClient:
             "api/v1/agents",
             method="POST",
             json={
+                "description": description,
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=AgentSpec, direction="write"
                 ),
@@ -634,10 +658,15 @@ class AsyncRawAgentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def update(
-        self, *, agent_id: str, manifest: AgentSpec, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        agent_id: str,
+        manifest: AgentSpec,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetAgentResponse]:
         """
-        Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+        Update an existing agent by immutable id.
 
         Parameters
         ----------
@@ -645,6 +674,8 @@ class AsyncRawAgentsClient:
             Immutable agent identifier.
 
         manifest : AgentSpec
+
+        description : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -658,6 +689,7 @@ class AsyncRawAgentsClient:
             f"api/v1/agents/{encode_path_param(agent_id)}",
             method="PUT",
             json={
+                "description": description,
                 "manifest": convert_and_respect_annotation_metadata(
                     object_=manifest, annotation=AgentSpec, direction="write"
                 ),

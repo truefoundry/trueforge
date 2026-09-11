@@ -58,7 +58,6 @@ poetry run mypy .
 ### Generated Files
 
 The following directories contain generated code:
-
 - `src/` - API client classes and types
 - Most Python files in the project
 
@@ -88,7 +87,6 @@ If you want to change how code is generated for all users of this SDK:
 4. Submit a pull request with your changes to the generator
 
 This approach is best for:
-
 - Bug fixes in generated code
 - New features that would benefit all users
 - Improvements to code generation patterns
