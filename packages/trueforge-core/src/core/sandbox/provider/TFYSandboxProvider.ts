@@ -251,8 +251,9 @@ export class TFYSandboxProvider implements SandboxProvider {
   getAdditionalInstructions(): string {
     return dedent`
     SANDBOX RULES:
-    - uploads, skills, and tool-results live in the sandbox working directory (not /tmp or /opt).
-    - ALL file creation and writes MUST stay within the sandbox working directory.
+    - The Agent's first sandbox command should be \`pwd\` to discover the working directory.
+    - uploads, skills, and tool-results live in that working directory (not /tmp or /opt).
+    - ALL file creation and writes MUST stay within that working directory.
     - The Agent must NOT write to /tmp/, ~/, or any absolute path outside the working directory.
   `;
   }

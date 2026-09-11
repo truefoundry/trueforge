@@ -35,9 +35,9 @@ function mockServer(
   agents: Array<{
     name: string;
     agentId: string;
+    description?: string;
     agentSpec?: {
       model: { name: string };
-      description?: string;
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
@@ -146,7 +146,12 @@ describe('AgentsLibrary', () => {
 
   it('lists agents and selects a named agent (Try = immutable)', async () => {
     const server = mockServer([
-      { name: 'alpha-agent', agentId: 'alpha-agent' },
+      {
+        name: 'alpha-agent',
+        agentId: 'alpha-agent',
+        description: 'Alpha handles triage.',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+      },
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
     const onSelectAgent = vi.fn();
@@ -158,12 +163,41 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
+    expect(screen.getByText('Alpha handles triage.')).toHaveClass('truncate');
 
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
     });
+  });
+
+  it('truncates long descriptions without hiding Try, and skips name-echo descriptions', async () => {
+    const longDescription = `${'Lorem ipsum dolor sit amet, '.repeat(20)}consectetur.`;
+    const server = mockServer([
+      {
+        name: 'verbose-agent',
+        agentId: 'verbose-agent',
+        description: longDescription,
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+      },
+      {
+        name: 'echo-agent',
+        agentId: 'echo-agent',
+        description: 'echo-agent',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+      },
+    ]);
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Try agent verbose-agent' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('columnheader', { name: 'Configuration' })).toBeInTheDocument();
+    expect(screen.getByText(longDescription)).toHaveClass('truncate');
+    expect(screen.queryByText('echo-agent', { selector: '.text-xs' })).not.toBeInTheDocument();
   });
 
   it('shows Edit/Clone/Delete when composer is enabled and agentSpec is present', async () => {
@@ -240,6 +274,7 @@ describe('AgentsLibrary', () => {
         {
           name: 'writer',
           agentId: 'writer-id',
+          description: 'Writes release notes.',
           agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
         },
       ]),
@@ -263,6 +298,7 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(saveAgent).toHaveBeenCalledWith({
         agentName: 'writer-copy',
+        description: 'Writes release notes.',
         agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
         intent: 'create',
       });

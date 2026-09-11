@@ -383,6 +383,7 @@ export interface AgentTable {
   tenant_id: string;
   /** immutable natural uniqueness target within a tenant */
   name: string;
+  description: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   external_id: string | null;

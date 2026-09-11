@@ -153,6 +153,7 @@ describe('sessions HTTP agent binding', () => {
         subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
       },
       name: 'named-agent',
+      description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
@@ -185,6 +186,7 @@ describe('sessions HTTP agent binding', () => {
         subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
       },
       name: 'metrics-agent',
+      description: 'Test agent.',
       manifest: inlineSpec,
       external_id: null,
     });
@@ -244,6 +246,7 @@ describe('sessions HTTP agent binding', () => {
       tenant_id: 'default',
       created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
       name: 'managed-agent',
+      description: 'Test agent.',
       manifest: inlineSpec,
       external_id: 'managed-agent-external',
     });
@@ -424,6 +427,7 @@ describe('sessions HTTP agent binding', () => {
         subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
       },
       name: 'named-agent',
+      description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'from-registry',
@@ -605,6 +609,7 @@ describe('sessions HTTP agent binding', () => {
         subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
       },
       name: 'forbidden-agent',
+      description: 'Test agent.',
       manifest: inlineSpec,
       external_id: null,
     });
