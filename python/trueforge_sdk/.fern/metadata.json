@@ -21,7 +21,7 @@
     },
     "pyproject_python_version": ">=3.10"
   },
-  "originGitCommit": "706dcb0a139ec31f96c823d31bc5cb2305cf3805",
+  "originGitCommit": "041e003e3fd5dfb73d12d1c416683d320cc588e7",
   "originGitCommitIsDirty": false,
   "invokedBy": "ci",
   "requestedVersion": "0.1.0-rc.1",
