@@ -16,10 +16,10 @@ export type ResolveAccessToken = () => Promise<string>;
  * ServiceFoundry uses the agent identity (`actorToken`); gateway uses user+act (`subjectToken`).
  * Without a saved agent, both resolve to the caller's credential.
  */
-export type DestinationTokens = {
+export interface DestinationTokens {
   forServiceFoundry: ResolveAccessToken;
   forGateway: ResolveAccessToken;
-};
+}
 
 type AgentTokenVendor = Pick<TrueFoundryServiceFoundryServerClient, 'vendToken'>;
 
