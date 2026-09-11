@@ -14,7 +14,7 @@ import { AgentDetailsTabs } from '../atoms/agent-details/AgentDetailsTabs.js';
 import { AgentDetailsUnavailable } from '../atoms/agent-details/AgentDetailsUnavailable.js';
 import { AgentMetricCard } from '../atoms/agent-details/AgentMetricCard.js';
 import { AgentMetricsTimeRangeFilter } from '../atoms/agent-details/AgentMetricsTimeRangeFilter.js';
-import { AgentMetricsView } from '../atoms/agent-details/AgentMetricsView.js';
+import { AgentMetricStatistics, AgentMetricsView } from '../atoms/agent-details/AgentMetricsView.js';
 import { AgentOverviewCard } from '../atoms/agent-details/AgentOverviewCard.js';
 import { AgentSessionDetailHeader } from '../atoms/agent-details/AgentSessionDetailHeader.js';
 import { AgentSessionListRow } from '../atoms/agent-details/AgentSessionListRow.js';
@@ -58,6 +58,7 @@ import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorCont
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
+import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
@@ -69,10 +70,12 @@ import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
 import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
+import { PermissionGuard } from '../atoms/PermissionGuard.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SaveAgentForm } from '../atoms/SaveAgentForm.js';
+import type { SchedulesPageProps } from '../atoms/schedules/SchedulesPage.js';
 import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
@@ -94,6 +97,7 @@ import { ToolApprovalBar } from '../atoms/ToolApprovalBar.js';
 import { ToolCallCard } from '../atoms/ToolCallCard.js';
 import { ToolCallContentBlock } from '../atoms/ToolCallContentBlock.js';
 import { ToolGroupCard } from '../atoms/ToolGroupCard.js';
+import { UserAvatar } from '../atoms/UserAvatar.js';
 import { UserMessageActionBar } from '../atoms/UserMessageActionBar.js';
 import { UserMessageBubble } from '../atoms/UserMessageBubble.js';
 import { UserMessageEdit } from '../atoms/UserMessageEdit.js';
@@ -111,6 +115,10 @@ const AgentSessions: ComponentType<AgentSessionsProps> = lazy(async () => {
 const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
   () => import('../atoms/agent-details/AgentCodeSnippets.js'),
 );
+const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
+  const mod = await import('../atoms/schedules/SchedulesPage.js');
+  return { default: mod.SchedulesPage };
+});
 const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
   return { default: mod.AgentSessionEventTimeline };
@@ -142,10 +150,12 @@ export const defaultSlots = {
   ComposerLeftSection,
   ComposerRightSection,
   ComposerSendButton,
+  PermissionGuard,
   DraftComposerLeftSection,
   DraftComposerRightSection,
   DraftAgentConfigTrigger,
   DraftCapabilitiesPanel,
+  DraftComposerActionsMenu,
   AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
@@ -213,6 +223,7 @@ export const defaultSlots = {
   AgentMetricsView,
   AgentMetricsTimeRangeFilter,
   AgentMetricCard,
+  AgentMetricStatistics,
   AgentMetricChart,
   AgentSessionDetailHeader,
   AgentSessionsFilters,
@@ -226,6 +237,7 @@ export const defaultSlots = {
   AgentSessions,
   AgentCodeSnippets,
   AgentCodeBlock,
+  SchedulesPage,
   SchedulesButton,
   SaveAgentButton,
   SaveAgentForm,
@@ -243,4 +255,5 @@ export const defaultSlots = {
   Toast,
   ToastStack,
   ShellActionsActionSlot,
+  UserAvatar,
 } satisfies AtomSlots;

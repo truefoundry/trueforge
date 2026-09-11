@@ -41,6 +41,10 @@ vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adap
   ),
 }));
 
+vi.mock('thinking-orbs', () => ({
+  ThinkingOrb: () => <div data-testid="thinking-orb" />,
+}));
+
 vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   createTrueForgeAgentUIServer: vi.fn(async () =>
     createMockAgentUIServer({
@@ -56,6 +60,7 @@ vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
 }));
 
 import { AgentConfigInstructionsProvider } from '@/atoms/draft/AgentConfigInstructionsContext.js';
+import type { UserAvatarProps } from '@/atoms/UserAvatar.js';
 import { TrueForgeUI, type ChatLayout } from '@/containers/TrueForgeUI.js';
 import { DrawerLayout } from '@/layouts/DrawerLayout.js';
 import { SidebarLayout } from '@/layouts/SidebarLayout.js';
@@ -69,6 +74,10 @@ import { RuntimeHarness } from './RuntimeHarness.js';
 
 function mockServer(catalog?: CatalogServer) {
   return createMockAgentUIServer(catalog === undefined ? {} : { catalog });
+}
+
+function CustomUserAvatar({ labeled = false }: UserAvatarProps) {
+  return <div data-testid="custom-user-avatar">{labeled ? 'labeled user' : 'compact user'}</div>;
 }
 
 /** Minimal catalog stub — ShellActions only checks presence. */
@@ -133,6 +142,54 @@ describe('TrueForgeUI', () => {
       }
     });
     expect(container.querySelector('.h-96')).toBeInTheDocument();
+  });
+
+  it.each(layouts)('renders the current user in layout=%s chrome', async layout => {
+    render(
+      <TrueForgeUI
+        server={server}
+        agentConfig={{ mode: 'SingleAgent', name: 'my-agent' }}
+        layout={layout}
+        currentUser={{ displayName: 'Ada Lovelace' }}
+        className="h-96"
+      />,
+    );
+
+    if (layout === 'widget') {
+      fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    }
+
+    const avatar = await screen.findByLabelText('Ada Lovelace');
+    expect(avatar).toHaveTextContent('AL');
+    expect(avatar).toHaveTextContent('Ada Lovelace');
+    if (layout === 'sidebar') {
+      expect(avatar.closest('aside')).not.toBeNull();
+      expect(avatar).toHaveClass('w-14.5');
+    } else if (layout === 'drawer') {
+      expect(avatar.closest('header')).not.toBeNull();
+    } else {
+      expect(avatar.closest('footer')).not.toBeNull();
+    }
+  });
+
+  it.each(layouts)('honors overrides.UserAvatar in layout=%s', async layout => {
+    render(
+      <TrueForgeUI
+        server={server}
+        agentConfig={{ mode: 'SingleAgent', name: 'my-agent' }}
+        layout={layout}
+        overrides={{ UserAvatar: CustomUserAvatar }}
+        className="h-96"
+      />,
+    );
+
+    if (layout === 'widget') {
+      fireEvent.click(await screen.findByRole('button', { name: 'Open chat' }));
+    }
+
+    expect(await screen.findByTestId('custom-user-avatar')).toHaveTextContent(
+      layout === 'sidebar' ? 'labeled user' : 'compact user',
+    );
   });
 
   it('keeps the widget open across mutable runtime remounts', async () => {
@@ -307,6 +364,7 @@ describe('TrueForgeUI', () => {
     );
 
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
+    expect(screen.getByTestId('thinking-orb')).toBeInTheDocument();
   });
 });
 
@@ -506,13 +564,75 @@ describe('SidebarLayout', () => {
     expect(screen.queryByRole('button', { name: /^(Collapse|Expand) sidebar$/ })).not.toBeInTheDocument();
   });
 
+  it('keeps recent history visible when a named chat loads in the same page', async () => {
+    function OpenNamedChatButton() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'named-agent' })}>
+          Open named chat
+        </button>
+      );
+    }
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={mockServer(stubCatalog)}>
+          <ShellModeProvider>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <OpenNamedChatButton />
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    const recentChats = screen.getByRole('complementary', { name: 'Recent chats' });
+    expect(recentChats).toHaveClass('hidden', 'md:flex');
+    expect(recentChats.parentElement?.previousElementSibling?.tagName).toBe('HEADER');
+    expect(screen.getAllByText('New Chat')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new agent' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('complementary', { name: 'Recent chats' })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start new chat' }));
+    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open named chat' }));
+    expect(await screen.findByRole('complementary', { name: 'Recent chats' })).toBeInTheDocument();
+  });
+
   it('highlights New Chat, New Agent, and Settings when selected', async () => {
+    function NamedAgentButtons() {
+      const shell = useShellMode();
+      return (
+        <>
+          <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'support' })}>
+            Open history
+          </button>
+          <button
+            type="button"
+            onClick={() => shell.selectLibraryAgent({ isMutable: false, agentId: 'support-id', agentName: 'support' })}
+          >
+            Try support
+          </button>
+        </>
+      );
+    }
+
     render(
       <SlotsProvider theme={{ brand: { mode: 'icon-title', name: 'Acme' } }}>
         <ServerProvider server={mockServer(stubCatalog)}>
           <ShellModeProvider>
             <AgentConfigInstructionsProvider>
               <RuntimeHarness messages={[]}>
+                <NamedAgentButtons />
                 <div className="h-96">
                   <SidebarLayout />
                 </div>
@@ -528,6 +648,14 @@ describe('SidebarLayout', () => {
     expect(newChat).toHaveAttribute('aria-current', 'page');
     expect(newAgent).not.toHaveAttribute('aria-current');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Open history' }));
+    expect(newChat).toHaveAttribute('aria-current', 'page');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try support' }));
+    expect(newChat).not.toHaveAttribute('aria-current');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
     fireEvent.click(newAgent);
     const selectedNewAgent = await screen.findByRole('button', { name: 'Start new agent' });
     const deselectedNewChat = screen.getByRole('button', { name: 'Start new chat' });
@@ -541,7 +669,7 @@ describe('SidebarLayout', () => {
     expect(chatColumn?.querySelector('header')).toHaveClass('min-h-14');
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
 
-    const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
+    const [settingsButton] = await screen.findAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
     }
@@ -568,7 +696,7 @@ describe('SidebarLayout', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+    expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     expect(await screen.findAllByRole('button', { name: 'Agents' })).not.toHaveLength(0);
     const [themeButton] = screen.getAllByRole('button', { name: /Switch to (light|dark) theme/ });
     if (themeButton === undefined) {
@@ -591,7 +719,7 @@ describe('SidebarLayout', () => {
         </ServerProvider>
       </SlotsProvider>,
     );
-    expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+    expect(await screen.findAllByRole('button', { name: 'Settings' })).toHaveLength(1);
     const [settingsButton] = screen.getAllByRole('button', { name: 'Settings' });
     if (settingsButton === undefined) {
       throw new Error('Expected settings button');
@@ -778,7 +906,7 @@ describe('layout slot overrides', () => {
       expect(before.length).toBeGreaterThan(0);
       const beforeNode = before[0];
 
-      fireEvent.click(screen.getAllByRole('button', { name: 'Settings' })[0]!);
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0]!);
       // SettingsBuilder is lazy-loaded behind Suspense in the layout.
       expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
 

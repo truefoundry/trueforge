@@ -8,15 +8,14 @@ import type { AgentSpec, ConnectorState, McpToolSelection } from '../../server/t
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
-import { useInfiniteScrollSentinel } from '../lib/useInfiniteScrollSentinel.js';
 import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Spinner } from '../primitives/Spinner.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { editableMountsFromSpec, enabledToolsFromMount, withEnabledTools } from './agentConfigMounts.js';
-import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
+import { MCP_TOOL_SECTION_LABELS, MCP_TOOL_SECTION_ORDER, partitionMcpToolsBySection } from './mcpToolSections.js';
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -24,12 +23,14 @@ export type AgentMcpEditorContentProps = {
   query: string;
   activeConnectorId: string | null;
   tools: McpToolSelection[];
+  connectorLoading: boolean;
+  connectorError: string | null;
   toolsLoading: boolean;
   toolsError: string | null;
   onQueryChange: (query: string) => void;
   onSelectConnector: (connectorId: string) => void;
   onRetryTools: () => void;
-  onRefreshConnectors?: () => Promise<void>;
+  onRefreshConnector?: () => void;
   onChange: (spec: AgentSpec) => void;
 };
 
@@ -68,7 +69,7 @@ function selectedToolsHeaderLabel(mcpMounts: ReturnType<typeof editableMountsFro
   return `Selected Tools (${count})`;
 }
 
-function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; onConnected: () => Promise<void> }) {
+function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; onConnected: () => void }) {
   const { handleAuthorize, isOAuthLoading } = useMCPAuth();
   return (
     <Button.Primary
@@ -77,7 +78,7 @@ function ConnectNowButton({ connectorId, onConnected }: { connectorId: string; o
       disabled={isOAuthLoading}
       onClick={() => {
         void handleAuthorize(connectorId, isSuccess => {
-          if (isSuccess) void onConnected();
+          if (isSuccess) onConnected();
         });
       }}
     >
@@ -92,18 +93,27 @@ export function AgentMcpEditorContent({
   query,
   activeConnectorId,
   tools,
+  connectorLoading,
+  connectorError,
   toolsLoading,
   toolsError,
   onQueryChange,
   onSelectConnector,
   onRetryTools,
-  onRefreshConnectors,
+  onRefreshConnector,
   onChange,
 }: AgentMcpEditorContentProps) {
-  const { connectorsHasMore, connectorsLoadMoreFailed, connectorsLoadingMore, loading, loadMoreConnectors } =
-    useDraftCatalog();
   const [toolQuery, setToolQuery] = useState('');
   const [collapsedMountIds, setCollapsedMountIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Freeze open-time selected MCPs at the top; live picks must not reshuffle the list.
+  const [openSelectedKeys] = useState(() => {
+    const keys = new Set<string>();
+    for (const mount of editableMountsFromSpec(spec.mcpServers)) {
+      keys.add(mount.id);
+      keys.add(mount.name);
+    }
+    return keys;
+  });
   const mcpMounts = editableMountsFromSpec(spec.mcpServers);
   const catalogConnectors = connectorsWithSelectedStubs({ connectors, selected: mcpMounts });
   const selectedConnector = catalogConnectors.find(item => item.id === activeConnectorId);
@@ -114,19 +124,22 @@ export function AgentMcpEditorContent({
   const canAddActiveConnector = selectedConnector !== undefined && selectedConnector.authenticated === true;
   const enabledTools = activeMount ? enabledToolsFromMount(activeMount.value) : [];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredConnectors = catalogConnectors.filter(item =>
-    `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery),
-  );
+  const filteredConnectors = catalogConnectors
+    .filter(item => `${item.name} ${item.description ?? ''}`.toLowerCase().includes(normalizedQuery))
+    .sort((left, right) => {
+      const leftPinned = openSelectedKeys.has(left.id) || openSelectedKeys.has(left.name);
+      const rightPinned = openSelectedKeys.has(right.id) || openSelectedKeys.has(right.name);
+      return Number(rightPinned) - Number(leftPinned);
+    });
   const normalizedToolQuery = toolQuery.trim().toLowerCase();
   const filteredTools =
     normalizedToolQuery === '' ? tools : tools.filter(tool => tool.name.toLowerCase().includes(normalizedToolQuery));
+  const toolSections = partitionMcpToolsBySection(filteredTools);
+  const readOnlyTools = partitionMcpToolsBySection(tools)['read-only'];
+  const readOnlyNames = readOnlyTools.map(tool => tool.name);
+  const allReadOnlyEnabled =
+    readOnlyNames.length > 0 && (enabledTools === 'all' || readOnlyNames.every(name => enabledTools.includes(name)));
 
-  const { listRef: connectorsListRef, sentinelRef: connectorsSentinelRef } = useInfiniteScrollSentinel({
-    enabled: true,
-    hasMore: connectorsHasMore && !connectorsLoadMoreFailed,
-    loading: connectorsLoadingMore || loading,
-    onLoadMore: loadMoreConnectors,
-  });
   const updateMount = (mountId: string, value: object) => {
     onChange({
       ...spec,
@@ -146,6 +159,26 @@ export function AgentMcpEditorContent({
     onSelectConnector(match?.id ?? mount.id);
   };
 
+  const setEnabledToolNames = (next: string[]) => {
+    if (!selectedConnector) return;
+    if (next.length === 0) {
+      if (activeMount) removeMount(activeMount.id);
+      return;
+    }
+    if (activeMount) {
+      updateMount(activeMount.id, withEnabledTools(activeMount.value, next));
+      return;
+    }
+    if (!canAddActiveConnector) return;
+    onChange({
+      ...spec,
+      mcpServers: [
+        ...(spec.mcpServers ?? []),
+        withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, next),
+      ],
+    });
+  };
+
   const toggleTool = (toolName: string) => {
     if (!selectedConnector) return;
     if (!activeMount) {
@@ -162,11 +195,26 @@ export function AgentMcpEditorContent({
     const current = enabledTools === 'all' ? tools.map(tool => tool.name) : enabledTools;
     const checked = current.includes(toolName);
     const next = checked ? current.filter(name => name !== toolName) : [...current, toolName];
-    if (next.length === 0) {
-      removeMount(activeMount.id);
-    } else {
-      updateMount(activeMount.id, withEnabledTools(activeMount.value, next));
+    setEnabledToolNames(next);
+  };
+
+  const setAllReadOnlyTools = (enabled: boolean) => {
+    if (!selectedConnector || readOnlyNames.length === 0) return;
+    if (enabled) {
+      if (enabledTools === 'all') return;
+      const current = activeMount ? enabledTools : [];
+      const merged = [...current];
+      for (const name of readOnlyNames) {
+        if (!merged.includes(name)) merged.push(name);
+      }
+      setEnabledToolNames(merged);
+      return;
     }
+    if (enabledTools === 'all') {
+      setEnabledToolNames(tools.map(tool => tool.name).filter(name => !readOnlyNames.includes(name)));
+      return;
+    }
+    setEnabledToolNames(enabledTools.filter(name => !readOnlyNames.includes(name)));
   };
 
   const connectDuringChat = () => {
@@ -192,7 +240,7 @@ export function AgentMcpEditorContent({
             className={auiInputClass('h-8 w-full pl-7')}
           />
         </label>
-        <div ref={connectorsListRef} className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {filteredConnectors.map(connector => {
             const mounted = mcpMounts.some(item => item.id === connector.id || item.name === connector.name);
             const active = connector.id === activeConnectorId;
@@ -221,35 +269,28 @@ export function AgentMcpEditorContent({
               </button>
             );
           })}
-          {connectorsHasMore ? (
-            <div
-              ref={connectorsLoadMoreFailed ? undefined : connectorsSentinelRef}
-              className="flex h-8 items-center justify-center"
-            >
-              {connectorsLoadMoreFailed ? (
-                <button
-                  type="button"
-                  className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                  onClick={loadMoreConnectors}
-                >
-                  Retry loading connectors
-                </button>
-              ) : connectorsLoadingMore ? (
-                <Spinner size={16} className="text-text-secondary" aria-label="Loading more MCP servers" />
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col border-b border-border md:border-r md:border-b-0">
         {selectedConnector ? (
-          needsAuth ? (
+          connectorLoading ? (
+            <div className="flex min-h-0 flex-1 items-center justify-center p-3" aria-label="Loading MCP server">
+              <Spinner size={20} className="text-text-secondary" />
+            </div>
+          ) : connectorError ? (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center">
+              <p className="text-failure-bg text-sm">{connectorError}</p>
+              <Button.Secondary type="button" size="small" className="mt-2" onClick={onRetryTools}>
+                Retry
+              </Button.Secondary>
+            </div>
+          ) : needsAuth ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
               <Icon name="lock" className="text-text-secondary size-10" />
               <p className="text-text-primary text-sm font-semibold">You&apos;re not connected to this MCP Server</p>
-              {onRefreshConnectors ? (
-                <ConnectNowButton connectorId={selectedConnector.id} onConnected={onRefreshConnectors} />
+              {onRefreshConnector ? (
+                <ConnectNowButton connectorId={selectedConnector.id} onConnected={onRefreshConnector} />
               ) : null}
               <div className="text-text-secondary flex w-full max-w-xs items-center gap-3 text-xs">
                 <span className="bg-border h-px flex-1" />
@@ -321,27 +362,63 @@ export function AgentMcpEditorContent({
                   </div>
                 ) : null}
                 {!toolsLoading
-                  ? filteredTools.map(tool => {
-                      const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
+                  ? MCP_TOOL_SECTION_ORDER.map(sectionId => {
+                      const sectionTools = toolSections[sectionId];
+                      if (sectionTools.length === 0) return null;
+                      const onlyOthers =
+                        toolSections['read-only'].length === 0 && toolSections.destructive.length === 0;
+                      const showSectionHeader = sectionId !== 'others' || !onlyOthers;
                       return (
-                        <button
-                          key={tool.id}
-                          type="button"
-                          role="menuitemcheckbox"
-                          aria-checked={checked}
-                          aria-label={tool.name}
-                          disabled={!canAddActiveConnector && activeMount === undefined}
-                          className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                          onClick={() => toggleTool(tool.name)}
-                        >
-                          <ToolCheckbox checked={checked} />
-                          <span className="min-w-0 flex-1">
-                            <span className="text-text-primary block truncate text-sm font-medium">{tool.name}</span>
-                            {tool.description ? (
-                              <span className="text-text-secondary line-clamp-1 text-xs">{tool.description}</span>
-                            ) : null}
-                          </span>
-                        </button>
+                        <div key={sectionId} className="mb-3">
+                          {showSectionHeader ? (
+                            <div className="flex items-center justify-between gap-3 px-2 py-2">
+                              <p
+                                className={cn(
+                                  'min-w-0 truncate text-sm font-semibold',
+                                  sectionId === 'destructive' ? 'text-failure-bg' : 'text-text-primary',
+                                )}
+                              >
+                                {MCP_TOOL_SECTION_LABELS[sectionId]}
+                              </p>
+                              {sectionId === 'read-only' ? (
+                                <label className="text-text-secondary flex shrink-0 cursor-pointer items-center gap-2 text-xs has-[:disabled]:cursor-not-allowed">
+                                  Enable All Read-only Tools
+                                  <Switch
+                                    checked={allReadOnlyEnabled}
+                                    disabled={!canAddActiveConnector && activeMount === undefined}
+                                    onCheckedChange={setAllReadOnlyTools}
+                                    aria-label="Enable all read-only tools"
+                                  />
+                                </label>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {sectionTools.map(tool => {
+                            const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
+                            return (
+                              <button
+                                key={tool.id}
+                                type="button"
+                                role="menuitemcheckbox"
+                                aria-checked={checked}
+                                aria-label={tool.name}
+                                disabled={!canAddActiveConnector && activeMount === undefined}
+                                className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                                onClick={() => toggleTool(tool.name)}
+                              >
+                                <ToolCheckbox checked={checked} />
+                                <span className="min-w-0 flex-1">
+                                  <span className="text-text-primary block truncate text-sm font-medium">
+                                    {tool.name}
+                                  </span>
+                                  {tool.description ? (
+                                    <span className="text-text-secondary line-clamp-1 text-xs">{tool.description}</span>
+                                  ) : null}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       );
                     })
                   : null}

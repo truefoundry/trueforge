@@ -154,7 +154,10 @@ export const ScheduleRunSchema = z
   .openapi('ScheduleRun');
 
 export const ListScheduleRunsResponseSchema = z
-  .object({ data: z.array(ScheduleRunSchema) })
+  .object({
+    data: z.array(ScheduleRunSchema),
+    pagination: TokenPaginationSchema,
+  })
   .openapi('ListScheduleRunsResponse');
 
 /**
@@ -172,11 +175,19 @@ export const CreateScheduleRunResponseSchema = z
   .object({ data: ScheduleRunSchema })
   .openapi('CreateScheduleRunResponse');
 
+export const ExecuteScheduleRunRequestSchema = z
+  .object({
+    schedule_run_id: z.string().min(1).max(64).describe('Immutable schedule run identifier.'),
+  })
+  .strict()
+  .openapi('ExecuteScheduleRunRequest');
+
 export type ScheduleStatus = z.infer<typeof ScheduleStatusSchema>;
 export type ScheduleRunStatus = z.infer<typeof ScheduleRunStatusSchema>;
 export type ScheduleManifest = z.infer<typeof ScheduleManifestSchema>;
 export type Schedule = z.infer<typeof ScheduleSchema>;
 export type ScheduleRun = z.infer<typeof ScheduleRunSchema>;
+export type ExecuteScheduleRunRequest = z.infer<typeof ExecuteScheduleRunRequestSchema>;
 export type CreateScheduleRequest = z.infer<typeof CreateScheduleRequestSchema>;
 export type UpdateScheduleRequest = z.infer<typeof UpdateScheduleRequestSchema>;
 export type CreateScheduleRunRequest = z.infer<typeof CreateScheduleRunRequestSchema>;

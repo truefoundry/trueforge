@@ -4,7 +4,11 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import type { Configuration } from 'openid-client';
 import type { Authenticator } from '../../../src/auth/authenticator';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { createAdminAuthMiddleware, createAuthMiddleware } from '../../../src/auth/middleware';
+import {
+  createAdminAuthMiddleware,
+  createApiKeyAuthMiddleware,
+  createAuthMiddleware,
+} from '../../../src/auth/middleware';
 import { disableOidcAuth, enableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
@@ -377,5 +381,39 @@ describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ public: true });
     });
+  });
+});
+
+describe('createApiKeyAuthMiddleware', () => {
+  function createServiceApp(apiKey: string) {
+    const app = new OpenAPIHono();
+    app.onError((error, c) => {
+      if (error instanceof HTTPException) {
+        return c.json({ error: { message: error.message } }, error.status);
+      }
+      throw error;
+    });
+    app.use('*', createApiKeyAuthMiddleware(apiKey));
+    app.post('/', c => c.body(null, 204));
+    return app;
+  }
+
+  it('accepts the configured bearer API key', async () => {
+    const response = await createServiceApp('service-key').request('/', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer service-key' },
+    });
+    expect(response.status).toBe(204);
+  });
+
+  it.each([
+    ['missing header', undefined],
+    ['wrong key', 'Bearer wrong-key'],
+  ])('rejects %s', async (_name, authorization) => {
+    const response = await createServiceApp('service-key').request('/', {
+      method: 'POST',
+      ...(authorization === undefined ? {} : { headers: { Authorization: authorization } }),
+    });
+    expect(response.status).toBe(401);
   });
 });

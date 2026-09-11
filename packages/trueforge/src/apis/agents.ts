@@ -6,6 +6,7 @@ import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import configuration from '../config';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
@@ -29,12 +30,13 @@ import { validateAgentSpec } from '../runtime/sessionResources';
 import { type Agent, type CreateAgentRequest } from '../schemas/agent';
 import { agentIfAccessible, listAccessibleAgents } from './agentAccess';
 import { buildAgentCodeSnippets } from './agentCodeSnippets';
+import type { ResolveSkillStore } from './skills';
 
 export interface AgentsRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
+  resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
@@ -54,16 +56,16 @@ function toWireAgent(record: AgentRecord): Agent {
 
 async function validateManifest<TTransaction>({
   spec,
-  deps,
   modelProviderStore,
   mcpServerStore,
+  skillStore,
   sandboxProviderStore,
   tenant_id,
 }: {
   spec: AgentSpec;
-  deps: AgentsRouterDeps<TTransaction>;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
+  skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   tenant_id: string;
 }): Promise<AgentSpec> {
@@ -72,7 +74,7 @@ async function validateManifest<TTransaction>({
     tenant_id,
     modelProviderStore,
     mcpServerStore,
-    skillStore: deps.skillStore,
+    skillStore,
     sandboxProviderStore,
   });
   return spec;
@@ -95,9 +97,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const requestContext = deps.resolveRequestContext(c);
     const manifest = await validateManifest({
       spec: body.manifest,
-      deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       tenant_id: requestContext.tenant_id,
     });
@@ -146,11 +148,22 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     if (record === undefined) {
       return c.json({ error: { message: `Agent not found: ${agentId}` } }, 404);
     }
+    // Prefer FE-supplied public URL (avoids in-cluster Host). Else request origin + PUBLIC_BASE_URL path.
+    // e.g. origin https://sample.com + PUBLIC_BASE_URL https://example.com/trueforge
+    //   → https://sample.com/trueforge
+    const requestedBaseUrl = c.req.valid('query').base_url;
+    const origin = new URL(c.req.url).origin;
+    let baseUrl = origin;
+    if (requestedBaseUrl) {
+      baseUrl = requestedBaseUrl;
+    } else if (configuration.PUBLIC_BASE_URL) {
+      baseUrl = new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, origin).href;
+    }
     return c.json(
       {
         data: buildAgentCodeSnippets({
           agentName: record.name,
-          baseUrl: new URL(c.req.url).origin,
+          baseUrl,
         }),
       },
       200,
@@ -188,9 +201,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     }
     const manifest = await validateManifest({
       spec: body.manifest,
-      deps,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
+      skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       tenant_id: requestContext.tenant_id,
     });

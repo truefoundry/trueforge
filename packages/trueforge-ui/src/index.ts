@@ -30,6 +30,8 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { PermissionGuard } from './atoms/PermissionGuard.js';
+export type { PermissionGuardProps } from './atoms/PermissionGuard.js';
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
 export { Button } from './atoms/primitives/Button.js';
@@ -39,6 +41,8 @@ export type { CenteredModalProps } from './atoms/primitives/CenteredModal.js';
 export type { IconButtonProps } from './atoms/primitives/IconButton.js';
 export { PopoverSelect } from './atoms/primitives/PopoverSelect.js';
 export type { PopoverSelectOption, PopoverSelectProps } from './atoms/primitives/PopoverSelect.js';
+export { ResponsiveDropdownMenu } from './atoms/primitives/ResponsiveDropdownMenu.js';
+export type { ResponsiveDropdownMenuProps } from './atoms/primitives/ResponsiveDropdownMenu.js';
 export { SideDrawer } from './atoms/primitives/SideDrawer.js';
 export type { SideDrawerAnchor, SideDrawerProps, SideDrawerSize } from './atoms/primitives/SideDrawer.js';
 export { Switch } from './atoms/primitives/Switch.js';
@@ -72,6 +76,7 @@ export type { ScheduleFormFieldsProps } from './atoms/schedules/ScheduleFormFiel
 export { ScheduleLastRunsCell } from './atoms/schedules/ScheduleLastRunsCell.js';
 export { ScheduleRunChip } from './atoms/schedules/ScheduleRunChip.js';
 export { SchedulesPage } from './atoms/schedules/SchedulesPage.js';
+export type { SchedulesPageProps } from './atoms/schedules/SchedulesPage.js';
 export { ScheduleStatusBadge } from './atoms/schedules/ScheduleStatusBadge.js';
 export { TestScheduleScreen } from './atoms/schedules/TestScheduleScreen.js';
 export type { ScheduleMcpMount, TestScheduleScreenProps } from './atoms/schedules/TestScheduleScreen.js';
@@ -120,6 +125,8 @@ export type {
   ThreadRootShellProps,
   ThreadViewportShellProps,
 } from './atoms/ThreadShell.js';
+export { UserAvatar } from './atoms/UserAvatar.js';
+export type { UserAvatarProps } from './atoms/UserAvatar.js';
 export { UserMessageActionBar } from './atoms/UserMessageActionBar.js';
 export type { UserMessageActionBarProps } from './atoms/UserMessageActionBar.js';
 export { UserMessageBubble } from './atoms/UserMessageBubble.js';
@@ -240,10 +247,14 @@ export { threadHasPendingMcpAuth, useComposerPauseView } from './hooks/useCompos
 export type { ComposerPauseView, ThreadPauseState } from './hooks/useComposerPauseView.js';
 export { MCP_AUTH_POPUP_CHANNEL, useMCPAuth } from './hooks/useMcpAuth.js';
 export type { McpAuthCallback, McpAuthPopupMessage, UseMCPAuthOptions } from './hooks/useMcpAuth.js';
+export { useResourcePermissions } from './hooks/useResourcePermissions.js';
+export type { UseResourcePermissionsOptions, UseResourcePermissionsResult } from './hooks/useResourcePermissions.js';
 
 // Curated chrome hooks (same instance as the SDK runtime). Deep primitives: install @assistant-ui/react.
 export { useAui, useAuiState } from './assistant-ui.js';
 export type { AssistantState } from './assistant-ui.js';
+export { useOptionalCurrentUser } from './contexts/CurrentUserContext.js';
+export type { CurrentUser } from './contexts/CurrentUserContext.js';
 export { useTheme } from './theme/useTheme.js';
 
 // Runtime / server — consumer surface.
@@ -294,6 +305,7 @@ export {
   useOptionalAgentMetricsServer,
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalPermissionsServer,
   useOptionalScheduleServer,
   useOptionalServer,
   useScheduleServer,
@@ -356,9 +368,12 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreatedBySubject,
   DefinedSkill,
   GithubSkill,
   ImportGithubSkillRequest,
+  ListPermissionsRequest,
+  ListPermissionsResponse,
   ListResult,
   ListSessionEventsParams,
   ListSessionsOrder,
@@ -375,10 +390,13 @@ export type {
   ModelSelection,
   ModelSelectorEntry,
   PageParams,
+  PermissionResourceType,
+  PermissionsServer,
   PreviousTurnIdInput,
   ProviderEntry,
   ProviderType,
   RegistrySkill,
+  ResourcePermission,
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
@@ -423,7 +441,7 @@ export { AgentDetailsUnavailable } from './atoms/agent-details/AgentDetailsUnava
 export { AgentMetricCard } from './atoms/agent-details/AgentMetricCard.js';
 export { AgentMetricChart } from './atoms/agent-details/AgentMetricChart.js';
 export { AgentMetricsTimeRangeFilter } from './atoms/agent-details/AgentMetricsTimeRangeFilter.js';
-export { AgentMetricsView } from './atoms/agent-details/AgentMetricsView.js';
+export { AgentMetricStatistics, AgentMetricsView } from './atoms/agent-details/AgentMetricsView.js';
 export { AgentOverviewCard } from './atoms/agent-details/AgentOverviewCard.js';
 export type {
   AgentCodeBlockProps,
@@ -436,6 +454,7 @@ export type {
   AgentMetricCardProps,
   AgentMetricChartProps,
   AgentMetricChartResult,
+  AgentMetricStatisticsProps,
   AgentMetricsProps,
   AgentMetricsTimeRangeFilterProps,
   AgentMetricsViewProps,
@@ -500,6 +519,8 @@ export { DraftAgentConfigTrigger } from './atoms/draft/DraftAgentConfigTrigger.j
 export type { DraftAgentConfigTriggerProps } from './atoms/draft/DraftAgentConfigTrigger.js';
 export { DraftCapabilitiesPanel } from './atoms/draft/DraftCapabilitiesPanel.js';
 export { DraftCatalogProvider, useDraftCatalog } from './atoms/draft/DraftCatalogProvider.js';
+export { DraftComposerActionsMenu } from './atoms/draft/DraftComposerActionsMenu.js';
+export type { DraftComposerAction, DraftComposerActionsMenuProps } from './atoms/draft/DraftComposerActionsMenu.js';
 export { DraftComposerLeftSection, DraftComposerRightSection } from './atoms/draft/DraftComposerSections.js';
 export { DraftCompositeSelector } from './atoms/draft/DraftCompositeSelector.js';
 export type { DraftCompositeSelectorProps } from './atoms/draft/DraftCompositeSelector.js';

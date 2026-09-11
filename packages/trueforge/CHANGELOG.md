@@ -1,5 +1,71 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.5
+
+### Patch Changes
+
+- 502699b: Include `token: "USER_API_KEY"` in TypeScript agent code snippets when OIDC or TrueFoundry auth is enabled.
+- 4e72afc: Announce boot loading with a light-themed orb for contrast outside ThemeProvider.
+- 4e72afc: Use an animated thinking orb for application boot and server initialization.
+
+## 0.2.0-rc.4
+
+### Minor Changes
+
+- 4b120b8: Schedule runs now execute through one internal API call authenticated with `TRUEFORGE_API_KEY`. The server loads the saved run, schedule, and agent, then uses one agent-scoped token for turn resources in TrueFoundry mode.
+
+### Patch Changes
+
+- 629b6e9: Show Created by (avatar + name) on Agents and Schedules tables when creator info is present.
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.4
+
+## 0.2.0-rc.3
+
+### Minor Changes
+
+- 74eae6c: Remove pagination from list MCP servers across the API, SDK, and UI; return and search the complete configured MCP catalog client-side.
+
+### Patch Changes
+
+- db37b6e: Sandbox skills: unify git and registry mounts onto `.tfy-desired-skills.json` (SkillMounter + skill_downloader), and always attach a mounter so existing skills are cleaned up.
+- 762ecc0: TrueFoundry skills catalog: proxy GET /skills and /skills/versions from ServiceFoundry; settings skill writes return 424. SkillManifest is a type-discriminated oneOf of GitSkill | TrueFoundryRegistrySkill (`type: truefoundry`; name is FQN, display_name is short). AvailableSkill exposes optional metadata (display_name, repository_name, version). AgentSpec skill refs allow opaque FQN names, optional preload (registry), and max 50. UI draft skill mounts map catalog `id` to AgentSpec `name`.
+- fc38f74: AgentSpec skills: TrueFoundry save/turn resolve via SFY; standalone git validate/resolve on the skill store.
+- f2ca338: Show a spinner on the app boot screens instead of "Loading application…" text.
+- 4c522e2: Bump `@truefoundry/assistant-ui-runtime` to `0.1.30`.
+- 4c522e2: Bump `@truefoundry/assistant-ui-runtime` to `0.1.31`.
+- b32d2be: Filter chat history to sessions created by the current user, and bump `@truefoundry/assistant-ui-runtime` to `0.1.34`.
+- a9430bd: Accept optional `base_url` on agent code-snippets (FE public host); fall back to request origin + `PUBLIC_BASE_URL` path.
+- 349e420: Add internal POST /api/internal/import/agents and POST /sessions (snapshot) plus GET /checkpoint?tenant_id= for SF→TrueForge backfill. Import requires the service API key. Named session import links a local agent when present (or SF agent_id / dummy). Drafts use agent_spec; when SF also sends name/id those go in metadata. Checkpoint is per-tenant min created_at of imported sessions.
+- 4111287: Add POST `/api/internal/list-permissions` via `Authorizer.getPermissions` (owner grants for schedules/sessions; agents include `USE`, with TrueFoundry agents mapped from SFY `USE_AGENT`/`MANAGE_AGENT`/`DELETE_AGENT`).
+- 4e7b67a: Check live per-user MCP authentication before loading tools in the agent builder.
+- 2b6c566: Paginate `GET /api/v1/schedules/{schedule_id}/runs` with `limit` / `page_token` and a `pagination` envelope.
+- a1af95d: Add public GET /api/v1/mcp-servers/{name} returning the chat projection with live per-user auth_status.
+- a36ffaf: Namespace all Redis keys and pub/sub channels under `tfg:` so TrueForge can share a Redis instance without colliding with other apps.
+- 555bef0: Allow sandbox artifact downloads to use paths relative to the sandbox working directory.
+- e307f15: Derive the UI public prefix from the pathname of `PUBLIC_BASE_URL` at process start so one published frontend can run behind any path-stripping proxy.
+- bb8d3d3: Persist optional `reason` on schedule runs when hand-off fails. Exposed on ScheduleRun responses as nullable string.
+- 46fadce: Point-lookup ServiceFoundry model integrations by provider account and model name, and fetch the full catalog in one unpaginated request.
+- b601db8: Simplify agent Use In Code snippets to create/stream/print/map/merge events.
+- 5b33ab6: TrueFoundry skills: use caller JWT for catalog/validate; never agent vend tokens.
+- 5e68fa4: TrueFoundry-mode `/api/v1/auth/login` redirects to `PUBLIC_BASE_URL` origin + caller `return_to` (platform `/signin/external?redirectPath=…`).
+- 1c16780: TrueFoundry MCP: live SFY auth status on single-server GET and mid-turn authorize gating for every auth mode.
+- 44f9cbe: TrueFoundry mode: env-backed Daytona | truefoundry sandbox via TRUEFOUNDRY_SANDBOX_* (static SETTINGS JSON). Settings OpenAPI stays Daytona-only (`SandboxProviderManifest`); truefoundry is store-internal (`StoredSandboxProviderManifest`).
+- Updated dependencies [db37b6e]
+- Updated dependencies [762ecc0]
+- Updated dependencies [648273b]
+- Updated dependencies [fc38f74]
+- Updated dependencies [648273b]
+- Updated dependencies [648273b]
+- Updated dependencies [4111287]
+- Updated dependencies [74eae6c]
+- Updated dependencies [a36ffaf]
+- Updated dependencies [44f9cbe]
+- Updated dependencies [afe816e]
+- Updated dependencies [a5f220f]
+  - @truefoundry/trueforge-core@0.2.0-rc.3
+  - @truefoundry/trueforge-sdk@0.2.0-rc.3
+
 ## 0.2.0-rc.2
 
 ### Patch Changes

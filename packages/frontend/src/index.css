@@ -48,7 +48,25 @@ body {
   display: grid;
   place-items: center;
   padding: 2rem;
+  /* Match ThemeProvider mode so ThinkingOrb ink stays visible (body stays white). */
   color: var(--text-secondary, #71717a);
+  background: var(--primary-bg, #fff);
+}
+
+.boot-spinner {
+  box-sizing: border-box;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0.125rem solid color-mix(in oklab, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: boot-spin 0.7s linear infinite;
+}
+
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .boot-screen[data-error='true'] {

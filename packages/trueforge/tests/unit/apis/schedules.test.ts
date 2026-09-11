@@ -1,6 +1,12 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
-import { createSchedulesRouter } from '../../../src/apis/schedules';
+import {
+  AgentSpecSchema,
+  InMemorySessionStore,
+  Sessions,
+  type TurnStreamingEvent,
+} from '@truefoundry/trueforge-core/agent-session';
+import winston from 'winston';
+import { createScheduleExecutionRouter, createSchedulesRouter } from '../../../src/apis/schedules';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
@@ -8,20 +14,25 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteScheduleStore } from '../../../src/db/sqlite/schedule-store/SqliteScheduleStore';
+import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import {
   CreateScheduleRunResponseSchema,
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
 } from '../../../src/schemas/schedule';
 
-jest.mock('../../../src/controller/scheduleDispatch', () => ({
-  ...jest.requireActual<typeof import('../../../src/controller/scheduleDispatch')>(
+jest.mock('../../../src/controller/scheduleDispatch', () => {
+  const actual = jest.requireActual<typeof import('../../../src/controller/scheduleDispatch')>(
     '../../../src/controller/scheduleDispatch',
-  ),
-  startScheduleRun: jest.fn().mockResolvedValue(undefined),
-}));
+  );
+  return {
+    ...actual,
+    startScheduleRun: jest.fn().mockResolvedValue(undefined),
+  };
+});
 
-const mockedStartScheduleRun = jest.mocked(startScheduleRun);
+const mockedStartScheduleRun = startScheduleRun as jest.MockedFunction<typeof startScheduleRun>;
 
 const ALICE: RequestContext = {
   tenant_id: 'default',
@@ -48,6 +59,22 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
+function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: SqliteScheduleStore) {
+  const sessionStore = new InMemorySessionStore();
+  return {
+    scheduleStore,
+    sessions: new Sessions({ sessionStore }),
+    agentStore,
+    activeTurns: new ActiveTurnRegistry(),
+    eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
+    logger: winston.createLogger({ silent: true }),
+    resolveModelProviderStore: () => ({}) as never,
+    resolveMcpServerStore: () => ({}) as never,
+    turnSkillsResolverStore: { resolveTurnSkills: async () => [] },
+    resolveSandboxProviderStore: () => ({}) as never,
+  };
+}
+
 async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
@@ -68,30 +95,20 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
 
   let current: RequestContext = ALICE;
   let currentAuthorizer = authorizer;
+  mockedStartScheduleRun.mockReset();
+  mockedStartScheduleRun.mockResolvedValue(undefined);
   const app = new OpenAPIHono();
   app.route(
     '/',
     createSchedulesRouter({
-      scheduleStore,
+      ...stubTurnExecutionDeps(agentStore, scheduleStore),
       resolveAgentStore: () => agentStore,
-      sessions: {
-        getOrCreateByExternalId: () => Promise.reject(new Error('sessions stub: unexpected call')),
-      } as never,
-      resolveTurnDeps: () => ({
-        activeTurns: {} as never,
-        eventSubscriptions: {} as never,
-        modelProviderStore: {} as never,
-        mcpServerStore: {} as never,
-        skillStore: {} as never,
-        agentStore,
-        sandboxProviderStore: {} as never,
-        logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() } as never,
-      }),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
       authorizer: {
         listAgentAccess: input => currentAuthorizer.listAgentAccess(input),
         canAccessAgent: input => currentAuthorizer.canAccessAgent(input),
+        getPermissions: input => currentAuthorizer.getPermissions(input),
       },
     }),
   );
@@ -143,10 +160,19 @@ describe('schedule RBAC', () => {
     expect(ListSchedulesResponseSchema.parse(await aliceList.json()).data).toHaveLength(1);
     const aliceRuns = await app.request(`/${id}/runs`);
     expect(aliceRuns.status).toBe(200);
-    expect(ListScheduleRunsResponseSchema.parse(await aliceRuns.json()).data).toEqual([
-      expect.objectContaining({ schedule_id: id }),
-    ]);
+    const aliceRunsBody = ListScheduleRunsResponseSchema.parse(await aliceRuns.json());
+    expect(aliceRunsBody.data).toEqual([expect.objectContaining({ schedule_id: id })]);
+    expect(aliceRunsBody.pagination.next_page_token).toBeUndefined();
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
+  });
+
+  it('rejects an invalid page_token when listing runs', async () => {
+    const { app, asUser, postJson } = await setup();
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id } = ((await created.json()) as { data: { id: string } }).data;
+    const res = await app.request(`/${id}/runs?page_token=not-a-token`);
+    expect(res.status).toBe(400);
   });
 
   it('does not leak existence: a missing schedule is 404, not 403', async () => {
@@ -189,6 +215,7 @@ describe('schedule RBAC', () => {
             : { kind: 'agent_external_ids', agent_external_ids: [] },
         ),
       canAccessAgent: () => Promise.resolve(false),
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     });
     asUser(BOB);
     expect((await app.request(`/${id}`)).status).toBe(200);
@@ -268,11 +295,6 @@ describe('schedule list agent_names filter', () => {
 });
 
 describe('create schedule run', () => {
-  beforeEach(() => {
-    mockedStartScheduleRun.mockReset();
-    mockedStartScheduleRun.mockResolvedValue(undefined);
-  });
-
   it('creates a triggered run with a manual-* name and leaves the cron pending run alone', async () => {
     const { asUser, postJson, scheduleStore } = await setup();
 
@@ -303,10 +325,7 @@ describe('create schedule run', () => {
 
     expect(mockedStartScheduleRun).toHaveBeenCalledWith(
       expect.objectContaining({
-        item: expect.objectContaining({
-          run: expect.objectContaining({ id: body.data.id }),
-          schedule: expect.objectContaining({ id: scheduleId }),
-        }),
+        item: expect.objectContaining({ run: expect.objectContaining({ id: body.data.id }) }),
       }),
     );
 
@@ -314,8 +333,13 @@ describe('create schedule run', () => {
     expect(pendingAfter?.id).toBe(pendingBefore?.id);
     expect(pendingAfter?.status).toBe('scheduled');
 
-    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
-    expect(runs.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(runs.data.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
   });
 
   it('does not let an OIDC settings admin trigger another creator schedule', async () => {
@@ -332,8 +356,8 @@ describe('create schedule run', () => {
   });
 
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {
-    mockedStartScheduleRun.mockRejectedValue(new ScheduleAgentNotFoundError('reporter'));
     const { asUser, postJson, scheduleStore } = await setup();
+    mockedStartScheduleRun.mockRejectedValue(new ScheduleAgentNotFoundError('reporter'));
 
     asUser(ALICE);
     const created = await postJson('/', 'POST', scheduleBody);
@@ -343,8 +367,13 @@ describe('create schedule run', () => {
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
 
-    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
-    const runNow = runs.find(r => r.name.startsWith('manual-'));
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    const runNow = runs.data.find(r => r.name.startsWith('manual-'));
     expect(runNow?.status).toBe('failed');
     expect(runNow?.reason).toBe('Agent not found: reporter');
   });
@@ -354,6 +383,7 @@ describe('create schedule run', () => {
     const denyAll: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     };
     const { postJson } = await setup(denyAll);
     const res = await postJson('/', 'POST', scheduleBody);
@@ -373,6 +403,7 @@ describe('create schedule run', () => {
     setAuthorizer({
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
+      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
     });
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
@@ -380,8 +411,92 @@ describe('create schedule run', () => {
     expect(((await res.json()) as { error: { message: string } }).error.message).toBe('Agent not found: reporter');
     expect(mockedStartScheduleRun).not.toHaveBeenCalled();
 
-    const runs = await scheduleStore.listRuns({ tenant_id: 'default', schedule_id: scheduleId });
-    expect(runs.some(r => r.name.startsWith('manual-'))).toBe(false);
+    const runs = await scheduleStore.listRuns({
+      tenant_id: 'default',
+      schedule_id: scheduleId,
+      limit: 25,
+      page_token: undefined,
+    });
+    expect(runs.data.some(r => r.name.startsWith('manual-'))).toBe(false);
     expect(canAccessAgent.mock.calls.map(([input]) => input.action)).toEqual(['use']);
+  });
+});
+
+describe('internal schedule execution', () => {
+  it('executes the persisted run id', async () => {
+    mockedStartScheduleRun.mockReset();
+    mockedStartScheduleRun.mockResolvedValue(undefined);
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const agentStore = new SqliteAgentStore(db);
+    const scheduleStore = new SqliteScheduleStore(db);
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: 'alice',
+        subject_type: 'user',
+        subject_display_name: 'alice',
+      },
+      name: 'reporter',
+      manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
+      external_id: 'reporter-external-id',
+    });
+    const { schedule } = await scheduleStore.createScheduleAndRun({
+      tenant_id: 'default',
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'daily-report',
+      manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC', status: 'active' },
+      created_by_subject: {
+        subject_id: 'alice',
+        subject_type: 'user',
+        subject_display_name: 'alice',
+      },
+      runFrom: new Date(),
+    });
+    const run = await scheduleStore.createRun({
+      tenant_id: 'default',
+      schedule_id: schedule.id,
+      name: 'manual-test',
+      scheduled_for: new Date(),
+      status: 'triggered',
+      created_by_subject: {
+        subject_id: 'alice',
+        subject_type: 'user',
+        subject_display_name: 'alice',
+      },
+      triggered_at: new Date(),
+    });
+    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+
+    const response = await app.request('/runs/execute', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ schedule_run_id: run.id }),
+    });
+
+    expect(response.status).toBe(204);
+    expect(mockedStartScheduleRun).toHaveBeenCalledWith(
+      expect.objectContaining({ item: expect.objectContaining({ run: expect.objectContaining({ id: run.id }) }) }),
+    );
+  });
+
+  it('maps an unknown run to 404', async () => {
+    mockedStartScheduleRun.mockReset();
+    mockedStartScheduleRun.mockResolvedValue(undefined);
+    const db = createSqliteDb(':memory:');
+    await migrateSqliteToLatest(db);
+    const agentStore = new SqliteAgentStore(db);
+    const scheduleStore = new SqliteScheduleStore(db);
+    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+
+    const response = await app.request('/runs/execute', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ schedule_run_id: 'missing' }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
   });
 });

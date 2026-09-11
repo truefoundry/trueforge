@@ -2,10 +2,7 @@
 import { z } from '@hono/zod-openapi';
 
 export const AuthLoginQuerySchema = z.object({
-  return_to: z
-    .string()
-    .optional()
-    .describe('Path to return to after login. Must be a same-origin relative path; anything else falls back to "/".'),
+  return_to: z.string().optional().describe('Same-origin path to land on after authentication.'),
 });
 
 export const OAuthCallbackQuerySchema = z.object({

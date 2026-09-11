@@ -10,6 +10,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { Configuration } from 'openid-client';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
+import { createAgentImportRouter } from './apis/agentImport';
 import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
@@ -17,21 +18,27 @@ import { createCatalogRouter } from './apis/catalog';
 import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
-import { createSchedulesRouter } from './apis/schedules';
+import { createPermissionsRouter } from './apis/permissions';
+import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
-import { createAvailableSkillsRouter } from './apis/skills';
+import { createAvailableSkillsRouter, type ResolveSkillStore } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
-import { createAdminAuthMiddleware, createAuthMiddleware } from './auth/middleware';
+import {
+  createAdminAuthMiddleware,
+  createApiKeyAuthMiddleware,
+  createAuthMiddleware,
+  truefoundryAdminMiddleware,
+} from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
-import configuration, { getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
+import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
@@ -145,15 +152,18 @@ export function registerOpenApiBearerAuth(app: OpenAPIHono): void {
 /**
  * Single source for both the served document and the one the SDK is built from.
  * When `authEnabled`, advertises required Bearer auth on operations that inherit global security.
+ * `serverUrl` is the public prefix for Try it out (e.g. `/custom/proxy/path`); omit for the SDK spec.
  */
-export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean }) {
+export function buildOpenApiDocument(app: OpenAPIHono, options?: { authEnabled?: boolean; serverUrl?: string }) {
   const authEnabled = options?.authEnabled ?? false;
   if (authEnabled) {
     registerOpenApiBearerAuth(app);
   }
+  const serverUrl = options?.serverUrl;
   return app.getOpenAPI31Document({
     ...openApiDocConfig,
     ...(authEnabled ? { security: [{ [BEARER_AUTH_SCHEME]: [] }] } : {}),
+    ...(serverUrl !== undefined && serverUrl !== '' ? { servers: [{ url: serverUrl }] } : {}),
   });
 }
 
@@ -175,17 +185,24 @@ export interface ServerDeps<TTransaction> {
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  /** Import agents: store with SF client constructor assume-user headers (DB store when TrueFoundry mode is off). */
+  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   /**
-   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode
-   * (env + settings-server Daytona).
+   * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
+   * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
+  resolveSkillStore: ResolveSkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
-  skillStore: ISkillStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessionStore: ISessionStore;
   sessionMetricsStore: ISessionMetricsStore;
+  /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
+  agentStore: IAgentStore<TTransaction>;
+  /** Resolve turn skills - persistence store or TrueFoundry resolve with Service API key (schedule runs do have any caller token). */
+  turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
@@ -207,7 +224,20 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
+  const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
   const authEnabled = getTrueForgeAuthMode() !== TrueForgeAuthMode.Standalone;
+  const scheduleTurnDeps = {
+    scheduleStore: deps.scheduleStore,
+    sessions: deps.sessions,
+    agentStore: deps.agentStore,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    activeTurns: deps.activeTurns,
+    turnSkillsResolverStore: deps.turnSkillsResolverStore,
+  };
 
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
@@ -289,7 +319,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/skills',
     withAuth(
       createAvailableSkillsRouter({
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
@@ -303,7 +333,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
@@ -313,22 +343,15 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
+    '/api/internal/schedules',
+    withAuth(createScheduleExecutionRouter(scheduleTurnDeps), scheduleExecutionAuthMiddleware),
+  );
+  app.route(
     '/api/v1/schedules',
     withAuth(
       createSchedulesRouter({
-        scheduleStore: deps.scheduleStore,
+        ...scheduleTurnDeps,
         resolveAgentStore: deps.resolveAgentStore,
-        sessions: deps.sessions,
-        resolveTurnDeps: (c, runAsAgent) => ({
-          activeTurns: deps.activeTurns,
-          eventSubscriptions: deps.eventSubscriptions,
-          modelProviderStore: deps.resolveModelProviderStore(c, runAsAgent),
-          mcpServerStore: deps.resolveMcpServerStore(c, runAsAgent),
-          skillStore: deps.skillStore,
-          agentStore: deps.resolveAgentStore(c),
-          sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-          logger: deps.logger,
-        }),
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -343,7 +366,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -353,13 +376,23 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
+    '/api/internal/import',
+    withAuth(
+      createAgentImportRouter({
+        sessionStore: deps.sessionStore,
+        resolveImportAgentStore: deps.resolveImportAgentStore,
+      }),
+      truefoundryAdminMiddleware,
+    ),
+  );
+  app.route(
     '/api/internal/sessions',
     withAuth(
       createInternalSessionsRouter({
         sessions: deps.sessions,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         resolveRequestContext,
@@ -381,6 +414,19 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
+    '/api/internal',
+    withAuth(
+      createPermissionsRouter({
+        authorizer: deps.authorizer,
+        resolveAgentStore: deps.resolveAgentStore,
+        scheduleStore: deps.scheduleStore,
+        sessionStore: deps.sessionStore,
+        resolveRequestContext,
+      }),
+      authMiddleware,
+    ),
+  );
+  app.route(
     '/api/v1/sessions',
     withAuth(
       createSessionsRouter({
@@ -389,7 +435,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         redis: deps.redis,
@@ -410,7 +456,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        skillStore: deps.skillStore,
+        resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
@@ -422,8 +468,18 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
 
-  app.get('/api/v1/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
-  app.get('/api/v1/openapi.json', c => c.json(buildOpenApiDocument(app, { authEnabled })));
+  const uiBasePath = getPublicUiBasePath();
+  const openApiSpecPath = `${uiBasePath}api/v1/openapi.json`;
+  const openApiServerUrl = uiBasePath === '/' ? undefined : uiBasePath.replace(/\/$/, '');
+  app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
+  app.get('/api/v1/openapi.json', c =>
+    c.json(
+      buildOpenApiDocument(app, {
+        authEnabled,
+        ...(openApiServerUrl === undefined ? {} : { serverUrl: openApiServerUrl }),
+      }),
+    ),
+  );
 
   app.notFound(routeNotFound);
 

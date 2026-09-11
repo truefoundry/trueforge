@@ -83,7 +83,49 @@ describe('PopoverSelect', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Timezone' }));
 
-    expect(screen.getByRole('listbox').className).toContain('bottom-full');
-    expect(screen.getByRole('listbox').className).toContain('mb-1');
+    const menu = screen.getByRole('listbox').parentElement;
+    expect(menu).toHaveClass('fixed');
+    expect(menu).toHaveStyle({ transform: 'translateY(-100%)' });
+  });
+
+  it('portals the menu so overflow parents do not clip it', () => {
+    render(
+      <div style={{ overflow: 'hidden', height: 40 }}>
+        <PopoverSelect
+          aria-label="Rows per page"
+          options={[
+            { value: '10', label: '10' },
+            { value: '25', label: '25' },
+          ]}
+          value="25"
+          onValueChange={() => undefined}
+        />
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
+
+    const listbox = screen.getByRole('listbox');
+    expect(listbox.parentElement).toHaveClass('fixed');
+    expect(listbox.closest('[style*="overflow"]')).toBeNull();
+  });
+
+  it('keeps a portaled full-width menu matched to its trigger', () => {
+    render(
+      <PopoverSelect
+        aria-label="Timezone"
+        className="w-full"
+        menuClassName="w-full min-w-0"
+        options={[{ value: 'UTC', label: 'UTC' }]}
+        value="UTC"
+        onValueChange={() => undefined}
+      />,
+    );
+    const trigger = screen.getByRole('button', { name: 'Timezone' });
+    trigger.getBoundingClientRect = () => new DOMRect(12, 20, 240, 32);
+
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole('listbox').parentElement).toHaveStyle({ width: '240px' });
   });
 });

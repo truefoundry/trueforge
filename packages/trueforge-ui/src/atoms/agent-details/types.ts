@@ -50,6 +50,8 @@ export type AgentSessionDetailHeaderProps = {
   onResume?: () => void;
   /** Label for the resume action. */
   resumeLabel?: string;
+  /** Whether the current user may resume this session. */
+  canResume?: boolean;
 };
 
 export type AgentSessionTurnHeaderProps = {
@@ -95,11 +97,23 @@ export type AgentDetailsTabsProps = {
   activeTab: AgentDetailsTab;
   onTabChange: (tab: AgentDetailsTab) => void;
   showMetrics?: boolean;
+  showSchedules?: boolean;
+  end?: ReactNode;
 };
 
 export type AgentMetricsProps = {
   agentId: string;
-};
+  showTimeRangeFilter?: boolean;
+} & (
+  | {
+      timeRange: SessionTimeRange;
+      onTimeRangeChange: (range: SessionTimeRange) => void;
+    }
+  | {
+      timeRange?: undefined;
+      onTimeRangeChange?: undefined;
+    }
+);
 
 export type AgentMetricChartResult = {
   definition: AgentMetricChartDefinition;
@@ -115,6 +129,11 @@ export type AgentMetricsViewProps = {
   chartsError?: string;
   timeRange: SessionTimeRange;
   onTimeRangeChange: (range: SessionTimeRange) => void;
+  showTimeRangeFilter?: boolean;
+};
+
+export type AgentMetricStatisticsProps = {
+  meters: AgentMetricMeter[];
 };
 
 export type AgentMetricsTimeRangeFilterProps = {
@@ -130,6 +149,7 @@ export type AgentMetricChartProps = {
   graph?: AgentMetricGraph;
   definition: AgentMetricChartDefinition;
   error?: string;
+  colorIndex?: number;
 };
 
 export type AgentOverviewProps = {

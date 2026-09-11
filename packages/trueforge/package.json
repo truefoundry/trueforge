@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.5",
   "description": "TrueForge Agent Harness: server, HTTP API, and chat UI (npx @truefoundry/trueforge)",
   "author": "TrueFoundry",
   "license": "MIT",
@@ -74,7 +74,6 @@
     "hono": "^4.13.5",
     "jose": "^6.2.10",
     "kysely": "^0.29.5",
-    "lru-cache": "^11.5.2",
     "openid-client": "^6.8.7",
     "pg": "^8.23.0",
     "redis": "^5.12.1",

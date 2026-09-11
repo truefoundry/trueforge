@@ -98,7 +98,7 @@
         "additionalProperties": false,
         "properties": {
           "base_url": {
-            "description": "Origin to pass as the TrueForge SDK `baseUrl`.",
+            "description": "Public base URL for the TrueForge SDK `baseUrl`.",
             "format": "uri",
             "type": "string"
           },
@@ -193,10 +193,11 @@
             "$ref": "#/components/schemas/ResponseFormat"
           },
           "skills": {
-            "description": "Optional name-only skill references. Requires `config.sandbox.enabled: true`.",
+            "description": "Skills used in this agent.",
             "items": {
               "$ref": "#/components/schemas/Skill"
             },
+            "maxItems": 50,
             "type": "array"
           }
         },
@@ -411,8 +412,17 @@
             "minLength": 1,
             "type": "string"
           },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Optional skill metadata.",
+            "type": "object"
+          },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "description": "Skill name.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -656,7 +666,7 @@
             "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/SkillType"
+            "$ref": "#/components/schemas/CatalogSkillType"
           },
           "url": {
             "description": "Full HTTPS URL of a GitHub or GitLab repository.",
@@ -673,6 +683,12 @@
           "description"
         ],
         "type": "object"
+      },
+      "CatalogSkillType": {
+        "enum": [
+          "git"
+        ],
+        "type": "string"
       },
       "CatalogWellKnownModelProvider": {
         "additionalProperties": false,
@@ -934,7 +950,8 @@
             "$ref": "#/components/schemas/SkillManifest"
           },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -1211,6 +1228,21 @@
         },
         "type": "object"
       },
+      "ExecuteScheduleRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "schedule_run_id": {
+            "description": "Immutable schedule run identifier.",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_run_id"
+        ],
+        "type": "object"
+      },
       "ExtendedChunkDeltaToolCall": {
         "allOf": [
           {
@@ -1328,6 +1360,17 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Agent"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetAvailableMCPServerResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AvailableMCPServer"
           }
         },
         "required": [
@@ -1567,6 +1610,51 @@
         ],
         "type": "object"
       },
+      "GitSkill": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "path": {
+            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Git ref — branch name, tag, or commit SHA.",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._\\-/]+$",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "git"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
+            "minLength": 1,
+            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "ref",
+          "description"
+        ],
+        "type": "object"
+      },
       "GoogleGeminiModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -1598,6 +1686,382 @@
           "auth",
           "models",
           "type"
+        ],
+        "type": "object"
+      },
+      "ImportAgentItem": {
+        "additionalProperties": false,
+        "properties": {
+          "created_by_subject": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreatedBySubject"
+              },
+              {
+                "description": "Original creator to persist on the agent."
+              }
+            ]
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/AgentSpec"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "tenant_id": {
+            "description": "Tenant to create the agent under.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "manifest",
+          "tenant_id",
+          "created_by_subject"
+        ],
+        "type": "object"
+      },
+      "ImportAgentItemResult": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "exists",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "tenant_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "tenant_id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "ImportAgentsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "description": "Agents to create; each carries tenant_id and created_by_subject.",
+            "items": {
+              "$ref": "#/components/schemas/ImportAgentItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "agents"
+        ],
+        "type": "object"
+      },
+      "ImportAgentsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportAgentsResult"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ImportAgentsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ImportAgentItemResult"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "ImportSessionEvent": {
+        "additionalProperties": {},
+        "properties": {
+          "created_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ImportSessionRequest": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/ImportSessionSnapshot"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionTurn"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "session",
+          "turns"
+        ],
+        "type": "object"
+      },
+      "ImportSessionResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ImportSessionResult"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ImportSessionResult": {
+        "properties": {
+          "imported": {
+            "type": "boolean"
+          },
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "imported",
+          "session_id"
+        ],
+        "type": "object"
+      },
+      "ImportSessionSnapshot": {
+        "additionalProperties": {},
+        "properties": {
+          "agent_id": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agent_name": {
+            "minLength": 1,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "agent_spec": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "created_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "custom": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "last_activity_timestamp_ms": {
+            "type": "number"
+          },
+          "last_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "session_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "tenant_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "tenant_id",
+          "created_by_subject",
+          "title",
+          "last_turn_id",
+          "custom",
+          "last_activity_timestamp_ms",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ImportSessionThread": {
+        "additionalProperties": {},
+        "properties": {
+          "agent_info": {},
+          "capability_state": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "completion": {},
+          "context": {
+            "items": {},
+            "type": "array"
+          },
+          "current_context_usage": {},
+          "parent": {},
+          "thread_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "thread_id",
+          "context",
+          "capability_state"
+        ],
+        "type": "object"
+      },
+      "ImportSessionTurn": {
+        "additionalProperties": {},
+        "properties": {
+          "ancestor_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "checkpoint": {},
+          "created_at": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "custom": {
+            "additionalProperties": {},
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionEvent"
+            },
+            "type": "array"
+          },
+          "first_turn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "input": {
+            "items": {},
+            "type": "array"
+          },
+          "previous_turn_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {},
+          "threads": {
+            "items": {
+              "$ref": "#/components/schemas/ImportSessionThread"
+            },
+            "type": "array"
+          },
+          "turn_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "updated_at": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "first_turn_id",
+          "previous_turn_id",
+          "ancestor_ids",
+          "input",
+          "custom",
+          "created_at",
+          "updated_at",
+          "threads",
+          "events"
+        ],
+        "type": "object"
+      },
+      "ImportSessionsCheckpointResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "properties": {
+              "created_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "created_at"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -1678,14 +2142,10 @@
               "$ref": "#/components/schemas/AvailableMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1740,14 +2200,10 @@
               "$ref": "#/components/schemas/ConfiguredMCPServer"
             },
             "type": "array"
-          },
-          "pagination": {
-            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data",
-          "pagination"
+          "data"
         ],
         "type": "object"
       },
@@ -1765,6 +2221,45 @@
         ],
         "type": "object"
       },
+      "ListPermissionsRequest": {
+        "properties": {
+          "resource_ids": {
+            "description": "Resource ids of `resource_type` to evaluate for the caller.",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "resource_type": {
+            "$ref": "#/components/schemas/PermissionResourceType"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_ids"
+        ],
+        "type": "object"
+      },
+      "ListPermissionsResponse": {
+        "properties": {
+          "data": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ResourcePermission"
+              },
+              "type": "array"
+            },
+            "description": "Permissions granted to the caller, keyed by resource id. Missing or inaccessible ids are `[]`.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListScheduleRunsResponse": {
         "properties": {
           "data": {
@@ -1772,10 +2267,14 @@
               "$ref": "#/components/schemas/ScheduleRun"
             },
             "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
           }
         },
         "required": [
-          "data"
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -1839,6 +2338,20 @@
         "required": [
           "data",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "ListSkillVersionsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SkillVersion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -2766,6 +3279,15 @@
         ],
         "type": "object"
       },
+      "PermissionResourceType": {
+        "description": "Resource type to evaluate permissions for.",
+        "enum": [
+          "agent",
+          "schedule",
+          "session"
+        ],
+        "type": "string"
+      },
       "PreviousTurnIdInput": {
         "anyOf": [
           {
@@ -2858,6 +3380,15 @@
         "maxLength": 64,
         "minLength": 2,
         "pattern": "^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$",
+        "type": "string"
+      },
+      "ResourcePermission": {
+        "description": "Granted action on a resource.",
+        "enum": [
+          "USE",
+          "MANAGE",
+          "DELETE"
+        ],
         "type": "string"
       },
       "ResponseFormat": {
@@ -3798,11 +4329,15 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "Name of a configured skill (also used as the skill directory name in the sandbox).",
-            "maxLength": 64,
+            "description": "Skill name.",
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9._-]+$",
+            "pattern": "^[A-Za-z0-9._\\-/:]+$",
             "type": "string"
+          },
+          "preload": {
+            "default": false,
+            "description": "Inline SKILL.md into the prompt.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -3827,6 +4362,23 @@
         "type": "object"
       },
       "SkillManifest": {
+        "discriminator": {
+          "mapping": {
+            "git": "#/components/schemas/GitSkill",
+            "truefoundry": "#/components/schemas/TrueFoundryRegistrySkill"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GitSkill"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryRegistrySkill"
+          }
+        ]
+      },
+      "SkillVersion": {
         "additionalProperties": false,
         "properties": {
           "description": {
@@ -3834,45 +4386,26 @@
             "minLength": 1,
             "type": "string"
           },
+          "display_name": {
+            "minLength": 1,
+            "type": "string"
+          },
           "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "path": {
-            "description": "Path to the skill directory within the repository. Omit to use the repository root.",
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9._\\-/]+$",
             "type": "string"
           },
-          "ref": {
-            "description": "Git ref — branch name, tag, or commit SHA.",
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9._\\-/]+$",
-            "type": "string"
-          },
-          "type": {
-            "$ref": "#/components/schemas/SkillType"
-          },
-          "url": {
-            "description": "Full HTTPS URL of a GitHub or GitLab repository.",
-            "minLength": 1,
-            "pattern": "^https:\\/\\/(github\\.com\\/[A-Za-z0-9._-]+\\/[A-Za-z0-9._-]+|gitlab\\.com\\/[A-Za-z0-9._-]+(?:\\/[A-Za-z0-9._-]+)+)(\\/|\\.git)?$",
-            "type": "string"
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
           }
         },
         "required": [
-          "type",
           "name",
-          "url",
-          "ref",
-          "description"
+          "display_name",
+          "description",
+          "version"
         ],
         "type": "object"
-      },
-      "SkillType": {
-        "enum": [
-          "git"
-        ],
-        "type": "string"
       },
       "TextContent": {
         "properties": {
@@ -4290,6 +4823,48 @@
           "models",
           "type",
           "base_url"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryRegistrySkill": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Concise guidance for when the agent should use the skill.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "display_name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "repository_name": {
+            "description": "Repo where the skill is registered.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "display_name",
+          "description",
+          "repository_name",
+          "version"
         ],
         "type": "object"
       },
@@ -4994,10 +5569,224 @@
   "info": {
     "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.2.0-rc.2"
+    "version": "0.2.0-rc.4"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/internal/import/agents": {
+      "post": {
+        "description": "Ops/backfill only. Per-item created | exists | failed.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportAgentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportAgentsResponse"
+                }
+              }
+            },
+            "description": "Per-agent create results."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid body."
+          }
+        },
+        "summary": "Import agents in bulk (create)",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/internal/import/checkpoint": {
+      "get": {
+        "description": "Min created_at among imported sessions for one tenant (metadata.imported=true).",
+        "parameters": [
+          {
+            "description": "Tenant whose imported-session watermark to read.",
+            "in": "query",
+            "name": "tenant_id",
+            "required": true,
+            "schema": {
+              "description": "Tenant whose imported-session watermark to read.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionsCheckpointResponse"
+                }
+              }
+            },
+            "description": "Per-tenant checkpoint watermark."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error."
+          }
+        },
+        "summary": "Session import checkpoint",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/internal/import/sessions": {
+      "post": {
+        "description": "Ops/backfill only. Named sessions link agent_name to a local agent when present; otherwise a dummy agent_id. Drafts use agent_spec (SF name/id stashed in metadata when both present). 409 if session_id exists.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionResponse"
+                }
+              }
+            },
+            "description": "Imported."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid body or non-importable session (e.g. missing agent_id for unresolved named agent)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportSessionResponse"
+                }
+              }
+            },
+            "description": "Session already exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Internal server error."
+          }
+        },
+        "summary": "Import one historical session snapshot",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-ignore": true
+      }
+    },
+    "/api/internal/list-permissions": {
+      "post": {
+        "description": "Return granted actions for each requested agent, schedule, or session id.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListPermissionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPermissionsResponse"
+                }
+              }
+            },
+            "description": "Permissions keyed by resource id."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Bearer token or auth cookie"
+          }
+        },
+        "summary": "List permissions for resources",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal"
+        ],
+        "x-fern-sdk-method-name": "list_permissions"
+      }
+    },
     "/api/internal/metrics/charts": {
       "get": {
         "description": "List available session metric charts.",
@@ -5175,6 +5964,65 @@
           "metrics"
         ],
         "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/schedules/runs/execute": {
+      "post": {
+        "description": "Execute a persisted schedule run using its saved schedule and agent.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteScheduleRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Run executed or already has a turn."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Run, schedule, or agent not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The run cannot be executed."
+          }
+        },
+        "summary": "Execute a schedule run",
+        "tags": [
+          "Internal"
+        ],
+        "x-fern-sdk-group-name": [
+          "internal",
+          "schedules"
+        ],
+        "x-fern-sdk-method-name": "execute_run"
       }
     },
     "/api/internal/sessions/get-or-create-by-external-id": {
@@ -5559,6 +6407,17 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.",
+            "in": "query",
+            "name": "base_url",
+            "required": false,
+            "schema": {
+              "description": "Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.",
+              "format": "uri",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5570,7 +6429,7 @@
                 }
               }
             },
-            "description": "TypeScript SDK samples and the origin to use as `baseUrl`."
+            "description": "TypeScript SDK samples."
           },
           "404": {
             "content": {
@@ -5657,22 +6516,22 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "Redirects the browser to the configured identity provider. In local/single-binary mode, redirects straight back into the app — there is nothing to log into.",
+        "description": "Redirects the browser to begin authentication. Optional `return_to` is the same-origin path to land on afterward.",
         "parameters": [
           {
-            "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+            "description": "Same-origin path to land on after authentication.",
             "in": "query",
             "name": "return_to",
             "required": false,
             "schema": {
-              "description": "Path to return to after login. Must be a same-origin relative path; anything else falls back to \"/\".",
+              "description": "Same-origin path to land on after authentication.",
               "type": "string"
             }
           }
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the IdP authorization endpoint."
+            "description": "Redirect to continue authentication."
           }
         },
         "summary": "Start the login flow",
@@ -5915,32 +6774,7 @@
     },
     "/api/v1/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers as a slim name/url list for the composer.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers as a slim name/url list for the composer.",
         "responses": {
           "200": {
             "content": {
@@ -5950,17 +6784,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers (chat projection)."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers (chat projection)."
           },
           "401": {
             "content": {
@@ -5977,11 +6801,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "mcpServers"
         ],
@@ -6088,6 +6907,64 @@
         ],
         "x-excluded": true,
         "x-fern-ignore": true
+      }
+    },
+    "/api/v1/mcp-servers/{name}": {
+      "get": {
+        "description": "A single MCP server as the slim chat projection, with live per-user auth_status.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetAvailableMCPServerResponse"
+                }
+              }
+            },
+            "description": "The MCP server (chat projection)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          }
+        },
+        "summary": "Get an MCP server for chat",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "get"
       }
     },
     "/api/v1/mcp-servers/{name}/authorize": {
@@ -6808,6 +7685,29 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Page size. Defaults to 25",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6819,7 +7719,17 @@
                 }
               }
             },
-            "description": "Runs of the schedule."
+            "description": "Paginated runs of the schedule."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
           },
           "403": {
             "content": {
@@ -6846,6 +7756,11 @@
         "tags": [
           "Schedules"
         ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
         "x-fern-sdk-group-name": [
           "schedules"
         ],
@@ -8095,32 +9010,7 @@
     },
     "/api/v1/settings/mcp-servers": {
       "get": {
-        "description": "Paginated MCP servers with auth_status. Header secrets are redacted.",
-        "parameters": [
-          {
-            "description": "Page size. Defaults to 100, max 200.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 100,
-              "description": "Page size. Defaults to 100, max 200.",
-              "maximum": 200,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Opaque token from a previous response `next_page_token`.",
-            "in": "query",
-            "name": "page_token",
-            "required": false,
-            "schema": {
-              "description": "Opaque token from a previous response `next_page_token`.",
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Configured MCP servers with auth_status. Header secrets are redacted.",
         "responses": {
           "200": {
             "content": {
@@ -8130,17 +9020,7 @@
                 }
               }
             },
-            "description": "Paginated MCP servers"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RequestErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid query parameters or page token."
+            "description": "All configured MCP servers"
           },
           "401": {
             "content": {
@@ -8167,11 +9047,6 @@
         "tags": [
           "MCP Servers"
         ],
-        "x-fern-pagination": {
-          "cursor": "$request.page_token",
-          "next_cursor": "$response.pagination.next_page_token",
-          "results": "$response.data"
-        },
         "x-fern-sdk-group-name": [
           "settings",
           "mcpServers"
@@ -8707,6 +9582,16 @@
               }
             },
             "description": "A skill with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
           }
         },
         "summary": "Create a skill",
@@ -8751,6 +9636,16 @@
               }
             },
             "description": "Invalid request body."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
           }
         },
         "summary": "Create or replace a skill",
@@ -8797,6 +9692,54 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/skills/versions": {
+      "get": {
+        "description": "Versions for one skill.",
+        "parameters": [
+          {
+            "description": "Skill name.",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Skill name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSkillVersionsResponse"
+                }
+              }
+            },
+            "description": "Skill versions."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Authentication required."
+          }
+        },
+        "summary": "List skill versions",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "list_versions"
       }
     }
   },

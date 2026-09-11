@@ -46,12 +46,13 @@ describe('TrueFoundryChatProvider', () => {
     expect(screen.getByText('chat-child')).toBeInTheDocument();
     expect(runtimeSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        server,
         agentName: 'my-agent',
         initialSessionId: 'session-123',
+        listSessionsCreatedByMe: true,
         adapters: { attachments: defaultAttachmentAdapter },
       }),
     );
+    expect(runtimeSpy.mock.calls[0]?.[0]?.server).not.toBe(server);
     const forwardedOnError = runtimeSpy.mock.calls[0]?.[0]?.onError;
     expect(typeof forwardedOnError).toBe('function');
     expect(forwardedOnError).not.toBe(onError);
@@ -60,6 +61,68 @@ describe('TrueFoundryChatProvider', () => {
       forwardedOnError?.(new Error('createSession failed'));
     });
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it('filters create-agent sessions from runtime history', async () => {
+    const listSessions = vi.fn(async () => ({
+      data: [
+        {
+          id: 'chat-session',
+          title: 'Chat',
+          isMutable: true,
+          createdAt: '2026-09-09T00:00:00.000Z',
+          updatedAt: '2026-09-09T00:00:00.000Z',
+        },
+        {
+          id: 'builder-session',
+          title: 'Builder',
+          isMutable: true,
+          metadata: { is_create_agent: 'true' },
+          createdAt: '2026-09-09T00:00:00.000Z',
+          updatedAt: '2026-09-09T00:00:00.000Z',
+        },
+      ],
+      nextPageToken: 'next-page',
+    }));
+
+    render(
+      <TrueFoundryChatProvider server={createMockAgentUIServer({ listSessions })} agentName="my-agent">
+        <div>chat-child</div>
+      </TrueFoundryChatProvider>,
+    );
+
+    const runtimeServer = runtimeSpy.mock.calls[0]?.[0]?.server;
+    if (runtimeServer === undefined) {
+      throw new Error('Expected runtime server');
+    }
+    const result = await runtimeServer.listSessions();
+
+    expect(result.data.map(session => session.id)).toEqual(['chat-session']);
+    expect(result.nextPageToken).toBe('next-page');
+  });
+
+  it('wraps session creation used for local ownership tracking', async () => {
+    const createSession = vi.fn(async () => ({
+      id: 'new-session',
+      isMutable: false,
+      createdAt: '2026-09-10T00:00:00.000Z',
+      updatedAt: '2026-09-10T00:00:00.000Z',
+    }));
+    render(
+      <TrueFoundryChatProvider server={createMockAgentUIServer({ createSession })} agentName="my-agent">
+        <div>chat-child</div>
+      </TrueFoundryChatProvider>,
+    );
+    const runtimeServer = runtimeSpy.mock.calls[0]?.[0]?.server;
+    if (runtimeServer === undefined) throw new Error('Expected runtime server');
+
+    await expect(runtimeServer.createSession({ agentName: 'my-agent' })).resolves.toEqual({
+      id: 'new-session',
+      isMutable: false,
+      createdAt: '2026-09-10T00:00:00.000Z',
+      updatedAt: '2026-09-10T00:00:00.000Z',
+    });
+    expect(createSession).toHaveBeenCalledWith({ agentName: 'my-agent' });
   });
 
   it('forwards a discriminated agent configuration', () => {

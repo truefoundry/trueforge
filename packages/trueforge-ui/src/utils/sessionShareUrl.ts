@@ -9,8 +9,9 @@ export const SESSION_TIME_WINDOW_QUERY = 's_tw';
 export const SESSION_TIME_BUFFER_MS = 5 * 60 * 1000;
 export const SESSION_CUSTOM_RANGE_MAX_DAYS = 70;
 export const DEFAULT_SESSION_TIME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+export const DEFAULT_METRICS_TIME_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export type LibraryAgentTab = 'overview' | 'sessions' | 'code' | 'metrics';
+export type LibraryAgentTab = 'overview' | 'sessions' | 'schedules' | 'code' | 'metrics';
 
 export type SessionTimeRange = {
   startTs: number;
@@ -35,7 +36,15 @@ export type SessionShareWrite = {
 };
 
 function parseLibraryAgentTab(value: string | null): LibraryAgentTab | null {
-  if (value === 'overview' || value === 'sessions' || value === 'code' || value === 'metrics') return value;
+  if (
+    value === 'overview' ||
+    value === 'sessions' ||
+    value === 'schedules' ||
+    value === 'code' ||
+    value === 'metrics'
+  ) {
+    return value;
+  }
   return null;
 }
 
@@ -54,6 +63,14 @@ export function defaultSessionTimeRange(now = Date.now()): SessionTimeRange {
     startTs: now - DEFAULT_SESSION_TIME_WINDOW_MS,
     endTs: now,
     timeWindowMs: DEFAULT_SESSION_TIME_WINDOW_MS,
+  };
+}
+
+export function defaultMetricsTimeRange(now = Date.now()): SessionTimeRange {
+  return {
+    startTs: now - DEFAULT_METRICS_TIME_WINDOW_MS,
+    endTs: now,
+    timeWindowMs: DEFAULT_METRICS_TIME_WINDOW_MS,
   };
 }
 

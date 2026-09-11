@@ -1,3 +1,10 @@
+import {
+  AgentSpecSchema,
+  type AgentSpec,
+  type SessionMetadata,
+  type TurnInputItem,
+  type TurnState,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type { TurnRecord } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforge-core/agent-session/schemas/events';
@@ -10,6 +17,7 @@ import type {
   CreateTurnInput,
   DeleteSessionInput,
   FreezeAndGetTurnInput,
+  GetOwnedIdsInput,
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
@@ -31,8 +39,13 @@ import {
   decodeOffsetPageToken,
   encodeOffsetPageToken,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
+import type { AgentInfo, ContextMessage, JsonValue } from '@truefoundry/trueforge-core/core';
+import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { Kysely } from 'kysely';
-import type { Database } from '../types';
+import { sql } from 'kysely';
+import type { ImportSessionRequest } from '../../../schemas/agentImport';
+import { json, jsonUnknown } from '../sqlExpressions';
+import type { Database, TurnCheckpoint, TurnThreadCheckpoint } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';
 import {
   appendToEvents as appendToEventsQuery,
@@ -42,6 +55,7 @@ import {
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
+  getOwnedIds as getOwnedIdsQuery,
   getSessionByExternalId as getSessionByExternalIdQuery,
   getSession as getSessionQuery,
   listSessions as listSessionsQuery,
@@ -63,6 +77,17 @@ import {
   listTurns as listTurnsQuery,
   updateTurnState as updateTurnStateQuery,
 } from './queries/turns';
+
+/** Prefix on session.agent_id when the SF agent is not yet imported locally. */
+const IMPORT_UNRESOLVED_AGENT_ID_PREFIX = 'tfy-import:';
+
+/** Client/data rejection for session import — map to HTTP 4xx (not retryable). */
+export class SessionImportValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SessionImportValidationError';
+  }
+}
 
 type SessionCustom = Record<string, never>;
 type TurnCustom = Record<string, never>;
@@ -102,6 +127,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   getSession(input: GetSessionInput): Promise<SessionRecord<SessionCustom> | undefined> {
     return getSessionQuery(this.db, input);
+  }
+
+  getOwnedIds(input: GetOwnedIdsInput): Promise<readonly string[]> {
+    return getOwnedIdsQuery(this.db, input);
   }
 
   getSessionByExternalId(input: GetSessionByExternalIdInput): Promise<SessionRecord<SessionCustom> | undefined> {
@@ -220,5 +249,202 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   listSessionEvents(input: ListSessionEventsInput): Promise<{ data: SessionEventItem[]; pagination: TokenPagination }> {
     return listSessionEventsQuery(this.db, input);
+  }
+
+  // --- temporary SF→TrueForge migration (remove after backfill) ---
+
+  async getImportSessionsCheckpoint(input: { tenant_id: string }): Promise<{ created_at: string | null }> {
+    const row = await this.db
+      .selectFrom('session')
+      .select(sql<string | null>`min(created_at)`.as('created_at'))
+      .where('tenant_id', '=', input.tenant_id)
+      .where(sql<boolean>`metadata @> ${json({ imported: 'true' })}`)
+      .executeTakeFirst();
+    if (row?.created_at == null) {
+      return { created_at: null };
+    }
+    return { created_at: new Date(row.created_at).toISOString() };
+  }
+
+  async importSessionSnapshot(input: ImportSessionRequest): Promise<{ imported: boolean; session_id: string }> {
+    const sessionId = input.session.session_id;
+    const agentName = input.session.agent_name;
+    const agentSpec = input.session.agent_spec;
+    const sfAgentId = input.session.agent_id;
+    const hasName = typeof agentName === 'string' && agentName.length > 0;
+    const hasSpec = agentSpec != null;
+    const hasSfAgentId = typeof sfAgentId === 'string' && sfAgentId.length > 0;
+
+    if (!hasName && !hasSpec) {
+      throw new SessionImportValidationError('Provide agent_name and/or agent_spec');
+    }
+
+    let agentId: string | null = null;
+    let resolvedAgentName: string | null = null;
+    let resolvedAgentSpec: AgentSpec | null = null;
+    const metadata: SessionMetadata = { imported: 'true' };
+
+    if (hasSpec) {
+      // Draft XOR: agent_spec on columns. SF may also send name/id — stash in metadata.
+      const parsedSpec = AgentSpecSchema.safeParse(agentSpec);
+      if (!parsedSpec.success) {
+        // Ops must fix the transformed spec; do not persist — session reads parse with AgentSpecSchema.
+        throw new Error(`Invalid agent_spec for session import: ${parsedSpec.error.message}`);
+      }
+      resolvedAgentSpec = parsedSpec.data;
+      if (hasName) {
+        metadata['agent_name'] = agentName;
+      }
+      if (hasSfAgentId) {
+        metadata['agent_id'] = sfAgentId;
+      }
+    } else if (hasName) {
+      const agent = await this.db
+        .selectFrom('agent')
+        .select(['id', 'name'])
+        .where('tenant_id', '=', input.session.tenant_id)
+        .where('name', '=', agentName)
+        .executeTakeFirst();
+      if (agent !== undefined) {
+        agentId = agent.id;
+        resolvedAgentName = agent.name;
+      } else {
+        if (!hasSfAgentId) {
+          throw new SessionImportValidationError(
+            `Named session import requires agent_id when agent "${agentName}" does not exist locally`,
+          );
+        }
+        // Stale ref until the agent is imported; prefix so it never collides with a TrueForge ULID.
+        agentId = `${IMPORT_UNRESOLVED_AGENT_ID_PREFIX}${sfAgentId}`;
+        resolvedAgentName = agentName;
+        metadata['agent_id'] = sfAgentId;
+      }
+    }
+
+    return this.db.transaction().execute(async trx => {
+      const { session, turns } = input;
+      // ON CONFLICT DO NOTHING + RETURNING yields no row when session_id already exists
+      // (does not select the existing row) → inserted === undefined → imported: false.
+      const inserted = await trx
+        .insertInto('session')
+        .values({
+          tenant_id: session.tenant_id,
+          session_id: sessionId,
+          created_by_subject: json(session.created_by_subject),
+          source: null,
+          agent_id: agentId,
+          agent_name: resolvedAgentName,
+          agent_spec: resolvedAgentSpec !== null ? jsonUnknown<AgentSpec>(resolvedAgentSpec) : null,
+          title: session.title,
+          last_turn_id: session.last_turn_id,
+          custom: session.custom !== null ? json(session.custom) : null,
+          metadata: json(metadata),
+          external_id: null,
+          metrics: json({ total_duration_ms: 0, total_turns: turns.length }),
+          last_activity_timestamp_ms: session.last_activity_timestamp_ms,
+          created_at: new Date(session.created_at),
+          updated_at: new Date(session.updated_at),
+        })
+        .onConflict(oc => oc.column('session_id').doNothing())
+        .returning('session_id')
+        .executeTakeFirst();
+      if (inserted === undefined) {
+        return { imported: false, session_id: sessionId };
+      }
+
+      for (const turn of turns) {
+        const turnId = turn.turn_id;
+        const updatedAt = new Date(turn.updated_at);
+        await trx
+          .insertInto('turn')
+          .values({
+            session_id: sessionId,
+            turn_id: turnId,
+            first_turn_id: turn.first_turn_id,
+            previous_turn_id: turn.previous_turn_id,
+            ancestor_ids: turn.ancestor_ids,
+            input: jsonUnknown<TurnInputItem[]>(turn.input),
+            state: jsonUnknown<TurnState>(turn.state),
+            checkpoint: jsonUnknown<TurnCheckpoint>(turn.checkpoint ?? { mcp_servers: null, sandbox_info: null }),
+            custom: turn.custom !== null ? json(turn.custom) : null,
+            created_at: new Date(turn.created_at),
+            updated_at: updatedAt,
+          })
+          .execute();
+
+        for (const thread of turn.threads) {
+          const threadId = thread.thread_id;
+          const contextIds: number[] = [];
+          if (thread.context.length > 0) {
+            const rows = await trx
+              .insertInto('thread_context_log')
+              .values(
+                thread.context.map(msg => ({
+                  session_id: sessionId,
+                  thread_id: threadId,
+                  turn_id: turnId,
+                  body: jsonUnknown<ContextMessage>(msg),
+                  created_at: updatedAt,
+                })),
+              )
+              .returning(['append_id'])
+              .execute();
+            for (const row of rows) {
+              contextIds.push(row.append_id);
+            }
+          }
+
+          await trx
+            .insertInto('turn_thread')
+            .values({
+              session_id: sessionId,
+              turn_id: turnId,
+              thread_id: threadId,
+              checkpoint: jsonUnknown<TurnThreadCheckpoint>({
+                parent: thread.parent,
+                completion: thread.completion,
+              }),
+              agent_info: thread.agent_info !== null ? jsonUnknown<AgentInfo>(thread.agent_info) : null,
+              current_context_usage: jsonUnknown<CurrentContextUsage>(thread.current_context_usage),
+              context_ids: contextIds,
+              updated_at: updatedAt,
+            })
+            .execute();
+
+          if (thread.capability_state !== null && Object.keys(thread.capability_state).length > 0) {
+            await trx
+              .insertInto('thread_capability_state')
+              .values(
+                Object.entries(thread.capability_state).map(([key, state]) => ({
+                  session_id: sessionId,
+                  turn_id: turnId,
+                  thread_id: threadId,
+                  key,
+                  state: jsonUnknown<JsonValue>(state),
+                  updated_at: updatedAt,
+                })),
+              )
+              .execute();
+          }
+        }
+
+        if (turn.events.length > 0) {
+          await trx
+            .insertInto('session_event')
+            .values(
+              turn.events.map(event => ({
+                session_id: sessionId,
+                turn_id: turnId,
+                event_id: event.id,
+                event: jsonUnknown<PersistedTurnEvent>(event),
+                created_at: new Date(event.created_at),
+              })),
+            )
+            .execute();
+        }
+      }
+
+      return { imported: true, session_id: sessionId };
+    });
   }
 }

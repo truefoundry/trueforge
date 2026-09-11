@@ -155,7 +155,7 @@ See [`packages/trueforge/.env.example`](packages/trueforge/.env.example) for eve
 - `PORT` - API port (default `8790`)
 - `FRONTEND_PORT` - Vite UI port in dev (default `3000`); see [`packages/frontend/README.md`](packages/frontend/README.md)
 - `VITE_SERVER_URL` - point the Vite proxy at a different API
-- `PUBLIC_BASE_URL` - public origin for MCP OAuth / OIDC callbacks. Required for `pnpm standalone:dev` / `pnpm dev` and for distributed mode (e.g. `http://localhost:3000` for Vite). Non-development standalone falls back to `http://localhost:$PORT`.
+- `PUBLIC_BASE_URL` - public application URL for MCP OAuth / OIDC callbacks. Required for `pnpm standalone:dev` / `pnpm dev` and for distributed mode (e.g. `http://localhost:3000` for Vite). Non-development standalone falls back to `http://localhost:$PORT`.
 - `FRONTEND_DIR` - directory of a built UI for the server to serve
 - `SQLITE_PATH` - SQLite file location in standalone mode
 - `REDIS_URL` / `POSTGRES_*` - used when `STANDALONE=false`
@@ -214,7 +214,7 @@ pnpm smoke       # build, wait for healthy services, check /healthz and UI
 pnpm smoke:down
 ```
 
-Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/trueforge/.env`. Host ports are offset from local dev so they do not collide: Postgres `:5433`, Redis `:6380`, app `:8791`.
+Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/trueforge/.env`. The app is on host `:8791` (offset from local `pnpm dev` on `:8790`); Postgres and Redis stay on the compose network only.
 
 ## Generated code - do not edit by hand
 

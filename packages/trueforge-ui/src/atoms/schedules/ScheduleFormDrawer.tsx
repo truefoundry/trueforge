@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
-import { libraryAgentId } from '../../server/ShellModeContext.js';
+import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentLibraryEntry, Schedule } from '../../server/types.js';
 import { DraftCatalogProvider } from '../draft/DraftCatalogProvider.js';
 import { mountName } from '../lib/mountName.js';
@@ -43,10 +44,12 @@ function ScheduleFormDrawerBody({
 }: ScheduleFormDrawerProps) {
   const scheduleServer = useScheduleServer();
   const server = useServer();
+  const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
   const [form, setForm] = useState<ScheduleFormValues>(defaultScheduleFormValues);
   const [agentId, setAgentId] = useState(initialAgentId);
   const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
+  const [agentsLoaded, setAgentsLoaded] = useState(false);
   const [view, setView] = useState<DrawerView>({ kind: 'form' });
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -55,14 +58,21 @@ function ScheduleFormDrawerBody({
   const savedFromCreate = view.kind === 'form' ? view.saved : view.schedule;
   const isExternalEdit = mode === 'edit' && view.kind === 'form' && view.saved == null && schedule != null;
   const isCreatedEdit = view.kind === 'form' && view.saved != null;
+  const isInitialCreate = mode === 'create' && view.kind === 'form' && view.saved == null;
+  const { allows: allowsAgent } = useResourcePermissions({
+    resourceType: 'agent',
+    resourceIds: agentId.length === 0 ? [] : [agentId],
+  });
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
+    setAgentsLoaded(false);
     void searchAllAgents(server)
       .then(rows => {
         if (cancelled) return;
         setAgents(rows);
+        setAgentsLoaded(true);
       })
       .catch(() => undefined);
     return () => {
@@ -124,8 +134,14 @@ function ScheduleFormDrawerBody({
 
   const canSubmit = useMemo(() => {
     const cron = valuesToCron(form);
-    return form.name.trim().length > 0 && form.task.trim().length > 0 && cron.length > 0 && agentId.length > 0;
-  }, [form, agentId]);
+    return (
+      form.name.trim().length > 0 &&
+      form.task.trim().length > 0 &&
+      cron.length > 0 &&
+      agentId.length > 0 &&
+      (!isInitialCreate || allowsAgent(agentId, 'USE'))
+    );
+  }, [agentId, allowsAgent, form, isInitialCreate]);
 
   const enterTestView = (saved: Schedule) => {
     setView({ kind: 'test', schedule: saved });
@@ -241,7 +257,7 @@ function ScheduleFormDrawerBody({
       <div className="flex flex-col gap-2">
         {error != null ? <p className="text-failure-bg text-sm">{error}</p> : null}
         <Button.Secondary type="button" className="w-full" disabled={activating} onClick={() => void handleActivate()}>
-          Activate Anyway
+          Activate Schedule
         </Button.Secondary>
       </div>
     );
@@ -297,7 +313,16 @@ function ScheduleFormDrawerBody({
             agentId={agentId}
             onAgentIdChange={isExternalEdit || isCreatedEdit ? undefined : setAgentId}
             agentOptions={agentOptions}
+            agentOptionsLoaded={agentsLoaded}
             agentPickerDisabled={isExternalEdit || isCreatedEdit}
+            onBuildAgent={
+              mode === 'create' && shell?.isComposerEnabled === true
+                ? () => {
+                    onOpenChange(false);
+                    shell.openAgentBuilder();
+                  }
+                : undefined
+            }
           />
         </form>
       )}

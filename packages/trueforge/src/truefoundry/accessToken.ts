@@ -45,11 +45,11 @@ export function asTrueFoundryRequestContext(context: RequestContext): TrueFoundr
  */
 export function agentAccessToken(input: {
   client: AgentTokenVendor;
-  context: RequestContext;
+  requestContext: Pick<RequestContext, 'tenant_id' | 'subject'>;
   agent: AgentRecord;
   logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
-  const { client, context } = input;
+  const { client, requestContext: context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   let pending: Promise<string> | undefined;
   return () => {
@@ -73,7 +73,7 @@ export function agentAccessToken(input: {
 export function callerAccessToken(context: RequestContext): ResolveAccessToken {
   if (context.user_credential === null) {
     throw new HTTPException(401, {
-      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, and agents',
+      message: 'Authentication token required to list or call TrueFoundry models, MCP servers, skills, and agents',
     });
   }
   const token = context.user_credential;
@@ -82,26 +82,26 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
 
 /**
  * Token for a TrueFoundry request, optionally scoped to the saved agent executing a turn.
- * Saved-agent callables are stored on this request's context so model and MCP stores share one vend.
+ * Saved-agent callables are stored on this request's context so model, MCP, and skill stores share one vend.
  */
 export function accessTokenForRequest(input: {
   client: AgentTokenVendor;
-  context: TrueFoundryRequestContext;
+  requestContext: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
   logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
   if (input.agent === undefined) {
-    return callerAccessToken(input.context);
+    return callerAccessToken(input.requestContext);
   }
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
-  const cache = input.context[accessTokenCache];
+  const cache = input.requestContext[accessTokenCache];
   const existing = cache.get(agentId);
   if (existing !== undefined) {
     return existing;
   }
   const resolveAgentAccessToken = agentAccessToken({
     client: input.client,
-    context: input.context,
+    requestContext: input.requestContext,
     agent: input.agent,
     logger: input.logger,
   });

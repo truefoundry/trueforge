@@ -6,6 +6,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import {
   CreateAgentRequestSchema,
   DeleteAgentResponseSchema,
+  GetAgentCodeSnippetsRequestQuerySchema,
   GetAgentCodeSnippetsResponseSchema,
   GetAgentResponseSchema,
   ListAgentsResponseSchema,
@@ -86,11 +87,12 @@ export const getAgentCodeSnippetsRoute = createRoute({
   'x-excluded': true,
   request: {
     params: AgentIdParamsSchema,
+    query: GetAgentCodeSnippetsRequestQuerySchema,
   },
   responses: {
     200: {
       content: { 'application/json': { schema: GetAgentCodeSnippetsResponseSchema } },
-      description: 'TypeScript SDK samples and the origin to use as `baseUrl`.',
+      description: 'TypeScript SDK samples.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

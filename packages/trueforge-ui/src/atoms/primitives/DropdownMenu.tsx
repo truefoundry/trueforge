@@ -10,6 +10,7 @@ export type DropdownMenuProps = {
   trigger: React.ReactNode;
   children: React.ReactNode;
   align?: 'start' | 'end';
+  side?: 'top' | 'bottom';
   className?: string;
   containerClassName?: string;
   open?: boolean;
@@ -21,6 +22,7 @@ export function DropdownMenu({
   trigger,
   children,
   align = 'end',
+  side = 'bottom',
   className,
   containerClassName,
   open: controlledOpen,
@@ -53,7 +55,7 @@ export function DropdownMenu({
       if (!el) return;
       const rect = el.getBoundingClientRect();
       setPos({
-        top: rect.bottom + 4,
+        top: side === 'top' ? rect.top - 4 : rect.bottom + 4,
         left: align === 'end' ? rect.right : rect.left,
       });
     };
@@ -65,7 +67,7 @@ export function DropdownMenu({
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [open, align]);
+  }, [open, align, side]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,6 +99,7 @@ export function DropdownMenu({
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         setOpen(false);
         const triggerBtn = containerRef.current?.querySelector<HTMLElement>("[aria-haspopup='menu']");
         triggerBtn?.focus();
@@ -152,10 +155,13 @@ export function DropdownMenu({
             style={{
               top: pos.top,
               left: pos.left,
-              transform: align === 'end' ? 'translateX(-100%)' : undefined,
+              transform:
+                [align === 'end' ? 'translateX(-100%)' : null, side === 'top' ? 'translateY(-100%)' : null]
+                  .filter(value => value !== null)
+                  .join(' ') || undefined,
             }}
             className={cn(
-              'fixed z-[200] min-w-[8rem] rounded-md border border-border bg-card-bg p-1',
+              'fixed z-[200] flex min-w-[8rem] flex-col rounded-md border border-border bg-card-bg p-1',
               'text-text-primary shadow-md',
               className,
             )}

@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.3.0-rc.5
+
+### Patch Changes
+
+- 4e72afc: Announce boot loading with a light-themed orb for contrast outside ThemeProvider.
+- ea86853: Move the agent metrics time range filter into the active Metrics tab row.
+- 98ab384: Preserve the active agent draft when returning to Build Agent from another page.
+- 4e72afc: Use an animated thinking orb for application boot and server initialization.
+
+## 0.3.0-rc.4
+
+### Patch Changes
+
+- 629b6e9: Paginate the Agent Sessions list on scroll instead of a "Load more" button, showing a skeleton row while the next page loads.
+- 629b6e9: Fix Agents library table scrolling when rows exceed the viewport
+- 629b6e9: Show Created by (avatar + name) on Agents and Schedules tables when creator info is present.
+- 629b6e9: Portal PopoverSelect menus so table page-size and other selects are not clipped by overflow parents.
+- ef278dd: Stop highlighting New Chat while trying a named agent, and clear the Try Agent URL and history filter when starting a new chat.
+- ceeb56f: Show turn and duration statistics alongside the featured agent metric cards.
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.4
+
+## 0.3.0-rc.3
+
+### Minor Changes
+
+- 1d31116: Open agent model settings inline and support typed custom model parameters.
+- 74eae6c: Remove pagination from list MCP servers across the API, SDK, and UI; return and search the complete configured MCP catalog client-side.
+- 12b02ff: Open Runtime Config in a right-side drawer and label scheduled sessions consistently.
+- 7e25f68: Open Save Agent in a right-side drawer with only the agent name while preserving configuration from Agent Config.
+- f8b5eeb: Add optional resource permissions and gate agent, schedule, and session mutations.
+
+### Patch Changes
+
+- 762ecc0: TrueFoundry skills catalog: proxy GET /skills and /skills/versions from ServiceFoundry; settings skill writes return 424. SkillManifest is a type-discriminated oneOf of GitSkill | TrueFoundryRegistrySkill (`type: truefoundry`; name is FQN, display_name is short). AvailableSkill exposes optional metadata (display_name, repository_name, version). AgentSpec skill refs allow opaque FQN names, optional preload (registry), and max 50. UI draft skill mounts map catalog `id` to AgentSpec `name`.
+- 26a9b80: Add an agent-scoped Schedules tab and route library schedule actions into it.
+- 1b8a3f7: Add documentation links to the code snippets view and shell actions.
+- d2fdfc9: Add agent-filtered chat history labels, preserve Try Agent and explicit history-filter intent in URL query state while resolving backend IDs, reset active chats when users change filters, keep Try Agent highlighted as chat, and route fresh agent builders at `/build-agent` before their session URL is assigned.
+- 26a9b80: Allow sending user messages that contain attachments without text.
+- 26a9b80: Add an empty state and Build Agent action to the schedule agent picker.
+- 4c522e2: Bump `@truefoundry/assistant-ui-runtime` to `0.1.30`.
+- 4c522e2: Bump `@truefoundry/assistant-ui-runtime` to `0.1.31`.
+- d719155: Keep composer catalogs cached when starting a new chat.
+- c0359ca: Strip a trailing slash from the `base_url` passed to agent code-snippets.
+- 57f1fc2: Improve compact agent building with model configuration bottom sheets, provider-first model selection, and a contextual composer actions menu.
+- e3973a5: Show the selected connector and skill count beside the composer tools icon.
+- 26a9b80: Hide model selection in the Build Agent composer and correct concurrent sub-agent timeline bars.
+- 26a9b80: Require direct switch clicks in the Runtime Config sidebar.
+- 1ec19f0: Replace API key replacement with connector configuration editing from the connector list and details view.
+- b482cdd: Show the four primary agent metrics in a compact summary-card layout.
+- b32d2be: Filter chat history to sessions created by the current user, and bump `@truefoundry/assistant-ui-runtime` to `0.1.34`.
+- a9430bd: Accept optional `base_url` on agent code-snippets (FE public host); fall back to request origin + `PUBLIC_BASE_URL` path.
+- 54e4ec4: Keep Settings hidden until the server explicitly enables it.
+- 4c522e2: Hide session cost metrics when cost data is unavailable.
+- 4e7b67a: Check live per-user MCP authentication before loading tools in the agent builder.
+- d2fdfc9: Section MCP tools in the Build Agent selector by read-only, others, and destructive annotations, with a read-only enable-all toggle.
+- 26a9b80: Show agent names without an icon in the Agents table.
+- 4cea38c: Show draft and named sessions in the history panel, exclude agent-builder sessions, cache session pages, and switch history sessions in place without remounting the chat runtime.
+- 2284d3b: Polish the MCP tool selector controls, loading state, and API error messages.
+- e3973a5: Group schedule recurrence controls and display the cadence in an attached summary footer.
+- f2ca338: Show active/paused schedule counts in the Agents library, pin selected MCPs when reopening the tools modal, and align paused schedule badge colors.
+- 77c5c33: Show TrueFoundry skill repositories and versions in skill pickers, load version choices lazily, preserve the chosen version FQN when attaching skills, keep picker ordering stable while open, and add registry-only preload controls to selected skill pills.
+- 26a9b80: Show weekly schedule days before the time controls.
+- 1b8a3f7: Match the Build Agent configuration panel width to the agent playground and identify sessions created by schedule runs.
+- adaf532: Widen the sidebar rail and its nav buttons so labels like "Build Agent" have more breathing room.
+- Updated dependencies [648273b]
+- Updated dependencies [648273b]
+- Updated dependencies [648273b]
+- Updated dependencies [74eae6c]
+- Updated dependencies [44f9cbe]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.3
+
 ## 0.3.0-rc.2
 
 ### Minor Changes

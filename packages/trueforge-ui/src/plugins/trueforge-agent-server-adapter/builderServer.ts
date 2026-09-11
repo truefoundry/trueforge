@@ -3,17 +3,11 @@
  * Composer pickers + agent library backed by the Harness agents registry.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type {
-  AgentBuilderServer,
-  AgentLibraryEntry,
-  ModelSelection,
-  PageParams,
-  SearchAgentsParams,
-} from '../../server/types.js';
+import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
 import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
 import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { listConfiguredMcpServers, listConfiguredMcpServersPage, listSkills } from './lists.js';
+import { listConfiguredMcpServers, listSkills } from './lists.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export type CreateHarnessBuilderServerOptions = CreateTrueForgeClientOptions & {
@@ -63,6 +57,7 @@ function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
     name: agent.name,
     agentId: agent.id,
     agentSpec: toUiAgentSpec(agent.manifest),
+    createdBySubject: agent.createdBySubject,
   };
 }
 
@@ -89,17 +84,33 @@ export function createHarnessBuilderServer(
       });
     },
     // Skills require a configured sandbox provider; keep the picker empty when skill capability is off.
+    // Catalog AvailableSkill.name is store identity (FQN in TFY). Picker `id` copies that
+    // attach key; `name` is displayName so the draft can show a label without losing the wire key.
+    // Draft mounts `{ id, name }`; toHarnessSkill admits AgentSpec.skills[].name = id ?? name.
     getSkills: async () => {
       const skills = await listSkills(client);
-      return skills.map(skill => ({ id: skill.name, name: skill.name, description: skill.description }));
+      return skills.map(skill => {
+        const { display_name, repository_name, version: versionRaw } = skill.metadata ?? {};
+        const version = Number(versionRaw);
+        const hasVersion = Number.isInteger(version) && version > 0;
+        return {
+          id: skill.name,
+          name: display_name ?? skill.name,
+          description: skill.description,
+          ...(repository_name === undefined ? {} : { skillRepoName: repository_name }),
+          ...(hasVersion
+            ? {
+                version,
+                loadVersions: async () => (await client.skills.listVersions({ name: skill.name })).data,
+              }
+            : {}),
+        };
+      });
     },
     getMcp: async () => (await listConfiguredMcpServers(client)).map(toUiConnectorFromReadEntry),
-    listMcp: async (req?: PageParams) => {
-      const page = await listConfiguredMcpServersPage(client, req ?? {});
-      return {
-        data: page.data.map(toUiConnectorFromReadEntry),
-        ...(page.nextPageToken === undefined ? {} : { nextPageToken: page.nextPageToken }),
-      };
+    getMcpConnector: async ({ connectorId }: { connectorId: string }) => {
+      const body = await client.mcpServers.get(connectorId);
+      return toUiConnectorFromReadEntry(body.data);
     },
     getMcpTools: async ({ connectorId }: { connectorId: string }) => {
       const body = await client.mcpServers.listTools(connectorId);

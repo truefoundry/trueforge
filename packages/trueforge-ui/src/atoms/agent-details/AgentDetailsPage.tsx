@@ -2,35 +2,47 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
-import { useOptionalAgentMetricsServer, useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
+import {
+  useOptionalAgentMetricsServer,
+  useOptionalAgentSessionsServer,
+  useOptionalScheduleServer,
+} from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
-import { isMetricsChromeEnabled } from '../../server/serverChrome.js';
+import { isMetricsChromeEnabled, isSchedulesChromeEnabled } from '../../server/serverChrome.js';
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
+import { defaultMetricsTimeRange, libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentDetailsPageProps } from './types.js';
 
 export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const metricsServer = useOptionalAgentMetricsServer();
+  const scheduleServer = useOptionalScheduleServer();
   const shell = useShellMode();
   const share = useSessionShareSearch();
   const { updateShareSearch } = share;
   const requestedTab = libraryAgentTabFromSearch(share, agentId);
   const showMetrics = isMetricsChromeEnabled({ metrics: metricsServer });
-  const activeTab = requestedTab === 'metrics' && !showMetrics ? 'overview' : requestedTab;
+  const showSchedules = isSchedulesChromeEnabled({ schedules: scheduleServer });
+  const activeTab =
+    (requestedTab === 'metrics' && !showMetrics) || (requestedTab === 'schedules' && !showSchedules)
+      ? 'overview'
+      : requestedTab;
   const AgentDetailsHeader = useSlot('AgentDetailsHeader');
   const AgentDetailsTabs = useSlot('AgentDetailsTabs');
   const AgentDetailsUnavailable = useSlot('AgentDetailsUnavailable');
   const AgentOverview = useSlot('AgentOverview');
   const AgentSessions = useSlot('AgentSessions');
+  const SchedulesPage = useSlot('SchedulesPage');
   const AgentMetrics = useSlot('AgentMetrics');
+  const AgentMetricsTimeRangeFilter = useSlot('AgentMetricsTimeRangeFilter');
   const AgentCodeSnippets = useSlot('AgentCodeSnippets');
   const [detail, setDetail] = useState<AgentDetail>();
   const [detailFailed, setDetailFailed] = useState(false);
   const [snippets, setSnippets] = useState<CodeSnippet[]>();
   const [snippetsFailed, setSnippetsFailed] = useState(false);
+  const [metricsTimeRange, setMetricsTimeRange] = useState(defaultMetricsTimeRange);
 
   const goBack = useCallback(() => {
     updateShareSearch({
@@ -114,8 +126,17 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
     content = <AgentOverview detail={detail} />;
   } else if (activeTab === 'sessions') {
     content = <AgentSessions agentId={agentId} />;
+  } else if (activeTab === 'schedules') {
+    content = <SchedulesPage agentId={agentId} />;
   } else if (activeTab === 'metrics') {
-    content = <AgentMetrics agentId={agentId} />;
+    content = (
+      <AgentMetrics
+        agentId={agentId}
+        timeRange={metricsTimeRange}
+        onTimeRangeChange={setMetricsTimeRange}
+        showTimeRangeFilter={false}
+      />
+    );
   } else if (snippetsFailed) {
     content = <AgentDetailsUnavailable onBack={goBack} reason="Code samples for this agent could not be loaded." />;
   } else if (snippets === undefined) {
@@ -136,6 +157,12 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
         <AgentDetailsTabs
           activeTab={activeTab}
           showMetrics={showMetrics}
+          showSchedules={showSchedules}
+          end={
+            activeTab === 'metrics' ? (
+              <AgentMetricsTimeRangeFilter timeRange={metricsTimeRange} onTimeRangeChange={setMetricsTimeRange} />
+            ) : null
+          }
           onTabChange={tab =>
             updateShareSearch({
               agentId,

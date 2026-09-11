@@ -1,5 +1,5 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { SandboxBuildMetadata, SandboxProviderManifest } from '../../../schemas/sandboxProvider';
+import type { SandboxBuildMetadata, StoredSandboxProviderManifest } from '../../../schemas/sandboxProvider';
 import {
   type ISandboxProviderStore,
   type SandboxProviderRecord,
@@ -13,7 +13,7 @@ import type { Database } from '../types';
 function recordColumns(eb: ExpressionBuilder<Database, 'sandbox_provider'>) {
   return [
     'tenant_id' as const,
-    jsonText<SandboxProviderManifest>(eb.ref('manifest')).as('manifest'),
+    jsonText<StoredSandboxProviderManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
     'status_reason' as const,
     jsonText<SandboxBuildMetadata>(eb.ref('build_metadata')).as('build_metadata'),

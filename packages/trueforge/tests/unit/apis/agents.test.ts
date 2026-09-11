@@ -1,6 +1,7 @@
 import { createAgentsRouter } from '../../../src/apis/agents';
 import { TrueForgeAuthorizer, type AgentListAccess, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import configuration from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -79,6 +80,7 @@ const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAg
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: deniedListAgentAccess,
   canAccessAgent: deniedCanAccessAgent,
+  getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
 };
 
 describe('agents router', () => {
@@ -95,7 +97,7 @@ describe('agents router', () => {
       resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      skillStore: new SqliteSkillStore(db),
+      resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -105,7 +107,7 @@ describe('agents router', () => {
       resolveAgentStore: () => agentStore,
       resolveModelProviderStore: () => modelProviderStore,
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      skillStore: new SqliteSkillStore(db),
+      resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -188,8 +190,27 @@ describe('agents router', () => {
 
     const response = await router.request(`/${createdJson.data.id}/code-snippets`);
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { snippets: unknown[] } };
+    const body = (await response.json()) as {
+      data: {
+        base_url: string;
+        snippets: Array<{ sample_code: { stream: string; non_stream: string } }>;
+      };
+    };
+    expect(body.data.base_url).toBe(
+      configuration.PUBLIC_BASE_URL
+        ? new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, 'http://localhost').href
+        : 'http://localhost',
+    );
     expect(body.data.snippets.length).toBeGreaterThan(0);
+    expect(body.data.snippets[0]?.sample_code.stream).not.toContain('USER_API_KEY');
+    expect(body.data.snippets[0]?.sample_code.non_stream).not.toContain('USER_API_KEY');
+
+    const overridden = await router.request(
+      `/${createdJson.data.id}/code-snippets?base_url=${encodeURIComponent('https://sample.com/trueforge')}`,
+    );
+    expect(overridden.status).toBe(200);
+    const overriddenBody = (await overridden.json()) as { data: { base_url: string } };
+    expect(overriddenBody.data.base_url).toBe('https://sample.com/trueforge');
   });
 
   it('DELETE removes an agent by id and returns 404 when already gone', async () => {

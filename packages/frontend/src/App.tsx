@@ -2,6 +2,7 @@ import {
   getErrorMessage,
   ThemeProvider,
   TrueForgeUI,
+  useTheme,
   type SlotOverrides,
   type ThemeConfig,
 } from '@truefoundry/trueforge-ui';
@@ -12,6 +13,7 @@ import {
   type HarnessAgentSpec,
 } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
 import { useEffect, useMemo, useState } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
@@ -23,7 +25,7 @@ import { API_BASE_URL, uiRouterBasename } from './publicPath';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
-// UI + API share `VITE_BASE_PATH` / `BASE_URL`; Caddy strips it before Harness.
+// UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();
 
@@ -36,6 +38,23 @@ const appTheme: ThemeConfig = {
   },
 };
 
+function Loader() {
+  const { mode } = useTheme();
+  return (
+    <div className="boot-screen" role="status" aria-label="Loading" aria-live="polite" aria-busy="true">
+      <ThinkingOrb
+        state="connecting"
+        speed={1}
+        theme={mode}
+        paused={false}
+        aria-hidden
+        size={64}
+        style={{ width: '4.5rem', height: '4.5rem' }}
+      />
+    </div>
+  );
+}
+
 type BootState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
@@ -43,7 +62,7 @@ type BootState =
 
 export function App() {
   const authError = parseAuthErrorReason(window.location.search);
-  const [session, setSession] = useState<SessionState | 'checking'>('checking');
+  const [session, setSession] = useState<SessionState | { status: 'checking' }>({ status: 'checking' });
   const [boot, setBoot] = useState<BootState>({ status: 'loading' });
 
   // Gate boot on a non-redirecting `/me` probe: unauthenticated users see the
@@ -63,7 +82,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (session !== 'authenticated') {
+    if (session.status !== 'authenticated') {
       return;
     }
     if (parseAuthErrorReason(window.location.search) == null) {
@@ -81,7 +100,7 @@ export function App() {
   }, [session]);
 
   useEffect(() => {
-    if (session !== 'authenticated') {
+    if (session.status !== 'authenticated') {
       return;
     }
     const state = { cancelled: false };
@@ -96,7 +115,7 @@ export function App() {
         if (first === undefined) {
           setBoot({
             status: 'ready',
-            openSettings: true,
+            openSettings: capabilities.settings.enabled,
             defaultAgentSpec: {
               model: { name: '' },
               config: sandboxConfig,
@@ -146,15 +165,15 @@ export function App() {
     );
   }
 
-  if (session === 'checking') {
+  if (session.status === 'checking') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <Loader />
       </ThemeProvider>
     );
   }
 
-  if (session === 'unauthenticated') {
+  if (session.status === 'unauthenticated') {
     return (
       <ThemeProvider theme={appTheme}>
         <GetStartedScreen />
@@ -175,7 +194,7 @@ export function App() {
   if (boot.status === 'loading') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen">Loading application…</div>
+        <Loader />
       </ThemeProvider>
     );
   }
@@ -192,6 +211,7 @@ export function App() {
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         initialSettingsOpen={boot.openSettings}
+        currentUser={{ displayName: session.displayName }}
         overrides={overrides}
         theme={appTheme}
         className="app-assistant"

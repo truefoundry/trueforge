@@ -22,6 +22,7 @@ import {
 } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
+import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -37,12 +38,15 @@ import { useSlot } from '../theme/SlotsProvider.js';
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
   onThreadOpen?: () => void;
+  /** `recent-history` hides navigation and lists only persisted sessions. */
+  variant?: 'default' | 'recent-history';
 };
 
 const deleteItemClass =
   'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-failure-bg outline-none transition-colors hover:bg-failure-bg/12 hover:text-failure-bg focus:bg-failure-bg/12 focus:text-failure-bg data-[highlighted]:bg-failure-bg/12 data-[highlighted]:text-failure-bg';
 
-function ThreadListItemDeleteMenu() {
+function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
+  const PermissionGuard = useSlot('PermissionGuard');
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -75,11 +79,18 @@ function ThreadListItemDeleteMenu() {
         </button>
         {sheetOpen ? (
           <BottomSheet open onOpenChange={setSheetOpen} aria-label="Session actions">
-            <div className="flex flex-col gap-1 p-2" role="menu">
-              <ThreadListItemPrimitive.Delete className={deleteItemClass} onClick={() => setSheetOpen(false)}>
-                <Icon name="trash" className="size-3.5" />
-                Delete
-              </ThreadListItemPrimitive.Delete>
+            <div className="flex flex-col gap-1 p-2 *:w-full" role="menu">
+              <PermissionGuard allowed={!disabled}>
+                <ThreadListItemPrimitive.Delete
+                  className={deleteItemClass}
+                  onClick={() => {
+                    if (!disabled) setSheetOpen(false);
+                  }}
+                >
+                  <Icon name="trash" className="size-3.5" />
+                  Delete
+                </ThreadListItemPrimitive.Delete>
+              </PermissionGuard>
             </div>
           </BottomSheet>
         ) : null}
@@ -101,14 +112,14 @@ function ThreadListItemDeleteMenu() {
         portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
+        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md *:w-full"
       >
-        <ThreadListItemPrimitive.Delete asChild>
-          <ThreadListItemMorePrimitive.Item className={deleteItemClass}>
+        <PermissionGuard allowed={!disabled}>
+          <ThreadListItemPrimitive.Delete className={deleteItemClass}>
             <Icon name="trash" className="size-3.5" />
             Delete
-          </ThreadListItemMorePrimitive.Item>
-        </ThreadListItemPrimitive.Delete>
+          </ThreadListItemPrimitive.Delete>
+        </PermissionGuard>
       </ThreadListItemMorePrimitive.Content>
     </ThreadListItemMorePrimitive.Root>
   );
@@ -117,9 +128,11 @@ function ThreadListItemDeleteMenu() {
 function ThreadListItemRow({
   onThreadOpen,
   canDeleteSession,
+  canDeleteResource,
 }: {
   onThreadOpen?: () => void;
   canDeleteSession: boolean;
+  canDeleteResource: (sessionId: string) => boolean;
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
@@ -132,6 +145,7 @@ function ThreadListItemRow({
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
   const showDelete = canDeleteSession && remoteId != null;
+  const deleteDisabled = remoteId != null && !canDeleteResource(remoteId);
   const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
 
   return (
@@ -181,28 +195,47 @@ function ThreadListItemRow({
           }
           void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
         }}
-        actions={showDelete ? <ThreadListItemDeleteMenu /> : undefined}
+        actions={showDelete ? <ThreadListItemDeleteMenu disabled={deleteDisabled} /> : undefined}
       />
     </ThreadListItemPrimitive.Root>
   );
 }
 
-function useThreadListIndicesByRecency(): number[] {
+function useThreadListIndicesByRecency(variant: NonNullable<ThreadListContainerProps['variant']>): number[] {
   const threadIds = useAuiState(s => s.threads.threadIds);
   const threadItems = useAuiState(s => s.threads.threadItems);
 
-  return useMemo(() => threadListIndicesByRecency({ threadIds, threadItems }), [threadIds, threadItems]);
+  return useMemo(() => {
+    const indices = threadListIndicesByRecency({ threadIds, threadItems });
+    if (variant === 'default') return indices;
+
+    const itemById = new Map<string, (typeof threadItems)[number]>();
+    for (const item of threadItems) {
+      itemById.set(item.id, item);
+      if (item.remoteId != null) itemById.set(item.remoteId, item);
+    }
+
+    return indices.filter(index => {
+      const id = threadIds[index];
+      if (id === undefined) return false;
+      const item = itemById.get(id);
+      return item?.remoteId != null;
+    });
+  }, [threadIds, threadItems, variant]);
 }
 
 function ThreadListItemsByRecency({
+  indices,
   onThreadOpen,
   canDeleteSession,
+  canDeleteResource,
 }: {
+  indices: number[];
   onThreadOpen?: () => void;
   canDeleteSession: boolean;
+  canDeleteResource: (sessionId: string) => boolean;
 }) {
   // Newest-first: remount/switchToThread can append the active session to threadIds.
-  const indices = useThreadListIndicesByRecency();
   const threadIds = useAuiState(s => s.threads.threadIds);
 
   return (
@@ -211,7 +244,11 @@ function ThreadListItemsByRecency({
         const key = threadIds[index] ?? String(index);
         return (
           <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
-            <ThreadListItemRow onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
+            <ThreadListItemRow
+              onThreadOpen={onThreadOpen}
+              canDeleteSession={canDeleteSession}
+              canDeleteResource={canDeleteResource}
+            />
           </ThreadListItemByIndexProvider>
         );
       })}
@@ -223,48 +260,54 @@ const THREAD_LIST_VIEWPORT_SLOT = 'aui_thread-list-viewport';
 /** How close to the bottom (px) before the next sessions page is fetched. */
 const LOAD_MORE_BOTTOM_PX = 80;
 
-function ChatHistorySection({ children, viewportRef }: { children: ReactNode; viewportRef: Ref<HTMLDivElement> }) {
-  const [expanded, setExpanded] = useState(true);
+function RecentChatsSection({
+  children,
+  viewportRef,
+  hideScrollbar,
+}: {
+  children: ReactNode;
+  viewportRef: Ref<HTMLDivElement>;
+  hideScrollbar: boolean;
+}) {
   const shell = useOptionalShellMode();
-  const showFilter = shell?.isLibraryEnabled === true;
+  const activeRemoteId = useAuiState(s => s.threadListItem.remoteId);
+  const historyFilterIntent = shell?.historyAgentFilter?.intent;
+  const showFilter =
+    shell?.isLibraryEnabled === true &&
+    historyFilterIntent !== 'try-agent' &&
+    (historyFilterIntent === 'history' ||
+      shell.mode.status !== 'active' ||
+      shell.mode.isMutable ||
+      shell.pendingSessionId != null ||
+      activeRemoteId != null);
+  const heading =
+    shell?.historyAgentFilter == null ? 'Chat History' : `Chats for ${shell.historyAgentFilter.agentName}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-1 px-1 py-1">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-1 text-left text-sm font-medium text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary"
-          onClick={() => setExpanded(v => !v)}
-        >
-          <span className="truncate">Chat History</span>
-          <Icon
-            name="chevron-down"
-            className={cn('size-3.5 shrink-0 transition-transform', !expanded && '-rotate-90')}
-          />
-        </button>
+        <h2 className="min-w-0 flex-1 truncate px-1.5 py-1 text-sm font-medium text-text-secondary">{heading}</h2>
         {showFilter ? <AgentHistoryFilterButton /> : null}
       </div>
-      {expanded ? (
-        <div
-          ref={viewportRef}
-          data-slot={THREAD_LIST_VIEWPORT_SLOT}
-          className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto"
-        >
-          {children}
-        </div>
-      ) : null}
+      <div
+        ref={viewportRef}
+        data-slot={THREAD_LIST_VIEWPORT_SLOT}
+        className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto', hideScrollbar && 'aui-scrollbar-hidden')}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
-export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps = {}) {
+export function ThreadListContainer({ onThreadOpen, variant = 'default' }: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
   const isLoading = useAuiState(s => s.threads.isLoading);
   const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
   const hasMore = useAuiState(s => s.threads.hasMore);
   const threadIds = useAuiState(s => s.threads.threadIds);
+  const threadItems = useAuiState(s => s.threads.threadItems);
   const shell = useOptionalShellMode();
 
   const ThreadListShell = useSlot('ThreadListShell');
@@ -275,6 +318,7 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
+  const indices = useThreadListIndicesByRecency(variant);
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
@@ -283,7 +327,13 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
+  const isRecentHistory = variant === 'recent-history';
   const canDeleteSession = typeof server?.deleteSession === 'function';
+  const remoteSessionIds = useMemo(
+    () => threadItems.flatMap(item => (item.remoteId == null ? [] : [item.remoteId])),
+    [threadItems],
+  );
+  const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds: remoteSessionIds });
 
   // Fill an underflowing viewport; once it scrolls, paginate only near the bottom.
   // Re-measure after commit (threadIds / hasMore) instead of rAF-chaining, which
@@ -340,15 +390,20 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
 
   let listBody: ReactNode;
   if (isIdle) {
-    listBody = <ThreadListEmptyState />;
+    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
   } else if (isLoading) {
     listBody = <ThreadListRowSkeleton />;
-  } else if (threadIds.length === 0) {
-    listBody = <ThreadListEmptyState />;
+  } else if (indices.length === 0) {
+    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
-        <ThreadListItemsByRecency onThreadOpen={onThreadOpen} canDeleteSession={canDeleteSession} />
+        <ThreadListItemsByRecency
+          indices={indices}
+          onThreadOpen={onThreadOpen}
+          canDeleteSession={canDeleteSession}
+          canDeleteResource={sessionId => allows(sessionId, 'DELETE')}
+        />
       </ThreadListPrimitive.Root>
     );
   }
@@ -356,18 +411,20 @@ export function ThreadListContainer({ onThreadOpen }: ThreadListContainerProps =
   return (
     <ThreadListShell
       header={
-        <div className="flex flex-col gap-1">
-          {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-          <AgentsLibraryButton />
-          <SessionsBrowserButton />
-          <SchedulesButton />
-        </div>
+        isRecentHistory ? null : (
+          <div className="flex flex-col gap-1">
+            {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
+            <AgentsLibraryButton />
+            <SessionsBrowserButton />
+            <SchedulesButton />
+          </div>
+        )
       }
     >
-      <ChatHistorySection viewportRef={viewportRef}>
+      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory}>
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
-      </ChatHistorySection>
+      </RecentChatsSection>
     </ThreadListShell>
   );
 }

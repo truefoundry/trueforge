@@ -10,6 +10,7 @@ import {
   CreateScheduleRunRequestSchema,
   CreateScheduleRunResponseSchema,
   DeleteScheduleResponseSchema,
+  ExecuteScheduleRunRequestSchema,
   GetScheduleResponseSchema,
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
@@ -51,6 +52,20 @@ export const ListSchedulesQuerySchema = z
   })
   .openapi('ListSchedulesQuery');
 
+export const ListScheduleRunsQuerySchema = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(PAGE_LIMIT)
+      .optional()
+      .default(PAGE_LIMIT)
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+    page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
+  })
+  .openapi('ListScheduleRunsQuery');
+
 export const listSchedulesRoute = createRoute({
   method: 'get',
   path: '/',
@@ -88,13 +103,19 @@ export const listScheduleRunsRoute = createRoute({
     'List runs of a schedule, newest `scheduled_for` first. Available to its creator or a manager of its agent.',
   'x-fern-sdk-group-name': ['schedules'],
   'x-fern-sdk-method-name': 'list_runs',
+  'x-fern-pagination': TOKEN_PAGINATION,
   request: {
     params: ScheduleIdParamsSchema,
+    query: ListScheduleRunsQuerySchema,
   },
   responses: {
     200: {
       content: { 'application/json': { schema: ListScheduleRunsResponseSchema } },
-      description: 'Runs of the schedule.',
+      description: 'Paginated runs of the schedule.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid query parameters or page token.',
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -146,6 +167,37 @@ export const createScheduleRunRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The run cannot be started (e.g. agent resources unavailable).',
+    },
+  },
+});
+
+export const executeScheduleRunRoute = createRoute({
+  method: 'post',
+  path: '/runs/execute',
+  tags: [OpenApiTag.INTERNAL],
+  summary: 'Execute a schedule run',
+  description: 'Execute a persisted schedule run using its saved schedule and agent.',
+  'x-fern-sdk-group-name': ['internal', 'schedules'],
+  'x-fern-sdk-method-name': 'execute_run',
+  request: {
+    body: {
+      content: { 'application/json': { schema: ExecuteScheduleRunRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    204: { description: 'Run executed or already has a turn.' },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid service credential.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Run, schedule, or agent not found.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The run cannot be executed.',
     },
   },
 });

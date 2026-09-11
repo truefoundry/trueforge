@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentMetricsContainer } from '@/containers/AgentMetricsContainer.js';
@@ -66,8 +66,23 @@ describe('AgentMetricsContainer', () => {
 
   it('loads the default 24-hour range and reloads a custom range', async () => {
     const getMeters = vi.fn(async (_request: AgentMetricRangeRequest) => [
+      { name: 'total_turns', aggregateValue: 30, description: 'Total turns', unit: 'count' },
+      { name: 'avg_turns_per_session', aggregateValue: 2.5, description: 'Avg turns / session', unit: 'count' },
       { name: 'total_sessions', aggregateValue: 12, description: 'Total sessions', unit: 'count' },
-      { name: 'total_cost', aggregateValue: 1.248, description: 'Total cost', unit: '$' },
+      {
+        name: 'cost_per_session_in_usd',
+        aggregateValue: 0.104,
+        description: 'Total cost / total sessions',
+        unit: '$',
+      },
+      { name: 'total_cost_in_usd', aggregateValue: 1.248, description: 'Total cost', unit: '$' },
+      { name: 'min_turns_per_session', aggregateValue: 1, description: 'Min turns', unit: 'count' },
+      { name: 'median_turns_per_session', aggregateValue: 2, description: 'Median turns', unit: 'count' },
+      { name: 'max_turns_per_session', aggregateValue: 5, description: 'Max turns', unit: 'count' },
+      { name: 'min_session_duration_ms', aggregateValue: 3_885, description: 'Min duration', unit: 'ms' },
+      { name: 'median_session_duration_ms', aggregateValue: 3_981, description: 'Median duration', unit: 'ms' },
+      { name: 'p95_session_duration_ms', aggregateValue: 4_561, description: 'P95 duration', unit: 'ms' },
+      { name: 'max_session_duration_ms', aggregateValue: 4_625, description: 'Max duration', unit: 'ms' },
     ]);
     const getChartData = vi.fn(async (_request: AgentMetricChartDataRequest): Promise<AgentMetricChartData> => ({
       step: '3600',
@@ -93,7 +108,22 @@ describe('AgentMetricsContainer', () => {
       getChartData,
     });
 
-    expect(await screen.findByText('Total sessions')).toBeInTheDocument();
+    expect(await screen.findAllByRole('heading', { level: 3 })).toHaveLength(4);
+    expect(screen.getAllByRole('heading', { level: 3 }).map(heading => heading.textContent)).toEqual([
+      'Total cost',
+      'Total cost / total sessions',
+      'Total sessions',
+      'Avg turns / session',
+    ]);
+    const turnStatistics = screen.getByRole('region', { name: 'Turn statistics' });
+    expect(within(turnStatistics).getByText('Total turns')).toBeInTheDocument();
+    expect(within(turnStatistics).getByText('30')).toBeInTheDocument();
+    expect(within(turnStatistics).getByText('Median')).toBeInTheDocument();
+    expect(within(turnStatistics).getByText('2')).toBeInTheDocument();
+    const durationStatistics = screen.getByRole('region', { name: 'Duration statistics' });
+    expect(within(durationStatistics).getByText('Duration (s)')).toBeInTheDocument();
+    expect(within(durationStatistics).getAllByText('3.981')).toHaveLength(2);
+    expect(within(durationStatistics).getByText('4.561')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('$1.2480')).toBeInTheDocument();
     expect(await screen.findByText('Sessions: 4')).toBeInTheDocument();

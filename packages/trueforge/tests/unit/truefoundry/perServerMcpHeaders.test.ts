@@ -1,4 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
+import { createLogger } from 'winston';
 import type { McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { parsePerServerMcpHeaders } from '../../../src/truefoundry/perServerMcpHeaders';
@@ -10,10 +11,17 @@ import {
 function unusedClient(): TrueFoundryMcpApiClient {
   const unused = (): Promise<never> => Promise.reject(new Error('unused'));
   return {
-    getMcpServerByName: unused,
+    getMcpServerByName: async ({ name }) => ({
+      id: name,
+      name,
+      proxyUrl: `https://gateway.example/mcp-server/${name}`,
+      createdAt: '2026-01-15T12:00:00.000Z',
+      updatedAt: '2026-01-16T12:00:00.000Z',
+      manifest: { description: name },
+    }),
     listMcpServers: unused,
-    listGatewayInstallations: unused,
-    getMcpAuthorize: unused,
+    listGatewayInstallations: async () => [{ isDefault: true, manifest: { url: 'https://gateway.example' } }],
+    getMcpAuthorize: async () => ({ status: 'authenticated' }),
     getMcpAuthStatus: unused,
     deleteMcpAuth: unused,
     vendToken: () => Promise.resolve('caller-token'),
@@ -37,14 +45,14 @@ const record = (name: string): McpServerRecord => ({
 const storeWith = (perServerHeaders: Record<string, Record<string, string>>): TrueFoundryMcpServerStore =>
   new TrueFoundryMcpServerStore({
     client: unusedClient(),
-    context: createTrueFoundryRequestContext({
+    requestContext: createTrueFoundryRequestContext({
       tenant_id: 'default',
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: 'caller-token',
     }),
     agent: undefined,
-    logger: { info: jest.fn() },
+    logger: createLogger({ silent: true }),
     perServerHeaders,
   });
 

@@ -108,11 +108,19 @@ export interface ListSchedulesInput {
 export interface ListRunsInput {
   tenant_id: string;
   schedule_id: string;
+  limit: number;
+  page_token: string | undefined;
 }
 
 export interface GetScheduleInput {
   tenant_id: string;
   id: string;
+}
+
+export interface GetOwnedIdsInput {
+  tenant_id: string;
+  ids: readonly string[];
+  subject_id: string;
 }
 
 export interface CreateScheduleInput {
@@ -162,6 +170,11 @@ export interface ListScheduledRunsInput {
 export interface GetRunInput {
   tenant_id: string;
   /** Immutable run id. */
+  id: string;
+}
+
+export interface GetRunByIdInput {
+  /** Globally unique immutable run id. */
   id: string;
 }
 
@@ -245,10 +258,14 @@ export interface IScheduleStore<TTransaction = never> {
     input: ListSchedulesInput,
     transaction?: TTransaction,
   ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }>;
+  /** Ids among `ids` owned by `subject_id`. Empty `ids` → `[]`. */
+  getOwnedIds(input: GetOwnedIdsInput, transaction?: TTransaction): Promise<readonly string[]>;
 
   // --- schedule_run ---
   /** One run by immutable id. */
   getRun(input: GetRunInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
+  /** Internal execution lookup when the run id is the only trusted input. */
+  getRunById(input: GetRunByIdInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /** A schedule's single pending (`scheduled`) run, if it has one. */
   getScheduledRunFor(
     input: GetScheduledRunForInput,
@@ -272,5 +289,8 @@ export interface IScheduleStore<TTransaction = never> {
   /**
    * Runs of one schedule (any status), newest `scheduled_for` first.
    */
-  listRuns(input: ListRunsInput, transaction?: TTransaction): Promise<ScheduleRunRecord[]>;
+  listRuns(
+    input: ListRunsInput,
+    transaction?: TTransaction,
+  ): Promise<{ data: ScheduleRunRecord[]; pagination: TokenPagination }>;
 }

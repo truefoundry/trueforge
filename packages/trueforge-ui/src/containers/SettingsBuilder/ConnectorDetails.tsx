@@ -179,7 +179,7 @@ const ConnectorDetails = ({
               </span>
               <span
                 className={cn(
-                  'flex items-center gap-1.5 text-xs font-medium',
+                  'flex items-center gap-1.5 rounded-full border border-border bg-secondary-bg/40 px-2 py-0.5 text-xs font-medium',
                   connector.authenticated ? 'text-success-bg' : 'text-text-primary',
                 )}
               >

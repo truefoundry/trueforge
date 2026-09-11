@@ -8,17 +8,20 @@ import type {
   AgentSessionsServer,
   AgentUIServer,
   CatalogServer,
+  PermissionsServer,
   ScheduleServer,
 } from './types.js';
 
 const ServerContext = createContext<AgentUIServer | null>(null);
 const ServerCapabilitiesContext = createContext<{
   capabilities: AgentBuilderCapabilitiesResponse['data'] | null;
+  settled: boolean;
   refresh: () => void;
 } | null>(null);
 
 export function ServerProvider({ server, children }: { server: AgentUIServer; children: ReactNode }) {
   const [capabilities, setCapabilities] = useState<AgentBuilderCapabilitiesResponse['data'] | null>(null);
+  const [capabilitiesSettled, setCapabilitiesSettled] = useState(false);
   const cancelActiveRequestRef = useRef<(() => void) | null>(null);
   const refreshCapabilities = useCallback(() => {
     cancelActiveRequestRef.current?.();
@@ -33,11 +36,15 @@ export function ServerProvider({ server, children }: { server: AgentUIServer; ch
       })
       .catch(() => {
         // Preserve the last known capabilities when a refresh fails.
+      })
+      .finally(() => {
+        if (!cancelled) setCapabilitiesSettled(true);
       });
   }, [server]);
 
   useEffect(() => {
     setCapabilities(null);
+    setCapabilitiesSettled(false);
     refreshCapabilities();
     return () => {
       cancelActiveRequestRef.current?.();
@@ -45,8 +52,8 @@ export function ServerProvider({ server, children }: { server: AgentUIServer; ch
   }, [refreshCapabilities]);
 
   const capabilitiesValue = useMemo(
-    () => ({ capabilities, refresh: refreshCapabilities }),
-    [capabilities, refreshCapabilities],
+    () => ({ capabilities, settled: capabilitiesSettled, refresh: refreshCapabilities }),
+    [capabilities, capabilitiesSettled, refreshCapabilities],
   );
 
   return (
@@ -70,6 +77,10 @@ export function useOptionalServer(): AgentUIServer | null {
 
 export function useServerCapabilities(): AgentBuilderCapabilitiesResponse['data'] | null {
   return useContext(ServerCapabilitiesContext)?.capabilities ?? null;
+}
+
+export function useServerCapabilitiesSettled(): boolean {
+  return useContext(ServerCapabilitiesContext)?.settled ?? false;
 }
 
 export function useOptionalRefreshServerCapabilities(): (() => void) | null {
@@ -122,4 +133,8 @@ export function useScheduleServer(): ScheduleServer {
 
 export function useOptionalScheduleServer(): ScheduleServer | null {
   return useOptionalServer()?.schedules ?? null;
+}
+
+export function useOptionalPermissionsServer(): PermissionsServer | null {
+  return useOptionalServer()?.permissions ?? null;
 }

@@ -1,4 +1,4 @@
-/** DB AgentSpec wire schema — FQN model names and name-only skill refs. */
+/** DB AgentSpec wire schema — FQN model names and skill refs (name + optional preload). */
 import { z } from '@hono/zod-openapi';
 import {
   DEFAULT_INDIVIDUAL_TOOL_TOKEN_THRESHOLD,
@@ -221,22 +221,24 @@ export const RuntimeConfigSchema = z
   .openapi('RuntimeConfig');
 
 // --- Skills ---
-// Name-only refs; DB sessions expand mount fields from ISkillStore at turn time.
+// Name (+ optional preload) refs; the skill store expands mounts at turn time.
 
-const SKILL_NAME_REGEX = /^[A-Za-z0-9._-]+$/;
+const SKILL_NAME_REGEX = /^[A-Za-z0-9._\-/:]+$/;
 
-/** Name-only skill selection; mount fields come from the skill store. */
+const MAX_AGENT_SKILLS = 50;
+
+/** Skill selection; mount fields come from the skill store. */
 const SkillSchema = z
   .object({
     name: z
       .string()
       .trim()
       .min(1)
-      .max(64)
-      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", and "-"')
+      .regex(SKILL_NAME_REGEX, 'Name may only contain letters, numbers, ".", "_", "-", "/", and ":"')
       .refine(v => v !== '.' && v !== '..', 'Name must not be "." or ".."')
       .refine(v => !v.startsWith('.tfy-'), 'Name must not use the reserved ".tfy-" prefix')
-      .describe('Name of a configured skill (also used as the skill directory name in the sandbox).'),
+      .describe('Skill name.'),
+    preload: z.boolean().optional().default(false).describe('Inline SKILL.md into the prompt.'),
   })
   .strict()
   .openapi('Skill');
@@ -272,10 +274,7 @@ export const AgentSpecSchema = z
       .optional()
       .describe('Optional MCP servers attached by configured name.'),
     response_format: ResponseFormatSchema.optional(),
-    skills: z
-      .array(SkillSchema)
-      .optional()
-      .describe('Optional name-only skill references. Requires `config.sandbox.enabled: true`.'),
+    skills: z.array(SkillSchema).max(MAX_AGENT_SKILLS).optional().describe('Skills used in this agent.'),
     // Factory must parse so nested RuntimeConfig field defaults materialize.
     config: RuntimeConfigSchema.default(() => RuntimeConfigSchema.parse({})),
   })
