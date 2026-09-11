@@ -76,13 +76,20 @@ class AgentsClient:
         return _response.data
 
     def create(
-        self, *, manifest: AgentSpec, name: ResourceName, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        description: str,
+        manifest: AgentSpec,
+        name: ResourceName,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentResponse:
         """
         Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
 
         Parameters
         ----------
+        description : str
+
         manifest : AgentSpec
 
         name : ResourceName
@@ -104,6 +111,7 @@ class AgentsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.agents.create(
+            description="description",
             manifest=AgentSpec(
                 model=Model(
                     name="name",
@@ -112,7 +120,9 @@ class AgentsClient:
             name="name",
         )
         """
-        _response = self._raw_client.create(manifest=manifest, name=name, request_options=request_options)
+        _response = self._raw_client.create(
+            description=description, manifest=manifest, name=name, request_options=request_options
+        )
         return _response.data
 
     def get(self, *, agent_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetAgentResponse:
@@ -148,10 +158,15 @@ class AgentsClient:
         return _response.data
 
     def update(
-        self, *, agent_id: str, manifest: AgentSpec, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        agent_id: str,
+        manifest: AgentSpec,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentResponse:
         """
-        Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+        Update an existing agent by immutable id.
 
         Parameters
         ----------
@@ -159,6 +174,8 @@ class AgentsClient:
             Immutable agent identifier.
 
         manifest : AgentSpec
+
+        description : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -185,7 +202,9 @@ class AgentsClient:
             ),
         )
         """
-        _response = self._raw_client.update(agent_id=agent_id, manifest=manifest, request_options=request_options)
+        _response = self._raw_client.update(
+            agent_id=agent_id, manifest=manifest, description=description, request_options=request_options
+        )
         return _response.data
 
     def delete(self, *, agent_id: str, request_options: typing.Optional[RequestOptions] = None) -> DeleteAgentResponse:
@@ -290,13 +309,20 @@ class AsyncAgentsClient:
         return _response.data
 
     async def create(
-        self, *, manifest: AgentSpec, name: ResourceName, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        description: str,
+        manifest: AgentSpec,
+        name: ResourceName,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentResponse:
         """
         Creates an agent and allocates an immutable id. Fails if `name` is already taken. Name cannot be changed later.
 
         Parameters
         ----------
+        description : str
+
         manifest : AgentSpec
 
         name : ResourceName
@@ -323,6 +349,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.agents.create(
+                description="description",
                 manifest=AgentSpec(
                     model=Model(
                         name="name",
@@ -334,7 +361,9 @@ class AsyncAgentsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create(manifest=manifest, name=name, request_options=request_options)
+        _response = await self._raw_client.create(
+            description=description, manifest=manifest, name=name, request_options=request_options
+        )
         return _response.data
 
     async def get(self, *, agent_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetAgentResponse:
@@ -378,10 +407,15 @@ class AsyncAgentsClient:
         return _response.data
 
     async def update(
-        self, *, agent_id: str, manifest: AgentSpec, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        agent_id: str,
+        manifest: AgentSpec,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentResponse:
         """
-        Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+        Update an existing agent by immutable id.
 
         Parameters
         ----------
@@ -389,6 +423,8 @@ class AsyncAgentsClient:
             Immutable agent identifier.
 
         manifest : AgentSpec
+
+        description : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -423,7 +459,9 @@ class AsyncAgentsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.update(agent_id=agent_id, manifest=manifest, request_options=request_options)
+        _response = await self._raw_client.update(
+            agent_id=agent_id, manifest=manifest, description=description, request_options=request_options
+        )
         return _response.data
 
     async def delete(

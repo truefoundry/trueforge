@@ -12,6 +12,7 @@ from .resource_name import ResourceName
 
 class Agent(UncheckedBaseModel):
     created_by_subject: CreatedBySubject
+    description: str
     id: str = pydantic.Field()
     """
     Immutable server-generated agent identifier.

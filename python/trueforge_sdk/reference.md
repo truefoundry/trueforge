@@ -1,7 +1,5 @@
 # Reference
-
 ## Internal
-
 <details><summary><code>client.internal.<a href="src/trueforge_sdk/internal/client.py">list_permissions</a>(...) -> ListPermissionsResponse</code></summary>
 <dl>
 <dd>
@@ -44,7 +42,6 @@ client.internal.list_permissions(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -59,15 +56,15 @@ client.internal.list_permissions(
 <dd>
 
 **resource_ids:** `typing.List[str]` — Resource ids of `resource_type` to evaluate for the caller.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**resource_type:** `PermissionResourceType`
-
+**resource_type:** `PermissionResourceType` 
+    
 </dd>
 </dl>
 
@@ -75,18 +72,18 @@ client.internal.list_permissions(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Agents
-
 <details><summary><code>client.agents.<a href="src/trueforge_sdk/agents/client.py">list</a>(...) -> ListAgentsResponse</code></summary>
 <dl>
 <dd>
@@ -124,7 +121,6 @@ client = TrueForge(
 client.agents.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -139,7 +135,7 @@ client.agents.list()
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 50, max 100.
-
+    
 </dd>
 </dl>
 
@@ -147,7 +143,7 @@ client.agents.list()
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
-
+    
 </dd>
 </dl>
 
@@ -155,7 +151,7 @@ client.agents.list()
 <dd>
 
 **agent_name:** `typing.Optional[str]` — Case-insensitive substring match on agent name.
-
+    
 </dd>
 </dl>
 
@@ -163,11 +159,12 @@ client.agents.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -208,6 +205,7 @@ client = TrueForge(
 )
 
 client.agents.create(
+    description="description",
     manifest=AgentSpec(
         model=Model(
             name="name",
@@ -217,7 +215,6 @@ client.agents.create(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -231,16 +228,24 @@ client.agents.create(
 <dl>
 <dd>
 
-**manifest:** `AgentSpec`
-
+**description:** `str` 
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**name:** `ResourceName`
+**manifest:** `AgentSpec` 
+    
+</dd>
+</dl>
 
+<dl>
+<dd>
+
+**name:** `ResourceName` 
+    
 </dd>
 </dl>
 
@@ -248,11 +253,12 @@ client.agents.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -297,7 +303,6 @@ client.agents.get(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -312,7 +317,7 @@ client.agents.get(
 <dd>
 
 **agent_id:** `str` — Immutable agent identifier.
-
+    
 </dd>
 </dl>
 
@@ -320,11 +325,12 @@ client.agents.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -342,7 +348,7 @@ client.agents.get(
 <dl>
 <dd>
 
-Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+Update an existing agent by immutable id.
 </dd>
 </dl>
 </dd>
@@ -374,7 +380,6 @@ client.agents.update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -389,15 +394,23 @@ client.agents.update(
 <dd>
 
 **agent_id:** `str` — Immutable agent identifier.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**manifest:** `AgentSpec`
+**manifest:** `AgentSpec` 
+    
+</dd>
+</dl>
 
+<dl>
+<dd>
+
+**description:** `typing.Optional[str]` 
+    
 </dd>
 </dl>
 
@@ -405,11 +418,12 @@ client.agents.update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -454,7 +468,6 @@ client.agents.delete(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -469,7 +482,7 @@ client.agents.delete(
 <dd>
 
 **agent_id:** `str` — Immutable agent identifier.
-
+    
 </dd>
 </dl>
 
@@ -477,18 +490,18 @@ client.agents.delete(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Auth
-
 <details><summary><code>client.auth.<a href="src/trueforge_sdk/auth/client.py">me</a>() -> GetMeResponse</code></summary>
 <dl>
 <dd>
@@ -526,7 +539,6 @@ client = TrueForge(
 client.auth.me()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -541,18 +553,18 @@ client.auth.me()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Server
-
 <details><summary><code>client.server.<a href="src/trueforge_sdk/server/client.py">get_capabilities</a>() -> GetCapabilitiesResponse</code></summary>
 <dl>
 <dd>
@@ -590,7 +602,6 @@ client = TrueForge(
 client.server.get_capabilities()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -605,18 +616,18 @@ client.server.get_capabilities()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## MCP Servers
-
 <details><summary><code>client.mcp_servers.<a href="src/trueforge_sdk/mcp_servers/client.py">list</a>() -> ListAvailableMcpServersResponse</code></summary>
 <dl>
 <dd>
@@ -654,7 +665,6 @@ client = TrueForge(
 client.mcp_servers.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -669,11 +679,12 @@ client.mcp_servers.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -718,7 +729,6 @@ client.mcp_servers.get(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -733,7 +743,7 @@ client.mcp_servers.get(
 <dd>
 
 **name:** `str` — MCP server name.
-
+    
 </dd>
 </dl>
 
@@ -741,11 +751,12 @@ client.mcp_servers.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -790,7 +801,6 @@ client.mcp_servers.authorize(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -805,7 +815,7 @@ client.mcp_servers.authorize(
 <dd>
 
 **name:** `str` — MCP server name.
-
+    
 </dd>
 </dl>
 
@@ -813,7 +823,7 @@ client.mcp_servers.authorize(
 <dd>
 
 **return_to:** `typing.Optional[str]` — Same-origin path to land in the browser after consent.
-
+    
 </dd>
 </dl>
 
@@ -821,11 +831,12 @@ client.mcp_servers.authorize(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -870,7 +881,6 @@ client.mcp_servers.delete_authorization(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -885,7 +895,7 @@ client.mcp_servers.delete_authorization(
 <dd>
 
 **name:** `str` — MCP server name.
-
+    
 </dd>
 </dl>
 
@@ -893,11 +903,12 @@ client.mcp_servers.delete_authorization(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -942,7 +953,6 @@ client.mcp_servers.list_tools(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -957,7 +967,7 @@ client.mcp_servers.list_tools(
 <dd>
 
 **name:** `str` — MCP server name.
-
+    
 </dd>
 </dl>
 
@@ -965,18 +975,18 @@ client.mcp_servers.list_tools(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Models
-
 <details><summary><code>client.models.<a href="src/trueforge_sdk/models/client.py">list</a>() -> ListAvailableModelsResponse</code></summary>
 <dl>
 <dd>
@@ -1014,7 +1024,6 @@ client = TrueForge(
 client.models.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1029,18 +1038,18 @@ client.models.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Schedules
-
 <details><summary><code>client.schedules.<a href="src/trueforge_sdk/schedules/client.py">list</a>(...) -> ListSchedulesResponse</code></summary>
 <dl>
 <dd>
@@ -1078,7 +1087,6 @@ client = TrueForge(
 client.schedules.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1093,7 +1101,7 @@ client.schedules.list()
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 25
-
+    
 </dd>
 </dl>
 
@@ -1101,7 +1109,7 @@ client.schedules.list()
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
-
+    
 </dd>
 </dl>
 
@@ -1109,7 +1117,7 @@ client.schedules.list()
 <dd>
 
 **agent_names:** `typing.Optional[str]` — Filter by one or more agent names (comma-separated). When set, at least one name is required.
-
+    
 </dd>
 </dl>
 
@@ -1117,7 +1125,7 @@ client.schedules.list()
 <dd>
 
 **created_by_me:** `typing.Optional[bool]` — When true, only schedules created by the authenticated subject.
-
+    
 </dd>
 </dl>
 
@@ -1125,11 +1133,12 @@ client.schedules.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1179,7 +1188,6 @@ client.schedules.create(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1193,24 +1201,24 @@ client.schedules.create(
 <dl>
 <dd>
 
-**agent_name:** `ResourceName`
-
+**agent_name:** `ResourceName` 
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**manifest:** `ScheduleManifest`
-
+**manifest:** `ScheduleManifest` 
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**name:** `ResourceName`
-
+**name:** `ResourceName` 
+    
 </dd>
 </dl>
 
@@ -1218,11 +1226,12 @@ client.schedules.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1267,7 +1276,6 @@ client.schedules.create_run(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1282,7 +1290,7 @@ client.schedules.create_run(
 <dd>
 
 **schedule_id:** `str` — Immutable schedule identifier.
-
+    
 </dd>
 </dl>
 
@@ -1290,11 +1298,12 @@ client.schedules.create_run(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1339,7 +1348,6 @@ client.schedules.get(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1354,7 +1362,7 @@ client.schedules.get(
 <dd>
 
 **schedule_id:** `str` — Immutable schedule identifier.
-
+    
 </dd>
 </dl>
 
@@ -1362,11 +1370,12 @@ client.schedules.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1416,7 +1425,6 @@ client.schedules.update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1431,23 +1439,23 @@ client.schedules.update(
 <dd>
 
 **schedule_id:** `str` — Immutable schedule identifier.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**manifest:** `ScheduleManifest`
-
+**manifest:** `ScheduleManifest` 
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**name:** `ResourceName`
-
+**name:** `ResourceName` 
+    
 </dd>
 </dl>
 
@@ -1455,11 +1463,12 @@ client.schedules.update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1504,7 +1513,6 @@ client.schedules.delete(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1519,7 +1527,7 @@ client.schedules.delete(
 <dd>
 
 **schedule_id:** `str` — Immutable schedule identifier.
-
+    
 </dd>
 </dl>
 
@@ -1527,11 +1535,12 @@ client.schedules.delete(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1576,7 +1585,6 @@ client.schedules.list_runs(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1591,7 +1599,7 @@ client.schedules.list_runs(
 <dd>
 
 **schedule_id:** `str` — Immutable schedule identifier.
-
+    
 </dd>
 </dl>
 
@@ -1599,7 +1607,7 @@ client.schedules.list_runs(
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 25
-
+    
 </dd>
 </dl>
 
@@ -1607,7 +1615,7 @@ client.schedules.list_runs(
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
-
+    
 </dd>
 </dl>
 
@@ -1615,18 +1623,18 @@ client.schedules.list_runs(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Sessions
-
 <details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list</a>(...) -> ListSessionsResponse</code></summary>
 <dl>
 <dd>
@@ -1664,7 +1672,6 @@ client = TrueForge(
 client.sessions.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1679,7 +1686,7 @@ client.sessions.list()
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 25.
-
+    
 </dd>
 </dl>
 
@@ -1687,7 +1694,7 @@ client.sessions.list()
 <dd>
 
 **order:** `typing.Optional[ListSessionsOrder]` — Sort sessions by `updated_at`. Defaults to "desc".
-
+    
 </dd>
 </dl>
 
@@ -1695,7 +1702,7 @@ client.sessions.list()
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque keyset cursor from a previous response `next_page_token`.
-
+    
 </dd>
 </dl>
 
@@ -1703,7 +1710,7 @@ client.sessions.list()
 <dd>
 
 **start_timestamp:** `typing.Optional[datetime.datetime]` — Inclusive lower bound on `created_at` (ISO-8601 / RFC 3339).
-
+    
 </dd>
 </dl>
 
@@ -1711,7 +1718,7 @@ client.sessions.list()
 <dd>
 
 **end_timestamp:** `typing.Optional[datetime.datetime]` — Inclusive upper bound on `created_at` (ISO-8601 / RFC 3339).
-
+    
 </dd>
 </dl>
 
@@ -1719,7 +1726,7 @@ client.sessions.list()
 <dd>
 
 **agent_id:** `typing.Optional[str]` — When set, only sessions bound to this agent id are returned.
-
+    
 </dd>
 </dl>
 
@@ -1727,7 +1734,7 @@ client.sessions.list()
 <dd>
 
 **created_by_me:** `typing.Optional[bool]` — When true, only sessions created by the authenticated subject.
-
+    
 </dd>
 </dl>
 
@@ -1735,7 +1742,7 @@ client.sessions.list()
 <dd>
 
 **metadata:** `typing.Optional[SessionMetadata]` — Exact metadata pairs as metadata[key]=value. Sessions must contain all pairs.
-
+    
 </dd>
 </dl>
 
@@ -1743,7 +1750,7 @@ client.sessions.list()
 <dd>
 
 **source_type:** `typing.Optional[SessionSourceType]` — When set, returns only sessions created by this source type.
-
+    
 </dd>
 </dl>
 
@@ -1751,7 +1758,7 @@ client.sessions.list()
 <dd>
 
 **source_id:** `typing.Optional[str]` — When set, returns only sessions from this specific source. Requires source_type.
-
+    
 </dd>
 </dl>
 
@@ -1759,11 +1766,12 @@ client.sessions.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1810,7 +1818,6 @@ client.sessions.create(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1824,16 +1831,16 @@ client.sessions.create(
 <dl>
 <dd>
 
-**agent:** `CreateSessionAgent`
-
+**agent:** `CreateSessionAgent` 
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**metadata:** `typing.Optional[SessionMetadata]`
-
+**metadata:** `typing.Optional[SessionMetadata]` 
+    
 </dd>
 </dl>
 
@@ -1841,11 +1848,12 @@ client.sessions.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1890,7 +1898,6 @@ client.sessions.get(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1905,7 +1912,7 @@ client.sessions.get(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -1913,11 +1920,12 @@ client.sessions.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -1962,7 +1970,6 @@ client.sessions.delete(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -1977,7 +1984,7 @@ client.sessions.delete(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -1985,11 +1992,12 @@ client.sessions.delete(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2034,7 +2042,6 @@ client.sessions.update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2049,23 +2056,23 @@ client.sessions.update(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**agent:** `typing.Optional[SessionAgentSpecBody]`
-
+**agent:** `typing.Optional[SessionAgentSpecBody]` 
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**metadata:** `typing.Optional[SessionMetadata]`
-
+**metadata:** `typing.Optional[SessionMetadata]` 
+    
 </dd>
 </dl>
 
@@ -2073,11 +2080,12 @@ client.sessions.update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2122,7 +2130,6 @@ client.sessions.cancel(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2137,7 +2144,7 @@ client.sessions.cancel(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2145,11 +2152,12 @@ client.sessions.cancel(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2194,7 +2202,6 @@ client.sessions.list_events(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2209,7 +2216,7 @@ client.sessions.list_events(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2217,7 +2224,7 @@ client.sessions.list_events(
 <dd>
 
 **page_token:** `typing.Optional[str]` — Pagination cursor from `pagination.next_page_token`. It retains the branch anchor turn and returns older events toward the session start.
-
+    
 </dd>
 </dl>
 
@@ -2225,7 +2232,7 @@ client.sessions.list_events(
 <dd>
 
 **last_turn_id:** `typing.Optional[str]` — Newest turn in the listing window (initial load only; ignored when `page_token` is set). Lists that turn and its ancestors, newest events first. Omit to use the session last turn.
-
+    
 </dd>
 </dl>
 
@@ -2233,7 +2240,7 @@ client.sessions.list_events(
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
-
+    
 </dd>
 </dl>
 
@@ -2241,11 +2248,12 @@ client.sessions.list_events(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2290,7 +2298,6 @@ client.sessions.list_turns(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2305,7 +2312,7 @@ client.sessions.list_turns(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2313,7 +2320,7 @@ client.sessions.list_turns(
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 25.
-
+    
 </dd>
 </dl>
 
@@ -2321,7 +2328,7 @@ client.sessions.list_turns(
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
-
+    
 </dd>
 </dl>
 
@@ -2329,11 +2336,12 @@ client.sessions.list_turns(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2382,7 +2390,6 @@ client.sessions.create_turn_stream(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2397,7 +2404,7 @@ client.sessions.create_turn_stream(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2405,7 +2412,7 @@ client.sessions.create_turn_stream(
 <dd>
 
 **stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
-
+    
 </dd>
 </dl>
 
@@ -2413,15 +2420,15 @@ client.sessions.create_turn_stream(
 <dd>
 
 **input:** `typing.Optional[typing.List[TurnInputItem]]` — Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]`
-
+**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
+    
 </dd>
 </dl>
 
@@ -2429,11 +2436,12 @@ client.sessions.create_turn_stream(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2482,7 +2490,6 @@ client.sessions.create_turn_stream(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2497,7 +2504,7 @@ client.sessions.create_turn_stream(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2505,7 +2512,7 @@ client.sessions.create_turn_stream(
 <dd>
 
 **stream:** `typing.Literal` — When true (default), stream turn events as SSE. When false, return the running turn immediately.
-
+    
 </dd>
 </dl>
 
@@ -2513,15 +2520,15 @@ client.sessions.create_turn_stream(
 <dd>
 
 **input:** `typing.Optional[typing.List[TurnInputItem]]` — Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]`
-
+**previous_turn_id:** `typing.Optional[PreviousTurnIdInput]` 
+    
 </dd>
 </dl>
 
@@ -2529,11 +2536,12 @@ client.sessions.create_turn_stream(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2579,7 +2587,6 @@ client.sessions.get_turn(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2594,7 +2601,7 @@ client.sessions.get_turn(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2602,7 +2609,7 @@ client.sessions.get_turn(
 <dd>
 
 **turn_id:** `str` — Turn identifier.
-
+    
 </dd>
 </dl>
 
@@ -2610,11 +2617,12 @@ client.sessions.get_turn(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2661,7 +2669,6 @@ client.sessions.download_sandbox_file(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2676,7 +2683,7 @@ client.sessions.download_sandbox_file(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2684,7 +2691,7 @@ client.sessions.download_sandbox_file(
 <dd>
 
 **turn_id:** `str` — Turn identifier.
-
+    
 </dd>
 </dl>
 
@@ -2692,7 +2699,7 @@ client.sessions.download_sandbox_file(
 <dd>
 
 **path:** `str` — Absolute or sandbox-working-directory-relative file path, as listed in the assistant's `sandbox_artifacts` block.
-
+    
 </dd>
 </dl>
 
@@ -2700,11 +2707,12 @@ client.sessions.download_sandbox_file(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2750,7 +2758,6 @@ client.sessions.list_turn_events(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2765,7 +2772,7 @@ client.sessions.list_turn_events(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2773,7 +2780,7 @@ client.sessions.list_turn_events(
 <dd>
 
 **turn_id:** `str` — Turn identifier.
-
+    
 </dd>
 </dl>
 
@@ -2781,7 +2788,7 @@ client.sessions.list_turn_events(
 <dd>
 
 **limit:** `typing.Optional[int]` — Page size. Defaults to 100, max 100.
-
+    
 </dd>
 </dl>
 
@@ -2789,7 +2796,7 @@ client.sessions.list_turn_events(
 <dd>
 
 **page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
-
+    
 </dd>
 </dl>
 
@@ -2797,7 +2804,7 @@ client.sessions.list_turn_events(
 <dd>
 
 **order:** `typing.Optional[ListTurnEventsOrder]` — Sort events by insertion order. Defaults to "asc".
-
+    
 </dd>
 </dl>
 
@@ -2805,11 +2812,12 @@ client.sessions.list_turn_events(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -2855,7 +2863,6 @@ client.sessions.subscribe_to_turn(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2870,7 +2877,7 @@ client.sessions.subscribe_to_turn(
 <dd>
 
 **session_id:** `str` — Session identifier.
-
+    
 </dd>
 </dl>
 
@@ -2878,7 +2885,7 @@ client.sessions.subscribe_to_turn(
 <dd>
 
 **turn_id:** `str` — Turn identifier.
-
+    
 </dd>
 </dl>
 
@@ -2886,7 +2893,7 @@ client.sessions.subscribe_to_turn(
 <dd>
 
 **after_sequence_number:** `typing.Optional[int]` — Exclusive resume cursor: replay only events with a sequence number greater than this value. Omit to start from the beginning of the live buffer.
-
+    
 </dd>
 </dl>
 
@@ -2894,18 +2901,18 @@ client.sessions.subscribe_to_turn(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Skills
-
 <details><summary><code>client.skills.<a href="src/trueforge_sdk/skills/client.py">list</a>() -> ListAvailableSkillsResponse</code></summary>
 <dl>
 <dd>
@@ -2943,7 +2950,6 @@ client = TrueForge(
 client.skills.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -2958,11 +2964,12 @@ client.skills.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -3007,7 +3014,6 @@ client.skills.list_versions(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3022,7 +3028,7 @@ client.skills.list_versions(
 <dd>
 
 **name:** `str` — Skill name.
-
+    
 </dd>
 </dl>
 
@@ -3030,18 +3036,18 @@ client.skills.list_versions(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Catalogs McpServers
-
 <details><summary><code>client.catalogs.mcp_servers.<a href="src/trueforge_sdk/catalogs/mcp_servers/client.py">list</a>() -> GetMcpServerCatalogResponse</code></summary>
 <dl>
 <dd>
@@ -3079,7 +3085,6 @@ client = TrueForge(
 client.catalogs.mcp_servers.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3094,18 +3099,18 @@ client.catalogs.mcp_servers.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Catalogs ModelProviders
-
 <details><summary><code>client.catalogs.model_providers.<a href="src/trueforge_sdk/catalogs/model_providers/client.py">list</a>() -> GetModelProviderCatalogResponse</code></summary>
 <dl>
 <dd>
@@ -3143,7 +3148,6 @@ client = TrueForge(
 client.catalogs.model_providers.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3158,18 +3162,18 @@ client.catalogs.model_providers.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Catalogs SandboxProviders
-
 <details><summary><code>client.catalogs.sandbox_providers.<a href="src/trueforge_sdk/catalogs/sandbox_providers/client.py">list</a>() -> GetSandboxProviderCatalogResponse</code></summary>
 <dl>
 <dd>
@@ -3207,7 +3211,6 @@ client = TrueForge(
 client.catalogs.sandbox_providers.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3222,18 +3225,18 @@ client.catalogs.sandbox_providers.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Catalogs Skills
-
 <details><summary><code>client.catalogs.skills.<a href="src/trueforge_sdk/catalogs/skills/client.py">list</a>() -> GetSkillCatalogResponse</code></summary>
 <dl>
 <dd>
@@ -3271,7 +3274,6 @@ client = TrueForge(
 client.catalogs.skills.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3286,18 +3288,18 @@ client.catalogs.skills.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Internal Metrics
-
 <details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py">list_charts</a>() -> GetSessionMetricsChartResponse</code></summary>
 <dl>
 <dd>
@@ -3335,7 +3337,6 @@ client = TrueForge(
 client.internal.metrics.list_charts()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3350,11 +3351,12 @@ client.internal.metrics.list_charts()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -3403,7 +3405,6 @@ client.internal.metrics.get_chart_data(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3418,7 +3419,7 @@ client.internal.metrics.get_chart_data(
 <dd>
 
 **agent_id:** `str` — Named agent identifier.
-
+    
 </dd>
 </dl>
 
@@ -3426,7 +3427,7 @@ client.internal.metrics.get_chart_data(
 <dd>
 
 **start_timestamp:** `datetime.datetime` — Inclusive lower bound on session `created_at`.
-
+    
 </dd>
 </dl>
 
@@ -3434,7 +3435,7 @@ client.internal.metrics.get_chart_data(
 <dd>
 
 **end_timestamp:** `datetime.datetime` — Inclusive upper bound on session `created_at`.
-
+    
 </dd>
 </dl>
 
@@ -3442,7 +3443,7 @@ client.internal.metrics.get_chart_data(
 <dd>
 
 **chart_name:** `SessionMetricsChartName` — Session metrics chart to return.
-
+    
 </dd>
 </dl>
 
@@ -3450,11 +3451,12 @@ client.internal.metrics.get_chart_data(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -3502,7 +3504,6 @@ client.internal.metrics.get_meters(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3517,7 +3518,7 @@ client.internal.metrics.get_meters(
 <dd>
 
 **agent_id:** `str` — Named agent identifier.
-
+    
 </dd>
 </dl>
 
@@ -3525,7 +3526,7 @@ client.internal.metrics.get_meters(
 <dd>
 
 **start_timestamp:** `datetime.datetime` — Inclusive lower bound on session `created_at`.
-
+    
 </dd>
 </dl>
 
@@ -3533,7 +3534,7 @@ client.internal.metrics.get_meters(
 <dd>
 
 **end_timestamp:** `datetime.datetime` — Inclusive upper bound on session `created_at`.
-
+    
 </dd>
 </dl>
 
@@ -3541,18 +3542,18 @@ client.internal.metrics.get_meters(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Internal Schedules
-
 <details><summary><code>client.internal.schedules.<a href="src/trueforge_sdk/internal/schedules/client.py">execute_run</a>(...)</code></summary>
 <dl>
 <dd>
@@ -3592,7 +3593,6 @@ client.internal.schedules.execute_run(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3607,7 +3607,7 @@ client.internal.schedules.execute_run(
 <dd>
 
 **schedule_run_id:** `str` — Immutable schedule run identifier.
-
+    
 </dd>
 </dl>
 
@@ -3615,18 +3615,18 @@ client.internal.schedules.execute_run(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Internal Sessions
-
 <details><summary><code>client.internal.sessions.<a href="src/trueforge_sdk/internal/sessions/client.py">get_or_create_by_external_id</a>(...) -> GetSessionResponse</code></summary>
 <dl>
 <dd>
@@ -3669,7 +3669,6 @@ client.internal.sessions.get_or_create_by_external_id(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3683,8 +3682,8 @@ client.internal.sessions.get_or_create_by_external_id(
 <dl>
 <dd>
 
-**agent:** `CreateSessionAgent`
-
+**agent:** `CreateSessionAgent` 
+    
 </dd>
 </dl>
 
@@ -3692,15 +3691,15 @@ client.internal.sessions.get_or_create_by_external_id(
 <dd>
 
 **external_id:** `str` — Caller-supplied id unique within the tenant.
-
+    
 </dd>
 </dl>
 
 <dl>
 <dd>
 
-**source:** `typing.Optional[SessionSourceSchedule]`
-
+**source:** `typing.Optional[SessionSourceSchedule]` 
+    
 </dd>
 </dl>
 
@@ -3708,18 +3707,18 @@ client.internal.sessions.get_or_create_by_external_id(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Internal Agents
-
 <details><summary><code>client.internal.agents.<a href="src/trueforge_sdk/internal/agents/client.py">get_code_snippets</a>(...) -> GetAgentCodeSnippetsResponse</code></summary>
 <dl>
 <dd>
@@ -3759,7 +3758,6 @@ client.internal.agents.get_code_snippets(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3774,7 +3772,7 @@ client.internal.agents.get_code_snippets(
 <dd>
 
 **agent_id:** `str` — Immutable agent identifier.
-
+    
 </dd>
 </dl>
 
@@ -3782,7 +3780,7 @@ client.internal.agents.get_code_snippets(
 <dd>
 
 **base_url:** `typing.Optional[str]` — Public SDK base URL from the browser. When omitted, derived from the request origin and PUBLIC_BASE_URL.
-
+    
 </dd>
 </dl>
 
@@ -3790,18 +3788,18 @@ client.internal.agents.get_code_snippets(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Settings McpServers
-
 <details><summary><code>client.settings.mcp_servers.<a href="src/trueforge_sdk/settings/mcp_servers/client.py">list</a>() -> ListMcpServersResponse</code></summary>
 <dl>
 <dd>
@@ -3839,7 +3837,6 @@ client = TrueForge(
 client.settings.mcp_servers.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3854,11 +3851,12 @@ client.settings.mcp_servers.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -3908,7 +3906,6 @@ client.settings.mcp_servers.create(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3922,8 +3919,8 @@ client.settings.mcp_servers.create(
 <dl>
 <dd>
 
-**manifest:** `McpServerManifest`
-
+**manifest:** `McpServerManifest` 
+    
 </dd>
 </dl>
 
@@ -3931,11 +3928,12 @@ client.settings.mcp_servers.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -3985,7 +3983,6 @@ client.settings.mcp_servers.create_or_update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -3999,8 +3996,8 @@ client.settings.mcp_servers.create_or_update(
 <dl>
 <dd>
 
-**manifest:** `McpServerManifest`
-
+**manifest:** `McpServerManifest` 
+    
 </dd>
 </dl>
 
@@ -4008,11 +4005,12 @@ client.settings.mcp_servers.create_or_update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -4057,7 +4055,6 @@ client.settings.mcp_servers.get(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4072,7 +4069,7 @@ client.settings.mcp_servers.get(
 <dd>
 
 **name:** `str` — MCP server name.
-
+    
 </dd>
 </dl>
 
@@ -4080,18 +4077,18 @@ client.settings.mcp_servers.get(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Settings ModelProviders
-
 <details><summary><code>client.settings.model_providers.<a href="src/trueforge_sdk/settings/model_providers/client.py">list</a>() -> ListModelProvidersResponse</code></summary>
 <dl>
 <dd>
@@ -4129,7 +4126,6 @@ client = TrueForge(
 client.settings.model_providers.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4144,11 +4140,12 @@ client.settings.model_providers.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -4205,7 +4202,6 @@ client.settings.model_providers.create(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4219,8 +4215,8 @@ client.settings.model_providers.create(
 <dl>
 <dd>
 
-**manifest:** `ModelProviderManifest`
-
+**manifest:** `ModelProviderManifest` 
+    
 </dd>
 </dl>
 
@@ -4228,11 +4224,12 @@ client.settings.model_providers.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -4289,7 +4286,6 @@ client.settings.model_providers.create_or_update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4303,8 +4299,8 @@ client.settings.model_providers.create_or_update(
 <dl>
 <dd>
 
-**manifest:** `ModelProviderManifest`
-
+**manifest:** `ModelProviderManifest` 
+    
 </dd>
 </dl>
 
@@ -4312,18 +4308,18 @@ client.settings.model_providers.create_or_update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Settings SandboxProviders
-
 <details><summary><code>client.settings.sandbox_providers.<a href="src/trueforge_sdk/settings/sandbox_providers/client.py">get</a>() -> GetSandboxProviderResponse</code></summary>
 <dl>
 <dd>
@@ -4361,7 +4357,6 @@ client = TrueForge(
 client.settings.sandbox_providers.get()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4376,11 +4371,12 @@ client.settings.sandbox_providers.get()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -4434,7 +4430,6 @@ client.settings.sandbox_providers.create_or_update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4448,8 +4443,8 @@ client.settings.sandbox_providers.create_or_update(
 <dl>
 <dd>
 
-**manifest:** `SandboxProviderManifest`
-
+**manifest:** `SandboxProviderManifest` 
+    
 </dd>
 </dl>
 
@@ -4457,18 +4452,18 @@ client.settings.sandbox_providers.create_or_update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
 
 ## Settings Skills
-
 <details><summary><code>client.settings.skills.<a href="src/trueforge_sdk/settings/skills/client.py">list</a>() -> ListSkillsResponse</code></summary>
 <dl>
 <dd>
@@ -4506,7 +4501,6 @@ client = TrueForge(
 client.settings.skills.list()
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4521,11 +4515,12 @@ client.settings.skills.list()
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -4576,7 +4571,6 @@ client.settings.skills.create(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4590,8 +4584,8 @@ client.settings.skills.create(
 <dl>
 <dd>
 
-**manifest:** `SkillManifest`
-
+**manifest:** `SkillManifest` 
+    
 </dd>
 </dl>
 
@@ -4599,11 +4593,12 @@ client.settings.skills.create(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
@@ -4654,7 +4649,6 @@ client.settings.skills.create_or_update(
 )
 
 ```
-
 </dd>
 </dl>
 </dd>
@@ -4668,8 +4662,8 @@ client.settings.skills.create_or_update(
 <dl>
 <dd>
 
-**manifest:** `SkillManifest`
-
+**manifest:** `SkillManifest` 
+    
 </dd>
 </dl>
 
@@ -4677,12 +4671,14 @@ client.settings.skills.create_or_update(
 <dd>
 
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
 
-</dd>
-</dl>
-</dd>
-</dl>
 
 </dd>
 </dl>
 </details>
+
