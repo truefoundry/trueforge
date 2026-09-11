@@ -74,4 +74,45 @@ describe('AgentSearchPicker', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('catalog unavailable');
     expect(screen.queryByText('No Agents created yet')).not.toBeInTheDocument();
   });
+
+  it('offers an All option for filter use and clears it while searching', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => {
+      const agents = [
+        { name: 'alpha-bot', agentId: 'alpha-bot' },
+        { name: 'beta-bot', agentId: 'beta-bot' },
+      ];
+      if (query == null || query === '') return agents;
+      return agents.filter(agent => agent.name.includes(query));
+    });
+    const onValueChange = vi.fn();
+
+    render(
+      <AgentSearchPicker
+        value="all"
+        selectedLabel="All agents"
+        onValueChange={onValueChange}
+        allOption={{ value: 'all', label: 'All agents' }}
+        aria-label="Filter by agent"
+      />,
+      { wrapper: wrap(createMockAgentUIServer({ searchAgents })) },
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Filter by agent' });
+    fireEvent.focus(input);
+    expect(await screen.findByRole('option', { name: 'All agents' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('option', { name: 'alpha-bot' }));
+    expect(onValueChange).toHaveBeenCalledWith('alpha-bot');
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'beta' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: 'All agents' })).not.toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'beta-bot' })).toBeInTheDocument();
+    });
+  });
 });

@@ -452,7 +452,7 @@ describe('ScheduleFormDrawer', () => {
   });
 
   it('prefills create from an agent id that differs from the name', async () => {
-    const searchAgents = vi.fn(async () => [
+    const searchAgents = vi.fn(async (_opts: { query?: string; limit?: number; offset?: number } = {}) => [
       {
         name: 'Demo Bot',
         agentId: 'agt_demo',

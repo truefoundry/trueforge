@@ -19,6 +19,8 @@ export type AgentSearchPickerProps = {
   onAgentPicked?: (agent: AgentLibraryEntry) => void;
   disabled?: boolean;
   onBuildAgent?: () => void;
+  /** When set, shows this option above results while the query is empty (e.g. filter "All agents"). */
+  allOption?: { value: string; label: string };
   'aria-label'?: string;
   placeholder?: string;
   className?: string;
@@ -34,6 +36,7 @@ export function AgentSearchPicker({
   onAgentPicked,
   disabled = false,
   onBuildAgent,
+  allOption,
   'aria-label': ariaLabel = 'Agent',
   placeholder = 'Search agent',
   className,
@@ -96,13 +99,23 @@ export function AgentSearchPicker({
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [open]);
 
+  const close = () => {
+    setOpen(false);
+    setQuery('');
+    inputRef.current?.blur();
+  };
+
   const pick = (agent: AgentLibraryEntry) => {
     const id = libraryAgentId(agent);
     onValueChange(id);
     onAgentPicked?.(agent);
-    setOpen(false);
-    setQuery('');
-    inputRef.current?.blur();
+    close();
+  };
+
+  const pickAll = () => {
+    if (allOption == null) return;
+    onValueChange(allOption.value);
+    close();
   };
 
   const inputValue = open ? query : selectedLabel;
@@ -131,6 +144,21 @@ export function AgentSearchPicker({
               aria-label={ariaLabel}
               className="min-h-0 flex-1 overflow-y-auto p-1"
             >
+              {allOption != null && queryTrimmed === '' ? (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={value === allOption.value}
+                  className={auiSelectOptionClass()}
+                  onClick={pickAll}
+                >
+                  <span className="min-w-0 flex-1 truncate">{allOption.label}</span>
+                  <Icon
+                    name="check"
+                    className={cn('ml-auto size-4 shrink-0', value === allOption.value ? 'opacity-100' : 'opacity-0')}
+                  />
+                </button>
+              ) : null}
               {isInitialLoading ? (
                 <p className="text-text-secondary px-3 py-5 text-center text-sm" role="status">
                   Loading…
