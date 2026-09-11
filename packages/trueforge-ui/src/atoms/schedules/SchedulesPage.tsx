@@ -414,7 +414,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         title={agentId === undefined ? 'Scheduled Agents' : undefined}
         end={
           <>
-            <div className="w-full sm:w-56">
+            <div className="w-full sm:w-60">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search schedules by name" />
             </div>
             <PopoverSelect

@@ -86,8 +86,10 @@ export function SideDrawer({
         onOpenChange(false);
       }}
       style={compactStyle}
+      data-anchor={anchor}
+      data-compact={compact ? '' : undefined}
       className={cn(
-        'bg-card-bg text-text-primary border-border open:flex open:flex-col overflow-hidden rounded-none p-0 shadow-xl',
+        'aui-side-drawer bg-card-bg text-text-primary border-border open:flex open:flex-col overflow-hidden rounded-none p-0 shadow-xl',
         'backdrop:bg-black/50 backdrop:backdrop-blur-[2px] dark:backdrop:bg-black/70',
         compact
           ? 'm-0 mt-auto h-[min(85dvh,40rem)] w-full max-w-none border-t pb-[env(safe-area-inset-bottom)]'
