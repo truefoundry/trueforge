@@ -14,12 +14,7 @@ const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
 
 export const AGENT_DESCRIPTION_MAX_LENGTH = 1024;
 
-export const AgentDescriptionSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(AGENT_DESCRIPTION_MAX_LENGTH)
-  .describe('Short summary of what the agent does.');
+export const AgentDescriptionSchema = z.string().trim().min(1).max(AGENT_DESCRIPTION_MAX_LENGTH);
 
 /** Create body: unique immutable `name` plus manifest. `id` is never client-supplied. */
 export const CreateAgentRequestSchema = z
