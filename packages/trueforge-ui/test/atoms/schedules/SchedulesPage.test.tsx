@@ -173,7 +173,7 @@ describe('SchedulesPage', () => {
       );
     });
     expect(screen.queryByRole('heading', { name: 'Scheduled Agents' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Filter by agent' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Filter by agent' })).not.toBeInTheDocument();
   });
 
   it('shows empty state when there are no schedules', async () => {
@@ -246,8 +246,8 @@ describe('SchedulesPage', () => {
     const { scheduleServer } = renderPage();
     await screen.findByText('daily-digest');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filter by agent' }));
-    fireEvent.click(screen.getByRole('option', { name: 'demo-agent' }));
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Filter by agent' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'demo-agent' }));
 
     await waitFor(() => {
       expect(scheduleServer.listSchedules).toHaveBeenCalledWith(
@@ -426,19 +426,41 @@ describe('SchedulesPage', () => {
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
   });
 
-  it('loads every page of agents for the filter', async () => {
-    const agents = Array.from({ length: 51 }, (_, index) => ({
-      agentId: `agent-${String(index + 1)}`,
-      name: `Agent ${String(index + 1)}`,
-    }));
-    const searchAgents = vi.fn(async ({ limit = 50, offset = 0 } = {}) => agents.slice(offset, offset + limit));
+  it('searches agents in the filter', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const agents = [
+      { agentId: 'alpha-agent', name: 'alpha-agent' },
+      { agentId: 'beta-agent', name: 'beta-agent' },
+    ];
+    const searchAgents = vi.fn(
+      async ({ query, limit = 50, offset = 0 }: { query?: string; limit?: number; offset?: number } = {}) => {
+        const matched =
+          query == null || query === ''
+            ? agents
+            : agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
+        return matched.slice(offset, offset + limit);
+      },
+    );
     renderPage(sampleSchedules, {}, undefined, searchAgents);
+    await screen.findByText('daily-digest');
+
+    const filter = screen.getByRole('combobox', { name: 'Filter by agent' });
+    fireEvent.focus(filter);
+    expect(await screen.findByRole('option', { name: 'All agents' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'alpha-agent' })).toBeInTheDocument();
+
+    fireEvent.change(filter, { target: { value: 'beta' } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
 
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenCalledTimes(2);
+      expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ query: 'beta' }));
+      expect(screen.getByRole('option', { name: 'beta-agent' })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'All agents' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'alpha-agent' })).not.toBeInTheDocument();
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Filter by agent' }));
-    expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it('opens the create drawer from isNew=true then clears the flag', async () => {

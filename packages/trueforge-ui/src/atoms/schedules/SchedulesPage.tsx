@@ -11,6 +11,7 @@ import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.j
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { hasCreatedBySubject } from '../../utils/createdBySubject.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
+import { AgentSearchPicker } from '../AgentSearchPicker.js';
 import { CreatedByCell } from '../CreatedByCell.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -424,19 +425,18 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               aria-label="Filter by status"
             />
             {agentId === undefined ? (
-              <PopoverSelect
+              <AgentSearchPicker
                 value={agentFilter}
+                selectedLabel={agentFilter === 'all' ? 'All agents' : (agentNameById.get(agentFilter) ?? agentFilter)}
                 onValueChange={value => {
                   setAgentFilter(value);
                   setPageToken(undefined);
                   setPrevTokenStack([]);
                 }}
-                options={[
-                  { value: 'all', label: 'All agents' },
-                  ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
-                ]}
-                className="sm:w-40"
+                allOption={{ value: 'all', label: 'All agents' }}
+                className="sm:w-48"
                 aria-label="Filter by agent"
+                placeholder="Search agent"
               />
             ) : null}
             <Button.Primary

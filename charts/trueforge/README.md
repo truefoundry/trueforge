@@ -172,15 +172,34 @@ Also set `postgresql.auth.username` and `postgresql.auth.database` as needed;
 the server connects to the bundled instance automatically.
 
 To use an **external** Postgres, set `postgresql.enabled=false` and provide
-`externalPostgres.host` (+ `port`, `database`, `user`). Set
-`externalPostgres.password` as a string (inlined as env `value`) or as
+`externalPostgres.host` (+ `port`, `database`, `user`, `password`). Each of
+those accepts an inline scalar (inlined as env `value`) or
 `valueFrom.secretKeyRef` (preferred in production — you create the Secret):
 
 ```yaml
 postgresql:
   enabled: false
 externalPostgres:
-  host: postgres.databases.svc
+  host:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: host
+  port:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: port
+  database:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: database
+  user:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: user
   password:
     valueFrom:
       secretKeyRef:
@@ -254,7 +273,9 @@ chart does **not** create Secrets for chart-owned fields — supply
 `valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
 
 Fields that accept string | `valueFrom.secretKeyRef`:
-`externalPostgres.password`, `externalRedis.url`, `configs.oidc.clientSecret`.
+`externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
+`externalPostgres.user`, `externalPostgres.password`, `externalRedis.url`,
+`configs.oidc.clientSecret`.
 `configs.oidc.issuerUrl` and `clientId` are plain strings only.
 
 **Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
