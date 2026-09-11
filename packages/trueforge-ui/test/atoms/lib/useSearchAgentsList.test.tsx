@@ -36,6 +36,7 @@ describe('useSearchAgentsList', () => {
       }),
     ).resolves.toEqual({ name: 'helper', agentId: 'helper-id' });
     expect(searchAgents).toHaveBeenLastCalledWith({
+      query: 'helper',
       limit: SEARCH_AGENTS_PAGE_SIZE,
       offset: SEARCH_AGENTS_PAGE_SIZE,
     });

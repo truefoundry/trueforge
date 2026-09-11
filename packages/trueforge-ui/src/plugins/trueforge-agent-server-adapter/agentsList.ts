@@ -18,14 +18,19 @@ export async function listAgentsPage({
   client,
   limit,
   offset = 0,
+  agentName,
 }: {
   client: TrueForge;
   limit: number;
   offset?: number;
+  agentName?: string;
 }): Promise<TrueForgeApi.Agent[]> {
   const pageSize = clampAgentsPageSize(limit);
   const start = Math.max(0, offset);
-  const page = await client.agents.list({ limit: pageSize });
+  const page = await client.agents.list({
+    limit: pageSize,
+    ...(agentName === undefined ? {} : { agentName }),
+  });
   let at = 0;
   while (at < start) {
     if (!page.hasNextPage()) return [];

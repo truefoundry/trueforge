@@ -123,11 +123,14 @@ export function createHarnessBuilderServer(
     async searchAgents(req?: SearchAgentsParams) {
       const limit = clampAgentsPageSize(req?.limit ?? AGENTS_PAGE_LIMIT);
       const offset = req?.offset ?? 0;
-      const rows = await listAgentsPage({ client, limit, offset });
-      const query = req?.query?.trim().toLowerCase();
-      const filtered =
-        query === undefined || query === '' ? rows : rows.filter(agent => agent.name.toLowerCase().includes(query));
-      return filtered.map(toLibraryEntry);
+      const query = req?.query?.trim();
+      const rows = await listAgentsPage({
+        client,
+        limit,
+        offset,
+        ...(query === undefined || query === '' ? {} : { agentName: query }),
+      });
+      return rows.map(toLibraryEntry);
     },
 
     async saveAgent({ agentName, agentSpec, intent }) {

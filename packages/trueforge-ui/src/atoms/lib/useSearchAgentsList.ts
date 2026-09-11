@@ -26,7 +26,7 @@ export async function searchAllAgents(
   return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
 }
 
-/** Exact-name lookup walks unfiltered pages (query is not applied server-side). */
+/** Exact-name lookup walks server-filtered pages until a precise match is found. */
 export async function findAgentByName({
   server,
   agentName,
@@ -36,7 +36,7 @@ export async function findAgentByName({
   agentName: string;
   offset?: number;
 }): Promise<AgentLibraryEntry | undefined> {
-  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
+  const rows = await server.searchAgents({ query: agentName, limit: SEARCH_AGENTS_PAGE_SIZE, offset });
   const match = rows.find(agent => agent.name === agentName);
   if (match != null || rows.length < SEARCH_AGENTS_PAGE_SIZE) return match;
   return findAgentByName({ server, agentName, offset: offset + rows.length });

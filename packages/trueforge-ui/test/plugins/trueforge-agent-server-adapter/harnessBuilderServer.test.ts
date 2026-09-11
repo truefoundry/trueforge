@@ -296,28 +296,34 @@ describe('harnessBuilderServer', () => {
   });
 
   it('searchAgents maps registry rows to library entries with agentId + agentSpec', async () => {
+    const requestedAgentNames: Array<string | null> = [];
     const fetchMock: typeof fetch = async input => {
       const url = input instanceof Request ? input.url : String(input);
       if (isAgentsCollectionUrl(url)) {
+        const agentName = new URL(url).searchParams.get('agent_name');
+        requestedAgentNames.push(agentName);
         return Response.json({
-          data: [
-            {
-              id: 'agt_1',
-              name: 'reviewer',
-              created_by_subject: {
-                subject_id: 'user-1',
-                subject_type: 'user',
-                subject_display_name: 'Alice',
-              },
-              manifest: {
-                model: { name: 'test/model' },
-                instructions: 'Review carefully.',
-                skills: [{ name: 'review' }],
-                mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
-              },
-            },
-            { id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } },
-          ],
+          data:
+            agentName === 'write'
+              ? [{ id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } }]
+              : [
+                  {
+                    id: 'agt_1',
+                    name: 'reviewer',
+                    created_by_subject: {
+                      subject_id: 'user-1',
+                      subject_type: 'user',
+                      subject_display_name: 'Alice',
+                    },
+                    manifest: {
+                      model: { name: 'test/model' },
+                      instructions: 'Review carefully.',
+                      skills: [{ name: 'review' }],
+                      mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+                    },
+                  },
+                  { id: 'agt_2', name: 'writer', manifest: { model: { name: 'test/model' } } },
+                ],
           pagination: { limit: 25 },
         });
       }
@@ -343,11 +349,12 @@ describe('harnessBuilderServer', () => {
       },
     });
 
-    const filtered = await builder.searchAgents({ query: 'write' });
+    const filtered = await builder.searchAgents({ query: ' write ' });
     assert.deepEqual(
       filtered.map(row => row.name),
       ['writer'],
     );
+    assert.deepEqual(requestedAgentNames, [null, 'write']);
   });
 
   it('searchAgents advances offset via page_token on a later API page', async () => {
@@ -356,6 +363,10 @@ describe('harnessBuilderServer', () => {
       const parsed = new URL(url);
       if (!parsed.pathname.endsWith('/api/v1/agents')) {
         return new Response(`Unexpected request: ${url}`, { status: 500 });
+      }
+      const agentName = parsed.searchParams.get('agent_name');
+      if (agentName !== 'a') {
+        return new Response(`Unexpected agent_name: ${String(agentName)}`, { status: 500 });
       }
       const pageToken = parsed.searchParams.get('page_token');
       if (pageToken == null || pageToken === '') {
@@ -374,7 +385,7 @@ describe('harnessBuilderServer', () => {
     };
 
     const builder = createHarnessBuilderServer({ fetch: fetchMock });
-    const page = await builder.searchAgents({ limit: 1, offset: 1 });
+    const page = await builder.searchAgents({ query: 'a', limit: 1, offset: 1 });
     assert.deepEqual(
       page.map(row => row.name),
       ['beta'],
