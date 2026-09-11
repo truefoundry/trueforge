@@ -30,6 +30,17 @@ fern check
 fern generate --group ts-sdk --version "$ts_version" --local --generate-tests --force --log-level debug
 fern generate --group python-sdk --version "$py_version" --local --generate-tests --force --log-level debug
 test -f python/trueforge_sdk/src/trueforge_sdk/client.py
+# local-file-system has no output.package-name; Fern stamps import name into Poetry too.
+# Rewrite dist name to trueforge-sdk (import path stays trueforge_sdk).
+python3 -c '
+from pathlib import Path
+p = Path("python/trueforge_sdk/pyproject.toml")
+t = p.read_text()
+n = t.replace("name = \"trueforge_sdk\"", "name = \"trueforge-sdk\"")
+if n == t:
+    raise SystemExit("expected Fern pyproject name = \"trueforge_sdk\"")
+p.write_text(n)
+'
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
 # resolves to this workspace. CI sets frozen-lockfile, so refresh the root
 # lockfile first or that install fails when the generator added/removed deps.
