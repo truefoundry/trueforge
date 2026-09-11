@@ -138,17 +138,22 @@ function firstInvocationOrder(mock: jest.Mock): number {
 
 describe('TrueFoundryAgentStore', () => {
   it('listAgents and getAgent pass through to the inner store', async () => {
-    const agents = [record()];
-    const listAgents = jest.fn(async () => agents);
-    const getAgent = jest.fn(async () => agents[0]);
+    const listed = { data: [record()], pagination: { limit: 1 } };
+    const listAgents = jest.fn(async () => listed);
+    const getAgent = jest.fn(async () => listed.data[0]);
     const store = tfStore({
       inner: mockInner({ listAgents, getAgent }),
       client: mockClient(),
     });
 
-    await expect(store.listAgents({ tenant_id: TENANT }, TXN)).resolves.toBe(agents);
-    await expect(store.getAgent({ tenant_id: TENANT, id: 'agent-1' }, TXN)).resolves.toBe(agents[0]);
-    expect(listAgents).toHaveBeenCalledWith({ tenant_id: TENANT }, TXN);
+    await expect(
+      store.listAgents({ tenant_id: TENANT, agent_name: undefined, limit: undefined, page_token: undefined }, TXN),
+    ).resolves.toBe(listed);
+    await expect(store.getAgent({ tenant_id: TENANT, id: 'agent-1' }, TXN)).resolves.toBe(listed.data[0]);
+    expect(listAgents).toHaveBeenCalledWith(
+      { tenant_id: TENANT, agent_name: undefined, limit: undefined, page_token: undefined },
+      TXN,
+    );
     expect(getAgent).toHaveBeenCalledWith({ tenant_id: TENANT, id: 'agent-1' }, TXN);
   });
 
