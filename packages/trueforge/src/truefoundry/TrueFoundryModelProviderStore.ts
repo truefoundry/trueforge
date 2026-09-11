@@ -19,8 +19,8 @@ import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFound
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #forServiceFoundry: ResolveAccessToken;
-  readonly #forGateway: ResolveAccessToken;
+  readonly #asAgent: ResolveAccessToken;
+  readonly #asUser: ResolveAccessToken;
 
   constructor(input: {
     client: TrueFoundryServiceFoundryServerClient;
@@ -35,8 +35,8 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
       agent: input.agent,
       logger: input.logger,
     });
-    this.#forServiceFoundry = tokens.forServiceFoundry;
-    this.#forGateway = tokens.forGateway;
+    this.#asAgent = tokens.asAgent;
+    this.#asUser = tokens.asUser;
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
@@ -85,19 +85,19 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     tenant_id: string;
     filter?: { provider_account_name: string; name: string };
   }): Promise<ModelProviderRecord[]> {
-    const [sfyToken, gatewayToken] = await Promise.all([this.#forServiceFoundry(), this.#forGateway()]);
+    const [agentToken, userToken] = await Promise.all([this.#asAgent(), this.#asUser()]);
     const [integrations, installations] = await Promise.all([
       this.#client.listProviderIntegrations({
-        accessToken: sfyToken,
+        accessToken: agentToken,
         ...(input.filter !== undefined ? { filter: input.filter } : {}),
       }),
-      this.#client.listGatewayInstallations(sfyToken),
+      this.#client.listGatewayInstallations(agentToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
     return toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
-      accessToken: gatewayToken,
+      accessToken: userToken,
       models: mapEnabledModels({ integrations }),
     });
   }

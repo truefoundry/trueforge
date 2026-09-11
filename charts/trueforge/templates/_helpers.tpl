@@ -190,8 +190,26 @@ postgresql subchart (existingSecret override or <release>-postgresql).
 {{- default (printf "%s-postgresql" .Release.Name) .Values.postgresql.auth.existingSecret -}}
 {{- end }}
 
+{{/*
+Bitnami redis fullname (mirrors common.names.fullname) so REDIS_URL tracks
+redis.nameOverride / redis.fullnameOverride.
+*/}}
+{{- define "trueforge.redis.fullname" -}}
+{{- if .Values.redis.fullnameOverride -}}
+{{- .Values.redis.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default "redis" .Values.redis.nameOverride -}}
+{{- $releaseName := regexReplaceAll "(-?[^a-z\\d\\-])+-?" (lower .Release.Name) "-" -}}
+{{- if contains $name $releaseName -}}
+{{- $releaseName | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" $releaseName $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
 {{- define "trueforge.redis.bundledUrl" -}}
-{{- printf "redis://%s-redis-master:6379" .Release.Name -}}
+{{- printf "redis://%s-master:6379" (include "trueforge.redis.fullname" .) -}}
 {{- end }}
 
 {{/*
