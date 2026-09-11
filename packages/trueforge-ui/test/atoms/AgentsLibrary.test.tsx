@@ -455,8 +455,8 @@ describe('AgentsLibraryButton', () => {
     expect(searchAgents).toHaveBeenCalledTimes(2);
   });
 
-  it('shows 25+ when the first page is full', async () => {
-    const agents = Array.from({ length: 25 }, (_, i) => ({
+  it('shows 50+ when the first page is full', async () => {
+    const agents = Array.from({ length: 50 }, (_, i) => ({
       name: `agent-${i}`,
       agentId: `agent-${i}`,
     }));
@@ -465,7 +465,7 @@ describe('AgentsLibraryButton', () => {
     renderLibrary(<AgentsLibraryButton />, { server });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Agents \(25\+\)/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Agents \(50\+\)/ })).toBeInTheDocument();
     });
   });
 

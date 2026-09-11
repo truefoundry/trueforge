@@ -392,21 +392,21 @@ describe('harnessBuilderServer', () => {
     );
   });
 
-  it('searchAgents caps limit at 25', async () => {
+  it('searchAgents caps limit at 100', async () => {
     const urls: string[] = [];
     const fetchMock: typeof fetch = async input => {
       const url = String(input instanceof Request ? input.url : input);
       urls.push(url);
       if (isAgentsCollectionUrl(url)) {
-        return Response.json({ data: [], pagination: { limit: 25 } });
+        return Response.json({ data: [], pagination: { limit: 100 } });
       }
       return new Response(`Unexpected request: ${url}`, { status: 500 });
     };
 
     const builder = createHarnessBuilderServer({ fetch: fetchMock });
-    await builder.searchAgents({ limit: 100 });
+    await builder.searchAgents({ limit: 200 });
     const parsed = new URL(urls[0] ?? '');
-    assert.equal(parsed.searchParams.get('limit'), '25');
+    assert.equal(parsed.searchParams.get('limit'), '100');
   });
 
   it('saveAgent creates when the name is new', async () => {

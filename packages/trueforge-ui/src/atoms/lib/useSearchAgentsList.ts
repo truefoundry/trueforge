@@ -49,7 +49,7 @@ export type UseSearchAgentsListOptions = {
   query: string;
   /** Bump to force a replace fetch (e.g. agentsListEpoch). */
   refreshKey?: number;
-  /** Page size for infinite mode, or initial size for paged mode. Capped at 25. */
+  /** Page size for infinite mode, or initial size for paged mode. Capped at 100. */
   limit?: number;
   debounceMs?: number;
   /**
