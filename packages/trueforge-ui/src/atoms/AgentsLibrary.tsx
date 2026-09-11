@@ -177,6 +177,7 @@ export function AgentLibraryRow({
   const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
   const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
+  const description = spec?.description?.trim() ? spec.description : null;
 
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
@@ -192,6 +193,17 @@ export function AgentLibraryRow({
           >
             <span className="block truncate">{agent.name}</span>
           </button>
+        )}
+      </TableCell>
+      <TableCell>
+        {description ? (
+          <span className="block truncate text-xs" title={description}>
+            {description}
+          </span>
+        ) : (
+          <span className="text-sm" aria-label={`No description for ${agent.name}`}>
+            —
+          </span>
         )}
       </TableCell>
       <TableCell>
@@ -254,7 +266,7 @@ export function AgentLibraryRow({
           )}
         </TableCell>
       ) : null}
-      <TableCell className="w-px">
+      <TableCell>
         <div className="flex items-center justify-end gap-1.5">
           <PermissionGuard allowed={canUseAgent}>
             <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
@@ -474,14 +486,15 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
           ) : (
             <>
               <div className="overflow-hidden rounded-lg border border-border">
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead>Agent name</TableHead>
-                      <TableHead>Configuration</TableHead>
-                      {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
-                      {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
-                      <TableHead className="w-px">
+                      <TableHead className="w-64">Agent name</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-64">Configuration</TableHead>
+                      {showCreatedByColumn ? <TableHead className="w-56">Created by</TableHead> : null}
+                      {showSchedulesColumn ? <TableHead className="w-64">Schedules</TableHead> : null}
+                      <TableHead className="w-32">
                         <span className="sr-only">Actions</span>
                       </TableHead>
                     </TableRow>

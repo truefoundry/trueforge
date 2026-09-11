@@ -81,6 +81,7 @@ const detail: AgentDetail = {
   name: 'release-notes-writer',
   agentSpec: {
     model: { name: 'openai/gpt-5.1', params: { maxTokens: 16000 } },
+    description: 'Produces concise release notes from merged PRs.',
     instructions: '# Who you are\n\nWrite concise release notes.',
     skills: [{ name: 'release-writing' }],
     mcpServers: [{ name: 'github' }],
@@ -193,6 +194,7 @@ describe('AgentDetailsPage', () => {
     const { getAgent } = renderPage();
 
     expect(await screen.findByText('release-notes-writer')).toBeInTheDocument();
+    expect(await screen.findByText('Produces concise release notes from merged PRs.')).toBeInTheDocument();
     expect(await screen.findByText('Write concise release notes.')).toBeInTheDocument();
     expect(await screen.findByText('github')).toBeInTheDocument();
     expect(await screen.findByText('release-writing')).toBeInTheDocument();

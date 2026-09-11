@@ -120,6 +120,7 @@ function SaveAgentButtonContent({
     if (intent === 'update' && !canManageAgent) return;
     const normalizedName = name.trim();
     if (!normalizedName || !draftSpec.model.name.trim()) return;
+    if (intent === 'create' && !(draftSpec.description?.trim() ?? '')) return;
     setSaving(true);
     setError(null);
     try {

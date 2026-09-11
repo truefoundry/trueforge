@@ -11,6 +11,7 @@ describe('createHarnessAgentSessionsServer', () => {
       data: {
         id: 'agent-1',
         name: 'writer',
+        description: 'Writes docs.',
         manifest: { model: { name: 'openai/gpt-5' }, instructions: 'Write.' },
       },
     }));
@@ -37,7 +38,11 @@ describe('createHarnessAgentSessionsServer', () => {
     assert.deepEqual(await server.getAgent({ agentId: 'agent-1' }), {
       agentId: 'agent-1',
       name: 'writer',
-      agentSpec: { model: { name: 'openai/gpt-5' }, instructions: 'Write.' },
+      agentSpec: {
+        model: { name: 'openai/gpt-5' },
+        instructions: 'Write.',
+        description: 'Writes docs.',
+      },
     });
     assert.deepEqual(await server.getCodeSnippets({ agentId: 'agent-1' }), [
       {

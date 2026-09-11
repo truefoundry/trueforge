@@ -25,6 +25,7 @@ export function SaveAgentForm({
   saving,
   error,
   onNameChange,
+  onChange,
   onCancel,
   onSave,
 }: SaveAgentFormProps) {
@@ -35,6 +36,11 @@ export function SaveAgentForm({
     // scrollIntoView is unimplemented in jsdom; guard so tests don't throw.
     errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   }, [error]);
+
+  const canSave =
+    name.trim() !== '' &&
+    spec.model.name.trim() !== '' &&
+    (intent === 'update' || (spec.description?.trim() ?? '') !== '');
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">
@@ -50,18 +56,18 @@ export function SaveAgentForm({
           />
         </label>
 
-        {/* TODO: Uncomment the description field when the backend supports description */}
-        {/* <label className="mb-3 block">
-            <span className="mb-1.5 block text-sm font-medium">Description</span>
-            <textarea
-              value={spec.description ?? ''}
-              disabled={saving}
-              onChange={event => onChange({ ...spec, description: event.target.value })}
-              rows={4}
-              placeholder="Describe what this agent does."
-              className={auiInputClass('resize-y py-2 disabled:opacity-60')}
-            />
-          </label> */}
+        <label className="mb-3 block">
+          <span className="mb-1.5 block text-sm font-medium">Description</span>
+          <textarea
+            value={spec.description ?? ''}
+            disabled={saving}
+            onChange={event => onChange({ ...spec, description: event.target.value })}
+            rows={4}
+            maxLength={1024}
+            placeholder="Describe what this agent does."
+            className={auiInputClass('resize-y py-2 disabled:opacity-60')}
+          />
+        </label>
 
         {error ? (
           <p
@@ -78,7 +84,7 @@ export function SaveAgentForm({
         <Button.Secondary type="button" disabled={saving} onClick={onCancel}>
           Cancel
         </Button.Secondary>
-        <Button.Primary type="button" disabled={saving || !name.trim() || !spec.model.name.trim()} onClick={onSave}>
+        <Button.Primary type="button" disabled={saving || !canSave} onClick={onSave}>
           {saving ? 'Saving…' : 'Save changes'}
         </Button.Primary>
       </div>

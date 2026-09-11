@@ -56,7 +56,8 @@ function toLibraryEntry(agent: TrueForgeApi.Agent): AgentLibraryEntry {
   return {
     name: agent.name,
     agentId: agent.id,
-    agentSpec: toUiAgentSpec(agent.manifest),
+    // Description is a top-level Agent field; fold into UI agentSpec for edit/clone/display.
+    agentSpec: { ...toUiAgentSpec(agent.manifest), description: agent.description },
     createdBySubject: agent.createdBySubject,
   };
 }
@@ -130,18 +131,28 @@ export function createHarnessBuilderServer(
     },
 
     async saveAgent({ agentName, agentSpec, intent }) {
-      // TODO: TrueForge currently drops AgentSpec.description until its schema supports it.
       const manifest = toHarnessAgentSpec(agentSpec);
+      const description = agentSpec.description?.trim();
       if (intent === 'update') {
         const { data } = await client.agents.list();
         const existing = data.find(agent => agent.name === agentName);
         if (!existing) {
           return {};
         }
-        await client.agents.update(existing.id, { manifest });
+        // Omit empty description on update so a reloaded draft (no description in session
+        // manifest) preserves the stored value instead of failing min(1).
+        await client.agents.update(existing.id, {
+          ...(description ? { description } : {}),
+          manifest,
+        });
         return { agentId: existing.id };
       }
-      const created = await client.agents.create({ name: agentName, manifest });
+      // Create requires description; fall back to name for clone of pre-description agents.
+      const created = await client.agents.create({
+        name: agentName,
+        description: description || agentName,
+        manifest,
+      });
       return { agentId: created.data.id };
     },
 
