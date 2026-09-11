@@ -1,6 +1,6 @@
 # Full-stack smoke test. Reads packages/trueforge/.env for secrets and
-# credentials; host ports and in-network DB/Redis targets are opinionated here
-# so they do not collide with or inherit host-dev values.
+# credentials; in-network DB/Redis targets are opinionated here so they do not
+# inherit host-dev localhost values. Postgres/Redis stay off the host network.
 name: trueforge
 
 services:
@@ -9,10 +9,6 @@ services:
     env_file:
       - path: packages/trueforge/.env
         required: true
-    # Host 5433 avoids conflict with docker-compose.dev.yml on 5432.
-    # Loopback-only: this stack is for local use, and the port carries a database.
-    ports:
-      - '127.0.0.1:5433:5432'
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
@@ -26,10 +22,6 @@ services:
   # turn cancel via request-reply).
   redis:
     image: redis:7-alpine
-    # Host 6380 avoids conflict with docker-compose.dev.yml on 6379.
-    # Loopback-only: Redis runs unauthenticated and carries live peering traffic.
-    ports:
-      - '127.0.0.1:6380:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
