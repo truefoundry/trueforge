@@ -4,4 +4,5 @@ import type * as TrueForge from "../index.js";
 
 export interface ListAgentsResponse {
     data: TrueForge.Agent[];
+    pagination: TrueForge.TokenPagination;
 }
