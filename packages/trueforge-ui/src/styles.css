@@ -371,6 +371,20 @@
   max-height: 85dvh;
 }
 
+/* Dropdowns / popup cards: opacity + scale (not transform) so portal `style.transform` still positions. */
+@media (prefers-reduced-motion: no-preference) {
+  .aui-popup-enter {
+    animation: aui-popup-enter 140ms ease-out;
+  }
+}
+
+@keyframes aui-popup-enter {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
 /* Dialog slide: off-canvas when closed; @starting-style + allow-discrete for enter/exit. */
 @media (prefers-reduced-motion: no-preference) {
   .aui-bottom-sheet,

@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Slide SideDrawer and BottomSheet open/close instead of popping in place.
+Slide SideDrawer/BottomSheet and add a light fade+scale enter on dropdowns and popup cards.
