@@ -7,13 +7,14 @@ import type { AgentBuilderServer, AgentLibraryEntry } from '../../server/types.j
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useDebouncedValue } from './useDebouncedValue.js';
 
-/** Matches API PAGE_LIMIT for agents list. */
-export const SEARCH_AGENTS_PAGE_SIZE = 25;
+/** Matches API AGENTS_PAGE_DEFAULT / AGENTS_PAGE_LIMIT. */
+export const SEARCH_AGENTS_PAGE_SIZE = 50;
+export const SEARCH_AGENTS_PAGE_MAX = 100;
 const DEFAULT_DEBOUNCE_MS = 300;
 const LOAD_MORE_ROOT_MARGIN = '48px';
 
 function clampPageSize(size: number): number {
-  return Math.min(Math.max(size, 1), SEARCH_AGENTS_PAGE_SIZE);
+  return Math.min(Math.max(size, 1), SEARCH_AGENTS_PAGE_MAX);
 }
 
 /** Drain every `searchAgents` page (offset pagination). */

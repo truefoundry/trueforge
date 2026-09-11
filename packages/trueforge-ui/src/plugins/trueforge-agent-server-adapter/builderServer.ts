@@ -4,7 +4,7 @@
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
-import { AGENTS_PAGE_LIMIT, clampAgentsPageSize, drainAgentsList, listAgentsPage } from './agentsList.js';
+import { AGENTS_PAGE_DEFAULT, clampAgentsPageSize, drainAgentsList, listAgentsPage } from './agentsList.js';
 import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
 import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
@@ -121,7 +121,7 @@ export function createHarnessBuilderServer(
     },
 
     async searchAgents(req?: SearchAgentsParams) {
-      const limit = clampAgentsPageSize(req?.limit ?? AGENTS_PAGE_LIMIT);
+      const limit = clampAgentsPageSize(req?.limit ?? AGENTS_PAGE_DEFAULT);
       const offset = req?.offset ?? 0;
       const query = req?.query?.trim();
       const rows = await listAgentsPage({

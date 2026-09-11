@@ -12,7 +12,7 @@ import {
   ListAgentsResponseSchema,
   UpdateAgentRequestSchema,
 } from '../schemas/agent';
-import { PAGE_LIMIT } from '../schemas/common';
+import { AGENTS_PAGE_DEFAULT, AGENTS_PAGE_LIMIT } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
@@ -27,10 +27,10 @@ export const ListAgentsQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(PAGE_LIMIT)
+      .max(AGENTS_PAGE_LIMIT)
       .optional()
-      .default(PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+      .default(AGENTS_PAGE_DEFAULT)
+      .describe(`Page size. Defaults to ${String(AGENTS_PAGE_DEFAULT)}, max ${String(AGENTS_PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
     agent_name: z.string().trim().min(1).optional().describe('Case-insensitive substring match on agent name.'),
   })

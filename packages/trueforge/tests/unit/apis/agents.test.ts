@@ -246,7 +246,7 @@ describe('agents router', () => {
     expect(listed.status).toBe(200);
     expect(ListAgentsResponseSchema.parse(await listed.json())).toEqual({
       data: [],
-      pagination: { limit: 25 },
+      pagination: { limit: 50 },
     });
 
     expect((await deniedRouter.request(`/${data.id}`)).status).toBe(404);

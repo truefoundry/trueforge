@@ -1,10 +1,11 @@
 /**
- * Paginated helpers for `client.agents.list` (API PAGE_LIMIT = 25).
+ * Paginated helpers for `client.agents.list` (API default 50, max 100).
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
-/** Matches API PAGE_LIMIT for agents list. */
-export const AGENTS_PAGE_LIMIT = 25;
+/** Matches API AGENTS_PAGE_DEFAULT / AGENTS_PAGE_LIMIT. */
+export const AGENTS_PAGE_DEFAULT = 50;
+export const AGENTS_PAGE_LIMIT = 100;
 
 export function clampAgentsPageSize(size: number): number {
   return Math.min(Math.max(size, 1), AGENTS_PAGE_LIMIT);
@@ -43,7 +44,7 @@ export async function listAgentsPage({
 /** Drain every agents page into one array (name lookups, indexes). */
 export async function drainAgentsList(client: TrueForge): Promise<TrueForgeApi.Agent[]> {
   const items: TrueForgeApi.Agent[] = [];
-  const page = await client.agents.list({ limit: AGENTS_PAGE_LIMIT });
+  const page = await client.agents.list({ limit: AGENTS_PAGE_DEFAULT });
   for (;;) {
     items.push(...page.data);
     if (!page.hasNextPage()) break;
