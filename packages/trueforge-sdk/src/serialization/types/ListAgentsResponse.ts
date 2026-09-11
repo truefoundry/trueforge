@@ -4,16 +4,19 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { Agent } from "./Agent.js";
+import { TokenPagination } from "./TokenPagination.js";
 
 export const ListAgentsResponse: core.serialization.ObjectSchema<
     serializers.ListAgentsResponse.Raw,
     TrueForge.ListAgentsResponse
 > = core.serialization.object({
     data: core.serialization.list(Agent),
+    pagination: TokenPagination,
 });
 
 export declare namespace ListAgentsResponse {
     export interface Raw {
         data: Agent.Raw[];
+        pagination: TokenPagination.Raw;
     }
 }

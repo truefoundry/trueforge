@@ -483,11 +483,31 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: chatSeedRef.current });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
+  const isActiveAgentBuilder =
+    effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
+    // Returning from an overlay must keep the live draft runtime and its unsaved instructions.
+    if (isActiveAgentBuilder) {
+      setSettingsOpen(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+      setSessionsOpen(false);
+      setSchedulesOpen(false);
+      setAgentConfigOpenState(true);
+      return;
+    }
     selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
-  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
+  }, [
+    isActiveAgentBuilder,
+    isComposerEnabled,
+    refreshCapabilities,
+    selectLibraryAgent,
+    setSchedulesOpen,
+    setSessionsOpen,
+    setSettingsOpen,
+  ]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const rememberDraftSpec = useCallback(
@@ -497,7 +517,8 @@ export function ShellModeProvider({
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
-        agentSeedRef.current = preferences;
+        // Keep the active builder intact in memory; storage remains limited to reusable preferences.
+        agentSeedRef.current = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
       }
       writeDraftSpecPreferences(kind, preferences);
     },

@@ -177,6 +177,43 @@ describe('ShellModeProvider', () => {
     expect(result.current.agentConfigOpen).toBe(false);
   });
 
+  it('resumes the active agent builder without resetting its runtime', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    const builderRuntimeKey = result.current.runtimeKey;
+
+    act(() => result.current.setLibraryOpen(true));
+    expect(result.current.libraryOpen).toBe(true);
+    expect(result.current.agentConfigOpen).toBe(false);
+
+    act(() => result.current.openAgentBuilder());
+    expect(result.current.libraryOpen).toBe(false);
+    expect(result.current.agentConfigOpen).toBe(true);
+    expect(result.current.runtimeKey).toBe(builderRuntimeKey);
+  });
+
+  it('restores the active agent draft after visiting New Chat', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+    const agentDraft = {
+      model: { name: 'chosen/model' },
+      instructions: 'Keep these instructions.',
+    };
+
+    act(() => result.current.openAgentBuilder());
+    act(() => result.current.rememberDraftSpec(agentDraft, 'agent'));
+    act(() => result.current.openDraft());
+    act(() => result.current.openAgentBuilder());
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: agentDraft,
+    });
+    expect(readDraftSpecPreferences('agent')).not.toHaveProperty('instructions');
+  });
+
   it('openDraft starts New Chat without agent config; openAgentBuilder opens config', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
 

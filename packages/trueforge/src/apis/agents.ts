@@ -2,7 +2,7 @@
  * DB-backed agent registry API (mounted at /api/v1/agents).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { AgentSpec } from '@truefoundry/trueforge-core/agent-session';
+import { InvalidPageTokenError, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
@@ -81,14 +81,25 @@ async function validateManifest<TTransaction>({
 
 export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listAgentsRoute> = async c => {
+    const { limit, page_token: pageToken, agent_name: agentName } = c.req.valid('query');
     const requestContext = deps.resolveRequestContext(c);
-    const records = await listAccessibleAgents({
-      store: deps.resolveAgentStore(c),
-      context: requestContext,
-      authorizer: deps.authorizer,
-      action: 'read',
-    });
-    return c.json({ data: records.map(toWireAgent) }, 200);
+    try {
+      const { data, pagination } = await listAccessibleAgents({
+        store: deps.resolveAgentStore(c),
+        context: requestContext,
+        authorizer: deps.authorizer,
+        action: 'read',
+        agent_name: agentName,
+        limit,
+        page_token: pageToken,
+      });
+      return c.json({ data: data.map(toWireAgent), pagination }, 200);
+    } catch (error) {
+      if (error instanceof InvalidPageTokenError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
   };
 
   const createHandler: RouteHandler<typeof createAgentRoute> = async c => {

@@ -2,13 +2,13 @@
 
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
 
 import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
-import { Spinner } from '../atoms/primitives/Spinner.js';
 import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
@@ -22,7 +22,7 @@ import { createSessionListCache, withSessionListCache } from '../server/sessionL
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
 import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
-import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
+import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
 import { TrueFoundryChatProvider, type TrueFoundryChatProviderProps } from './TrueFoundryChatProvider.js';
@@ -93,9 +93,12 @@ function LayoutFallback({ className }: { className?: string }) {
 
 /** Shown while `type: "truefoundry"` resolves the agent UI server. */
 export function ServerInitLoader({ className }: { className?: string }) {
+  // Outside ThemeProvider (Suspense), useThemeMode falls back to light.
+  const themeMode = useThemeMode();
   return (
     <div
       role="status"
+      aria-label="Loading"
       aria-live="polite"
       aria-busy="true"
       className={cn(
@@ -103,8 +106,15 @@ export function ServerInitLoader({ className }: { className?: string }) {
         className,
       )}
     >
-      <Spinner size={28} className="text-text-primary" />
-      <span className="sr-only">Loading</span>
+      <ThinkingOrb
+        state="connecting"
+        speed={1}
+        theme={themeMode}
+        paused={false}
+        aria-hidden
+        size={64}
+        style={{ width: '4.5rem', height: '4.5rem' }}
+      />
     </div>
   );
 }

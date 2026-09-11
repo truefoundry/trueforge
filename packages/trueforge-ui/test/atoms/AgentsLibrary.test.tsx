@@ -604,6 +604,60 @@ describe('AgentsLibraryButton', () => {
     expect(await screen.findByRole('button', { name: 'Add schedule for alpha-agent' })).toBeInTheDocument();
   });
 
+  it('disables next page when the current page is short', async () => {
+    renderLibrary(<LibraryHarness />, { server: mockServer([{ name: 'alpha-agent', agentId: 'alpha-agent' }]) });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await screen.findByRole('button', { name: 'Try agent alpha-agent' });
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+  });
+
+  it('paginates with next and previous and resets offset when page size changes', async () => {
+    const all = Array.from({ length: 15 }, (_, i) => ({
+      name: `agent-${String(i).padStart(2, '0')}`,
+      agentId: `agent-${i}`,
+    }));
+    const searchAgents = vi.fn(async ({ limit = 10, offset = 0 }: { limit?: number; offset?: number } = {}) =>
+      all.slice(offset, offset + limit),
+    );
+    const server = createMockAgentUIServer({ searchAgents });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await screen.findByRole('button', { name: 'Try agent agent-00' });
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 10 });
+    });
+    await screen.findByRole('button', { name: 'Try agent agent-10' });
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+    });
+    await screen.findByRole('button', { name: 'Try agent agent-00' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 10 });
+    });
+
+    // PopoverSelect: open rows-per-page and pick 25
+    fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
+    fireEvent.click(await screen.findByRole('option', { name: '25' }));
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25, offset: 0 });
+    });
+  });
+
   it('shows Created by when agents include createdBySubject', async () => {
     const server = mockServer([
       {
