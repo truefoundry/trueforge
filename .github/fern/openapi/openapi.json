@@ -2721,35 +2721,21 @@
         "type": "object"
       },
       "MCPServerManifest": {
-        "additionalProperties": false,
-        "properties": {
-          "auth": {
-            "$ref": "#/components/schemas/MCPServerManifestAuth"
+        "discriminator": {
+          "mapping": {
+            "remote": "#/components/schemas/RemoteMCPServerManifest",
+            "truefoundry": "#/components/schemas/TrueFoundryMCPServerManifest"
           },
-          "description": {
-            "description": "Concise summary of what this MCP server provides.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "name": {
-            "$ref": "#/components/schemas/ResourceName"
-          },
-          "type": {
-            "$ref": "#/components/schemas/MCPServerType"
-          },
-          "url": {
-            "description": "MCP endpoint URL. For `truefoundry`, the resolved AI Gateway proxy URL.",
-            "format": "uri",
-            "type": "string"
-          }
+          "propertyName": "type"
         },
-        "required": [
-          "type",
-          "name",
-          "url",
-          "description"
-        ],
-        "type": "object"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RemoteMCPServerManifest"
+          },
+          {
+            "$ref": "#/components/schemas/TrueFoundryMCPServerManifest"
+          }
+        ]
       },
       "MCPServerManifestAuth": {
         "description": "Optional auth settings. Omit when the server needs no credentials.",
@@ -2783,13 +2769,6 @@
             "type": "string"
           }
         ]
-      },
-      "MCPServerType": {
-        "enum": [
-          "remote",
-          "truefoundry"
-        ],
-        "type": "string"
       },
       "MCPToolInfo": {
         "properties": {
@@ -3353,6 +3332,40 @@
           "max"
         ],
         "type": "string"
+      },
+      "RemoteMCPServerManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/MCPServerManifestAuth"
+          },
+          "description": {
+            "description": "Concise summary of what this MCP server provides.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "remote"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "MCP endpoint URL.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "description"
+        ],
+        "type": "object"
       },
       "RequestErrorResponse": {
         "properties": {
@@ -4806,6 +4819,40 @@
           "created_at",
           "thread_id",
           "tool_calls"
+        ],
+        "type": "object"
+      },
+      "TrueFoundryMCPServerManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/MCPServerManifestAuth"
+          },
+          "description": {
+            "description": "Concise summary of what this MCP server provides.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "type": {
+            "enum": [
+              "truefoundry"
+            ],
+            "type": "string"
+          },
+          "url": {
+            "description": "Resolved AI Gateway proxy URL for this TrueFoundry-managed MCP server.",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name",
+          "url",
+          "description"
         ],
         "type": "object"
       },
