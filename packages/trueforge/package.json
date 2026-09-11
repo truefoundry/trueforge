@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.2.0-rc.5",
+  "version": "0.2.0-rc.6",
   "description": "TrueForge Agent Harness: server, HTTP API, and chat UI (npx @truefoundry/trueforge)",
   "author": "TrueFoundry",
   "license": "MIT",

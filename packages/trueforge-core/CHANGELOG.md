@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-core
 
+## 0.2.0-rc.4
+
+### Patch Changes
+
+- ba79ce5: Add TFY sandbox agent instructions to discover the working directory via `pwd` before writing files.
+
 ## 0.2.0-rc.3
 
 ### Patch Changes

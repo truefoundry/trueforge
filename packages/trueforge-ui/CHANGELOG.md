@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0-rc.6
+
+### Patch Changes
+
+- 8c31eae: Round-trip agent description through save/load and show it in the library and agent details.
+- d7136a1: Avatar fallbacks use a light primary-button gradient in light mode, a solid primary gradient in dark mode, and show a single initial character.
+- d7136a1: Assistant message loading indicator uses ThinkingOrb with left-to-right shimmering Working... text.
+- b316430: Slide SideDrawer/BottomSheet and add a light fade+scale enter on dropdowns and popup cards.
+- dc2151f: Paginate `GET /api/v1/agents` with `limit` / `page_token` and a `pagination` envelope; optional `agent_name` filters by case-insensitive substring. Agents library uses rows-per-page and prev/next against the token-paginated API. Schedule create and the schedules listing agent filter use a searchable agent combobox backed by the same filtered list API.
+- d7136a1: Flip PopoverSelect menus when the preferred side lacks viewport room (e.g. table rows-per-page).
+- 04460fb: Prevent the schedule search field from shrinking and clipping its placeholder.
+- fa0730b: Reduce the agent code snippet font size to match its surrounding controls.
+- d7136a1: Stop draining the full agents catalog on Schedules mount; load agents only when the filter opens (infinite scroll).
+- d7136a1: Settings sidebar uses a subtle primary tint for the selected section instead of a solid fill.
+- Updated dependencies [648273b]
+- Updated dependencies [9501536]
+- Updated dependencies [dc2151f]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.5
+
 ## 0.3.0-rc.5
 
 ### Patch Changes
