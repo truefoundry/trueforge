@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0-rc.5
+
+### Patch Changes
+
+- 4e72afc: Announce boot loading with a light-themed orb for contrast outside ThemeProvider.
+- ea86853: Move the agent metrics time range filter into the active Metrics tab row.
+- 98ab384: Preserve the active agent draft when returning to Build Agent from another page.
+- 4e72afc: Use an animated thinking orb for application boot and server initialization.
+
 ## 0.3.0-rc.4
 
 ### Patch Changes
