@@ -214,7 +214,7 @@ pnpm smoke       # build, wait for healthy services, check /healthz and UI
 pnpm smoke:down
 ```
 
-Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/trueforge/.env`. Host ports are offset from local dev so they do not collide: Postgres `:5433`, Redis `:6380`, app `:8791`.
+Open [http://localhost:8791](http://localhost:8791). Credentials come from `packages/trueforge/.env`. The app is on host `:8791` (offset from local `pnpm dev` on `:8790`); Postgres and Redis stay on the compose network only.
 
 ## Generated code - do not edit by hand
 

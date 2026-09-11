@@ -44,14 +44,76 @@ function toRegistryRecord(tenant_id: string, skill: SfyRegistrySkill): SkillReco
   };
 }
 
+export class TrueFoundryAdminSkillStore<TTransaction = never> implements Pick<
+  ISkillStore<TTransaction>,
+  'resolveTurnSkills'
+> {
+  readonly #client: TrueFoundrySkillApiClient;
+
+  constructor(input: { client: TrueFoundrySkillApiClient }) {
+    this.#client = input.client;
+  }
+
+  async resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
+    const { skills } = input;
+    if (skills.length === 0) {
+      return [];
+    }
+
+    // Runtime resolve uses the service API key, not the caller token.
+    const resolved = await this.#client.resolveAgentSkillVersions({
+      accessToken: this.#client.apiKey,
+      skills: skills.map(skill => ({
+        fqn: skill.name,
+        include_skill_md_content: skill.preload,
+        include_presigned_url: true,
+      })),
+    });
+
+    const byFqn = new Map(resolved.map(row => [row.fqn, row]));
+    return skills.map(skill => {
+      const row = byFqn.get(skill.name);
+      if (row === undefined) {
+        throw new HTTPException(422, {
+          message: `Unknown skill "${skill.name}" — not configured`,
+        });
+      }
+      if (row.presigned_url === undefined) {
+        throw new HTTPException(422, {
+          message: `Skill "${skill.name}" did not return a presigned URL`,
+        });
+      }
+      const skillMdContent = skill.preload ? (row.skill_md_content ?? null) : null;
+      if (skill.preload && (skillMdContent === null || skillMdContent.length === 0)) {
+        throw new HTTPException(422, {
+          message: `Skill "${skill.name}" did not return SKILL.md for preload`,
+        });
+      }
+      return {
+        type: 'registry' as const,
+        name: row.name,
+        description: row.description,
+        fqn: row.fqn,
+        preload: skill.preload,
+        skillMdContent,
+        presignedUrl: row.presigned_url,
+      };
+    });
+  }
+}
+
 /** Read-only TrueFoundry registry skill catalog; writes are managed by TrueFoundry.
  * Catalog / save validate use the caller JWT; turn mounts use the service API key.
  */
-export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<TTransaction> {
+export class TrueFoundrySkillStore<TTransaction = never>
+  extends TrueFoundryAdminSkillStore<TTransaction>
+  implements ISkillStore<TTransaction>
+{
   readonly #client: TrueFoundrySkillApiClient;
   readonly #resolveAccessToken: ResolveAccessToken;
 
   constructor(input: { client: TrueFoundrySkillApiClient; context: RequestContext }) {
+    super(input);
     this.#client = input.client;
     this.#resolveAccessToken = callerAccessToken(input.context);
   }
@@ -140,52 +202,5 @@ export class TrueFoundrySkillStore<TTransaction = never> implements ISkillStore<
       }
       seenNames.add(row.name);
     }
-  }
-
-  async resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
-    const { skills } = input;
-    if (skills.length === 0) {
-      return [];
-    }
-
-    // Runtime resolve uses the service API key, not the caller token.
-    const resolved = await this.#client.resolveAgentSkillVersions({
-      accessToken: this.#client.apiKey,
-      skills: skills.map(skill => ({
-        fqn: skill.name,
-        include_skill_md_content: skill.preload,
-        include_presigned_url: true,
-      })),
-    });
-
-    const byFqn = new Map(resolved.map(row => [row.fqn, row]));
-    return skills.map(skill => {
-      const row = byFqn.get(skill.name);
-      if (row === undefined) {
-        throw new HTTPException(422, {
-          message: `Unknown skill "${skill.name}" — not configured`,
-        });
-      }
-      if (row.presigned_url === undefined) {
-        throw new HTTPException(422, {
-          message: `Skill "${skill.name}" did not return a presigned URL`,
-        });
-      }
-      const skillMdContent = skill.preload ? (row.skill_md_content ?? null) : null;
-      if (skill.preload && (skillMdContent === null || skillMdContent.length === 0)) {
-        throw new HTTPException(422, {
-          message: `Skill "${skill.name}" did not return SKILL.md for preload`,
-        });
-      }
-      return {
-        type: 'registry' as const,
-        name: row.name,
-        description: row.description,
-        fqn: row.fqn,
-        preload: skill.preload,
-        skillMdContent,
-        presignedUrl: row.presigned_url,
-      };
-    });
   }
 }

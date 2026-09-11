@@ -126,11 +126,11 @@ export interface TurnsRouterDeps {
  * so TrueFoundry mode stays token-bound for models, MCP, and skills.
  */
 export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'eventSubscriptions' | 'logger'> & {
-  skillStore: ISkillStore;
+  agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
-  agentStore: IAgentStore;
   sandboxProviderStore: ISandboxProviderStore;
+  skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 };
 
 /**
@@ -139,7 +139,7 @@ export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'even
  */
 function createTurnResolver(deps: {
   mcpServerStore: IMcpServerWithAuthStore;
-  skillStore: ISkillStore;
+  skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;

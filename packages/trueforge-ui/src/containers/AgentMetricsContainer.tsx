@@ -7,21 +7,19 @@ import { useAgentMetricsServer } from '../server/ServerContext.js';
 import type { AgentMetricChartDefinition, AgentMetricMeter } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
-import { resolveSessionTimeRange, type SessionTimeRange } from '../utils/sessionShareUrl.js';
+import { defaultMetricsTimeRange, resolveSessionTimeRange } from '../utils/sessionShareUrl.js';
 
-const DEFAULT_METRICS_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-export function AgentMetricsContainer({ agentId }: AgentMetricsProps) {
+export function AgentMetricsContainer({
+  agentId,
+  timeRange: controlledTimeRange,
+  onTimeRangeChange,
+  showTimeRangeFilter = true,
+}: AgentMetricsProps) {
   const metricsServer = useAgentMetricsServer();
   const AgentMetricsView = useSlot('AgentMetricsView');
-  const [timeRange, setTimeRange] = useState<SessionTimeRange>(() => {
-    const endTs = Date.now();
-    return {
-      startTs: endTs - DEFAULT_METRICS_WINDOW_MS,
-      endTs,
-      timeWindowMs: DEFAULT_METRICS_WINDOW_MS,
-    };
-  });
+  const [internalTimeRange, setInternalTimeRange] = useState(defaultMetricsTimeRange);
+  const timeRange = controlledTimeRange ?? internalTimeRange;
+  const setTimeRange = onTimeRangeChange ?? setInternalTimeRange;
   const [definitions, setDefinitions] = useState<AgentMetricChartDefinition[]>();
   const [chartsError, setChartsError] = useState<string>();
   const [meters, setMeters] = useState<AgentMetricMeter[]>();
@@ -110,6 +108,7 @@ export function AgentMetricsContainer({ agentId }: AgentMetricsProps) {
       chartsError={chartsError}
       timeRange={timeRange}
       onTimeRangeChange={setTimeRange}
+      showTimeRangeFilter={showTimeRangeFilter}
     />
   );
 }

@@ -98,11 +98,22 @@ export type AgentDetailsTabsProps = {
   onTabChange: (tab: AgentDetailsTab) => void;
   showMetrics?: boolean;
   showSchedules?: boolean;
+  end?: ReactNode;
 };
 
 export type AgentMetricsProps = {
   agentId: string;
-};
+  showTimeRangeFilter?: boolean;
+} & (
+  | {
+      timeRange: SessionTimeRange;
+      onTimeRangeChange: (range: SessionTimeRange) => void;
+    }
+  | {
+      timeRange?: undefined;
+      onTimeRangeChange?: undefined;
+    }
+);
 
 export type AgentMetricChartResult = {
   definition: AgentMetricChartDefinition;
@@ -118,6 +129,11 @@ export type AgentMetricsViewProps = {
   chartsError?: string;
   timeRange: SessionTimeRange;
   onTimeRangeChange: (range: SessionTimeRange) => void;
+  showTimeRangeFilter?: boolean;
+};
+
+export type AgentMetricStatisticsProps = {
+  meters: AgentMetricMeter[];
 };
 
 export type AgentMetricsTimeRangeFilterProps = {

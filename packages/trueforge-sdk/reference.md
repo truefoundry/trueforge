@@ -67,7 +67,7 @@ await client.internal.listPermissions({
 </details>
 
 ## Agents
-<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">list</a>() -> TrueForge.ListAgentsResponse</code></summary>
+<details><summary><code>client.agents.<a href="/src/api/resources/agents/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Agent, TrueForge.ListAgentsResponse&gt;</code></summary>
 <dl>
 <dd>
 
@@ -79,7 +79,7 @@ await client.internal.listPermissions({
 <dl>
 <dd>
 
-All configured agents for the tenant.
+List configured agents for the tenant, ordered by name. Optional `agent_name` filters by substring.
 </dd>
 </dl>
 </dd>
@@ -106,6 +106,14 @@ await client.agents.list();
 
 <dl>
 <dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListAgentsRequest` 
+    
+</dd>
+</dl>
 
 <dl>
 <dd>
@@ -2884,6 +2892,72 @@ await client.internal.metrics.getMeters({
 <dd>
 
 **requestOptions:** `MetricsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Internal Schedules
+<details><summary><code>client.internal.schedules.<a href="/src/api/resources/internal/resources/schedules/client/Client.ts">executeRun</a>({ ...params }) -> void</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Execute a persisted schedule run using its saved schedule and agent.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.schedules.executeRun({
+    scheduleRunId: "schedule_run_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.ExecuteScheduleRunRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SchedulesClient.RequestOptions` 
     
 </dd>
 </dl>

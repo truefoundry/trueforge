@@ -21,12 +21,14 @@ Those defaults are **not** production-safe:
 | Default | Risk if the Service / Ingress is reachable |
 | --- | --- |
 | `configs.oidc.enabled: false` | No login; every caller is the shared local admin (`trueforge-default`) |
+| `apiKey: placeholder-value-please-generate-your-own` | Well-known controller↔server key (`TRUEFORGE_API_KEY`); replace before any shared deploy |
 | `postgresql.auth.password: trueforge` | Well-known Postgres password (unless you set `existingSecret` / a strong password) |
 | `redis.auth.enabled: false` | Unauthenticated Redis on the cluster network |
 
-Before exposing TrueForge beyond a trusted network: enable OIDC, change or
-Secret-back the Postgres password, and prefer external passworded Redis (or
-keep Redis ClusterIP-only and NetworkPolicy-restricted). See
+Before exposing TrueForge beyond a trusted network: enable OIDC, replace the
+`apiKey` placeholder with a Secret-backed value, change or Secret-back the
+Postgres password, and prefer external passworded Redis (or keep Redis
+ClusterIP-only and NetworkPolicy-restricted). See
 [Production checklist](#production-checklist) and the
 [Setup Login](https://github.com/truefoundry/trueforge/blob/main/docs/authentication/overview.mdx)
 docs.
@@ -64,21 +66,33 @@ helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
   --set server.publicBaseUrl=https://trueforge.example.com
 ```
 
-## API keys
+## API key
 
-`apiKey` (`TRUEFORGE_API_KEY`) authenticates the controller to the server. The
-server always runs peered (`STANDALONE=false`) and the app rejects an empty
-value, so the chart ships a **dev placeholder**
-(`placeholder-value-please-generate-your-own`). Replace it before any shared
-deployment, as a string or, preferably, a `valueFrom`:
+`apiKey` becomes `TRUEFORGE_API_KEY` on both the server and the controller. It
+authenticates controller → server calls (schedule dispatch). The chart always
+runs peered (`STANDALONE=false`) and rejects an empty key.
+
+`values.yaml` ships a **dev placeholder**
+(`placeholder-value-please-generate-your-own`). The chart does **not** create a
+Secret for it. Before any shared or production deploy, create a Secret and
+point `apiKey` at it (strongly recommended over an inlined string):
+
+```bash
+kubectl create secret generic trueforge-api-key \
+  --from-literal=TRUEFORGE_API_KEY="$(openssl rand -hex 32)"
+```
 
 ```yaml
+# values override (or --set-file / parent chart)
 apiKey:
   valueFrom:
     secretKeyRef:
       name: trueforge-api-key
       key: TRUEFORGE_API_KEY
 ```
+
+A literal string still works for throwaway clusters (`apiKey: "…"`), but prefer
+`valueFrom.secretKeyRef` so the key never lives in committed values.
 
 ## Extra environment
 
@@ -158,15 +172,34 @@ Also set `postgresql.auth.username` and `postgresql.auth.database` as needed;
 the server connects to the bundled instance automatically.
 
 To use an **external** Postgres, set `postgresql.enabled=false` and provide
-`externalPostgres.host` (+ `port`, `database`, `user`). Set
-`externalPostgres.password` as a string (inlined as env `value`) or as
+`externalPostgres.host` (+ `port`, `database`, `user`, `password`). Each of
+those accepts an inline scalar (inlined as env `value`) or
 `valueFrom.secretKeyRef` (preferred in production — you create the Secret):
 
 ```yaml
 postgresql:
   enabled: false
 externalPostgres:
-  host: postgres.databases.svc
+  host:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: host
+  port:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: port
+  database:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: database
+  user:
+    valueFrom:
+      secretKeyRef:
+        name: my-postgres-secret
+        key: user
   password:
     valueFrom:
       secretKeyRef:
@@ -240,7 +273,9 @@ chart does **not** create Secrets for chart-owned fields — supply
 `valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
 
 Fields that accept string | `valueFrom.secretKeyRef`:
-`externalPostgres.password`, `externalRedis.url`, `configs.oidc.clientSecret`.
+`externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
+`externalPostgres.user`, `externalPostgres.password`, `externalRedis.url`,
+`configs.oidc.clientSecret`.
 `configs.oidc.issuerUrl` and `clientId` are plain strings only.
 
 **Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
@@ -320,7 +355,7 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 ## Production checklist
 
 - **Enable `configs.oidc`** — leaving it off grants shared admin to anyone who can reach the server.
-- **Replace the `apiKey` placeholder** with a generated secret (prefer `valueFrom.secretKeyRef`).
+- **Replace the `apiKey` placeholder** — create a Secret for `TRUEFORGE_API_KEY` and set `apiKey.valueFrom.secretKeyRef` (do not leave `placeholder-value-please-generate-your-own`).
 - **Replace the bundled Postgres password** (`trueforge`) or set `postgresql.auth.existingSecret`.
 - Treat bundled Redis (`redis.auth.enabled: false`) as cluster-internal only, or switch to external passworded Redis via `externalRedis.url`.
 - Set `server.publicBaseUrl` to the real public application URL before using MCP OAuth or OIDC (include a pathname when the UI is served under a stripped prefix).

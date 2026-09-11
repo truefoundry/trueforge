@@ -9,7 +9,10 @@ import { useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { hasCreatedBySubject } from '../../utils/createdBySubject.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
+import { AgentSearchPicker } from '../AgentSearchPicker.js';
+import { CreatedByCell } from '../CreatedByCell.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -346,6 +349,8 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     });
   }, [schedules, nameQuery, statusFilter]);
 
+  // Key off page data, not client filters — filtering must not toggle the column.
+  const showCreatedByColumn = hasCreatedBySubject(schedules);
   const hasPageNav = prevTokenStack.length > 0 || nextPageToken != null;
 
   const handleTogglePause = async (schedule: Schedule) => {
@@ -420,19 +425,18 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               aria-label="Filter by status"
             />
             {agentId === undefined ? (
-              <PopoverSelect
+              <AgentSearchPicker
                 value={agentFilter}
+                selectedLabel={agentFilter === 'all' ? 'All agents' : (agentNameById.get(agentFilter) ?? agentFilter)}
                 onValueChange={value => {
                   setAgentFilter(value);
                   setPageToken(undefined);
                   setPrevTokenStack([]);
                 }}
-                options={[
-                  { value: 'all', label: 'All agents' },
-                  ...agentOptions.map(agent => ({ value: agent.agentId, label: agent.name })),
-                ]}
-                className="sm:w-40"
+                allOption={{ value: 'all', label: 'All agents' }}
+                className="sm:w-48"
                 aria-label="Filter by agent"
+                placeholder="Search agent"
               />
             ) : null}
             <Button.Primary
@@ -492,6 +496,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Name</TableHead>
                   <TableHead>Agent</TableHead>
+                  {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
                   <TableHead>Frequency</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last 5 runs</TableHead>
@@ -510,6 +515,11 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                         <span className="text-left !no-underline">{schedule.name}</span>
                       </TableCell>
                       <TableCell>{agentLabel}</TableCell>
+                      {showCreatedByColumn ? (
+                        <TableCell>
+                          <CreatedByCell subject={schedule.createdBySubject} />
+                        </TableCell>
+                      ) : null}
                       <TableCell>{cadence}</TableCell>
                       <TableCell>
                         <ScheduleStatusBadge status={schedule.status} />

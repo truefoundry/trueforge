@@ -1,3 +1,4 @@
+import { createLogger } from 'winston';
 import { getPublicBaseUrl } from '../../../src/config';
 import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
@@ -52,14 +53,14 @@ function createStore(input?: {
   client.deleteMcpAuth.mockResolvedValue(undefined);
   const store = new TrueFoundryMcpServerStore({
     client,
-    context: createTrueFoundryRequestContext({
+    requestContext: createTrueFoundryRequestContext({
       tenant_id: TENANT,
       subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: input?.accessToken ?? ACCESS_TOKEN,
     }),
     agent: undefined,
-    logger: { info: jest.fn() },
+    logger: createLogger({ silent: true }),
   });
   return { store, client };
 }

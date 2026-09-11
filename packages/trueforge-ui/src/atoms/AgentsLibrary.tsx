@@ -10,8 +10,10 @@ import { useOptionalAgentSessionsServer, useOptionalScheduleServer } from '../se
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { hasCreatedBySubject } from '../utils/createdBySubject.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
+import { CreatedByCell } from './CreatedByCell.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { mountName } from './lib/mountName.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
@@ -19,8 +21,20 @@ import { PageHeader } from './PageHeader.js';
 import { Button } from './primitives/Button.js';
 import SearchInput from './primitives/SearchInput.js';
 import { Skeleton } from './primitives/Skeleton.js';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './primitives/Table.js';
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableTokenPagination,
+} from './primitives/Table.js';
 import { Tooltip } from './primitives/Tooltip.js';
+
+/** API max page size for agents list. */
+const AGENTS_PAGE_SIZE_OPTIONS = [10, 25] as const;
 
 export type AgentsLibraryProps = {
   onSelectAgent?: (agentName: string) => void;
@@ -29,6 +43,8 @@ export type AgentsLibraryProps = {
 export type AgentScheduleSummary = {
   count: number;
   pausedCount: number;
+  activeNames: string[];
+  pausedNames: string[];
 };
 
 export type AgentLibraryRowProps = {
@@ -38,6 +54,7 @@ export type AgentLibraryRowProps = {
   canManageAgent?: boolean;
   canDeleteAgent?: boolean;
   canManageSchedules: boolean;
+  showCreatedBy?: boolean;
   scheduleSummary?: AgentScheduleSummary | null;
   onOpenSchedules?: () => void;
   onCreateSchedule?: () => void;
@@ -82,6 +99,19 @@ function AgentSchedulesEmptyState({
   );
 }
 
+function scheduleNamesTooltip(names: readonly string[]) {
+  return (
+    <span className="flex flex-col text-left">
+      {names.map((name, index) => (
+        <span key={name}>
+          {name}
+          {index < names.length - 1 ? ',' : ''}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function AgentSchedulesBadge({
   summary,
   agentName,
@@ -108,17 +138,21 @@ function AgentSchedulesBadge({
       onClick={onOpen}
     >
       {activeCount > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300">
-          <Icon name="calendar-clock" className="size-3.5 shrink-0" />
-          <span>{activeCount} Active</span>
-        </span>
+        <Tooltip content={scheduleNamesTooltip(summary.activeNames)} className="whitespace-normal">
+          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <Icon name="calendar-clock" className="size-3.5 shrink-0" />
+            <span>{activeCount} Active</span>
+          </span>
+        </Tooltip>
       ) : null}
       {pausedCount > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-md border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300">
-          {activeCount === 0 ? <Icon name="calendar-clock" className="size-3.5 shrink-0" /> : null}
-          <span>{pausedCount} Paused</span>
-          <Icon name="triangle-exclamation" className="size-3.5 shrink-0" />
-        </span>
+        <Tooltip content={scheduleNamesTooltip(summary.pausedNames)} className="whitespace-normal">
+          <span className="inline-flex items-center gap-1 rounded-md border border-amber-600/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300">
+            {activeCount === 0 ? <Icon name="calendar-clock" className="size-3.5 shrink-0" /> : null}
+            <span>{pausedCount} Paused</span>
+            <Icon name="triangle-exclamation" className="size-3.5 shrink-0" />
+          </span>
+        </Tooltip>
       ) : null}
     </button>
   );
@@ -131,6 +165,7 @@ export function AgentLibraryRow({
   canManageAgent = true,
   canDeleteAgent = true,
   canManageSchedules,
+  showCreatedBy = false,
   scheduleSummary,
   onOpenSchedules,
   onCreateSchedule,
@@ -208,6 +243,11 @@ export function AgentLibraryRow({
           </span>
         )}
       </TableCell>
+      {showCreatedBy ? (
+        <TableCell>
+          <CreatedByCell subject={agent.createdBySubject} />
+        </TableCell>
+      ) : null}
       {scheduleSummary !== undefined ? (
         <TableCell>
           {scheduleSummary != null && scheduleSummary.count > 0 ? (
@@ -255,10 +295,13 @@ function summarizeSchedulesByAgent(schedules: readonly Schedule[]): Map<string, 
   const map = new Map<string, AgentScheduleSummary>();
   for (const schedule of schedules) {
     const id = schedule.agentId;
-    const prev = map.get(id) ?? { count: 0, pausedCount: 0 };
-    const next = {
+    const prev = map.get(id) ?? { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] };
+    const isPaused = schedule.status === 'paused';
+    const next: AgentScheduleSummary = {
       count: prev.count + 1,
-      pausedCount: prev.pausedCount + (schedule.status === 'paused' ? 1 : 0),
+      pausedCount: prev.pausedCount + (isPaused ? 1 : 0),
+      activeNames: isPaused ? prev.activeNames : [...prev.activeNames, schedule.name],
+      pausedNames: isPaused ? [...prev.pausedNames, schedule.name] : prev.pausedNames,
     };
     map.set(id, next);
     if (schedule.agentName != null && schedule.agentName !== '' && schedule.agentName !== id) {
@@ -326,12 +369,16 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [closeLibrary, open]);
 
-  const { agents, isInitialLoading, isSearching, loadingMore, error, hasMore, listRef, sentinelRef } =
+  const { agents, isInitialLoading, isSearching, error, pageSize, setPageSize, canPrev, canNext, goPrev, goNext } =
     useSearchAgentsList({
       enabled: open,
       query,
       refreshKey: agentsListEpoch,
+      mode: 'paged',
+      limit: DEFAULT_TABLE_PAGE_SIZE,
     });
+  const hasPageNav = canPrev || canNext;
+  const showCreatedByColumn = hasCreatedBySubject(agents);
   const permissionAgentIds = open ? agents.map(libraryAgentId) : [];
   const { allows } = useResourcePermissions({
     resourceType: 'agent',
@@ -416,7 +463,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       />
 
       <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
-        <div ref={listRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4" aria-label="Agents">
+        {/* Not flex-col: overflow-hidden table chrome would clip instead of letting this scroll. */}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4" aria-label="Agents">
           {isInitialLoading ? (
             <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
               {Array.from({ length: 6 }, (_, i) => (
@@ -425,7 +473,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
             </div>
           ) : error ? (
             <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
-          ) : agents.length === 0 ? (
+          ) : agents.length === 0 && !hasPageNav ? (
             <EmptyScreen
               title="No Agents Found"
               description={
@@ -438,83 +486,114 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                 )
               }
             />
-          ) : (
-            <>
+          ) : agents.length === 0 ? (
+            <div className="flex min-h-full flex-col">
+              <EmptyScreen
+                title="No Agents Found"
+                description={
+                  query.trim() ? (
+                    <>
+                      No search results found for <EmptyScreenQueryHighlight>{query.trim()}</EmptyScreenQueryHighlight>
+                    </>
+                  ) : (
+                    'Build one in a chat, then save it as an agent.'
+                  )
+                }
+                className="flex-1"
+              />
               <div className="overflow-hidden rounded-lg border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Agent name</TableHead>
-                      <TableHead>Configuration</TableHead>
-                      {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
-                      <TableHead className="w-px">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {agents.map(agent => {
-                      const agentSpec = agent.agentSpec;
-                      const agentId = agent.agentId;
-                      const id = libraryAgentId(agent);
-                      const summary = showSchedulesColumn
-                        ? (scheduleByAgent?.get(id) ??
-                          scheduleByAgent?.get(agent.name) ??
-                          (scheduleByAgent == null ? null : { count: 0, pausedCount: 0 }))
-                        : undefined;
-                      return (
-                        <SlottedAgentLibraryRow
-                          key={id}
-                          agent={agent}
-                          canMutate={canMutate}
-                          canUseAgent={allows(id, 'USE')}
-                          canManageAgent={allows(id, 'MANAGE')}
-                          canDeleteAgent={allows(id, 'DELETE')}
-                          canManageSchedules={canOpenAgentSchedules}
-                          {...(summary !== undefined ? { scheduleSummary: summary } : {})}
-                          {...(canOpenAgentSchedules && agentId != null
-                            ? {
-                                onOpenSchedules: () => openSchedulesForAgent({ agentId }),
-                                onCreateSchedule: () => openSchedulesForAgent({ agentId, isNew: true }),
-                                onManageSchedules: () => openSchedulesForAgent({ agentId }),
-                              }
-                            : {})}
-                          {...(canOpenAgentDetails && agentId != null
-                            ? {
-                                onOpen: () => {
-                                  updateShareSearch({
-                                    agentId,
-                                    tab: 'overview',
-                                    sessionId: null,
-                                    view: null,
-                                    timeRange: null,
-                                  });
-                                  shell.openLibraryAgent(agentId);
-                                },
-                              }
-                            : {})}
-                          onTry={() => {
-                            if (allows(id, 'USE')) handleTry(agent);
-                          }}
-                          onEdit={() => {
-                            if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
-                          }}
-                        />
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <TableTokenPagination
+                  pageSize={pageSize}
+                  rowCount={0}
+                  canPrev={canPrev}
+                  canNext={canNext}
+                  onPrev={goPrev}
+                  onNext={goNext}
+                  pageSizeOptions={AGENTS_PAGE_SIZE_OPTIONS}
+                  onPageSizeChange={setPageSize}
+                />
               </div>
-              {hasMore ? (
-                <div ref={sentinelRef} className="flex h-8 shrink-0 items-center justify-center" aria-hidden>
-                  {loadingMore ? (
-                    <span className="text-text-secondary text-xs" role="status">
-                      Loading more…
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
-            </>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Agent name</TableHead>
+                    <TableHead>Configuration</TableHead>
+                    {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
+                    {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}
+                    <TableHead className="w-px">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {agents.map(agent => {
+                    const agentSpec = agent.agentSpec;
+                    const agentId = agent.agentId;
+                    const id = libraryAgentId(agent);
+                    const summary = showSchedulesColumn
+                      ? (scheduleByAgent?.get(id) ??
+                        scheduleByAgent?.get(agent.name) ??
+                        (scheduleByAgent == null
+                          ? null
+                          : { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] }))
+                      : undefined;
+                    return (
+                      <SlottedAgentLibraryRow
+                        key={id}
+                        agent={agent}
+                        canMutate={canMutate}
+                        canUseAgent={allows(id, 'USE')}
+                        canManageAgent={allows(id, 'MANAGE')}
+                        canDeleteAgent={allows(id, 'DELETE')}
+                        canManageSchedules={canOpenAgentSchedules}
+                        showCreatedBy={showCreatedByColumn}
+                        {...(summary !== undefined ? { scheduleSummary: summary } : {})}
+                        {...(canOpenAgentSchedules && agentId != null
+                          ? {
+                              onOpenSchedules: () => openSchedulesForAgent({ agentId }),
+                              onCreateSchedule: () => openSchedulesForAgent({ agentId, isNew: true }),
+                              onManageSchedules: () => openSchedulesForAgent({ agentId }),
+                            }
+                          : {})}
+                        {...(canOpenAgentDetails && agentId != null
+                          ? {
+                              onOpen: () => {
+                                updateShareSearch({
+                                  agentId,
+                                  tab: 'overview',
+                                  sessionId: null,
+                                  view: null,
+                                  timeRange: null,
+                                });
+                                shell.openLibraryAgent(agentId);
+                              },
+                            }
+                          : {})}
+                        onTry={() => {
+                          if (allows(id, 'USE')) handleTry(agent);
+                        }}
+                        onEdit={() => {
+                          if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
+                        }}
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <TableTokenPagination
+                pageSize={pageSize}
+                rowCount={agents.length}
+                canPrev={canPrev}
+                canNext={canNext}
+                onPrev={goPrev}
+                onNext={goNext}
+                pageSizeOptions={AGENTS_PAGE_SIZE_OPTIONS}
+                onPageSizeChange={setPageSize}
+              />
+            </div>
           )}
         </div>
       </div>

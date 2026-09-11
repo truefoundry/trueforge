@@ -4,7 +4,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.3-1567266"
+  tag: "0.2.0-rc.5-380bdde"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -95,9 +95,10 @@ controller:
       cpu: 100m
       memory: 256Mi
       ephemeral-storage: 256Mi
-# Controller -> server API key (TRUEFORGE_API_KEY). string, or
-# { valueFrom: { secretKeyRef: { name, key } } }. Replace the dev default
-# before any shared deployment; the chart never creates a Secret for it.
+# Controller → server API key (TRUEFORGE_API_KEY). Dev default is a known
+# placeholder — strongly recommended to create a Secret and set:
+#   apiKey: { valueFrom: { secretKeyRef: { name: trueforge-api-key, key: TRUEFORGE_API_KEY } } }
+# The chart never creates that Secret. A plain string also works for local trials.
 apiKey: "placeholder-value-please-generate-your-own"
 # Extra env for BOTH server and controller: name -> scalar or { valueFrom: ... }.
 # A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
@@ -215,17 +216,20 @@ redis:
       enabled: false
 # --- External services (used when the matching bundled dependency is disabled) -
 externalPostgres:
+  # host / port / database / user / password: inline scalar, or
+  # { valueFrom: { secretKeyRef: { name, key } } } (or configMapKeyRef).
+  # Required when postgresql.enabled is false. Defaults below are for a
+  # standalone install; a parent chart can replace any of them with valueFrom.
   host: ""
   port: 5432
   database: trueforge
   user: trueforge
-  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   password: ""
-  # password:
+  # host / port / database / user / password:
   #   valueFrom:
   #     secretKeyRef:
   #       name: my-postgres-secret
-  #       key: password
+  #       key: host  # or port / database / user / password
   # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
   # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
   sslMode: ""
@@ -234,6 +238,11 @@ externalRedis:
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   url: ""
   # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
+  # url:
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-redis-secret
+  #       key: redis-url
   sentinel:
     enabled: false
     # Comma-separated host:port list -> REDIS_SENTINEL_HOSTS.
@@ -242,11 +251,6 @@ externalRedis:
     masterName: ""
     # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
     password: ""
-    # url:
-    #   valueFrom:
-    #     secretKeyRef:
-    #       name: my-redis-secret
-    #       key: redis-url
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
