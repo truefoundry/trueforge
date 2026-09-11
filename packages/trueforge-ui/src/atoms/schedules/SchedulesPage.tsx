@@ -16,7 +16,6 @@ import { CreatedByCell } from '../CreatedByCell.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
-import { searchAllAgents } from '../lib/useSearchAgentsList.js';
 import { PageHeader } from '../PageHeader.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
@@ -38,8 +37,6 @@ import { formatCadenceSummary } from './cadence.js';
 import { ScheduleFormDrawer } from './ScheduleFormDrawer.js';
 import { ScheduleLastRunsCell } from './ScheduleLastRunsCell.js';
 import { ScheduleStatusBadge } from './ScheduleStatusBadge.js';
-
-type AgentOption = { agentId: string; name: string };
 
 type DrawerState = { kind: 'closed' } | { kind: 'create'; agentId?: string } | { kind: 'edit'; schedule: Schedule };
 
@@ -166,7 +163,8 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [runsByScheduleId, setRunsByScheduleId] = useState<Record<string, ScheduleRun[]>>({});
   const [runsLoading, setRunsLoading] = useState(false);
   const [runningScheduleIds, setRunningScheduleIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
+  /** Names learned from picker picks; no mount-time catalog drain. */
+  const [agentLabelById, setAgentLabelById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => filtersFromSearch(window.location.search).nameQuery);
@@ -176,20 +174,14 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [agentFilter, setAgentFilter] = useState(
     () => agentId ?? filtersFromSearch(window.location.search).agentFilter,
   );
+  // Specific agent (filter or embedded): gate Create on USE. Filter "all": enable and let the drawer enforce USE.
   const permissionAgentId = agentId ?? (agentFilter === 'all' ? null : agentFilter);
-  const permissionAgentIds = useMemo(
-    () => (permissionAgentId == null ? agentOptions.map(option => option.agentId) : [permissionAgentId]),
-    [agentOptions, permissionAgentId],
-  );
   const { allows: allowsAgent } = useResourcePermissions({
     resourceType: 'agent',
-    resourceIds: permissionAgentIds,
+    resourceIds: permissionAgentId == null ? [] : [permissionAgentId],
   });
   const canCreateSchedule =
-    server.permissions == null ||
-    (permissionAgentId == null
-      ? agentOptions.some(option => allowsAgent(option.agentId, 'USE'))
-      : allowsAgent(permissionAgentId, 'USE'));
+    server.permissions == null || permissionAgentId == null || allowsAgent(permissionAgentId, 'USE');
   const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState(agentId));
   const [pendingDelete, setPendingDelete] = useState<Schedule | null>(null);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
@@ -318,27 +310,6 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     void loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter });
   }, [agentFilter, pageSize, pageToken, loadSchedules]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void searchAllAgents(server)
-      .then(rows => {
-        if (cancelled) return;
-        setAgentOptions(rows.map(agent => ({ agentId: libraryAgentId(agent), name: agent.name })));
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [server]);
-
-  const agentNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const agent of agentOptions) {
-      map.set(agent.agentId, agent.name);
-    }
-    return map;
-  }, [agentOptions]);
-
   // Name + status are client-side on the current server page only.
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();
@@ -414,7 +385,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         title={agentId === undefined ? 'Scheduled Agents' : undefined}
         end={
           <>
-            <div className="w-full sm:w-56">
+            <div className="w-full sm:w-60">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search schedules by name" />
             </div>
             <PopoverSelect
@@ -427,11 +398,17 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
             {agentId === undefined ? (
               <AgentSearchPicker
                 value={agentFilter}
-                selectedLabel={agentFilter === 'all' ? 'All agents' : (agentNameById.get(agentFilter) ?? agentFilter)}
+                selectedLabel={agentFilter === 'all' ? 'All agents' : (agentLabelById[agentFilter] ?? agentFilter)}
                 onValueChange={value => {
                   setAgentFilter(value);
                   setPageToken(undefined);
                   setPrevTokenStack([]);
+                }}
+                onAgentPicked={agent => {
+                  setAgentLabelById(current => ({
+                    ...current,
+                    [libraryAgentId(agent)]: agent.name,
+                  }));
                 }}
                 allOption={{ value: 'all', label: 'All agents' }}
                 className="sm:w-48"
@@ -508,7 +485,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               <TableBody>
                 {filtered.map(schedule => {
                   const cadence = formatCadenceSummary({ cron: schedule.cron, timezone: schedule.timezone });
-                  const agentLabel = schedule.agentName ?? agentNameById.get(schedule.agentId) ?? schedule.agentId;
+                  const agentLabel = schedule.agentName ?? agentLabelById[schedule.agentId] ?? schedule.agentId;
                   return (
                     <TableRow key={schedule.id}>
                       <TableCell className="text-text-primary font-medium">

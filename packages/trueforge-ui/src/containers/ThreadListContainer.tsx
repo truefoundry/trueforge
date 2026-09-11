@@ -112,7 +112,7 @@ function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
         portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md *:w-full"
+        className="aui-popup-enter font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md *:w-full"
       >
         <PermissionGuard allowed={!disabled}>
           <ThreadListItemPrimitive.Delete className={deleteItemClass}>

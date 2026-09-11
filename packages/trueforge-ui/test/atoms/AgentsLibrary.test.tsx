@@ -675,7 +675,7 @@ describe('AgentsLibraryButton', () => {
 
     expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
-    expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('AL');
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
   });
 
   it('hides Created by when no agent has createdBySubject', async () => {

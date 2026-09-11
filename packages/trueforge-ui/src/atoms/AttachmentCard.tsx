@@ -60,7 +60,8 @@ export function AttachmentCard({
         <div className="bg-secondary-bg relative size-full overflow-hidden rounded-[calc(var(--composer-radius,1.5rem)-var(--composer-padding,8px))] border border-primary-button-bg/20">
           <Avatar className="size-full rounded-none">
             <AvatarImage src={isImage ? previewSrc : undefined} alt={name} className="object-cover" />
-            <AvatarFallback className="rounded-none">
+            {/* bg-none drops the default gradient (bg-image group), which bg-secondary-bg alone would not override. */}
+            <AvatarFallback className="rounded-none bg-secondary-bg bg-none text-text-secondary">
               <Icon name="file" size="1.5rem" className="text-text-secondary" />
             </AvatarFallback>
           </Avatar>

@@ -22,7 +22,7 @@ export function auiSelectPrefixTriggerClass(className?: string): string {
 /** Visual chrome only — callers add positioning (`absolute top-full mt-1` or fixed portal coords). */
 export function auiSelectMenuClass(className?: string): string {
   return cn(
-    'bg-card-bg text-text-primary z-50 max-h-64 overflow-y-auto rounded-md border border-border p-1 shadow-md',
+    'aui-popup-enter bg-card-bg text-text-primary z-50 max-h-64 overflow-y-auto rounded-md border border-border p-1 shadow-md',
     className,
   );
 }
