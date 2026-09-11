@@ -66,15 +66,15 @@ import { getTurnExecutionError, startTurnInProcess } from './turns';
 export interface ScheduleTurnExecutionDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
   sessions: Sessions;
-  /** Persistence agent store (schedule agent binding is not caller-scoped). */
-  agentStore: IAgentStore<TTransaction>;
   activeTurns: ActiveTurnRegistry;
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
-  resolveSkillStore: (c: Context) => ISkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  /** Persistence agent store (schedule agent binding is not caller-scoped). */
+  agentStore: IAgentStore<TTransaction>;
+  turnSkillsResolverStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -111,11 +111,11 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     deps: {
       activeTurns: deps.activeTurns,
       eventSubscriptions: deps.eventSubscriptions,
+      agentStore: deps.agentStore,
       modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
       mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
-      skillStore: deps.resolveSkillStore(c),
-      agentStore: deps.agentStore,
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      skillStore: deps.turnSkillsResolverStore,
       logger: deps.logger,
     },
   });

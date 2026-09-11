@@ -230,13 +230,13 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     scheduleStore: deps.scheduleStore,
     sessions: deps.sessions,
     agentStore: deps.agentStore,
-    activeTurns: deps.activeTurns,
     eventSubscriptions: deps.eventSubscriptions,
     logger: deps.logger,
     resolveModelProviderStore: deps.resolveModelProviderStore,
     resolveMcpServerStore: deps.resolveMcpServerStore,
-    resolveSkillStore: deps.resolveSkillStore,
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    activeTurns: deps.activeTurns,
+    turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
 
   if (configuration.ACCESS_LOGS) {

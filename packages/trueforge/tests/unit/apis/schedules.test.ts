@@ -70,7 +70,7 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     logger: winston.createLogger({ silent: true }),
     resolveModelProviderStore: () => ({}) as never,
     resolveMcpServerStore: () => ({}) as never,
-    resolveSkillStore: () => ({}) as never,
+    turnSkillsResolverStore: { resolveTurnSkills: async () => [] },
     resolveSandboxProviderStore: () => ({}) as never,
   };
 }
