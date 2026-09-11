@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { trueFoundryExtras, type TrueFoundryRuntimeExtras } from '@truefoundry/assistant-ui-runtime';
 import { describe, expect, it, vi } from 'vitest';
 
+import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { McpAuthContainer } from '@/containers/McpAuthContainer.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import type { AgentUIServer } from '@/server/types.js';
+import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
 const SERVERS = [
   { id: 'srv-1', name: 'github', authUrl: 'https://example.com/auth/github' },
@@ -16,10 +20,12 @@ function McpAuthHarness({
   pendingMcpAuth,
   resumeMcpAuth,
   isRunning = false,
+  server,
 }: {
   pendingMcpAuth: TrueFoundryRuntimeExtras['pendingMcpAuth'];
   resumeMcpAuth: TrueFoundryRuntimeExtras['resumeMcpAuth'];
   isRunning?: boolean;
+  server?: AgentUIServer;
 }) {
   const messages: ThreadMessageLike[] = [];
   const runtime = useExternalStoreRuntime({
@@ -47,10 +53,18 @@ function McpAuthHarness({
     }),
   });
 
-  return (
+  const content = (
     <AssistantRuntimeProvider runtime={runtime}>
       <McpAuthContainer />
     </AssistantRuntimeProvider>
+  );
+
+  return server ? (
+    <ServerProvider server={server}>
+      <DraftCatalogProvider>{content}</DraftCatalogProvider>
+    </ServerProvider>
+  ) : (
+    content
   );
 }
 
@@ -92,5 +106,54 @@ describe('McpAuthContainer', () => {
   it('disables Continue while the thread is running', () => {
     render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={vi.fn()} isRunning={true} />);
     expect(screen.getByRole('button', { name: /continue/i })).toBeDisabled();
+  });
+
+  it('shows each successful catalog connection and resumes once all servers are connected', async () => {
+    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
+    const catalog = createMockCatalog({
+      connectorCatalog: {
+        ...createMockCatalog().connectorCatalog,
+        authenticateConnector,
+      },
+    });
+    const server = createMockAgentUIServer({ catalog });
+
+    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={resumeMcpAuth} server={server} />);
+
+    const firstConnect = screen.getAllByRole('button', { name: 'Connect' })[0];
+    if (!firstConnect) throw new Error('Expected the first MCP Connect button');
+    fireEvent.click(firstConnect);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Connected' })).toBeDisabled());
+    expect(resumeMcpAuth).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Connected' })).toHaveLength(2));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled());
+    expect(resumeMcpAuth).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a failed catalog connection available without resuming', async () => {
+    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    const authenticateConnector = vi.fn().mockRejectedValue(new Error('Authorization failed'));
+    const catalog = createMockCatalog({
+      connectorCatalog: {
+        ...createMockCatalog().connectorCatalog,
+        authenticateConnector,
+      },
+    });
+    const server = createMockAgentUIServer({ catalog });
+
+    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={resumeMcpAuth} server={server} />);
+
+    const firstConnect = screen.getAllByRole('button', { name: 'Connect' })[0];
+    if (!firstConnect) throw new Error('Expected the first MCP Connect button');
+    fireEvent.click(firstConnect);
+
+    await waitFor(() => expect(authenticateConnector).toHaveBeenCalledTimes(1));
+    expect(screen.getAllByRole('button', { name: 'Connect' })).toHaveLength(2);
+    expect(resumeMcpAuth).not.toHaveBeenCalled();
   });
 });
