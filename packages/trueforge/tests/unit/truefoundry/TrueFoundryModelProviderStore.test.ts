@@ -22,7 +22,7 @@ const AGENT: AgentRecord = {
 };
 
 describe('TrueFoundryModelProviderStore dual tokens', () => {
-  it('uses actorToken for SFY list calls and subjectToken as gateway api_key', async () => {
+  it('uses asAgent for SFY list calls and asUser as gateway api_key', async () => {
     const client = {
       listProviderIntegrations: jest.fn().mockResolvedValue([
         {

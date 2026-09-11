@@ -12,13 +12,13 @@ import type { TrueFoundryServiceFoundryServerClient, VendedTokens } from './True
 export type ResolveAccessToken = () => Promise<string>;
 
 /**
- * Destination-specific tokens for a TrueFoundry request.
- * ServiceFoundry uses the agent identity (`actorToken`); gateway uses user+act (`subjectToken`).
- * Without a saved agent, both resolve to the caller's credential.
+ * Dual tokens from vend-token (or the caller credential when there is no saved agent).
+ * - `asAgent` — agent identity (vend-token `actorToken`)
+ * - `asUser` — triggering user with agent in `act` (vend-token `subjectToken`)
  */
-export interface DestinationTokens {
-  forServiceFoundry: ResolveAccessToken;
-  forGateway: ResolveAccessToken;
+export interface AccessTokens {
+  asAgent: ResolveAccessToken;
+  asUser: ResolveAccessToken;
 }
 
 type AgentTokenVendor = Pick<TrueFoundryServiceFoundryServerClient, 'vendToken'>;
@@ -31,7 +31,7 @@ const accessTokenCache: unique symbol = Symbol('truefoundryAccessTokenCache');
  * lifetime of one HTTP request; a later request gets a new context and vends again.
  */
 export type TrueFoundryRequestContext = RequestContext & {
-  readonly [accessTokenCache]: Map<string, DestinationTokens>;
+  readonly [accessTokenCache]: Map<string, AccessTokens>;
 };
 
 export function createTrueFoundryRequestContext(base: RequestContext): TrueFoundryRequestContext {
@@ -49,22 +49,22 @@ export function asTrueFoundryRequestContext(context: RequestContext): TrueFoundr
   return context;
 }
 
-function destinationTokensFromCaller(context: RequestContext): DestinationTokens {
+function accessTokensFromCaller(context: RequestContext): AccessTokens {
   const resolve = callerAccessToken(context);
-  return { forServiceFoundry: resolve, forGateway: resolve };
+  return { asAgent: resolve, asUser: resolve };
 }
 
 /**
  * Dual tokens scoped to a saved agent, for work the agent does on the caller's behalf.
  * Throws 500 up front when the agent was never registered with TrueFoundry.
- * Vends once; ServiceFoundry gets `actorToken`, gateway gets `subjectToken`.
+ * Vends once; callers pick `asAgent` or `asUser`.
  */
 export function agentAccessToken(input: {
   client: AgentTokenVendor;
   requestContext: Pick<RequestContext, 'tenant_id' | 'subject'>;
   agent: AgentRecord;
   logger: Pick<Logger, 'info'>;
-}): DestinationTokens {
+}): AccessTokens {
   const { client, requestContext: context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   let pending: Promise<VendedTokens> | undefined;
@@ -86,8 +86,8 @@ export function agentAccessToken(input: {
   };
 
   return {
-    forServiceFoundry: async () => (await vended()).actorToken,
-    forGateway: async () => (await vended()).subjectToken,
+    asAgent: async () => (await vended()).actorToken,
+    asUser: async () => (await vended()).subjectToken,
   };
 }
 
@@ -103,7 +103,7 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
 }
 
 /**
- * Destination tokens for a TrueFoundry request, optionally scoped to the saved agent executing a turn.
+ * Access tokens for a TrueFoundry request, optionally scoped to the saved agent executing a turn.
  * Saved-agent callables are stored on this request's context so model and MCP stores share one vend.
  */
 export function accessTokenForRequest(input: {
@@ -111,9 +111,9 @@ export function accessTokenForRequest(input: {
   requestContext: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
   logger: Pick<Logger, 'info'>;
-}): DestinationTokens {
+}): AccessTokens {
   if (input.agent === undefined) {
-    return destinationTokensFromCaller(input.requestContext);
+    return accessTokensFromCaller(input.requestContext);
   }
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   const cache = input.requestContext[accessTokenCache];
