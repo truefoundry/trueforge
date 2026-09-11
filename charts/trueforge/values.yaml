@@ -216,17 +216,20 @@ redis:
       enabled: false
 # --- External services (used when the matching bundled dependency is disabled) -
 externalPostgres:
+  # host / port / database / user / password: inline scalar, or
+  # { valueFrom: { secretKeyRef: { name, key } } } (or configMapKeyRef).
+  # Required when postgresql.enabled is false. Defaults below are for a
+  # standalone install; a parent chart can replace any of them with valueFrom.
   host: ""
   port: 5432
   database: trueforge
   user: trueforge
-  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   password: ""
-  # password:
+  # host / port / database / user / password:
   #   valueFrom:
   #     secretKeyRef:
   #       name: my-postgres-secret
-  #       key: password
+  #       key: host  # or port / database / user / password
   # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
   # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
   sslMode: ""
@@ -235,6 +238,11 @@ externalRedis:
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
   url: ""
   # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
+  # url:
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-redis-secret
+  #       key: redis-url
   sentinel:
     enabled: false
     # Comma-separated host:port list -> REDIS_SENTINEL_HOSTS.
@@ -243,11 +251,6 @@ externalRedis:
     masterName: ""
     # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
     password: ""
-    # url:
-    #   valueFrom:
-    #     secretKeyRef:
-    #       name: my-redis-secret
-    #       key: redis-url
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and

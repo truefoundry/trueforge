@@ -128,8 +128,8 @@ Container image reference; tag falls back to the chart appVersion.
 {{- end }}
 
 {{/*
-True when .value is a non-empty string (vs a valueFrom map).
-Expects dict with key "value".
+True when .value is an inline scalar (string or number), not a valueFrom map.
+Used so NOTES / helpers can print "postgres.svc" and skip secretKeyRef maps.
 */}}
 {{- define "trueforge.isLiteralString" -}}
 {{- $v := index . "value" -}}
@@ -137,43 +137,48 @@ Expects dict with key "value".
 {{- end }}
 
 {{/*
-Fail unless .value is a non-empty string or a map with valueFrom.
+Fail unless .value is a non-empty string, a number, or a map with valueFrom.
 Expects dict with keys "name" and "value".
 */}}
 {{- define "trueforge.requireStringOrValueFrom" -}}
 {{- $v := index . "value" -}}
 {{- $name := index . "name" -}}
 {{- if kindIs "string" $v -}}
-{{- if eq $v "" -}}{{- fail (printf "%s is required (string or valueFrom.secretKeyRef)" $name) -}}{{- end -}}
+{{- if eq $v "" -}}{{- fail (printf "%s is required (string, number, or valueFrom.secretKeyRef)" $name) -}}{{- end -}}
+{{- else if or (kindIs "int" $v) (kindIs "int64" $v) (kindIs "float64" $v) -}}
 {{- else if kindIs "map" $v -}}
 {{- if not $v.valueFrom -}}{{- fail (printf "%s map must set valueFrom" $name) -}}{{- end -}}
 {{- else -}}
-{{- fail (printf "%s must be a string or a valueFrom object" $name) -}}
+{{- fail (printf "%s must be a string, number, or valueFrom object" $name) -}}
 {{- end -}}
 {{- end }}
 
 {{/*
-Postgres connection. Sourced from the bundled Bitnami postgresql subchart when
-postgresql.enabled, otherwise from externalPostgres.
+Literal Postgres host/user/database for NOTES and bundled-subchart env.
+Empty when the field is a valueFrom map (external secret/configmap).
 */}}
 {{- define "trueforge.postgres.host" -}}
 {{- if .Values.postgresql.enabled -}}
 {{- printf "%s-postgresql" .Release.Name -}}
-{{- else -}}
-{{- required "externalPostgres.host is required when postgresql.enabled is false" .Values.externalPostgres.host -}}
+{{- else if eq (include "trueforge.isLiteralString" (dict "value" .Values.externalPostgres.host)) "true" -}}
+{{- .Values.externalPostgres.host -}}
 {{- end -}}
 {{- end }}
 
-{{- define "trueforge.postgres.port" -}}
-{{- if .Values.postgresql.enabled -}}5432{{- else -}}{{ .Values.externalPostgres.port }}{{- end -}}
-{{- end }}
-
 {{- define "trueforge.postgres.user" -}}
-{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.username }}{{- else -}}{{ .Values.externalPostgres.user }}{{- end -}}
+{{- if .Values.postgresql.enabled -}}
+{{- .Values.postgresql.auth.username -}}
+{{- else if eq (include "trueforge.isLiteralString" (dict "value" .Values.externalPostgres.user)) "true" -}}
+{{- .Values.externalPostgres.user -}}
+{{- end -}}
 {{- end }}
 
 {{- define "trueforge.postgres.database" -}}
-{{- if .Values.postgresql.enabled -}}{{ .Values.postgresql.auth.database }}{{- else -}}{{ .Values.externalPostgres.database }}{{- end -}}
+{{- if .Values.postgresql.enabled -}}
+{{- .Values.postgresql.auth.database -}}
+{{- else if eq (include "trueforge.isLiteralString" (dict "value" .Values.externalPostgres.database)) "true" -}}
+{{- .Values.externalPostgres.database -}}
+{{- end -}}
 {{- end }}
 
 {{/*
@@ -341,10 +346,10 @@ not create Secrets; callers who need secretKeyRef must supply valueFrom.
 {{- $field := index . "field" -}}
 {{- $value := index . "value" -}}
 {{- include "trueforge.requireStringOrValueFrom" (dict "name" $field "value" $value) -}}
-{{- if eq (include "trueforge.isLiteralString" (dict "value" $value)) "true" -}}
-{{- dict "name" $name "value" $value | toJson -}}
-{{- else -}}
+{{- if kindIs "map" $value -}}
 {{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
+{{- else -}}
+{{- dict "name" $name "value" ($value | toString) | toJson -}}
 {{- end -}}
 {{- end }}
 
@@ -391,13 +396,17 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 
+{{- if .Values.postgresql.enabled -}}
 {{- $env = append $env (dict "name" "POSTGRES_HOST" "value" (include "trueforge.postgres.host" .)) -}}
-{{- $env = append $env (dict "name" "POSTGRES_PORT" "value" (include "trueforge.postgres.port" . | toString)) -}}
+{{- $env = append $env (dict "name" "POSTGRES_PORT" "value" "5432") -}}
 {{- $env = append $env (dict "name" "POSTGRES_DB" "value" (include "trueforge.postgres.database" .)) -}}
 {{- $env = append $env (dict "name" "POSTGRES_USER" "value" (include "trueforge.postgres.user" .)) -}}
-{{- if .Values.postgresql.enabled -}}
 {{- $env = append $env (dict "name" "POSTGRES_PASSWORD" "valueFrom" (dict "secretKeyRef" (dict "name" (include "trueforge.postgres.secretName" .) "key" "password"))) -}}
 {{- else -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_HOST" "field" "externalPostgres.host" "value" .Values.externalPostgres.host) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PORT" "field" "externalPostgres.port" "value" .Values.externalPostgres.port) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_DB" "field" "externalPostgres.database" "value" .Values.externalPostgres.database) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_USER" "field" "externalPostgres.user" "value" .Values.externalPostgres.user) | fromJson) -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
 {{- if .Values.externalPostgres.sslMode -}}
 {{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
