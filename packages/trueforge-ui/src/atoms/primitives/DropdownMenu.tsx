@@ -16,6 +16,7 @@ export type DropdownMenuProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   closeOnClick?: boolean;
+  lockScroll?: boolean;
 };
 
 export function DropdownMenu({
@@ -28,6 +29,7 @@ export function DropdownMenu({
   open: controlledOpen,
   onOpenChange,
   closeOnClick = true,
+  lockScroll = false,
 }: DropdownMenuProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -81,6 +83,21 @@ export function DropdownMenu({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !lockScroll) return;
+    const block = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
+      event.preventDefault();
+    };
+    document.addEventListener('wheel', block, { passive: false, capture: true });
+    document.addEventListener('touchmove', block, { passive: false, capture: true });
+    return () => {
+      document.removeEventListener('wheel', block, { capture: true });
+      document.removeEventListener('touchmove', block, { capture: true });
+    };
+  }, [open, lockScroll]);
 
   // Menu mounts only after `pos` is set; focus once per open, not on every scroll/resize pos rewrite.
   useEffect(() => {
@@ -161,7 +178,7 @@ export function DropdownMenu({
                   .join(' ') || undefined,
             }}
             className={cn(
-              'aui-popup-enter fixed z-[200] flex min-w-[8rem] flex-col rounded-md border border-border bg-card-bg p-1',
+              'aui-popup-enter fixed z-[200] flex min-w-[8rem] flex-col overscroll-contain rounded-md border border-border bg-card-bg p-1',
               'text-text-primary shadow-md',
               className,
             )}
