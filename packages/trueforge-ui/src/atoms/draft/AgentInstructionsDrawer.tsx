@@ -73,7 +73,7 @@ export function AgentInstructionsDrawer({
       open={open}
       onOpenChange={nextOpen => !nextOpen && onClose()}
       title="Instructions"
-      description="Define the agent behavior and messages added at the start of every session."
+      description="System prompt that defines the agent's role, goals, and how it should behave. Written once, applied to every run."
       anchor="right"
       size="lg"
       aria-label="Edit Instructions"

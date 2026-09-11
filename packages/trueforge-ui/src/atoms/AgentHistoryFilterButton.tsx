@@ -202,7 +202,7 @@ export function AgentHistoryFilterButton() {
               role="menu"
               aria-label="Filter agents"
               style={{ top: menuPos.top, left: menuPos.left }}
-              className="font-sans-flex fixed z-50 w-56 rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
+              className="aui-popup-enter font-sans-flex fixed z-50 w-56 rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md"
             >
               {filterBody}
             </div>,
