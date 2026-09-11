@@ -438,6 +438,7 @@ describe('internal schedule execution', () => {
         subject_display_name: 'alice',
       },
       name: 'reporter',
+      description: 'reporter description',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: 'reporter-external-id',
     });
