@@ -1,5 +1,13 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.5
+
+### Patch Changes
+
+- 502699b: Include `token: "USER_API_KEY"` in TypeScript agent code snippets when OIDC or TrueFoundry auth is enabled.
+- 4e72afc: Announce boot loading with a light-themed orb for contrast outside ThemeProvider.
+- 4e72afc: Use an animated thinking orb for application boot and server initialization.
+
 ## 0.2.0-rc.4
 
 ### Minor Changes
