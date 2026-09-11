@@ -20,6 +20,7 @@ export function cloneAgentName(agentName: string): string {
 
 export type AgentOverflowMenuProps = {
   agentName: string;
+  description?: string;
   agentSpec?: AgentSpec;
   /** Edit / Clone / Delete when composer is enabled. */
   canMutate: boolean;
@@ -37,6 +38,7 @@ type PendingAction = 'clone' | 'delete' | null;
 
 export function AgentOverflowMenu({
   agentName,
+  description,
   agentSpec,
   canMutate,
   canUse = true,
@@ -72,6 +74,7 @@ export function AgentOverflowMenu({
     try {
       await builder.saveAgent({
         agentName: clonedName,
+        ...(description === undefined ? {} : { description }),
         agentSpec,
         intent: 'create',
       });

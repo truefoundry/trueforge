@@ -31,6 +31,7 @@ export function runScheduleStoreContractSuite(deps: {
       tenant_id: TENANT,
       created_by_subject: USER_SUBJECT,
       name: `agent-${String(Date.now())}-${String(Math.random()).slice(2, 8)}`,
+      description: 'Test agent.',
       manifest: AgentSpecSchema.parse({
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
