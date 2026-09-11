@@ -154,9 +154,36 @@ describe('ScheduleFormDrawer', () => {
     const picker = await screen.findByLabelText('Agent');
     expect(picker).toBeInTheDocument();
 
-    fireEvent.click(picker);
+    fireEvent.focus(picker);
     await waitFor(() => {
       expect(screen.getByRole('option', { name: 'demo-agent' })).toBeInTheDocument();
+    });
+  });
+
+  it('filters agents when typing in the agent picker', async () => {
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => {
+      const agents = [
+        {
+          name: 'demo-agent',
+          agentId: 'demo-agent',
+          agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [{ name: 'Slack 1234' }] },
+        },
+        { name: 'other-agent', agentId: 'other-agent' },
+      ];
+      if (query == null || query === '') return agents;
+      return agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
+    });
+    renderDrawer({ server: createMockAgentUIServer({ searchAgents }) });
+
+    const picker = await screen.findByLabelText('Agent');
+    fireEvent.focus(picker);
+    await waitFor(() => expect(screen.getByRole('option', { name: 'demo-agent' })).toBeInTheDocument());
+
+    fireEvent.change(picker, { target: { value: 'other' } });
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ query: 'other' }));
+      expect(screen.getByRole('option', { name: 'other-agent' })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'demo-agent' })).not.toBeInTheDocument();
     });
   });
 
@@ -168,7 +195,7 @@ describe('ScheduleFormDrawer', () => {
       withShell: true,
     });
 
-    fireEvent.click(await screen.findByLabelText('Agent'));
+    fireEvent.focus(await screen.findByLabelText('Agent'));
 
     expect(await screen.findByText('No Agents created yet')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Build Agent' }));
@@ -422,5 +449,85 @@ describe('ScheduleFormDrawer', () => {
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(screen.queryByRole('heading', { name: 'Test Schedule' })).not.toBeInTheDocument();
+  });
+
+  it('prefills create from an agent id that differs from the name', async () => {
+    const searchAgents = vi.fn(async (_opts: { query?: string; limit?: number; offset?: number } = {}) => [
+      {
+        name: 'Demo Bot',
+        agentId: 'agt_demo',
+        agentSpec: {
+          model: { name: 'openai/gpt-4.1' },
+          mcpServers: [{ name: 'Slack 1234' }],
+        },
+      },
+    ]);
+    renderDrawer({
+      server: createMockAgentUIServer({
+        searchAgents,
+        getMcp: vi.fn(async () => [slackMcp]),
+        catalog: createMockCatalog({
+          connectorCatalog: {
+            getConnectorCatalog: async () => [],
+            listConnectors: async () => [slackCatalogConnector],
+            getConnector: async () => slackCatalogConnector,
+            getToolsByConnectorId: async () => [],
+            createConnector: vi.fn(),
+            updateConnector: vi.fn(),
+            authenticateConnector: vi.fn(async () => ({ status: 'AUTHENTICATED' })),
+            disconnectConnector: vi.fn(),
+          },
+        }),
+      }),
+      initialAgentId: 'agt_demo',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: 'Agent' })).toHaveValue('Demo Bot');
+    });
+    expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ limit: expect.any(Number), offset: 0 }));
+    expect(searchAgents.mock.calls.some(call => call[0]?.query != null)).toBe(false);
+  });
+
+  it('does not let a slow prefill overwrite a later agent pick', async () => {
+    let resolvePrefill: (value: unknown) => void = () => undefined;
+    const prefillPromise = new Promise(resolve => {
+      resolvePrefill = resolve;
+    });
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => {
+      if (query == null || query === '') {
+        await prefillPromise;
+        return [
+          {
+            name: 'Prefill Bot',
+            agentId: 'agt_prefill',
+            agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
+          },
+        ];
+      }
+      return [
+        {
+          name: 'Picked Bot',
+          agentId: 'agt_picked',
+          agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
+        },
+      ];
+    });
+
+    renderDrawer({
+      server: createMockAgentUIServer({ searchAgents }),
+      initialAgentId: 'agt_prefill',
+    });
+
+    const picker = await screen.findByRole('combobox', { name: 'Agent' });
+    fireEvent.focus(picker);
+    fireEvent.change(picker, { target: { value: 'Picked' } });
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Picked Bot' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('option', { name: 'Picked Bot' }));
+    expect(picker).toHaveValue('Picked Bot');
+
+    resolvePrefill(undefined);
+    await waitFor(() => expect(searchAgents).toHaveBeenCalled());
+    expect(picker).toHaveValue('Picked Bot');
   });
 });
