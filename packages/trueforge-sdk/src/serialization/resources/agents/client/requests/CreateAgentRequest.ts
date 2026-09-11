@@ -10,14 +10,14 @@ export const CreateAgentRequest: core.serialization.Schema<
     serializers.CreateAgentRequest.Raw,
     TrueForge.CreateAgentRequest
 > = core.serialization.object({
-    description: core.serialization.string().optional(),
+    description: core.serialization.string(),
     manifest: AgentSpec,
     name: ResourceName,
 });
 
 export declare namespace CreateAgentRequest {
     export interface Raw {
-        description?: string | null;
+        description: string;
         manifest: AgentSpec.Raw;
         name: ResourceName.Raw;
     }

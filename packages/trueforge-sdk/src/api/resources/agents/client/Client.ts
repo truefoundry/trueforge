@@ -151,6 +151,7 @@ export class AgentsClient {
      *
      * @example
      *     await client.agents.create({
+     *         description: "description",
      *         manifest: {
      *             model: {
      *                 name: "name"

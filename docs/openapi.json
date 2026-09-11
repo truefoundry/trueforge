@@ -30,8 +30,8 @@
             "$ref": "#/components/schemas/CreatedBySubject"
           },
           "description": {
-            "description": "Short summary of what the agent does.",
             "maxLength": 1024,
+            "minLength": 1,
             "type": "string"
           },
           "id": {
@@ -989,9 +989,8 @@
         "additionalProperties": false,
         "properties": {
           "description": {
-            "default": "",
-            "description": "Short summary of what the agent does.",
             "maxLength": 1024,
+            "minLength": 1,
             "type": "string"
           },
           "manifest": {
@@ -1003,6 +1002,7 @@
         },
         "required": [
           "name",
+          "description",
           "manifest"
         ],
         "type": "object"
@@ -5343,8 +5343,8 @@
         "additionalProperties": false,
         "properties": {
           "description": {
-            "description": "Short summary of what the agent does.",
             "maxLength": 1024,
+            "minLength": 1,
             "type": "string"
           },
           "manifest": {

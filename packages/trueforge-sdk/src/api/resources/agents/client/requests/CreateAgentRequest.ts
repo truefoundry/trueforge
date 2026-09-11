@@ -5,6 +5,7 @@ import type * as TrueForge from "../../../../index.js";
 /**
  * @example
  *     {
+ *         description: "description",
  *         manifest: {
  *             model: {
  *                 name: "name"
@@ -14,8 +15,7 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface CreateAgentRequest {
-    /** Short summary of what the agent does. */
-    description?: string;
+    description: string;
     manifest: TrueForge.AgentSpec;
     name: TrueForge.ResourceName;
 }
