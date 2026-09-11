@@ -221,6 +221,12 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
+    it('uses asUser for live status with a saved agent', async () => {
+      const { store, client } = createStore({ agent: AGENT });
+      await store.resolveAuthStatuses({ records: [dcrRecord()], userRef: 'user-1' });
+      expect(client.getMcpAuthStatus).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
+    });
+
     it('calls live status for a single truefoundry record without wire auth', async () => {
       const { store, client } = createStore();
       client.getMcpAuthStatus.mockResolvedValue({ status: 'auth_required' });
@@ -291,12 +297,12 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
-    it('uses actorToken for SFY authorize and subjectToken for gateway Bearer with a saved agent', async () => {
+    it('uses asUser for authorize and gateway Bearer, asAgent for SFY lookups with a saved agent', async () => {
       const { store, client } = createStore({ agent: AGENT });
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
       });
-      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
+      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
       expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
       expect(client.listGatewayInstallations).toHaveBeenCalledWith(ACTOR_TOKEN);
       expect(client.vendToken).toHaveBeenCalledTimes(1);
