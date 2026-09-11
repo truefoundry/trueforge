@@ -158,7 +158,7 @@ export type AgentOverviewProps = {
 
 export type AgentOverviewCardProps = {
   title: string;
-  icon: string;
+  icon?: string;
   count?: number;
   children: ReactNode;
 };

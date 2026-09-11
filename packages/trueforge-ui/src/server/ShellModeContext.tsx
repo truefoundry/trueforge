@@ -50,6 +50,8 @@ export type ShellMode =
       agentId?: string;
       /** Display / welcome label (often same as agentId). */
       agentName?: string;
+      /** Published-agent description, kept outside the executable agent spec. */
+      description?: string;
       /** Seed for mutable (draft) runtime. */
       agentSpec?: AgentSpec;
       locked: boolean;
@@ -64,6 +66,7 @@ export type SelectLibraryAgentRequest = {
   isCreateAgent?: boolean;
   agentId?: string;
   agentName?: string;
+  description?: string;
   agentSpec?: AgentSpec;
 };
 
@@ -111,7 +114,7 @@ type ShellModeContextValue = {
    * Attach identity + agentSpec to the *current* mutable chat without remounting.
    * Used after `saveAgent` so the same draft session continues as an editable agent.
    */
-  bindMutableAgent: (req: { agentId: string; agentName: string; agentSpec: AgentSpec }) => void;
+  bindMutableAgent: (req: { agentId: string; agentName: string; description?: string; agentSpec: AgentSpec }) => void;
   /** @deprecated Prefer `selectLibraryAgent({ isMutable: false, agentName })`. */
   selectAgent: (agentName: string) => void;
   /** Open a simple New Chat (mutable, no agent-builder chrome). */
@@ -411,6 +414,7 @@ export function ShellModeProvider({
           isCreateAgent,
           agentId: req.agentId,
           agentName: req.agentName,
+          description: req.description,
           agentSpec: req.agentSpec ?? (kind === 'agent' ? agentSeedRef.current : chatSeedRef.current),
           locked: false,
         });
@@ -451,7 +455,7 @@ export function ShellModeProvider({
   );
 
   const bindMutableAgent = useCallback(
-    (req: { agentId: string; agentName: string; agentSpec: AgentSpec }) => {
+    (req: { agentId: string; agentName: string; description?: string; agentSpec: AgentSpec }) => {
       if (!isComposerEnabled) return;
       setMode(prev => {
         if (prev.status !== 'active' || !prev.isMutable) return prev;
@@ -461,6 +465,7 @@ export function ShellModeProvider({
           isCreateAgent: true,
           agentId: req.agentId,
           agentName: req.agentName,
+          description: req.description,
           agentSpec: req.agentSpec,
           locked: false,
         };
