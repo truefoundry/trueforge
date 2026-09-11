@@ -85,8 +85,11 @@ const AgentPermissionsSchema = z.record(
 export type AgentPermissions = z.infer<typeof AgentPermissionsSchema>;
 
 const VendTokenResponseSchema = z.object({
-  token: z.string().min(1),
+  subjectToken: z.string().min(1),
+  actorToken: z.string().min(1),
 });
+
+export type VendedTokens = z.infer<typeof VendTokenResponseSchema>;
 
 export interface PutRemoteAgentInput {
   accessToken: string;
@@ -526,14 +529,15 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * Exchange a TrueFoundry API key for an agent-scoped token.
+   * Exchange a TrueFoundry API key for dual agent-scoped tokens.
+   * `actorToken` is the agent identity (ServiceFoundry); `subjectToken` is user+act (gateway).
    * Authenticated with the server API key, not the user bearer.
    */
   async vendToken(input: {
     subject: { id: string; type: string; display_name: string };
     agentId: string;
     tenantName: string;
-  }): Promise<string> {
+  }): Promise<VendedTokens> {
     const payload = await this.#requestJson({
       url: this.#url(VEND_TOKEN_PATH),
       accessToken: this.#apiKey,
@@ -556,7 +560,7 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: parsed.error,
       });
     }
-    return parsed.data.token;
+    return parsed.data;
   }
 
   #parseListResponse(payload: unknown): ListResponse {

@@ -366,20 +366,76 @@
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .aui-bottom-sheet[open] {
-    animation: aui-bottom-sheet-enter 180ms ease-out;
-  }
-}
-
 .aui-bottom-sheet {
   height: min(70dvh, 30rem);
   max-height: 85dvh;
 }
 
-@keyframes aui-bottom-sheet-enter {
+/* Dropdowns / popup cards: opacity + scale (not transform) so portal `style.transform` still positions. */
+@media (prefers-reduced-motion: no-preference) {
+  .aui-popup-enter {
+    animation: aui-popup-enter 140ms ease-out;
+  }
+}
+
+@keyframes aui-popup-enter {
   from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+/* Dialog slide: off-canvas when closed; @starting-style + allow-discrete for enter/exit.
+   Open state MUST be `none` (not translate(0)) so themePortalRoot fixed popovers/tooltips
+   keep the viewport as containing block and are not clipped by overflow-hidden. */
+@media (prefers-reduced-motion: no-preference) {
+  .aui-bottom-sheet,
+  .aui-side-drawer {
+    transition:
+      transform 200ms ease-out,
+      overlay 200ms ease-out allow-discrete,
+      display 200ms ease-out allow-discrete;
     transform: translateY(100%);
+  }
+
+  .aui-bottom-sheet[open],
+  .aui-side-drawer[open] {
+    transform: none;
+  }
+
+  @starting-style {
+    .aui-bottom-sheet[open],
+    .aui-side-drawer[open] {
+      transform: translateY(100%);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .aui-side-drawer:not([data-compact])[data-anchor='right'] {
+      transform: translateX(100%);
+    }
+
+    .aui-side-drawer:not([data-compact])[data-anchor='right'][open] {
+      transform: none;
+    }
+
+    .aui-side-drawer:not([data-compact])[data-anchor='left'] {
+      transform: translateX(-100%);
+    }
+
+    .aui-side-drawer:not([data-compact])[data-anchor='left'][open] {
+      transform: none;
+    }
+
+    @starting-style {
+      .aui-side-drawer:not([data-compact])[data-anchor='right'][open] {
+        transform: translateX(100%);
+      }
+
+      .aui-side-drawer:not([data-compact])[data-anchor='left'][open] {
+        transform: translateX(-100%);
+      }
+    }
   }
 }
 
