@@ -1,18 +1,20 @@
-# npm publish for the four public packages.
+# npm publish for the four public packages, plus PyPI for python/trueforge_sdk.
 #
-# npm trusted publishers are bound to `release.yml`.
-# Do not rename this file without updating every package on npmjs.com.
+# npm and PyPI trusted publishers are bound to `release.yml`.
+# Do not rename this file without updating every package on npmjs.com and PyPI.
 #
 # On every push to main, changesets/action/select-mode chooses:
 #   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
-#     (install only; that PR is gated by CI.yml)
-#   - none pending + unpublished versions → pack (build/test) + Windows npx smoke, then publish
+#     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
+#     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
+#   - none pending + unpublished versions → pack (build/test) + Windows npx smoke,
+#     then npm publish and PyPI publish in parallel
 # Merge the Version Packages PR to publish. There is no separate publish Action
 # and no `v*` tag trigger.
 #
-# Auth is GitHub OIDC (no NPM_TOKEN). An `_authToken` in user `.npmrc` disables
-# pnpm's OIDC exchange, so the publish job must not set NPM_TOKEN / NODE_AUTH_TOKEN.
-# id-token is granted only on the publish job (trusted-publishing best practice).
+# Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
+# disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
+# NODE_AUTH_TOKEN. id-token is granted only on the publish jobs.
 name: Release
 
 on:
@@ -237,6 +239,69 @@ jobs:
             echo "version=" >> "$GITHUB_OUTPUT"
             echo "@truefoundry/trueforge was not in this publish set"
           fi
+
+  # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
+  publish-python:
+    name: Publish Python SDK
+    needs: [pack, windows-npx-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Read version and skip if published
+        id: version
+        working-directory: python/trueforge_sdk
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade packaging
+          # Canonical project name + PEP 440 form (0.1.0-rc.1 → 0.1.0rc1). curl -L
+          # follows Warehouse redirects from underscore aliases.
+          VERSION="$(python3 -c '
+          import re, pathlib
+          from packaging.version import Version
+          text = pathlib.Path("pyproject.toml").read_text()
+          match = re.search(r"(?m)^version\s*=\s*\"([^\"]+)\"", text)
+          if match is None:
+              raise SystemExit("missing version in pyproject.toml")
+          print(Version(match.group(1)))
+          ')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          code="$(curl -sS -L -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/trueforge-sdk/${VERSION}/json")"
+          if [[ "$code" == "200" ]]; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "trueforge-sdk==$VERSION already on PyPI; skipping"
+          elif [[ "$code" == "404" ]]; then
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Unexpected PyPI response HTTP $code for trueforge-sdk==$VERSION" >&2
+            exit 1
+          fi
+
+      - name: Build distributions
+        if: steps.version.outputs.already == 'false'
+        working-directory: python/trueforge_sdk
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Publish to PyPI
+        if: steps.version.outputs.already == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/trueforge_sdk/dist
 
   # Same commit as this publish run (GITHUB_SHA). A workflow_dispatch --ref SHA
   # is rejected: the dispatch API only accepts a branch or tag name (HTTP 422).

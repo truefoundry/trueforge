@@ -6,6 +6,7 @@ sandbox image, and optional from-source **dev** images.
 | What                                | Trigger                                                                            | Workflow                                                                                       |
 | ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | npm packages                        | Push to `main` (Changesets)                                                        | [`release.yml`](.github/workflows/release.yml)                                                 |
+| PyPI `trueforge-sdk`                | Same `mode=publish` run as npm (parallel OIDC job)                                 | [`release.yml`](.github/workflows/release.yml)                                                 |
 | Prod image + chart-release PR       | After `@truefoundry/trueforge` npm publish (reusable workflow), or manual dispatch | [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
 | Chart tag, GitHub Release, OCI push | Merge of `release-chart/trueforge`, or push/dispatch of `charts/trueforge@*`       | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
 | Sandbox image + pin PR              | Push to `main` when `scripts/sandbox/**` changes, or dispatch                      | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml)                           |
@@ -16,6 +17,7 @@ sandbox image, and optional from-source **dev** images.
 | Artifact                     | Identity                                                                                                  |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                                             |
+| PyPI `trueforge-sdk`         | Same SemVer as `@truefoundry/trueforge-sdk` (mirrored into `pyproject.toml` on Version Packages)          |
 | Chart `appVersion`           | A **published** npm version                                                                               |
 | Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION`                        |
 | Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                                                  |
@@ -52,10 +54,13 @@ No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does both ve
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
    `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
 2. Merge to `main`. Pending changesets → **Version Packages** PR
-   (`pnpm run version`). Review and merge.
+   (`pnpm run version`). When `@truefoundry/trueforge-sdk` moves,
+   `scripts/version.mjs` mirrors that version into `python/trueforge_sdk` and
+   regenerates both SDKs. Review and merge.
 3. With no pending changesets, **pack** (build/test) and **Windows npx smoke**
-   run in parallel, then **publish** via npm trusted publishing (OIDC; no
-   `NPM_TOKEN`).
+   run in parallel, then **npm publish** and **PyPI publish** run in parallel
+   via trusted publishing (OIDC; no `NPM_TOKEN` / `PYPI_TOKEN`). PyPI skips when
+   that `pyproject.toml` version is already published.
 4. If `@truefoundry/trueforge` was published, **Release** calls **Build and
    prepare chart release** as a reusable workflow on the same commit (so a
    newer `main` push cannot change the Dockerfile / shortSha). GitHub's
@@ -78,18 +83,27 @@ Repo-wide via `.changeset/pre.json` (absent = publish to `latest`):
 
 ## Trusted publishing
 
-Each public package must list this repo + workflow as a trusted publisher on npmjs.com:
+Each public **npm** package must list this repo + workflow as a trusted publisher on npmjs.com:
 
 - Repository: `truefoundry/trueforge`
 - Workflow: `release.yml` (exact filename)
 - No GitHub Environment name
 
-Do not set `NPM_TOKEN` / `_authToken` on the publish job — that disables OIDC.
-Only the **publish** job uses npm OIDC (`id-token: write`).
+Do not set `NPM_TOKEN` / `_authToken` on the npm publish job — that disables OIDC.
+Only the **publish** / **publish-python** jobs use OIDC (`id-token: write`).
 
 Publish attaches npm provenance (`NPM_CONFIG_PROVENANCE` on the publish job, and
 `publishConfig.provenance: true` on every public package). That publicly attests
 the source repo and commit on npmjs.com.
+
+**PyPI** `trueforge-sdk` uses the same workflow file via a trusted publisher:
+
+- Repository: `truefoundry/trueforge`
+- Workflow: `release.yml` (exact filename)
+- No Environment name (unless you add one to the job and mirror it on PyPI)
+- Create the project once on PyPI (or publish the first version), then add the
+  pending/trusted publisher before the first OIDC upload succeeds.
+- Import remains `trueforge_sdk`; install with `pip install trueforge-sdk`.
 
 ## Local without publishing
 
@@ -106,7 +120,9 @@ pnpm clean && pnpm build && pnpm standalone:start
 - **OIDC fail** — pnpm >= 11.0.7; remove registry `_authToken`.
 - **Missing `dist/_frontend/index.html`** — root `pnpm build` must build `frontend` first.
 - **SDK not regenerated on Version PR** — only when `@truefoundry/trueforge-sdk` version moved
-  (`scripts/version.mjs`; needs Docker).
+  (`scripts/version.mjs`; needs Docker). That path also mirrors the version into `python/trueforge_sdk`.
+- **PyPI 403 / invalid-publisher** — register a trusted publisher for `trueforge-sdk` bound to
+  `release.yml` (and create the project if it does not exist yet).
 - **Prod image missing after npm publish** — dispatch the chart workflow on a
   **branch or tag** (not a SHA): `gh workflow run build-and-prepare-chart-release.yml --ref main -f app_version=X.Y.Z -f update_app_version=true`.
 
