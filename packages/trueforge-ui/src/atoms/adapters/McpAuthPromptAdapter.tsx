@@ -53,7 +53,6 @@ export function McpAuthPrompt({
             {connectedServerIds?.has(server.id) ? (
               <Button.Primary size="small" disabled className="shrink-0">
                 Connected
-                <Icon name="check" size="0.75em" className="ml-1" />
               </Button.Primary>
             ) : (
               <Button.Primary

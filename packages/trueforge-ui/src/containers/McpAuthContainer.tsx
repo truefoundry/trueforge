@@ -11,7 +11,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 
 type McpAuthPromptProps = {
   servers: NonNullable<ReturnType<typeof useTrueFoundryMcpAuth>['pending']>['mcpServers'];
-  onContinue: () => void;
+  onContinue: () => Promise<void>;
   readOnly: boolean;
 };
 
@@ -28,7 +28,10 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
     if (readOnly || resumedRef.current) return;
     resumedRef.current = true;
     setIsResuming(true);
-    onContinue();
+    void onContinue().catch(() => {
+      resumedRef.current = false;
+      setIsResuming(false);
+    });
   };
 
   const handleConnect = (serverId: string) => {
@@ -64,12 +67,12 @@ export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
   if (!pending) return null;
 
   if (catalog) {
+    const pendingServerKey = JSON.stringify(pending.mcpServers.map(server => server.id));
     return (
       <CatalogMcpAuthPrompt
+        key={pendingServerKey}
         servers={pending.mcpServers}
-        onContinue={() => {
-          if (!disabled) void resume();
-        }}
+        onContinue={resume}
         readOnly={isRunning || disabled}
       />
     );
