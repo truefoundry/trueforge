@@ -160,7 +160,7 @@ describe('TrueForgeUI', () => {
     }
 
     const avatar = await screen.findByLabelText('Ada Lovelace');
-    expect(avatar).toHaveTextContent('AL');
+    expect(avatar.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
     expect(avatar).toHaveTextContent('Ada Lovelace');
     if (layout === 'sidebar') {
       expect(avatar.closest('aside')).not.toBeNull();

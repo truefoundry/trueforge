@@ -30,7 +30,6 @@
             "$ref": "#/components/schemas/CreatedBySubject"
           },
           "description": {
-            "description": "Short summary of what the agent does.",
             "maxLength": 1024,
             "minLength": 1,
             "type": "string"
@@ -990,7 +989,6 @@
         "additionalProperties": false,
         "properties": {
           "description": {
-            "description": "Short summary of what the agent does.",
             "maxLength": 1024,
             "minLength": 1,
             "type": "string"
@@ -5345,7 +5343,6 @@
         "additionalProperties": false,
         "properties": {
           "description": {
-            "description": "Short summary of what the agent does.",
             "maxLength": 1024,
             "minLength": 1,
             "type": "string"
