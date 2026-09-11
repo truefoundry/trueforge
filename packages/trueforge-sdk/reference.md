@@ -267,7 +267,7 @@ await client.agents.get("agent_id");
 <dl>
 <dd>
 
-Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+Update an existing agent by immutable id.
 </dd>
 </dl>
 </dd>

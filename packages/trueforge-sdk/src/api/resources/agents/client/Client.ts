@@ -310,7 +310,7 @@ export class AgentsClient {
     }
 
     /**
-     * Replaces the manifest for an existing agent keyed by immutable `agent_id`.
+     * Update an existing agent by immutable id.
      *
      * @param {string} agent_id - Immutable agent identifier.
      * @param {TrueForge.UpdateAgentRequest} request

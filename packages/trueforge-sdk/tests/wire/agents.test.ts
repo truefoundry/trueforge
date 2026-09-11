@@ -17,6 +17,7 @@ describe("AgentsClient", () => {
                         subject_id: "subject_id",
                         subject_type: "subject_type",
                     },
+                    description: "description",
                     id: "id",
                     manifest: { model: { name: "name" } },
                     name: "name",
@@ -35,6 +36,7 @@ describe("AgentsClient", () => {
                         subjectId: "subject_id",
                         subjectType: "subject_type",
                     },
+                    description: "description",
                     id: "id",
                     manifest: {
                         model: {
@@ -71,6 +73,7 @@ describe("AgentsClient", () => {
                     subject_id: "subject_id",
                     subject_type: "subject_type",
                 },
+                description: "description",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -108,6 +111,7 @@ describe("AgentsClient", () => {
                     subjectId: "subject_id",
                     subjectType: "subject_type",
                 },
+                description: "description",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -231,6 +235,7 @@ describe("AgentsClient", () => {
                     subject_id: "subject_id",
                     subject_type: "subject_type",
                 },
+                description: "description",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -260,6 +265,7 @@ describe("AgentsClient", () => {
                     subjectId: "subject_id",
                     subjectType: "subject_type",
                 },
+                description: "description",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -321,6 +327,7 @@ describe("AgentsClient", () => {
                     subject_id: "subject_id",
                     subject_type: "subject_type",
                 },
+                description: "description",
                 id: "id",
                 manifest: {
                     instructions: "instructions",
@@ -357,6 +364,7 @@ describe("AgentsClient", () => {
                     subjectId: "subject_id",
                     subjectType: "subject_type",
                 },
+                description: "description",
                 id: "id",
                 manifest: {
                     instructions: "instructions",

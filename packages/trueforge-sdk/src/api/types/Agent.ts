@@ -4,6 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface Agent {
     createdBySubject: TrueForge.CreatedBySubject;
+    /** Short summary of what the agent does. */
+    description: string;
     /** Immutable server-generated agent identifier. */
     id: string;
     manifest: TrueForge.AgentSpec;
