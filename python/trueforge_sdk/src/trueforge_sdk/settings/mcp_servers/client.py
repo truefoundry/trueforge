@@ -75,17 +75,16 @@ class McpServersClient:
 
         Examples
         --------
-        from trueforge_sdk import McpServerManifest, McpServerType, TrueForge
+        from trueforge_sdk import RemoteMcpServerManifest, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
         client.settings.mcp_servers.create(
-            manifest=McpServerManifest(
+            manifest=RemoteMcpServerManifest(
                 description="description",
                 name="name",
-                type=McpServerType.REMOTE,
                 url="url",
             ),
         )
@@ -113,17 +112,16 @@ class McpServersClient:
 
         Examples
         --------
-        from trueforge_sdk import McpServerManifest, McpServerType, TrueForge
+        from trueforge_sdk import RemoteMcpServerManifest, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
         client.settings.mcp_servers.create_or_update(
-            manifest=McpServerManifest(
+            manifest=RemoteMcpServerManifest(
                 description="description",
                 name="name",
-                type=McpServerType.REMOTE,
                 url="url",
             ),
         )
@@ -236,7 +234,7 @@ class AsyncMcpServersClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AsyncTrueForge, McpServerManifest, McpServerType
+        from trueforge_sdk import AsyncTrueForge, RemoteMcpServerManifest
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -246,10 +244,9 @@ class AsyncMcpServersClient:
 
         async def main() -> None:
             await client.settings.mcp_servers.create(
-                manifest=McpServerManifest(
+                manifest=RemoteMcpServerManifest(
                     description="description",
                     name="name",
-                    type=McpServerType.REMOTE,
                     url="url",
                 ),
             )
@@ -282,7 +279,7 @@ class AsyncMcpServersClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AsyncTrueForge, McpServerManifest, McpServerType
+        from trueforge_sdk import AsyncTrueForge, RemoteMcpServerManifest
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -292,10 +289,9 @@ class AsyncMcpServersClient:
 
         async def main() -> None:
             await client.settings.mcp_servers.create_or_update(
-                manifest=McpServerManifest(
+                manifest=RemoteMcpServerManifest(
                     description="description",
                     name="name",
-                    type=McpServerType.REMOTE,
                     url="url",
                 ),
             )
