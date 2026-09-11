@@ -10,7 +10,7 @@ Port-forward it locally with:
 
 Then open http://localhost:8790 and check http://localhost:8790/healthz.
 
-Postgres: {{ if .Values.postgresql.enabled }}bundled ({{ include "trueforge.postgres.host" . }}){{ else }}external ({{ include "trueforge.postgres.host" . }}){{ end }}
+Postgres: {{ if .Values.postgresql.enabled }}bundled ({{ include "trueforge.postgres.host" . }}){{ else }}external (literal or valueFrom){{ end }}
 Redis:    {{ if .Values.redis.enabled }}bundled{{- else }}external (literal or valueFrom){{- end }}
 OIDC:     {{ if .Values.configs.oidc.enabled }}enabled{{- else }}disabled (local admin identity){{- end }}
 
@@ -52,7 +52,9 @@ https://<your-public-origin>/api/v1/auth/callback at your IdP.
 WARNING: server.publicBaseUrl is empty. MCP OAuth and OIDC callbacks will fail until you set it to the public application URL (e.g. https://trueforge.example.com or https://host/custom/proxy/path).
 {{- end }}
 
-{{- if and (not .Values.postgresql.enabled) (not .Values.externalPostgres.host) }}
+{{- $extHost := .Values.externalPostgres.host -}}
+{{- $extHostSet := or (eq (include "trueforge.isLiteralString" (dict "value" $extHost)) "true") (and (kindIs "map" $extHost) $extHost.valueFrom) -}}
+{{- if and (not .Values.postgresql.enabled) (not $extHostSet) }}
 
-WARNING: postgresql.enabled is false and externalPostgres.host is empty. Set one so the server can reach Postgres.
+WARNING: postgresql.enabled is false and externalPostgres.host is unset. Set a host string or valueFrom so the server can reach Postgres.
 {{- end }}

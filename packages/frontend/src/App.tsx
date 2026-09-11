@@ -2,6 +2,7 @@ import {
   getErrorMessage,
   ThemeProvider,
   TrueForgeUI,
+  useTheme,
   type SlotOverrides,
   type ThemeConfig,
 } from '@truefoundry/trueforge-ui';
@@ -12,6 +13,7 @@ import {
   type HarnessAgentSpec,
 } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
 import { useEffect, useMemo, useState } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
 import { AuthErrorScreen } from './AuthErrorScreen';
 import { createAuthAwareFetch } from './authFetch';
 import { probeSession, type SessionState } from './authSession';
@@ -35,6 +37,23 @@ const appTheme: ThemeConfig = {
     primaryButtonHover: '#3d2dd4',
   },
 };
+
+function Loader() {
+  const { mode } = useTheme();
+  return (
+    <div className="boot-screen" role="status" aria-label="Loading" aria-live="polite" aria-busy="true">
+      <ThinkingOrb
+        state="connecting"
+        speed={1}
+        theme={mode}
+        paused={false}
+        aria-hidden
+        size={64}
+        style={{ width: '4.5rem', height: '4.5rem' }}
+      />
+    </div>
+  );
+}
 
 type BootState =
   | { status: 'loading' }
@@ -149,10 +168,7 @@ export function App() {
   if (session.status === 'checking') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
-          <span className="boot-spinner" aria-hidden="true" />
-          <span className="sr-only">Loading</span>
-        </div>
+        <Loader />
       </ThemeProvider>
     );
   }
@@ -178,10 +194,7 @@ export function App() {
   if (boot.status === 'loading') {
     return (
       <ThemeProvider theme={appTheme}>
-        <div className="boot-screen" role="status" aria-live="polite" aria-busy="true">
-          <span className="boot-spinner" aria-hidden="true" />
-          <span className="sr-only">Loading</span>
-        </div>
+        <Loader />
       </ThemeProvider>
     );
   }

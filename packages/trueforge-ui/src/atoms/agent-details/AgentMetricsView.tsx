@@ -84,11 +84,14 @@ export function AgentMetricStatistics({ meters }: AgentMetricStatisticsProps) {
                 durationInSeconds: section.durationInSeconds,
               });
               return (
-                <div key={item.label} className="min-w-0 px-3 first:pl-0 last:pr-0">
-                  <dt className="truncate text-xs font-medium text-text-secondary">{item.label}</dt>
+                <div
+                  key={item.label}
+                  className={`min-w-0 px-3 first:pl-0 last:pr-0 ${item.prominent ? '' : 'text-center'}`}
+                >
+                  <dt className="truncate text-sm font-medium text-text-secondary">{item.label}</dt>
                   <dd
-                    className={`mt-1 truncate font-semibold tabular-nums ${
-                      item.prominent ? 'text-xl' : 'text-base'
+                    className={`truncate font-bold tabular-nums ${
+                      item.prominent ? 'text-3xl' : 'text-base mt-1.5'
                     } ${item.highlighted ? 'text-primary-button-bg' : 'text-text-primary'}`}
                     title={value}
                   >
@@ -112,6 +115,7 @@ export function AgentMetricsView({
   chartsError,
   timeRange,
   onTimeRangeChange,
+  showTimeRangeFilter = true,
 }: AgentMetricsViewProps) {
   const AgentMetricCard = useSlot('AgentMetricCard');
   const AgentMetricChart = useSlot('AgentMetricChart');
@@ -128,9 +132,11 @@ export function AgentMetricsView({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto bg-secondary-bg/40 p-4" data-slot="agent-metrics-view">
-      <div className="mb-4 flex justify-end">
-        <AgentMetricsTimeRangeFilter timeRange={timeRange} onTimeRangeChange={onTimeRangeChange} />
-      </div>
+      {showTimeRangeFilter ? (
+        <div className="mb-4 flex justify-end">
+          <AgentMetricsTimeRangeFilter timeRange={timeRange} onTimeRangeChange={onTimeRangeChange} />
+        </div>
+      ) : null}
 
       {meterError != null ? (
         <div className="mb-4 rounded-lg border border-failure-bg/30 bg-failure-bg/10 p-3 text-sm text-failure-bg">
@@ -154,7 +160,7 @@ export function AgentMetricsView({
           No aggregate metrics
         </div>
       ) : (
-        <div className="mb-4 grid gap-4">
+        <div className="mb-3 grid gap-3">
           {featuredMeters != null && featuredMeters.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               {featuredMeters.map(meter => (

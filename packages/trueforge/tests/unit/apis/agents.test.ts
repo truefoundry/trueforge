@@ -172,13 +172,20 @@ describe('agents router', () => {
 
     const response = await router.request(`/${createdJson.data.id}/code-snippets`);
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { base_url: string; snippets: unknown[] } };
+    const body = (await response.json()) as {
+      data: {
+        base_url: string;
+        snippets: Array<{ sample_code: { stream: string; non_stream: string } }>;
+      };
+    };
     expect(body.data.base_url).toBe(
       configuration.PUBLIC_BASE_URL
         ? new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, 'http://localhost').href
         : 'http://localhost',
     );
     expect(body.data.snippets.length).toBeGreaterThan(0);
+    expect(body.data.snippets[0]?.sample_code.stream).not.toContain('USER_API_KEY');
+    expect(body.data.snippets[0]?.sample_code.non_stream).not.toContain('USER_API_KEY');
 
     const overridden = await router.request(
       `/${createdJson.data.id}/code-snippets?base_url=${encodeURIComponent('https://sample.com/trueforge')}`,
