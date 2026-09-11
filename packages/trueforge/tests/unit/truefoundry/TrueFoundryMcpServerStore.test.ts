@@ -185,6 +185,12 @@ describe('TrueFoundryMcpServerStore', () => {
         authSource: 'oauth',
       });
     });
+
+    it('uses asUser with a saved agent', async () => {
+      const { store, client } = createStore({ agent: AGENT });
+      await store.deleteAuthorization({ tenant_id: TENANT, name: 'github', userRef: 'ignored' });
+      expect(client.deleteMcpAuth).toHaveBeenCalledWith(expect.objectContaining({ accessToken: SUBJECT_TOKEN }));
+    });
   });
 
   describe('resolveAuthStatuses', () => {
