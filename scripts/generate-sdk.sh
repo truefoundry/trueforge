@@ -30,30 +30,36 @@ fern check
 fern generate --group ts-sdk --version "$ts_version" --local --generate-tests --force --log-level debug
 fern generate --group python-sdk --version "$py_version" --local --generate-tests --force --log-level debug
 test -f python/trueforge_sdk/src/trueforge_sdk/client.py
-# local-file-system has no output.package-name; Fern stamps import name into Poetry
-# and metadata.version(). Rewrite dist name to trueforge-sdk (import path stays
-# trueforge_sdk) so __version__ / User-Agent resolve after pip install.
+
+
+# local-file-system has no output.package-name; Fern stamps the import name into
+# dist metadata. Explicit file list + dist-prefix regex (not tree-wide): imports /
+# package dir stay trueforge_sdk. Prefer Cursor/Bugbot to catch new Fern stamps
+# that still say trueforge_sdk where the PyPI name should be trueforge-sdk, then
+# add a path here.
 python3 -c '
+import re
 from pathlib import Path
+
 root = Path("python/trueforge_sdk")
-pyproject = root / "pyproject.toml"
-before = pyproject.read_text()
-after = before.replace("name = \"trueforge_sdk\"", "name = \"trueforge-sdk\"")
-if after == before:
-    raise SystemExit("expected Fern pyproject name = \"trueforge_sdk\"")
-pyproject.write_text(after)
-for rel, old, new in (
-    ("src/trueforge_sdk/version.py", "metadata.version(\"trueforge_sdk\")", "metadata.version(\"trueforge-sdk\")"),
-    ("README.md", "pip install trueforge_sdk", "pip install trueforge-sdk"),
-    ("README.md", "pypi/trueforge_sdk", "pypi/trueforge-sdk"),
-    ("README.md", "pypi/v/trueforge_sdk", "pypi/v/trueforge-sdk"),
+dist = re.compile(
+    r"(name\s*=\s*\"|metadata\.version\(\"|pip install |pypi/(?:v/)?|"
+    r"\"User-Agent\":\s*\"|\"X-Fern-SDK-Name\":\s*\")trueforge_sdk"
+)
+for rel in (
+    "pyproject.toml",
+    "src/trueforge_sdk/version.py",
+    "src/trueforge_sdk/_default_clients.py",
+    "src/trueforge_sdk/core/client_wrapper.py",
+    "tests/test_aiohttp_autodetect.py",
+    "README.md",
 ):
     path = root / rel
-    if path.is_file():
-        text = path.read_text()
-        updated = text.replace(old, new)
-        if updated != text:
-            path.write_text(updated)
+    text = path.read_text()
+    updated = dist.sub(lambda m: m.group(1) + "trueforge-sdk", text)
+    if updated == text:
+        raise SystemExit(f"expected dist-name trueforge_sdk stamp in {rel}")
+    path.write_text(updated)
 '
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
 # resolves to this workspace. CI sets frozen-lockfile, so refresh the root

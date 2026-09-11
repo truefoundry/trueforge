@@ -1,7 +1,7 @@
 # TrueForge Python Library
 
 [![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=Truefoundry%2FPython)
-[![pypi](https://img.shields.io/pypi/v/trueforge-sdk)](https://pypi.python.org/pypi/trueforge-sdk)
+[![pypi](https://img.shields.io/pypi/v/trueforge_sdk)](https://pypi.python.org/pypi/trueforge_sdk)
 
 TypeScript client for the TrueForge Agent Harness Server: a self-hosted runtime that executes agent turns and streams them over Server-Sent Events.
 
@@ -32,7 +32,7 @@ API reference documentation is available [here](https://trueforge.dev/api/use-ag
 ## Installation
 
 ```sh
-pip install trueforge-sdk
+pip install trueforge_sdk
 ```
 
 ## Reference
