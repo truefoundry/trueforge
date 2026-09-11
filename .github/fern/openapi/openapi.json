@@ -1714,6 +1714,11 @@
               }
             ]
           },
+          "description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
           "manifest": {
             "$ref": "#/components/schemas/AgentSpec"
           },
