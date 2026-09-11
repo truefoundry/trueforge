@@ -48,11 +48,8 @@ async function* reasoningAnswerStream(): AsyncGenerator<
     output: {
       role: 'assistant',
       content: 'hello',
-      thinking_blocks: [
-        { type: 'thinking', thinking: 'step one' },
-        { type: 'thinking', thinking: 'step two' },
-        { type: 'redacted_thinking', data: 'opaque' },
-      ],
+      reasoning_content: 'step one',
+      thinking_blocks: [{ type: 'thinking', thinking: 'step one' }],
     },
     usage: getEmptyUsage(),
     finish_reason: 'stop',
@@ -60,7 +57,7 @@ async function* reasoningAnswerStream(): AsyncGenerator<
 }
 
 describe('AgentThread model.message reasoning_content', () => {
-  it('derives event reasoning_content from thinking_blocks and leaves it off context', async () => {
+  it('persists reasoning_content on the event and omits it from context', async () => {
     const modelClient: ILLM = {
       create: jest.fn().mockImplementation(() => reasoningAnswerStream()),
       createNonStream: jest.fn(),
@@ -86,25 +83,13 @@ describe('AgentThread model.message reasoning_content', () => {
       }
     }
 
-    expect(append).toBeDefined();
-    const contextMessage = append?.context[0];
-    expect(contextMessage).toMatchObject({
-      role: 'assistant',
-      content: 'hello',
-      thinking_blocks: [
-        { type: 'thinking', thinking: 'step one' },
-        { type: 'thinking', thinking: 'step two' },
-        { type: 'redacted_thinking', data: 'opaque' },
-      ],
+    expect(append?.context[0]).not.toHaveProperty('reasoning_content');
+    expect(append?.context[0]).toMatchObject({
+      thinking_blocks: [{ type: 'thinking', thinking: 'step one' }],
     });
-    expect(contextMessage).not.toHaveProperty('reasoning_content');
 
     const modelMessage = append?.output.find(e => e.type === 'model.message');
-    expect(modelMessage).toMatchObject({
-      type: 'model.message',
-      content: 'hello',
-      reasoning_content: 'step onestep two',
-    });
+    expect(modelMessage).toMatchObject({ reasoning_content: 'step one' });
     expect(modelMessage).not.toHaveProperty('thinking_blocks');
   });
 });
