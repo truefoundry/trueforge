@@ -52,7 +52,6 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
   const config = isRecord(spec.config) ? spec.config : null;
   const sandbox = isRecord(config?.sandbox) ? config.sandbox : null;
   const instructions = spec.instructions?.trim() ? spec.instructions : null;
-  const description = detail.description?.trim() ? detail.description : null;
   const execution = [
     ['Sandbox', typeof sandbox?.enabled === 'boolean' ? (sandbox.enabled ? 'Enabled' : 'Disabled') : undefined],
     ['Iteration limit', readRecordValue(config, 'iterationLimit', 'iteration_limit')],
@@ -69,13 +68,6 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4 md:overflow-hidden">
-      {description ? (
-        <div className="shrink-0">
-          <AgentOverviewCard title="Description">
-            <p className="text-sm text-text-secondary">{description}</p>
-          </AgentOverviewCard>
-        </div>
-      ) : null}
       <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:overflow-hidden">
         <section className="flex min-h-64 flex-col rounded-lg border border-border bg-card-bg p-4 text-text-primary">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2">

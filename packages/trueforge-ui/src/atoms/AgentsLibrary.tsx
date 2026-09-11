@@ -195,9 +195,13 @@ export function AgentLibraryRow({
           </button>
         )}
         {description ? (
-          <span className="text-text-secondary block truncate text-xs font-normal" title={description}>
-            {description}
-          </span>
+          <Tooltip
+            content={description}
+            className="max-w-sm whitespace-normal text-left"
+            triggerClassName="block max-w-full"
+          >
+            <span className="text-text-secondary block truncate text-xs font-normal">{description}</span>
+          </Tooltip>
         ) : null}
       </TableCell>
       <TableCell>
