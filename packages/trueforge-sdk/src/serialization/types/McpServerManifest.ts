@@ -3,27 +3,14 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { McpServerManifestAuth } from "./McpServerManifestAuth.js";
-import { McpServerType } from "./McpServerType.js";
-import { ResourceName } from "./ResourceName.js";
+import { RemoteMcpServerManifest } from "./RemoteMcpServerManifest.js";
+import { TrueFoundryMcpServerManifest } from "./TrueFoundryMcpServerManifest.js";
 
-export const McpServerManifest: core.serialization.ObjectSchema<
+export const McpServerManifest: core.serialization.Schema<
     serializers.McpServerManifest.Raw,
     TrueForge.McpServerManifest
-> = core.serialization.object({
-    auth: McpServerManifestAuth.optional(),
-    description: core.serialization.string(),
-    name: ResourceName,
-    type: McpServerType,
-    url: core.serialization.string(),
-});
+> = core.serialization.undiscriminatedUnion([RemoteMcpServerManifest, TrueFoundryMcpServerManifest]);
 
 export declare namespace McpServerManifest {
-    export interface Raw {
-        auth?: McpServerManifestAuth.Raw | null;
-        description: string;
-        name: ResourceName.Raw;
-        type: McpServerType.Raw;
-        url: string;
-    }
+    export type Raw = RemoteMcpServerManifest.Raw | TrueFoundryMcpServerManifest.Raw;
 }

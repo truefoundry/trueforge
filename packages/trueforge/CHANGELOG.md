@@ -1,5 +1,24 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.6
+
+### Minor Changes
+
+- 0453157: Use ServiceFoundry dual vend-token response: authenticate as the agent for registry lookups, and as the user (with agent in `act`) for MCP authorize/auth status, gateway model api_key, and MCP invoke.
+
+### Patch Changes
+
+- 8c31eae: Persist top-level agent description and sync it to ServiceFoundry on create/update.
+- 4e3b5be: Forward session, turn, and agent context as `x-tfy-metadata` on TrueFoundry-mode model and MCP gateway calls.
+- 9501536: Make MCPServerManifest a type-discriminated oneOf of RemoteMCPServerManifest and TrueFoundryMCPServerManifest.
+- dc2151f: Paginate `GET /api/v1/agents` with `limit` / `page_token` and a `pagination` envelope; optional `agent_name` filters by case-insensitive substring. Agents library uses rows-per-page and prev/next against the token-paginated API. Schedule create and the schedules listing agent filter use a searchable agent combobox backed by the same filtered list API.
+- Updated dependencies [648273b]
+- Updated dependencies [9501536]
+- Updated dependencies [dc2151f]
+- Updated dependencies [ba79ce5]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.5
+  - @truefoundry/trueforge-core@0.2.0-rc.4
+
 ## 0.2.0-rc.5
 
 ### Patch Changes
