@@ -86,7 +86,7 @@ export const RawAssistantMessageSchema = ChatCompletionAssistantMessageParamSche
   .extend({
     tool_calls: z.array(RawToolCallSchema).optional(),
     thinking_blocks: z.array(ThinkingBlockUnionSchema).optional(),
-    /** Plain-text thinking content streamed incrementally for frontend display; redundant with thinking_blocks[].thinking. */
+    /** Plain-text thinking for frontend display; exact concat of streamed deltas when set on the assembled message. */
     reasoning_content: z.string().optional(),
     /** Source of the message: which provider/model sent it (`provider_type/provider_name/model_name`). */
     source: z.string().optional(),
@@ -120,7 +120,7 @@ export const ExtendedChunkDeltaSchema = ChatCompletionChunkDeltaSchema.omit({ to
     tool_calls: z.array(ExtendedChunkDeltaToolCallSchema).optional(),
     /** Structured thinking blocks from the gateway; accumulated into complete blocks (with signatures) for multi-turn replay. */
     thinking_blocks: z.array(ThinkingBlockUnionSchema).optional(),
-    /** Plain-text thinking content streamed incrementally for frontend display; not stored — redundant with thinking_blocks[].thinking. */
+    /** Plain-text thinking fragment for frontend display; assembled message stores the full concat separately. */
     reasoning_content: z.string().optional(),
   })
   .openapi('ExtendedChunkDelta');
