@@ -108,7 +108,8 @@ export function createAvailableSkillsRouter<TTransaction>(deps: SkillsRouterDeps
 
   router.openapi(listSkillVersionsRoute, async c => {
     const { name } = c.req.valid('query');
-    return c.json({ data: await deps.resolveSkillStore(c).listSkillVersions({ name }) }, 200);
+    const skillVersions = await deps.resolveSkillStore(c).listSkillVersions({ name });
+    return c.json({ data: skillVersions }, 200);
   });
 
   return router;

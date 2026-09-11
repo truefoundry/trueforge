@@ -63,25 +63,28 @@ const db = createSqliteDb(':memory:');
 const tokenStore = new SqliteOAuthTokenStore(db);
 const agentStore = new SqliteAgentStore(db);
 const skillStore = new SqliteSkillStore(db);
+const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const app = createServerApp({
   modelCatalog: ModelCatalog.load(),
-  resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-  withTransaction: callback => db.transaction().execute(callback),
   mcpCatalog: McpCatalog.load(),
+  skillCatalog: SkillCatalog.load(),
+  sandboxCatalog: SandboxCatalog.load(),
+  resolveModelProviderStore: () => new SqliteModelProviderStore(db),
   resolveMcpServerStore: () =>
     new McpServerWithAuthStore({
       store: new SqliteMcpServerStore(db),
       tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     }),
-  tokenStore,
-  skillCatalog: SkillCatalog.load(),
   resolveSkillStore: () => skillStore,
-  sandboxCatalog: SandboxCatalog.load(),
-  resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+  resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveAgentStore: () => agentStore,
   resolveImportAgentStore: () => agentStore,
+  agentStore,
+  turnSkillsResolverStore: skillStore,
+  withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
+  tokenStore,
   sessionStore,
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
   sessions: new Sessions({ sessionStore }),

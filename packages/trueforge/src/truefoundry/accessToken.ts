@@ -45,11 +45,11 @@ export function asTrueFoundryRequestContext(context: RequestContext): TrueFoundr
  */
 export function agentAccessToken(input: {
   client: AgentTokenVendor;
-  context: RequestContext;
+  requestContext: Pick<RequestContext, 'tenant_id' | 'subject'>;
   agent: AgentRecord;
   logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
-  const { client, context } = input;
+  const { client, requestContext: context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   let pending: Promise<string> | undefined;
   return () => {
@@ -86,22 +86,22 @@ export function callerAccessToken(context: RequestContext): ResolveAccessToken {
  */
 export function accessTokenForRequest(input: {
   client: AgentTokenVendor;
-  context: TrueFoundryRequestContext;
+  requestContext: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
   logger: Pick<Logger, 'info'>;
 }): ResolveAccessToken {
   if (input.agent === undefined) {
-    return callerAccessToken(input.context);
+    return callerAccessToken(input.requestContext);
   }
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
-  const cache = input.context[accessTokenCache];
+  const cache = input.requestContext[accessTokenCache];
   const existing = cache.get(agentId);
   if (existing !== undefined) {
     return existing;
   }
   const resolveAgentAccessToken = agentAccessToken({
     client: input.client,
-    context: input.context,
+    requestContext: input.requestContext,
     agent: input.agent,
     logger: input.logger,
   });

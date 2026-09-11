@@ -22,7 +22,8 @@ module.exports = {
     '^@truefoundry/trueforge-core/core$': '<rootDir>/../trueforge-core/src/core/index.ts',
     '^@truefoundry/trueforge-core/core/(.*)$': '<rootDir>/../trueforge-core/src/core/$1',
   },
-  transformIgnorePatterns: ['/node_modules/(?!.*kysely)'],
+  // App modules (e.g. scheduleDispatch → config → env-paths) pull ESM packages under pnpm.
+  transformIgnorePatterns: [],
   testTimeout: 120_000,
   maxWorkers: '50%',
   roots: ['<rootDir>/tests/db', '<rootDir>/src'],

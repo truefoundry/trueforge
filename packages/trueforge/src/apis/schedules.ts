@@ -2,31 +2,56 @@
  * Schedules API (mounted at /api/v1/schedules).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { InvalidPageTokenError, type Sessions } from '@truefoundry/trueforge-core/agent-session';
+import {
+  InvalidPageTokenError,
+  type Sessions,
+  type TurnStreamingEvent,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
-import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import { ScheduleAgentNotFoundError, scheduleRunFailureReason, startScheduleRun } from '../controller/scheduleDispatch';
+import {
+  createdBySubjectFromRequestContext,
+  requestContextFromCreatedBySubject,
+  type RequestContext,
+  type ResolveRequestContext,
+} from '../auth/identity';
+import {
+  loadScheduleDispatchItem,
+  ScheduleAgentNotFoundError,
+  ScheduleNotFoundError,
+  scheduleRunFailureReason,
+  ScheduleRunNotFoundError,
+  startScheduleRun,
+} from '../controller/scheduleDispatch';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
+import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   manualRunName,
   ScheduleNameConflictError,
   ScheduleRunConflictError,
   type IScheduleStore,
+  type ScheduleDispatchItem,
   type ScheduleRecord,
   type ScheduleRunRecord,
 } from '../db/scheduleStore';
+import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createScheduleRoute,
   createScheduleRunRoute,
   deleteScheduleRoute,
+  executeScheduleRunRoute,
   getScheduleRoute,
   listScheduleRunsRoute,
   listSchedulesRoute,
   putScheduleRoute,
 } from '../routes/scheduleRoutes';
+import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { minIntervalSeconds, nextTriggerAfter } from '../runtime/cron';
+import type { EventSubscriptionRegistry } from '../runtime/event-subscription';
 import {
   InvalidCronError,
   SCHEDULE_MIN_INTERVAL_SECONDS,
@@ -35,16 +60,65 @@ import {
   type ScheduleRun,
 } from '../schemas/schedule';
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
-import { getTurnExecutionError, startTurnInProcess, type BeginTurnExecutionDeps } from './turns';
+import { getTurnExecutionError, startTurnInProcess } from './turns';
 
-export interface SchedulesRouterDeps<TTransaction> {
+/** Runtime + Context store resolvers needed to start a schedule turn. */
+export interface ScheduleTurnExecutionDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
-  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   sessions: Sessions;
-  resolveTurnDeps: (c: Context, runAsAgent?: AgentRecord) => BeginTurnExecutionDeps;
+  activeTurns: ActiveTurnRegistry;
+  eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
+  logger: Logger;
+  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  /** Persistence agent store (schedule agent binding is not caller-scoped). */
+  agentStore: IAgentStore<TTransaction>;
+  turnSkillsResolverStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+}
+
+export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
+}
+
+/**
+ * Prepare and start a schedule run using Context-based store resolvers. Caller must set
+ * `request_context` (typically via {@link requestContextFromCreatedBySubject})
+ * before calling.
+ */
+export async function startScheduleRunOnRequest<TTransaction>(params: {
+  c: Context;
+  item: ScheduleDispatchItem;
+  deps: ScheduleTurnExecutionDeps<TTransaction>;
+}): Promise<void> {
+  const { c, item, deps } = params;
+  const prepared = await startScheduleRun({
+    item,
+    sessions: deps.sessions,
+    agentStore: deps.agentStore,
+  });
+  if (prepared === undefined) {
+    return;
+  }
+  await startTurnInProcess({
+    session: prepared.session,
+    input: prepared.input,
+    previous_turn_id: prepared.previous_turn_id,
+    userRef: prepared.userRef,
+    deps: {
+      activeTurns: deps.activeTurns,
+      eventSubscriptions: deps.eventSubscriptions,
+      agentStore: deps.agentStore,
+      modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
+      mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
+      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      skillStore: deps.turnSkillsResolverStore,
+      logger: deps.logger,
+    },
+  });
 }
 
 function toWireSchedule(record: ScheduleRecord): Schedule {
@@ -109,6 +183,40 @@ const FORBIDDEN_SCHEDULE_ACCESS = 'Only the schedule creator can access this sch
 /** Schedule mutations remain creator-only in every auth mode. */
 function isScheduleOwner(requestContext: Pick<RequestContext, 'subject'>, created_by_subject_id: string): boolean {
   return requestContext.subject.id === created_by_subject_id;
+}
+
+export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnExecutionDeps<TTransaction>) {
+  const handler: RouteHandler<typeof executeScheduleRunRoute> = async c => {
+    const { schedule_run_id: scheduleRunId } = c.req.valid('json');
+    try {
+      const item = await loadScheduleDispatchItem({
+        scheduleRunId,
+        scheduleStore: deps.scheduleStore,
+      });
+      c.set(
+        'request_context',
+        requestContextFromCreatedBySubject({
+          tenant_id: item.schedule.tenant_id,
+          created_by_subject: item.schedule.created_by_subject,
+        }),
+      );
+      await startScheduleRunOnRequest({ c, item, deps });
+    } catch (error) {
+      if (
+        error instanceof ScheduleRunNotFoundError ||
+        error instanceof ScheduleNotFoundError ||
+        error instanceof ScheduleAgentNotFoundError
+      ) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      throw error;
+    }
+    return c.body(null, 204);
+  };
+
+  const router = new OpenAPIHono();
+  router.openapi(executeScheduleRunRoute, handler);
+  return router;
 }
 
 export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TTransaction>) {
@@ -229,14 +337,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     }
 
     try {
-      await startScheduleRun({
-        item: { run, schedule },
-        sessions: deps.sessions,
-        agentStore: deps.resolveAgentStore(c),
-        startTurn: async turnParams => {
-          await startTurnInProcess({ ...turnParams, deps: deps.resolveTurnDeps(c, agent) });
-        },
-      });
+      await startScheduleRunOnRequest({ c, item: { run, schedule }, deps });
     } catch (error) {
       await deps.scheduleStore.updateRunStatus({
         tenant_id: requestContext.tenant_id,
@@ -245,7 +346,11 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
         reason: scheduleRunFailureReason(error),
       });
 
-      if (error instanceof ScheduleAgentNotFoundError) {
+      if (
+        error instanceof ScheduleRunNotFoundError ||
+        error instanceof ScheduleNotFoundError ||
+        error instanceof ScheduleAgentNotFoundError
+      ) {
         return c.json({ error: { message: error.message } }, 404);
       }
       const turnError = getTurnExecutionError(error);

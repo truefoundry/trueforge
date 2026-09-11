@@ -609,12 +609,20 @@ describe('SidebarLayout', () => {
   });
 
   it('highlights New Chat, New Agent, and Settings when selected', async () => {
-    function TryAgentButton() {
+    function NamedAgentButtons() {
       const shell = useShellMode();
       return (
-        <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'support' })}>
-          Try support
-        </button>
+        <>
+          <button type="button" onClick={() => shell.selectLibraryAgent({ isMutable: false, agentName: 'support' })}>
+            Open history
+          </button>
+          <button
+            type="button"
+            onClick={() => shell.selectLibraryAgent({ isMutable: false, agentId: 'support-id', agentName: 'support' })}
+          >
+            Try support
+          </button>
+        </>
       );
     }
 
@@ -624,7 +632,7 @@ describe('SidebarLayout', () => {
           <ShellModeProvider>
             <AgentConfigInstructionsProvider>
               <RuntimeHarness messages={[]}>
-                <TryAgentButton />
+                <NamedAgentButtons />
                 <div className="h-96">
                   <SidebarLayout />
                 </div>
@@ -640,8 +648,12 @@ describe('SidebarLayout', () => {
     expect(newChat).toHaveAttribute('aria-current', 'page');
     expect(newAgent).not.toHaveAttribute('aria-current');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Try support' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open history' }));
     expect(newChat).toHaveAttribute('aria-current', 'page');
+    expect(newAgent).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try support' }));
+    expect(newChat).not.toHaveAttribute('aria-current');
     expect(newAgent).not.toHaveAttribute('aria-current');
 
     fireEvent.click(newAgent);

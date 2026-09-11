@@ -7,6 +7,9 @@
  *   railway init --name trueforge   # or: railway link
  *   railway config plan
  *   railway config apply
+ *   # Shared TRUEFORGE_API_KEY once (Project Settings → Shared Variables), then
+ *   # re-apply or redeploy so both services pick it up. Example value:
+ *   #   openssl rand -hex 32
  *   railway domain                  # public URL for the trueforge service
  *
  * Docs: https://docs.railway.com/infrastructure-as-code
@@ -46,6 +49,8 @@ export default defineRailway(_ctx => {
       REDIS_URL: cache.env.REDIS_URL,
       // Expanded by Railway at runtime once a public domain exists on this service.
       PUBLIC_BASE_URL: 'https://${{RAILWAY_PUBLIC_DOMAIN}}',
+      // Set once in Railway (shared); IaC only references it — see header.
+      TRUEFORGE_API_KEY: _ctx.shared.TRUEFORGE_API_KEY,
 
       // Optional OIDC (login off until these are set). Create matching *shared*
       // variables on the Railway environment, uncomment, then `railway config apply`.
@@ -80,6 +85,8 @@ export default defineRailway(_ctx => {
       RAILWAY_DOCKERFILE_PATH: 'Dockerfile.dev',
       STANDALONE: 'false',
       DATABASE_URL: db.env.DATABASE_URL,
+      // Same shared key as the app (Bearer auth for schedule dispatch).
+      TRUEFORGE_API_KEY: _ctx.shared.TRUEFORGE_API_KEY,
       // Reaches the app over Railway private networking (no public egress).
       SERVER_URL: 'http://${{trueforge.RAILWAY_PRIVATE_DOMAIN}}:${{trueforge.PORT}}',
     },

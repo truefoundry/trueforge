@@ -23,14 +23,14 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
 
   constructor(input: {
     client: TrueFoundryServiceFoundryServerClient;
-    context: RequestContext;
+    requestContext: RequestContext;
     agent: AgentRecord | undefined;
     logger: Logger;
   }) {
     this.#client = input.client;
     this.#resolveAccessToken = accessTokenForRequest({
       client: input.client,
-      context: asTrueFoundryRequestContext(input.context),
+      requestContext: asTrueFoundryRequestContext(input.requestContext),
       agent: input.agent,
       logger: input.logger,
     });

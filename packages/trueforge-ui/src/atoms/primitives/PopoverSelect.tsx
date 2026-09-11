@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 import { Icon } from '../../icons/Icon.js';
 import { cn } from '../lib/cn.js';
@@ -10,6 +11,7 @@ import {
   auiSelectPrefixTriggerClass,
   auiSelectTriggerClass,
 } from '../lib/selectClasses.js';
+import { themePortalRoot } from '../lib/themePortalRoot.js';
 
 export type PopoverSelectOption<T extends string> = {
   value: T;
@@ -48,27 +50,65 @@ export type PopoverSelectProps<T extends string> = CommonPopoverSelectProps<T> &
 
 export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
+  const focusedOpenRef = useRef(false);
   const listboxId = useId();
+  const menuPlacement = props.menuPlacement ?? 'bottom';
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+
+    const update = () => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setPos({
+        top: menuPlacement === 'top' ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [open, menuPlacement]);
 
   useEffect(() => {
     if (!open) return;
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+      if (!(event.target instanceof Node)) return;
+      if (rootRef.current?.contains(event.target)) return;
+      if (menuRef.current?.contains(event.target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      focusedOpenRef.current = false;
+      return;
+    }
+    if (pos == null || focusedOpenRef.current) return;
     const selected = listboxRef.current?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]');
     const first = listboxRef.current?.querySelector<HTMLElement>('[role="option"]:not([aria-disabled="true"])');
     (selected ?? first)?.focus();
-  }, [open]);
+    focusedOpenRef.current = true;
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open) return;
@@ -128,7 +168,56 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
     triggerRef.current?.focus();
   };
 
-  const menuPlacement = props.menuPlacement ?? 'bottom';
+  const menu =
+    open && pos != null
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className={cn(auiSelectMenuClass('fixed z-[200]'), props.menuClassName)}
+            style={{
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              transform: menuPlacement === 'top' ? 'translateY(-100%)' : undefined,
+            }}
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <div
+              ref={listboxRef}
+              id={listboxId}
+              role="listbox"
+              aria-label={props['aria-label']}
+              aria-multiselectable={props.multiple || undefined}
+            >
+              {props.options.length === 0
+                ? props.emptyContent
+                : props.options.map(option => {
+                    const selected = isSelected(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        aria-disabled={option.disabled || undefined}
+                        disabled={option.disabled}
+                        className={auiSelectOptionClass()}
+                        onClick={() => select(option)}
+                      >
+                        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                        <Icon
+                          name="check"
+                          className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
+                        />
+                      </button>
+                    );
+                  })}
+            </div>
+            {props.footer}
+          </div>,
+          themePortalRoot(rootRef.current),
+        )
+      : null;
 
   return (
     <div ref={rootRef} className={cn('relative', props.className)}>
@@ -166,49 +255,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
           </>
         )}
       </button>
-
-      {open ? (
-        <div
-          className={cn(
-            auiSelectMenuClass('left-0 min-w-full'),
-            menuPlacement === 'top' && 'top-auto bottom-full mt-0 mb-1',
-            props.menuClassName,
-          )}
-        >
-          <div
-            ref={listboxRef}
-            id={listboxId}
-            role="listbox"
-            aria-label={props['aria-label']}
-            aria-multiselectable={props.multiple || undefined}
-          >
-            {props.options.length === 0
-              ? props.emptyContent
-              : props.options.map(option => {
-                  const selected = isSelected(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      aria-disabled={option.disabled || undefined}
-                      disabled={option.disabled}
-                      className={auiSelectOptionClass()}
-                      onClick={() => select(option)}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                      <Icon
-                        name="check"
-                        className={cn('ml-auto size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')}
-                      />
-                    </button>
-                  );
-                })}
-          </div>
-          {props.footer}
-        </div>
-      ) : null}
+      {menu}
     </div>
   );
 }

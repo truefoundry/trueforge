@@ -1,5 +1,10 @@
 import { Hono } from 'hono';
-import { hasAdminRole, resolveRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import {
+  hasAdminRole,
+  requestContextFromCreatedBySubject,
+  resolveRequestContext,
+  STANDALONE_REQUEST_CONTEXT,
+} from '../../../src/auth/identity';
 
 describe('STANDALONE_REQUEST_CONTEXT', () => {
   it('has the fixed standalone identity shape', () => {
@@ -13,6 +18,23 @@ describe('STANDALONE_REQUEST_CONTEXT', () => {
       roles: ['admin'],
       user_credential: null,
     });
+  });
+});
+
+describe('requestContextFromCreatedBySubject', () => {
+  it('builds request identity from a persisted creator snapshot', () => {
+    const rc = requestContextFromCreatedBySubject({
+      tenant_id: 'acme',
+      created_by_subject: {
+        subject_id: 'alice',
+        subject_type: 'user',
+        subject_display_name: 'Alice',
+      },
+    });
+    expect(rc.tenant_id).toBe('acme');
+    expect(rc.subject).toEqual({ id: 'alice', type: 'user', display_name: 'Alice' });
+    expect(rc.roles).toEqual([]);
+    expect(rc.user_credential).toBeNull();
   });
 });
 
