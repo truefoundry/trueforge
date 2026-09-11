@@ -19,7 +19,8 @@ import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFound
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #resolveAccessToken: ResolveAccessToken;
+  readonly #forServiceFoundry: ResolveAccessToken;
+  readonly #forGateway: ResolveAccessToken;
 
   constructor(input: {
     client: TrueFoundryServiceFoundryServerClient;
@@ -28,12 +29,14 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     logger: Logger;
   }) {
     this.#client = input.client;
-    this.#resolveAccessToken = accessTokenForRequest({
+    const tokens = accessTokenForRequest({
       client: input.client,
       requestContext: asTrueFoundryRequestContext(input.requestContext),
       agent: input.agent,
       logger: input.logger,
     });
+    this.#forServiceFoundry = tokens.forServiceFoundry;
+    this.#forGateway = tokens.forGateway;
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
@@ -82,19 +85,19 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     tenant_id: string;
     filter?: { provider_account_name: string; name: string };
   }): Promise<ModelProviderRecord[]> {
-    const accessToken = await this.#resolveAccessToken();
+    const [sfyToken, gatewayToken] = await Promise.all([this.#forServiceFoundry(), this.#forGateway()]);
     const [integrations, installations] = await Promise.all([
       this.#client.listProviderIntegrations({
-        accessToken,
+        accessToken: sfyToken,
         ...(input.filter !== undefined ? { filter: input.filter } : {}),
       }),
-      this.#client.listGatewayInstallations(accessToken),
+      this.#client.listGatewayInstallations(sfyToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
     return toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
-      accessToken,
+      accessToken: gatewayToken,
       models: mapEnabledModels({ integrations }),
     });
   }

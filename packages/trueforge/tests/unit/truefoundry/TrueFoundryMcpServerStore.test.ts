@@ -1,5 +1,7 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createLogger } from 'winston';
 import { getPublicBaseUrl } from '../../../src/config';
+import type { AgentRecord } from '../../../src/db/agentStore';
 import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
@@ -11,6 +13,19 @@ import {
 
 const TENANT = 'default';
 const ACCESS_TOKEN = 'caller-access-token';
+const SUBJECT_TOKEN = 'subject-token';
+const ACTOR_TOKEN = 'actor-token';
+
+const AGENT: AgentRecord = {
+  id: 'agent-1',
+  tenant_id: TENANT,
+  name: 'named',
+  manifest: AgentSpecSchema.parse({ model: { name: 'p/m' } }),
+  external_id: 'ext-agent',
+  created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'User' },
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+};
 
 const SFY_ROW = {
   id: 'mcp-id-1',
@@ -43,6 +58,7 @@ function createStore(input?: {
   accessToken?: string;
   client?: MockClient;
   subject?: { id: string; type: string; display_name: string };
+  agent?: AgentRecord;
 }) {
   const client = input?.client ?? createMockClient();
   client.getMcpServerByName.mockResolvedValue(SFY_ROW);
@@ -51,6 +67,9 @@ function createStore(input?: {
   client.getMcpAuthorize.mockResolvedValue({ status: 'authenticated' });
   client.getMcpAuthStatus.mockResolvedValue({ status: 'authenticated' });
   client.deleteMcpAuth.mockResolvedValue(undefined);
+  if (input?.agent !== undefined) {
+    client.vendToken.mockResolvedValue({ subjectToken: SUBJECT_TOKEN, actorToken: ACTOR_TOKEN });
+  }
   const store = new TrueFoundryMcpServerStore({
     client,
     requestContext: createTrueFoundryRequestContext({
@@ -59,7 +78,7 @@ function createStore(input?: {
       roles: [],
       user_credential: input?.accessToken ?? ACCESS_TOKEN,
     }),
-    agent: undefined,
+    agent: input?.agent,
     logger: createLogger({ silent: true }),
   });
   return { store, client };
@@ -270,6 +289,17 @@ describe('TrueFoundryMcpServerStore', () => {
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
       });
+    });
+
+    it('uses actorToken for SFY authorize and subjectToken for gateway Bearer with a saved agent', async () => {
+      const { store, client } = createStore({ agent: AGENT });
+      await expect(invoke(store)).resolves.toEqual({
+        headers: { Authorization: `Bearer ${SUBJECT_TOKEN}` },
+      });
+      expect(client.getMcpAuthorize).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
+      expect(client.getMcpServerByName).toHaveBeenCalledWith(expect.objectContaining({ accessToken: ACTOR_TOKEN }));
+      expect(client.listGatewayInstallations).toHaveBeenCalledWith(ACTOR_TOKEN);
+      expect(client.vendToken).toHaveBeenCalledTimes(1);
     });
 
     it('throws 422 when auth_required lacks authorization_url', async () => {
