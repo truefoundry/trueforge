@@ -279,9 +279,6 @@ export async function applyNameHyphenOnlyMigration<TDatabase>({
 
   for (const row of providerRows.rows) {
     const providerTo = planHyphenOnlyName(row.name) ?? row.name;
-    if (providerTo !== row.name) {
-      providerRenames.push({ tenant_id: row.tenant_id, from: row.name, to: providerTo });
-    }
 
     const manifest = asRecord(row.manifest);
     if (manifest === undefined) {
@@ -325,6 +322,11 @@ export async function applyNameHyphenOnlyMigration<TDatabase>({
 
     if (providerTo === row.name && !modelsChanged) {
       continue;
+    }
+
+    // Only record renames for rows we actually UPDATE (keeps AgentSpec maps in sync).
+    if (providerTo !== row.name) {
+      providerRenames.push({ tenant_id: row.tenant_id, from: row.name, to: providerTo });
     }
 
     await sql`

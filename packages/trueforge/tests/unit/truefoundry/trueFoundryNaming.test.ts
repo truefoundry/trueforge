@@ -44,6 +44,7 @@ describe('TrueFoundry naming vs NameSchema', () => {
   it('saves and updates agent manifests that reference TFY skill FQN, long MCP name, and model FQN', () => {
     const body = CreateAgentRequestSchema.parse({
       name: 'support-bot',
+      description: 'Support agent.',
       manifest: {
         model: { name: MODEL_FQN },
         mcp_servers: [{ name: LONG_MCP_NAME }],
@@ -59,12 +60,14 @@ describe('TrueFoundry naming vs NameSchema', () => {
     expect(
       CreateAgentRequestSchema.safeParse({
         name: SKILL_FQN,
+        description: 'x',
         manifest: { model: { name: MODEL_FQN } },
       }).success,
     ).toBe(false);
     expect(
       CreateAgentRequestSchema.safeParse({
         name: 'my.agent',
+        description: 'x',
         manifest: { model: { name: MODEL_FQN } },
       }).success,
     ).toBe(false);
