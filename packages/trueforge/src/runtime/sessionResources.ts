@@ -35,9 +35,11 @@ export const X_TFY_METADATA = 'x-tfy-metadata';
 export const TFG_METADATA_PREFIX = 'tfg';
 
 export function buildGatewayMetadata(input: { session: SessionHandle; turnId: string }): Record<string, string> {
-  const metadata: Record<string, string> = { ...input.session.metadata };
-  metadata[`${TFG_METADATA_PREFIX}.session_id`] = input.session.session_id;
-  metadata[`${TFG_METADATA_PREFIX}.turn_id`] = input.turnId;
+  // Session.metadata is intentionally omitted for now (Unicode-in-header risk); re-add later.
+  const metadata: Record<string, string> = {
+    [`${TFG_METADATA_PREFIX}.session_id`]: input.session.session_id,
+    [`${TFG_METADATA_PREFIX}.turn_id`]: input.turnId,
+  };
   const { agent } = input.session;
   if (agent.type === 'reference') {
     metadata[`${TFG_METADATA_PREFIX}.agent_id`] = agent.id;
