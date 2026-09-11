@@ -13,6 +13,7 @@ export const AGENT_DESCRIPTION_MAX_LENGTH = 1024;
 export const AgentDescriptionSchema = z
   .string()
   .trim()
+  .min(1)
   .max(AGENT_DESCRIPTION_MAX_LENGTH)
   .describe('Short summary of what the agent does.');
 
@@ -22,7 +23,7 @@ export const CreateAgentRequestSchema = z
     name: NameSchema.refine(name => !RESERVED_AGENT_NAMES.has(name), {
       message: 'Agent name is reserved, cannot be used',
     }),
-    description: AgentDescriptionSchema.default(''),
+    description: AgentDescriptionSchema,
     manifest: AgentSpecSchema,
   })
   .strict()

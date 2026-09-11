@@ -38,6 +38,7 @@ const manifest = {
 
 const writeBody = {
   name: 'research',
+  description: 'Research helper.',
   manifest,
 };
 
@@ -241,10 +242,20 @@ describe('agents router', () => {
       '/',
       jsonInit('POST', {
         name: 'other',
+        description: 'Other agent.',
         manifest: { ...manifest, model: { name: 'missing/model' } },
       }),
     );
     expect(unknownModel.status).toBe(422);
+
+    const blankDescription = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'blank-desc', description: '   ' }),
+    );
+    expect(blankDescription.status).toBe(400);
+
+    const missingDescription = await router.request('/', jsonInit('POST', { name: 'no-desc', manifest }));
+    expect(missingDescription.status).toBe(400);
 
     const first = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(first.status).toBe(201);
