@@ -338,7 +338,7 @@ describe('SaveAgentButton', () => {
     const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'writer' }));
     renderButton({
       saveAgent,
-      children: <BoundMutableSaveButton agentId="writer" />,
+      children: <BoundMutableSaveButton agentId="writer" description="Writes docs." />,
     });
 
     const trigger = await screen.findByRole('button', { name: 'Update Agent' });
@@ -491,6 +491,19 @@ describe('SaveAgentButton', () => {
     fireEvent.change(within(dialog).getByLabelText('Agent name'), { target: { value: 'writer' } });
     expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeDisabled();
     fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: 'Writes docs.' } });
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeEnabled();
+  });
+
+  it('disables Save on update when description is empty', async () => {
+    renderButton({
+      children: <BoundMutableSaveButton agentId="writer" agentName="writer" description="Existing agent summary." />,
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Update Agent' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Update agent' });
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeEnabled();
+    fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: '   ' } });
+    expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('Description'), { target: { value: 'Updated summary.' } });
     expect(within(dialog).getByRole('button', { name: 'Save changes' })).toBeEnabled();
   });
 

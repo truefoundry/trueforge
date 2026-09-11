@@ -124,7 +124,7 @@ function SaveAgentButtonContent({
     const normalizedName = name.trim();
     if (!normalizedName || !draftSpec.model.name.trim()) return;
     const normalizedDescription = description.trim();
-    if (intent === 'create' && !normalizedDescription) return;
+    if (!normalizedDescription) return;
     setSaving(true);
     setError(null);
     try {
@@ -194,7 +194,6 @@ function SaveAgentButtonContent({
             error={error}
             onNameChange={setName}
             onDescriptionChange={setDescription}
-            onChange={setDraftSpec}
             onCancel={close}
             onSave={() => void save()}
           />

@@ -15,7 +15,6 @@ export type SaveAgentFormProps = {
   error: string | null;
   onNameChange: (name: string) => void;
   onDescriptionChange: (description: string) => void;
-  onChange: (spec: AgentSpec) => void;
   onCancel: () => void;
   onSave: () => void;
 };
@@ -29,7 +28,6 @@ export function SaveAgentForm({
   error,
   onNameChange,
   onDescriptionChange,
-  onChange,
   onCancel,
   onSave,
 }: SaveAgentFormProps) {
@@ -41,8 +39,7 @@ export function SaveAgentForm({
     errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   }, [error]);
 
-  const canSave =
-    name.trim() !== '' && spec.model.name.trim() !== '' && (intent === 'update' || description.trim() !== '');
+  const canSave = name.trim() !== '' && spec.model.name.trim() !== '' && description.trim() !== '';
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col">

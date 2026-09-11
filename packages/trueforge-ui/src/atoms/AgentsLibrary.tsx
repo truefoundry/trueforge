@@ -194,17 +194,11 @@ export function AgentLibraryRow({
             <span className="block truncate">{agent.name}</span>
           </button>
         )}
-      </TableCell>
-      <TableCell>
         {description ? (
-          <span className="block truncate text-xs" title={description}>
+          <span className="text-text-secondary block truncate text-xs font-normal" title={description}>
             {description}
           </span>
-        ) : (
-          <span className="text-sm" aria-label={`No description for ${agent.name}`}>
-            —
-          </span>
-        )}
+        ) : null}
       </TableCell>
       <TableCell>
         {hasConfiguration ? (
@@ -491,8 +485,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-64">Agent name</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead className="min-w-64">Agent name</TableHead>
                       <TableHead className="w-64">Configuration</TableHead>
                       {showCreatedByColumn ? <TableHead className="w-56">Created by</TableHead> : null}
                       {showSchedulesColumn ? <TableHead className="w-64">Schedules</TableHead> : null}
