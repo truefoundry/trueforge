@@ -45,13 +45,22 @@ describe('AvatarFallback', () => {
   it('renders fallback content and forwards host attributes', () => {
     render(
       <AvatarFallback className="host-fallback" aria-label="Ada initials">
-        AL
+        A
       </AvatarFallback>,
     );
 
     const fallback = screen.getByLabelText('Ada initials');
-    expect(fallback).toHaveTextContent('AL');
+    expect(fallback).toHaveTextContent('A');
     expect(fallback).toHaveAttribute('data-slot', 'avatar-fallback');
-    expect(fallback).toHaveClass('host-fallback');
+    expect(fallback).toHaveClass(
+      'host-fallback',
+      'bg-gradient-to-br',
+      'from-primary-button-bg/20',
+      'to-primary-button-bg/10',
+      'text-primary-button-bg',
+      'dark:from-primary-button-bg',
+      'dark:to-primary-button-hover',
+      'dark:text-primary-button-text',
+    );
   });
 });
