@@ -30,12 +30,14 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Research helper.',
       manifest: manifest(),
       external_id: null,
     });
 
     expect(created.tenant_id).toBe(TENANT);
     expect(created.name).toBe('research');
+    expect(created.description).toBe('Research helper.');
     expect(created.id.length).toBeGreaterThan(0);
     expect(created.manifest).toEqual(manifest());
     expect(created.external_id).toBeNull();
@@ -62,6 +64,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Research helper.',
       manifest: manifest(),
       external_id: null,
     });
@@ -70,6 +73,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
     const updated = await store.updateAgent({
       tenant_id: TENANT,
       id: created.id,
+      description: 'Updated research helper.',
       manifest: replacement,
     });
 
@@ -77,6 +81,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       expect.objectContaining({
         id: created.id,
         name: 'research',
+        description: 'Updated research helper.',
         manifest: replacement,
         created_at: created.created_at,
       }),
@@ -107,6 +112,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -116,6 +122,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         tenant_id: TENANT,
         created_by_subject: CREATED_BY_SUBJECT,
         name: 'research',
+        description: 'Test agent.',
         manifest: manifest(),
         external_id: null,
       }),
@@ -128,6 +135,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'zeta',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -135,6 +143,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'alpha',
+      description: 'Test agent.',
       manifest: manifest({ instructions: 'Alpha agent.' }),
       external_id: null,
     });
@@ -142,6 +151,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: 'other-tenant',
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -162,6 +172,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'local-only',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -169,6 +180,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'linked',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: 'sf-agent-1',
     });
@@ -176,6 +188,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'other-linked',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: 'sf-agent-2',
     });
@@ -226,6 +239,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'alpha-bot',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -233,6 +247,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'bravo-bot',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -240,6 +255,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'unrelated',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -267,6 +283,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'charlie',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -274,6 +291,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'alpha',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -281,6 +299,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'bravo',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -312,6 +331,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -325,6 +345,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: 'sf-agent-1',
     });
@@ -338,6 +359,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'alpha',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: 'shared-key',
     });
@@ -346,6 +368,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
         tenant_id: TENANT,
         created_by_subject: CREATED_BY_SUBJECT,
         name: 'beta',
+        description: 'Test agent.',
         manifest: manifest(),
         external_id: 'shared-key',
       }),
@@ -354,6 +377,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: 'other-tenant',
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'alpha',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: 'shared-key',
     });
@@ -361,6 +385,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'gamma',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -368,6 +393,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'delta',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -379,6 +405,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'research',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
@@ -402,6 +429,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'alpha',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: 'shared-key',
     });
@@ -409,6 +437,7 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       tenant_id: TENANT,
       created_by_subject: CREATED_BY_SUBJECT,
       name: 'beta',
+      description: 'Test agent.',
       manifest: manifest(),
       external_id: null,
     });
