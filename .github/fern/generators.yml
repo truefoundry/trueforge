@@ -4,7 +4,7 @@
 readme:
   apiName: TrueForge
   introduction: >
-    TypeScript client for the TrueForge Agent Harness Server: a self-hosted
+    API client for the TrueForge Agent Harness Server: a self-hosted
     runtime that executes agent turns and streams them over Server-Sent Events.
 
 
@@ -99,4 +99,30 @@ groups:
           skipResponseValidation: true
           streamType: web
           useDefaultRequestParameterValues: true
+        smart-casing: true
+  # `local-file-system` allows no `github` block, so the workflow commits the result itself.
+  python-sdk:
+    generators:
+      - name: fernapi/fern-python-sdk
+        version: 5.29.0
+        output:
+          location: local-file-system
+          path: ../../python/trueforge_sdk
+        config:
+          # Import name; PyPI install trueforge-sdk resolves via PEP 503.
+          package_name: trueforge_sdk
+          optional_auth: true
+          stream_abstraction: true
+          use_request_defaults: all
+          inline_path_params: true
+          pydantic_config:
+            enum_type: forward_compatible_python_enums
+            frozen: false
+            skip_validation: true
+          client:
+            class_name: BaseTrueForge
+            filename: base_client.py
+            exported_class_name: TrueForge
+            exported_filename: client.py
+          pyproject_python_version: '>=3.10'
         smart-casing: true

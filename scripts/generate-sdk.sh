@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Regenerates OpenAPI (.github/fern + docs/) and packages/trueforge-sdk (same steps as CI).
+# Regenerates OpenAPI (.github/fern + docs/), packages/trueforge-sdk, and
+# python/trueforge_sdk (same steps as CI).
 # Requires Docker (Fern --local) and network access for the Fern CLI/image.
 set -euo pipefail
 
@@ -12,16 +13,22 @@ fern() {
   (cd .github && pnpm dlx "fern-api@${fern_version}" "$@")
 }
 
-# Fern --version stamps package.json and baked-in TS literals (SDK_VERSION,
-# User-Agent). Pass the version already in package.json so a regen never stomps
-# a version changesets (or a human) already set.
+# Fern --version stamps package metadata and baked-in SDK version / User-Agent.
+# Pass the version already in the TS package.json so a regen never stomps a
+# version Changesets (or a human) already set. TS and Python stay on the same
+# SemVer (both groups get --version "$current_version"); PyPI publish wiring is
+# separate.
 current_version="$(node -p "require('./packages/trueforge-sdk/package.json').version")"
 
 pnpm --filter @truefoundry/trueforge-core build
 pnpm openapi:write
 fern check
-# --force skips the overwrite prompt when packages/trueforge-sdk already exists (needed non-interactively / in CI).
+# --force skips the overwrite prompt when the SDK dirs already exist (needed non-interactively / in CI).
 fern generate --group ts-sdk --version "$current_version" --local --generate-tests --force --log-level debug
+fern generate --group python-sdk --version "$current_version" --local --generate-tests --force --log-level debug
+test -f python/trueforge_sdk/src/trueforge_sdk/client.py
+
+# Dist name is Fern package_name (trueforge_sdk); pip install trueforge-sdk works via PEP 503.
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
 # resolves to this workspace. CI sets frozen-lockfile, so refresh the root
 # lockfile first or that install fails when the generator added/removed deps.

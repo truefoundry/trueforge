@@ -1,6 +1,6 @@
 name: Generate SDK
 
-# Regenerates the OpenAPI document and the SDK, and commits both to the branch.
+# Regenerates the OpenAPI document and the SDKs, and commits them to the branch.
 # Fork PRs cannot receive that commit; main regenerates after merge.
 on:
   # Manual regen on main if the post-merge push job missed or failed.
@@ -14,6 +14,7 @@ on:
       - 'packages/trueforge-core/src/**'
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
+      - 'scripts/generate-sdk.sh'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -22,6 +23,7 @@ on:
       - 'packages/trueforge-core/src/**'
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
+      - 'scripts/generate-sdk.sh'
 
 concurrency:
   group: generate-sdk-${{ github.head_ref || github.ref_name }}
@@ -32,7 +34,7 @@ permissions:
 
 jobs:
   generate:
-    name: Generate OpenAPI and TypeScript SDK
+    name: Generate OpenAPI and SDKs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # A pull_request path filter matches the whole PR, not just the new commit,
@@ -110,7 +112,7 @@ jobs:
           elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
             # A branch's first push reports an all-zero base commit.
             reason="there is no base commit to compare against"
-          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json; then
+          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json scripts/generate-sdk.sh; then
             reason="the generator config changed"
           fi
 
@@ -124,7 +126,7 @@ jobs:
 
       # Same entrypoint as local `pnpm sdk:generate` (re-runs openapi:write; idempotent).
       # App-token success = we can push; forks skip Fern so a flake cannot block the PR.
-      - name: Generate OpenAPI document and TypeScript SDK
+      - name: Generate OpenAPI document and SDKs
         if: steps.decide.outputs.needed == 'true' && steps.app-token.outcome == 'success'
         run: pnpm sdk:generate
 
@@ -141,8 +143,8 @@ jobs:
           # --porcelain, not `git diff`, so new files count too.
           # docs/openapi.json is a second copy of the same document (Mintlify); keep it
           # in the same commit as .github/fern/openapi or the docs site drifts.
-          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk pnpm-lock.yaml)" ]; then
-            echo "OpenAPI document and SDK are already up to date."
+          if [ -z "$(git status --porcelain -- .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml)" ]; then
+            echo "OpenAPI document and SDKs are already up to date."
             exit 0
           fi
 
@@ -152,12 +154,13 @@ jobs:
           # Bot-authored sdk diffs need a changeset; the PR author never touches this commit.
           # Skip packages/trueforge-sdk/.fern — Fern metadata only, not a consumer-facing change.
           # changeset:sdk-regen is a no-op if the sdk is already named in a pending file.
+          # Python is not Changesets-published yet; do not add it here.
           if [ -n "$(git status --porcelain -- packages/trueforge-sdk ':!packages/trueforge-sdk/.fern')" ]; then
             pnpm changeset:sdk-regen
           fi
 
-          git add .github/fern/openapi docs/openapi.json packages/trueforge-sdk pnpm-lock.yaml .changeset
-          git commit -m "Regenerate OpenAPI document and TypeScript SDK"
+          git add .github/fern/openapi docs/openapi.json packages/trueforge-sdk python/trueforge_sdk pnpm-lock.yaml .changeset
+          git commit -m "Regenerate OpenAPI document and SDKs"
           git push origin "HEAD:refs/heads/$BRANCH"
 
       - name: Report skipped commit on fork
@@ -168,7 +171,7 @@ jobs:
             echo "### Fork pull request"
             echo
             echo "OpenAPI/SDK commits are skipped on forks (GitHub Apps cannot push to the head repo)."
-            echo "Do not hand-edit \`packages/trueforge-sdk\` or the OpenAPI documents."
+            echo "Do not hand-edit \`packages/trueforge-sdk\`, \`python/trueforge_sdk\`, or the OpenAPI documents."
             echo "After merge, **Generate SDK** on \`main\` regenerates both (or run it manually from Actions)."
           } >> "$GITHUB_STEP_SUMMARY"
           echo "::notice::Fork PR: OpenAPI/SDK will be regenerated on main after merge. Do not hand-edit generated files."

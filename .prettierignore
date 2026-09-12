@@ -3,6 +3,7 @@ dist/
 .changeset/
 # Fern-generated: formatted by the generator, not by this repo's config.
 packages/trueforge-sdk/
+python/trueforge_sdk/
 .github/fern/openapi/
 # Ignore generated openapi.json in docs
 docs/openapi.json
