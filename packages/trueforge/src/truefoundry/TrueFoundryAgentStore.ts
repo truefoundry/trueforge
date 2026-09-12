@@ -30,19 +30,19 @@ function toPutRemoteAgentPayload({
   name,
   description,
   manifest,
-  collaborators,
+  trueFoundryManagedAgentId,
 }: {
   name: string;
   description: string;
   manifest: AgentSpec;
-  collaborators?: Record<string, unknown>[];
+  trueFoundryManagedAgentId?: Record<string, unknown>[];
 }): Omit<PutRemoteAgentInput, 'accessToken'> {
   return {
     name,
     description: (description || name).slice(0, AGENT_DESCRIPTION_MAX_LENGTH),
     model: manifest.model.name,
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
-    ...(collaborators ? { collaborators } : {}),
+    ...(trueFoundryManagedAgentId ? { trueFoundryManagedAgentId } : {}),
   };
 }
 
@@ -138,14 +138,15 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
     let externalId: string | undefined;
     try {
-      const collaborators = input.custom?.['collaborators'] as Record<string, unknown>[] | undefined;
+      const trueFoundryManagedAgentId = input.custom?.['trueFoundryManagedAgentId'] as
+        Record<string, unknown>[] | undefined;
       ({ externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({
           name: input.name,
           description: input.description,
           manifest: input.manifest,
-          ...(collaborators ? { collaborators } : {}),
+          ...(trueFoundryManagedAgentId ? { trueFoundryManagedAgentId } : {}),
         }),
       }));
       const updated = await this.#inner.updateAgent(

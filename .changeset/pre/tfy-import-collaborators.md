@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Pass collaborators through TrueFoundry agent import.
+Pass TrueFoundry agents metadata through TrueFoundry agent import.
