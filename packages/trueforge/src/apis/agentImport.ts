@@ -51,9 +51,7 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
           external_id: null,
           created_by_subject: agent.created_by_subject,
           custom: {
-            ...(agent.truefoundry_managed_agent_id
-              ? { trueFoundryManagedAgentId: agent.truefoundry_managed_agent_id }
-              : {}),
+            trueFoundryManagedAgentId: agent.truefoundry_managed_agent_id,
           },
         });
         results.push({
