@@ -225,6 +225,32 @@ export const ListModelProvidersResponseSchema = z
   })
   .openapi('ListModelProvidersResponse');
 
+/** A model the provider itself reports, for the UI to copy into a manifest write. */
+export const DiscoveredModelSchema = z
+  .object({
+    model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
+    context_length: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Maximum context window in tokens, when the provider reports one.'),
+    max_output_tokens: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe('Maximum output tokens, when the provider reports one.'),
+  })
+  .strict()
+  .openapi('DiscoveredModel');
+
+export const ListDiscoveredModelsResponseSchema = z
+  .object({
+    data: z.array(DiscoveredModelSchema),
+  })
+  .openapi('ListDiscoveredModelsResponse');
+
 /** Provider identity on the models list read view. */
 export const AvailableModelProviderSchema = z
   .object({
