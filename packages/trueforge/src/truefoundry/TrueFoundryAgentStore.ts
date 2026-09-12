@@ -42,7 +42,7 @@ function toPutRemoteAgentPayload({
     description: (description || name).slice(0, AGENT_DESCRIPTION_MAX_LENGTH),
     model: manifest.model.name,
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
-    ...(collaborators ? { collaborators } : {}),
+    ...(collaborators && collaborators.length > 0 ? { collaborators } : {}),
   };
 }
 
