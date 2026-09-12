@@ -1701,20 +1701,9 @@
         ],
         "type": "object"
       },
-      "ImportAgentCollaborator": {
-        "additionalProperties": {},
-        "properties": {},
-        "type": "object"
-      },
       "ImportAgentItem": {
         "additionalProperties": false,
         "properties": {
-          "collaborators": {
-            "items": {
-              "$ref": "#/components/schemas/ImportAgentCollaborator"
-            },
-            "type": "array"
-          },
           "created_by_subject": {
             "allOf": [
               {
@@ -1740,13 +1729,17 @@
             "description": "Tenant to create the agent under.",
             "minLength": 1,
             "type": "string"
+          },
+          "truefoundry_managed_agent_id": {
+            "type": "string"
           }
         },
         "required": [
           "name",
           "manifest",
           "tenant_id",
-          "created_by_subject"
+          "created_by_subject",
+          "truefoundry_managed_agent_id"
         ],
         "type": "object"
       },
