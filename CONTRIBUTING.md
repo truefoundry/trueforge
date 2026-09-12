@@ -71,6 +71,7 @@ This is a pnpm workspace:
 | `@truefoundry/trueforge-core` | `@truefoundry/trueforge-core` | [`packages/trueforge-core`](packages/trueforge-core) | Library: agent core, sessions, and streaming |
 | `@truefoundry/trueforge-ui`   | `@truefoundry/trueforge-ui`   | [`packages/trueforge-ui`](packages/trueforge-ui)     | Embeddable agent chat UI SDK                 |
 | `@truefoundry/trueforge-sdk`  | `@truefoundry/trueforge-sdk`  | [`packages/trueforge-sdk`](packages/trueforge-sdk)   | Generated TypeScript API client              |
+| `trueforge_sdk`               | `trueforge-sdk` (PyPI)        | [`python/trueforge_sdk`](python/trueforge_sdk)       | Generated Python API client                  |
 | `frontend`                    | -                             | [`packages/frontend`](packages/frontend)             | Chat UI app (bundled into the server)        |
 
 ## Setup
@@ -218,7 +219,7 @@ Open [http://localhost:8791](http://localhost:8791). Credentials come from `pack
 
 ## Generated code - do not edit by hand
 
-- [`packages/trueforge-sdk`](packages/trueforge-sdk), [`.github/fern/openapi/openapi.json`](.github/fern/openapi/openapi.json), and [`docs/openapi.json`](docs/openapi.json) are generated and committed. Edit route handlers under `packages/trueforge/src/routes/` instead; CI regenerates the outputs. To regenerate locally (Docker required): `pnpm sdk:generate`.
+- [`packages/trueforge-sdk`](packages/trueforge-sdk), [`python/trueforge_sdk`](python/trueforge_sdk), [`.github/fern/openapi/openapi.json`](.github/fern/openapi/openapi.json), and [`docs/openapi.json`](docs/openapi.json) are generated and committed. Edit route handlers under `packages/trueforge/src/routes/` instead; CI regenerates the outputs. To regenerate locally (Docker required): `pnpm sdk:generate`.
 - Catalog YAML files under `packages/trueforge/catalog/` are inlined at build time by `build:gen` scripts.
 
 ## Server entry points

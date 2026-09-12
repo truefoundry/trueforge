@@ -4,7 +4,7 @@
 readme:
   apiName: TrueForge
   introduction: >
-    TypeScript client for the TrueForge Agent Harness Server: a self-hosted
+    API client for the TrueForge Agent Harness Server: a self-hosted
     runtime that executes agent turns and streams them over Server-Sent Events.
 
 
@@ -109,7 +109,7 @@ groups:
           location: local-file-system
           path: ../../python/trueforge_sdk
         config:
-          # Import + Poetry/PyPI name (PEP 503: same project as trueforge-sdk).
+          # Import name; PyPI install trueforge-sdk resolves via PEP 503.
           package_name: trueforge_sdk
           optional_auth: true
           stream_abstraction: true
