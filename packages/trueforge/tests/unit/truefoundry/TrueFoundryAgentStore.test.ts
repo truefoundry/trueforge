@@ -204,6 +204,44 @@ describe('TrueFoundryAgentStore', () => {
     expect(firstInvocationOrder(putRemoteAgent)).toBeLessThan(firstInvocationOrder(updateAgent));
   });
 
+  it('createAgent forwards collaborators from custom into putRemoteAgent', async () => {
+    const collaborators = [{ subject: 'user:alice@example.com', role_id: 'agent-manager' }];
+    const local = record({ external_id: null });
+    const linked = record({ external_id: 'sf-1' });
+    const putRemoteAgent = jest.fn(async (input: PutRemoteAgentInput) => {
+      expect(input.collaborators).toEqual(collaborators);
+      return { externalId: 'sf-1' };
+    });
+    const store = tfStore({
+      inner: mockInner({
+        createAgent: jest.fn(async () => local),
+        updateAgent: jest.fn(async () => linked),
+      }),
+      client: mockClient({ putRemoteAgent }),
+    });
+
+    await expect(
+      store.createAgent(
+        {
+          tenant_id: TENANT,
+          created_by_subject: CREATED_BY_SUBJECT,
+          name: 'research',
+          description: 'research',
+          manifest: manifest(),
+          external_id: null,
+          custom: { collaborators },
+        },
+        TXN,
+      ),
+    ).resolves.toBe(linked);
+    expect(putRemoteAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'research',
+        collaborators,
+      }),
+    );
+  });
+
   it('createAgent rejects a duplicate local name before calling ServiceFoundry', async () => {
     const createAgent = jest.fn(async () => {
       throw new AgentNameConflictError({ tenant_id: TENANT, name: 'research' });

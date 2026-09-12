@@ -35,20 +35,15 @@ function toPutRemoteAgentPayload({
   name: string;
   description: string;
   manifest: AgentSpec;
-  collaborators?: object[];
+  collaborators?: Record<string, unknown>[];
 }): Omit<PutRemoteAgentInput, 'accessToken'> {
   return {
     name,
     description: (description || name).slice(0, AGENT_DESCRIPTION_MAX_LENGTH),
     model: manifest.model.name,
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
-    ...(collaborators && collaborators.length > 0 ? { collaborators } : {}),
+    ...(collaborators ? { collaborators } : {}),
   };
-}
-
-// TODO (chiragjn): This is temporary - only till we have import agents route.
-export interface CreateTrueFoundryAgentInput extends CreateAgentInput {
-  collaborators?: object[];
 }
 
 /**
@@ -143,7 +138,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
     let externalId: string | undefined;
     try {
-      const collaborators = input.custom?.['collaborators'] as object[] | undefined;
+      const collaborators = input.custom?.['collaborators'] as Record<string, unknown>[] | undefined;
       ({ externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({

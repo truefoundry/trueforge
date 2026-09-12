@@ -1701,13 +1701,17 @@
         ],
         "type": "object"
       },
+      "ImportAgentCollaborator": {
+        "additionalProperties": {},
+        "properties": {},
+        "type": "object"
+      },
       "ImportAgentItem": {
         "additionalProperties": false,
         "properties": {
           "collaborators": {
             "items": {
-              "properties": {},
-              "type": "object"
+              "$ref": "#/components/schemas/ImportAgentCollaborator"
             },
             "type": "array"
           },

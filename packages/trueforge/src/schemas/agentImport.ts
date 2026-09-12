@@ -8,6 +8,9 @@ import { NameSchema } from './common';
 
 const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
 
+/** Opaque collaborator grant forwarded to ServiceFoundry on import. */
+export const ImportAgentCollaboratorSchema = z.object({}).loose().openapi('ImportAgentCollaborator');
+
 /** One import row: same fields as create-agent, plus explicit tenant and creator. */
 export const ImportAgentItemSchema = z
   .object({
@@ -18,7 +21,7 @@ export const ImportAgentItemSchema = z
     manifest: AgentSpecSchema,
     tenant_id: z.string().min(1).describe('Tenant to create the agent under.'),
     created_by_subject: CreatedBySubjectSchema.describe('Original creator to persist on the agent.'),
-    collaborators: z.array(z.object()).optional(),
+    collaborators: z.array(ImportAgentCollaboratorSchema).optional(),
   })
   .strict()
   .openapi('ImportAgentItem');
