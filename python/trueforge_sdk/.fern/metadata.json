@@ -1,0 +1,29 @@
+{
+  "cliVersion": "5.106.1",
+  "generatorName": "fernapi/fern-python-sdk",
+  "generatorVersion": "5.29.0",
+  "generatorConfig": {
+    "package_name": "trueforge_sdk",
+    "optional_auth": true,
+    "stream_abstraction": true,
+    "use_request_defaults": "all",
+    "inline_path_params": true,
+    "pydantic_config": {
+      "enum_type": "forward_compatible_python_enums",
+      "frozen": false,
+      "skip_validation": true
+    },
+    "client": {
+      "class_name": "BaseTrueForge",
+      "filename": "base_client.py",
+      "exported_class_name": "TrueForge",
+      "exported_filename": "client.py"
+    },
+    "pyproject_python_version": ">=3.10"
+  },
+  "originGitCommit": "f2cccd3e310c0da091f56b74fa15eb30786b6d02",
+  "originGitCommitIsDirty": false,
+  "invokedBy": "ci",
+  "requestedVersion": "0.1.0-rc.1",
+  "ciProvider": "github"
+}
