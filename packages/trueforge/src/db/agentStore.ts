@@ -71,6 +71,7 @@ export interface CreateAgentInput {
   manifest: AgentSpec;
   external_id: string | null;
   created_by_subject: CreatedBySubject;
+  custom?: Record<string, unknown>;
 }
 
 /**

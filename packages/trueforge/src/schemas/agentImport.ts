@@ -18,6 +18,7 @@ export const ImportAgentItemSchema = z
     manifest: AgentSpecSchema,
     tenant_id: z.string().min(1).describe('Tenant to create the agent under.'),
     created_by_subject: CreatedBySubjectSchema.describe('Original creator to persist on the agent.'),
+    collaborators: z.array(z.object()).optional(),
   })
   .strict()
   .openapi('ImportAgentItem');
