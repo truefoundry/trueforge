@@ -95,6 +95,7 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
       status: 'ready',
       status_reason: null,
       build_metadata: BUILD_METADATA,
+      expected_manifest: undefined,
     });
 
     expect(updated?.status).toBe('ready');
@@ -110,6 +111,7 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
         status: 'ready',
         status_reason: null,
         build_metadata: BUILD_METADATA,
+        expected_manifest: undefined,
       }),
     ).toBeUndefined();
   });
