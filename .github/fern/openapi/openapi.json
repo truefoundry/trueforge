@@ -1730,7 +1730,7 @@
             "minLength": 1,
             "type": "string"
           },
-          "trueFoundryManagedAgentId": {
+          "truefoundry_managed_agent_id": {
             "type": "string"
           }
         },
