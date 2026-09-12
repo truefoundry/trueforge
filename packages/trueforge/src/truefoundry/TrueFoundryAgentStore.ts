@@ -35,7 +35,7 @@ function toPutRemoteAgentPayload({
   name: string;
   description: string;
   manifest: AgentSpec;
-  trueFoundryManagedAgentId?: Record<string, unknown>[];
+  trueFoundryManagedAgentId?: string;
 }): Omit<PutRemoteAgentInput, 'accessToken'> {
   return {
     name,
@@ -138,8 +138,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
     let externalId: string | undefined;
     try {
-      const trueFoundryManagedAgentId = input.custom?.['trueFoundryManagedAgentId'] as
-        Record<string, unknown>[] | undefined;
+      const trueFoundryManagedAgentId = input.custom?.['trueFoundryManagedAgentId'] as string | undefined;
       ({ externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({

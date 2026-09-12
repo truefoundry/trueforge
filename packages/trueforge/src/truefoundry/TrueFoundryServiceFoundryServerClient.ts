@@ -97,7 +97,7 @@ export interface PutRemoteAgentInput {
   description: string;
   model: string;
   mcp_servers: string[];
-  trueFoundryManagedAgentId?: Record<string, unknown>[];
+  trueFoundryManagedAgentId?: string;
 }
 
 export interface PutRemoteAgentResult {
