@@ -1704,6 +1704,13 @@
       "ImportAgentItem": {
         "additionalProperties": false,
         "properties": {
+          "collaborators": {
+            "items": {
+              "properties": {},
+              "type": "object"
+            },
+            "type": "array"
+          },
           "created_by_subject": {
             "allOf": [
               {
