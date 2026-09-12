@@ -95,7 +95,7 @@ class TestDefaultClientsWithoutAiohttp(unittest.TestCase):
 
             with self.assertRaises(RuntimeError) as ctx:
                 trueforge_sdk._default_clients.DefaultAioHttpClient()
-            self.assertIn("pip install trueforge-sdk[aiohttp]", str(ctx.exception))
+            self.assertIn("pip install trueforge_sdk[aiohttp]", str(ctx.exception))
 
         importlib.reload(trueforge_sdk._default_clients)
 
