@@ -50,6 +50,9 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
           manifest: agent.manifest,
           external_id: null,
           created_by_subject: agent.created_by_subject,
+          custom: {
+            ...(agent.collaborators ? { collaborators: agent.collaborators } : {}),
+          },
         });
         results.push({
           name: created.name,
