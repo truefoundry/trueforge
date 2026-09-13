@@ -9,6 +9,8 @@ export type McpServer = {
 
 export type McpAuthPromptProps = {
   servers: McpServer[];
+  connectedServerIds?: ReadonlySet<string>;
+  continueLoading?: boolean;
   onConnect: (serverId: string) => void;
   onContinue?: () => void;
   readOnly?: boolean;
@@ -21,6 +23,8 @@ const DEFAULT_TITLE = 'MCP Authentication Required';
 
 export function McpAuthPrompt({
   servers,
+  connectedServerIds,
+  continueLoading = false,
   onConnect,
   onContinue,
   readOnly = false,
@@ -46,15 +50,27 @@ export function McpAuthPrompt({
               <span className="shrink-0 text-xs font-semibold text-text-secondary">:</span>
               <span className="truncate font-sans font-medium text-text-primary">{server.name}</span>
             </div>
-            <Button.Primary size="small" disabled={readOnly} onClick={() => onConnect(server.id)} className="shrink-0">
-              Connect
-              <Icon name="external-link" size="0.75em" className="ml-1" />
-            </Button.Primary>
+            {connectedServerIds?.has(server.id) ? (
+              <Button.Primary size="small" disabled className="shrink-0">
+                Connected
+              </Button.Primary>
+            ) : (
+              <Button.Primary
+                size="small"
+                disabled={readOnly}
+                onClick={() => onConnect(server.id)}
+                className="shrink-0"
+              >
+                Connect
+                <Icon name="external-link" size="0.75em" className="ml-1" />
+              </Button.Primary>
+            )}
           </div>
         ))}
         {onContinue && (
           <div className="flex justify-end border-t border-border pt-2">
-            <Button.Primary size="small" disabled={readOnly} onClick={onContinue}>
+            <Button.Primary size="small" disabled={readOnly || continueLoading} onClick={onContinue}>
+              {continueLoading ? <Icon name="loader" className="animate-spin" /> : null}
               Continue
             </Button.Primary>
           </div>
