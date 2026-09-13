@@ -19,6 +19,11 @@ export type DropdownMenuProps = {
   lockScroll?: boolean;
 };
 
+// Returns true if the click was on the menu surface, not its contents or scrollbar.
+export function isSurfaceClick(event: React.MouseEvent<HTMLElement>): boolean {
+  return event.target === event.currentTarget;
+}
+
 export function DropdownMenu({
   trigger,
   children,
@@ -183,7 +188,14 @@ export function DropdownMenu({
               className,
             )}
             onMouseDown={event => event.stopPropagation()}
-            onClick={closeOnClick ? () => setOpen(false) : undefined}
+            onClick={
+              closeOnClick
+                ? event => {
+                    if (isSurfaceClick(event)) return;
+                    setOpen(false);
+                  }
+                : undefined
+            }
           >
             {children}
           </div>,
