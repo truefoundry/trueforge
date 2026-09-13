@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0-rc.7
+
+### Patch Changes
+
+- 531f0ce: Keep close-on-click dropdown menus and bottom sheets open when a click or drag lands on their own scrollbar, so scrolling a long menu no longer dismisses it before a choice is made.
+- 531f0ce: Cap the skill version menu height and scroll it, so skills with many versions no longer run off screen. While it is open, scrolling is confined to the menu.
+
 ## 0.3.0-rc.6
 
 ### Patch Changes
