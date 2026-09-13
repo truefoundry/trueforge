@@ -122,8 +122,9 @@ export function createAuthRouter(params: {
       if (soft) {
         return soft;
       }
-      const reason = error instanceof Error ? error.message : 'login_failed';
-      return c.redirect(oauthErrorRedirect(reason), 302);
+      // openid-client embeds token-endpoint responses and issuer hosts in the message, so it
+      // stays in the log above rather than a redirect the browser keeps in history.
+      return c.redirect(oauthErrorRedirect('login_failed'), 302);
     }
   });
 
