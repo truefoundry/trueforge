@@ -103,7 +103,7 @@ the source repo and commit on npmjs.com.
 - No Environment name (unless you add one to the job and mirror it on PyPI)
 - Create the project once on PyPI (or publish the first version), then add the
   pending/trusted publisher before the first OIDC upload succeeds.
-- Import remains `trueforge_sdk`; install with `pip install trueforge-sdk`.
+- Import and `pyproject.toml` name stay `trueforge_sdk` (what we upload); install with `pip install trueforge-sdk`.
 
 ## Local without publishing
 

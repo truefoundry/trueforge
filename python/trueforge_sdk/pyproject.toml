@@ -1,9 +1,9 @@
 [project]
-name = "trueforge-sdk"
+name = "trueforge_sdk"
 dynamic = ["version"]
 
 [tool.poetry]
-name = "trueforge-sdk"
+name = "trueforge_sdk"
 version = "0.2.0-rc.5"
 description = ""
 readme = "README.md"

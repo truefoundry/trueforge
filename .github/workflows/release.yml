@@ -266,8 +266,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade packaging
-          # Canonical project name + PEP 440 form (0.1.0-rc.1 → 0.1.0rc1). curl -L
-          # follows Warehouse redirects from underscore aliases.
+          # PEP 440 form (0.1.0-rc.1 → 0.1.0rc1). Public PyPI name is trueforge-sdk;
+          # curl -L follows Warehouse redirects from the trueforge_sdk upload name.
           VERSION="$(python3 -c '
           import re, pathlib
           from packaging.version import Version
