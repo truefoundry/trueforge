@@ -1,5 +1,17 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.8
+
+### Patch Changes
+
+- 5bc13d0: Pass TrueFoundry agents metadata through TrueFoundry agent import.
+
+## 0.2.0-rc.7
+
+### Patch Changes
+
+- 5bc13d0: Pass collaborators through TrueFoundry agent import.
+
 ## 0.2.0-rc.6
 
 ### Minor Changes

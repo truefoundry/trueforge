@@ -4,16 +4,22 @@
 import { z } from '@hono/zod-openapi';
 
 /**
- * Lowercase name, 2–64 chars: starts with a letter, ends with alphanumeric,
- * may contain ".", "_" or "-" in between (aligned with SF model-integration names).
+ * Shared local resource name (agents, skills, MCP, models, schedules).
+ * 2–64 lowercase chars, letter start, letter/digit end, hyphens only (matches SVC).
+ *
+ * - TrueFoundry mode: agent names follow this rule (synced to SVC). Skills/MCP/models
+ *   come from SVC as FQNs or longer names and are not checked with NameSchema; AgentSpec
+ *   refs stay plain strings. Schedules are local and still use this schema.
+ * - Standalone mode: all of those resources are created locally under this schema.
+ * - DB migration: rewrites old local names that used `.`/`_` only.
  */
 export const NameSchema = z
   .string()
   .min(2)
   .max(64)
   .regex(
-    /^[a-z](?:[a-z0-9._-]{0,62}[a-z0-9])$/,
-    'must be 2–64 lowercase chars: start with a letter, end with alphanumeric, optionally separated by ".", "_" or "-"',
+    /^[a-z][a-z0-9-]{0,62}[a-z0-9]$/,
+    'must be 2–64 lowercase chars: start with a letter, end with alphanumeric, hyphens only in between',
   )
   .openapi('ResourceName');
 

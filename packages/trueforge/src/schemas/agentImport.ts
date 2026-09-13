@@ -18,6 +18,7 @@ export const ImportAgentItemSchema = z
     manifest: AgentSpecSchema,
     tenant_id: z.string().min(1).describe('Tenant to create the agent under.'),
     created_by_subject: CreatedBySubjectSchema.describe('Original creator to persist on the agent.'),
+    truefoundry_managed_agent_id: z.string(),
   })
   .strict()
   .openapi('ImportAgentItem');

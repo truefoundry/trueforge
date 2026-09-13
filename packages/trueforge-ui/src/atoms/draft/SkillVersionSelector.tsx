@@ -90,7 +90,8 @@ export function SkillVersionSelector({
       onOpenChange={open => {
         if (open) load();
       }}
-      className="min-w-40"
+      className="max-h-64 min-w-40 overflow-y-auto"
+      lockScroll
       trigger={
         <button
           type="button"

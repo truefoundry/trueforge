@@ -97,6 +97,7 @@ export interface PutRemoteAgentInput {
   description: string;
   model: string;
   mcp_servers: string[];
+  trueFoundryManagedAgentId?: string;
 }
 
 export interface PutRemoteAgentResult {
@@ -245,6 +246,7 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /** PUT `/internal/tfg/agents` — create/reuse remote agent + sync model/MCP grants. */
   async putRemoteAgent(input: PutRemoteAgentInput): Promise<PutRemoteAgentResult> {
+    const hasTrueFoundryManagedAgentId = input.trueFoundryManagedAgentId !== undefined;
     const payload = await this.#requestJson({
       url: this.#url(TFG_AGENTS_PATH),
       accessToken: input.accessToken,
@@ -255,6 +257,7 @@ export class TrueFoundryServiceFoundryServerClient {
         description: input.description,
         model: input.model,
         mcp_servers: input.mcp_servers,
+        ...(hasTrueFoundryManagedAgentId ? { trueFoundryManagedAgentId: input.trueFoundryManagedAgentId } : {}),
       },
     });
     const parsed = PutRemoteAgentResponseSchema.safeParse(payload);
