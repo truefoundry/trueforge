@@ -178,6 +178,7 @@ export function SidebarLayout({ className }: { className?: string }) {
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
   const ClearChatButton = useSlot('ClearChatButton');
+  const GenerateInstructionsButton = useSlot('GenerateInstructionsButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -265,6 +266,7 @@ export function SidebarLayout({ className }: { className?: string }) {
             !overlayOpen ? (
               <>
                 <ClearChatButton />
+                <GenerateInstructionsButton />
                 <SaveAgentButton />
               </>
             ) : null

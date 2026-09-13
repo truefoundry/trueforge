@@ -1,0 +1,219 @@
+/**
+ * Turns a session event log into a bounded chat transcript used to draft
+ * system instructions. Kept free of I/O so short-chat rejection is deterministic.
+ */
+import { EventType, MAIN_THREAD_ID, type SessionEventItem } from '@truefoundry/trueforge-core/agent-session';
+import type { ChatInstructionSource } from '../schemas/session';
+
+export const INSUFFICIENT_SIGNAL_TOKEN = 'INSUFFICIENT_SIGNAL';
+
+/** Below this much *user* text, the chat is greetings and small talk, not durable behavior. */
+export const MIN_TRANSCRIPT_CHARS = 80;
+const MAX_TRANSCRIPT_CHARS = 12_000;
+const MAX_SOURCES = 8;
+const EXCERPT_CHARS = 180;
+const MIN_INSTRUCTION_CHARS = 24;
+
+const GENERIC_INSTRUCTION = /^(you are (a |an )?(helpful|friendly|useful)( ai| virtual)? assistant\.?)$/i;
+
+export type ChatInstructionRole = 'user' | 'assistant';
+
+export interface ChatInstructionLine {
+  turn_id: string;
+  role: ChatInstructionRole;
+  text: string;
+}
+
+export class InsufficientChatSignalError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InsufficientChatSignalError';
+  }
+}
+
+function textFromUnknownContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content.trim();
+  }
+  if (!Array.isArray(content)) {
+    return '';
+  }
+  const parts: string[] = [];
+  for (const part of content) {
+    if (typeof part !== 'object' || part === null) {
+      continue;
+    }
+    const type: unknown = Reflect.get(part, 'type');
+    if (type === 'text') {
+      const text: unknown = Reflect.get(part, 'text');
+      if (typeof text === 'string' && text.trim() !== '') {
+        parts.push(text.trim());
+      }
+      continue;
+    }
+    if (type === 'file') {
+      const name: unknown = Reflect.get(part, 'name');
+      if (typeof name === 'string' && name.trim() !== '') {
+        parts.push(`[file: ${name.trim()}]`);
+      }
+    }
+  }
+  return parts.join('\n');
+}
+
+function excerptFrom(text: string): string {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (compact.length <= EXCERPT_CHARS) {
+    return compact;
+  }
+  return `${compact.slice(0, EXCERPT_CHARS - 1).trimEnd()}…`;
+}
+
+function stripFence(raw: string): string {
+  const trimmed = raw.trim();
+  const fenced = /^```(?:[\w-]+)?\n([\s\S]*?)\n```$/.exec(trimmed);
+  if (fenced?.[1] !== undefined) {
+    return fenced[1].trim();
+  }
+  return trimmed;
+}
+
+/**
+ * Walk newest-first events, keep user turns and root-agent replies, then
+ * reverse so the prompt reads oldest to newest within the character budget.
+ * User text is reserved first so a long latest assistant reply cannot evict
+ * earlier preferences (or trip the short-chat gate as if they were gone).
+ */
+export function extractChatTranscript(events: readonly SessionEventItem[]): ChatInstructionLine[] {
+  const newestFirst: ChatInstructionLine[] = [];
+
+  for (const item of events) {
+    const event = item.event;
+    if (event.type === EventType.TURN_CREATED) {
+      const input = event.input ?? [];
+      // Events are newest-first; walk the turn's user items newest-first too so
+      // the final transcript reverse keeps them chronological within the turn.
+      for (let i = input.length - 1; i >= 0; i -= 1) {
+        const part = input[i];
+        if (part.type !== EventType.USER_MESSAGE) {
+          continue;
+        }
+        const text = textFromUnknownContent(part.content);
+        if (text.length === 0) {
+          continue;
+        }
+        newestFirst.push({ turn_id: item.turn_id, role: 'user', text });
+      }
+      continue;
+    }
+    if (event.type !== EventType.MODEL_MESSAGE || event.thread_id !== MAIN_THREAD_ID) {
+      continue;
+    }
+    const text = textFromUnknownContent(Reflect.get(event, 'content'));
+    if (text.length === 0) {
+      continue;
+    }
+    newestFirst.push({ turn_id: item.turn_id, role: 'assistant', text });
+  }
+
+  return clipTranscriptToBudget(newestFirst).reverse();
+}
+
+function clipTranscriptToBudget(newestFirst: readonly ChatInstructionLine[]): ChatInstructionLine[] {
+  let used = 0;
+  const clipped: Array<string | undefined> = Array.from({ length: newestFirst.length });
+
+  const take = (index: number): void => {
+    if (used >= MAX_TRANSCRIPT_CHARS) {
+      return;
+    }
+    const text = newestFirst[index]?.text;
+    if (text === undefined) {
+      return;
+    }
+    const kept = text.slice(0, MAX_TRANSCRIPT_CHARS - used);
+    if (kept.length === 0) {
+      return;
+    }
+    clipped[index] = kept;
+    used += kept.length;
+  };
+
+  for (let i = 0; i < newestFirst.length; i += 1) {
+    if (newestFirst[i]?.role === 'user') {
+      take(i);
+    }
+  }
+  for (let i = 0; i < newestFirst.length; i += 1) {
+    if (newestFirst[i]?.role === 'assistant') {
+      take(i);
+    }
+  }
+
+  return newestFirst.flatMap((line, index) => {
+    const text = clipped[index];
+    return text === undefined ? [] : [{ ...line, text }];
+  });
+}
+
+export function sourcesFromTranscript(lines: readonly ChatInstructionLine[]): ChatInstructionSource[] {
+  const picked = lines.length <= MAX_SOURCES ? lines : lines.slice(-MAX_SOURCES);
+  return picked.map(line => ({
+    turn_id: line.turn_id,
+    role: line.role,
+    excerpt: excerptFrom(line.text),
+  }));
+}
+
+export function assertTranscriptHasInstructionSignal(lines: readonly ChatInstructionLine[]): void {
+  const userLines = lines.filter(line => line.role === 'user');
+  const userChars = userLines.reduce((sum, line) => sum + line.text.length, 0);
+  if (userLines.length === 0 || userChars < MIN_TRANSCRIPT_CHARS) {
+    throw new InsufficientChatSignalError(
+      'This chat is too short to infer durable system instructions. Continue the conversation, or write the instructions yourself.',
+    );
+  }
+}
+
+export function buildInstructionGenerationPrompt(input: {
+  currentInstructions: string | undefined;
+  lines: readonly ChatInstructionLine[];
+}): { system: string; user: string } {
+  const current = input.currentInstructions?.trim() ?? '';
+  const transcript = input.lines.map(line => `[${line.role}] ${line.text}`).join('\n\n');
+  return {
+    system: [
+      'You extract durable system instructions for an AI agent from a chat transcript.',
+      "Write instructions a maintainer would save as the agent's system prompt.",
+      'Capture only preferences, constraints, tone, format, and domain the conversation actually established.',
+      'Do not invent a persona, tools, or policies the chat did not show.',
+      'Do not retell the conversation or quote it at length.',
+      `If the chat is too thin to write real instructions, reply with exactly ${INSUFFICIENT_SIGNAL_TOKEN} and nothing else.`,
+      'Output plain text only. No title, no markdown fences, no preamble.',
+    ].join(' '),
+    user: [
+      'Current instructions (may be empty):',
+      current.length > 0 ? current : '(none)',
+      '',
+      'Transcript, oldest first:',
+      transcript,
+      '',
+      'Write the system instructions.',
+    ].join('\n'),
+  };
+}
+
+export function parseGeneratedInstructions(raw: string): string {
+  const cleaned = stripFence(raw);
+  if (cleaned.length === 0 || cleaned.toUpperCase() === INSUFFICIENT_SIGNAL_TOKEN) {
+    throw new InsufficientChatSignalError(
+      'This chat does not establish how the agent should behave. Continue the conversation, or write the instructions yourself.',
+    );
+  }
+  if (cleaned.length < MIN_INSTRUCTION_CHARS || GENERIC_INSTRUCTION.test(cleaned)) {
+    throw new InsufficientChatSignalError(
+      'The model could not infer durable instructions from this chat. Continue the conversation, or write them yourself.',
+    );
+  }
+  return cleaned;
+}
