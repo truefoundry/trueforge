@@ -4,11 +4,11 @@
  */
 import { McpServerNameConflictError, type IMcpServerStore } from '../../src/db/mcpServerStore';
 import type { OAuthClientRecord } from '../../src/mcp/auth/types';
-import type { McpServerManifest } from '../../src/schemas/mcpServer';
+import type { RemoteMcpServerManifest } from '../../src/schemas/mcpServer';
 
 const TENANT = 'default';
 
-function manifest(overrides: Partial<McpServerManifest> = {}): McpServerManifest {
+function manifest(overrides: Partial<RemoteMcpServerManifest> = {}): RemoteMcpServerManifest {
   return {
     type: 'remote',
     name: 'linear',
