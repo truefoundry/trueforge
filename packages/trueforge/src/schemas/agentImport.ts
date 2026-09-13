@@ -3,6 +3,7 @@
  */
 import { z } from '@hono/zod-openapi';
 import { AgentSpecSchema, CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-session';
+import { AgentDescriptionSchema } from './agent';
 import { NameSchema } from './common';
 
 const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
@@ -13,6 +14,7 @@ export const ImportAgentItemSchema = z
     name: NameSchema.refine(name => !RESERVED_AGENT_NAMES.has(name), {
       message: 'Agent name is reserved, cannot be used',
     }),
+    description: AgentDescriptionSchema.optional(),
     manifest: AgentSpecSchema,
     tenant_id: z.string().min(1).describe('Tenant to create the agent under.'),
     created_by_subject: CreatedBySubjectSchema.describe('Original creator to persist on the agent.'),
