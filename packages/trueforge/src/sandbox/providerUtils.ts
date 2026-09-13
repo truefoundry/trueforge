@@ -27,6 +27,16 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
+export function daytonaAccessFailureReason(error: unknown): string | undefined {
+  if (isDaytonaAuthError(error)) {
+    return 'Daytona rejected the configured API key.';
+  }
+  if (isDaytonaPermissionError(error)) {
+    return 'Daytona denied access to the configured API key.';
+  }
+  return undefined;
+}
+
 /**
  * Builds the Daytona runtime provider for a stored Daytona manifest. No network I/O until a method is called.
  *
@@ -149,11 +159,29 @@ export async function checkSnapshotStatus({
     build_metadata: record.build_metadata,
   });
   let build: SandboxBuild;
-  if (record.status === 'ready') {
-    // this is because image may have deactivated
-    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
-  } else {
-    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
+  try {
+    if (record.status === 'ready') {
+      // this is because image may have deactivated
+      build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
+    } else {
+      build = await withTimeout(
+        provider.getImageBuildStatus(),
+        STATUS_REFRESH_TIMEOUT_MS,
+        'sandbox getImageBuildStatus',
+      );
+    }
+  } catch (error) {
+    const status_reason = daytonaAccessFailureReason(error);
+    if (status_reason === undefined) {
+      throw error;
+    }
+    const failed: SandboxStatus = {
+      status: 'failed',
+      status_reason,
+      build_metadata: record.build_metadata,
+    };
+    const updated = await store.updateSandboxStatus({ tenant_id, ...failed });
+    return updated ? sandboxStatusFromRecord(updated) : failed;
   }
   const next = toSandboxStatus(build);
   const updated = await store.updateSandboxStatus({ tenant_id, ...next });
