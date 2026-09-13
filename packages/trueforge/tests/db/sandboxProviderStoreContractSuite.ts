@@ -95,6 +95,7 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
       status: 'ready',
       status_reason: null,
       build_metadata: BUILD_METADATA,
+      expected_manifest: undefined,
     });
 
     expect(updated?.status).toBe('ready');
@@ -110,7 +111,24 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
         status: 'ready',
         status_reason: null,
         build_metadata: BUILD_METADATA,
+        expected_manifest: undefined,
       }),
     ).toBeUndefined();
+  });
+
+  it('updateSandboxStatus ignores a stale provider manifest', async () => {
+    const store = getStore();
+    await store.upsertSandboxProvider(upsertInput());
+
+    expect(
+      await store.updateSandboxStatus({
+        tenant_id: TENANT,
+        status: 'failed',
+        status_reason: 'stale failure',
+        build_metadata: BUILD_METADATA,
+        expected_manifest: manifest({ exec_timeout_ms: 120000 }),
+      }),
+    ).toBeUndefined();
+    expect((await store.getSandboxProvider(TENANT))?.status).toBe('pending');
   });
 }

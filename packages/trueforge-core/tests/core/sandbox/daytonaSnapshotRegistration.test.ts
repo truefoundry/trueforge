@@ -32,6 +32,23 @@ function makeProvider(): DaytonaSandboxProvider {
   });
 }
 
+function makeRuntimeProvider(client: Daytona, onError?: (error: unknown) => Promise<void>): DaytonaSandboxProvider {
+  return new DaytonaSandboxProvider({
+    client,
+    apiKey: 'dtn-test',
+    apiUrl: API_URL,
+    tenantName: 'test-tenant',
+    sandboxImage: 'registry.example.com/sandbox:029ea5ff',
+    timeoutMs: 1000,
+    autoStopIntervalInMinutes: 5,
+    autoArchiveIntervalInMinutes: 60,
+    autoDeleteIntervalInMinutes: 7200,
+    fileMaxBytesForDownload: 1024,
+    logger: makeSilentLogger(),
+    onError,
+  });
+}
+
 function mockFetch({ status, body }: { status: number; body: unknown }): jest.SpiedFunction<typeof globalThis.fetch> {
   return jest
     .spyOn(globalThis, 'fetch')
@@ -81,22 +98,32 @@ describe('DaytonaSandboxProvider register-only snapshot create', () => {
 });
 
 describe('DaytonaSandboxProvider exec', () => {
+  it('reports sandbox creation errors before rethrowing them', async () => {
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    jest.spyOn(client, 'create').mockRejectedValue(new DaytonaError('unauthorized', 401));
+    const onError = jest.fn().mockResolvedValue(undefined);
+    const provider = makeRuntimeProvider(client, onError);
+
+    await expect(provider.createSandbox()).rejects.toMatchObject({ statusCode: 401 });
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+  });
+
+  it('reports provider errors before converting them to failed exec results', async () => {
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    jest.spyOn(client, 'get').mockRejectedValue(new DaytonaError('unauthorized', 401));
+    const onError = jest.fn().mockResolvedValue(undefined);
+    const provider = makeRuntimeProvider(client, onError);
+
+    await expect(provider.exec({ sandboxId: 'test-tenant.expired', command: 'true' })).resolves.toMatchObject({
+      success: false,
+    });
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+  });
+
   it('rethrows SandboxNotAvailableError when the sandbox is gone', async () => {
     const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
     jest.spyOn(client, 'get').mockRejectedValue(new DaytonaError('not found', NOT_FOUND_STATUS));
-    const provider = new DaytonaSandboxProvider({
-      client,
-      apiKey: 'dtn-test',
-      apiUrl: API_URL,
-      tenantName: 'test-tenant',
-      sandboxImage: 'registry.example.com/sandbox:029ea5ff',
-      timeoutMs: 1000,
-      autoStopIntervalInMinutes: 5,
-      autoArchiveIntervalInMinutes: 60,
-      autoDeleteIntervalInMinutes: 7200,
-      fileMaxBytesForDownload: 1024,
-      logger: makeSilentLogger(),
-    });
+    const provider = makeRuntimeProvider(client);
 
     await expect(provider.exec({ sandboxId: 'test-tenant.gone', command: 'true' })).rejects.toBeInstanceOf(
       SandboxNotAvailableError,
