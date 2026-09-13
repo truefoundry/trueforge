@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.9
+
+### Patch Changes
+
+- 6c12e59: Constrain ResourceName (NameSchema) to hyphen-only 2–64 and migrate existing "."/"_" names.
+
 ## 0.2.0-rc.8
 
 ### Patch Changes
