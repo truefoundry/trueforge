@@ -126,7 +126,6 @@ jobs:
 
       # Same entrypoint as local `pnpm sdk:generate` (re-runs openapi:write; idempotent).
       # App-token success = we can push; forks skip Fern so a flake cannot block the PR.
-      # FERN_TOKEN is required so Python list() emits SyncPager (Fern README already documents it).
       - name: Generate OpenAPI document and SDKs
         if: steps.decide.outputs.needed == 'true' && steps.app-token.outcome == 'success'
         env:
