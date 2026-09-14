@@ -93,6 +93,8 @@ jobs:
       - name: Version packages
         id: version
         uses: changesets/action/version@v2
+        env:
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
         with:
           script: pnpm run version
           push-with-git-cli: true
