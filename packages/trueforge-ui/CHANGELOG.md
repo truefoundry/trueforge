@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0-rc.8
+
+### Patch Changes
+
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.7
+
 ## 0.3.0-rc.7
 
 ### Patch Changes

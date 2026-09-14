@@ -1,5 +1,12 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.10
+
+### Patch Changes
+
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.7
+
 ## 0.2.0-rc.9
 
 ### Patch Changes
