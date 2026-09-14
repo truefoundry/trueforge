@@ -105,6 +105,8 @@ the source repo and commit on npmjs.com.
   pending/trusted publisher before the first OIDC upload succeeds.
 - Import and `pyproject.toml` name stay `trueforge_sdk` (what we upload); install with `pip install trueforge-sdk`.
 
+> Note: if PyPI has no `0.1.3`, the first publish also uploads `0.1.3` (so default pip is not the `0.0.0` placeholder), then the current `pyproject.toml` version. Delete that bootstrap code in a follow-up PR.
+
 ## Local without publishing
 
 ```bash
