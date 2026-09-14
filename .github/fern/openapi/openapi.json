@@ -6522,7 +6522,7 @@
     },
     "/api/v1/agents/{agent_id}/code-snippets": {
       "get": {
-        "description": "TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.",
+        "description": "TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.",
         "parameters": [
           {
             "description": "Immutable agent identifier.",
@@ -6557,7 +6557,7 @@
                 }
               }
             },
-            "description": "TypeScript SDK samples."
+            "description": "SDK samples."
           },
           "404": {
             "content": {

@@ -23,7 +23,7 @@ export class AgentsClient {
     }
 
     /**
-     * TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
+     * TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.
      *
      * @param {string} agent_id - Immutable agent identifier.
      * @param {TrueForge.internal.GetCodeSnippetsAgentsRequest} request

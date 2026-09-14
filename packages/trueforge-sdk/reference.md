@@ -3136,7 +3136,7 @@ await client.internal.sessions.getOrCreateByExternalId({
 <dl>
 <dd>
 
-TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
+TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.
 </dd>
 </dl>
 </dd>
