@@ -4,7 +4,7 @@ sidebarTitle: 'Quickstart'
 description: 'Install the SDK, connect to your TrueForge server, and stream your first agent turn in a few minutes.'
 ---
 
-Everything the chat UI does, you can do in code. The TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk) creates sessions, streams turns, and handles approvals. This page gets you running in three steps; the [concepts](/api/overview) and the [cookbook](/api/use-agent) — which ends with a full [event reference](/api/use-agent#turn-events-reference) — come after.
+Everything the chat UI does, you can do in code. The TypeScript client [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk) and the Python client [`trueforge-sdk`](https://pypi.org/project/trueforge-sdk/) create sessions, stream turns, and handle approvals. This page gets you running in three steps; the [concepts](/api/overview) and the [cookbook](/api/use-agent) — which ends with a full [event reference](/api/use-agent#turn-events-reference) — come after.
 
 <Note>
   You need a running TrueForge server with at least one model provider configured. If you don't have one yet, start with the [Quickstart](/quickstart) — `npx @truefoundry/trueforge` gets you a local server at `http://localhost:8790`.
@@ -12,13 +12,19 @@ Everything the chat UI does, you can do in code. The TypeScript client [`@truefo
 
 ## Install
 
-```bash wrap
+<CodeGroup>
+```bash TypeScript wrap
 npm i @truefoundry/trueforge-sdk
 ```
 
+```bash Python wrap
+pip install trueforge-sdk
+```
+</CodeGroup>
+
 ## Get a token and connect
 
-Point the client at your server's `baseUrl`, and pass a `token` only when the server requires login. How you authenticate depends on whether [OIDC login](/authentication/overview) is enabled:
+Point the client at your server's `baseUrl` / `base_url`, and pass a `token` only when the server requires login. How you authenticate depends on whether [OIDC login](/authentication/overview) is enabled:
 
 | Server mode | Token | What to do |
 | --- | --- | --- |
@@ -27,9 +33,10 @@ Point the client at your server's `baseUrl`, and pass a `token` only when the se
 
 <Tabs>
   <Tab title="No login (default)">
-    Local mode has no login, so you connect with just a `baseUrl`:
-<CodeGroup>
-    ```typescript wrap
+    Local mode has no login, so you connect with just a base URL:
+
+    <CodeGroup>
+    ```typescript TypeScript wrap
     import { TrueForge } from '@truefoundry/trueforge-sdk';
 
     const client = new TrueForge({
@@ -37,12 +44,23 @@ Point the client at your server's `baseUrl`, and pass a `token` only when the se
       timeoutInSeconds: 600, // raise for long-running SSE turns (default 60s)
     });
     ```
+
+    ```python Python wrap
+    import os
+    from trueforge_sdk import TrueForge
+
+    client = TrueForge(
+        base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+        timeout=600,  # raise for long-running SSE turns (default 60s)
+    )
+    ```
     </CodeGroup>
   </Tab>
   <Tab title="OIDC login">
     When [OIDC login](/authentication/overview) is on, every HTTP request needs an **ID token** from your identity provider, sent as `Authorization: Bearer <id_token>`:
 
-    ```typescript wrap
+    <CodeGroup>
+    ```typescript TypeScript wrap
     import { TrueForge } from '@truefoundry/trueforge-sdk';
 
     const client = new TrueForge({
@@ -51,6 +69,18 @@ Point the client at your server's `baseUrl`, and pass a `token` only when the se
       timeoutInSeconds: 600,
     });
     ```
+
+    ```python Python wrap
+    import os
+    from trueforge_sdk import TrueForge
+
+    client = TrueForge(
+        base_url="https://trueforge.myorg.com",
+        token=os.environ["TRUEFORGE_TOKEN"],  # OIDC ID token
+        timeout=600,
+    )
+    ```
+    </CodeGroup>
 
     **Where to get the ID token:**
 
@@ -65,7 +95,8 @@ Point the client at your server's `baseUrl`, and pass a `token` only when the se
 
 Open a session, stream one turn, and print the reply as it arrives. This example passes an **inline agent spec**, so it works without saving an agent first — you only need a model provider configured on the server:
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -94,14 +125,53 @@ for await (const { data: event } of stream.withMetadata()) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+
+# Open a session with an inline agent (no saved agent needed).
+session = client.sessions.create(
+    agent={
+        "spec": {
+            "model": {"name": "anthropic/claude-sonnet-4-6"},  # a model you configured in Settings
+            "instructions": "You are a concise, helpful assistant.",
+        },
+    },
+)
+
+# Stream one turn and print the reply token by token.
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "In two sentences, what is TrueForge?"}],
+)
+
+for event in stream:
+    if event.type == "model.message.delta":
+        print(event.content or "", end="", flush=True)
+    if event.type == "turn.done":
+        print("\n\nstatus:", event.state.status)
+```
+</CodeGroup>
+
 That's the whole loop: create a session, stream a turn, print each `model.message.delta`, and read the terminal `turn.done`. The stream always opens with `turn.created` and closes with `turn.done`.
 
 <Tip>
   Prefer a saved agent? Build the **`web-research-brief`** agent in the [Quickstart](/quickstart), then reference it by name instead of an inline spec:
 
-  ```typescript wrap
+  <CodeGroup>
+  ```typescript TypeScript wrap
   const { data: session } = await client.sessions.create({ agent: { name: 'web-research-brief' } });
   ```
+
+  ```python Python wrap
+  session = client.sessions.create(agent={"name": "web-research-brief"})
+  ```
+  </CodeGroup>
 </Tip>
 
 ## Next steps

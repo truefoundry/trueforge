@@ -165,7 +165,8 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
 
 <Steps>
   <Step title="Connect the client">
-    ```typescript
+    <CodeGroup>
+    ```typescript TypeScript wrap
     import { TrueForge } from '@truefoundry/trueforge-sdk';
 
     const client = new TrueForge({
@@ -174,27 +175,53 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
     });
     ```
 
+    ```python Python wrap
+    import os
+    from trueforge_sdk import TrueForge
+
+    client = TrueForge(
+        base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+        # token=os.environ.get("TRUEFORGE_TOKEN"),  # ID token when OIDC login is enabled
+    )
+    ```
+    </CodeGroup>
+
     When [OIDC login](/authentication/overview) is on, pass an ID token; see [Get a token and connect](/api/quickstart#get-a-token-and-connect). When login is off, omit `token`.
   </Step>
 
   <Step title="Save the spec as a named agent">
-    `agents.create` (`POST /api/v1/agents`) stores the spec under a unique `name` and returns the agent with its server-generated `id`. The name is immutable and must be unique — a duplicate returns `409`.
+    `agents.create` (`POST /api/v1/agents`) stores the spec under a unique `name` and returns the agent with its server-generated `id`. The name is immutable and must be unique — a duplicate returns `409`. `description` is required.
 
-    ```typescript
+    <CodeGroup>
+    ```typescript TypeScript wrap
     const { data: agent } = await client.agents.create({
       name: 'support-bot',
+      description: 'Helps customers with orders.',
       manifest: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'You help customers with orders. Always confirm before processing refunds.',
       },
     });
     ```
+
+    ```python Python wrap
+    agent = client.agents.create(
+        name="support-bot",
+        description="Helps customers with orders.",
+        manifest={
+            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "instructions": "You help customers with orders. Always confirm before processing refunds.",
+        },
+    )
+    ```
+    </CodeGroup>
   </Step>
 
   <Step title="Open a session and run turns">
     Reference the saved agent by name, then stream a turn. See [Use an agent](/api/use-agent) for the full loop, including approvals and questions.
 
-    ```typescript
+    <CodeGroup>
+    ```typescript TypeScript wrap
     const { data: session } = await client.sessions.create({ agent: { name: 'support-bot' } });
 
     const stream = await client.sessions.createTurnStream(session.id, {
@@ -202,12 +229,25 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
     });
     for await (const { data: event } of stream.withMetadata()) console.log(event.type);
     ```
+
+    ```python Python wrap
+    session = client.sessions.create(agent={"name": "support-bot"})
+
+    stream = client.sessions.create_turn_stream(
+        session_id=session.data.id,
+        input=[{"type": "user.message", "content": "Where is order ORD-2031?"}],
+    )
+    for event in stream:
+        print(event.type)
+    ```
+    </CodeGroup>
   </Step>
 </Steps>
 
 **Skip saving** — pass the spec inline when you create the session, and nothing is persisted to the registry:
 
-```typescript
+<CodeGroup>
+```typescript TypeScript wrap
 const { data: session } = await client.sessions.create({
   agent: {
     spec: {
@@ -217,6 +257,18 @@ const { data: session } = await client.sessions.create({
   },
 });
 ```
+
+```python Python wrap
+session = client.sessions.create(
+    agent={
+        "spec": {
+            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "instructions": "You are a concise research assistant.",
+        },
+    },
+)
+```
+</CodeGroup>
 
 **Manage saved agents** with the rest of the `agents` methods:
 

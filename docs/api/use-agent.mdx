@@ -1,10 +1,10 @@
 ---
 title: 'Use an agent'
 sidebarTitle: 'Use an agent'
-description: 'Run a saved agent with the TypeScript SDK: a Quick Start, then recipes for streaming, approvals, questions, threads, and reconnects.'
+description: 'Run a saved agent with the TypeScript or Python SDK: a Quick Start, then recipes for streaming, approvals, questions, threads, and reconnects.'
 ---
 
-The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk). New here? Install and stream your first turn in the [SDK Quickstart](/api/quickstart) first. For the mental model (Agent → Session → Turn → Event → Delta), see [Concepts](/api/overview); for every event field, see the [turn events reference](#turn-events-reference) at the bottom of this page.
+The recipe book for running an agent with [`@truefoundry/trueforge-sdk`](https://www.npmjs.com/package/@truefoundry/trueforge-sdk) or [`trueforge-sdk`](https://pypi.org/project/trueforge-sdk/). New here? Install and stream your first turn in the [SDK Quickstart](/api/quickstart) first. For the mental model (Agent → Session → Turn → Event → Delta), see [Concepts](/api/overview); for every event field, see the [turn events reference](#turn-events-reference) at the bottom of this page.
 
 <Note>
 Prerequisite: a named agent in the registry, or an inline [agent spec](/create-agent/overview#create-an-agent-via-the-api) you pass when creating the session. The examples below run the **`web-research-brief`** agent from the [Quickstart](/quickstart); build it there first, or swap in your own agent name / inline spec.
@@ -14,11 +14,18 @@ Every snippet is self-contained and runnable. They all use the `client` from [In
 
 ## Install and connect
 
-```bash wrap
+<CodeGroup>
+```bash TypeScript wrap
 npm i @truefoundry/trueforge-sdk
 ```
 
-```typescript wrap
+```bash Python wrap
+pip install trueforge-sdk
+```
+</CodeGroup>
+
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -28,13 +35,26 @@ const client = new TrueForge({
 });
 ```
 
-Point `baseUrl` at your running TrueForge server; `http://localhost:8790` is the Quickstart default. When [OIDC login](/authentication/overview) is enabled, pass `token` (an ID token from your IdP; see [Get a token and connect](/api/quickstart#get-a-token-and-connect)). When login is off, omit it.
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,  # raise for long-running SSE turns (default 60s)
+    # token=os.environ.get("TRUEFORGE_TOKEN"),  # ID token when OIDC login is enabled
+)
+```
+</CodeGroup>
+
+Point `baseUrl` / `base_url` at your running TrueForge server; `http://localhost:8790` is the Quickstart default. When [OIDC login](/authentication/overview) is enabled, pass `token` (an ID token from your IdP; see [Get a token and connect](/api/quickstart#get-a-token-and-connect)). When login is off, omit it. TypeScript fields are camelCase; Python fields match the wire format (`snake_case`). The Python SDK does not export `isEventDelta` / `mergeEventDelta` — skip `.delta` events when building an id-keyed index.
 
 ## Quick Start
 
 The [Concepts](/api/overview) page explains the model with a conceptual `support-bot`; here is a real agent you can run. In the [Quickstart](/quickstart) you built **`web-research-brief`**, an agent with Exa web search and the web-artifacts-builder skill. Here it is from the SDK: open a session on that agent, stream one research turn, and print the brief as it arrives. It fans out to [subagents](/key-features/subagents), so you'll see their threads in the same stream. It has no approval gate, so it runs end to end without pausing; for the approval and question pauses, see [Handle pauses](#handle-pauses).
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -66,6 +86,39 @@ for await (const { data: event } of stream.withMetadata()) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+
+# The agent you saved in the Quickstart.
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[
+        {
+            "type": "user.message",
+            "content": "Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.",
+        },
+    ],
+)
+
+for event in stream:
+    if event.type == "thread.created":
+        print(f"\n↳ subagent: {event.title}")
+    if event.type == "model.message.delta" and event.thread_id == "main":
+        print(event.content or "", end="", flush=True)
+    if event.type == "turn.done" and event.state.status == "done":
+        output = event.state.output
+        print("\n\n--- brief ---\n", None if output is None else output.content)
+```
+</CodeGroup>
+
 That's the core loop: open a session, stream a turn, print the reply as it arrives, and read the final `turn.done`. This version writes each delta straight to stdout. The [next section](#create-and-stream-a-turn) keeps an id-keyed event index, the pattern the pause recipes build on. The rest of the page is a reference for each piece, plus the pauses (approvals, questions, MCP auth) a real agent runs into.
 
 ## Sessions
@@ -82,7 +135,8 @@ stateDiagram-v2
 
 ### Open a session
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
@@ -101,11 +155,33 @@ const { data: inlineSession } = await client.sessions.create({
 });
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+
+# By saved agent name:
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+# …or with an inline spec (no saved agent needed):
+inline_session = client.sessions.create(
+    agent={
+        "spec": {
+            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "instructions": "You are a concise research assistant.",
+        },
+    },
+)
+```
+</CodeGroup>
+
 ### List sessions
 
-Newest-first; filter with `agentId`. The returned `Page` is an async iterable and auto-paginates.
+Newest-first; filter with `agentId` / `agent_id`. TypeScript returns a `Page` async iterable; Python returns a `SyncPager`. Both auto-paginate.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
@@ -114,6 +190,17 @@ for await (const session of await client.sessions.list()) {
   console.log(session.id, session.createdAt);
 }
 ```
+
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+
+for session in client.sessions.list():
+    print(session.id, session.created_at)
+```
+</CodeGroup>
 
 ## Turns
 
@@ -125,11 +212,12 @@ Creating a new turn in a session automatically cancels any turn still running in
 
 ### Create and stream a turn
 
-`createTurnStream` returns a stream of [turn events](#turn-events-reference). `stream.withMetadata()` yields `{ data, id }`, where `data` is the parsed event and `id` is the per-stream sequence number used to [resume after a disconnect](#resume-a-stream). The stream opens with `turn.created` and closes with `turn.done`; read the terminal result from `turn.done.state`.
+`createTurnStream` / `create_turn_stream` returns a stream of [turn events](#turn-events-reference). `stream.withMetadata()` / `stream.with_metadata()` yields `{ data, id }` (TypeScript) or `StreamEvent` (Python: `.data`, `.id`), where `data` is the parsed event and `id` is the per-stream sequence number used to [resume after a disconnect](#resume-a-stream). The stream opens with `turn.created` and closes with `turn.done`; read the terminal result from `turn.done.state`.
 
-Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`; store each non-delta event under its `id`, and merge each delta into the base with `isEventDelta` / `mergeEventDelta`. (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) returns them already merged.) The pause handlers below reuse this index to look up the `model.message` that emitted a tool call.
+Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`; store each non-delta event under its `id`, and merge each delta into the base with `isEventDelta` / `mergeEventDelta` (TypeScript). The Python SDK has no merge helpers — skip events whose `type` ends in `.delta`. (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) The pause handlers below reuse this index to look up the `model.message` that emitted a tool call.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -158,6 +246,38 @@ for await (const { data: event, id } of stream.withMetadata()) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+events = {}
+turn_id = None
+last_sequence_number = 0
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Summarize the current state of open-source vector databases."}],
+)
+for meta in stream.with_metadata():
+    event = meta.data
+    if meta.id is not None:
+        last_sequence_number = int(meta.id)
+    if event.type == "turn.created":
+        turn_id = event.turn_id
+    if event.type.endswith(".delta"):
+        continue
+    events[event.id] = event
+    if event.type == "turn.done":
+        print("status:", event.state.status)
+```
+</CodeGroup>
+
 Turn `input` accepts three item types (a single turn can't mix a `user.message` with approval or response items):
 
 | `type` | Purpose |
@@ -168,9 +288,10 @@ Turn `input` accepts three item types (a single turn can't mix a `user.message` 
 
 ### Non-streaming turn
 
-If you don't need live events, `sessions.createTurn` (`stream: false`) returns immediately with `state.status: "running"` and runs in the background. Poll `getTurn` until the status is terminal (`done`, `cancelled`, `error`).
+If you don't need live events, TypeScript `sessions.createTurn` (`stream: false`) and Python `sessions.create_turn` return immediately with `state.status: "running"` and run in the background. Poll `getTurn` / `get_turn` until the status is terminal (`done`, `cancelled`, `error`).
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
@@ -188,11 +309,33 @@ while (turn.state.status === 'running') {
 console.log(turn.state); // done → state.output / required_actions; else reason / message
 ```
 
+```python Python wrap
+import os
+import time
+from trueforge_sdk import TrueForge
+
+client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+created = client.sessions.create_turn(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Give me a one-paragraph summary of the Qdrant licensing model."}],
+)
+
+turn = created.data
+while turn.state.status == "running":
+    time.sleep(0.5)
+    turn = client.sessions.get_turn(session_id=session.data.id, turn_id=created.data.id).data
+print(turn.state)  # done → state.output / required_actions; else reason / message
+```
+</CodeGroup>
+
 ### List turns
 
-Oldest-first; each turn exposes its `input` and `state`. A `done` turn's `state.requiredActions` lists any pauses it surfaced.
+Oldest-first; each turn exposes its `input` and `state`. A `done` turn's `state.requiredActions` / `state.required_actions` lists any pauses it surfaced.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
@@ -205,11 +348,25 @@ for await (const turn of await client.sessions.listTurns('sess-abc123')) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+
+for turn in client.sessions.list_turns(session_id="sess-abc123"):
+    print(turn.id, turn.state.status)
+    if turn.state.status == "done" and turn.state.output is not None:
+        print(turn.state.output.content)
+```
+</CodeGroup>
+
 ### Attach images or files
 
 A `user.message`'s `content` can be an array of parts: text plus one or more files as [data URIs](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs) (`data:<mime>;base64,<payload>`).
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { readFileSync } from 'node:fs';
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
@@ -235,15 +392,49 @@ const stream = await client.sessions.createTurnStream(session.id, {
 for await (const { data: event } of stream.withMetadata()) console.log(event.type);
 ```
 
+```python Python wrap
+import base64
+import os
+from pathlib import Path
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+def to_data_uri(path: str, mime: str) -> str:
+    payload = base64.b64encode(Path(path).read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{payload}"
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[
+        {
+            "type": "user.message",
+            "content": [
+                {"type": "text", "text": "Use this chart in the brief."},
+                {"type": "file", "name": "benchmarks.png", "data": to_data_uri("benchmarks.png", "image/png")},
+            ],
+        },
+    ],
+)
+for event in stream:
+    print(event.type)
+```
+</CodeGroup>
+
 <Note>
 Whether a file is understood depends on the agent's model, so send images only to a vision-capable model. Non-image files (e.g. PDFs) need the [sandbox](/sandbox) enabled on the agent; the harness uses it to process the document.
 </Note>
 
 ### Cancel a turn
 
-`sessions.cancel(sessionId)` stops the running turn: it aborts the in-flight model request, waits for running MCP tool calls to finish, and force-stops any sandbox the turn provisioned. It's idempotent, and the backend closes the SSE stream gracefully (a terminal `turn.done`, then it ends, so don't `break`). Continue by creating a new turn, which chains on the cancelled turn's history.
+`sessions.cancel(sessionId)` / `sessions.cancel(session_id=…)` stops the running turn: it aborts the in-flight model request, waits for running MCP tool calls to finish, and force-stops any sandbox the turn provisioned. It's idempotent, and the backend closes the SSE stream gracefully (a terminal `turn.done`, then it ends, so don't `break`). Continue by creating a new turn, which chains on the cancelled turn's history.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -261,6 +452,28 @@ for await (const { data: event } of stream.withMetadata()) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Run a deep comparison across a dozen vector databases."}],
+)
+i = 0
+for event in stream:
+    if i == 5:
+        client.sessions.cancel(session_id=session.data.id)  # stream ends itself after the terminal turn.done
+    i += 1
+```
+</CodeGroup>
+
 ## Handle pauses
 
 A turn ends **paused** when it needs something from you. Each pause populates `turn.done.state.requiredActions`; you resume by creating a **new turn** with the matching response item(s). A single turn can surface more than one pending item (e.g. parallel threads each hit a gate), so collect them all.
@@ -273,9 +486,10 @@ For approvals and questions, each pending ref carries the `sourceEventId` of the
 
 ### Tool approvals
 
-A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason.
+A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. TypeScript merges deltas into the event index while streaming. Python has no merge helpers, so after the stream closes, rebuild the index from [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` (already merged) before looking up `sourceEventId` / `source_event_id`.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -321,11 +535,65 @@ const resume = await client.sessions.createTurnStream(session.id, { input: appro
 for await (const { data: event } of resume.withMetadata()) console.log(event.type);
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "ops-bot"})
+
+pending_approvals = []
+turn_id = None
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Restart the billing service."}],
+)
+for event in stream:
+    if event.type == "turn.created":
+        turn_id = event.turn_id
+    if event.type == "tool.approval_required":
+        pending_approvals.append(event)
+
+events = {
+    event.id: event
+    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id)
+}
+
+approvals = []
+for pending in pending_approvals:
+    for ref in pending.tool_calls:
+        msg = events.get(ref.source_event_id)
+        if msg is None or msg.type != "model.message":
+            continue
+        call = next((tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None)
+        if call is None:
+            continue
+        print(f"approve {call.tool_info.name}? args: {call.function.arguments}")
+        approvals.append(
+            {
+                "type": "user.tool_approval",
+                "thread_id": pending.thread_id,
+                "tool_call_id": ref.id,
+                "approval": {"status": "allow"},  # or {"status": "deny", "reason": "denied by user"}
+            }
+        )
+
+resume = client.sessions.create_turn_stream(session_id=session.data.id, input=approvals)
+for event in resume:
+    print(event.type)
+```
+</CodeGroup>
+
 ### Agent questions
 
 When the agent uses the built-in [`ask_user_question`](/create-agent/overview#whats-in-an-agent) tool, it emits [`tool.response_required`](#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Resume with one `user.tool_response` per pending call.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -373,6 +641,64 @@ const resume = await client.sessions.createTurnStream(session.id, { input: respo
 for await (const { data: event } of resume.withMetadata()) console.log(event.type);
 ```
 
+```python Python wrap
+import json
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "ops-bot"})
+
+pending_questions = []
+turn_id = None
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Create a new environment called testing-1."}],
+)
+for event in stream:
+    if event.type == "turn.created":
+        turn_id = event.turn_id
+    if event.type == "tool.response_required":
+        pending_questions.append(event)
+
+events = {
+    event.id: event
+    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id)
+}
+
+responses = []
+for pending in pending_questions:
+    for ref in pending.tool_calls:
+        msg = events.get(ref.source_event_id)
+        if msg is None or msg.type != "model.message":
+            continue
+        call = next((tc for tc in (msg.tool_calls or []) if tc.id == ref.id), None)
+        if call is None:
+            continue
+        # tool.response_required covers any client-side tool; handle ask_user_question here.
+        if call.tool_info.type != "truefoundry-system" or call.tool_info.name != "ask_user_question":
+            continue
+        payload = json.loads(call.function.arguments or "{}")
+        print(payload.get("question"), payload.get("options"))
+        responses.append(
+            {
+                "type": "user.tool_response",
+                "thread_id": pending.thread_id,
+                "tool_call_id": ref.id,
+                "content": "the chosen option, or any text",
+            }
+        )
+
+resume = client.sessions.create_turn_stream(session_id=session.data.id, input=responses)
+for event in resume:
+    print(event.type)
+```
+</CodeGroup>
+
 ### MCP outbound auth
 
 When a tool needs a server's OAuth, the turn ends with [`mcp.auth_required`](#mcp-auth-required), listing each server and its `authUrl`. Send the user there, then resume. See [In-chat authentication](/mcp-servers#in-chat-authentication).
@@ -381,7 +707,8 @@ When a tool needs a server's OAuth, the turn ends with [`mcp.auth_required`](#mc
 After `mcp.auth_required`, the resuming turn must **not** include a `user.message`; resume with empty `input` (or omit it).
 </Note>
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -410,13 +737,45 @@ const resume = await client.sessions.createTurnStream(session.id, {});
 for await (const { data: event } of resume.withMetadata()) console.log(event.type);
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "github-bot"})
+
+pending_auth = None
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Summarize my latest GitHub issues."}],
+)
+for event in stream:
+    if event.type == "mcp.auth_required":
+        pending_auth = event
+
+if pending_auth is not None:
+    for server in pending_auth.mcp_servers:
+        print(f"Authorize {server.name}: {server.auth_url}")
+    # …wait for the user to authorize the server(s)…
+
+# Resume with empty input; the agent continues the interrupted work.
+resume = client.sessions.create_turn_stream(session_id=session.data.id)
+for event in resume:
+    print(event.type)
+```
+</CodeGroup>
+
 ## Resilience and threads
 
 ### Resume a stream
 
-If you lose the `createTurnStream` connection (e.g. a process restart), persist `session.id`, `turnId`, and `lastSequenceNumber`. To resume: call `getTurn` → if still `running`, reconnect with `subscribeToTurn` and `afterSequenceNumber` to skip events you already saw; if finished, rebuild from `listTurnEvents`.
+If you lose the `createTurnStream` / `create_turn_stream` connection (e.g. a process restart), persist `session.id`, `turnId` / `turn_id`, and `lastSequenceNumber` / `last_sequence_number`. To resume: call `getTurn` / `get_turn` → if still `running`, reconnect with `subscribeToTurn` / `subscribe_to_turn` and `afterSequenceNumber` / `after_sequence_number` to skip events you already saw; if finished, rebuild from `listTurnEvents` / `list_turn_events`.
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -469,19 +828,70 @@ if (turn.state.status === 'running') {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+events = {}
+turn_id = None
+last_sequence_number = 0
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Compare Qdrant, Weaviate, and Milvus."}],
+)
+for meta in stream.with_metadata():
+    event = meta.data
+    if meta.id is not None:
+        last_sequence_number = int(meta.id)
+    if event.type == "turn.created":
+        turn_id = event.turn_id
+    if event.type.endswith(".delta"):
+        continue
+    events[event.id] = event
+
+# …after a disconnect, with session.id / turn_id / last_sequence_number restored:
+turn = client.sessions.get_turn(session_id=session.data.id, turn_id=turn_id).data
+if turn.state.status == "running":
+    resume = client.sessions.subscribe_to_turn(
+        session_id=session.data.id,
+        turn_id=turn_id,
+        after_sequence_number=last_sequence_number,
+        request_options={"timeout": 600},
+    )
+    for meta in resume.with_metadata():
+        event = meta.data
+        if meta.id is not None:
+            last_sequence_number = int(meta.id)
+        if event.type.endswith(".delta"):
+            continue
+        events[event.id] = event
+else:
+    # Already finished: rebuild from the stored log (deltas already merged).
+    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id):
+        events[event.id] = event
+```
+</CodeGroup>
+
 <Tip>
-`createTurn` + `subscribeToTurn` is resilient: the SDK reconnects with `Last-Event-ID` on transient drops. Persist the sequence number from `.withMetadata()` so you can call `subscribeToTurn({ afterSequenceNumber })` again after a restart.
+`createTurn` / `create_turn` + `subscribeToTurn` / `subscribe_to_turn` is resilient: the SDK reconnects with `Last-Event-ID` on transient drops. Persist the sequence number from `.withMetadata()` / `.with_metadata()` so you can call `subscribeToTurn({ afterSequenceNumber })` / `subscribe_to_turn(..., after_sequence_number=…)` again after a restart.
 </Tip>
 
 ### Subagent threads
 
-A turn stream interleaves the root agent and any parallel [subagents](/key-features/subagents), exactly what the [Quick Start](#quick-start) above does. Every event carries a `threadId`:
+A turn stream interleaves the root agent and any parallel [subagents](/key-features/subagents), exactly what the [Quick Start](#quick-start) above does. Every event carries a `threadId` / `thread_id`:
 
 - `"main"`: the root agent.
 - A unique id: a subagent thread. [`thread.created`](#thread-created) and [`thread.done`](#thread-done) bracket its lifecycle.
 - `null`: a turn-level event, such as [`turn.created`](#turn-created), [`turn.done`](#turn-done), [`sandbox.created`](#sandbox-created), and [`mcp.auth_required`](#mcp-auth-required).
 
-Keep a **per-thread** index (`Map<threadId, Map<id, event>>`) and merge deltas within the matching thread's bucket.
+Keep a **per-thread** index (`Map<threadId, Map<id, event>>` in TypeScript; nested dicts in Python) and merge deltas within the matching thread's bucket. Python skips `.delta` events instead of merging.
 
 ```mermaid
 sequenceDiagram
@@ -502,7 +912,8 @@ sequenceDiagram
   Main-->>Client: model.message + deltas
 ```
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge, TrueForgeApi, isEventDelta, mergeEventDelta } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({
@@ -537,15 +948,46 @@ for await (const { data: event } of stream.withMetadata()) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+    timeout=600,
+)
+session = client.sessions.create(agent={"name": "web-research-brief"})
+
+threads = {}
+
+stream = client.sessions.create_turn_stream(
+    session_id=session.data.id,
+    input=[{"type": "user.message", "content": "Compare Qdrant, Weaviate, and Milvus in parallel."}],
+)
+for event in stream:
+    if event.thread_id is None:
+        print("turn-level event:", event.type)
+        continue
+    bucket = threads.setdefault(event.thread_id, {})
+    if event.type.endswith(".delta"):
+        continue
+    bucket[event.id] = event
+    if event.type == "thread.done":
+        print(f"{event.thread_id} done: {event.title} ({len(bucket)} events)")
+        del threads[event.thread_id]
+```
+</CodeGroup>
+
 ### Replay a finished turn
 
-`sessions.listTurnEvents()` yields a finished turn's [events](#turn-events-reference) in order (auto-paginates; `order: "asc"` default, or `"desc"`). Events are **already merged**, so you can use each one directly.
+`sessions.listTurnEvents()` / `list_turn_events()` yields a finished turn's [events](#turn-events-reference) in order (auto-paginates; `order: "asc"` default, or `"desc"`). Events are **already merged**, so you can use each one directly.
 
 <Note>
-Only available for completed turns; a running turn has no stored log yet, so stream it with `createTurnStream` or `subscribeToTurn` instead.
+Only available for completed turns; a running turn has no stored log yet, so stream it with `createTurnStream` / `create_turn_stream` or `subscribeToTurn` / `subscribe_to_turn` instead.
 </Note>
 
-```typescript wrap
+<CodeGroup>
+```typescript TypeScript wrap
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 
 const client = new TrueForge({ baseUrl: process.env.TRUEFORGE_BASE_URL ?? 'http://localhost:8790' });
@@ -558,12 +1000,26 @@ for await (const turn of await client.sessions.listTurns('sess-abc123')) {
 }
 ```
 
+```python Python wrap
+import os
+from trueforge_sdk import TrueForge
+
+client = TrueForge(base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"))
+
+for turn in client.sessions.list_turns(session_id="sess-abc123"):
+    if turn.state.status == "running":
+        continue
+    for event in client.sessions.list_turn_events(session_id="sess-abc123", turn_id=turn.id, order="asc"):
+        print(event.type)
+```
+</CodeGroup>
+
 ## Turn events reference
 
 Field-level schemas for every event streamed while a turn runs. The recipes above link here for the exact shape of each event they handle.
 
 <Note>
-  Field names in this reference use the HTTP/JSON wire format (snake_case, e.g. `turn_id`, `source_event_id`). The TypeScript SDK returns the same fields camelCased (`turnId`, `sourceEventId`) — so a field you see here maps directly to its camelCase form in SDK code.
+  Field names in this reference use the HTTP/JSON wire format (snake_case, e.g. `turn_id`, `source_event_id`). The Python SDK uses those same names. The TypeScript SDK returns the same fields camelCased (`turnId`, `sourceEventId`).
 </Note>
 
 Every event carries:
