@@ -1227,6 +1227,30 @@
         "properties": {},
         "type": "object"
       },
+      "DiscoveredModel": {
+        "additionalProperties": false,
+        "properties": {
+          "context_length": {
+            "description": "Maximum context window in tokens, when the provider reports one.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "max_output_tokens": {
+            "description": "Maximum output tokens, when the provider reports one.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "model_id": {
+            "description": "Upstream, provider-specific identifier sent to the provider API.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_id"
+        ],
+        "type": "object"
+      },
       "DynamicSubAgentsConfig": {
         "default": {
           "enabled": true
@@ -2193,6 +2217,20 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/AvailableSkill"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "ListDiscoveredModelsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveredModel"
             },
             "type": "array"
           }
@@ -9531,6 +9569,75 @@
           "modelProviders"
         ],
         "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
+    "/api/v1/settings/model-providers/{name}/discovered-models": {
+      "get": {
+        "description": "Asks the provider itself which models it serves, using the stored API key. Returns token limits when the provider reports them (Gemini does; the OpenAI-compatible list does not). The shipped catalog is a preset list and may lag the provider, so this is the current source of truth.",
+        "parameters": [
+          {
+            "description": "Configured provider resource name, e.g. `google-gemini`.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Configured provider resource name, e.g. `google-gemini`.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListDiscoveredModelsResponse"
+                }
+              }
+            },
+            "description": "Models the provider reports"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "No provider is configured under this name."
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "This provider type has no discovery adapter."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The provider was unreachable or rejected the request."
+          }
+        },
+        "summary": "List the models a configured provider reports",
+        "tags": [
+          "Models"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "discovered_models"
       }
     },
     "/api/v1/settings/sandbox-providers": {
