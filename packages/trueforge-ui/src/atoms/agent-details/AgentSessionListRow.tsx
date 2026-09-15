@@ -33,7 +33,7 @@ export function AgentSessionListRow({
       )}
     >
       <div className="flex items-center gap-2 px-4 pt-3">
-        <button type="button" onClick={onSelect} className="flex max-w-[70%] min-w-0 items-center gap-1 text-left">
+        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1 text-left">
           <span className="truncate text-sm font-medium text-text-primary">{title}</span>
           {sourceType === 'schedule' ? (
             <Tooltip content="Scheduled Session">
@@ -47,8 +47,9 @@ export function AgentSessionListRow({
           <div
             className={cn(
               'ml-auto shrink-0 transition-opacity',
-              // md: variants survive host Tailwind tree-shaking (same set as ThreadListRow).
-              'opacity-0 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:group-has-[[aria-expanded=true]]:opacity-100',
+              // Visible below md; md+ hide until hover/focus/open (same pattern as ThreadListRow).
+              // md: variants survive host Tailwind tree-shaking.
+              'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 md:group-has-[[aria-expanded=true]]:opacity-100',
             )}
             onClick={event => event.stopPropagation()}
             onKeyDown={event => event.stopPropagation()}
