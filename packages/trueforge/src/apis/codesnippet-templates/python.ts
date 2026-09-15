@@ -1,5 +1,6 @@
 export const pythonStreamTemplate = `# pip install trueforge-sdk
-from trueforge_sdk import TrueForge, is_event_delta, merge_event_delta
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url={{baseUrl}},{{tokenLine}}

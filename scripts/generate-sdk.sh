@@ -30,7 +30,6 @@ fern check
 fern generate --group ts-sdk --version "$ts_version" --local --generate-tests --force --log-level debug
 fern generate --group python-sdk --version "$py_version" --local --generate-tests --force --log-level debug
 test -f python/trueforge_sdk/src/trueforge_sdk/client.py
-python3 scripts/patch-python-sdk-event-exports.py
 
 # Fern's generated verify.sh runs `pnpm install` from packages/trueforge-sdk, which now
 # resolves to this workspace. CI sets frozen-lockfile, so refresh the root

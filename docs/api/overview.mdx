@@ -169,7 +169,7 @@ Your order ORD-2031 shipped on June 12.
 Your order ORD-2031 shipped on June 12. Total: $1,240.00.
 ```
 
-In the SDK, use TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta`. See [Create and stream a turn](/api/use-agent#create-and-stream-a-turn).
+In the SDK, use TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta` from `trueforge_sdk.events`. See [Create and stream a turn](/api/use-agent#create-and-stream-a-turn).
 
 Deltas only exist on the live stream. When you list a turn's events afterwards (`GET .../events`), each `model.message` is already merged, so you use it directly.
 

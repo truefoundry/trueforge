@@ -214,7 +214,7 @@ Creating a new turn in a session automatically cancels any turn still running in
 
 `createTurnStream` / `create_turn_stream` returns a stream of [turn events](#turn-events-reference). `stream.withMetadata()` / `stream.with_metadata()` yields `{ data, id }` (TypeScript) or `StreamEvent` (Python: `.data`, `.id`), where `data` is the parsed event and `id` is the per-stream sequence number used to [resume after a disconnect](#resume-a-stream). The stream opens with `turn.created` and closes with `turn.done`; read the terminal result from `turn.done.state`.
 
-Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. Store each non-delta event under its `id` and merge each delta into the base with TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta`. (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
+Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. Store each non-delta event under its `id` and merge each delta into the base with TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta` (`from trueforge_sdk.events import …`). (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -248,7 +248,8 @@ for await (const { data: event, id } of stream.withMetadata()) {
 
 ```python Python wrap
 import os
-from trueforge_sdk import TrueForge, is_event_delta, merge_event_delta
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -540,7 +541,8 @@ for await (const { data: event } of resume.withMetadata()) console.log(event.typ
 
 ```python Python wrap
 import os
-from trueforge_sdk import TrueForge, is_event_delta, merge_event_delta
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -646,7 +648,8 @@ for await (const { data: event } of resume.withMetadata()) console.log(event.typ
 ```python Python wrap
 import json
 import os
-from trueforge_sdk import TrueForge, is_event_delta, merge_event_delta
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -831,7 +834,8 @@ if (turn.state.status === 'running') {
 
 ```python Python wrap
 import os
-from trueforge_sdk import TrueForge, is_event_delta, merge_event_delta
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -957,7 +961,8 @@ for await (const { data: event } of stream.withMetadata()) {
 
 ```python Python wrap
 import os
-from trueforge_sdk import TrueForge, is_event_delta, merge_event_delta
+from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -1103,7 +1108,7 @@ An assistant message — text content and/or tool calls. On a live stream the ba
 
 #### `model.message.delta`
 
-An incremental fragment of a `model.message` — text and/or tool-call chunks. All deltas share the base event's `id`; append `content` chunks and merge tool-call fragments by index (`isEventDelta` / `mergeEventDelta` in TypeScript; `is_event_delta` / `merge_event_delta` in Python). The most frequent event on a live stream. Not present when listing persisted events.
+An incremental fragment of a `model.message` — text and/or tool-call chunks. All deltas share the base event's `id`; append `content` chunks and merge tool-call fragments by index (`isEventDelta` / `mergeEventDelta` in TypeScript; `is_event_delta` / `merge_event_delta` from `trueforge_sdk.events` in Python). The most frequent event on a live stream. Not present when listing persisted events.
 
 ### Tool activity
 
