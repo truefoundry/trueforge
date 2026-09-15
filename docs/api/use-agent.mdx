@@ -1029,6 +1029,113 @@ for turn in client.sessions.list_turns(session_id="sess-abc123"):
 ```
 </CodeGroup>
 
+## Schedules
+
+A **schedule** runs a saved agent on a recurring cadence, unattended. Each run sends the schedule's `task` to the agent and is recorded as a [session](/sessions). Manage them through `client.schedules`; the [Schedules guide](/schedules) covers the same feature in the UI.
+
+### Create a schedule
+
+<CodeGroup>
+```typescript TypeScript
+const { data: schedule } = await client.schedules.create({
+  agentName: 'web-research-brief',
+  name: 'morning-brief',
+  manifest: {
+    task: 'Summarize the most important AI news from the last 24 hours and list the top five items with links.',
+    cron: '0 9 * * *', // 09:00 every day, evaluated in `timezone`
+    timezone: 'Asia/Kolkata', // IANA time zone
+    status: 'active', // or 'paused'
+  },
+});
+```
+
+```python Python
+schedule = client.schedules.create(
+    agent_name="web-research-brief",
+    name="morning-brief",
+    manifest={
+        "task": "Summarize the most important AI news from the last 24 hours and list the top five items with links.",
+        "cron": "0 9 * * *",  # 09:00 every day, evaluated in `timezone`
+        "timezone": "Asia/Kolkata",  # IANA time zone
+        "status": "active",  # or "paused"
+    },
+)
+```
+</CodeGroup>
+
+The `cron` is a standard 5-field expression evaluated in `timezone`. The shortest interval is one hour.
+
+### List, get, update, and delete
+
+Update replaces the whole manifest, so pass every field you want to keep.
+
+<CodeGroup>
+```typescript TypeScript
+for await (const schedule of await client.schedules.list()) {
+  console.log(schedule.name, schedule.manifest.cron);
+}
+
+const { data: schedule } = await client.schedules.get('sched-abc123');
+
+await client.schedules.update('sched-abc123', {
+  name: 'morning-brief',
+  manifest: {
+    task: 'Summarize the most important AI news from the last 24 hours and list the top five items with links.',
+    cron: '0 8 * * 1-5', // now weekdays at 08:00
+    timezone: 'Asia/Kolkata',
+    status: 'paused',
+  },
+});
+
+await client.schedules.delete('sched-abc123');
+```
+
+```python Python
+for schedule in client.schedules.list():
+    print(schedule.name, schedule.manifest.cron)
+
+schedule = client.schedules.get("sched-abc123").data
+
+client.schedules.update(
+    "sched-abc123",
+    name="morning-brief",
+    manifest={
+        "task": "Summarize the most important AI news from the last 24 hours and list the top five items with links.",
+        "cron": "0 8 * * 1-5",  # now weekdays at 08:00
+        "timezone": "Asia/Kolkata",
+        "status": "paused",
+    },
+)
+
+client.schedules.delete("sched-abc123")
+```
+</CodeGroup>
+
+### Runs
+
+<CodeGroup>
+```typescript TypeScript
+// Trigger a run now, without waiting for the next scheduled time.
+await client.schedules.createRun({ scheduleId: 'sched-abc123' });
+
+// Review recent runs.
+for await (const run of await client.schedules.listRuns('sched-abc123')) {
+  console.log(run.scheduledFor, run.status); // 'scheduled' | 'triggered' | 'failed'
+}
+```
+
+```python Python
+# Trigger a run now, without waiting for the next scheduled time.
+client.schedules.create_run(schedule_id="sched-abc123")
+
+# Review recent runs.
+for run in client.schedules.list_runs("sched-abc123"):
+    print(run.scheduled_for, run.status)  # "scheduled" | "triggered" | "failed"
+```
+</CodeGroup>
+
+Each run's work happens in a [session](/sessions), so open it there or through the session APIs above to read the transcript.
+
 ## Turn events reference
 
 Field-level schemas for every event streamed while a turn runs. The recipes above link here for the exact shape of each event they handle.
