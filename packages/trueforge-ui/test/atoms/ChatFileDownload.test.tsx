@@ -30,6 +30,32 @@ describe('ChatFileDownload', () => {
     expect(screen.getByRole('link', { name: 'Download data.csv' })).toHaveAttribute('href', '/downloads/data.csv');
   });
 
+  it('encodes artifact names that would otherwise break or rewrite the URL', () => {
+    render(
+      <ChatFileDownload
+        files={[
+          { name: 'my report#final,v2.csv', path: '/tmp/my report#final,v2.csv' },
+          { name: 'a&b?c%d.txt', path: '/tmp/a&b?c%d.txt' },
+          { name: 'ünïcode.txt', path: '/tmp/ünïcode.txt' },
+        ]}
+        fileDownloadBaseUrl="https://files.example.com"
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Download my report#final,v2.csv' })).toHaveAttribute(
+      'href',
+      'https://files.example.com/tmp/my%20report%23final%2Cv2.csv',
+    );
+    expect(screen.getByRole('link', { name: 'Download a&b?c%d.txt' })).toHaveAttribute(
+      'href',
+      'https://files.example.com/tmp/a%26b%3Fc%25d.txt',
+    );
+    expect(screen.getByRole('link', { name: 'Download ünïcode.txt' })).toHaveAttribute(
+      'href',
+      'https://files.example.com/tmp/%C3%BCn%C3%AFcode.txt',
+    );
+  });
+
   it('shows per-file progress and suppresses duplicate artifact downloads', async () => {
     let resolveDownload: (() => void) | undefined;
     const downloadPromise = new Promise<void>(resolve => {
