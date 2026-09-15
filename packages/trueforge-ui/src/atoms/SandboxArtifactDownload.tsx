@@ -10,6 +10,8 @@ export type SandboxArtifactDownloadProps = {
   fileDownloadBaseUrl?: string;
   onDownloadArtifact?: (path: string, filename: string) => Promise<void>;
   readOnly?: boolean;
+  /** Shown on hover when `readOnly` is true. */
+  sandboxDownloadReadOnlyTooltip?: string;
 };
 
 export type SandboxArtifact = ChatFileDownloadFile;
@@ -56,6 +58,7 @@ export function SandboxArtifactDownload({
   fileDownloadBaseUrl,
   onDownloadArtifact,
   readOnly,
+  sandboxDownloadReadOnlyTooltip,
 }: SandboxArtifactDownloadProps) {
   const ChatFileDownload = useSlot('ChatFileDownload');
   const artifacts = useMemo(() => parseSandboxArtifacts(code), [code]);
@@ -67,6 +70,7 @@ export function SandboxArtifactDownload({
       fileDownloadBaseUrl={fileDownloadBaseUrl}
       onDownloadArtifact={onDownloadArtifact}
       readOnly={readOnly}
+      readOnlyTooltip={sandboxDownloadReadOnlyTooltip}
     />
   );
 }
