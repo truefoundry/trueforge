@@ -97,6 +97,7 @@ if typing.TYPE_CHECKING:
     from .list_mcp_server_tools_response import ListMcpServerToolsResponse
     from .list_mcp_servers_response import ListMcpServersResponse
     from .list_model_providers_response import ListModelProvidersResponse
+    from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
@@ -327,6 +328,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMcpServerToolsResponse": ".list_mcp_server_tools_response",
     "ListMcpServersResponse": ".list_mcp_servers_response",
     "ListModelProvidersResponse": ".list_model_providers_response",
+    "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
@@ -581,6 +583,7 @@ __all__ = [
     "ListMcpServerToolsResponse",
     "ListMcpServersResponse",
     "ListModelProvidersResponse",
+    "ListPermissionsData",
     "ListPermissionsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",

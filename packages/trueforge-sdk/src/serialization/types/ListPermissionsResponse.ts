@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ResourcePermission } from "./ResourcePermission.js";
+import { ListPermissionsData } from "./ListPermissionsData.js";
 
 export const ListPermissionsResponse: core.serialization.ObjectSchema<
     serializers.ListPermissionsResponse.Raw,
     TrueForge.ListPermissionsResponse
 > = core.serialization.object({
-    data: core.serialization.record(core.serialization.string(), core.serialization.list(ResourcePermission)),
+    data: ListPermissionsData,
 });
 
 export declare namespace ListPermissionsResponse {
     export interface Raw {
-        data: Record<string, ResourcePermission.Raw[]>;
+        data: ListPermissionsData.Raw;
     }
 }

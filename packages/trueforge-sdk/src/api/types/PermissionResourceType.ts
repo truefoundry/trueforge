@@ -5,5 +5,6 @@ export const PermissionResourceType = {
     Agent: "agent",
     Schedule: "schedule",
     Session: "session",
+    Tenant: "tenant",
 } as const;
 export type PermissionResourceType = (typeof PermissionResourceType)[keyof typeof PermissionResourceType];

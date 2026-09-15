@@ -2246,10 +2246,32 @@
         ],
         "type": "object"
       },
+      "ListPermissionsData": {
+        "properties": {
+          "permissions": {
+            "additionalProperties": {
+              "items": {
+                "$ref": "#/components/schemas/ResourcePermission"
+              },
+              "type": "array"
+            },
+            "description": "For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).",
+            "type": "object"
+          },
+          "type": {
+            "$ref": "#/components/schemas/PermissionResourceType"
+          }
+        },
+        "required": [
+          "type",
+          "permissions"
+        ],
+        "type": "object"
+      },
       "ListPermissionsRequest": {
         "properties": {
           "resource_ids": {
-            "description": "Resource ids of `resource_type` to evaluate for the caller.",
+            "description": "Resource ids of `resource_type` to evaluate.",
             "items": {
               "minLength": 1,
               "type": "string"
@@ -2270,14 +2292,7 @@
       "ListPermissionsResponse": {
         "properties": {
           "data": {
-            "additionalProperties": {
-              "items": {
-                "$ref": "#/components/schemas/ResourcePermission"
-              },
-              "type": "array"
-            },
-            "description": "Permissions granted to the caller, keyed by resource id. Missing or inaccessible ids are `[]`.",
-            "type": "object"
+            "$ref": "#/components/schemas/ListPermissionsData"
           }
         },
         "required": [
@@ -3288,7 +3303,8 @@
         "enum": [
           "agent",
           "schedule",
-          "session"
+          "session",
+          "tenant"
         ],
         "type": "string"
       },
@@ -3421,11 +3437,12 @@
         "type": "string"
       },
       "ResourcePermission": {
-        "description": "Granted action on a resource.",
+        "description": "Granted action on a resource id or tenant entity kind.",
         "enum": [
           "USE",
           "MANAGE",
-          "DELETE"
+          "DELETE",
+          "CREATE"
         ],
         "type": "string"
       },
@@ -5811,7 +5828,7 @@
     },
     "/api/internal/list-permissions": {
       "post": {
-        "description": "Return granted actions for each requested agent, schedule, or session id.",
+        "description": "Return granted actions for the requested resources.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5831,7 +5848,7 @@
                 }
               }
             },
-            "description": "Permissions keyed by resource id."
+            "description": "Permissions envelope: `{ type, permissions }`."
           },
           "400": {
             "content": {
